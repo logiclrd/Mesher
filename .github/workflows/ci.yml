@@ -5,13 +5,24 @@ on:
 
 jobs:
   linux:
+    name: Linux / ${{ matrix.compiler }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    env:
+      CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v4
       - name: Install development packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libvulkan-dev libglfw3-dev glslang-tools libqhull-dev
+          sudo apt-get install -y cmake ninja-build g++ clang libvulkan-dev libglfw3-dev glslang-tools libqhull-dev
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
       - name: Compile application and tests
@@ -19,17 +30,20 @@ jobs:
       - name: Run CPU mesh tests
         run: ctest --test-dir build --output-on-failure
       - name: Verify missing-Qhull builds fail fast for large spheres
+        if: matrix.compiler == 'GCC'
         run: |
           cmake -S . -B build-noqhull -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DMESHER_BUILD_VIEWPORT=OFF -DMESHER_FIND_QHULL=OFF
           cmake --build build-noqhull --target mesher_mesh_tests
           ./build-noqhull/mesher_mesh_tests
       - name: Benchmark 100,000-vertex generation and stamps
+        if: matrix.compiler == 'GCC'
         run: |
           ./build/mesher_benchmark 100000 65 2>&1 | tee startup-benchmark.txt
           grep 'hull=Qhull' startup-benchmark.txt
 
       - name: Compare remeshing experiment (5000 vertices)
+        if: matrix.compiler == 'GCC'
         run: |
           ./build/Mesher --compare-remesh > comparison.csv
           python3 - <<'PY'
@@ -51,6 +65,7 @@ jobs:
           PY
 
       - name: Four-way curvature/collapse comparison
+        if: matrix.compiler == 'GCC'
         run: |
           for gain in 0.5 1.0 2.0; do
             ./build/Mesher --compare-mitigations --curvature-strength "$gain" > "fourway-${gain}.csv"
@@ -74,6 +89,7 @@ jobs:
                         f"vertices={final['vertices']}, min altitude={final['min_altitude']}")
           PY
       - name: Compare local split, flip and collapse (curvature 0.25)
+        if: matrix.compiler == 'GCC'
         run: |
           ./build/Mesher --compare-local-remesh --vertices 5000 --curvature-strength 0.25 \
               --max-split-pairs 3 --max-flip-pairs 3 --max-collapse-pairs 3 > local-remesh.csv
@@ -99,6 +115,7 @@ jobs:
                   assert added==0 and flipped==0 and removed==0
           PY
       - name: Save comparison CSV data
+        if: matrix.compiler == 'GCC'
         uses: actions/upload-artifact@v4
         with:
           name: mesher-curvature-experiments
@@ -106,3 +123,45 @@ jobs:
             comparison.csv
             fourway-*.csv
             local-remesh.csv
+
+  windows-msvc:
+    name: Windows / MSVC
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.3.296.0
+          cache: true
+          stripdown: true
+      - name: Install Qhull and GLFW via vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install qhull:x64-windows glfw3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Configure full Vulkan build (MSVC)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile application and tests with /W4 /WX
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run CPU tests (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          ctest --test-dir build -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify 100K Quickhull and brush benchmark (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          & ./build/Release/mesher_benchmark.exe 100000 65 2>&1 | Tee-Object -FilePath msvc-benchmark.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Path msvc-benchmark.txt -Pattern 'hull=Qhull')) {
+            throw 'MSVC must use Qhull for 100K vertices'
+          }

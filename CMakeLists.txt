@@ -55,14 +55,15 @@ endif()
 if(MESHER_BUILD_VIEWPORT)
     find_package(Vulkan REQUIRED)
     find_package(glfw3 3.3 REQUIRED)
-    find_program(GLSLC_EXECUTABLE NAMES glslc glslangValidator REQUIRED)
+    find_program(GLSLC_EXECUTABLE NAMES glslc glslangValidator
+        HINTS "$ENV{VULKAN_SDK}/Bin" "$ENV{VULKAN_SDK}/bin" REQUIRED)
 
     set(SHADERS mesh.vert mesh.frag wire.vert wire.frag hud.vert hud.frag)
     set(SPIRV_FILES)
     foreach(SHADER IN LISTS SHADERS)
         set(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER}")
         set(DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/shaders/${SHADER}.spv")
-        if(GLSLC_EXECUTABLE MATCHES "glslangValidator$")
+        if(GLSLC_EXECUTABLE MATCHES "glslangValidator(\\.exe)?$")
             add_custom_command(OUTPUT "${DESTINATION}"
                 COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
                 COMMAND "${GLSLC_EXECUTABLE}" -V "${SOURCE}" -o "${DESTINATION}"

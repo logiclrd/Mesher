@@ -640,3 +640,18 @@ CPU tests, and performance benchmark, compile with `-Wall -Wextra -Wpedantic
 therefore by CI, in Release and Debug builds. Warnings from third-party
 prebuilt libraries are not affected. New compiler diagnostics must be fixed
 rather than accumulated as ignored build warnings.
+
+
+## Compiler compatibility CI
+
+GitHub Actions runs three independent, parallel build jobs:
+**GCC** (Ubuntu), **Clang** (Ubuntu) and **MSVC** (Windows, Visual Studio
+2022). All three build the C++20 mesh library, full Vulkan/GLFW executable,
+shader assets and CPU test suites with warnings treated as errors
+(`-Wall -Wextra -Wpedantic -Werror` on GCC/Clang; `/W4 /WX` on MSVC).
+Windows fetches GLFW and Qhull through vcpkg and installs the Vulkan SDK.
+The long-form 100k performance benchmark and geometry comparison artifacts
+run under GCC; MSVC also runs the 100k Quickhull benchmark, while Clang
+runs all CPU tests. The jobs fail independently and run in parallel so
+platform-specific compiler diagnostics cannot be hidden by a successful
+build with another compiler.
