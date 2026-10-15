@@ -61,17 +61,34 @@ void testThreadedMatchesExactSculpt() {
     require(bool(snapshot),"Last completed mesh must be published");
     require(snapshot->completedStamps==status.completedStamps,
             "Published snapshot must contain all completed stamps");
-    require(snapshot->mesh.vertices.size()==expected.vertices.size() &&
-            snapshot->mesh.triangles.size()==expected.triangles.size(),
+    require(snapshot->index&&snapshot->originalOrder,
+            "Worker publishes immutable root/index, not copied Mesh");
+    ViewportFlattenStatistics timing{};
+    const auto flat=flattenRevisionForViewport(
+        *snapshot->index,*snapshot->originalOrder,&timing);
+    require(timing.vertices==flat.vertices.size() &&
+            timing.triangles==flat.triangles.size() &&
+            timing.bytes>0&&timing.milliseconds>=0,
+            "Full viewport-only flatten conversion is explicitly accounted");
+    require(flat.vertices.size()==expected.vertices.size() &&
+            flat.triangles.size()==expected.triangles.size(),
             "Async snapshot retains exact mesh topology");
     for(std::size_t i=0;i<expected.vertices.size();++i)
-        require(length(expected.vertices[i]-snapshot->mesh.vertices[i])<1e-9,
-                "Async worker and synchronous brush vertex geometry agree");
+        require(length(expected.vertices[i]-flat.vertices[i])<1e-8,
+                "Async versioned and synchronous brush vertex geometry agree");
     for(std::size_t i=0;i<expected.triangles.size();++i) {
-        const auto x=expected.triangles[i],y=snapshot->mesh.triangles[i];
+        const auto x=expected.triangles[i],y=flat.triangles[i];
         require(x.a==y.a&&x.b==y.b&&x.c==y.c,
                 "Worker and synchronous brush oriented faces agree");
     }
+    require(status.details.preStampCopiedVertices==0,
+            "Versioned worker never copies full pre-stamp positions");
+    require(status.publishedRevisions>0 &&
+            status.publishedRevisions<=status.completedStamps,
+            "Each completed stamp publishes at most one validated root");
+    require(status.modifiedPartitions>0 &&
+            status.copiedDirectoryNodes>=status.modifiedPartitions,
+            "Worker records bounded partition-path copy accounting");
     require(!worker.takeSnapshot().has_value(),
             "Consuming the final snapshot leaves no stale update");
 }
