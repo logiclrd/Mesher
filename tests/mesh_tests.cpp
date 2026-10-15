@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 
 using namespace mesher;
@@ -34,6 +35,27 @@ int main(){
         for(auto n:{8u,10u,11u,12u,30u,100u,500u,5000u})
             for(bool symmetric:{false,true})test(n,symmetric,42);
         for(auto seed:{1ull,2ull,3ull,4ull}) {test(1000,true,seed);test(1000,false,seed);}
+        // Backends must be explicit. The quadratic fallback is deliberately
+        // refused at large N rather than allowing a minute-long startup.
+        if(std::string(sphereHullBackend()).find("quadratic")!=std::string::npos) {
+            SphereOptions large;
+            large.vertexCount=100000;
+            large.relaxationIterations=0;
+            bool rejected=false;
+            try{(void)generateSphere(large);}
+            catch(const std::runtime_error& e) {
+                rejected=std::string(e.what()).find("Qhull")!=std::string::npos;
+            }
+            check(rejected,"Large fallback hull must fail fast with install guidance");
+        }
+        SphereGenerationTimings stats{};
+        SphereOptions timingOpt;
+        timingOpt.vertexCount=500;
+        (void)generateSphere(timingOpt,&stats);
+        check(stats.totalSeconds>=stats.relaxationSeconds &&
+              stats.totalSeconds>=stats.triangulationSeconds &&
+              stats.totalSeconds>=stats.validationSeconds,
+              "Generator timing breakdown is valid");
         SphereOptions reproducible;
         reproducible.vertexCount=500;
         const auto one=generateSphere(reproducible),two=generateSphere(reproducible);

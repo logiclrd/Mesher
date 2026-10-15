@@ -121,9 +121,22 @@ int main(int argc, char** argv) {
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
         }
-        std::cout<<"Generating "<<options.vertexCount<<(options.symmetric?" symmetric":" asymmetric")<<" vertices..."<<std::flush;
-        auto mesh=mesher::generateSphere(options);
-        std::cout<<" "<<mesh.triangles.size()<<" triangles; watertight manifold verified.\n";
+        std::cout<<"Build: "<<MESHER_BUILD_CONFIGURATION
+                 <<"; hull backend: "<<mesher::sphereHullBackend()
+                 <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
+                 <<"\n";
+        std::cout<<"Generating "<<options.vertexCount
+                 <<(options.symmetric?" symmetric":" asymmetric")
+                 <<" vertices..."<<std::flush;
+        mesher::SphereGenerationTimings generation{};
+        auto mesh=mesher::generateSphere(options,&generation);
+        std::cout<<" "<<mesh.triangles.size()
+                 <<" triangles; watertight manifold verified.\n"
+                 <<std::fixed<<std::setprecision(3)
+                 <<"Sphere timing: relaxation "<<generation.relaxationSeconds
+                 <<" s; hull "<<generation.triangulationSeconds
+                 <<" s; validation "<<generation.validationSeconds
+                 <<" s; total "<<generation.totalSeconds<<" s\n";
         if(compareLocalRemesh) {
             struct Variant {const char* name;bool refine;bool flips;bool collapse;};
             constexpr std::array<Variant,5> modes{{

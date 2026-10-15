@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
 project(Mesher VERSION 0.1.0 LANGUAGES CXX)
 
+# Single-config generators otherwise default to unoptimized (no -O flags).
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration" FORCE)
+endif()
+message(STATUS "Mesher build configuration: ${CMAKE_BUILD_TYPE}")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -11,6 +17,25 @@ option(MESHER_BUILD_TESTS "Build CPU-only mesh tests" ON)
 add_library(mesher_mesh STATIC src/mesh.cpp src/brush.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp)
 target_include_directories(mesher_mesh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
+target_compile_definitions(mesher_mesh PUBLIC
+    MESHER_BUILD_CONFIGURATION="$<CONFIG>")
+
+# Previously src/hull_qhull.cpp was checked in but never compiled or linked!
+# Do not silently fall back to the quadratic implementation for large models.
+option(MESHER_FIND_QHULL "Use system Qhull for fast sphere triangulation" ON)
+if(MESHER_FIND_QHULL)
+    find_package(Qhull QUIET)
+endif()
+if(MESHER_FIND_QHULL AND TARGET Qhull::qhull_r)
+    target_sources(mesher_mesh PRIVATE src/hull_qhull.cpp)
+    target_link_libraries(mesher_mesh PUBLIC Qhull::qhull_r)
+    target_compile_definitions(mesher_mesh PRIVATE MESHER_USE_QHULL=1)
+    message(STATUS "Mesher hull backend: Qhull (fast, large-mesh capable)")
+else()
+    message(WARNING
+        "Mesher hull backend: quadratic fallback, limited to 10000 vertices. "
+        "For large spheres install libqhull-dev and reconfigure.")
+endif()
 # Relaxation iterations read a frozen vertex grid and update independent
 # destination vertices. OpenMP is optional; the serial path stays supported.
 find_package(OpenMP QUIET COMPONENTS CXX)

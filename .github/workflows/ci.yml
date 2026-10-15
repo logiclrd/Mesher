@@ -18,8 +18,16 @@ jobs:
         run: cmake --build build --parallel
       - name: Run CPU mesh tests
         run: ctest --test-dir build --output-on-failure
+      - name: Verify missing-Qhull builds fail fast for large spheres
+        run: |
+          cmake -S . -B build-noqhull -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=OFF -DMESHER_FIND_QHULL=OFF
+          cmake --build build-noqhull --target mesher_mesh_tests
+          ./build-noqhull/mesher_mesh_tests
       - name: Benchmark 100,000-vertex generation and stamps
-        run: ./build/mesher_benchmark 100000 65
+        run: |
+          ./build/mesher_benchmark 100000 65 2>&1 | tee startup-benchmark.txt
+          grep 'hull=Qhull' startup-benchmark.txt
 
       - name: Compare remeshing experiment (5000 vertices)
         run: |

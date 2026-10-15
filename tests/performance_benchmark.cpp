@@ -18,8 +18,15 @@ int main(int argc,char** argv) {
         opt.vertexCount=argc>1?static_cast<std::uint32_t>(std::stoul(argv[1])):100000;
         opt.relaxationIterations=argc>2?static_cast<std::uint32_t>(std::stoul(argv[2])):65;
         const auto start=Clock::now();
-        auto mesh=mesher::generateSphere(opt);
+        mesher::SphereGenerationTimings generation{};
+        auto mesh=mesher::generateSphere(opt,&generation);
         const double generated=seconds(start);
+        std::cerr<<"Build="<<MESHER_BUILD_CONFIGURATION
+                 <<" hull="<<mesher::sphereHullBackend()
+                 <<" OpenMP_max_threads="<<mesher::sphereRelaxationThreads()
+                 <<" relaxation="<<generation.relaxationSeconds
+                 <<" hull_time="<<generation.triangulationSeconds
+                 <<" validation="<<generation.validationSeconds<<" s\n";
         auto run=[&](bool remesh) {
             auto current=mesh;
             mesher::CollapseSettings collapse;

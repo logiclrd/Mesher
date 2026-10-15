@@ -518,3 +518,36 @@ otherwise unchanged. Scripted runs and standalone refiners retain their
 original full-mesh scan path. A regression compares local versus global
 candidate searches on the same deformation and requires identical vertices,
 triangle connectivity and operation counts.
+
+
+## Verified large-sphere initialization and build diagnostics (2026-10-15)
+
+**Bug fix:** `src/hull_qhull.cpp` had been checked in but had not actually
+been compiled or linked by CMake. Therefore previous CI measurements used the
+quadratic legacy hull, **not** Quickhull. The build now discovers and links
+`Qhull::qhull_r` when available, compiles that source, and selects Quickhull
+at runtime. Unset build types on single-configuration generators now default
+to Release (explicit Debug or other configurations remain respected).
+
+On Ubuntu/Debian:
+
+```sh
+sudo apt install libqhull-dev
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/Mesher --vertices 100000 --refine --collapse --curvature-correction
+```
+
+Configure output reports the selected build type and detected hull backend.
+Program startup reports the build configuration, actual hull backend,
+maximum available OpenMP threads, and times for relaxation, hull
+triangulation, manifold validation, and total generation. The standalone
+benchmark also emits these stage measurements on stderr. The old
+quadratic fallback is retained only for meshes of **10,000 or fewer
+vertices**; larger requests without Qhull fail before relaxation with
+install instructions, rather than silently taking many minutes.
+
+CI asserts that the 100k benchmark uses Qhull, and separately builds with
+Qhull disabled to verify the large-mesh fail-fast behavior. The earlier
+Release-build CI measurements of 11–20 seconds used the old quadratic
+backend and should not be represented as Quickhull timings.

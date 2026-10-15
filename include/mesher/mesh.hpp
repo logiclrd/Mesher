@@ -36,10 +36,23 @@ struct SphereOptions {
     Vec3 seamNormal = {1.0, 0.0, 0.0};
 };
 
+struct SphereGenerationTimings {
+    double relaxationSeconds = 0;
+    double triangulationSeconds = 0;
+    double validationSeconds = 0;
+    double totalSeconds = 0;
+};
+
+// Runtime diagnostics make optional dependencies and build performance visible.
+const char* sphereHullBackend() noexcept;
+unsigned sphereRelaxationThreads() noexcept;
+
 // Creates an outward-wound, watertight triangle mesh with exactly the
-// requested vertex count. Throws std::invalid_argument on invalid inputs
-// and std::runtime_error if topology construction fails.
-Mesh generateSphere(const SphereOptions& options);
+// requested vertex count. Large meshes require Quickhull: the old
+// quadratic fallback is only appropriate for small, dependency-free tests.
+// Optional timings separate relaxation, hull and topology validation.
+Mesh generateSphere(const SphereOptions& options,
+                    SphereGenerationTimings* timings = nullptr);
 
 // Checks index validity, outward winding, exactly two incident triangles
 // per edge, connectivity and Euler characteristic V-E+F=2.

@@ -1,6 +1,10 @@
 #include "mesher/mesh.hpp"
 
 #include <algorithm>
+#include <chrono>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include <array>
 #include <cmath>
 #include <limits>
@@ -195,7 +199,41 @@ Vec3 randomSphere(std::mt19937_64& rng) {
 double length(Vec3 v){return std::sqrt(dot(v,v));}
 Vec3 normalized(Vec3 v){double m=length(v); if(m<1e-20) throw std::invalid_argument("Zero vector");return v/m;}
 
-Mesh generateSphere(const SphereOptions& opt) {
+const char* sphereHullBackend() noexcept {
+#ifdef MESHER_USE_QHULL
+    return "Qhull (Quickhull)";
+#else
+    return "legacy quadratic fallback";
+#endif
+}
+
+unsigned sphereRelaxationThreads() noexcept {
+#ifdef _OPENMP
+    return static_cast<unsigned>(omp_get_max_threads());
+#else
+    return 1;
+#endif
+}
+
+Mesh generateSphere(const SphereOptions& opt, SphereGenerationTimings* timings) {
+    using Clock=std::chrono::steady_clock;
+    const auto t0=Clock::now();
+    auto duration=[](auto a,auto b) {
+        return std::chrono::duration<double>(b-a).count();
+    };
+    SphereGenerationTimings measured{};
+#ifndef MESHER_USE_QHULL
+    // Without Qhull the original incremental hull repeatedly checks all
+    // existing faces. This is roughly quadratic and can silently cause
+    // minute-long startup on otherwise ordinary 100k-point experiments.
+    // Fail *before* relaxation so the missing dependency is unmistakable.
+    if(opt.vertexCount>10000)
+        throw std::runtime_error(
+            "Large sphere generation requires Qhull; this build uses the "
+            "slow quadratic fallback. Install libqhull-dev (Ubuntu/Debian), "
+            "then reconfigure CMake and rebuild. "
+            "Check CMake's 'Using Qhull' message.");
+#endif
     const auto n=opt.vertexCount;
     if(n<8||n>1000000) throw std::invalid_argument("vertexCount must be in [8, 1000000]");
     const Vec3 axis=normalized(opt.seamNormal);
@@ -215,8 +253,12 @@ Mesh generateSphere(const SphereOptions& opt) {
     if(!opt.symmetric) {
         result.vertices.reserve(n);
         for(std::uint32_t i=0;i<n;++i)result.vertices.push_back(randomSphere(rng));
+        auto t=Clock::now();
         relax(result.vertices,n,spacing,opt.relaxationIterations,false,axis);
+        measured.relaxationSeconds=duration(t,Clock::now());
+        t=Clock::now();
         result.triangles=triangulate(result.vertices);
+        measured.triangulationSeconds=duration(t,Clock::now());
     } else {
         // Minimum ring population consistent with approximately equal triangle
         // edge lengths. Same parity as n gives p=n-m even.
@@ -256,8 +298,12 @@ Mesh generateSphere(const SphereOptions& opt) {
             half.push_back(tangent*std::cos(phi)+bitangent*std::sin(phi));
             phi+=gap;
         }
+        auto t=Clock::now();
         relax(half,p,spacing,opt.relaxationIterations,true,axis);
+        measured.relaxationSeconds=duration(t,Clock::now());
+        t=Clock::now();
         auto faces=triangulate(half);
+        measured.triangulationSeconds=duration(t,Clock::now());
         result.vertices=half;
         // Only the p non-seam points are duplicated and reflected.
         for(std::uint32_t i=0;i<p;++i)
@@ -270,8 +316,12 @@ Mesh generateSphere(const SphereOptions& opt) {
             result.triangles.push_back({mirror(f.a),mirror(f.c),mirror(f.b)});
         }
     }
+    const auto validationStart=Clock::now();
     if(result.vertices.size()!=n || !validateSphere(result))
         throw std::runtime_error("Sphere construction failed manifold validation");
+    measured.validationSeconds=duration(validationStart,Clock::now());
+    measured.totalSeconds=duration(t0,Clock::now());
+    if(timings)*timings=measured;
     return result;
 }
 
