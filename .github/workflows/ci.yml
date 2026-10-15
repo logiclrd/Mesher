@@ -1,0 +1,20 @@
+name: C++ and Vulkan build
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ libvulkan-dev libglfw3-dev glslang-tools
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Compile application and tests
+        run: cmake --build build --parallel
+      - name: Run CPU mesh tests
+        run: ctest --test-dir build --output-on-failure
