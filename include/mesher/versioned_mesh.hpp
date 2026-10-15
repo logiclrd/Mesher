@@ -110,6 +110,10 @@ public:
     explicit MeshRepository(std::shared_ptr<const MeshRevision> initial);
     std::shared_ptr<const MeshRevision> snapshot() const noexcept;
     void publish(std::shared_ptr<const MeshRevision> next);
+    // Optimistic, single-root compare-and-swap: a transaction based on an
+    // outdated revision must not overwrite another publisher's newer work.
+    bool publishIfCurrent(const std::shared_ptr<const MeshRevision>& expected,
+                          std::shared_ptr<const MeshRevision> next);
 
 private:
     std::atomic<std::shared_ptr<const MeshRevision>> published_;
