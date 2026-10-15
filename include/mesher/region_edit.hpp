@@ -69,6 +69,10 @@ public:
     std::shared_ptr<const Vertex> maybeVertex(VertexId id) const {
         return vertices_.find(id);
     }
+    bool retiredVertex(VertexId id) const {return retiredVertices_.find(id)!=nullptr;}
+    bool retiredFace(FaceId id) const {return retiredFaces_.find(id)!=nullptr;}
+    std::size_t retiredVertexCount() const noexcept {return retiredVertices_.size();}
+    std::size_t retiredFaceCount() const noexcept {return retiredFaces_.size();}
     std::shared_ptr<const std::vector<EdgeSide>> maybeEdgeSides(Edge key) const {
         return edges_.find(key);
     }
