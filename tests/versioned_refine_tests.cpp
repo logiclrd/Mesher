@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -161,6 +162,32 @@ void testMirrorSplit() {
         check(length(Vec3{a.x+b.x,a.y-b.y,a.z-b.z})<1e-12,
               "Refined mirror mapping remains a geometric involution");
     }
+    // Every oriented triangle must have a reflected counterpart, including
+    // the split faces that were appended to new overflow partitions.
+    const auto canonical=[](std::array<VertexId,3> face) {
+        if(face[1]<face[0] && face[1]<face[2])
+            return std::array<VertexId,3>{face[1],face[2],face[0]};
+        if(face[2]<face[0] && face[2]<face[1])
+            return std::array<VertexId,3>{face[2],face[0],face[1]};
+        return face;
+    };
+    std::set<std::array<VertexId,3>> oriented;
+    result.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces)
+                oriented.insert(canonical(face.vertices));
+        });
+    result.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces) {
+                const auto& t=face.vertices;
+                const std::array<VertexId,3> reflection={
+                    refiner.mirrors().at(t[0]),refiner.mirrors().at(t[2]),
+                    refiner.mirrors().at(t[1])};
+                check(oriented.contains(canonical(reflection)),
+                      "All appended and rewritten faces retain mirrored winding");
+            }
+        });
     validateIndexed(result.index);
 }
 void testLocalFlipAndRepeatedRevisions() {
