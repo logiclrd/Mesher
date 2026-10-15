@@ -117,7 +117,15 @@ void testRollbackAndScopedAccess() {
     require(published.snapshot()==reader,"All failures leave publication intact");
     auto good=RegionEdit(index,{v[0]});
     good.moveVertex(v[0],{1.1,0,0});
-    published.publish(good.commit().revision);
+    const auto current=good.commit().revision;
+    require(published.publishIfCurrent(reader,current),
+            "Current-base transaction publishes atomically");
+    RegionEdit stale(index,{v[0]});
+    stale.moveVertex(v[0],{1.3,0,0});
+    require(!published.publishIfCurrent(reader,stale.commit().revision),
+            "Stale-base transaction cannot overwrite newer publication");
+    require(published.snapshot()==current,
+            "Rejected stale transaction leaves published revision intact");
     require(reader->partition(index->vertex(v[0]).owner)->
                 vertices[0].position.x==1,
             "Held old revision remains immutable after publication");
@@ -132,6 +140,9 @@ void testLocalTriangleSubdivision() {
     RegionEdit edit(index,{v[0]});
     const auto owner=index->vertex(v[0]).owner;
     const auto center=Vec3{1.0/3.0,1.0/3.0,1.0/3.0};
+    RegionEdit capped(index,{v[0]},{},1);
+    rejected([&] { (void)capped.addVertex(owner,center); },
+             "Partition capacity prevents unbounded local append");
     const auto midpoint=edit.addVertex(owner,center);
     edit.replaceFace(f[0],{v[4],v[0],midpoint});
     edit.addFace(owner,{v[0],v[1],midpoint});
