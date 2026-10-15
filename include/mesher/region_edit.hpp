@@ -17,10 +17,10 @@
 
 namespace mesher {
 
-// An immutable, explicitly constructed lookup of a *particular* revision.
-// V3 builds this with one O(N) scan; V4 will replace that full build with
-// revision-aware incremental spatial and connectivity indexes. Neither
-// transaction commit nor revision publication traverses this whole index.
+// Persistent immutable lookup bound to exactly one mesh revision.
+// Initial import builds it once; subsequent RegionEdit commits update only
+// touched records and share all unchanged spatial/connectivity index nodes.
+// Publishing a new index root never scans the mesh.
 class RegionTopologyIndex {
 public:
     struct Vertex {
