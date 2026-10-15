@@ -1,4 +1,5 @@
 #include "mesher/versioned_collapse.hpp"
+#include "mesher/versioned_refine.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -200,6 +201,24 @@ void testMirroredCollapseAgainstLegacy() {
                 if(v==partner)check(left.x==0,
                     "Seam stays on symmetry plane after paired collapse");
             }
+            // The V8 orchestrator can consume just the deleted pair delta:
+            // neither its Inflate nor its Refiner needs a global mirror copy.
+            VersionedInflateBrush nextInflate(.0001,{},pairs);
+            RefineSettings refineSettings;
+            refineSettings.enabled=true;
+            VersionedLocalRefiner nextRefine(ids.size(),refineSettings,pairs,16);
+            for(const auto& removed:result.removedMirrorPairs) {
+                nextInflate.removeMirrorPair(removed.first,removed.second);
+                nextRefine.removeMirrorPair(removed.first,removed.second);
+            }
+            check(nextRefine.mirrors().size()==ids.size()-2,
+                  "Refiner retained precisely the surviving mirror IDs");
+            const auto next=nextInflate.stamp(result.index,
+                std::vector<BrushArea>{{{.35,-.5,.6},.6,.25},
+                                       {{-.35,-.5,.6},.6,.25}},16);
+            check(next.index!=nullptr,
+                  "The next symmetric Inflate supports retired vertex IDs");
+            verify(next.index);
             verify(result.index);
             verify(before);
             found=true;
