@@ -149,7 +149,7 @@ void testMirroredCollapseAgainstLegacy() {
     bool found=false;
     std::set<std::pair<std::uint32_t,std::uint32_t>> seen;
     for(const auto triangle:initial.triangles) {
-        for(const auto [x,y]:{std::pair{triangle.a,triangle.b},
+        for(const auto& [x,y]:{std::pair{triangle.a,triangle.b},
                              std::pair{triangle.b,triangle.c},
                              std::pair{triangle.c,triangle.a}}) {
             auto a=x,b=y;
