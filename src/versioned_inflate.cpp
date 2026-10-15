@@ -45,6 +45,15 @@ void VersionedInflateBrush::addMirrorPair(VertexId first,VertexId second) {
     mirrors_.emplace(second,first);
 }
 
+void VersionedInflateBrush::removeMirrorPair(VertexId first,VertexId second) {
+    const auto a=mirrors_.find(first),b=mirrors_.find(second);
+    if(a==mirrors_.end()||b==mirrors_.end()||
+       a->second!=second||b->second!=first)
+        throw std::invalid_argument("Cannot retire a mismatched mirror pair");
+    mirrors_.erase(first);
+    if(second!=first)mirrors_.erase(second);
+}
+
 VersionedInflateStamp VersionedInflateBrush::stamp(
     std::shared_ptr<const RegionTopologyIndex> before,
     std::span<const BrushArea> areas,
