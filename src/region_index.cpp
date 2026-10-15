@@ -138,6 +138,8 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
     result->faces_=old.faces_;
     result->edges_=old.edges_;
     result->cells_=old.cells_;
+    result->retiredVertices_=old.retiredVertices_;
+    result->retiredFaces_=old.retiredFaces_;
 
     std::unordered_map<VertexId,Vertex> vertices;
     std::unordered_map<Edge,std::vector<EdgeSide>,EdgeHash> edges;
