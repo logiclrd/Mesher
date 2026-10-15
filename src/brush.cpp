@@ -185,8 +185,11 @@ void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds
     if (!active_) throw std::logic_error("Stroke has not started");
     if (positions.size() != areas_.size()) throw std::invalid_argument("Stroke point count changed");
     if (positions.empty()) throw std::logic_error("Stroke has no areas");
-    if(!std::isfinite(elapsedSeconds) || elapsedSeconds<currentTime_)
+    if(!std::isfinite(elapsedSeconds) ||
+       elapsedSeconds+1e-12*std::max(1.0,currentTime_)<currentTime_)
         throw std::invalid_argument("Stroke time must be finite and nondecreasing");
+    // Time differences smaller than floating-point clock precision are zero.
+    elapsedSeconds=std::max(elapsedSeconds,currentTime_);
     const double dt=elapsedSeconds-currentTime_;
     const double spatial=length(positions[0] - areas_[0].center);
     const double travel=std::hypot(spatial,timeSpeed_*dt);
