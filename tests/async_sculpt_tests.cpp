@@ -123,11 +123,110 @@ void testWorkerCanRestartAndCancel() {
     dropping->end({.3,-.7,.6},.1);
     dropping.reset();
 }
+void testCoalescedRootsAndCompatibilityBridge() {
+    SphereOptions options;
+    options.vertexCount=500;
+    options.relaxationIterations=6;
+    auto initial=generateSphere(options);
+    AsyncSculptWorker worker(initial,.015,.006,.2,{true,.25},{},{},true);
+    const Vec3 first{-.25,-.65,.70};
+    worker.begin(first,.35);
+    auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
+    while(worker.status().completedStamps==0 &&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    require(worker.status().completedStamps==1,
+            "Initial mouse-down produces exactly one Step stamp");
+    auto held=worker.takeSnapshot();
+    require(bool(held) && bool(held->index),
+            "One-stamp immutable snapshot is available without mesh copying");
+    const auto preserved=flattenRevisionForViewport(
+        *held->index,*held->originalOrder);
+    worker.update({-.30,-.69,.65},.15);
+    worker.end({-.35,-.72,.62},.30);
+    deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
+    while(!worker.canBegin() &&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    require(worker.canBegin(),"All queued 4D Step stamps must drain");
+    const auto status=worker.status();
+    auto latest=worker.takeSnapshot();
+    require(latest && latest->index!=held->index,
+            "Worker publishes new roots while reader retains earlier root");
+    require(latest->completedStamps==status.completedStamps &&
+            latest->completedStamps>held->completedStamps,
+            "Coalesced UI snapshot contains every processed stamp");
+    require(status.publishedRevisions>1 &&
+            status.pendingSteps==0 && status.inputCommands==0,
+            "No Step is dropped when the viewport consumes no intermediate frames");
+    require(!worker.takeSnapshot(),
+            "Latest snapshot exchange leaves no obsolete frame pending");
+    auto oldAgain=flattenRevisionForViewport(
+        *held->index,*held->originalOrder);
+    require(oldAgain.vertices.size()==preserved.vertices.size() &&
+            oldAgain.triangles.size()==preserved.triangles.size(),
+            "Older reader holds complete immutable mesh topology");
+    for(std::size_t i=0;i<preserved.vertices.size();++i)
+        require(length(oldAgain.vertices[i]-preserved.vertices[i])==0,
+                "Old version is never mutated by subsequent worker stamps");
+    ViewportFlattenStatistics measured;
+    const auto final=flattenRevisionForViewport(
+        *latest->index,*latest->originalOrder,&measured);
+    require(validateClosedSphereTopology(final),
+            "Coalesced final revision has valid closed manifold topology");
+    require(measured.vertices==final.vertices.size() &&
+            measured.triangles==final.triangles.size(),
+            "Viewport bridge reports real converted element counts");
+}
+void testVersionedWorkerWithRemeshingEnabled() {
+    SphereOptions options;
+    options.vertexCount=500;
+    options.relaxationIterations=6;
+    const auto original=generateSphere(options);
+    RefineSettings refine;
+    refine.enabled=true;
+    refine.maximumEdgeRatio=.85;
+    refine.maximumSplitPairsPerStamp=2;
+    refine.maximumFlipPairsPerStamp=4;
+    CollapseSettings collapse;
+    collapse.enabled=true;
+    collapse.minimumEdgeRatio=.85;
+    collapse.maximumPairsPerStamp=2;
+    AsyncSculptWorker worker(original,.025,.008,.2,{true,.25},
+                             collapse,refine,false);
+    const Vec3 point{.25,-.65,.70};
+    worker.begin(point,.35);
+    worker.update({.27,-.66,.68},.125);
+    worker.end({.28,-.67,.67},.25);
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+    while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline) {
+        (void)worker.status();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    require(worker.canBegin(),"Refinement/collapse worker must drain");
+    const auto status=worker.status();
+    require(status.completedStamps>1 &&
+            status.details.preStampCopiedVertices==0,
+            "Remeshing mode never creates a full pre-stamp positions copy");
+    auto snapshot=worker.takeSnapshot();
+    require(bool(snapshot)&&snapshot->index!=nullptr,
+            "Pipeline publishes one final indexed revision");
+    const auto flat=flattenRevisionForViewport(
+        *snapshot->index,*snapshot->originalOrder);
+    require(validateClosedSphereTopology(flat),
+            "Complete remesh pipeline retains closed oriented mesh");
+    require(flat.vertices.size()==status.details.vertices &&
+            flat.triangles.size()==status.details.triangles,
+            "Versioned mesh element telemetry remains accurate after remeshing");
+}
 }
 int main() {
     try {
         testThreadedMatchesExactSculpt();
         testWorkerCanRestartAndCancel();
+        testCoalescedRootsAndCompatibilityBridge();
+        testVersionedWorkerWithRemeshingEnabled();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"Async worker test failed: "<<e.what()<<'\n';
