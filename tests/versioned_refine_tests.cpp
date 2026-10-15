@@ -191,9 +191,10 @@ void testLocalFlipAndRepeatedRevisions() {
               "Refinement updates never require global scans");
         validateIndexed(current);
     }
+    std::cout<<"V6 stress case: "<<splits<<" split pairs and "
+             <<flips<<" flip pairs\n";
     check(splits>0,"Repeated local stamps exercise directional splitting");
-    // Flip proposals have strict quality and orientation tests, so they may
-    // legitimately be absent for a particular deterministic sphere fixture.
+    check(flips>0,"Repeated deformations exercise accepted local edge flipping");
     check(flips<=splits*settings.maximumFlipPairsPerStamp,
           "Flips bounded by refinement candidates");
     check(current->revision().partitionCount()>=
