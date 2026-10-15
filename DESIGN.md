@@ -482,3 +482,17 @@ Vulkan renderer rebuilds full vertex buffers after each stamp. These paths
 are not made local simply by accelerating brush vertex queries. A proper
 local adjacency/edge index and triangle BVH, plus GPU dirty-region updates,
 remain the next optimization phase.
+
+
+### Large-mesh topology validation batching
+
+For meshes above 10,000 vertices, the experimental remesher now batches
+candidate edge collapses and local flips and performs one global closed-manifold
+check after the batch rather than after *every* accepted candidate.
+Individual edge-link and face-orientation checks remain in place. If the final
+batch validation fails, the mesh is restored to its pre-batch state and the
+operation is retried using the original conservative per-operation validation.
+The small-mesh path is unchanged, which keeps the existing demonstration
+regressions directly comparable. This is an intermediate optimization:
+collapser link checks and trial mesh copies still have whole-mesh costs, and
+eventual production topology editing needs persistent local adjacency.

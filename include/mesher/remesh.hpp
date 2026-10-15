@@ -59,7 +59,7 @@ public:
     double minimumEdge() const noexcept { return minimumEdge_; }
     const std::vector<std::uint32_t>& mirrors() const noexcept { return mirrors_; }
 private:
-    bool attempt(Mesh& mesh, std::uint32_t a, std::uint32_t b);
+    bool attempt(Mesh& mesh, std::uint32_t a, std::uint32_t b, bool deferGlobalValidation);
     CollapseSettings settings_;
     double minimumEdge_;
     std::vector<std::uint32_t> mirrors_;

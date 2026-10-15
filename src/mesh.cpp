@@ -115,6 +115,7 @@ std::vector<Face> convexHull(const std::vector<Vec3>& points) {
 void relax(std::vector<Vec3>& points, std::size_t movable, double spacing,
            std::uint32_t iterations, bool mirrorHemisphere, Vec3 axis) {
     const double radius=2.2*spacing;
+    const double radiusSquared=radius*radius;
     const double cell=radius;
     const int count=static_cast<int>(std::ceil(2.0/cell))+2;
     auto key=[&](Vec3 v) -> std::uint64_t {
@@ -152,8 +153,9 @@ void relax(std::vector<Vec3>& points, std::size_t movable, double spacing,
                 for(auto j:it->second) {
                     if(j==i) continue;
                     const Vec3 diff=pos-samples[j];
-                    const double dist=length(diff);
-                    if(dist<1e-10 || dist>=radius) continue;
+                    const double squared=dot(diff,diff);
+                    if(squared<1e-20 || squared>=radiusSquared)continue;
+                    const double dist=std::sqrt(squared);
                     // Repulsion is strongest at small separation.
                     const double weight=(radius-dist)/(radius*dist);
                     force=force+diff*weight;

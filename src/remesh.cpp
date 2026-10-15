@@ -188,7 +188,8 @@ void DirectionalCollapser::setMirrors(std::vector<Index> mirrors) {
     mirrors_=std::move(mirrors);
 }
 
-bool DirectionalCollapser::attempt(Mesh& mesh, Index a, Index b) {
+bool DirectionalCollapser::attempt(Mesh& mesh, Index a, Index b,
+                                     bool deferGlobalValidation) {
     if(a==b || !linkCondition(mesh,a,b)) return false;
     const bool symmetry=!mirrors_.empty();
     // Keep a seam vertex rather than displacing it outside its plane.
@@ -232,7 +233,7 @@ bool DirectionalCollapser::attempt(Mesh& mesh, Index a, Index b) {
     std::erase_if(trial.triangles, [](Triangle t) {
         return t.a==t.b || t.b==t.c || t.c==t.a;
     });
-    if(!validateClosedSphereTopology(trial)) return false;
+    if(!deferGlobalValidation && !validateClosedSphereTopology(trial)) return false;
     if(symmetry) {
         nextMirrors[a]=ma;
         nextMirrors[ma]=a;
@@ -270,32 +271,52 @@ CollapseStatistics DirectionalCollapser::apply(Mesh& mesh, std::span<const Vec3>
         return a.length==b.length ? a.edge<b.edge : a.length<b.length;
     });
     const auto originalCount=mesh.vertices.size();
-    for(const auto& candidate:candidates) {
-        if(stats.accepted>=settings_.maximumPairsPerStamp) break;
-        const auto a=first(candidate.edge), b=second(candidate.edge);
-        // Since previously accepted collapses may delete either endpoint,
-        // linkCondition() also checks that the candidate edge still exists.
-        ++stats.attempted;
-        if(attempt(mesh,a,b)) ++stats.accepted;
+    const bool optimized=originalCount>10000;
+    Mesh backup;
+    std::vector<Index> backupMirrors;
+    if(optimized) {
+        backup=mesh;
+        backupMirrors=mirrors_;
     }
-    if(stats.accepted) {
-        const auto index=compact(mesh);
-        if(!mirrors_.empty()) {
-            std::vector<Index> remapped(mesh.vertices.size());
-            for(Index i=0;i<index.size();++i) {
-                if(index[i]==std::numeric_limits<Index>::max()) continue;
-                const Index partner=mirrors_[i];
-                if(index[partner]==std::numeric_limits<Index>::max())
-                    throw std::logic_error("Paired remesh left unpaired vertex");
-                remapped[index[i]]=index[partner];
-            }
-            mirrors_=std::move(remapped);
+    auto run=[&](bool deferGlobalValidation) {
+        CollapseStatistics result{};
+        for(const auto& candidate:candidates) {
+            if(result.accepted>=settings_.maximumPairsPerStamp)break;
+            const auto a=first(candidate.edge),b=second(candidate.edge);
+            ++result.attempted;
+            if(attempt(mesh,a,b,deferGlobalValidation))++result.accepted;
         }
-        stats.removedVertices=static_cast<Index>(originalCount-mesh.vertices.size());
-        if(!validateClosedSphereTopology(mesh))
-            throw std::logic_error("Edge collapse corrupted mesh topology");
+        if(result.accepted) {
+            const auto index=compact(mesh);
+            if(!mirrors_.empty()) {
+                std::vector<Index> remapped(mesh.vertices.size());
+                for(Index i=0;i<index.size();++i) {
+                    if(index[i]==std::numeric_limits<Index>::max())continue;
+                    const Index partner=mirrors_[i];
+                    if(index[partner]==std::numeric_limits<Index>::max())
+                        return std::pair{result,false};
+                    remapped[index[i]]=index[partner];
+                }
+                mirrors_=std::move(remapped);
+            }
+            result.removedVertices=static_cast<Index>(originalCount-mesh.vertices.size());
+            if(!validateClosedSphereTopology(mesh))
+                return std::pair{result,false};
+        }
+        return std::pair{result,true};
+    };
+    auto [result,valid]=run(optimized);
+    if(!valid && optimized) {
+        // Unusual interacting collapses: discard the tentative batch and
+        // retry using the original strict per-operation validation.
+        mesh=std::move(backup);
+        mirrors_=std::move(backupMirrors);
+        auto checked=run(false);
+        result=checked.first;
+        valid=checked.second;
     }
-    return stats;
+    if(!valid)throw std::logic_error("Edge collapse corrupted mesh topology");
+    return result;
 }
 
 } // namespace mesher

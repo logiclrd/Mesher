@@ -234,24 +234,36 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
                 if(local.contains(a)&&local.contains(b))
                     flipCandidates.insert(edgeKey(a,b));
             }
-        std::uint32_t trials=0;
-        for(auto key:flipCandidates) {
-            if(++trials > settings_.maximumFlipPairsPerStamp*8)break;
-            if(stats.flipPairs>=settings_.maximumFlipPairsPerStamp)break;
-            const Id a=first(key),b=second(key);
-            const Edge mirrored=mirrors_.empty()?key:edgeKey(mirrors_[a],mirrors_[b]);
-            if(!mirrors_.empty() && mirrored<=key) {
-                // Same edge under reflection is a seam edge. Never flip it:
-                // the new diagonal could connect opposite hemispheres.
-                continue;
+        const bool optimized=mesh.vertices.size()>10000;
+        Mesh backup;
+        if(optimized)backup=mesh;
+        auto runFlips=[&](bool deferGlobalValidation) {
+            stats.flipPairs=0;
+            std::uint32_t trials=0;
+            for(auto key:flipCandidates) {
+                if(++trials>settings_.maximumFlipPairsPerStamp*8)break;
+                if(stats.flipPairs>=settings_.maximumFlipPairsPerStamp)break;
+                const Id a=first(key),b=second(key);
+                const Edge mirrored=mirrors_.empty()?key:
+                    edgeKey(mirrors_[a],mirrors_[b]);
+                if(!mirrors_.empty() && mirrored<=key)continue;
+                Mesh trial=mesh;
+                if(!flipOne(trial,a,b))continue;
+                if(mirrored!=key && !mirrors_.empty() &&
+                   !flipOne(trial,first(mirrored),second(mirrored)))continue;
+                if(!deferGlobalValidation && !validateClosedSphereTopology(trial))
+                    continue;
+                mesh=std::move(trial);
+                ++stats.flipPairs;
             }
-            Mesh trial=mesh;
-            if(!flipOne(trial,a,b))continue;
-            if(mirrored!=key && !mirrors_.empty() &&
-               !flipOne(trial,first(mirrored),second(mirrored)))continue;
-            if(!validateClosedSphereTopology(trial))continue;
-            mesh=std::move(trial);
-            ++stats.flipPairs;
+            return !stats.flipPairs || validateClosedSphereTopology(mesh);
+        };
+        if(!runFlips(optimized) && optimized) {
+            // A batch of individually plausible local flips can interact.
+            // Fall back to the original full per-flip topology check.
+            mesh=std::move(backup);
+            if(!runFlips(false))
+                throw std::logic_error("Local edge flipping corrupted topology");
         }
     }
     return stats;
