@@ -33,60 +33,6 @@ void requireTriangle(std::array<VertexId,3> v) {
 }
 } // namespace
 
-std::size_t RegionTopologyIndex::EdgeHash::operator()(Edge e) const noexcept {
-    // Standard size_t hash-combine. Partition/vertex IDs never encode addresses.
-    const auto a=std::hash<VertexId>{}(e.a);
-    const auto b=std::hash<VertexId>{}(e.b);
-    return a^(b+std::size_t{0x9e3779b9}+(a<<6)+(a>>2));
-}
-RegionTopologyIndex::RegionTopologyIndex(
-    std::shared_ptr<const MeshRevision> revision)
-    :revision_(std::move(revision)) {}
-
-std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::build(
-    std::shared_ptr<const MeshRevision> revision) {
-    if(!revision)throw std::invalid_argument("Region index needs a revision");
-    auto result=std::shared_ptr<RegionTopologyIndex>(
-        new RegionTopologyIndex(std::move(revision)));
-    result->revision_->forEachPartition([&](PartitionId owner,
-                                            const MeshPartition& partition) {
-        for(const auto& vertex:partition.vertices) {
-            if(vertex.id==0 || !finite(vertex.position) ||
-               !result->vertices_.emplace(vertex.id,
-                                          Vertex{owner,vertex.position,{}}).second)
-                throw std::logic_error("Invalid/duplicate vertex in region index");
-        }
-        for(const auto& face:partition.faces) {
-            if(face.id==0 || !result->faces_.emplace(face.id,
-                                   Face{owner,face.vertices}).second)
-                throw std::logic_error("Invalid/duplicate face in region index");
-        }
-    });
-    for(const auto& [id,face]:result->faces_) {
-        requireTriangle(face.vertices);
-        for(const auto vertex:face.vertices) {
-            const auto it=result->vertices_.find(vertex);
-            if(it==result->vertices_.end())
-                throw std::logic_error("Face references missing vertex");
-            it->second.incidentFaces.push_back(id);
-        }
-        for(unsigned i=0;i<3;++i) {
-            const auto a=face.vertices[i],b=face.vertices[(i+1)%3];
-            const auto key=edge(a,b);
-            result->edges_[key].push_back({id,a==key.a});
-        }
-    }
-    for(auto& [_,vertex]:result->vertices_)
-        std::sort(vertex.incidentFaces.begin(),vertex.incidentFaces.end());
-    return result;
-}
-const RegionTopologyIndex::Vertex& RegionTopologyIndex::vertex(VertexId id) const {
-    return vertices_.at(id);
-}
-const RegionTopologyIndex::Face& RegionTopologyIndex::face(FaceId id) const {
-    return faces_.at(id);
-}
-
 RegionEdit::RegionEdit(
     std::shared_ptr<const RegionTopologyIndex> index,
     std::vector<VertexId> seeds,
@@ -143,7 +89,7 @@ RegionEdit::RegionEdit(
         // the selected write closure remains fixed and must be respected.
         for(unsigned i=0;i<3;++i) {
             const auto key=edge(face.vertices[i],face.vertices[(i+1)%3]);
-            for(const auto adjacent:index_->edges_.at(key)) {
+            for(const auto adjacent:index_->edgeSides(key)) {
                 const auto& other=index_->face(adjacent.face);
                 readers_.insert(other.owner);
                 for(const auto v:other.vertices) {
@@ -371,9 +317,9 @@ void RegionEdit::validate() const {
     // connectivity on all modified edges. Unchanged edges are not traversed.
     for(const auto key:touchedEdges) {
         std::vector<RegionTopologyIndex::EdgeSide> sides;
-        const auto original=index_->edges_.find(key);
-        if(original!=index_->edges_.end())
-            for(const auto side:original->second)
+        const auto original=index_->maybeEdgeSides(key);
+        if(original)
+            for(const auto side:*original)
                 if(!faceChanges_.contains(side.face))sides.push_back(side);
         for(const auto& [id,replacement]:faceChanges_)if(replacement) {
             for(unsigned i=0;i<3;++i) {
@@ -393,9 +339,9 @@ void RegionEdit::validate() const {
     // Verify each touched vertex has a single cyclic one-ring link.
     for(const auto id:touchedVertices) {
         std::vector<FaceId> incident;
-        const auto old=index_->vertices_.find(id);
-        if(old!=index_->vertices_.end())
-            for(const auto f:old->second.incidentFaces)
+        const auto old=index_->maybeVertex(id);
+        if(old)
+            for(const auto f:old->incidentFaces)
                 if(!faceChanges_.contains(f))incident.push_back(f);
         for(const auto& [f,replacement]:faceChanges_)if(replacement)
             if(std::find(replacement->begin(),replacement->end(),id)!=
@@ -432,6 +378,10 @@ RevisionCommit RegionEdit::commit() {
     if(committed_)throw std::logic_error("Region was already committed");
     validate();
     auto result=view_.commit();
+    auto nextIndex=RegionTopologyIndex::advance(
+        *index_,result.revision,vertexChanges_,faceChanges_,
+        newVertices_,newFaces_);
+    updatedIndex_=std::move(nextIndex);
     committed_=true;
     return result;
 }

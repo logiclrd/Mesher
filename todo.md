@@ -56,11 +56,23 @@ an older revision while the worker edits or publishes a newer one.
   and removal operations are reserved for V6/V7. Neither full snapshot
   rebuilding nor GPU dirty-region uploading is attempted here (V8/V9).
   Local validation does not prove collision freedom or global manifoldness.
-- [ ] **V4 — Versioned local spatial/connectivity indices.**
-  Replace global-index-dependent mutable adjacency and location caches with
-  revision-consistent partition-local indices and bounded cross-partition
-  links. Update them without full-mesh reconstruction for local operations.
-  Keep picking and brush candidate queries exact against their chosen revision.
+- [x] **V4 — Versioned local spatial/connectivity indices.**
+  RegionTopologyIndex now uses structurally shared immutable persistent AVL
+  maps for stable vertex-ID lookup (including incident face links), face-ID
+  lookup, oriented edge-face incidence, and spatial buckets. Each validated
+  RegionEdit commit derives an updated index from just changed vertices/faces:
+  it adjusts touched edge/vertex incidences and old/new spatial buckets, then
+  path-copies O(log N) tree nodes per modified record. There is **no full mesh
+  pass or overlay-chain walk** per revision. Each index owns its corresponding
+  immutable MeshRevision, and IndexedMeshRepository publishes that pair with
+  one atomic root compare-and-swap. Radius queries use indexed buckets plus
+  exact geometric filtering; indexed ray picking matches the flat CPU picker
+  (still O(all faces) until V10's BVH). A full O(N log N) index build remains
+  necessary *once*, when importing an initially flat mesh. Tests compare
+  incremental changes against independent rebuilds, assert bounded update
+  work across 180 revisions, check cross-partition split/flip behavior,
+  identity sharing, exact picking/spatial results, and concurrent readers.
+  Existing sculpt/Vulkan paths remain unchanged until V5-V10.
 - [ ] **V5 — Local Inflate and per-stamp pre-edit baseline.**
   Move deformation and curvature calculations to region transactions while
   preserving current pre-stamp simultaneous normals, influence maximum,
@@ -116,9 +128,10 @@ an older revision while the worker edits or publishes a newer one.
   alteration has been separately specified and tested. No false claims of
   self-intersection guarantees or vertex-colour preservation.
 * V1 establishes storage semantics, V2 adds stable IDs and lossless
-  partition adapters, and V3 adds validated local edits. Incrementally
-  maintained indices, full remeshing integration, viewport use, and
-  durable undo remain explicit future tasks.
+  partition adapters, V3 adds validated local edits, and V4 adds persistent
+  incremental connectivity/spatial indices. Brush/remeshing integration,
+  dirty Vulkan rendering, accelerated triangle picking, and durable undo
+  remain explicit future tasks.
 
 ## Other remaining design goals
 
