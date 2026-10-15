@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         std::cout<<" "<<mesh.triangles.size()<<" triangles; watertight manifold verified.\n";
         if (inflate) {
             const auto count=mesher::inflateHalfCircleDemo(mesh,step,strength,segments);
-            std::cout<<"Inflate demo: "<<count<<" stamps, radius 0.1, hardness 0.3.\n";
+            std::cout<<"Inflate demo: "<<count<<" stamps, radius 0.4, hardness 0.3.\n";
         }
         mesher::runViewport(mesh);
     }catch(const std::exception& e) {

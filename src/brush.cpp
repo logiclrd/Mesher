@@ -178,7 +178,7 @@ std::size_t inflateHalfCircleDemo(Mesh& mesh, double step, double strength,
     InflateBrush brush(strength);
     BrushStroke stroke(mesh, brush, step);
     const auto first = point(0);
-    stroke.start({{first, 0.1, 0.3}, {{-first.x, first.y, first.z}, 0.1, 0.3}});
+    stroke.start({{first, 0.4, 0.3}, {{-first.x, first.y, first.z}, 0.4, 0.3}});
     for (std::uint32_t i = 1; i < segments; ++i) {
         auto p = point(i);
         const Vec3 pair[] = {p, {-p.x,p.y,p.z}};
