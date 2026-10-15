@@ -36,6 +36,7 @@ public:
 private:
     std::atomic<std::uint64_t> nextVertex_{1};
     std::atomic<std::uint64_t> nextFace_{1};
+    std::atomic<std::uint64_t> nextOverflow_{1};
 };
 
 struct MeshDirectoryNode {
