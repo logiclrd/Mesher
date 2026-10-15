@@ -25,12 +25,18 @@ an older revision while the worker edits or publishes a newer one.
   immutability, branching, deletion, no-op commits, commit copy counts,
   and concurrent readers. This is intentionally **not yet wired to sculpt**.
   Mutable partition references must not escape their owning transaction.
-- [ ] **V2 — Partition construction and stable element identities.**
-  Define allocation and non-reuse rules for stable vertex/face IDs, partition
-  ownership and cross-partition face references; convert existing flat Mesh
-  into partitioned representation and back losslessly for regression tests.
-  Preserve orientation, exact geometry, symmetric seam sharing, and index
-  independence. No changes to live rendering or sculpting required.
+- [x] **V2 — Partition construction and stable element identities.**
+  Added partitionFlatMesh, reconstructFlatMesh and validatePartitionedMesh.
+  Monotonically allocated nonzero vertex/face IDs belong to a shared identity
+  domain; branches, abandoned transactions and deletions never reuse IDs.
+  Deterministic spatial Morton grouping builds bounded partitions (default
+  at most 256 vertices AND 256 faces each). Faces reference vertex IDs across
+  partitions. FlatMeshIndex retains original ordering only for lossless
+  compatibility export; vertex bit patterns, faces, winding, and shared
+  symmetric seam identities are regression-tested.
+  Import/export full traversals are explicitly outside the commit path.
+  Fast ID lookup, transactional topology changes, production rendering and
+  exporting newly inserted/deleted topology remain future tasks (V3/V4/V8).
 - [ ] **V3 — Region edit transactions and boundary integrity.**
   Implement read/write-set discovery for a local region and its topological
   halo; allocate writable copies of every affected partition before mutation.
@@ -96,9 +102,10 @@ an older revision while the worker edits or publishes a newer one.
 * All changes preserve the current results unless a geometric algorithm
   alteration has been separately specified and tested. No false claims of
   self-intersection guarantees or vertex-colour preservation.
-* V1 establishes **storage semantics only**, not stable ID allocation,
-  topology invariants, production remeshing, viewport integration, or
-  durable undo. Those remain explicit tasks.
+* V1 establishes storage semantics; V2 adds stable ID allocation and a
+  one-time flat/partitioned adapter. Validated topology transactions,
+  indexed element lookup, production remeshing, viewport integration, and
+  durable undo remain explicit future tasks.
 
 ## Other remaining design goals
 
