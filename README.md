@@ -221,3 +221,46 @@ conservative constraints preserve closed, oriented mesh connectivity but do
 not detect geometric self-intersections or forbid already existing folds.
 The observations support investigating compression-triggered refinement and
 collapse before adding curvature-aware movement or collision constraints.
+
+
+## Independent curvature-correction experiment
+
+`--curvature-correction` enables a separate local correction to Inflate's
+normal-based displacement; `--curvature-strength GAIN` enables it and selects
+a nonnegative gain (default **1.0**). It can be used alone or together with
+`--collapse`. Without either flag the original Inflate behaviour is unchanged.
+
+For each active vertex, compute the standard cotangent-weighted
+Laplace-Beltrami vector `L` from the **pre-stamp** triangles, and the current
+averaged outward normal `n`. The signed normal curvature proxy is
+`k = dot(L, n)`, which is negative on a convex sphere and positive in a
+concave valley. With `h` the vertex's mean incident edge length, use
+
+```text
+multiplier = clamp(1 + GAIN * h * k, 0.10, 3.0)
+displacement = normal * normalInflateStrength * influence * multiplier
+```
+
+This is a small, explicit, **normal-only** curvature-flow correction to
+the existing Inflate law. The multiplier is bounded to avoid extreme
+velocities when triangles become very thin; cotangent weights are also
+clamped. It is not a full mean-curvature-flow solver, no tangential smoothing
+is performed, and no guarantee against foldovers is claimed. Like the
+existing brush, the correction is evaluated from the mesh at each stamp,
+so it remains compatible with topology changes from the optional collapser.
+
+For a four-way, same-path comparison, run:
+
+```sh
+./build/Mesher --compare-mitigations > fourway.csv
+./build/Mesher --compare-mitigations --curvature-strength 2.0 > stronger.csv
+```
+
+The CSV includes **baseline**, **curvature only**, **collapse only**, and
+**both**, with one measurement row per stamp for each. The ordinary two-way
+`--compare-remesh` remains available. CI runs the four-way experiment
+at gains 0.5, 1.0 and 2.0 and uploads the comparison CSV files as artifacts.
+
+In the viewport, try `./build/Mesher --curvature-correction` or
+`./build/Mesher --collapse --curvature-correction` for direct visual
+comparison at 10 stamps/s. Use Space/Right/R to pause, single-step and replay.

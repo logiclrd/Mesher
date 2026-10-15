@@ -44,9 +44,12 @@ double brushInfluence(Vec3 point, std::span<const BrushArea> areas) {
     return result;
 }
 
-InflateBrush::InflateBrush(double strength) : strength_(strength) {
+InflateBrush::InflateBrush(double strength, CurvatureSettings curvature)
+    : strength_(strength), curvature_(curvature) {
     if (!std::isfinite(strength))
         throw std::invalid_argument("Inflate strength must be finite");
+    if (!std::isfinite(curvature.strength) || curvature.strength < 0)
+        throw std::invalid_argument("Curvature strength must be finite and non-negative");
 }
 
 void InflateBrush::begin(Mesh& mesh) {
@@ -70,6 +73,38 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
     // intense deformation. This is intentional in the diagnostic demo.
     struct Movement { std::size_t index; Vec3 offset; };
     std::vector<Movement> movements;
+
+    // Cotangent Laplace-Beltrami: Δx = (Σ (cot α + cot β)(xj-xi)) / 2Ai.
+    // Its projection on the outward normal is negative on convex geometry
+    // and positive at concave troughs. Use it only when explicitly requested.
+    // One-ring edge length provides a local length scale to make the gain
+    // dimensionless; clamp the response near degenerate triangle geometry.
+    std::vector<Vec3> cotangentSum;
+    std::vector<double> vertexAreas, edgeLengthSum;
+    std::vector<std::uint32_t> edgeCount;
+    if (curvature_.enabled && curvature_.strength > 0) {
+        const auto n=mesh.vertices.size();
+        cotangentSum.assign(n,{});
+        vertexAreas.assign(n,0.0);
+        edgeLengthSum.assign(n,0.0);
+        edgeCount.assign(n,0);
+        for (const auto t:mesh.triangles) {
+            const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
+            const double twiceArea=length(cross(b-a,c-a));
+            if (twiceArea < 1e-14) continue;
+            const double cotA=std::clamp(dot(b-a,c-a)/twiceArea,-20.0,20.0);
+            const double cotB=std::clamp(dot(a-b,c-b)/twiceArea,-20.0,20.0);
+            const double cotC=std::clamp(dot(a-c,b-c)/twiceArea,-20.0,20.0);
+            cotangentSum[t.a]=cotangentSum[t.a]+(b-a)*cotC+(c-a)*cotB;
+            cotangentSum[t.b]=cotangentSum[t.b]+(a-b)*cotC+(c-b)*cotA;
+            cotangentSum[t.c]=cotangentSum[t.c]+(a-c)*cotB+(b-c)*cotA;
+            const double areaShare=twiceArea/6.0;
+            for(auto i:{t.a,t.b,t.c})vertexAreas[i]+=areaShare;
+            const double ab=length(b-a),bc=length(c-b),ca=length(a-c);
+            edgeLengthSum[t.a]+=ab+ca;edgeLengthSum[t.b]+=ab+bc;edgeLengthSum[t.c]+=bc+ca;
+            edgeCount[t.a]+=2;edgeCount[t.b]+=2;edgeCount[t.c]+=2;
+        }
+    }
     for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
         const double influence = brushInfluence(mesh.vertices[i], areas);
         if (influence <= 0 || incidentFaces_[i].empty()) continue;
@@ -81,7 +116,17 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
             if (length(n) > 1e-20) sum = sum + normalized(n);
         }
         if (length(sum) > 1e-20) {
-            const Vec3 delta = normalized(sum) * (strength_ * influence);
+            const Vec3 direction=normalized(sum);
+            double multiplier=1.0;
+            if (!cotangentSum.empty() && vertexAreas[i]>1e-14 && edgeCount[i]>0) {
+                const Vec3 laplacian=cotangentSum[i]/(2*vertexAreas[i]);
+                const double nominalLength=edgeLengthSum[i]/edgeCount[i];
+                const double signedCurvature=dot(laplacian,direction);
+                multiplier=std::clamp(
+                    1.0+curvature_.strength*nominalLength*signedCurvature,
+                    0.10,3.0);
+            }
+            const Vec3 delta = direction * (strength_ * influence * multiplier);
             if (!finite(mesh.vertices[i] + delta))
                 throw std::overflow_error("Inflate displacement is not finite");
             movements.push_back({i, delta});
@@ -212,9 +257,10 @@ std::vector<std::vector<BrushArea>> makeDemoStamps(double step,
 InflateDemoAnimation::InflateDemoAnimation(Mesh& mesh, double step,
                                            double strength,
                                            std::uint32_t segments, double radius,
-                                           CollapseSettings collapse, bool symmetric)
+                                           CollapseSettings collapse, bool symmetric,
+                                           CurvatureSettings curvature)
     : mesh_(mesh), originalMesh_(mesh),
-      stamps_(makeDemoStamps(step, segments, radius)), brush_(strength),
+      stamps_(makeDemoStamps(step, segments, radius)), brush_(strength, curvature),
       collapser_(mesh, collapse,
                  symmetric ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
                            : std::vector<std::uint32_t>{}),

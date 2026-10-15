@@ -97,6 +97,44 @@ void testSampling() {
     stationary.finish(std::array<Vec3,1>{{{0,0,0}}});
     check(stationaryBrush.stamps.size()==1,"Don't duplicate unchanged endpoint");
 }
+void testCurvatureCorrection() {
+    // Four planar triangles forming a shallow bowl. Their shared center
+    // has negative signed mean curvature and should rise more rapidly.
+    auto fan=[](double middleZ) {
+        return Mesh{
+            {{0,0,middleZ},{1,0,0},{0,1,0},{-1,0,0},{0,-1,0}},
+            {{0,1,2},{0,2,3},{0,3,4},{0,4,1}}
+        };
+    };
+    auto stamp=[&](Mesh& mesh,CurvatureSettings settings) {
+        InflateBrush brush(.01,settings);
+        brush.begin(mesh);
+        const BrushArea centered{{0,0,mesh.vertices[0].z},.5,.3};
+        brush.stamp(mesh,std::span<const BrushArea>(&centered,1));
+        brush.end(mesh);
+    };
+    Mesh valley=fan(-.2), uncorrected=valley;
+    stamp(valley,{true,1.0});stamp(uncorrected,{});
+    check(valley.vertices[0].z > uncorrected.vertices[0].z + 1e-5,
+          "Concave valley should rise more with curvature correction");
+    Mesh dome=fan(.2), domePlain=dome;
+    stamp(dome,{true,1.0});stamp(domePlain,{});
+    check(dome.vertices[0].z < domePlain.vertices[0].z - 1e-5,
+          "Convex region should rise less with curvature correction");
+    Mesh flat=fan(0), flatPlain=flat;
+    stamp(flat,{true,1.0});stamp(flatPlain,{});
+    check(std::abs(flat.vertices[0].z-flatPlain.vertices[0].z)<1e-12,
+          "Planar mesh has zero normal curvature correction");
+    Mesh unchanged=fan(-.2), zeroGain=unchanged;
+    stamp(unchanged,{});
+    stamp(zeroGain,{true,0.0});
+    check(std::abs(unchanged.vertices[0].z-zeroGain.vertices[0].z)<1e-12,
+          "Zero curvature gain reproduces ordinary Inflate");
+    bool rejected=false;
+    try { InflateBrush invalid(.01,{true,-1.0}); }
+    catch(const std::invalid_argument&) { rejected=true; }
+    check(rejected,"Reject negative curvature gain");
+}
 void testInflate() {
     Mesh triangle{{{0,0,0},{1,0,0},{0,1,0}},{{0,1,2}}};
     InflateBrush brush(.2);
@@ -228,7 +266,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testFalloff();testSampling();testInflate();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testFalloff();testSampling();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

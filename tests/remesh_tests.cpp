@@ -79,6 +79,48 @@ void testSymmetricCollapse() {
         check(mirrors[mirrors[i]]==i,"Mirror map remains involutive");
     }
 }
+void testIndependentCurvatureAndCollapseSettings() {
+    SphereOptions options;
+    options.vertexCount=800;
+    const Mesh source=generateSphere(options);
+    CollapseSettings collapse;collapse.enabled=true;
+    CurvatureSettings curvature;curvature.enabled=true;curvature.strength=1.0;
+    auto baselineMesh=source, correctedMesh=source, collapsedMesh=source, combinedMesh=source;
+    InflateDemoAnimation baseline(baselineMesh,.02,.012,128,.4,{},true,{});
+    InflateDemoAnimation corrected(correctedMesh,.02,.012,128,.4,{},true,curvature);
+    InflateDemoAnimation collapsed(collapsedMesh,.02,.012,128,.4,collapse,true,{});
+    InflateDemoAnimation combined(combinedMesh,.02,.012,128,.4,collapse,true,curvature);
+    for(std::size_t stamp=0;stamp<baseline.total();++stamp) {
+        check(baseline.advance()&&corrected.advance()&&
+              collapsed.advance()&&combined.advance(),
+              "All four modes must process the identical stamp trajectory");
+        for(const auto* m:{&baselineMesh,&correctedMesh,&collapsedMesh,&combinedMesh})
+            check(validateClosedSphereTopology(*m),
+                  "No setting combination may break closed topology");
+    }
+    check(correctedMesh.vertices.size()==source.vertices.size() &&
+          combinedMesh.vertices.size()<=source.vertices.size(),
+          "Curvature itself must never remesh");
+    double difference=0;
+    for(std::size_t i=0;i<source.vertices.size();++i)
+        difference=std::max(difference,
+                            length(correctedMesh.vertices[i]-baselineMesh.vertices[i]));
+    check(difference>1e-4,"Curvature option must have an observable effect");
+    const auto result=combinedMesh;
+    combined.reset();
+    while(combined.advance()) {}
+    check(result.vertices.size()==combinedMesh.vertices.size() &&
+          result.triangles.size()==combinedMesh.triangles.size(),
+          "Combined mode replay must preserve topology");
+    for(std::size_t i=0;i<result.vertices.size();++i)
+        check(length(result.vertices[i]-combinedMesh.vertices[i])<1e-12,
+              "Combined mode replay must be deterministic");
+    std::cout<<"Four modes inverted at 800 vertices: "
+             <<baseline.diagnostics().invertedFaces<<", "
+             <<corrected.diagnostics().invertedFaces<<", "
+             <<collapsed.diagnostics().invertedFaces<<", "
+             <<combined.diagnostics().invertedFaces<<"\\n";
+}
 void testAnimationAndReplay() {
     SphereOptions options;
     options.vertexCount=800;
@@ -123,6 +165,7 @@ int main() {
         testTopologyAndMeasurements();
         testSymmetricCollapse();
         testAnimationAndReplay();
+        testIndependentCurvatureAndCollapseSettings();
     } catch(const std::exception& e) {
         std::cerr<<"Remesh test failed: "<<e.what()<<'\n';
         return 1;

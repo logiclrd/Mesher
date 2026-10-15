@@ -31,18 +31,28 @@ public:
     virtual void end(Mesh& mesh) { (void)mesh; }
 };
 
+// Experimental, opt-in mean-curvature correction. Positive strength couples
+// outward Inflate velocity with a curvature-flow term: convex regions inflate
+// less rapidly, while concave troughs inflate more rapidly. It is not a
+// guarantee against folds or a replacement for topology validity constraints.
+struct CurvatureSettings {
+    bool enabled = false;
+    double strength = 1.0;
+};
+
 // Strength is displacement per full-influence stamp in model units.
 // The normalized average of incident unit face normals is re-evaluated from
 // the deformed mesh BEFORE each stamp. This can fold triangles; the animation
 // demo deliberately exposes that effect rather than concealing it.
 class InflateBrush final : public Brush {
 public:
-    explicit InflateBrush(double strength);
+    explicit InflateBrush(double strength, CurvatureSettings curvature = {});
     void begin(Mesh& mesh) override;
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
 private:
     double strength_;
+    CurvatureSettings curvature_;
     std::vector<std::vector<std::uint32_t>> incidentFaces_;
 };
 
@@ -88,7 +98,8 @@ public:
     InflateDemoAnimation(Mesh& mesh, double step = 0.02,
                          double strength = 0.012, std::uint32_t segments = 128,
                          double radius = 0.4,
-                         CollapseSettings collapse = {}, bool symmetric = true);
+                         CollapseSettings collapse = {}, bool symmetric = true,
+                         CurvatureSettings curvature = {});
     ~InflateDemoAnimation();
     InflateDemoAnimation(const InflateDemoAnimation&) = delete;
     InflateDemoAnimation& operator=(const InflateDemoAnimation&) = delete;
