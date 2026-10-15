@@ -95,7 +95,7 @@ RegionEdit::RegionEdit(
      view_((index_ ? index_->revision_ : MeshRevision::empty())->createMutableView()) {
     if(!index_ || seeds.empty())
         throw std::invalid_argument("Region requires an index and at least one seed");
-    for(const auto [a,b]:mirrors) {
+    for(const auto& [a,b]:mirrors) {
         (void)index_->vertex(a);
         (void)index_->vertex(b);
         const auto [first,inserted]=mirror_.emplace(a,b);
@@ -368,7 +368,11 @@ void RegionEdit::validate() const {
                 if(edge(a,b)==key)sides.push_back({id,a==key.a});
             }
         }
-        if(sides.size()!=2 || sides[0].forward==sides[1].forward)
+        // An edge removed by a valid flip/collapse has zero remaining faces.
+        // Every surviving or newly created edge must have exactly two faces
+        // of opposing orientation.
+        if(!sides.empty() &&
+           (sides.size()!=2 || sides[0].forward==sides[1].forward))
             throw std::logic_error("Local topology would produce an invalid edge");
     }
 
