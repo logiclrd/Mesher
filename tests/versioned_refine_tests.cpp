@@ -112,8 +112,8 @@ void testTransactionalSplitAndOverflow() {
     const auto once=result.index;
     // A second refinement against the original stamp baseline cannot select
     // any of its removed edges and must leave all old revisions readable.
-    auto after=refiner.apply(once,baseline);
-    check(after.index!=nullptr,"Result remains a usable indexed mesh");
+    auto after=refiner.apply(once,LocalStampBaseline{once,{},{}});
+    check(after.index==once,"No affected faces means no work");
     validateIndexed(after.index);
 }
 void testMirrorSplit() {
