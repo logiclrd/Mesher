@@ -188,10 +188,14 @@ void testMirrorAndSeam() {
 }
 int main() {
     try {
-        testCrossPartitionEdgeFlip();
-        testRollbackAndScopedAccess();
-        testLocalTriangleSubdivision();
-        testMirrorAndSeam();
+        const auto run=[](const char* name,auto test) {
+            try {test();}
+            catch(...) {std::cerr<<"Failed scenario: "<<name<<'\\n';throw;}
+        };
+        run("cross-partition edge flip",testCrossPartitionEdgeFlip);
+        run("rollback and scoped access",testRollbackAndScopedAccess);
+        run("local subdivision",testLocalTriangleSubdivision);
+        run("mirror and seam",testMirrorAndSeam);
         std::cout<<"Region edit transaction tests passed\n";
     }catch(const std::exception& ex) {
         std::cerr<<"Region edit transaction failure: "<<ex.what()<<'\n';
