@@ -46,6 +46,9 @@ public:
     std::shared_ptr<const MeshPartition> partition(PartitionId id) const;
     std::size_t partitionCount() const noexcept { return partitionCount_; }
     MutableMeshView createMutableView() const;
+    // Fresh, branch-unique overflow partition ID for bounded local growth.
+    // Imported partitions occupy the low half of the 32-bit ID space.
+    PartitionId allocateOverflowPartition() const;
     // Explicit O(N) traversal: for import/export/validation only, not commit.
     void forEachPartition(const std::function<void(PartitionId,const MeshPartition&)>& visit) const;
 
