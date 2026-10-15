@@ -144,6 +144,9 @@ struct StampDetails {
     std::vector<BrushArea> areas;
     std::size_t influenced = 0;
     std::size_t moved = 0;
+    // Number of vertices copied for the legacy directional remesh baseline.
+    // Zero when remeshing is disabled; V6/V7 will remove this remaining copy.
+    std::size_t preStampCopiedVertices = 0;
     std::size_t splitPairs = 0;
     std::size_t flipPairs = 0;
     std::size_t collapsedPairs = 0;
@@ -177,6 +180,7 @@ private:
     LocalRefiner refiner_;
     std::size_t completed_ = 0;
     bool begun_ = false;
+    bool needsLegacyBaseline_ = false;
     StampTimings lastTimings_{};
     StampDetails lastDetails_{};
 };
