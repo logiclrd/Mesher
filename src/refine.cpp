@@ -5,9 +5,11 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <set>
 #include <stdexcept>
 #include <unordered_set>
+#include <unordered_map>
 #include <utility>
 
 namespace mesher {
@@ -44,6 +46,54 @@ std::vector<std::size_t> edgeFaces(const Mesh& mesh, Id a, Id b) {
             faces.push_back(i);
     return faces;
 }
+
+// Per-stamp local-connectivity index. The unoptimized path remains available
+// for small meshes, but on dense meshes repeated full-face searches during
+// edge-flip testing are prohibitively expensive.
+struct FlipLookup {
+    std::unordered_map<Edge,std::vector<std::size_t>> faces;
+    std::vector<int> valence;
+
+    explicit FlipLookup(const Mesh& mesh):valence(mesh.vertices.size(),0) {
+        faces.reserve(mesh.triangles.size()*2);
+        for(std::size_t i=0;i<mesh.triangles.size();++i) {
+            const auto t=mesh.triangles[i];
+            for(const auto v:{t.a,t.b,t.c})++valence[v];
+            for(const auto [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},
+                                  std::pair{t.c,t.a}})
+                faces[edgeKey(a,b)].push_back(i);
+        }
+    }
+    std::vector<std::size_t> getFaces(Id a,Id b) const {
+        const auto it=faces.find(edgeKey(a,b));
+        return it==faces.end()?std::vector<std::size_t>{}:it->second;
+    }
+    bool contains(Id a,Id b) const {return faces.contains(edgeKey(a,b));}
+    void replaceFaces(const Mesh& oldMesh,const Mesh& next,
+                      std::vector<std::size_t> changed) {
+        std::sort(changed.begin(),changed.end());
+        changed.erase(std::unique(changed.begin(),changed.end()),changed.end());
+        auto update=[&](Triangle t,std::size_t idx,bool add) {
+            for(const auto v:{t.a,t.b,t.c})valence[v]+=add?1:-1;
+            for(auto [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},
+                            std::pair{t.c,t.a}}) {
+                const Edge key=edgeKey(a,b);
+                if(add)faces[key].push_back(idx);
+                else {
+                    auto it=faces.find(key);
+                    if(it==faces.end())throw std::logic_error("Missing indexed flip edge");
+                    auto& list=it->second;
+                    const auto p=std::find(list.begin(),list.end(),idx);
+                    if(p==list.end())throw std::logic_error("Missing indexed flip face");
+                    list.erase(p);
+                    if(list.empty())faces.erase(it);
+                }
+            }
+        };
+        for(const auto idx:changed)update(oldMesh.triangles[idx],idx,false);
+        for(const auto idx:changed)update(next.triangles[idx],idx,true);
+    }
+};
 
 // Splitting the *edge* rather than a single incident face guarantees that
 // both adjacent triangles use the same midpoint; no T-junction is created.
@@ -90,14 +140,15 @@ bool hasEdge(const Mesh& mesh, Id a, Id b) {
 // An edge flip is allowed only within a nearly planar local quadrilateral;
 // this reduces accidental resampling of original scanned geometry. Refuse any
 // flip that introduces a radially inverted face in the demo sphere.
-bool flipOne(Mesh& mesh, Id edgeA, Id edgeB) {
-    const auto faces=edgeFaces(mesh,edgeA,edgeB);
+bool flipOne(Mesh& mesh, Id edgeA, Id edgeB, const FlipLookup* lookup=nullptr) {
+    const auto faces=lookup?lookup->getFaces(edgeA,edgeB):
+                            edgeFaces(mesh,edgeA,edgeB);
     if(faces.size()!=2)return false;
     DirectedEdge u{},v{};
     if(!directedEdge(mesh.triangles[faces[0]],edgeA,edgeB,u) ||
        !directedEdge(mesh.triangles[faces[1]],edgeA,edgeB,v) ||
        u.a!=v.b || u.b!=v.a ||
-       u.c==v.c || hasEdge(mesh,u.c,v.c))return false;
+       u.c==v.c || (lookup?lookup->contains(u.c,v.c):hasEdge(mesh,u.c,v.c)))return false;
     const auto oldA=mesh.triangles[faces[0]],oldB=mesh.triangles[faces[1]];
     const auto freshA=Triangle{u.c,v.c,u.b};
     const auto freshB=Triangle{v.c,u.c,u.a};
@@ -114,8 +165,10 @@ bool flipOne(Mesh& mesh, Id edgeA, Id edgeB) {
     const double qOldA=triangleQuality(mesh,oldA),qOldB=triangleQuality(mesh,oldB);
     const double qNewA=triangleQuality(mesh,freshA),qNewB=triangleQuality(mesh,freshB);
     const double minOld=std::min(qOldA,qOldB),minNew=std::min(qNewA,qNewB);
-    const int va=faceValence(mesh,u.a),vb=faceValence(mesh,u.b);
-    const int vc=faceValence(mesh,u.c),vd=faceValence(mesh,v.c);
+    const int va=lookup?lookup->valence[u.a]:faceValence(mesh,u.a);
+    const int vb=lookup?lookup->valence[u.b]:faceValence(mesh,u.b);
+    const int vc=lookup?lookup->valence[u.c]:faceValence(mesh,u.c);
+    const int vd=lookup?lookup->valence[v.c]:faceValence(mesh,v.c);
     const auto valenceCost=[](int n) {return (n-6)*(n-6);};
     const int oldCost=valenceCost(va)+valenceCost(vb)+valenceCost(vc)+valenceCost(vd);
     const int newCost=valenceCost(va-1)+valenceCost(vb-1)+
@@ -235,6 +288,8 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
                     flipCandidates.insert(edgeKey(a,b));
             }
         const bool optimized=mesh.vertices.size()>10000;
+        std::unique_ptr<FlipLookup> lookup;
+        if(optimized)lookup=std::make_unique<FlipLookup>(mesh);
         Mesh backup;
         if(optimized)backup=mesh;
         auto runFlips=[&](bool deferGlobalValidation) {
@@ -248,11 +303,20 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
                     edgeKey(mirrors_[a],mirrors_[b]);
                 if(!mirrors_.empty() && mirrored<=key)continue;
                 Mesh trial=mesh;
-                if(!flipOne(trial,a,b))continue;
+                if(!flipOne(trial,a,b,lookup.get()))continue;
                 if(mirrored!=key && !mirrors_.empty() &&
-                   !flipOne(trial,first(mirrored),second(mirrored)))continue;
+                   !flipOne(trial,first(mirrored),second(mirrored),
+                            lookup.get()))continue;
                 if(!deferGlobalValidation && !validateClosedSphereTopology(trial))
                     continue;
+                if(lookup) {
+                    auto changed=lookup->getFaces(a,b);
+                    if(mirrored!=key && !mirrors_.empty()) {
+                        auto other=lookup->getFaces(first(mirrored),second(mirrored));
+                        changed.insert(changed.end(),other.begin(),other.end());
+                    }
+                    lookup->replaceFaces(mesh,trial,std::move(changed));
+                }
                 mesh=std::move(trial);
                 ++stats.flipPairs;
             }
@@ -262,6 +326,7 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
             // A batch of individually plausible local flips can interact.
             // Fall back to the original full per-flip topology check.
             mesh=std::move(backup);
+            if(lookup)lookup=std::make_unique<FlipLookup>(mesh);
             if(!runFlips(false))
                 throw std::logic_error("Local edge flipping corrupted topology");
         }
