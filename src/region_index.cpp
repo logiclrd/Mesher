@@ -269,9 +269,8 @@ std::vector<VertexId> RegionTopologyIndex::querySphere(
         const long double x=static_cast<long double>(p.x)-center.x;
         const long double y=static_cast<long double>(p.y)-center.y;
         const long double z=static_cast<long double>(p.z)-center.z;
-        const long double d=x*x+y*y+z*z;
-        const auto r=static_cast<long double>(radius);
-        if(d<r*r)hits.push_back(id);
+        const auto d=std::hypot(x,y,z);
+        if(d<static_cast<long double>(radius))hits.push_back(id);
     };
     const auto axisLength=[](std::int64_t a,std::int64_t b)->long double {
         return static_cast<long double>(b)-static_cast<long double>(a)+1;
