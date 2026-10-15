@@ -183,6 +183,8 @@ void BrushStroke::start(std::vector<BrushArea> areas) {
     lastInputCenters_.clear();
     lastInputTime_=0;
     pendingDistance_=0;
+    inputArcLength_=0;
+    totalQueuedSteps_=0;
     inputFinished_=false;
     realtime_=false;
     timed_ = false;
@@ -286,6 +288,20 @@ void BrushStroke::queueTimedInput(std::span<const Vec3> positions,
         if(std::abs(distance-travel)>1e-9*std::max({1.0,travel,step_}))
             throw std::invalid_argument("All stroke points must travel equal distances");
     }
+    // Count every Step boundary crossed by incoming 4D input, even if the
+    // renderer has already drained part of that path. This gives verbose
+    // diagnostics a monotonic count of newly queued steps on each update.
+    // No stamps are produced or skipped by recording input.
+    if(!std::isfinite(inputArcLength_+travel))
+        throw std::overflow_error("Stroke input path is too long");
+    const double nextArcLength=inputArcLength_+travel;
+    const double steps=std::floor(
+        (nextArcLength+1e-12*std::max(1.0,nextArcLength))/step_);
+    if(!std::isfinite(steps) ||
+       steps>=double(std::numeric_limits<std::size_t>::max()/2))
+        throw std::overflow_error("Too many queued stroke steps");
+    totalQueuedSteps_=static_cast<std::size_t>(steps);
+    inputArcLength_=nextArcLength;
     realtime_=true;
     if(travel>0) {
         pending_.push_back({std::vector<Vec3>(positions.begin(),positions.end()),

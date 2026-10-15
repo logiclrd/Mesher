@@ -729,3 +729,57 @@ the interval since the previous console line. Mouse picking and Vulkan
 render-buffer updates are measured separately because they are not
 included in the headless `mesher_benchmark` CPU timings. No console
 status lines are generated during idle frames.
+
+
+## Verbose mouse input trace
+
+For detailed investigation of stroke backlog, add `--verbose-input` to
+**interactive** Mesher sessions. This is intentionally opt-in because printing
+every input event can itself perturb performance. It supplements (and does
+not replace) the 250ms `[sculpt]` throughput lines:
+
+```sh
+build/Mesher --vertices 5000 --brush-radius 0.1 --refine --collapse \
+  --curvature-correction --curvature-strength 0.25 --verbose-input \
+  2>&1 | tee sculpt.log
+```
+
+Each `[input]` event includes a **monotonically increasing viewport-relative
+`t`** in seconds, a stroke identifier and event sequence, time since
+mouse-down (`stroke_t`), framebuffer cursor coordinates, whether the ray
+hit the mesh, the resulting 3D stroke center, and radius. The following
+events are logged:
+
+- `event=down` for every detected left mouse-down, including missed
+  geometry, slider interaction, or a stroke blocked while old work drains
+- `event=move` for any input update whose accumulated 4D arc-length
+  crosses one or more new **Step** boundaries, even for a stationary mouse
+  where the time coordinate alone progresses
+- `event=up` for every detected left mouse-up, reporting the final path
+  point and any newly queued steps
+- `event=drained` after the released stroke has been fully processed,
+  including `drain_delay_s` since release
+
+The log distinguishes `new_steps` produced by this input event and
+`input_steps_total` since stroke start from `pending_before` /
+`pending_after`, `segments_before` / `segments_after`, and
+`rendered_stamps`. `input_steps_total` counts accepted Step boundaries
+**without regard to whether the render thread has already caught up**;
+the queue may decrease during frame pumping but the counter does not.
+All mouse movement between sampled points is preserved by the existing
+exact 4D segment queue, with no missing intermediate stamps.
+
+The ordinary `[sculpt]` timestamp now uses a **single, non-resetting
+viewport start time**, not the HUD's periodically reset FPS clock. The
+250ms FPS / throughput window starts when a stroke starts, rather than
+including the seconds spent idle before the first mouse-down. Periodic
+lines also contain `input_steps_total`. In this design, a fast gesture
+can legitimately queue many Steps and the queue renders **at most one
+stamp per frame**; high rendering FPS and a large backlog are therefore
+compatible. The verbose trace shows whether the backlog was produced
+during input or is already being paid down after release.
+
+GLFW mouse state and position are currently **polled once per render
+loop**, not captured for each OS-delivered mouse motion event. These
+logs show precisely what input the stroke engine received at that
+polling frequency, not a higher-frequency hardware mouse trace.

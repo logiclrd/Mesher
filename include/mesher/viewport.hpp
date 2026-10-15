@@ -30,6 +30,9 @@ struct ViewportInteraction {
     std::function<bool()> canBegin;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;
+    std::function<std::size_t()> totalQueuedSteps;
+    // Opt-in event trace for precise mouse-input and queueing diagnostics.
+    bool verboseInput = false;
     std::function<std::string()> caption;
     std::function<std::size_t()> completedStamps;
     // Formatter invoked only when a 250ms diagnostic interval is due.

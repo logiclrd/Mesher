@@ -17,7 +17,7 @@
 
 int main(int argc, char** argv) {
     mesher::SphereOptions options;
-    bool inflate = true, demoMode = false;
+    bool inflate = true, demoMode = false, verboseInput = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
     mesher::CollapseSettings collapseSettings;
@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
             else if(arg=="--curvature-correction") curvatureSettings.enabled=true;
             else if(arg=="--no-inflate") inflate=false;
             else if(arg=="--demo") demoMode=true;
+            else if(arg=="--verbose-input") verboseInput=true;
             else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength" || arg=="--maximum-edge-ratio" || arg=="--time-speed") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
@@ -117,6 +118,7 @@ int main(int argc, char** argv) {
                          <<"       [--refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
                          <<"       [--max-split-pairs N] [--max-flip-pairs N]\\n"
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\\n"
+                         <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -245,6 +247,7 @@ int main(int argc, char** argv) {
                          <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
+            interaction.verboseInput=verboseInput;
             interaction.setRadius=[&, brushRange](double radius) {
                 brushRadius=brushRange.clamp(radius);
                 if(liveStroke && liveStroke->active())
@@ -287,6 +290,7 @@ int main(int argc, char** argv) {
             interaction.skippedStamps=[&]{return liveStroke->skippedStamps();};
             interaction.pendingSamples=[&]{return liveStroke->pendingSamples();};
             interaction.pendingSegments=[&]{return liveStroke->pendingSegments();};
+            interaction.totalQueuedSteps=[&]{return liveStroke->totalQueuedSteps();};
             interaction.canBegin=[&]{return !liveStroke->active();};
             interaction.pump=[&]{return liveStroke->pumpTimedRealtime();};
             interaction.lastStampDetails=[&] {
@@ -324,6 +328,9 @@ int main(int argc, char** argv) {
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
+            if(verboseInput)
+                std::cout<<"Verbose interactive input logging enabled: [input] "
+                         <<"down, up, moves that queue Steps, and queue drain.\n";
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; time speed "
                      <<timeSpeed<<" units/sec; step "<<step
                      <<(options.symmetric?"; mirrored.\n":"; single brush.\n");

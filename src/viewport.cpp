@@ -326,8 +326,10 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
-    double lastConsoleTime_=0;
+    double lastConsoleTime_=0, viewportStartTime_=0, mouseReleaseTime_=0;
     std::uint64_t logFrames_=0, logStamps_=0;
+    std::uint64_t strokeSerial_=0, inputEventSerial_=0;
+    bool waitingForDrain_=false;
     Vec3 lastCursorHit_{};
     double mouseStartTime_=0;
     bool paused_ = false, complete_ = false;
@@ -562,10 +564,12 @@ class VulkanViewport {
         if(elapsed<0.25 || logStamps_==0)return;
         std::ostringstream os;
         os<<std::fixed<<std::setprecision(3)
-          <<"[sculpt] t="<<(now-statsBegin_)
+          <<"[sculpt] t="<<(now-viewportStartTime_)
           <<" s interval="<<elapsed
           <<" s FPS="<<double(logFrames_)/elapsed
           <<" stamps_per_sec="<<double(logStamps_)/elapsed
+          <<" input_steps_total="<<(interaction_.totalQueuedSteps
+                                    ? interaction_.totalQueuedSteps():0)
           <<" stamps_total="<<(interaction_.completedStamps
                                      ? interaction_.completedStamps():0)
           <<" pending_steps="<<(interaction_.pendingSamples
@@ -580,6 +584,54 @@ class VulkanViewport {
         std::cout<<os.str()<<'\n'<<std::flush;
         lastConsoleTime_=now;
         logFrames_=logStamps_=0;
+    }
+
+    void logInputEvent(const char* event, const char* result,
+                       double strokeTime, bool picked,
+                       std::size_t newSteps=0,
+                       std::size_t pendingBefore=0,
+                       std::size_t segmentsBefore=0) {
+        if(!interaction_.verboseInput)return;
+        double mouseX=0,mouseY=0;
+        glfwGetCursorPos(window,&mouseX,&mouseY);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww>0&&wh>0) {
+            mouseX*=double(fw)/ww;
+            mouseY*=double(fh)/wh;
+        }
+        const double now=glfwGetTime();
+        std::ostringstream os;
+        os<<std::fixed<<std::setprecision(4)
+          <<"[input] event="<<event
+          <<" seq="<<++inputEventSerial_
+          <<" stroke="<<strokeSerial_
+          <<" t="<<(now-viewportStartTime_)
+          <<" stroke_t="<<strokeTime
+          <<" result="<<result
+          <<" mouse_px=("<<mouseX<<","<<mouseY<<")"
+          <<" hit="<<(picked?1:0);
+        if(sculpting_ || waitingForDrain_) {
+            os<<" center=("<<lastCursorHit_.x<<","
+                              <<lastCursorHit_.y<<","
+                              <<lastCursorHit_.z<<")";
+        }
+        os<<" new_steps="<<newSteps
+          <<" input_steps_total="<<(interaction_.totalQueuedSteps
+                                        ? interaction_.totalQueuedSteps():0)
+          <<" pending_before="<<pendingBefore
+          <<" pending_after="<<(interaction_.pendingSamples
+                                    ? interaction_.pendingSamples():0)
+          <<" segments_before="<<segmentsBefore
+          <<" segments_after="<<(interaction_.pendingSegments
+                                     ? interaction_.pendingSegments():0)
+          <<" rendered_stamps="<<(interaction_.completedStamps
+                                      ? interaction_.completedStamps():0)
+          <<" radius="<<interaction_.radius;
+        if(std::strcmp(event,"drained")==0)
+            os<<" drain_delay_s="<<(now-mouseReleaseTime_);
+        std::cout<<os.str()<<'\n'<<std::flush;
     }
 
     void updateMouseSculpt() {
@@ -613,6 +665,8 @@ class VulkanViewport {
             }
         }
         if(radiusDragging_) {
+            if(down&&!mouseWasDown_)logInputEvent("down","slider",0,false);
+            if(!down&&mouseWasDown_)logInputEvent("up","slider",0,false);
             if(!down)radiusDragging_=false;
             mouseWasDown_=down;
             return;
@@ -623,6 +677,8 @@ class VulkanViewport {
             const auto picked=pickCursor();
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             if(picked) {
+                ++strokeSerial_;
+                waitingForDrain_=false;
                 sculpting_=true;
                 lastCursorHit_=*picked;
                 mouseStartTime_=glfwGetTime();
@@ -631,29 +687,65 @@ class VulkanViewport {
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 ++stampsThisInterval_; // Initial stamp on mouse down
                 stampedThisFrame_=true;
+                lastConsoleTime_=glfwGetTime();
+                logFrames_=0;
+                logStamps_=0;
                 refreshMesh();
                 updateTitle();
                 reportAfterStamp(1);
+                logInputEvent("down","started",0,true);
+            } else {
+                logInputEvent("down","miss",0,false);
             }
+        } else if(down&&!mouseWasDown_) {
+            logInputEvent("down","busy",0,false);
         } else if(down&&sculpting_) {
             // Raycast AGAINST the mesh modified on the previous tick.
             const double pickStart=glfwGetTime();
-            if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            const auto picked=pickCursor();
+            if(picked)lastCursorHit_=*picked;
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
+            const auto stepsBefore=interaction_.totalQueuedSteps
+                ? interaction_.totalQueuedSteps():0;
+            const auto pendingBefore=interaction_.pendingSamples
+                ? interaction_.pendingSamples():0;
+            const auto segmentsBefore=interaction_.pendingSegments
+                ? interaction_.pendingSegments():0;
             // Store the exact 4D input segment without stamping here.
             // The frame loop consumes at most one queued Step after polling.
             interaction_.update(lastCursorHit_,elapsed);
+            const auto stepsAfter=interaction_.totalQueuedSteps
+                ? interaction_.totalQueuedSteps():stepsBefore;
+            if(stepsAfter>stepsBefore)
+                logInputEvent("move",picked?"hit":"held_center",elapsed,
+                              bool(picked),stepsAfter-stepsBefore,
+                              pendingBefore,segmentsBefore);
         } else if(!down&&mouseWasDown_&&sculpting_) {
             const double pickStart=glfwGetTime();
-            if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            const auto picked=pickCursor();
+            if(picked)lastCursorHit_=*picked;
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
+            const auto stepsBefore=interaction_.totalQueuedSteps
+                ? interaction_.totalQueuedSteps():0;
+            const auto pendingBefore=interaction_.pendingSamples
+                ? interaction_.pendingSamples():0;
+            const auto segmentsBefore=interaction_.pendingSegments
+                ? interaction_.pendingSegments():0;
             // Mouse-up closes the input path; older queued steps still
             // need to be drawn, including after the mouse is released.
             interaction_.end(lastCursorHit_,elapsed);
+            mouseReleaseTime_=glfwGetTime();
+            waitingForDrain_=true;
+            const auto stepsAfter=interaction_.totalQueuedSteps
+                ? interaction_.totalQueuedSteps():stepsBefore;
+            logInputEvent("up","queued",elapsed,bool(picked),
+                          stepsAfter-stepsBefore,pendingBefore,segmentsBefore);
             sculpting_=false;
             updateTitle();
+        } else if(!down&&mouseWasDown_) {
+            logInputEvent("up","ignored",0,false);
         }
         mouseWasDown_=down;
     }
@@ -662,12 +754,19 @@ class VulkanViewport {
         if(!interaction_.pump || stampedThisFrame_)return;
         const double started=glfwGetTime();
         const bool stamped=interaction_.pump();
-        if(!stamped)return;
-        lastStampCallbackMs_=(glfwGetTime()-started)*1000.0;
-        ++stampsThisInterval_;
-        refreshMesh();
-        updateTitle();
-        reportAfterStamp(1);
+        if(stamped) {
+            lastStampCallbackMs_=(glfwGetTime()-started)*1000.0;
+            ++stampsThisInterval_;
+            refreshMesh();
+            updateTitle();
+            reportAfterStamp(1);
+        }
+        if(waitingForDrain_ && interaction_.canBegin && interaction_.canBegin()) {
+            logInputEvent("drained","finished",
+                          mouseReleaseTime_-mouseStartTime_,false);
+            waitingForDrain_=false;
+            updateTitle();
+        }
     }
 
     void sampleFrameRates() {
@@ -1109,6 +1208,7 @@ public:
         refreshHud();
         statsBegin_=glfwGetTime();
         lastConsoleTime_=statsBegin_;
+        viewportStartTime_=statsBegin_;
         nextStampTime_ = glfwGetTime() + (animation_.advance
             ? 1.0 / animation_.stampsPerSecond : 0.0);
         updateTitle();

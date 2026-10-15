@@ -100,6 +100,9 @@ public:
     bool pumpTimedRealtime();
     std::size_t pendingSegments() const noexcept { return pending_.size(); }
     std::size_t pendingSamples() const noexcept;
+    // Monotonic number of Step boundaries accepted from mouse input.
+    // Unlike pendingSamples(), this does not decrease while stamps render.
+    std::size_t totalQueuedSteps() const noexcept { return totalQueuedSteps_; }
     // Changes the influence radius for subsequent stamps in an active stroke.
     // Does not reset 4D travel phase, so slider drags never create a stamp.
     void setRadius(double radius);
@@ -129,6 +132,8 @@ private:
     std::vector<Vec3> lastInputCenters_;
     double lastInputTime_ = 0;
     double pendingDistance_ = 0;
+    double inputArcLength_ = 0;
+    std::size_t totalQueuedSteps_ = 0;
     bool inputFinished_ = false;
     bool realtime_ = false;
     std::vector<BrushArea> areas_;

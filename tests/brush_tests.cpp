@@ -193,6 +193,59 @@ void testFourDimensionalStroke() {
     }catch(const std::invalid_argument&){invalid=true;}
     check(invalid,"Time speed must be positive");
 }
+void testQueuedInputStepTelemetry() {
+    Mesh dummy;
+    RecordingBrush brush;
+    BrushStroke stroke(dummy,brush,.1);
+    stroke.startTimed({{{0,0,0},1,.3}},.2);
+    check(stroke.totalQueuedSteps()==0,"Initial stamp is not queued input");
+    const std::array<Vec3,1> a{{{.02,0,0}}},
+                             b{{{.06,0,0}}},
+                             c{{{.16,0,0}}};
+    stroke.updateTimedRealtime(a,.1);
+    check(stroke.totalQueuedSteps()==0 &&
+          stroke.pendingSegments()==1,
+          "A sub-Step input must be queued without declaring a new Step");
+    stroke.updateTimedRealtime(b,.2);
+    check(stroke.totalQueuedSteps()==0,
+          "Partial Step length is accumulated across inputs");
+    stroke.updateTimedRealtime(c,.5);
+    // hypot(.02,.02)+hypot(.04,.02)+hypot(.10,.06) > .1 and < .2
+    check(stroke.totalQueuedSteps()==1 && brush.stamps.size()==1,
+          "Exactly one Step is scheduled without stamping the mesh");
+    check(stroke.pumpTimedRealtime(),"One queued Step renders");
+    check(stroke.totalQueuedSteps()==1,
+          "Rendering must not decrease total accepted input Steps");
+    const std::array<Vec3,1> d{{{.22,0,0}}};
+    stroke.updateTimedRealtime(d,.7);
+    check(stroke.totalQueuedSteps()==2,
+          "A later mouse movement reports only newly scheduled Steps");
+    const auto scheduled=stroke.totalQueuedSteps();
+    stroke.finishTimedRealtime(d,.7);
+    check(stroke.totalQueuedSteps()==scheduled,
+          "Mouse release at the same position adds no spurious Step");
+    for(std::size_t i=0;stroke.active()&&i<20;++i)
+        (void)stroke.pumpTimedRealtime();
+    check(!stroke.active()&&brush.ends==1,
+          "Queued input must finish after rendering all scheduled Steps");
+    check(stroke.totalQueuedSteps()==scheduled,
+          "Total accepted Step count remains readable after draining");
+
+    RecordingBrush held;
+    BrushStroke idle(dummy,held,.1);
+    idle.startTimed({{{0,0,0},1,.3}},.2);
+    const std::array<Vec3,1> still{{{0,0,0}}};
+    idle.updateTimedRealtime(still,.49);
+    check(idle.totalQueuedSteps()==0,
+          "Elapsed time just below Step does not count");
+    idle.updateTimedRealtime(still,.5);
+    check(idle.totalQueuedSteps()==1,
+          "Stationary time crossing Step is reported as queued input");
+    idle.finishTimedRealtime(still,.5);
+    check(idle.pumpTimedRealtime(),"Stationary queued Step renders");
+    check(!idle.pumpTimedRealtime() && !idle.active(),
+          "Stationary release drains without duplicate stamp");
+}
 void testRealtimeSamplingBound() {
     Mesh dummy;
     RecordingBrush exactBrush,liveBrush;
@@ -457,7 +510,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }
