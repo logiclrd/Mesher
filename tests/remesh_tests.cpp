@@ -43,7 +43,7 @@ void testSymmetricCollapse() {
     bool found=false;
     std::unordered_set<std::uint64_t> visited;
     for(const auto t:mesh.triangles) {
-        for(const auto pair:{std::pair{t.a,t.b},std::pair{t.b,t.c},
+        for(const auto& pair:{std::pair{t.a,t.b},std::pair{t.b,t.c},
                              std::pair{t.c,t.a}}) {
             auto a=pair.first,b=pair.second;
             if(a>=mirrors[a] || b>=mirrors[b]) continue; // positive side only
