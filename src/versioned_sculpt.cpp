@@ -129,6 +129,9 @@ void VersionedSculptBrush::stamp(
     const auto inflated=inflate_.stamp(old,areas,partitionCapacity_);
     const auto afterInflate=Clock::now();
     const auto refined=refiner_.apply(inflated.index,inflated.baseline);
+    // Collapse must see V6's newly inserted stable mirror IDs immediately.
+    for(const auto& pair:refined.insertedMirrorPairs)
+        collapser_.addMirrorPair(pair.first,pair.second);
     const auto afterRefine=Clock::now();
     const auto collapsed=collapser_.apply(refined.index,inflated.baseline);
     const auto afterCollapse=Clock::now();
