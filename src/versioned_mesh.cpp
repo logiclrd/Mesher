@@ -113,6 +113,9 @@ std::shared_ptr<const MeshPartition> MeshRevision::partition(PartitionId id) con
 MutableMeshView MeshRevision::createMutableView() const {
     return MutableMeshView(*this);
 }
+PartitionId MeshRevision::allocateOverflowPartition() const {
+    return identities_->overflowPartition();
+}
 void MeshRevision::forEachPartition(
     const std::function<void(PartitionId,const MeshPartition&)>& visit) const {
     visitPartition(root_,0,0,visit);
