@@ -238,8 +238,9 @@ VersionedCollapseResult VersionedDirectionalCollapser::apply(
     // New faces inserted by V6 have no old position, so only consider edges
     // whose *both* endpoints predate the stamp's immutable baseline.
     for(const auto face:baseline.affectedFaces) {
-        if(!result.index->maybeVertex(result.index->face(face).vertices[0]))
-            continue;
+        // The same baseline might have passed through an earlier local edit.
+        // An erased face is a valid tombstone, not a candidate.
+        if(result.index->retiredFace(face))continue;
         const auto t=result.index->face(face).vertices;
         for(unsigned i=0;i<3;++i) {
             const auto e=edge(t[i],t[(i+1)%3]);
