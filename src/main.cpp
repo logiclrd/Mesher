@@ -237,6 +237,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
         std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
+        mesher::ViewportFlattenStatistics flattenStats{};
         if(inflate && !demoMode) {
             const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
             const double requestedBrushRadius=brushRadius;
@@ -245,8 +246,8 @@ int main(int argc, char** argv) {
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
                          <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
-            // The worker owns its own mutable mesh. The viewport keeps a
-            // separate, immutable-between-snapshots mesh for picking/drawing.
+            // The worker publishes immutable geometry/index pairs. V8's
+            // measured viewport adapter retains legacy whole-mesh rendering.
             liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                 mesh,step,strength,timeSpeed,curvatureSettings,
                 collapseSettings,refineSettings,options.symmetric);
@@ -269,8 +270,10 @@ int main(int argc, char** argv) {
             interaction.takeSnapshot=[&]() -> std::optional<mesher::ViewportMeshUpdate> {
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
+                auto flat=mesher::flattenRevisionForViewport(
+                    *snapshot->index,*snapshot->originalOrder,&flattenStats);
                 return mesher::ViewportMeshUpdate{
-                    std::move(snapshot->mesh),snapshot->completedStamps};
+                    std::move(flat),snapshot->completedStamps};
             };
             interaction.completedStamps=[&]{return liveWorker->status().completedStamps;};
             interaction.skippedStamps=[]{return std::size_t{0};};
@@ -304,7 +307,12 @@ int main(int argc, char** argv) {
                   <<" collapse_ms="<<times.collapseSeconds*1000
                   <<" adjacency_rebuild_ms="<<times.rebuildSeconds*1000
                   <<" worker_stamp_ms="<<status.lastWorkerStampMs
-                  <<" pending_input_commands="<<status.inputCommands;
+                  <<" pending_input_commands="<<status.inputCommands
+                   <<" published_revisions="<<status.publishedRevisions
+                   <<" modified_partitions="<<status.modifiedPartitions
+                   <<" copied_directory_nodes="<<status.copiedDirectoryNodes
+                   <<" viewport_flatten_ms="<<flattenStats.milliseconds
+                   <<" viewport_flatten_bytes="<<flattenStats.bytes;
                 return os.str();
             };
             interaction.stationaryStampsPerSecond=timeSpeed/step;
@@ -321,7 +329,7 @@ int main(int argc, char** argv) {
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
-                     <<"rendering coalesces completed mesh snapshots.\n";
+                     <<"viewport converts only consumed immutable revisions until V9.\n";
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";
