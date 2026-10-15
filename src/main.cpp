@@ -1,4 +1,5 @@
 #include "mesher/brush.hpp"
+#include "mesher/brush_radius.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
 
@@ -11,6 +12,7 @@
 #include <string_view>
 #include <memory>
 #include <iomanip>
+#include <sstream>
 #include <stdexcept>
 
 int main(int argc, char** argv) {
@@ -234,6 +236,20 @@ int main(int argc, char** argv) {
         std::unique_ptr<mesher::AdaptiveInflateBrush> liveBrush;
         std::unique_ptr<mesher::BrushStroke> liveStroke;
         if(inflate && !demoMode) {
+            const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
+            const double requestedBrushRadius=brushRadius;
+            brushRadius=brushRange.clamp(brushRadius);
+            if(brushRadius!=requestedBrushRadius)
+                std::cout<<"Interactive brush radius clamped from "
+                         <<requestedBrushRadius<<" to "<<brushRadius
+                         <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
+            interaction.radiusRange=brushRange;
+            interaction.radius=brushRadius;
+            interaction.setRadius=[&, brushRange](double radius) {
+                brushRadius=brushRange.clamp(radius);
+                if(liveStroke && liveStroke->active())
+                    liveStroke->setRadius(brushRadius);
+            };
             liveBrush=std::make_unique<mesher::AdaptiveInflateBrush>(
                 mesh,strength,curvatureSettings,collapseSettings,refineSettings,
                 options.symmetric);
@@ -268,12 +284,41 @@ int main(int argc, char** argv) {
                 }
             };
             interaction.completedStamps=[&]{return liveBrush->completedStamps();};
+            interaction.skippedStamps=[&]{return liveStroke->skippedStamps();};
+            interaction.lastStampDetails=[&] {
+                const auto& d=liveBrush->lastDetails();
+                const auto times=liveBrush->lastTimings();
+                std::ostringstream os;
+                os<<std::fixed<<std::setprecision(4)
+                  <<"radius="<<(d.areas.empty()?brushRadius:d.areas.front().radius)
+                  <<" brush_centers=[";
+                for(std::size_t i=0;i<d.areas.size();++i) {
+                    if(i)os<<";";
+                    const auto p=d.areas[i].center;
+                    os<<"("<<p.x<<","<<p.y<<","<<p.z<<")";
+                }
+                os<<"] influenced_vertices="<<d.influenced
+                  <<" moved_vertices="<<d.moved
+                  <<" splits="<<d.splitPairs
+                  <<" flips="<<d.flipPairs
+                  <<" collapses="<<d.collapsedPairs
+                  <<" vertices="<<d.vertices
+                  <<" triangles="<<d.triangles
+                  <<" inflate_ms="<<times.inflateSeconds*1000
+                  <<" refine_ms="<<times.refineSeconds*1000
+                  <<" collapse_ms="<<times.collapseSeconds*1000
+                  <<" adjacency_rebuild_ms="<<times.rebuildSeconds*1000;
+                return os.str();
+            };
             interaction.stationaryStampsPerSecond=timeSpeed/step;
             interaction.caption=[&] {
                 return "Mouse Inflate | vertices "+std::to_string(mesh.vertices.size())+
                        " | stamps "+std::to_string(liveBrush->completedStamps())+
                        (options.symmetric?" | mirrored":" | asymmetric");
             };
+            std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "
+                     <<"in lower-left (min "<<brushRange.minimum<<", max "
+                     <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; time speed "
                      <<timeSpeed<<" units/sec; step "<<step
                      <<(options.symmetric?"; mirrored.\n":"; single brush.\n");

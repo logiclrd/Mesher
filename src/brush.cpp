@@ -67,6 +67,7 @@ void InflateBrush::begin(Mesh& mesh) {
     spatial_.rebuild(mesh.vertices);
     movedVertices_.clear();
     affectedFaces_.clear();
+    candidateCount_=0;
 }
 
 void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
@@ -87,6 +88,7 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
     std::sort(candidates.begin(),candidates.end());
     candidates.erase(std::unique(candidates.begin(),candidates.end()),
                      candidates.end());
+    candidateCount_=candidates.size();
 
     struct Movement { std::uint32_t index; Vec3 offset; };
     std::vector<Movement> movements;
@@ -190,6 +192,13 @@ void BrushStroke::stamp() {
     for (const auto& a : areas_) lastStamped_.push_back(a.center);
     lastStampTime_ = currentTime_;
     ++stamps_;
+}
+
+void BrushStroke::setRadius(double radius) {
+    if(!active_)return;
+    if(!std::isfinite(radius) || radius<=0)
+        throw std::invalid_argument("Brush radius must be finite and positive");
+    for(auto& area:areas_)area.radius=radius;
 }
 
 void BrushStroke::startTimed(std::vector<BrushArea> areas, double timeSpeed) {
@@ -359,6 +368,8 @@ void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     const auto collapsed=collapser_.apply(mesh,before);
     if(collapsed.accepted)refiner_.setMirrors(collapser_.mirrors());
     auto afterCollapse=Clock::now();
+    const auto candidateCount=inflate_.candidateCount();
+    const auto movedCount=inflate_.movedVertices().size();
     if(refined.splitPairs || refined.flipPairs || collapsed.accepted) {
         inflate_.end(mesh);
         inflate_.begin(mesh);
@@ -369,6 +380,14 @@ void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     };
     lastTimings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
                   seconds(afterRefine,afterCollapse),seconds(afterCollapse,finished)};
+    lastDetails_.areas.assign(areas.begin(),areas.end());
+    lastDetails_.influenced=candidateCount;
+    lastDetails_.moved=movedCount;
+    lastDetails_.splitPairs=refined.splitPairs;
+    lastDetails_.flipPairs=refined.flipPairs;
+    lastDetails_.collapsedPairs=collapsed.accepted;
+    lastDetails_.vertices=mesh.vertices.size();
+    lastDetails_.triangles=mesh.triangles.size();
     ++completed_;
 }
 void AdaptiveInflateBrush::end(Mesh& mesh) {

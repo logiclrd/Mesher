@@ -53,6 +53,7 @@ public:
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
     const std::vector<std::uint32_t>& movedVertices() const noexcept { return movedVertices_; }
+    std::size_t candidateCount() const noexcept { return candidateCount_; }
     const std::vector<std::uint32_t>& affectedFaces() const noexcept { return affectedFaces_; }
 private:
     double strength_;
@@ -61,6 +62,7 @@ private:
     VertexSpatialGrid spatial_{0.15};
     std::vector<std::uint32_t> movedVertices_;
     std::vector<std::uint32_t> affectedFaces_;
+    std::size_t candidateCount_ = 0;
 };
 
 // A stroke begins with a stamp at the starting positions. All subsequent
@@ -92,6 +94,9 @@ public:
     // The realtime finish applies at most the terminal stamp.
     void updateTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
     void finishTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
+    // Changes the influence radius for subsequent stamps in an active stroke.
+    // Does not reset 4D travel phase, so slider drags never create a stamp.
+    void setRadius(double radius);
 
     bool active() const noexcept { return active_; }
     std::size_t stamps() const noexcept { return stamps_; }
@@ -115,6 +120,17 @@ private:
     std::vector<Vec3> lastStamped_;
 };
 
+struct StampDetails {
+    std::vector<BrushArea> areas;
+    std::size_t influenced = 0;
+    std::size_t moved = 0;
+    std::size_t splitPairs = 0;
+    std::size_t flipPairs = 0;
+    std::size_t collapsedPairs = 0;
+    std::size_t vertices = 0;
+    std::size_t triangles = 0;
+};
+
 struct StampTimings {
     double inflateSeconds = 0;
     double refineSeconds = 0;
@@ -134,6 +150,7 @@ public:
     void end(Mesh& mesh) override;
     std::size_t completedStamps() const noexcept { return completed_; }
     StampTimings lastTimings() const noexcept { return lastTimings_; }
+    const StampDetails& lastDetails() const noexcept { return lastDetails_; }
 private:
     InflateBrush inflate_;
     DirectionalCollapser collapser_;
@@ -141,6 +158,7 @@ private:
     std::size_t completed_ = 0;
     bool begun_ = false;
     StampTimings lastTimings_{};
+    StampDetails lastDetails_{};
 };
 
 // CPU-only, incremental playback of the demonstration. BrushStroke generates

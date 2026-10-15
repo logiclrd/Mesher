@@ -104,6 +104,7 @@ Glyph hudGlyph(char ch) {
         case '9': return {14,17,17,15,1,1,14};
         case 'F': return {31,16,16,30,16,16,16};
         case 'P': return {30,17,17,30,16,16,16};
+        case 'R': return {30,17,17,30,20,18,17};
         case 'S': return {15,16,16,14,1,1,30};
         case 'T': return {31,4,4,4,4,4,4};
         case 'A': return {14,17,17,31,17,17,17};
@@ -116,8 +117,19 @@ Glyph hudGlyph(char ch) {
     }
 }
 
+struct RadiusSliderLayout {
+    int left=20,trackX=30, top=0,bottom=0;
+};
+RadiusSliderLayout radiusSliderLayout(int height) {
+    const int span=std::max(1,height/3);
+    const int bottom=height-20;
+    return {20,30,bottom-span,bottom};
+}
+
 std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
-                             const std::string& fps, const std::string& stamps) {
+                             const std::string& fps, const std::string& stamps,
+                             const std::optional<BrushRadiusRange>& slider,
+                             double radius) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max(fps.size(),stamps.size()));
@@ -152,6 +164,33 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     };
     textLine(fps,0);
     textLine(stamps,1);
+
+    if(slider) {
+        const auto layout=radiusSliderLayout(int(height));
+        const int center=layout.trackX+6;
+        rectangle(layout.left-7,layout.top-34,63,
+                  layout.bottom-layout.top+46,1.0f);
+        rectangle(layout.trackX,layout.top,12,
+                  layout.bottom-layout.top,0.0f);
+        // Dark inner track and bright movable handle, drawn bottom to top.
+        rectangle(layout.trackX+3,layout.top+3,6,
+                  std::max(1,layout.bottom-layout.top-6),1.0f);
+        const int knobY=layout.top+int(std::lround(
+            slider->sliderFraction(radius)*double(layout.bottom-layout.top)));
+        rectangle(center-15,knobY-6,30,12,0.0f);
+        const std::string label="R:"+[&]{
+            std::ostringstream os;
+            os<<std::fixed<<std::setprecision(3)<<radius;
+            return os.str();
+        }();
+        for(std::size_t i=0;i<label.size();++i) {
+            const auto glyph=hudGlyph(label[i]);
+            for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                if(glyph[yy]&(1u<<(4-xx)))
+                    rectangle(layout.left-3+int(i)*8+xx,
+                              layout.top-23+yy,1,1,0.0f);
+        }
+    }
     return vertices;
 }
 
@@ -284,7 +323,10 @@ class VulkanViewport {
     const Mesh& mesh_;
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
-    bool mouseWasDown_=false, sculpting_=false;
+    bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
+    double lastConsoleTime_=0;
+    std::uint64_t logFrames_=0, logStamps_=0;
     Vec3 lastCursorHit_{};
     double mouseStartTime_=0;
     bool paused_ = false, complete_ = false;
@@ -469,6 +511,7 @@ class VulkanViewport {
     }
 
     void refreshMesh() {
+        const double started=glfwGetTime();
         // No vertex buffer writes are permitted while the GPU is reading the
         // buffers from a previous frame.
         check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX),
@@ -476,6 +519,7 @@ class VulkanViewport {
         const auto drawing = buildDrawing(mesh_);
         replaceBuffer(solid, drawing.solid);
         replaceBuffer(lines, drawing.lines);
+        lastUploadMs_=(glfwGetTime()-started)*1000.0;
     }
 
     void refreshHud() {
@@ -483,7 +527,11 @@ class VulkanViewport {
         const std::string fpsText="FPS: "+hudDecimal(measuredFps_);
         const std::string stampText="STAMPS: "+hudDecimal(measuredStampRate_)+
                 "/"+hudDecimal(animation_.advance ? animation_.stampsPerSecond : interaction_.stationaryStampsPerSecond);
-        const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText);
+        const std::optional<BrushRadiusRange> slider=interaction_.setRadius
+            ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
+            : std::nullopt;
+        const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
+                                     slider,interaction_.radius);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -504,45 +552,119 @@ class VulkanViewport {
         return firstMeshHit(mesh_,viewportRay(px,py,double(fw),double(fh)));
     }
 
+    // Status lines use a separate window from the 750ms HUD counter, so
+    // console output gives a copyable history of actual presented frames.
+    void reportAfterStamp(std::size_t count) {
+        logStamps_+=count;
+        const double now=glfwGetTime();
+        const double elapsed=now-lastConsoleTime_;
+        if(elapsed<0.25 || logStamps_==0)return;
+        std::ostringstream os;
+        os<<std::fixed<<std::setprecision(3)
+          <<"[sculpt] t="<<(now-statsBegin_)
+          <<" s interval="<<elapsed
+          <<" s FPS="<<double(logFrames_)/elapsed
+          <<" stamps_per_sec="<<double(logStamps_)/elapsed
+          <<" stamps_total="<<(interaction_.completedStamps
+                                     ? interaction_.completedStamps():0)
+          <<" skipped_total="<<(interaction_.skippedStamps
+                                  ? interaction_.skippedStamps():0)
+          <<" callback_ms="<<lastStampCallbackMs_
+          <<" picking_ms="<<lastPickMs_
+          <<" mesh_upload_ms="<<lastUploadMs_
+          <<" last_draw_ms="<<lastDrawMs_;
+        if(interaction_.lastStampDetails)os<<" "<<interaction_.lastStampDetails();
+        std::cout<<os.str()<<'\n'<<std::flush;
+        lastConsoleTime_=now;
+        logFrames_=logStamps_=0;
+    }
+
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
         const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        if(interaction_.setRadius) {
+            double cx=0,cy=0;
+            glfwGetCursorPos(window,&cx,&cy);
+            int ww=0,wh=0,fw=0,fh=0;
+            glfwGetWindowSize(window,&ww,&wh);
+            glfwGetFramebufferSize(window,&fw,&fh);
+            if(ww>0&&wh>0&&fw>0&&fh>0) {
+                const double x=cx*double(fw)/ww;
+                const double y=cy*double(fh)/wh;
+                const auto layout=radiusSliderLayout(fh);
+                if(down&&!mouseWasDown_ &&
+                   x>=layout.left-8 && x<=layout.left+58 &&
+                   y>=layout.top-12 && y<=layout.bottom+12)
+                    radiusDragging_=true;
+                if(radiusDragging_&&down) {
+                    const double fraction=(y-layout.top)/
+                        double(layout.bottom-layout.top);
+                    const double radius=interaction_.radiusRange.fromSliderFraction(fraction);
+                    if(std::abs(radius-interaction_.radius)>1e-8) {
+                        interaction_.radius=radius;
+                        interaction_.setRadius(radius);
+                        refreshHud();
+                        updateTitle();
+                    }
+                }
+            }
+        }
+        if(radiusDragging_) {
+            if(!down)radiusDragging_=false;
+            mouseWasDown_=down;
+            return;
+        }
         if(down&&!mouseWasDown_) {
+            const double pickStart=glfwGetTime();
             const auto picked=pickCursor();
+            lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             if(picked) {
                 sculpting_=true;
                 lastCursorHit_=*picked;
                 mouseStartTime_=glfwGetTime();
+                const double stampStart=glfwGetTime();
                 interaction_.begin(*picked);
+                lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 ++stampsThisInterval_; // Initial stamp on mouse down
                 refreshMesh();
                 updateTitle();
+                reportAfterStamp(1);
             }
         } else if(down&&sculpting_) {
             // Raycast AGAINST the mesh modified on the previous tick.
+            const double pickStart=glfwGetTime();
             if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
             const std::size_t before=interaction_.completedStamps
                 ? interaction_.completedStamps() : 0;
+            const double stampStart=glfwGetTime();
             interaction_.update(lastCursorHit_,elapsed);
+            lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
             const std::size_t after=interaction_.completedStamps
                 ? interaction_.completedStamps() : before+1;
             if(after>before) {
                 stampsThisInterval_+=after-before;
                 refreshMesh();
                 updateTitle();
+                reportAfterStamp(after-before);
             }
         } else if(!down&&mouseWasDown_&&sculpting_) {
+            const double pickStart=glfwGetTime();
             if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
             const std::size_t before=interaction_.completedStamps
                 ? interaction_.completedStamps() : 0;
+            const double stampStart=glfwGetTime();
             interaction_.end(lastCursorHit_,elapsed);
+            lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
             const std::size_t after=interaction_.completedStamps
                 ? interaction_.completedStamps() : before+1;
             if(after>before) {
                 stampsThisInterval_+=after-before;
                 refreshMesh();
+                reportAfterStamp(after-before);
             }
             sculpting_=false;
             updateTitle();
@@ -921,6 +1043,7 @@ class VulkanViewport {
         check(vkEndCommandBuffer(commandBuffer),"End command buffer");
     }
     void draw() {
+        const double drawStart=glfwGetTime();
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"Wait for render fence");
         std::uint32_t image=0;
         auto acquired=vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,available,VK_NULL_HANDLE,&image);
@@ -943,7 +1066,9 @@ class VulkanViewport {
         if(code==VK_ERROR_OUT_OF_DATE_KHR||code==VK_SUBOPTIMAL_KHR||acquired==VK_SUBOPTIMAL_KHR)
             recreateSwapchain();
         else check(code,"Present frame");
+        lastDrawMs_=(glfwGetTime()-drawStart)*1000.0;
         ++framesThisInterval_;
+        ++logFrames_;
     }
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
@@ -985,6 +1110,7 @@ public:
         createCommands();
         refreshHud();
         statsBegin_=glfwGetTime();
+        lastConsoleTime_=statsBegin_;
         nextStampTime_ = glfwGetTime() + (animation_.advance
             ? 1.0 / animation_.stampsPerSecond : 0.0);
         updateTitle();

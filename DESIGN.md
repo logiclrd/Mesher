@@ -581,3 +581,43 @@ symmetric mirror mapping. Note that the collapse component itself still
 uses global face scans and compaction, and CPU picking/render uploads
 remain whole-mesh operations; this patch specifically makes splitting
 and flipping local.
+
+
+## Interactive brush radius and per-stamp console diagnostics
+
+Interactive mouse sculpting provides a vertical brush-radius slider in the
+**lower-left** of the Vulkan viewport. Its track is **one third of the
+framebuffer height**. The top corresponds to radius `0.5`; the bottom
+corresponds to nominal initial edge length
+`sqrt(8*pi/(n*sqrt(3)))`, clamped to `0.5` for tiny meshes. Here `n`
+is the **vertex count supplied on startup**, not the changing vertex count
+after remeshing. The initial slider value is the existing
+`--brush-radius` parameter (default `0.4`), clamped into that range.
+Dragging the slider cannot start a sculpt stroke; if adjusted mid-stroke,
+its radius applies to subsequent stamps without resetting 4D Step phase.
+The radius readout uses the same lightweight Vulkan HUD path as FPS.
+
+To help diagnose 100k-vertex interactive performance, **after each
+completed mouse stamp**, if at least **250 milliseconds** have passed since
+the previous status line, Mesher writes a single
+`[sculpt] ...` line to stdout, flushed immediately. These lines form
+a copyable timeline. The console counters have their own actual elapsed
+interval, independent of the existing 750ms on-screen HUD averaging.
+Each line contains: elapsed startup time, interval length, actual
+presented FPS, completed stamps per second, total and skipped stamp
+counts; last mouse raycast time, brush callback time, full mesh buffer
+rebuild/upload time and most recent frame submission/presentation time;
+the **actual interpolated brush center(s)** used for the last stamp,
+the **actual radius**, counts of unique vertices geometrically inside
+the union of brush spheres and of vertices that received a displacement,
+counts of split/flip/collapse operations, post-stamp vertex and face
+counts, and Inflate/refine/collapse/adjacency-rebuild CPU times.
+
+`influenced_vertices` is the precise de-duplicated spatial-query candidate
+count before deformation; it is **not** the sum of counts in overlapping
+mirrored spheres. `moved_vertices` excludes zero-influence or otherwise
+unmovable vertices. Brush timing is per stamp; FPS and stamps/second use
+the interval since the previous console line. Mouse picking and Vulkan
+render-buffer updates are measured separately because they are not
+included in the headless `mesher_benchmark` CPU timings. No console
+status lines are generated during idle frames.

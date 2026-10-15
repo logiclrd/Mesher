@@ -1,4 +1,5 @@
 #include "mesher/brush.hpp"
+#include "mesher/brush_radius.hpp"
 
 #include <algorithm>
 #include <array>
@@ -25,6 +26,44 @@ struct RecordingBrush : Brush {
     }
     void end(Mesh&) override { ++ends; }
 };
+void testRadiusSliderAndLiveStroke() {
+    constexpr double pi=3.14159265358979323846;
+    const auto range=BrushRadiusRange::forVertexCount(100000);
+    const double expected=std::sqrt(8*pi/(100000.0*std::sqrt(3.0)));
+    near(range.minimum,expected,1e-14,"Minimum brush radius matches nominal edge");
+    near(range.maximum,.5,1e-14,"Maximum brush radius is half a model unit");
+    near(range.fromSliderFraction(0),.5,1e-14,"Top of slider is maximum");
+    near(range.fromSliderFraction(1),expected,1e-14,"Bottom is minimum");
+    near(range.fromSliderFraction(.25),
+         expected+(.5-expected)*.75,1e-14,"Slider interpolation");
+    near(range.sliderFraction(range.fromSliderFraction(.27)),.27,1e-14,
+         "Slider forward/backward mapping");
+    near(range.clamp(.8),.5,1e-14,"Oversized configured brush is clamped");
+    near(range.clamp(.001),expected,1e-14,"Undersized brush is clamped");
+    check(BrushRadiusRange::forVertexCount(1).minimum==.5,
+          "Very small initial sphere has degenerate but safe slider range");
+
+    struct RadiusRecorder final : Brush {
+        std::vector<std::vector<double>> radii;
+        void stamp(Mesh&,std::span<const BrushArea> areas) override {
+            std::vector<double> row;
+            for(const auto& area:areas)row.push_back(area.radius);
+            radii.push_back(std::move(row));
+        }
+    } recorder;
+    Mesh mesh;
+    BrushStroke stroke(mesh,recorder,.02);
+    stroke.startTimed({{{0,0,0},.4,.3},{{0,2,0},.4,.3}},.2);
+    stroke.setRadius(.1);
+    const std::array<Vec3,2> locations{{{0,0,0},{0,2,0}}};
+    stroke.updateTimedRealtime(locations,.1);
+    check(recorder.radii.size()==2,"Stationary 4D Step produces one new stamp");
+    near(recorder.radii[0][0],.4,1e-14,"Start uses configured radius");
+    near(recorder.radii[1][0],.1,1e-14,"Slider modifies subsequent stamp");
+    near(recorder.radii[1][1],.1,1e-14,"Both mirrored areas change radius");
+    stroke.finishTimedRealtime(locations,.1);
+    check(!stroke.active(),"Stroke completes after radius change");
+}
 void testFalloff() {
     near(brushFalloff(0, 1, .3), 1, 1e-14, "Falloff center");
     near(brushFalloff(.3, 1, .3), 1, 1e-14, "Hardness plateau");
@@ -376,7 +415,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testFalloff();testSampling();testFourDimensionalStroke();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

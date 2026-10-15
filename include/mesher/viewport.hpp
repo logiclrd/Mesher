@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/mesh.hpp"
+#include "mesher/brush_radius.hpp"
 
 #include <functional>
 #include <string>
@@ -25,6 +26,12 @@ struct ViewportInteraction {
     std::function<void(Vec3,double)> end;
     std::function<std::string()> caption;
     std::function<std::size_t()> completedStamps;
+    // Formatter invoked only when a 250ms diagnostic interval is due.
+    std::function<std::string()> lastStampDetails;
+    std::function<std::size_t()> skippedStamps;
+    std::function<void(double)> setRadius;
+    BrushRadiusRange radiusRange{};
+    double radius = 0.4;
     double stationaryStampsPerSecond = 0;
 };
 
