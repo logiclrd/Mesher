@@ -804,3 +804,47 @@ prepared an edit from an obsolete base. Readers retain older roots safely.
 `MeshRepository::publish` continues to serve the existing single-writer
 path. This V3 engine is independent of the current interactive sculpt worker
 and Vulkan viewport; the worker switch-over and dirty GPU updates are V8/V9.
+
+## Incremental, revision-scoped spatial and connectivity indices (V4)
+
+`RegionTopologyIndex` is now a persistent index of stable vertex and face
+IDs, oriented edge-to-face incidence, each vertex's incident face IDs, and a
+3D spatial grid. Every mapping is represented by an immutable, structurally
+shared AVL tree (`PersistentIndexMap`). Replacing or removing one entry
+allocates O(log N) tree nodes and leaves the old root and unchanged record
+pointers intact; it does not copy a global hash map or accumulate an
+ever-growing ancestry/overlay chain. One-time `build()` traverses an imported
+revision and constructs these indices, O(N log N) including tree insertion.
+
+Each validated `RegionEdit::commit()` now derives a corresponding index
+from its local vertex/face delta. It subtracts incidence for old versions of
+changed faces, adds new edge/face/vertex incidences, and moves affected vertex
+IDs between old/new spatial buckets. Unmodified records retain pointer
+identity. `updatedIndex()` is available after commit, and always references
+**exactly** the committed immutable `MeshRevision`. The
+`IndexUpdateStatistics` information is exposed as
+`RegionTopologyIndex::UpdateStatistics`: the number of changed vertex,
+face, edge and cell records, copied tree nodes, and whether a full mesh
+traversal was needed. An incremental update reports zero full traversals.
+
+`IndexedMeshRepository` offers one atomic compare-and-swap of the index
+root, which owns its matching immutable mesh revision. This prevents a
+reader from pairing an old geometry root with a newer index (or vice versa),
+and prevents a stale writer from replacing a newer published state.
+
+`querySphere` enumerates spatial buckets and performs exact distance
+filtering against the chosen revision. Empty-space iteration is bounded:
+for very large query volumes it scans the *occupied cells* rather than
+millions of empty coordinates. `firstRayHit` follows the existing CPU
+ray/triangle intersection semantics and takes all geometry from the chosen
+revision. **Ray picking is correct but remains linear in total faces**:
+the selectively updated triangle acceleration hierarchy is V10.
+The current interactive worker and Vulkan renderer are still on the
+original flat Mesh path; switching them over is deferred to V5-V10.
+
+V4 tests verify repeated COW AVL rotations/deletions against std::map,
+180 consecutive localized revisions with bounded record/path updates,
+stable unchanged pointers, exact spatial queries and original CPU picking,
+incremental face flips/subdivision matching independently rebuilt
+connectivity, and concurrent publication/readers. V4 does not add
+self-intersection detection or change geometric remeshing policies.
