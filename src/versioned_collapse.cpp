@@ -183,8 +183,6 @@ bool VersionedDirectionalCollapser::attempt(
         if(symmetric) {
             // The previous geometry root preserves retired IDs. This map
             // describes *only* living pairs, without broken dangling links.
-            const auto survivor=mirrors_.at(a);
-            (void)survivor;
             result.removedMirrorPairs.push_back({b,mb});
             mirrors_.erase(b);
             if(paired&&mb!=b)mirrors_.erase(mb);
