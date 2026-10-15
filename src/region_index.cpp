@@ -227,6 +227,7 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
             if(!v.incidentFaces.empty())
                 throw std::logic_error("Removed vertex retained incident faces");
             result->vertices_.erase(id,&copied);
+            result->retiredVertices_.set(id,true,&copied);
         }else {
             std::sort(v.incidentFaces.begin(),v.incidentFaces.end());
             result->vertices_.set(id,std::move(v),&copied);
