@@ -848,3 +848,47 @@ stable unchanged pointers, exact spatial queries and original CPU picking,
 incremental face flips/subdivision matching independently rebuilt
 connectivity, and concurrent publication/readers. V4 does not add
 self-intersection detection or change geometric remeshing policies.
+
+## Local Inflate deformation and pre-stamp baseline (V5)
+
+`VersionedInflateBrush` performs an Inflate stamp directly on immutable
+`RegionTopologyIndex` geometry. Its candidate selection uses the same
+maximum-of-influences falloff as `InflateBrush`; the per-vertex unit-face-
+normal sums, optional cotangent mean curvature and final displacements
+follow the original numerical formulas. Critically, **every influence,
+face normal, and curvature measurement uses the same pre-stamp revision**.
+All displacements are gathered before any copy-on-write modifications.
+`RegionEdit` validates the affected triangles and applies only local
+vertex updates, advancing the persistent connectivity/spatial index with
+the changed vertex IDs. A stamp with no affected vertices returns exactly
+the original index pointer and performs no publication or directory copies.
+
+The returned `LocalStampBaseline` contains a shared ownership reference
+to the old immutable topology index plus sorted moved `VertexId` and
+incident `FaceId` lists. `positionBefore`, `edgeLengthBefore`,
+`edgeWasGrowing` and `edgeWasShrinking` expose the original frame for
+directional splitting/collapsing: they compare the prior and new revisions
+without allocating a full previous-positions vector. Remeshing against
+this baseline will be implemented in V6 and V7.
+
+When an involutive mirror map is supplied, each influenced vertex is
+paired with its X-reflected counterpart. Its movement and reflection
+commit as a single transaction; a shared X=0 seam remains on the plane.
+For mirrored pairs the lower stable-ID side determines the displacement;
+the other is reflected exactly. The original flat Inflate calculates
+both sides independently, so tiny differences due to floating point
+roundoff are possible; face incident order is also different after
+Morton partition import. The V5 tests compare against the original
+4D-sampled synchronous Inflate geometry with tight numeric tolerances,
+rather than claiming bitwise equality across differing summation orders.
+
+The existing `AsyncSculptWorker` and viewport still operate on a mutable
+flat `Mesh` (migration is V8/V9). However, the **default** flat
+`AdaptiveInflateBrush` immediately benefits from a separate safe
+optimization: when both refinement and collapse are disabled, it no
+longer makes the previously unconditional whole-array pre-stamp copy.
+`StampDetails::preStampCopiedVertices` records how many positions are
+actually copied. When either legacy remeshing pass is enabled the full
+baseline remains in place, to preserve its exact directional topology
+decisions until V6/V7 port those algorithms. No 4D Step sampling,
+worker scheduling, or existing geometry algorithms are changed here.
