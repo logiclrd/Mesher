@@ -18,3 +18,23 @@ jobs:
         run: cmake --build build --parallel
       - name: Run CPU mesh tests
         run: ctest --test-dir build --output-on-failure
+      - name: Compare remeshing experiment (5000 vertices)
+        run: |
+          ./build/Mesher --compare-remesh > comparison.csv
+          python3 - <<'PY'
+          import csv
+          with open("comparison.csv") as f:
+              lines = f.readlines()
+          start = next(i for i,line in enumerate(lines) if line.startswith("mode,stamp,"))
+          rows = list(csv.DictReader(lines[start:]))
+          for name in ("baseline","collapse"):
+              data = [r for r in rows if r["mode"] == name]
+              first = lambda condition: next((r["stamp"] for r in data if condition(r)), "never")
+              print(f"{name}: {len(data)-1} stamps")
+              print(f"  first shrinking edge below limit: {first(lambda r: int(r['shortening_below_limit'])>0)}")
+              print(f"  first collapse: {first(lambda r: int(r['removed_vertices'])>0)}")
+              print(f"  first inverted triangle: {first(lambda r: int(r['inverted'])>0)}")
+              last=data[-1]
+              print(f"  final: vertices={last['vertices']}, inverted={last['inverted']}, "
+                    f"min_edge={last['min_edge']}, min_altitude={last['min_altitude']}")
+          PY
