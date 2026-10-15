@@ -323,7 +323,7 @@ std::optional<Vec3> RegionTopologyIndex::firstRayHit(Ray ray) const {
         const double v=dot(ray.direction,q)*inverse;
         if(v<-1e-12||u+v>1.0+1e-12)return;
         const double distance=dot(ac,q)*inverse;
-        if(distance>1e-10 && distance<nearest)nearest=distance;
+        if(distance>1e-8 && distance<nearest)nearest=distance;
     });
     if(!std::isfinite(nearest))return std::nullopt;
     return ray.origin+ray.direction*nearest;
