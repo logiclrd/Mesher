@@ -179,5 +179,15 @@ void MeshRepository::publish(std::shared_ptr<const MeshRevision> next) {
     if(!next)throw std::invalid_argument("Cannot publish null mesh revision");
     published_.store(std::move(next),std::memory_order_release);
 }
+bool MeshRepository::publishIfCurrent(
+    const std::shared_ptr<const MeshRevision>& expected,
+    std::shared_ptr<const MeshRevision> next) {
+    if(!expected || !next)
+        throw std::invalid_argument("Publish compare-and-swap needs two revisions");
+    auto observed=expected;
+    return published_.compare_exchange_strong(observed,std::move(next),
+                                               std::memory_order_acq_rel,
+                                               std::memory_order_acquire);
+}
 
 } // namespace mesher
