@@ -115,6 +115,7 @@ public:
     const MeshDiagnostics& diagnostics() const noexcept { return afterCollapse_; }
     const CollapseStatistics& lastCollapse() const noexcept { return lastCollapse_; }
     const RefineStatistics& lastRefine() const noexcept { return lastRefine_; }
+    const std::vector<std::uint32_t>& mirrors() const noexcept { return refiner_.mirrors(); }
     std::size_t totalAdded() const noexcept { return totalAdded_; }
     std::size_t totalFlips() const noexcept { return totalFlips_; }
     std::size_t totalRemoved() const noexcept { return totalRemoved_; }

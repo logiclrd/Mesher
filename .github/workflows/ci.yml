@@ -64,7 +64,7 @@ jobs:
           PY
       - name: Compare local split, flip and collapse (curvature 0.25)
         run: |
-          ./build/Mesher --compare-local-remesh --vertices 1500 --curvature-strength 0.25 \
+          ./build/Mesher --compare-local-remesh --vertices 5000 --curvature-strength 0.25 \
               --max-split-pairs 3 --max-flip-pairs 3 --max-collapse-pairs 3 > local-remesh.csv
           python3 - <<'PY'
           import csv

@@ -3,6 +3,8 @@
 #include "mesher/brush.hpp"
 
 #include <algorithm>
+#include <array>
+#include <set>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -22,6 +24,18 @@ void validateReflection(const Mesh& mesh,const std::vector<std::uint32_t>& mirro
         check(std::abs(a.x+b.x)<1e-9 && std::abs(a.y-b.y)<1e-9 &&
               std::abs(a.z-b.z)<1e-9,"Reflected vertices stay paired");
     }
+    // Reflection must preserve triangle connectivity as well as positions;
+    // both sides must share the same seam vertices by index.
+    std::set<std::array<std::uint32_t,3>> faces;
+    auto sorted=[](std::uint32_t a,std::uint32_t b,std::uint32_t c) {
+        std::array<std::uint32_t,3> key{a,b,c};
+        std::sort(key.begin(),key.end());
+        return key;
+    };
+    for(const auto t:mesh.triangles) faces.insert(sorted(t.a,t.b,t.c));
+    for(const auto t:mesh.triangles)
+        check(faces.contains(sorted(mirrors[t.a],mirrors[t.b],mirrors[t.c])),
+              "Mirrored triangle must exist after local topology changes");
 }
 void testSelectiveSplitting() {
     SphereOptions opts;opts.vertexCount=800;opts.relaxationIterations=20;
@@ -66,6 +80,8 @@ void testAnimationSymmetryAndReplay() {
     for(std::size_t step=0;step<animation.total();++step) {
         check(animation.advance(),"Incremental topology-changing stamp");
         check(validateClosedSphereTopology(mesh),"Every step keeps closed manifold");
+        if(step%15==0 || step+1==animation.total())
+            validateReflection(mesh,animation.mirrors());
         added+=animation.lastRefine().newVertices;
         flips+=animation.lastRefine().flipPairs;
         removed+=animation.lastCollapse().removedVertices;
