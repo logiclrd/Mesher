@@ -31,17 +31,22 @@ public:
 };
 
 // Units of strength: displacement in mesh units per full-influence stamp.
-// Each vertex moves along the normalized equal-weight sum of the unit
-// normals of its incident faces, evaluated BEFORE that stamp is applied.
+// The displacement follows the normalized equal-weight sum of unit face
+// normals incident to each vertex. Freezing directions at stroke start is the
+// default: repeated stamps cannot feed back on their own deformed normals.
+// PerStamp retains the experimental live-normal behaviour when desired.
+enum class NormalSampling { StrokeStart, PerStamp };
 class InflateBrush final : public Brush {
 public:
-    explicit InflateBrush(double strength);
+    explicit InflateBrush(double strength, NormalSampling sampling = NormalSampling::StrokeStart);
     void begin(Mesh& mesh) override;
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
 private:
     double strength_;
+    NormalSampling sampling_;
     std::vector<std::vector<std::uint32_t>> incidentFaces_;
+    std::vector<Vec3> strokeNormals_;
 };
 
 // A stroke begins with a stamp at the starting positions. All subsequent
@@ -82,6 +87,7 @@ private:
 // the number of simultaneous stamps. Topology never changes here.
 std::size_t inflateHalfCircleDemo(Mesh& mesh, double step = 0.02,
                                   double strength = 0.012,
-                                  std::uint32_t segments = 128);
+                                  std::uint32_t segments = 128,
+                                  double radius = 0.4);
 
 } // namespace mesher

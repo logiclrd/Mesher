@@ -13,22 +13,24 @@
 int main(int argc, char** argv) {
     mesher::SphereOptions options;
     bool inflate = true;
-    double step = .02, strength = .012;
+    double step = .02, strength = .012, brushRadius = .4;
     std::uint32_t segments = 128;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
             if(arg=="--asymmetric") options.symmetric=false;
             else if(arg=="--no-inflate") inflate=false;
-            else if(arg=="--step" || arg=="--strength") {
+            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
                 std::size_t parsed=0;
                 const double v=std::stod(value,&parsed);
                 if(parsed!=value.size() || !std::isfinite(v) ||
-                   (arg=="--step" && v<=0))
+                   ((arg=="--step" || arg=="--brush-radius") && v<=0))
                     throw std::invalid_argument("Invalid brush parameter: "+value);
-                if(arg=="--step")step=v;else strength=v;
+                if(arg=="--step")step=v;
+                else if(arg=="--brush-radius")brushRadius=v;
+                else strength=v;
             }
             else if(arg=="--segments") {
                 if(++i>=argc) throw std::invalid_argument("Missing --segments value");
@@ -56,9 +58,9 @@ int main(int argc, char** argv) {
                 }
             } else if(arg=="--help"||arg=="-h"){
                 std::cout<<"Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
-                         <<"       [--no-inflate] [--step D] [--strength D] [--segments N]\n"
+                         <<"       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
-                         <<"          Inflate demo on, Step .02, strength .012, 128 segments.\n"
+                         <<"          Inflate demo on, radius .4, Step .02, strength .012, 128 segments.\n"
                          <<"Escape exits the full-screen viewport.\n";
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
@@ -67,8 +69,8 @@ int main(int argc, char** argv) {
         auto mesh=mesher::generateSphere(options);
         std::cout<<" "<<mesh.triangles.size()<<" triangles; watertight manifold verified.\n";
         if (inflate) {
-            const auto count=mesher::inflateHalfCircleDemo(mesh,step,strength,segments);
-            std::cout<<"Inflate demo: "<<count<<" stamps, radius 0.4, hardness 0.3.\n";
+            const auto count=mesher::inflateHalfCircleDemo(mesh,step,strength,segments,brushRadius);
+            std::cout<<"Inflate demo: "<<count<<" stamps, radius "<<brushRadius<<", hardness 0.3.\n";
         }
         mesher::runViewport(mesh);
     }catch(const std::exception& e) {

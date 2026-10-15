@@ -33,18 +33,18 @@ ctest --test-dir build-cpu --output-on-failure
 
 ```text
 Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]
-       [--no-inflate] [--step D] [--strength D] [--segments N]
+       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]
 ```
 
 Defaults are `--symmetric --vertices 5000 --seed 1 --relax 65`. The initial
 viewport uses the primary monitor in full-screen mode. **Escape** exits.
 
 By default Mesher inflates two mirror-image half-circle strokes across the
-front of the generated sphere, with spherical influence radius **0.1** and
+front of the generated sphere, with spherical influence radius **0.4** and
 hardness **0.3**. The default stroke Step is **0.02** mesh units, strength is
 **0.012** mesh units per full-influence stamp, and each arc is approximated
 with **128** input segments. `--no-inflate` displays the unmodified sphere;
-`--step`, `--strength`, and `--segments` allow experimentation. The demo is
+`--step`, `--strength`, `--segments`, and `--brush-radius` allow experimentation. The demo is
 precomputed before the viewport starts (not interactive yet).
 
 - **Asymmetric:** Uniformly distributed random samples on the unit sphere,
@@ -93,8 +93,12 @@ exactly the same number of centers, validates that each has travelled the same
 corners. `finish` processes the last update, stamps the terminal position if
 not already sampled, and releases brush state. `InflateBrush` moves influenced
 vertices along the **normalized sum of the unit face normals** of incident
-triangles, computed on the mesh before each stamp. It constructs vertex-to-face
-adjacency once per stroke. Normal strength is a displacement **per stamp**.
+triangles, evaluated once at the beginning of the stroke by default.
+This avoids a feedback loop in which heavily deformed face normals turn inward,
+folding triangles across the symmetry plane under wide overlapping strokes.
+For experimental live-normal behaviour, construct the brush with
+`NormalSampling::PerStamp`; otherwise use the default
+`NormalSampling::StrokeStart`. Normal strength is a displacement **per stamp**.
 
 This milestone intentionally keeps existing topology unchanged and performs
 no adaptive subdivision, decimation, brush picking, interactive painting,
@@ -127,3 +131,15 @@ The CPU geometry and topology tests run without a GPU. The Vulkan viewport
 requires a machine with Vulkan/GLFW development packages to build and an
 actual Vulkan implementation to run. See the GitHub Actions workflow for the
 Linux full-build test configuration.
+### Wide-brush seam regression
+
+The equatorial ring is shared by vertex **index**, not simply by coincident
+coordinates. The former per-stamp-normal Inflate algorithm could nevertheless
+fold vertices across the symmetry plane under overlapping radius-0.4 stamps;
+on a 5,000-vertex sphere, 7 vertices crossed the plane and 22 triangles had
+reversed radial orientation. Stroke-start-normal Inflate preserves the intended
+outward deformation for that case without changing triangle connectivity.
+The CPU regression verifies an intact manifold, shared ring, and bilateral
+symmetry. This is a targeted fix for normal-feedback folding, **not** a
+universal self-intersection prevention algorithm: collision-aware sculpting
+and local remeshing remain future work.

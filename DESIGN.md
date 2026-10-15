@@ -76,3 +76,23 @@ brush behaviour from future geometry-editing capabilities.
   persistence, and live brush input/picking policy. Stroke sampling/falloff
   and the first Inflate brush are already implemented.
 - Add camera navigation, mesh interaction, editing tools, and import/export.
+## Inflate surface-folding regression
+
+The symmetric generator shares equatorial vertices by index. A wide (0.4)
+Inflate stroke using face normals re-evaluated after each stamp nonetheless
+made several positive-hemisphere vertices cross the symmetry plane and
+inverted nearby faces. This is a geometric fold, not duplicate seam geometry.
+
+The default Inflate mode now evaluates the normalized, equal-weight incident
+face normal **once at stroke start**, keeping each vertex's direction stable
+through all repeated stamps. This also eliminates repeated normal computations
+and avoids the tested fold without modifying topology. Optional
+`NormalSampling::PerStamp` retains the old dynamic-normal mode for testing;
+it is not safe against large-deformation foldovers. Radius 0.4 is now the
+configurable demo default (via `--brush-radius`). A 5,000-vertex regression
+tests the shared ring, non-crossing hemispheres, reflection symmetry, and
+outward manifold topology after the full stroke.
+
+This does not establish a general guarantee against self-intersections or
+face inversions for arbitrary imported meshes and large strokes. A robust
+geometry-validity guard and adaptive remeshing are separate future tasks.

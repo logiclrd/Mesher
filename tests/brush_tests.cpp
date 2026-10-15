@@ -107,6 +107,58 @@ void testInflate() {
     near(triangle.vertices[1].z,0,1e-14,"No displacement outside footprint");
     near(triangle.vertices[2].z,0,1e-14,"No displacement outside footprint");
 }
+// Regression: wider overlapping symmetric strokes previously folded triangles
+// through the reflection plane despite both halves sharing seam indices.
+// Stroke-start normals avoid positive feedback from repeated normal updates.
+void testWideSymmetricInflate() {
+    SphereOptions options;
+    options.vertexCount = 5000;
+    auto mesh = generateSphere(options);
+    const auto before = mesh.vertices;
+    const std::size_t stamps = inflateHalfCircleDemo(mesh, .02, .012, 128, .4);
+    check(stamps == 105, "Wide brush has predictable stamp count");
+    check(validateSphere(mesh), "Wide symmetric Inflate must preserve outward faces");
+
+    constexpr double pi = 3.14159265358979323846;
+    const double spacing = std::sqrt(8*pi/(double(options.vertexCount)*std::sqrt(3.0)));
+    auto m = static_cast<std::uint32_t>(std::floor(2*pi/spacing)) + 1;
+    if ((options.vertexCount-m)%2) ++m;
+    const auto p = (options.vertexCount-m)/2;
+
+    // The seam consists of exactly m shared vertices; no mirrored copies.
+    // Both sides' triangles must index that same ring, even after sculpting.
+    std::vector<unsigned> positiveCount(m,0), negativeCount(m,0);
+    for (const auto& t : mesh.triangles) {
+        const bool pos = t.a < p || t.b < p || t.c < p;
+        const bool neg = t.a >= p+m || t.b >= p+m || t.c >= p+m;
+        check(!(pos && neg), "Hemisphere triangles meet only at the shared seam");
+        const auto count = [&](std::uint32_t i) {
+            if (i >= p && i < p+m) {
+                if (pos) ++positiveCount[i-p];
+                if (neg) ++negativeCount[i-p];
+            }
+        };
+        count(t.a); count(t.b); count(t.c);
+    }
+    for (std::uint32_t i=0;i<m;++i) {
+        const auto& vertex = mesh.vertices[p+i];
+        check(std::abs(vertex.x) < 1e-11, "Shared seam remains in symmetry plane");
+        check(positiveCount[i] > 0 && negativeCount[i] > 0,
+              "Both hemispheres must reference the same seam vertex");
+    }
+    unsigned moved = 0;
+    for (std::uint32_t i=0;i<p;++i) {
+        const auto a=mesh.vertices[i], b=mesh.vertices[i+p+m];
+        check(a.x > 0 && b.x < 0, "Inflated hemisphere vertex must not cross seam");
+        check(std::abs(a.x+b.x)<1e-9 && std::abs(a.y-b.y)<1e-9 &&
+              std::abs(a.z-b.z)<1e-9, "Wider stroke must retain exact symmetry");
+        if (length(a-before[i])>1e-5) ++moved;
+    }
+    check(moved > 100, "Wide brush should visibly change the sphere");
+    std::cout << "Wide symmetric Inflate: " << stamps << " stamps, "
+              << moved << " moved positive-side vertices; manifold intact\\n";
+}
+
 void testDemo() {
     SphereOptions options;
     options.vertexCount=800; options.relaxationIterations=20;
@@ -140,7 +192,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testFalloff();testSampling();testInflate();testDemo(); }
+    try { testFalloff();testSampling();testInflate();testDemo();testWideSymmetricInflate(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

@@ -44,7 +44,8 @@ double brushInfluence(Vec3 point, std::span<const BrushArea> areas) {
     return result;
 }
 
-InflateBrush::InflateBrush(double strength) : strength_(strength) {
+InflateBrush::InflateBrush(double strength, NormalSampling sampling)
+    : strength_(strength), sampling_(sampling) {
     if (!std::isfinite(strength)) throw std::invalid_argument("Inflate strength must be finite");
 }
 
@@ -59,10 +60,28 @@ void InflateBrush::begin(Mesh& mesh) {
         incidentFaces_[tri.b].push_back(i);
         incidentFaces_[tri.c].push_back(i);
     }
+    strokeNormals_.clear();
+    if (sampling_ == NormalSampling::StrokeStart) {
+        strokeNormals_.resize(mesh.vertices.size());
+        for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
+            Vec3 sum{};
+            for (auto faceIndex : incidentFaces_[i]) {
+                const auto t = mesh.triangles[faceIndex];
+                const Vec3 n = cross(mesh.vertices[t.b] - mesh.vertices[t.a],
+                                     mesh.vertices[t.c] - mesh.vertices[t.a]);
+                if (length(n) > 1e-20) sum = sum + normalized(n);
+            }
+            if (length(sum) > 1e-20) strokeNormals_[i] = normalized(sum);
+        }
+        // Stroke-start sampling needs no live adjacency; preserve only
+        // the normals, including symmetric cancellations on shared seams.
+        incidentFaces_.clear();
+    }
 }
 
 void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
-    if (incidentFaces_.size() != mesh.vertices.size())
+    if ((sampling_ == NormalSampling::StrokeStart
+          ? strokeNormals_.size() : incidentFaces_.size()) != mesh.vertices.size())
         throw std::logic_error("Inflate brush requires begin and unchanged topology");
     // Evaluate every displacement from the pre-stamp mesh. Do not mutate
     // vertices while reading normals of triangles belonging to neighbours.
@@ -70,16 +89,21 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
     std::vector<Movement> movements;
     for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
         const double influence = brushInfluence(mesh.vertices[i], areas);
-        if (influence <= 0 || incidentFaces_[i].empty()) continue;
-        Vec3 sum{};
-        for (auto faceIndex : incidentFaces_[i]) {
-            const auto t = mesh.triangles[faceIndex];
-            const Vec3 normal = cross(mesh.vertices[t.b] - mesh.vertices[t.a],
-                                      mesh.vertices[t.c] - mesh.vertices[t.a]);
-            if (length(normal) > 1e-20) sum = sum + normalized(normal);
+        if (influence <= 0) continue;
+        Vec3 direction{};
+        if (sampling_ == NormalSampling::StrokeStart) {
+            direction = strokeNormals_[i];
+        } else {
+            if (incidentFaces_[i].empty()) continue;
+            for (auto faceIndex : incidentFaces_[i]) {
+                const auto t = mesh.triangles[faceIndex];
+                const Vec3 normal = cross(mesh.vertices[t.b] - mesh.vertices[t.a],
+                                          mesh.vertices[t.c] - mesh.vertices[t.a]);
+                if (length(normal) > 1e-20) direction = direction + normalized(normal);
+            }
         }
-        if (length(sum) > 1e-20) {
-            const Vec3 delta = normalized(sum) * (strength_ * influence);
+        if (length(direction) > 1e-20) {
+            const Vec3 delta = normalized(direction) * (strength_ * influence);
             if (!finite(mesh.vertices[i] + delta))
                 throw std::overflow_error("Inflate displacement is not finite");
             movements.push_back({i, delta});
@@ -88,7 +112,7 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
     for (const auto& m : movements) mesh.vertices[m.index] = mesh.vertices[m.index] + m.offset;
 }
 
-void InflateBrush::end(Mesh&) { incidentFaces_.clear(); }
+void InflateBrush::end(Mesh&) { incidentFaces_.clear(); strokeNormals_.clear(); }
 
 BrushStroke::BrushStroke(Mesh& mesh, Brush& brush, double step)
     : mesh_(mesh), brush_(brush), step_(step), untilNext_(step) {
@@ -165,8 +189,10 @@ void BrushStroke::finish(std::span<const Vec3> positions) {
 }
 
 std::size_t inflateHalfCircleDemo(Mesh& mesh, double step, double strength,
-                                  std::uint32_t segments) {
+                                  std::uint32_t segments, double radius) {
     if (segments == 0) throw std::invalid_argument("Demo requires at least one segment");
+    if (!std::isfinite(radius) || radius <= 0)
+        throw std::invalid_argument("Demo brush radius must be positive and finite");
     constexpr double pi = 3.14159265358979323846264338327950288;
     constexpr double y = -0.75;
     const double arcRadius = std::sqrt(1 - y*y);
@@ -178,7 +204,7 @@ std::size_t inflateHalfCircleDemo(Mesh& mesh, double step, double strength,
     InflateBrush brush(strength);
     BrushStroke stroke(mesh, brush, step);
     const auto first = point(0);
-    stroke.start({{first, 0.4, 0.3}, {{-first.x, first.y, first.z}, 0.4, 0.3}});
+    stroke.start({{first, radius, 0.3}, {{-first.x, first.y, first.z}, radius, 0.3}});
     for (std::uint32_t i = 1; i < segments; ++i) {
         auto p = point(i);
         const Vec3 pair[] = {p, {-p.x,p.y,p.z}};
