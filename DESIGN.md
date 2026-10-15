@@ -944,3 +944,55 @@ new elements. V6 tests reconstruct the current version dynamically for
 independent manifold checks; production general export and accelerated
 picking remain later integration tasks. No self-intersection guarantee
 is implied by local manifold validation.
+
+## Stable-ID transactional directional collapse (V7)
+
+`VersionedDirectionalCollapser` replaces the flat `DirectionalCollapser`'s
+full-mesh trial copies with one private `RegionEdit` for each eligible
+localized candidate. It uses V5's immutable pre-stamp baseline for the
+same *short AND shrinking* condition as the established algorithm,
+including the original nominal length threshold and epsilon. Candidates
+are drawn from the stamp's affected face IDs, and neighbor/link conditions
+are looked up through V4's revision-specific vertex and edge index rather
+than scanning every triangle. The indexed link condition requires two
+incident edge faces with exactly their two opposite vertices in common.
+The existing midpoint preference, radial orientation and minimum triangle
+area rejection criteria remain in place.
+
+Each accepted trial stages the survivor's new position, all affected face
+redirects, exactly the faces that become degenerate, and removal of the
+discarded vertex IDs. A mirrored pair of operations is staged together,
+including the special case of preserving an existing seam vertex's position
+instead of moving it off the X=0 plane. V3 verifies the complete changed
+edge-and-one-ring topology before it can commit. Rejected transactions
+never alter the current immutable root/index, and a successful commit
+modifies only bounded writable partitions. There is no temporary full
+`Mesh` copy, no `compact()`, no whole-mesh connectivity rebuild and no
+array-index rewriting for survivors. Each new persistent index records
+retired vertex/face IDs as structurally shared tombstones; previous
+revisions still retain the live objects and identity allocation never
+reuses retired or abandoned IDs. Tombstone retirement/reclamation is
+covered by V11, not an unbounded retention promise.
+
+`VersionedCollapseResult` returns the current immutable index, aggregate
+operation statistics, retired vertex IDs, retired and rewritten face IDs,
+changed directory/partition counts and retired mirror pairs. The
+`removeMirrorPair` methods in the V5 Inflate and V6 Refiner state objects
+accept those pairs incrementally so subsequent symmetric stamps cannot
+accidentally reference a retired vertex. Collapses performed within a
+stamp see the previous successful operation's updated index; candidates
+whose old endpoints have been removed are skipped.
+
+The live asynchronous sculpt worker continues to use the old flat
+`DirectionalCollapser` through V8, preserving currently shipped brush
+semantics until the complete V5-V7 pipeline is integrated. The new
+fourteenth CTest suite exercises accepted local and mirrored collapses,
+old-revision stability, persistent ID tombstones, local partition sharing,
+manifold checks, independent index rebuild equivalence, repeated
+candidate trials, and post-collapse symmetric Inflate integration.
+
+V7 does **not** establish self-intersection freedom, general support for
+nonmanifold or open scans, global topology validation during each stamp,
+or deterministic equality of every legacy sequence despite differences
+in stable-ID ordering and local candidate restriction. Those are distinct
+contracts and must not be inferred from closed-manifold local tests.
