@@ -1,8 +1,11 @@
 #pragma once
 
 #include "mesher/versioned_mesh.hpp"
+#include "mesher/persistent_index_map.hpp"
+#include "mesher/picking.hpp"
 
 #include <array>
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -30,8 +33,8 @@ public:
         std::array<VertexId,3> vertices{};
     };
     struct Edge {
-        VertexId a{}, b{};
-        bool operator==(const Edge&) const = default;
+        VertexId a{},b{};
+        auto operator<=>(const Edge&) const = default;
     };
     struct EdgeHash {
         std::size_t operator()(Edge edge) const noexcept;
@@ -40,21 +43,77 @@ public:
         FaceId face{};
         bool forward{};
     };
+    struct Cell {
+        std::int64_t x{},y{},z{};
+        auto operator<=>(const Cell&) const = default;
+    };
+    struct CellHash {
+        std::size_t operator()(Cell key) const noexcept;
+    };
+    struct UpdateStatistics {
+        std::size_t changedVertexRecords{};
+        std::size_t changedFaceRecords{};
+        std::size_t changedEdgeRecords{};
+        std::size_t changedCellRecords{};
+        std::size_t copiedTreeNodes{};
+        std::size_t fullMeshTraversals{};
+    };
 
+    // Full index construction happens only once for an imported mesh.
     static std::shared_ptr<const RegionTopologyIndex> build(
-        std::shared_ptr<const MeshRevision> revision);
+        std::shared_ptr<const MeshRevision> revision,double cellSize=.15);
 
-    const MeshRevision& revision() const noexcept { return *revision_; }
-    const Vertex& vertex(VertexId id) const;
-    const Face& face(FaceId id) const;
+    const MeshRevision& revision() const noexcept {return *revision_;}
+    const Vertex& vertex(VertexId id) const {return vertices_.at(id);}
+    const Face& face(FaceId id) const {return faces_.at(id);}
+    std::shared_ptr<const Vertex> maybeVertex(VertexId id) const {
+        return vertices_.find(id);
+    }
+    std::shared_ptr<const std::vector<EdgeSide>> maybeEdgeSides(Edge key) const {
+        return edges_.find(key);
+    }
+    const std::vector<EdgeSide>& edgeSides(Edge key) const {
+        return edges_.at(key);
+    }
+    const UpdateStatistics& updateStatistics() const noexcept {return statistics_;}
+    // Exact squared-distance filtering after spatial bucket lookup. This is
+    // scoped to this immutable revision, even after newer revisions publish.
+    std::vector<VertexId> querySphere(Vec3 center,double radius) const;
+    // Exact immutable-revision picking; accelerated triangle BVH is V10.
+    std::optional<Vec3> firstRayHit(Ray ray) const;
 
 private:
     friend class RegionEdit;
-    explicit RegionTopologyIndex(std::shared_ptr<const MeshRevision> revision);
+    explicit RegionTopologyIndex(std::shared_ptr<const MeshRevision> revision,
+                                 double cellSize);
+    static std::shared_ptr<const RegionTopologyIndex> advance(
+        const RegionTopologyIndex& previous,
+        std::shared_ptr<const MeshRevision> next,
+        const std::unordered_map<VertexId,std::optional<Vec3>>& vertices,
+        const std::unordered_map<FaceId,
+            std::optional<std::array<VertexId,3>>>& faces,
+        const std::unordered_map<VertexId,PartitionId>& addedVertices,
+        const std::unordered_map<FaceId,PartitionId>& addedFaces);
+
+    static Cell cellFor(Vec3 point,double cellSize);
     std::shared_ptr<const MeshRevision> revision_;
-    std::unordered_map<VertexId,Vertex> vertices_;
-    std::unordered_map<FaceId,Face> faces_;
-    std::unordered_map<Edge,std::vector<EdgeSide>,EdgeHash> edges_;
+    double cellSize_;
+    PersistentIndexMap<VertexId,Vertex> vertices_;
+    PersistentIndexMap<FaceId,Face> faces_;
+    PersistentIndexMap<Edge,std::vector<EdgeSide>> edges_;
+    PersistentIndexMap<Cell,std::vector<VertexId>> cells_;
+    UpdateStatistics statistics_{};
+};
+
+class IndexedMeshRepository {
+public:
+    explicit IndexedMeshRepository(std::shared_ptr<const RegionTopologyIndex> initial);
+    std::shared_ptr<const RegionTopologyIndex> snapshot() const noexcept;
+    bool publishIfCurrent(const std::shared_ptr<const RegionTopologyIndex>& expected,
+                          std::shared_ptr<const RegionTopologyIndex> next);
+private:
+    // One atomic pointer owns both the immutable revision and its index.
+    std::atomic<std::shared_ptr<const RegionTopologyIndex>> published_;
 };
 
 // A seed vertex's write halo comprises its owner plus owners of incident
@@ -101,6 +160,10 @@ public:
     // local deltas, then commits only the pre-cloned writable partitions.
     // A failure leaves the base revision and any repository unchanged.
     RevisionCommit commit();
+    // Available after a successful commit; retains exact revision pairing.
+    std::shared_ptr<const RegionTopologyIndex> updatedIndex() const noexcept {
+        return updatedIndex_;
+    }
 
 private:
     void setPosition(VertexId id,Vec3 position);
@@ -110,6 +173,7 @@ private:
     void validate() const;
 
     std::shared_ptr<const RegionTopologyIndex> index_;
+    std::shared_ptr<const RegionTopologyIndex> updatedIndex_;
     MutableMeshView view_;
     RegionFootprint footprint_;
     std::unordered_set<VertexId> selected_;
