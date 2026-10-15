@@ -53,6 +53,9 @@ public:
                          std::vector<std::uint32_t> mirrors = {});
     CollapseStatistics apply(Mesh& mesh, std::span<const Vec3> beforeStamp);
     void reset(const Mesh& mesh, std::vector<std::uint32_t> mirrors = {});
+    // Replace symmetry correspondence after edge splits without changing the
+    // original minimum-edge threshold.
+    void setMirrors(std::vector<std::uint32_t> mirrors);
     double minimumEdge() const noexcept { return minimumEdge_; }
     const std::vector<std::uint32_t>& mirrors() const noexcept { return mirrors_; }
 private:

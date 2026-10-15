@@ -333,3 +333,63 @@ resize/fullscreen transitions.
 Actual window-manager placement and focus restoration require testing under
 the user's desktop session; CI compiles the complete Vulkan app and shaders,
 but does not have a running KWin compositor to check these desktop behaviours.
+
+
+## Experimental stretch-driven local refinement
+
+Use `--refine` to enable **directional subdivision plus local edge flipping**;
+the existing collapse pass (`--collapse`) and curvature correction
+(`--curvature-strength 0.25`) remain independent options. For example:
+
+```sh
+./build/Mesher --refine --curvature-strength 0.25
+./build/Mesher --refine --collapse --curvature-strength 0.25
+./build/Mesher --refine --no-edge-flips --curvature-strength 0.25
+```
+
+A split requires **both** `edge_length_after > maximumEdgeRatio * h_initial`
+and `edge_length_after > edge_length_before`. The default maximum-edge
+ratio is **1.5**, with a budget of **8 split-pairs per stamp**. This never
+converts an already-fine patch to a coarser target. Both triangles sharing an
+edge are subdivided, maintaining a conforming manifold mesh. In symmetric
+mode, a split and its reflected counterpart occur together, sharing a single
+new equatorial midpoint when the edge itself lies on the seam. Newly inserted
+positions and the corresponding pre-stamp reference positions are both
+interpolated from the original edge endpoints. In the polygonal surface
+representation, midpoint insertion alone changes neither existing geometry
+nor vertex-colour interpolation.
+
+After splits, a bounded one-ring neighbourhood may be reorganized with
+edge flips (**12 paired flips max per stamp**, at most eight attempts per
+allowed flip). A flip must improve the minimum triangle shape quality or
+reduce vertex-valence irregularity without meaningful triangle-quality loss.
+We reject changes to sharply nonplanar pairs, already-inverted faces and
+nonmanifold connectivity; reflected flips are paired. The two stages are
+separately controllable using `--no-edge-flips`,
+`--maximum-edge-ratio R`, `--max-split-pairs N`, and
+`--max-flip-pairs N`. When directional collapsing is enabled, it runs
+**after** refinement and receives the updated per-vertex pre-stamp reference
+positions and reflected-index mapping.
+
+For the same deterministic 105-stamp trajectory, compare variants without
+the GPU window using:
+
+```sh
+./build/Mesher --compare-local-remesh --curvature-strength 0.25 > local.csv
+```
+
+This reports `baseline`, `collapse`, `split`, `split_flip`, and `all`
+with per-stamp triangle/vertex counts, minimum altitude, inversion count,
+splits, flips, and collapses. It does **not** assert that topology
+optimization must always improve the final shape; visual comparison remains
+essential. Legacy `--compare-remesh` and `--compare-mitigations` retain
+their original baseline semantics.
+
+**Current limitations:** the operation budgets and local neighbourhood
+bounds are deliberate, not globally optimal; the implementation scans the
+whole small demo mesh and is not yet suitable for huge scans. Edge flips
+approximate the same piecewise-linear surface and thus can alter geometry
+or colours, unlike pure edge splits. The normal-compatibility gate is only
+a coarse fidelity filter: a quantitative geometric and colour-error budget
+is needed before general scan editing. There's no global collision guarantee,
+triangle projection/reconstruction, or smooth 2:1 gradation enforcement.

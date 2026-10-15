@@ -258,12 +258,14 @@ InflateDemoAnimation::InflateDemoAnimation(Mesh& mesh, double step,
                                            double strength,
                                            std::uint32_t segments, double radius,
                                            CollapseSettings collapse, bool symmetric,
-                                           CurvatureSettings curvature)
+                                           CurvatureSettings curvature,
+                                           RefineSettings refine)
     : mesh_(mesh), originalMesh_(mesh),
       stamps_(makeDemoStamps(step, segments, radius)), brush_(strength, curvature),
       collapser_(mesh, collapse,
                  symmetric ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
                            : std::vector<std::uint32_t>{}),
+      refiner_(mesh,refine,collapser_.mirrors()),
       originalMirrors_(collapser_.mirrors()) {
     afterCollapse_ = measureMesh(mesh_);
     preCollapse_ = afterCollapse_;
@@ -281,14 +283,20 @@ bool InflateDemoAnimation::advance() {
     }
     // Diagnose compression from the same vertices immediately before and
     // immediately after this stamp, before any topology changes.
-    const auto before = mesh_.vertices;
+    auto before = mesh_.vertices;
     brush_.stamp(mesh_, stamps_[next_]);
     preCollapse_ = measureMesh(mesh_, before, collapser_.minimumEdge());
+    lastRefine_ = refiner_.apply(mesh_, before);
+    totalAdded_ += lastRefine_.newVertices;
+    totalFlips_ += lastRefine_.flipPairs;
+    if(lastRefine_.splitPairs)collapser_.setMirrors(refiner_.mirrors());
     lastCollapse_ = collapser_.apply(mesh_, before);
     totalRemoved_ += lastCollapse_.removedVertices;
+    if(lastCollapse_.accepted)refiner_.setMirrors(collapser_.mirrors());
     afterCollapse_ = measureMesh(mesh_);
     ++next_;
-    if (lastCollapse_.accepted && next_ < stamps_.size()) {
+    if ((lastCollapse_.accepted || lastRefine_.splitPairs || lastRefine_.flipPairs) &&
+        next_ < stamps_.size()) {
         // Incident-face lookup must follow the revised triangle connectivity.
         brush_.end(mesh_);
         brush_.begin(mesh_);
@@ -307,9 +315,11 @@ void InflateDemoAnimation::reset() {
     }
     mesh_ = originalMesh_;
     collapser_.reset(mesh_, originalMirrors_);
+    refiner_.reset(mesh_, originalMirrors_);
     preCollapse_ = afterCollapse_ = measureMesh(mesh_);
     lastCollapse_ = {};
-    totalRemoved_ = 0;
+    lastRefine_ = {};
+    totalRemoved_ = totalAdded_ = totalFlips_ = 0;
     next_ = 0;
 }
 

@@ -180,6 +180,14 @@ void DirectionalCollapser::reset(const Mesh& mesh, std::vector<Index> mirrors) {
     }
 }
 
+void DirectionalCollapser::setMirrors(std::vector<Index> mirrors) {
+    if(!mirrors.empty())
+        for(Index i=0;i<mirrors.size();++i)
+            if(mirrors[i]>=mirrors.size() || mirrors[mirrors[i]]!=i)
+                throw std::invalid_argument("Mirror map must be an involution");
+    mirrors_=std::move(mirrors);
+}
+
 bool DirectionalCollapser::attempt(Mesh& mesh, Index a, Index b) {
     if(a==b || !linkCondition(mesh,a,b)) return false;
     const bool symmetry=!mirrors_.empty();

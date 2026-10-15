@@ -2,6 +2,7 @@
 
 #include "mesher/mesh.hpp"
 #include "mesher/remesh.hpp"
+#include "mesher/refine.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -99,7 +100,8 @@ public:
                          double strength = 0.012, std::uint32_t segments = 128,
                          double radius = 0.4,
                          CollapseSettings collapse = {}, bool symmetric = true,
-                         CurvatureSettings curvature = {});
+                         CurvatureSettings curvature = {},
+                         RefineSettings refine = {});
     ~InflateDemoAnimation();
     InflateDemoAnimation(const InflateDemoAnimation&) = delete;
     InflateDemoAnimation& operator=(const InflateDemoAnimation&) = delete;
@@ -112,17 +114,24 @@ public:
     const MeshDiagnostics& preCollapseDiagnostics() const noexcept { return preCollapse_; }
     const MeshDiagnostics& diagnostics() const noexcept { return afterCollapse_; }
     const CollapseStatistics& lastCollapse() const noexcept { return lastCollapse_; }
+    const RefineStatistics& lastRefine() const noexcept { return lastRefine_; }
+    std::size_t totalAdded() const noexcept { return totalAdded_; }
+    std::size_t totalFlips() const noexcept { return totalFlips_; }
     std::size_t totalRemoved() const noexcept { return totalRemoved_; }
     double minimumEdgeTarget() const noexcept { return collapser_.minimumEdge(); }
+    double maximumEdgeTarget() const noexcept { return refiner_.maximumEdge(); }
 private:
     Mesh& mesh_;
     Mesh originalMesh_;
     std::vector<std::vector<BrushArea>> stamps_;
     InflateBrush brush_;
     DirectionalCollapser collapser_;
+    LocalRefiner refiner_;
     std::vector<std::uint32_t> originalMirrors_;
     MeshDiagnostics preCollapse_{}, afterCollapse_{};
     CollapseStatistics lastCollapse_{};
+    RefineStatistics lastRefine_{};
+    std::size_t totalAdded_ = 0, totalFlips_ = 0;
     std::size_t totalRemoved_ = 0;
     std::size_t next_ = 0;
     bool brushActive_ = false;

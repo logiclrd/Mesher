@@ -21,16 +21,21 @@ int main(int argc, char** argv) {
     mesher::CollapseSettings collapseSettings;
     bool compareRemesh = false, compareMitigations = false;
     mesher::CurvatureSettings curvatureSettings;
+    mesher::RefineSettings refineSettings;
+    bool compareLocalRemesh = false;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
             if(arg=="--asymmetric") options.symmetric=false;
             else if(arg=="--collapse") collapseSettings.enabled=true;
+            else if(arg=="--refine") refineSettings.enabled=true;
+            else if(arg=="--no-edge-flips") refineSettings.optimizeFlips=false;
+            else if(arg=="--compare-local-remesh") compareLocalRemesh=true;
             else if(arg=="--compare-remesh") compareRemesh=true;
             else if(arg=="--compare-mitigations") compareMitigations=true;
             else if(arg=="--curvature-correction") curvatureSettings.enabled=true;
             else if(arg=="--no-inflate") inflate=false;
-            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength") {
+            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength" || arg=="--maximum-edge-ratio") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
                 std::size_t parsed=0;
@@ -42,12 +47,28 @@ int main(int argc, char** argv) {
                 else if(arg=="--brush-radius")brushRadius=v;
                 else if(arg=="--stamps-per-second")stampRate=v;
                 else if(arg=="--minimum-edge-ratio")collapseSettings.minimumEdgeRatio=v;
+                else if(arg=="--maximum-edge-ratio"){
+                    if(v<=0)throw std::invalid_argument("Maximum edge ratio must be positive");
+                    refineSettings.maximumEdgeRatio=v;
+                }
                 else if(arg=="--curvature-strength"){
                     if(v<0)throw std::invalid_argument("Curvature strength must be nonnegative");
                     curvatureSettings.strength=v;
                     curvatureSettings.enabled=true;
                 }
                 else strength=v;
+            }
+            else if(arg=="--max-split-pairs" || arg=="--max-flip-pairs") {
+                if(++i>=argc)throw std::invalid_argument("Missing refinement operation limit");
+                const std::string_view value=argv[i];
+                std::uint64_t count=0;
+                const auto [p,ec]=std::from_chars(value.data(),value.data()+value.size(),count);
+                if(ec!=std::errc{} || p!=value.data()+value.size() || count>1000)
+                    throw std::invalid_argument("Invalid refinement operation limit");
+                if(arg=="--max-split-pairs")
+                    refineSettings.maximumSplitPairsPerStamp=static_cast<std::uint32_t>(count);
+                else
+                    refineSettings.maximumFlipPairsPerStamp=static_cast<std::uint32_t>(count);
             }
             else if(arg=="--max-collapse-pairs") {
                 if(++i>=argc) throw std::invalid_argument("Missing --max-collapse-pairs value");
@@ -88,7 +109,9 @@ int main(int argc, char** argv) {
                          <<"       [--stamps-per-second HZ] [--collapse] [--compare-remesh]\n"
                          <<"       [--minimum-edge-ratio R] [--max-collapse-pairs N]\n"
                          <<"       [--curvature-correction] [--curvature-strength GAIN]\n"
-                         <<"       [--compare-mitigations]\n"
+                         <<"       [--compare-mitigations] [--compare-local-remesh]\n"
+                         <<"       [--refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
+                         <<"       [--max-split-pairs N] [--max-flip-pairs N]\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Inflate animation on, radius .4, Step .02, strength .012, 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -98,6 +121,49 @@ int main(int argc, char** argv) {
         std::cout<<"Generating "<<options.vertexCount<<(options.symmetric?" symmetric":" asymmetric")<<" vertices..."<<std::flush;
         auto mesh=mesher::generateSphere(options);
         std::cout<<" "<<mesh.triangles.size()<<" triangles; watertight manifold verified.\n";
+        if(compareLocalRemesh) {
+            struct Variant {const char* name;bool refine;bool flips;bool collapse;};
+            constexpr std::array<Variant,5> modes{{
+                {"baseline",false,false,false},
+                {"collapse",false,false,true},
+                {"split",true,false,false},
+                {"split_flip",true,true,false},
+                {"all",true,true,true}
+            }};
+            std::array<mesher::Mesh,5> meshes{mesh,mesh,mesh,mesh,mesh};
+            std::array<std::unique_ptr<mesher::InflateDemoAnimation>,5> runs;
+            for(std::size_t i=0;i<modes.size();++i) {
+                auto collapse=collapseSettings;
+                collapse.enabled=modes[i].collapse;
+                auto refine=refineSettings;
+                refine.enabled=modes[i].refine;
+                refine.optimizeFlips=modes[i].flips;
+                runs[i]=std::make_unique<mesher::InflateDemoAnimation>(
+                    meshes[i],step,strength,segments,brushRadius,
+                    collapse,options.symmetric,curvatureSettings,refine);
+            }
+            std::cout<<std::setprecision(9)
+                     <<"mode,stamp,vertices,faces,min_edge,min_altitude,inverted,"
+                       "split_pairs,flip_pairs,added_vertices,collapsed_vertices\n";
+            auto dump=[&](std::size_t i) {
+                const auto& anim=*runs[i];
+                const auto& d=anim.diagnostics();
+                std::cout<<modes[i].name<<","<<anim.completed()<<","
+                         <<meshes[i].vertices.size()<<","<<meshes[i].triangles.size()
+                         <<","<<d.minimumEdgeLength<<","<<d.minimumTriangleAltitude
+                         <<","<<d.invertedFaces<<","<<anim.lastRefine().splitPairs
+                         <<","<<anim.lastRefine().flipPairs<<","
+                         <<anim.lastRefine().newVertices<<","
+                         <<anim.lastCollapse().removedVertices<<"\n";
+            };
+            for(std::size_t i=0;i<modes.size();++i)dump(i);
+            for(std::uint32_t stamp=0;stamp<runs[0]->total();++stamp)
+                for(std::size_t i=0;i<modes.size();++i) {
+                    if(!runs[i]->advance())throw std::logic_error("Inconsistent stamp count");
+                    dump(i);
+                }
+            return 0;
+        }
         if(compareRemesh || compareMitigations) {
             struct Variant {const char* name;bool collapse;bool curvature;};
             constexpr std::array<Variant,4> variants{{
@@ -151,7 +217,7 @@ int main(int argc, char** argv) {
         if (inflate) {
             demo = std::make_unique<mesher::InflateDemoAnimation>(
                 mesh, step, strength, segments, brushRadius,
-                collapseSettings, options.symmetric, curvatureSettings);
+                collapseSettings, options.symmetric, curvatureSettings, refineSettings);
             playback.stampsPerSecond=stampRate;
             playback.advance=[&] { return demo->advance(); };
             playback.reset=[&] { demo->reset(); };
@@ -164,12 +230,17 @@ int main(int argc, char** argv) {
                        "  short/shrinking " +
                        std::to_string(demo->preCollapseDiagnostics().shrinkingShortEdges) +
                        "  removed " + std::to_string(demo->totalRemoved()) +
+                       "  added " + std::to_string(demo->totalAdded()) +
+                       "  flips " + std::to_string(demo->totalFlips()) +
                        "  min-edge " + std::to_string(d.minimumEdgeLength) +
                        "  min-alt " + std::to_string(d.minimumTriangleAltitude);
             };
             std::cout<<"Curvature correction: "
                      <<(curvatureSettings.enabled?"on":"off")
                      <<" (gain "<<curvatureSettings.strength<<").\n";
+            std::cout<<"Refinement: "<<(refineSettings.enabled?"on":"off")
+                     <<" (maximum edge "<<demo->maximumEdgeTarget()
+                     <<", flips "<<(refineSettings.optimizeFlips?"on":"off")<<").\n";
             std::cout<<"Remeshing: "<<(collapseSettings.enabled?"directional collapsing":"off")
                      <<" (minimum edge "<<demo->minimumEdgeTarget()<<").\n";
             std::cout<<"Animating "<<demo->total()<<" stamps at "<<stampRate
