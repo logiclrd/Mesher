@@ -239,7 +239,10 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
             const auto added=addedFaces.find(id);
             const auto owner=added!=addedFaces.end() ? added->second:old.face(id).owner;
             result->faces_.set(id,Face{owner,*replacement},&copied);
-        }else result->faces_.erase(id,&copied);
+        }else {
+            result->faces_.erase(id,&copied);
+            result->retiredFaces_.set(id,true,&copied);
+        }
         ++result->statistics_.changedFaceRecords;
     }
     for(auto& [key,sides]:edges) {
