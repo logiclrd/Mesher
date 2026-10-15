@@ -57,6 +57,8 @@ jobs:
                   assert len(data) == 106, f"Wrong stamp count: {gain} {mode}"
                   first = next((r["stamp"] for r in data if int(r["inverted"])>0), "never")
                   final = data[-1]
+                  if mode == "both" or (mode == "curvature" and gain in ("0.5", "1.0")):
+                      assert all(int(r["inverted"]) == 0 for r in data), (gain, mode, "regressed")
                   print(f"  {mode}: first inverted={first}, final inverted={final['inverted']}, "
                         f"vertices={final['vertices']}, min altitude={final['min_altitude']}")
           PY

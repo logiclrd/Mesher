@@ -264,3 +264,36 @@ at gains 0.5, 1.0 and 2.0 and uploads the comparison CSV files as artifacts.
 In the viewport, try `./build/Mesher --curvature-correction` or
 `./build/Mesher --collapse --curvature-correction` for direct visual
 comparison at 10 stamps/s. Use Space/Right/R to pause, single-step and replay.
+
+## Measured 5,000-vertex curvature experiment (2026-10-15)
+
+Four-way independent comparison of the original 105-stamp, radius-0.4,
+5,000-vertex symmetric Inflate test:
+
+| Options | First radially inverted face | Final inverted faces | Final vertices |
+| --- | ---: | ---: | ---: |
+| Neither | 98 | 22 | 5,000 |
+| Curvature gain 1.0 only | Never | 0 | 5,000 |
+| Directional collapse only | 105 | 8 | 4,898 |
+| Both, curvature gain 1.0 | Never | 0 | 4,944 |
+
+Additional strength sweep:
+
+| Curvature gain | Curvature only: first inversion / final | Both: first inversion / final |
+| --- | --- | --- |
+| 0.5 | Never / 0 | Never / 0 |
+| 1.0 | Never / 0 | Never / 0 |
+| 2.0 | 98 / 0 | Never / 0 |
+
+The **2.0 curvature-only** run has a transient inversion. This illustrates
+why checking only the final deformation would give a misleading assessment.
+
+The correction is experimentally promising, but radial inversion counts
+do not establish absence of other types of self-intersection. We have not
+tested imported meshes or noisy photogrammetry scans; the curvature term
+may also attenuate legitimate high-frequency geometric detail. It should
+remain **opt-in** while we evaluate fidelity and stability. The default
+unmodified Inflate remains available for A/B comparisons.
+
+See GitHub Actions `mesher-curvature-experiments` artifacts for complete
+per-stamp CSV data.
