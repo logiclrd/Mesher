@@ -203,9 +203,13 @@ void testLocalFlipAndRepeatedRevisions() {
 }
 int main() {
     try {
-        testTransactionalSplitAndOverflow();
-        testMirrorSplit();
-        testLocalFlipAndRepeatedRevisions();
+        const auto scenario=[](const char* name,auto work) {
+            try{work();}
+            catch(...){std::cerr<<"Failed V6 scenario: "<<name<<std::endl;throw;}
+        };
+        scenario("overflow split",testTransactionalSplitAndOverflow);
+        scenario("mirrored split",testMirrorSplit);
+        scenario("repeated split and flip",testLocalFlipAndRepeatedRevisions);
         std::cout<<"Transactional stable-ID refinement tests passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"V6 refinement failure: "<<e.what()<<'\n';
