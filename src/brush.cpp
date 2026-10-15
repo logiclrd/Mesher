@@ -1,6 +1,7 @@
 #include "mesher/brush.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -337,16 +338,27 @@ void AdaptiveInflateBrush::begin(Mesh& mesh) {
 }
 void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     if(!begun_)throw std::logic_error("Adaptive Inflate has not begun");
+    using Clock=std::chrono::steady_clock;
+    auto start=Clock::now();
     auto before=mesh.vertices;
     inflate_.stamp(mesh,areas);
+    auto afterInflate=Clock::now();
     const auto refined=refiner_.apply(mesh,before);
     if(refined.splitPairs)collapser_.setMirrors(refiner_.mirrors());
+    auto afterRefine=Clock::now();
     const auto collapsed=collapser_.apply(mesh,before);
     if(collapsed.accepted)refiner_.setMirrors(collapser_.mirrors());
+    auto afterCollapse=Clock::now();
     if(refined.splitPairs || refined.flipPairs || collapsed.accepted) {
         inflate_.end(mesh);
         inflate_.begin(mesh);
     }
+    auto finished=Clock::now();
+    auto seconds=[](auto a,auto b) {
+        return std::chrono::duration<double>(b-a).count();
+    };
+    lastTimings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
+                  seconds(afterRefine,afterCollapse),seconds(afterCollapse,finished)};
     ++completed_;
 }
 void AdaptiveInflateBrush::end(Mesh& mesh) {

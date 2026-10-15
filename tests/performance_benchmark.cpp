@@ -35,9 +35,17 @@ int main(int argc,char** argv) {
             const std::array<mesher::Vec3,2> points{{{.3,-.85,.45},
                                                     {-.3,-.85,.45}}};
             // Exactly one stationary stamp (0.1 seconds at 0.2 units/sec).
+            const auto first=brush.lastTimings();
             stroke.updateTimedRealtime(points,.1);
+            const auto second=brush.lastTimings();
             const double elapsed=seconds(stampStart);
             stroke.finishTimedRealtime(points,.1);
+            std::cerr<<(remesh?"with remesh":"without remesh")
+                     <<" phases: inflate="<<(first.inflateSeconds+second.inflateSeconds)
+                     <<" refine="<<(first.refineSeconds+second.refineSeconds)
+                     <<" collapse="<<(first.collapseSeconds+second.collapseSeconds)
+                     <<" adjacency-rebuild="<<(first.rebuildSeconds+second.rebuildSeconds)
+                     <<" seconds\n";
             return elapsed;
         };
         const double stamp=run(false);

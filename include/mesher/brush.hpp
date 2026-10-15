@@ -113,6 +113,13 @@ private:
     std::vector<Vec3> lastStamped_;
 };
 
+struct StampTimings {
+    double inflateSeconds = 0;
+    double refineSeconds = 0;
+    double collapseSeconds = 0;
+    double rebuildSeconds = 0;
+};
+
 // Interactive sculpting uses the same Inflate and local topology algorithms
 // as the recorded demo, wrapped as a Brush for the 4D stroke sampler.
 class AdaptiveInflateBrush final : public Brush {
@@ -124,12 +131,14 @@ public:
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
     std::size_t completedStamps() const noexcept { return completed_; }
+    StampTimings lastTimings() const noexcept { return lastTimings_; }
 private:
     InflateBrush inflate_;
     DirectionalCollapser collapser_;
     LocalRefiner refiner_;
     std::size_t completed_ = 0;
     bool begun_ = false;
+    StampTimings lastTimings_{};
 };
 
 // CPU-only, incremental playback of the demonstration. BrushStroke generates
