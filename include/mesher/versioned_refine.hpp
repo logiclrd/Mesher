@@ -36,6 +36,8 @@ public:
         std::shared_ptr<const RegionTopologyIndex> postInflate,
         const LocalStampBaseline& baseline);
 
+    // Apply the V7 collapse result's retired mirror pairs before the next stamp.
+    void removeMirrorPair(VertexId first,VertexId second);
     double maximumEdge() const noexcept { return maximumEdge_; }
     const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
         return mirrors_;
