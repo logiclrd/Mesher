@@ -80,10 +80,19 @@ public:
     void updateTimed(std::span<const Vec3> positions, double elapsedSeconds);
     void finishTimed(std::span<const Vec3> positions, double elapsedSeconds);
 
+    // Interactive-only bounded sampling: apply at most one stamp per call.
+    // When the input path contains multiple due samples, fast-forward over
+    // older ones to the newest sample, preserving the 4D Step phase.
+    // The realtime finish applies at most the terminal stamp.
+    void updateTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
+    void finishTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
+
     bool active() const noexcept { return active_; }
     std::size_t stamps() const noexcept { return stamps_; }
+    std::size_t skippedStamps() const noexcept { return skippedStamps_; }
 private:
-    void advance(std::span<const Vec3> positions, double elapsedSeconds);
+    void advance(std::span<const Vec3> positions, double elapsedSeconds,
+                 bool realtime=false, bool terminal=false);
     void stamp();
 
     Mesh& mesh_;
@@ -95,6 +104,7 @@ private:
     bool timed_ = false;
     bool active_ = false;
     std::size_t stamps_ = 0;
+    std::size_t skippedStamps_ = 0;
     std::vector<BrushArea> areas_;
     std::vector<Vec3> lastStamped_;
 };

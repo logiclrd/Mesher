@@ -238,20 +238,20 @@ int main(int argc, char** argv) {
                 if(options.symmetric) {
                     const std::array<mesher::Vec3,2> pair{
                         point,{-point.x,point.y,point.z}};
-                    liveStroke->updateTimed(pair,elapsed);
+                    liveStroke->updateTimedRealtime(pair,elapsed);
                 } else {
                     const std::array<mesher::Vec3,1> pointOnly{point};
-                    liveStroke->updateTimed(pointOnly,elapsed);
+                    liveStroke->updateTimedRealtime(pointOnly,elapsed);
                 }
             };
             interaction.end=[&](mesher::Vec3 point,double elapsed) {
                 if(options.symmetric) {
                     const std::array<mesher::Vec3,2> pair{
                         point,{-point.x,point.y,point.z}};
-                    liveStroke->finishTimed(pair,elapsed);
+                    liveStroke->finishTimedRealtime(pair,elapsed);
                 } else {
                     const std::array<mesher::Vec3,1> pointOnly{point};
-                    liveStroke->finishTimed(pointOnly,elapsed);
+                    liveStroke->finishTimedRealtime(pointOnly,elapsed);
                 }
             };
             interaction.completedStamps=[&]{return liveBrush->completedStamps();};

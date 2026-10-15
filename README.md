@@ -485,3 +485,37 @@ timer thread or GPU compute-based sculpting. For high-density models, CPU
 raycasting and whole-mesh updates will require acceleration and dirty-region
 updates. A stroke is not yet an undoable transaction; tests should be done
 on generated meshes.
+
+
+## Responsive four-dimensional mouse sculpting
+
+The scripted `--demo` and CPU `updateTimed` / `finishTimed` methods
+retain **exact 4D Step sampling**, including all intermediate samples.
+Interactive mouse painting instead uses `updateTimedRealtime` and
+`finishTimedRealtime`, which enforce a **maximum of one actual brush
+stamp per input/render iteration**. This prevents a long or fast mouse
+movement from generating an unbounded number of expensive synchronous
+mesh modifications before the next Vulkan draw.
+
+When a mouse update contains more than one due 4D Step, the live sampler
+uses the **latest grid sample**, skips earlier samples and advances the
+sampling phase over the entire trajectory. Subsequent input begins from
+the latest mouse position/time, never from the old missed work. Release
+uses at most one final stamp at the exact current pointer location,
+without applying a backlog. The window title reports the cumulative
+`skipped` stamp count in addition to actual stamps. During normal
+movement and when geometry processing keeps pace, no stamps are skipped.
+The HUD's actual STAMPS rate now directly measures geometry changes
+that can be presented between frames, rather than arbitrary batches
+completed within a single stalled frame.
+
+This is a deliberate **real-time responsiveness versus full path fidelity**
+trade-off. If input motion demands more samples than the CPU/GPU can
+process and display, the real-time mode reduces the sampling density
+rather than allowing latency to grow without bound. It preserves
+the four-dimensional arc-length *phase*, but not every intermediate
+stamp under overload. The offline mode remains available to exercise
+the complete stroke with zero skipped stamps; longer term, spatial
+acceleration and efficient local remeshing should reduce the need to
+drop samples. The operation does not assume a particular display
+refresh rate.

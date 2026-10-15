@@ -159,6 +159,7 @@ void BrushStroke::start(std::vector<BrushArea> areas) {
     areas_ = std::move(areas);
     untilNext_ = step_;
     stamps_ = 0;
+    skippedStamps_ = 0;
     timed_ = false;
     timeSpeed_ = 0;
     currentTime_ = lastStampTime_ = 0;
@@ -181,7 +182,8 @@ void BrushStroke::startTimed(std::vector<BrushArea> areas, double timeSpeed) {
     timeSpeed_ = timeSpeed;
 }
 
-void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds) {
+void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds,
+                          bool realtime, bool terminal) {
     if (!active_) throw std::logic_error("Stroke has not started");
     if (positions.size() != areas_.size()) throw std::invalid_argument("Stroke point count changed");
     if (positions.empty()) throw std::logic_error("Stroke has no areas");
@@ -200,12 +202,64 @@ void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds
         if (std::abs(d - travel) > 1e-9 * std::max({1.0, travel, step_}))
             throw std::invalid_argument("All stroke points must travel equal distances");
     }
-    if (travel == 0) { currentTime_=elapsedSeconds; return; }
+    if (travel == 0) {
+        currentTime_=elapsedSeconds;
+        if(realtime && terminal) {
+            // The terminal input may coincide exactly with the last stamp.
+            brush_.end(mesh_);
+            active_=false;
+        }
+        return;
+    }
 
     const double fromTime=currentTime_;
     std::vector<Vec3> from;
     from.reserve(areas_.size());
     for (const auto& a : areas_) from.push_back(a.center);
+    // Real-time painting must render between costly stamps. Do not execute
+    // the full, potentially unbounded catch-up loop from a single mouse
+    // update. Instead select the most recent grid sample (or the terminal
+    // position on release), and account for dropped earlier samples. The
+    // phase advances by *all* 4D travel, preventing feedback/backlog.
+    if(realtime) {
+        const double tolerance=1e-12*std::max(1.0,travel);
+        std::size_t due=0;
+        if(travel+tolerance>=untilNext_) {
+            const double count=std::floor(std::max(0.0,
+                travel-untilNext_+tolerance)/step_)+1.0;
+            if(!std::isfinite(count) ||
+               count>double(std::numeric_limits<std::size_t>::max()/2))
+                throw std::overflow_error("Too many stroke samples for one update");
+            due=static_cast<std::size_t>(count);
+        }
+        if(due!=0 && !terminal) {
+            const double sampleDistance=untilNext_+double(due-1)*step_;
+            const double t=std::clamp(sampleDistance/travel,0.0,1.0);
+            for(std::size_t i=0;i<areas_.size();++i)
+                areas_[i].center=from[i]+(positions[i]-from[i])*t;
+            currentTime_=fromTime+dt*t;
+            stamp();
+            skippedStamps_+=due-1;
+        } else if(due!=0) {
+            // On release the newest sample is the actual endpoint instead
+            // of the grid point immediately preceding it.
+            skippedStamps_+=due-1;
+        }
+        untilNext_+=double(due)*step_-travel;
+        if(untilNext_<=0)untilNext_=step_;
+        for(std::size_t i=0;i<areas_.size();++i)
+            areas_[i].center=positions[i];
+        currentTime_=elapsedSeconds;
+        if(terminal) {
+            bool same=timeSpeed_*(currentTime_-lastStampTime_)<=1e-12;
+            for(std::size_t i=0;i<areas_.size();++i)
+                if(length(areas_[i].center-lastStamped_[i])>1e-12)same=false;
+            if(!same)stamp();
+            brush_.end(mesh_);
+            active_=false;
+        }
+        return;
+    }
     // Maintain the sampling phase across segment boundaries, independent
     // of the number and sizes of the incoming position updates.
     double distance = untilNext_;
@@ -229,6 +283,16 @@ void BrushStroke::update(std::span<const Vec3> positions) {
 void BrushStroke::updateTimed(std::span<const Vec3> positions, double elapsedSeconds) {
     if(!timed_)throw std::logic_error("Use startTimed before updateTimed");
     advance(positions,elapsedSeconds);
+}
+void BrushStroke::updateTimedRealtime(std::span<const Vec3> positions,
+                                     double elapsedSeconds) {
+    if(!timed_)throw std::logic_error("Use startTimed before updateTimedRealtime");
+    advance(positions,elapsedSeconds,true,false);
+}
+void BrushStroke::finishTimedRealtime(std::span<const Vec3> positions,
+                                     double elapsedSeconds) {
+    if(!timed_)throw std::logic_error("Use startTimed before finishTimedRealtime");
+    advance(positions,elapsedSeconds,true,true);
 }
 void BrushStroke::finish(std::span<const Vec3> positions) {
     if(timed_)throw std::logic_error("Use finishTimed on a timed stroke");

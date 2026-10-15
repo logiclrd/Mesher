@@ -150,6 +150,63 @@ void testFourDimensionalStroke() {
     }catch(const std::invalid_argument&){invalid=true;}
     check(invalid,"Time speed must be positive");
 }
+void testRealtimeSamplingBound() {
+    Mesh dummy;
+    RecordingBrush recorded;
+    BrushStroke stroke(dummy,recorded,.1);
+    stroke.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.4);
+
+    // The exact sampler would do five costly stamps here, keeping the
+    // renderer from displaying intermediate results. The realtime sampler
+    // selects the newest grid sample and skips the four older ones.
+    const std::array<Vec3,2> moved{{{.3,0,0},{.3,2,0}}};
+    stroke.updateTimedRealtime(moved,1.0); // 4D arc length = .5
+    check(recorded.stamps.size()==2 && stroke.stamps()==2,
+          "One realtime mouse update cannot batch five stamps");
+    check(stroke.skippedStamps()==4,
+          "Backlogged intermediate samples are explicitly counted");
+    near(recorded.stamps.back()[0].x,.3,1e-12,
+         "Newest 4D grid sample stays near the current mouse position");
+    near(recorded.stamps.back()[1].x,.3,1e-12,
+         "Mirrored point receives the same latest sample");
+
+    // A following update doesn't repay previous backlog: the phase has
+    // already advanced across the whole 4D path.
+    stroke.updateTimedRealtime(moved,1.125); // .05, no stamp yet
+    check(recorded.stamps.size()==2,"No old stamps accumulate into subsequent frames");
+    stroke.updateTimedRealtime(moved,1.25); // next .05 -> one stamp
+    check(recorded.stamps.size()==3 && stroke.skippedStamps()==4,
+          "Stationary 4D time continues at the correct phase");
+    stroke.finishTimedRealtime(moved,1.25);
+    check(recorded.stamps.size()==3 && recorded.ends==1,
+          "Releasing on the sampled endpoint does not add extra stamp");
+
+    RecordingBrush releaseBrush;
+    BrushStroke release(dummy,releaseBrush,.1);
+    release.startTimed({{{0,0,0},1,.3}},.2);
+    const std::array<Vec3,1> endpoint{{{.6,0,0}}};
+    release.finishTimedRealtime(endpoint,2.0); // sqrt(.36 + .16) > 7 steps
+    check(releaseBrush.stamps.size()==2 && releaseBrush.ends==1,
+          "Release applies at most one terminal stamp under heavy backlog");
+    near(releaseBrush.stamps.back()[0].x,.6,1e-12,
+         "Release prioritizes the exact final cursor position");
+    check(release.skippedStamps()>0,"Release also reports skipped intermediates");
+
+    RecordingBrush invalidBrush;
+    BrushStroke invalid(dummy,invalidBrush,.1);
+    invalid.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.4);
+    const std::array<Vec3,2> unequal{{{.2,0,0},{.3,2,0}}};
+    bool rejected=false;
+    try {invalid.updateTimedRealtime(unequal,.8);}
+    catch(const std::invalid_argument&) {rejected=true;}
+    check(rejected && invalidBrush.stamps.size()==1 &&
+          invalid.skippedStamps()==0,
+          "Realtime sampling validates mirrored 4D travel before changes");
+    const std::array<Vec3,2> initial{{{0,0,0},{0,2,0}}};
+    invalid.finishTimedRealtime(initial,0);
+    check(invalidBrush.stamps.size()==1 && invalidBrush.ends==1,
+          "Exact stationary release closes with no duplicate stamp");
+}
 void testCurvatureCorrection() {
     // Four planar triangles forming a shallow bowl. Their shared center
     // has negative signed mean curvature and should rise more rapidly.
@@ -319,7 +376,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testFalloff();testSampling();testFourDimensionalStroke();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testFalloff();testSampling();testFourDimensionalStroke();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }
