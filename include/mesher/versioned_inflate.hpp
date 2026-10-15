@@ -58,6 +58,8 @@ public:
     // V6 adds only newly split midpoint mirror pairs between stamps.
     // Existing mappings are never rebuilt or silently changed.
     void addMirrorPair(VertexId first,VertexId second);
+    // V7: drop only the retired pair, preserving unrelated mappings.
+    void removeMirrorPair(VertexId first,VertexId second);
 
     VersionedInflateStamp stamp(
         std::shared_ptr<const RegionTopologyIndex> before,
