@@ -25,7 +25,8 @@ void validateReflection(const Mesh& mesh,const std::vector<std::uint32_t>& mirro
 }
 void testSelectiveSplitting() {
     SphereOptions opts;opts.vertexCount=800;opts.relaxationIterations=20;
-    auto mesh=generateSphere(opts),before=mesh.vertices;
+    auto mesh=generateSphere(opts);
+    auto before=mesh.vertices;
     RefineSettings settings;
     settings.enabled=true;settings.maximumEdgeRatio=.5;
     settings.maximumSplitPairsPerStamp=3;settings.optimizeFlips=false;
