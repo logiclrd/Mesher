@@ -37,12 +37,25 @@ an older revision while the worker edits or publishes a newer one.
   Import/export full traversals are explicitly outside the commit path.
   Fast ID lookup, transactional topology changes, production rendering and
   exporting newly inserted/deleted topology remain future tasks (V3/V4/V8).
-- [ ] **V3 — Region edit transactions and boundary integrity.**
-  Implement read/write-set discovery for a local region and its topological
-  halo; allocate writable copies of every affected partition before mutation.
-  Define atomic mirrored/seam edits spanning multiple partitions. Validate
-  cross-partition adjacency, references and rollback on failed edits. No
-  published reader may observe a half-completed topology operation.
+- [x] **V3 — Region edit transactions and boundary integrity.**
+  Added RegionTopologyIndex and RegionEdit. A one-time O(N) immutable topology
+  lookup discovers seed vertices, their incident faces, adjacent read-only
+  faces and cross-partition references. RegionEdit pre-clones precisely the
+  write halo; read-only halo partitions remain shared. Its scoped operations
+  support moves, paired mirrored moves/seam constraints, existing mirrored
+  face pairs, single/multiple face replacements, local inserts and deletes.
+  Transaction validation checks local geometric degeneracy, missing vertices,
+  all changed edge incidences/orientations and one-ring fan connectivity;
+  only a fully validated revision can be returned for atomic publication.
+  A compare-and-swap publication option rejects stale-base transactions.
+  Explicit per-partition element caps prevent unbounded growth during local
+  editing. Regression tests cover valid edge flips/face subdivision across
+  partitions, invalid half-edits, retained old revisions and mirror/seam edits.
+  **Deliberate limits:** V3 rebuilds its immutable topology lookup O(N) per
+  revision (V4 makes it incremental), and mirrored split/collapse insertion
+  and removal operations are reserved for V6/V7. Neither full snapshot
+  rebuilding nor GPU dirty-region uploading is attempted here (V8/V9).
+  Local validation does not prove collision freedom or global manifoldness.
 - [ ] **V4 — Versioned local spatial/connectivity indices.**
   Replace global-index-dependent mutable adjacency and location caches with
   revision-consistent partition-local indices and bounded cross-partition
@@ -102,9 +115,9 @@ an older revision while the worker edits or publishes a newer one.
 * All changes preserve the current results unless a geometric algorithm
   alteration has been separately specified and tested. No false claims of
   self-intersection guarantees or vertex-colour preservation.
-* V1 establishes storage semantics; V2 adds stable ID allocation and a
-  one-time flat/partitioned adapter. Validated topology transactions,
-  indexed element lookup, production remeshing, viewport integration, and
+* V1 establishes storage semantics, V2 adds stable IDs and lossless
+  partition adapters, and V3 adds validated local edits. Incrementally
+  maintained indices, full remeshing integration, viewport use, and
   durable undo remain explicit future tasks.
 
 ## Other remaining design goals
