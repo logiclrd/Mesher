@@ -81,7 +81,7 @@ VersionedDirectionalCollapser::VersionedDirectionalCollapser(
     minimumEdge_=settings.minimumEdgeRatio*
         std::sqrt(8*pi/(static_cast<double>(initialVertexCount)*
                         std::sqrt(3.0)));
-    for(const auto [a,b]:mirrors)addMirror(mirrors_,a,b);
+    for(const auto& [a,b]:mirrors)addMirror(mirrors_,a,b);
 }
 
 bool VersionedDirectionalCollapser::attempt(
