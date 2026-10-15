@@ -30,15 +30,19 @@ VersionedInflateBrush::VersionedInflateBrush(
     if(!std::isfinite(strength)||
        !std::isfinite(curvature.strength)||curvature.strength<0)
         throw std::invalid_argument("Invalid versioned Inflate parameters");
-    for(const auto& [a,b]:mirrors) {
-        if(a==0||b==0)
-            throw std::invalid_argument("Mirror IDs must be nonzero");
-        const auto [forward,newForward]=mirrors_.emplace(a,b);
-        const auto [reverse,newReverse]=mirrors_.emplace(b,a);
-        if((!newForward&&forward->second!=b)||
-           (!newReverse&&reverse->second!=a))
-            throw std::invalid_argument("Mirror correspondence is not an involution");
-    }
+    for(const auto& pair:mirrors)addMirrorPair(pair.first,pair.second);
+}
+
+void VersionedInflateBrush::addMirrorPair(VertexId first,VertexId second) {
+    if(first==0||second==0)
+        throw std::invalid_argument("Mirror IDs must be nonzero");
+    const auto a=mirrors_.find(first);
+    const auto b=mirrors_.find(second);
+    if((a!=mirrors_.end()&&a->second!=second)||
+       (b!=mirrors_.end()&&b->second!=first))
+        throw std::invalid_argument("Conflicting mirror correspondence");
+    mirrors_.emplace(first,second);
+    mirrors_.emplace(second,first);
 }
 
 VersionedInflateStamp VersionedInflateBrush::stamp(
