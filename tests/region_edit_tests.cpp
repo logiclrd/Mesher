@@ -111,9 +111,9 @@ void testRollbackAndScopedAccess() {
              "Cannot insert into partition outside write set");
     rejected([&] { invalidScope.replaceFace(f[0],{v[0],v[1],999999}); },
              "Cannot reference vertex outside read halo");
-    rejected([&] { invalidScope.removeFace(f[0]); },
+    invalidScope.removeFace(f[0]);
+    rejected([&] { (void)invalidScope.commit(); },
              "Cannot remove a face without repairing its topology");
-    // The rejected face removal is staged; only commit must fail.
     require(published.snapshot()==reader,"All failures leave publication intact");
     auto good=RegionEdit(index,{v[0]});
     good.moveVertex(v[0],{1.1,0,0});
