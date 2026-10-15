@@ -26,6 +26,13 @@ class MeshIdentityDomain {
 public:
     VertexId vertex() { return allocateId(nextVertex_); }
     FaceId face() { return allocateId(nextFace_); }
+    PartitionId overflowPartition() {
+        const auto ordinal=allocateId(nextOverflow_);
+        if(ordinal>std::uint64_t{0x7fffffff})
+            throw std::overflow_error("Mesh overflow partition ID space exhausted");
+        return std::numeric_limits<PartitionId>::max()-
+               static_cast<PartitionId>(ordinal-1);
+    }
 private:
     std::atomic<std::uint64_t> nextVertex_{1};
     std::atomic<std::uint64_t> nextFace_{1};
