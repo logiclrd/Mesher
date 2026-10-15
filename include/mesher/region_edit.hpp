@@ -173,6 +173,7 @@ private:
     void setPosition(VertexId id,Vec3 position);
     void setFace(FaceId id,std::optional<std::array<VertexId,3>> vertices);
     void ensureWritable(PartitionId id) const;
+    PartitionId chooseInsertionPartition(PartitionId preferred,bool vertex);
     void ensureReferences(const std::array<VertexId,3>& ids) const;
     void validate() const;
 
