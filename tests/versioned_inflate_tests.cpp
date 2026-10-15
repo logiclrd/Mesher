@@ -93,7 +93,8 @@ void testVersionedMatchesReference(CurvatureSettings curvature) {
                     old->revision().partitionCount(),
                     "Small brush must not clone whole mesh");
             const auto id=stamp.baseline.movedVertices.front();
-            require(stamp.baseline.positionBefore(id)==old->vertex(id).position,
+            require(length(stamp.baseline.positionBefore(id)-
+                           old->vertex(id).position)==0,
                     "Baseline reads old pre-stamp coordinates");
             const auto face=stamp.baseline.affectedFaces.front();
             const auto tri=old->face(face).vertices;
