@@ -73,12 +73,28 @@ an older revision while the worker edits or publishes a newer one.
   work across 180 revisions, check cross-partition split/flip behavior,
   identity sharing, exact picking/spatial results, and concurrent readers.
   Existing sculpt/Vulkan paths remain unchanged until V5-V10.
-- [ ] **V5 — Local Inflate and per-stamp pre-edit baseline.**
-  Move deformation and curvature calculations to region transactions while
-  preserving current pre-stamp simultaneous normals, influence maximum,
-  symmetric updates, and directional edge-length comparisons. Avoid copying
-  the entire vertex array for `before` state. Compare geometry against the
-  established deterministic synchronous fixtures.
+- [x] **V5 — Local Inflate and per-stamp pre-edit baseline.**
+  VersionedInflateBrush now evaluates maximum-of-areas influence, all unit
+  face-normal sums and optional cotangent mean-curvature correction against
+  an immutable indexed pre-stamp revision, gathering all movements before
+  modifying any geometry and applying them through validated RegionEdit.
+  Mirrored vertices move as paired transactions and shared X=0 seam vertices
+  remain constrained to that plane. LocalStampBaseline retains the prior
+  immutable index and lists only moved stable vertex IDs and incident faces;
+  directional split/collapse code can query exact prior edge lengths and
+  growth/shrinkage without a copied global position array. A no-hit stamp
+  returns its original revision root.
+  Existing AsyncSculptWorker still uses flat Mesh until V8, but its
+  AdaptiveInflateBrush now skips the formerly unconditional whole-vertex
+  pre-stamp copy when remeshing is disabled (the default), with per-stamp
+  preStampCopiedVertices telemetry. Enabled legacy remeshing intentionally
+  retains the full array baseline until V6/V7.
+  Tests drive the same 4D-sampled stamps through original and versioned
+  Inflate (including curvature), verify local edits and baseline semantics,
+  mirrored updates, and legacy no-remesh behavior. Versioned sum order and
+  enforced symmetry may differ by floating-point rounding, so compare within
+  tight tolerances rather than bitwise identity. Interactive worker revision
+  publication and dirty Vulkan uploads remain V8/V9.
 - [ ] **V6 — Transactional local edge splitting and flipping.**
   Port `LocalRefiner` to stable IDs and partition-local topology changes.
   Validate one-ring and cross-boundary operations, preserved winding, mirrored
@@ -127,11 +143,11 @@ an older revision while the worker edits or publishes a newer one.
 * All changes preserve the current results unless a geometric algorithm
   alteration has been separately specified and tested. No false claims of
   self-intersection guarantees or vertex-colour preservation.
-* V1 establishes storage semantics, V2 adds stable IDs and lossless
-  partition adapters, V3 adds validated local edits, and V4 adds persistent
-  incremental connectivity/spatial indices. Brush/remeshing integration,
-  dirty Vulkan rendering, accelerated triangle picking, and durable undo
-  remain explicit future tasks.
+* V1 establishes storage semantics; V2 adds stable identities; V3 adds
+  validated local edits; V4 adds persistent incremental indices; V5 adds
+  local Inflate and immutable pre-stamp baselines. Transactional split/flip/
+  collapse, worker integration, dirty Vulkan buffers, accelerated triangle
+  picking, and durable undo remain explicit future milestones.
 
 ## Other remaining design goals
 
