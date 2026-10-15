@@ -90,9 +90,13 @@ const RegionTopologyIndex::Face& RegionTopologyIndex::face(FaceId id) const {
 RegionEdit::RegionEdit(
     std::shared_ptr<const RegionTopologyIndex> index,
     std::vector<VertexId> seeds,
-    std::vector<std::pair<VertexId,VertexId>> mirrors)
+    std::vector<std::pair<VertexId,VertexId>> mirrors,
+    std::size_t maximumElementsPerPartition)
     :index_(std::move(index)),
-     view_((index_ ? index_->revision_ : MeshRevision::empty())->createMutableView()) {
+     view_((index_ ? index_->revision_ : MeshRevision::empty())->createMutableView()),
+     maximumElementsPerPartition_(maximumElementsPerPartition) {
+    if(maximumElementsPerPartition_==0)
+        throw std::invalid_argument("Partition capacity must be positive");
     if(!index_ || seeds.empty())
         throw std::invalid_argument("Region requires an index and at least one seed");
     for(const auto& [a,b]:mirrors) {
@@ -155,7 +159,12 @@ RegionEdit::RegionEdit(
     footprint_.readPartitions=ordered(readers_);
     // Eagerly clone the complete write set BEFORE the first mutation. The
     // render thread still holds the unmodified immutable base revision.
-    for(const auto id:footprint_.writePartitions)(void)view_.editPartition(id);
+    for(const auto id:footprint_.writePartitions) {
+        const auto& partition=view_.editPartition(id);
+        if(partition.vertices.size()>maximumElementsPerPartition_ ||
+           partition.faces.size()>maximumElementsPerPartition_)
+            throw std::length_error("Writable partition already exceeds capacity");
+    }
 }
 
 void RegionEdit::ensureWritable(PartitionId id) const {
@@ -208,6 +217,8 @@ VertexId RegionEdit::addVertex(PartitionId owner,Vec3 position) {
         throw std::logic_error("Symmetric vertex insertion awaits paired topology tools");
     ensureWritable(owner);
     if(!finite(position))throw std::invalid_argument("Non-finite vertex position");
+    if(view_.editPartition(owner).vertices.size()>=maximumElementsPerPartition_)
+        throw std::length_error("Vertex partition is at capacity");
     const auto id=view_.addVertex(owner,position);
     newVertices_[id]=owner;
     accessibleVertices_.insert(id);
@@ -219,6 +230,8 @@ FaceId RegionEdit::addFace(PartitionId owner,std::array<VertexId,3> vertices) {
         throw std::logic_error("Symmetric face insertion awaits paired topology tools");
     ensureWritable(owner);
     ensureReferences(vertices);
+    if(view_.editPartition(owner).faces.size()>=maximumElementsPerPartition_)
+        throw std::length_error("Face partition is at capacity");
     const auto id=view_.addFace(owner,vertices);
     newFaces_[id]=owner;
     faceChanges_[id]=vertices;
