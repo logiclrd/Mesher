@@ -146,6 +146,10 @@ public:
     void moveVertex(VertexId id, Vec3 position);
     VertexId addVertex(PartitionId owner, Vec3 position);
     FaceId addFace(PartitionId owner, std::array<VertexId,3> vertices);
+    // V6: bounded local insertion, preferring a writable existing partition;
+    // if full, reserve a branch-unique empty overflow partition (no scans).
+    VertexId appendLocalVertex(PartitionId preferred, Vec3 position);
+    FaceId appendLocalFace(PartitionId preferred, std::array<VertexId,3> vertices);
     void replaceFace(FaceId id, std::array<VertexId,3> vertices);
     void removeFace(FaceId id);
     void removeVertex(VertexId id);
