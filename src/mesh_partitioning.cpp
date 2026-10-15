@@ -57,7 +57,7 @@ PartitionedMeshImport partitionFlatMesh(
         throw std::invalid_argument("Mesh partition capacity must be positive");
     const auto maximum=std::max(flat.vertices.size(),flat.triangles.size());
     if(maximum!=0 && (maximum-1)/maxElementsPerPartition >=
-       static_cast<std::uint64_t>(std::numeric_limits<PartitionId>::max())+1)
+       (std::uint64_t{1}<<31))
         throw std::length_error("Mesh requires more than 2^32 partitions");
     Bounds bounds{};
     if(!flat.vertices.empty()) {

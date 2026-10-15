@@ -26,9 +26,17 @@ class MeshIdentityDomain {
 public:
     VertexId vertex() { return allocateId(nextVertex_); }
     FaceId face() { return allocateId(nextFace_); }
+    PartitionId overflowPartition() {
+        const auto ordinal=allocateId(nextOverflow_);
+        if(ordinal>std::uint64_t{0x7fffffff})
+            throw std::overflow_error("Mesh overflow partition ID space exhausted");
+        return std::numeric_limits<PartitionId>::max()-
+               static_cast<PartitionId>(ordinal-1);
+    }
 private:
     std::atomic<std::uint64_t> nextVertex_{1};
     std::atomic<std::uint64_t> nextFace_{1};
+    std::atomic<std::uint64_t> nextOverflow_{1};
 };
 
 struct MeshDirectoryNode {
@@ -104,6 +112,9 @@ std::shared_ptr<const MeshPartition> MeshRevision::partition(PartitionId id) con
 }
 MutableMeshView MeshRevision::createMutableView() const {
     return MutableMeshView(*this);
+}
+PartitionId MeshRevision::allocateOverflowPartition() const {
+    return identities_->overflowPartition();
 }
 void MeshRevision::forEachPartition(
     const std::function<void(PartitionId,const MeshPartition&)>& visit) const {

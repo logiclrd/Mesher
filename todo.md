@@ -95,10 +95,33 @@ an older revision while the worker edits or publishes a newer one.
   enforced symmetry may differ by floating-point rounding, so compare within
   tight tolerances rather than bitwise identity. Interactive worker revision
   publication and dirty Vulkan uploads remain V8/V9.
-- [ ] **V6 — Transactional local edge splitting and flipping.**
-  Port `LocalRefiner` to stable IDs and partition-local topology changes.
-  Validate one-ring and cross-boundary operations, preserved winding, mirrored
-  pairs, and unchanged geometry outside the modified neighborhood.
+- [x] **V6 — Transactional local edge splitting and flipping.**
+  Added VersionedLocalRefiner over V5's immutable LocalStampBaseline and
+  V4's persistent stable-ID edge/face/vertex connectivity. Scan only edges
+  in the prior stamp's affected faces; split only when a length exceeds
+  the original nominal target AND grew from the immutable pre-stamp state.
+  Each split replaces both incident triangles and inserts both new triangles
+  in one validated RegionEdit; mirrored edge splits are one all-or-nothing
+  transaction. Never rebuild or compact the entire mesh; new vertex/face IDs
+  are permanent and the persistent indices advance by local topology deltas.
+  A bounded-size overflow partition allocator handles initially full
+  partitions without breaking the 256-element (or configured) capacity.
+  Candidates for geometric flips come only from the split neighborhood.
+  The original radial-orientation, normal, quality, and valence conditions
+  remain in place; paired mirrored flips commit atomically. The incremental
+  result lists changed stable face IDs, inserted vertex IDs, cloned partition
+  and directory-path counts, and only newly inserted mirror correspondences.
+  VersionedInflateBrush accepts these additional mirror pairs without
+  copying the entire symmetry map before subsequent stamps.
+  The new thirteenth CTest suite covers cross-partition splitting at a
+  capacity of one, validated manifold orientation, persistent old revisions,
+  exact mirrored new face winding and midpoint positions, multiple
+  deformation/split/flip rounds, and paired-V5-stamp continuation.
+  The legacy flat LocalRefiner remains untouched until V8's complete worker
+  cutover; the flat collapsed-mesh refiner path and baseline remain in place
+  until V7/V8. Stable-ID topology cannot be exported with the original V2
+  FlatMeshIndex; the test adapter constructs full current flat geometry.
+  These checks do not prove collision freedom or globally optimal geometry.
 - [ ] **V7 — Transactional local collapse without global compaction.**
   Port `DirectionalCollapser` to stable IDs/tombstones and validated local
   trials, removing global trial-mesh copies, index compaction and global
@@ -143,11 +166,11 @@ an older revision while the worker edits or publishes a newer one.
 * All changes preserve the current results unless a geometric algorithm
   alteration has been separately specified and tested. No false claims of
   self-intersection guarantees or vertex-colour preservation.
-* V1 establishes storage semantics; V2 adds stable identities; V3 adds
-  validated local edits; V4 adds persistent incremental indices; V5 adds
-  local Inflate and immutable pre-stamp baselines. Transactional split/flip/
-  collapse, worker integration, dirty Vulkan buffers, accelerated triangle
-  picking, and durable undo remain explicit future milestones.
+* V1 establishes storage semantics; V2 stable identities; V3 validated
+  local edits; V4 persistent indices; V5 local Inflate and pre-stamp baselines;
+  V6 transactional local splitting/flipping. Local collapsing, worker
+  integration, dirty Vulkan buffers, accelerated triangle picking, and
+  durable undo remain explicit future milestones.
 
 ## Other remaining design goals
 

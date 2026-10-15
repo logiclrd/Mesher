@@ -117,6 +117,32 @@ void RegionEdit::ensureWritable(PartitionId id) const {
     if(committed_ || !writers_.contains(id))
         throw std::logic_error("Partition not writable in this region");
 }
+PartitionId RegionEdit::chooseInsertionPartition(PartitionId preferred,
+                                                 bool vertex) {
+    ensureWritable(preferred);
+    const auto available=[&](PartitionId owner) {
+        const auto& partition=view_.editPartition(owner);
+        return (vertex?partition.vertices.size():partition.faces.size())<
+               maximumElementsPerPartition_;
+    };
+    if(available(preferred))return preferred;
+    for(const auto owner:footprint_.writePartitions)
+        if(available(owner))return owner;
+    const auto fresh=index_->revision().allocateOverflowPartition();
+    if(index_->revision().partition(fresh))
+        throw std::logic_error("Allocated overflow ID collides with existing mesh");
+    (void)view_.editPartition(fresh);
+    writers_.insert(fresh);
+    footprint_.writePartitions.push_back(fresh);
+    return fresh;
+}
+VertexId RegionEdit::appendLocalVertex(PartitionId preferred,Vec3 position) {
+    return addVertex(chooseInsertionPartition(preferred,true),position);
+}
+FaceId RegionEdit::appendLocalFace(
+    PartitionId preferred,std::array<VertexId,3> vertices) {
+    return addFace(chooseInsertionPartition(preferred,false),vertices);
+}
 void RegionEdit::ensureReferences(const std::array<VertexId,3>& ids) const {
     requireTriangle(ids);
     for(const auto id:ids) {

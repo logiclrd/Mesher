@@ -892,3 +892,55 @@ actually copied. When either legacy remeshing pass is enabled the full
 baseline remains in place, to preserve its exact directional topology
 decisions until V6/V7 port those algorithms. No 4D Step sampling,
 worker scheduling, or existing geometry algorithms are changed here.
+
+## Transactional local refinement using stable IDs (V6)
+
+`VersionedLocalRefiner` consumes the committed post-Inflate
+`RegionTopologyIndex` and the preceding V5 `LocalStampBaseline`. It
+uses only the baseline's `affectedFaces` to enumerate unique candidate
+edges. An edge splits only if its current length exceeds the nominal edge
+target computed from the *original* vertex count and if the old immutable
+baseline proves that the same edge grew by more than the original epsilon.
+No full-mesh vector, vertex reindexing, or adjacency rebuild is involved.
+
+A split finds the two oriented incident faces via V4 indexed edge-side
+references. One private `RegionEdit` replaces both old triangles, appends
+two new triangles and one midpoint. Mirrored counterparts are staged in
+the same transaction, including two fresh midpoint IDs when needed; a
+self-reflecting seam midpoint is shared and constrained to X=0. Everything
+is locally validated (including cross-boundary orientation and closed
+vertex fans) **before** the next immutable root/index pair exists. A
+rejected candidate leaves the prior revision intact. Original IDs are
+never renumbered, and the refiner's involutive mirror correspondence
+changes only after a successful mirrored commit.
+
+To avoid breaking the fixed partition-size bound after imports in which
+every original partition is full, V6 reserves the low 2^31 partition ID
+values for V2 imports and allocates overflow partition IDs from the upper
+half *downward*. The allocator is shared by all branches of a mesh's
+identity domain and never recycles IDs, including abandoned operations.
+`RegionEdit::appendLocalVertex/appendLocalFace` first prefer a writable
+partition with spare capacity, otherwise allocate a fresh empty overflow
+partition without scanning all partitions or enlarging any. New overflow
+partitions are committed atomically with the same local topology change.
+
+After accepted splits, flip candidates are gathered from the affected
+one-ring using stable IDs and indexed incidence. The existing flat
+refiner's acceptance conditions were ported: outward radial winding,
+coherent unit face normals, triangle quality, local valence cost, and
+absence of an already-existing new diagonal. Only valid candidates are
+applied; both halves of a mirrored flip must meet the same conditions
+and commit together. The returned `VersionedRefineResult` includes the
+updated revision-scoped persistent index, edit statistics, new vertex
+IDs, changed face IDs and newly inserted mirror pairs. Feeding those
+pairs to `VersionedInflateBrush::addMirrorPair` supports subsequent
+symmetric deformation without reconstructing the entire mirror map.
+
+The existing `LocalRefiner` and `AsyncSculptWorker` still use their
+original flat-indexed geometry path; V7 will port local collapsing and
+V8 will cut over the asynchronous worker. The current V2 flat export
+mapping describes *only* its initial topology and deliberately refuses
+new elements. V6 tests reconstruct the current version dynamically for
+independent manifold checks; production general export and accelerated
+picking remain later integration tasks. No self-intersection guarantee
+is implied by local manifold validation.
