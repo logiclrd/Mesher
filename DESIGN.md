@@ -96,3 +96,25 @@ The viewport reports the number of *radially inverted* triangles to help
 locate the start of a fold. This is only a diagnostic for the unit sphere,
 not a complete test for self-intersection. Geometry fold prevention and
 remeshing remain intentionally deferred.
+
+## Directional collapse / pinch experiment
+
+Before and after each individual Inflate stamp, compare lengths of the same
+edges. Candidates satisfy `L_after < ratio * h_initial` AND
+`L_after < L_before` (with a small numeric tolerance). Process shortest first
+with a bounded count per stamp. Apply mirrored operations atomically using
+the sphere generator's known vertex correspondence, preserving the single
+equatorial ring. Reject candidates violating the two-manifold edge-link
+condition, consistent closed-sphere topology or a previously positive face's
+outward winding. A valid collapse may still change surface shape and delete
+vertex-colour detail in future versions. This experiment deliberately uses
+midpoint positions to test the low-pass intuition; it does not yet preserve
+fine geometric or colour details.
+
+Track minimum edge length, minimum triangle altitude, inward/inverted radial
+faces, shrinking short edges and accepted edge collapses per stamp. The
+`--compare-remesh` diagnostic runs the identical stamp trajectory with
+and without collapse and emits CSV data; `--collapse` enables the same pass
+in the Vulkan animation. This does not claim complete self-intersection
+prevention. For future meshes the remeshing API must be extended to preserve
+per-vertex attributes and handle arbitrary symmetry planes / imported meshes.

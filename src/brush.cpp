@@ -211,9 +211,17 @@ std::vector<std::vector<BrushArea>> makeDemoStamps(double step,
 
 InflateDemoAnimation::InflateDemoAnimation(Mesh& mesh, double step,
                                            double strength,
-                                           std::uint32_t segments, double radius)
-    : mesh_(mesh), originalVertices_(mesh.vertices),
-      stamps_(makeDemoStamps(step, segments, radius)), brush_(strength) {}
+                                           std::uint32_t segments, double radius,
+                                           CollapseSettings collapse, bool symmetric)
+    : mesh_(mesh), originalMesh_(mesh),
+      stamps_(makeDemoStamps(step, segments, radius)), brush_(strength),
+      collapser_(mesh, collapse,
+                 symmetric ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
+                           : std::vector<std::uint32_t>{}),
+      originalMirrors_(collapser_.mirrors()) {
+    afterCollapse_ = measureMesh(mesh_);
+    preCollapse_ = afterCollapse_;
+}
 
 InflateDemoAnimation::~InflateDemoAnimation() {
     if (brushActive_) brush_.end(mesh_);
@@ -225,8 +233,20 @@ bool InflateDemoAnimation::advance() {
         brush_.begin(mesh_);
         brushActive_ = true;
     }
+    // Diagnose compression from the same vertices immediately before and
+    // immediately after this stamp, before any topology changes.
+    const auto before = mesh_.vertices;
     brush_.stamp(mesh_, stamps_[next_]);
+    preCollapse_ = measureMesh(mesh_, before, collapser_.minimumEdge());
+    lastCollapse_ = collapser_.apply(mesh_, before);
+    totalRemoved_ += lastCollapse_.removedVertices;
+    afterCollapse_ = measureMesh(mesh_);
     ++next_;
+    if (lastCollapse_.accepted && next_ < stamps_.size()) {
+        // Incident-face lookup must follow the revised triangle connectivity.
+        brush_.end(mesh_);
+        brush_.begin(mesh_);
+    }
     if (next_ == stamps_.size()) {
         brush_.end(mesh_);
         brushActive_ = false;
@@ -239,7 +259,11 @@ void InflateDemoAnimation::reset() {
         brush_.end(mesh_);
         brushActive_ = false;
     }
-    mesh_.vertices = originalVertices_;
+    mesh_ = originalMesh_;
+    collapser_.reset(mesh_, originalMirrors_);
+    preCollapse_ = afterCollapse_ = measureMesh(mesh_);
+    lastCollapse_ = {};
+    totalRemoved_ = 0;
     next_ = 0;
 }
 

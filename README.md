@@ -155,3 +155,47 @@ The path is recorded using the ordinary distance-sampled `BrushStroke`
 engine and applied one stamp at a time by `InflateDemoAnimation`, whose
 `advance()` method is independent of the Vulkan renderer. An animated run
 and a synchronous run yield identical final positions (CPU regression).
+
+## Experimental directional edge collapse
+
+The default animated Inflate brush remains **unchanged**: it recomputes normals
+at every stamp and performs no topology edits. Add `--collapse` to run an
+experimental, conservative remeshing pass immediately after each stamp:
+
+```sh
+./build/Mesher --collapse --minimum-edge-ratio 0.65 --max-collapse-pairs 12
+```
+
+An edge becomes a candidate **only if it shrank during the current stamp**
+and is now shorter than the configured threshold. The threshold is a fraction
+of the nominal initial sphere edge length, not a request to normalize the
+mesh globally. Candidates are tried shortest-first. Every collapse is subject
+to the 2-manifold edge-link condition, outward-face noninversion for
+previously outward faces, and closed-sphere topology validation. The two
+reflected collapses are atomic when symmetry is enabled; the seam is shared,
+never duplicated. Midpoint placement deliberately makes this an experiment
+in whether simplification smooths the developing pinch, rather than a
+geometry-error-optimized production simplifier.
+
+The viewport animation title includes vertex count, shrinking edges below the
+threshold, removed vertices, minimum edge length, minimum triangle altitude,
+and inverted faces. Pause with Space and use Right for one-stamp diagnosis.
+R resets **both** vertex positions and triangle connectivity.
+
+A repeatable headless comparison (no Vulkan window) prints CSV rows for both
+modes on the **same initial sphere and stamp sequence**:
+
+```sh
+./build/Mesher --compare-remesh > comparison.csv
+```
+
+The `--minimum-edge-ratio` default is 0.65 and
+`--max-collapse-pairs` is 12 per stamp. Set `--max-collapse-pairs 0` to
+disable removals while retaining diagnostics.
+
+**Limitations:** This is deliberately edge-collapse-only, with no splitting,
+vertex recolouring, geometric error metric or collision detection. It cannot
+fix a valley when the opposing patches approach without shrinking their own
+edges. The first version rescans the mesh and checks trial topology on CPU,
+so it is not intended for high-resolution scan editing. The nominal spacing
+is defined for the generated unit sphere, not arbitrary imported meshes.

@@ -184,7 +184,7 @@ class VulkanViewport {
     VkSemaphore available=VK_NULL_HANDLE;
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
-    struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0;};
+    struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;};
     Buffer solid{},lines{};
 
     static bool containsExtension(const std::vector<VkExtensionProperties>& list,const char* name) {
@@ -288,7 +288,7 @@ class VulkanViewport {
     Buffer upload(const std::vector<Vertex>& vertices) {
         Buffer result;
         if(vertices.empty())throw std::runtime_error("Empty vertex buffer");
-        result.vertexCount=static_cast<std::uint32_t>(vertices.size());
+        result.vertexCount=result.capacity=static_cast<std::uint32_t>(vertices.size());
         const VkDeviceSize size=vertices.size()*sizeof(Vertex);
         VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
         info.size=size;
@@ -311,9 +311,17 @@ class VulkanViewport {
     // Vertex positions and triangle normals change on every stamp; topology
     // doesn't, so the allocated GPU buffer sizes remain constant. These
     // host-coherent allocations were already used by the initial upload.
-    void replaceBuffer(const Buffer& buffer, const std::vector<Vertex>& vertices) {
-        if (vertices.size() != buffer.vertexCount)
-            throw std::runtime_error("Animation unexpectedly changed mesh topology");
+    void replaceBuffer(Buffer& buffer, const std::vector<Vertex>& vertices) {
+        if (vertices.size() > buffer.capacity) {
+            // Future refinement may grow the mesh; reallocate only when the
+            // old allocation cannot contain the changed topology.
+            auto newer=upload(vertices);
+            vkDestroyBuffer(device,buffer.buffer,nullptr);
+            vkFreeMemory(device,buffer.memory,nullptr);
+            buffer=newer;
+            return;
+        }
+        buffer.vertexCount=static_cast<std::uint32_t>(vertices.size());
         const VkDeviceSize size = vertices.size() * sizeof(Vertex);
         void* data = nullptr;
         check(vkMapMemory(device, buffer.memory, 0, size, 0, &data),

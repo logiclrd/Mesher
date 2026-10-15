@@ -107,7 +107,8 @@ private:
 
 // Visible symmetric demonstration: two mirror-image hemisphere-side arcs
 // on the front of the sphere, each approximating a half-circle. Returns
-// the number of simultaneous stamps. Topology never changes here.
+// the number of simultaneous stamps. No topology changes unless explicitly
+// configured with a directional collapser in InflateDemoAnimation.
 std::size_t inflateHalfCircleDemo(Mesh& mesh, double step = 0.02,
                                   double strength = 0.012,
                                   std::uint32_t segments = 128,
