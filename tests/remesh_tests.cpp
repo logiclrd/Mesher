@@ -119,7 +119,7 @@ void testIndependentCurvatureAndCollapseSettings() {
              <<baseline.diagnostics().invertedFaces<<", "
              <<corrected.diagnostics().invertedFaces<<", "
              <<collapsed.diagnostics().invertedFaces<<", "
-             <<combined.diagnostics().invertedFaces<<"\\n";
+             <<combined.diagnostics().invertedFaces<<"\n";
 }
 void testAnimationAndReplay() {
     SphereOptions options;

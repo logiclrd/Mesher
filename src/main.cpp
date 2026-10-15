@@ -86,9 +86,9 @@ int main(int argc, char** argv) {
                 std::cout<<"Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
                          <<"       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]\n"
                          <<"       [--stamps-per-second HZ] [--collapse] [--compare-remesh]\n"
-                         <<"       [--minimum-edge-ratio R] [--max-collapse-pairs N]\\n"
-                         <<"       [--curvature-correction] [--curvature-strength GAIN]\\n"
-                         <<"       [--compare-mitigations]\\n"
+                         <<"       [--minimum-edge-ratio R] [--max-collapse-pairs N]\n"
+                         <<"       [--curvature-correction] [--curvature-strength GAIN]\n"
+                         <<"       [--compare-mitigations]\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Inflate animation on, radius .4, Step .02, strength .012, 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
             }
             std::cout << std::setprecision(9);
             std::cout << "mode,stamp,vertices,faces,min_edge,min_altitude,inverted,"
-                         "shortening_below_limit,collapsed_pairs,removed_vertices\\n";
+                         "shortening_below_limit,collapsed_pairs,removed_vertices\n";
             auto dump=[&](std::size_t i) {
                 const auto& anim=*animations[i];
                 const auto& d=anim.diagnostics();
@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
                          <<","<<d.minimumTriangleAltitude<<","<<d.invertedFaces
                          <<","<<anim.preCollapseDiagnostics().shrinkingShortEdges
                          <<","<<anim.lastCollapse().accepted
-                         <<","<<anim.lastCollapse().removedVertices<<"\\n";
+                         <<","<<anim.lastCollapse().removedVertices<<"\n";
             };
             for(std::size_t i=0;i<variants.size();++i)
                 if(animations[i])dump(i);
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
             };
             std::cout<<"Curvature correction: "
                      <<(curvatureSettings.enabled?"on":"off")
-                     <<" (gain "<<curvatureSettings.strength<<").\\n";
+                     <<" (gain "<<curvatureSettings.strength<<").\n";
             std::cout<<"Remeshing: "<<(collapseSettings.enabled?"directional collapsing":"off")
                      <<" (minimum edge "<<demo->minimumEdgeTarget()<<").\n";
             std::cout<<"Animating "<<demo->total()<<" stamps at "<<stampRate
