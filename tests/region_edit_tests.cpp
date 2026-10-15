@@ -190,7 +190,7 @@ int main() {
     try {
         const auto run=[](const char* name,auto test) {
             try {test();}
-            catch(...) {std::cerr<<"Failed scenario: "<<name<<'\\n';throw;}
+            catch(...) {std::cerr<<"Failed scenario: "<<name<<std::endl;throw;}
         };
         run("cross-partition edge flip",testCrossPartitionEdgeFlip);
         run("rollback and scoped access",testRollbackAndScopedAccess);
