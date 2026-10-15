@@ -148,9 +148,7 @@ void VersionedSculptBrush::stamp(
     // Mirror-ID changes are cheap local deltas, not a global map copy.
     for(const auto& pair:refined.insertedMirrorPairs) {
         inflate_.addMirrorPair(pair.first,pair.second);
-        // V6 itself has already added the pair; V7 sees the same live IDs.
-        // V7's persistent collapse map needs the added mirror pair too.
-        collapser_.addMirrorPair(pair.first,pair.second);
+        // V6 itself and V7's pre-collapse state already own this pair.
     }
     for(const auto& pair:collapsed.removedMirrorPairs) {
         inflate_.removeMirrorPair(pair.first,pair.second);
