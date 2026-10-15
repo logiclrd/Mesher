@@ -295,7 +295,7 @@ struct DemoRecorder : Brush {
 // logic. Geometry is NOT modified during recording.
 std::vector<std::vector<BrushArea>> makeDemoStamps(double step,
                                                     std::uint32_t segments,
-                                                    double radius) {
+                                                    double radius,bool symmetric) {
     if (segments == 0) throw std::invalid_argument("Demo requires at least one segment");
     if (!std::isfinite(radius) || radius <= 0)
         throw std::invalid_argument("Demo brush radius must be positive and finite");
@@ -311,16 +311,17 @@ std::vector<std::vector<BrushArea>> makeDemoStamps(double step,
     DemoRecorder recorder;
     BrushStroke stroke(dummy, recorder, step);
     const auto first = point(0);
-    stroke.start({{first, radius, 0.3},
-                  {{-first.x, first.y, first.z}, radius, 0.3}});
-    for (std::uint32_t i = 1; i < segments; ++i) {
-        const auto p = point(i);
-        const Vec3 pair[] = {p, {-p.x, p.y, p.z}};
-        stroke.update(pair);
-    }
-    const auto p = point(segments);
-    const Vec3 pair[] = {p, {-p.x, p.y, p.z}};
-    stroke.finish(pair);
+    std::vector<BrushArea> areas{{first,radius,.3}};
+    if(symmetric)areas.push_back({{-first.x,first.y,first.z},radius,.3});
+    stroke.start(std::move(areas));
+    auto positions=[&](Vec3 p) {
+        std::vector<Vec3> points{p};
+        if(symmetric)points.push_back({-p.x,p.y,p.z});
+        return points;
+    };
+    for (std::uint32_t i=1;i<segments;++i)
+        stroke.update(positions(point(i)));
+    stroke.finish(positions(point(segments)));
     return std::move(recorder.frames);
 }
 } // namespace
@@ -332,7 +333,7 @@ InflateDemoAnimation::InflateDemoAnimation(Mesh& mesh, double step,
                                            CurvatureSettings curvature,
                                            RefineSettings refine)
     : mesh_(mesh), originalMesh_(mesh),
-      stamps_(makeDemoStamps(step, segments, radius)), brush_(strength, curvature),
+      stamps_(makeDemoStamps(step, segments, radius,symmetric)), brush_(strength, curvature),
       collapser_(mesh, collapse,
                  symmetric ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
                            : std::vector<std::uint32_t>{}),
