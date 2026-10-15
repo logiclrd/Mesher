@@ -76,7 +76,8 @@ public:
     // partners (or constrains a seam vertex) in the same transaction.
     RegionEdit(std::shared_ptr<const RegionTopologyIndex> index,
                std::vector<VertexId> seedVertices,
-               std::vector<std::pair<VertexId,VertexId>> mirrors = {});
+               std::vector<std::pair<VertexId,VertexId>> mirrors = {},
+               std::size_t maximumElementsPerPartition = 256);
 
     RegionEdit(const RegionEdit&) = delete;
     RegionEdit& operator=(const RegionEdit&) = delete;
@@ -120,6 +121,7 @@ private:
     std::unordered_map<FaceId,std::optional<std::array<VertexId,3>>> faceChanges_;
     std::unordered_map<VertexId,PartitionId> newVertices_;
     std::unordered_map<FaceId,PartitionId> newFaces_;
+    std::size_t maximumElementsPerPartition_{};
     bool committed_{};
 };
 
