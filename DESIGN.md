@@ -76,23 +76,23 @@ brush behaviour from future geometry-editing capabilities.
   persistence, and live brush input/picking policy. Stroke sampling/falloff
   and the first Inflate brush are already implemented.
 - Add camera navigation, mesh interaction, editing tools, and import/export.
-## Inflate surface-folding regression
+## Live Inflate deformation and diagnostic playback
 
-The symmetric generator shares equatorial vertices by index. A wide (0.4)
-Inflate stroke using face normals re-evaluated after each stamp nonetheless
-made several positive-hemisphere vertices cross the symmetry plane and
-inverted nearby faces. This is a geometric fold, not duplicate seam geometry.
+The symmetric generator shares equatorial vertex **indices**; the observed
+crossing wires are not caused by separate hemisphere vertex rings. Repeated
+normal-based deformation can rotate incident triangle normals until triangles
+fold through the symmetry plane, despite the original normals pointing outward.
 
-The default Inflate mode now evaluates the normalized, equal-weight incident
-face normal **once at stroke start**, keeping each vertex's direction stable
-through all repeated stamps. This also eliminates repeated normal computations
-and avoids the tested fold without modifying topology. Optional
-`NormalSampling::PerStamp` retains the old dynamic-normal mode for testing;
-it is not safe against large-deformation foldovers. Radius 0.4 is now the
-configurable demo default (via `--brush-radius`). A 5,000-vertex regression
-tests the shared ring, non-crossing hemispheres, reflection symmetry, and
-outward manifold topology after the full stroke.
+We reverted the temporary stroke-start frozen-normal workaround so the Inflate
+brush once again uses the current geometry's face normals **every stamp**.
+The symmetric half-circle demo is now processed one stamp per viewport update
+at 10 stamps/second (configurable). `InflateDemoAnimation` records a sequence
+using normal `BrushStroke` sampling, then applies each stamp incrementally.
+It supports reset and exact replay. The rendering layer owns the animation
+clock and updates the same Vulkan buffers only after waiting for the prior GPU
+frame to finish. This is full-buffer replacement for now, not dirty regions.
 
-This does not establish a general guarantee against self-intersections or
-face inversions for arbitrary imported meshes and large strokes. A robust
-geometry-validity guard and adaptive remeshing are separate future tasks.
+The viewport reports the number of *radially inverted* triangles to help
+locate the start of a fold. This is only a diagnostic for the unit sphere,
+not a complete test for self-intersection. Geometry fold prevention and
+remeshing remain intentionally deferred.

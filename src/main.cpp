@@ -8,28 +8,30 @@
 #include <cmath>
 #include <string>
 #include <string_view>
+#include <memory>
 #include <stdexcept>
 
 int main(int argc, char** argv) {
     mesher::SphereOptions options;
     bool inflate = true;
-    double step = .02, strength = .012, brushRadius = .4;
+    double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0;
     std::uint32_t segments = 128;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
             if(arg=="--asymmetric") options.symmetric=false;
             else if(arg=="--no-inflate") inflate=false;
-            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius") {
+            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
                 std::size_t parsed=0;
                 const double v=std::stod(value,&parsed);
                 if(parsed!=value.size() || !std::isfinite(v) ||
-                   ((arg=="--step" || arg=="--brush-radius") && v<=0))
+                   ((arg=="--step" || arg=="--brush-radius" || arg=="--stamps-per-second") && v<=0))
                     throw std::invalid_argument("Invalid brush parameter: "+value);
                 if(arg=="--step")step=v;
                 else if(arg=="--brush-radius")brushRadius=v;
+                else if(arg=="--stamps-per-second")stampRate=v;
                 else strength=v;
             }
             else if(arg=="--segments") {
@@ -59,20 +61,32 @@ int main(int argc, char** argv) {
             } else if(arg=="--help"||arg=="-h"){
                 std::cout<<"Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
                          <<"       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]\n"
+                         <<"       [--stamps-per-second HZ]\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
-                         <<"          Inflate demo on, radius .4, Step .02, strength .012, 128 segments.\n"
-                         <<"Escape exits the full-screen viewport.\n";
+                         <<"          Inflate animation on, radius .4, Step .02, strength .012, 128 segments at 10 stamps/sec.\n"
+                         <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
         }
         std::cout<<"Generating "<<options.vertexCount<<(options.symmetric?" symmetric":" asymmetric")<<" vertices..."<<std::flush;
         auto mesh=mesher::generateSphere(options);
         std::cout<<" "<<mesh.triangles.size()<<" triangles; watertight manifold verified.\n";
+        mesher::ViewportAnimation playback;
+        std::unique_ptr<mesher::InflateDemoAnimation> demo;
         if (inflate) {
-            const auto count=mesher::inflateHalfCircleDemo(mesh,step,strength,segments,brushRadius);
-            std::cout<<"Inflate demo: "<<count<<" stamps, radius "<<brushRadius<<", hardness 0.3.\n";
+            demo = std::make_unique<mesher::InflateDemoAnimation>(
+                mesh, step, strength, segments, brushRadius);
+            playback.stampsPerSecond=stampRate;
+            playback.advance=[&] { return demo->advance(); };
+            playback.reset=[&] { demo->reset(); };
+            playback.caption=[&] {
+                return "Inflate " + std::to_string(demo->completed()) +
+                       "/" + std::to_string(demo->total());
+            };
+            std::cout<<"Animating "<<demo->total()<<" stamps at "<<stampRate
+                     <<" stamps/sec; radius "<<brushRadius<<", hardness 0.3.\n";
         }
-        mesher::runViewport(mesh);
+        mesher::runViewport(mesh, std::move(playback));
     }catch(const std::exception& e) {
         std::cerr<<"Mesher: "<<e.what()<<'\n';
         return 1;

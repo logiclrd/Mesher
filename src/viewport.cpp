@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iostream>
+#include <utility>
 #include <limits>
 #include <optional>
 #include <set>
@@ -49,7 +51,8 @@ Drawing buildDrawing(const Mesh& mesh) {
     unique.reserve(mesh.triangles.size()*2);
     for(const auto& t:mesh.triangles) {
         const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
-        const Vec3 normal=normalized(cross(b-a,c-a));
+        const Vec3 rawNormal=cross(b-a,c-a);
+        const Vec3 normal=length(rawNormal)>1e-20 ? normalized(rawNormal) : Vec3{};
         out.solid.push_back(makeVertex(a,normal));
         out.solid.push_back(makeVertex(b,normal));
         out.solid.push_back(makeVertex(c,normal));
@@ -150,6 +153,12 @@ std::vector<char> loadBinary(const std::string& path) {
 }
 
 class VulkanViewport {
+    const Mesh& mesh_;
+    ViewportAnimation animation_;
+    bool paused_ = false, complete_ = false;
+    bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
+    double nextStampTime_ = 0;
+    std::size_t lastInvertedCount_ = 0;
     GLFWwindow* window=nullptr;
     VkInstance instance=VK_NULL_HANDLE;
     VkSurfaceKHR surface=VK_NULL_HANDLE;
@@ -299,6 +308,78 @@ class VulkanViewport {
         vkUnmapMemory(device,result.memory);
         return result;
     }
+    // Vertex positions and triangle normals change on every stamp; topology
+    // doesn't, so the allocated GPU buffer sizes remain constant. These
+    // host-coherent allocations were already used by the initial upload.
+    void replaceBuffer(const Buffer& buffer, const std::vector<Vertex>& vertices) {
+        if (vertices.size() != buffer.vertexCount)
+            throw std::runtime_error("Animation unexpectedly changed mesh topology");
+        const VkDeviceSize size = vertices.size() * sizeof(Vertex);
+        void* data = nullptr;
+        check(vkMapMemory(device, buffer.memory, 0, size, 0, &data),
+              "Map dynamic vertex buffer");
+        std::memcpy(data, vertices.data(), static_cast<std::size_t>(size));
+        vkUnmapMemory(device, buffer.memory);
+    }
+
+    void refreshMesh() {
+        // No vertex buffer writes are permitted while the GPU is reading the
+        // buffers from a previous frame.
+        check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX),
+              "Wait before updating dynamic geometry");
+        const auto drawing = buildDrawing(mesh_);
+        replaceBuffer(solid, drawing.solid);
+        replaceBuffer(lines, drawing.lines);
+    }
+
+    std::size_t countInvertedFaces() const {
+        std::size_t count = 0;
+        for (const auto& t : mesh_.triangles) {
+            const Vec3 a=mesh_.vertices[t.a], b=mesh_.vertices[t.b],
+                       c=mesh_.vertices[t.c];
+            // In this sphere demonstration the center is at the origin.
+            // This reports radial winding reversals, not all intersections.
+            if (dot(cross(b-a,c-a),a+b+c) <= 1e-13) ++count;
+        }
+        return count;
+    }
+
+    void updateTitle() {
+        std::string title = "Mesher";
+        if (animation_.advance) {
+            if (animation_.caption) title += " - " + animation_.caption();
+            const auto inverted = countInvertedFaces();
+            title += " | inverted faces: " + std::to_string(inverted);
+            title += complete_ ? " | complete" : paused_ ? " | paused" : " | playing";
+            title += " | Space: pause  Right: step  R: replay  Esc: quit";
+            if (inverted != lastInvertedCount_) {
+                std::cout << "Inverted faces: " << inverted;
+                if (animation_.caption) std::cout << " at " << animation_.caption();
+                std::cout << '\n' << std::flush;
+                lastInvertedCount_ = inverted;
+            }
+        }
+        glfwSetWindowTitle(window, title.c_str());
+    }
+
+    void advanceOneStamp() {
+        if (!animation_.advance || complete_) return;
+        if (animation_.advance()) {
+            refreshMesh();
+        } else {
+            complete_ = true;
+            paused_ = true;
+        }
+        updateTitle();
+    }
+
+    bool justPressed(int key, bool& wasDown) {
+        const bool down = glfwGetKey(window, key) == GLFW_PRESS;
+        const bool pressed = down && !wasDown;
+        wasDown = down;
+        return pressed;
+    }
+
     VkFormat chooseDepthFormat()const {
         for(auto candidate:{VK_FORMAT_D32_SFLOAT,VK_FORMAT_D24_UNORM_S8_UINT}) {
             VkFormatProperties props;
@@ -614,7 +695,11 @@ class VulkanViewport {
         else check(code,"Present frame");
     }
 public:
-    explicit VulkanViewport(const Mesh& mesh) {
+    explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation)
+        : mesh_(mesh), animation_(std::move(animation)) {
+        if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
+                                   animation_.stampsPerSecond <= 0))
+            throw std::invalid_argument("Animation rate must be positive and finite");
         if(!glfwInit())throw std::runtime_error("GLFW initialization failed");
         if(!glfwVulkanSupported())throw std::runtime_error("Vulkan is not supported by GLFW on this system");
         glfwWindowHint(GLFW_CLIENT_API,GLFW_NO_API);
@@ -633,6 +718,9 @@ public:
         lines=upload(drawing.lines);
         createSwapchain();
         createCommands();
+        nextStampTime_ = glfwGetTime() + (animation_.advance
+            ? 1.0 / animation_.stampsPerSecond : 0.0);
+        updateTitle();
     }
     ~VulkanViewport() {
         if(device!=VK_NULL_HANDLE) {
@@ -657,6 +745,31 @@ public:
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS)break;
+            if (animation_.advance) {
+                const bool togglePause=justPressed(GLFW_KEY_SPACE, spaceWasDown_);
+                const bool singleStep=justPressed(GLFW_KEY_RIGHT, rightWasDown_);
+                const bool replay=justPressed(GLFW_KEY_R, rewindWasDown_);
+                if (replay && animation_.reset) {
+                    animation_.reset();
+                    complete_=false;
+                    paused_=false;
+                    refreshMesh();
+                    updateTitle();
+                    nextStampTime_ = glfwGetTime() + 1.0 / animation_.stampsPerSecond;
+                }
+                if (togglePause && !complete_) {
+                    paused_=!paused_;
+                    nextStampTime_ = glfwGetTime() + 1.0 / animation_.stampsPerSecond;
+                    updateTitle();
+                }
+                if (singleStep && paused_ && !complete_) advanceOneStamp();
+                if (!paused_ && !complete_ && glfwGetTime() >= nextStampTime_) {
+                    advanceOneStamp();
+                    // Never catch up missed frames in a burst. A stamp is
+                    // immediately presented before the next is attempted.
+                    nextStampTime_ = glfwGetTime() + 1.0 / animation_.stampsPerSecond;
+                }
+            }
             int width=0,height=0;
             glfwGetFramebufferSize(window,&width,&height);
             if(width==0||height==0){glfwWaitEvents();continue;}
@@ -666,5 +779,8 @@ public:
     }
 };
 } // namespace
-void runViewport(const Mesh& mesh) { VulkanViewport viewport(mesh); viewport.run(); }
+void runViewport(const Mesh& mesh, ViewportAnimation animation) {
+    VulkanViewport viewport(mesh, std::move(animation));
+    viewport.run();
+}
 } // namespace mesher

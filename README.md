@@ -1,7 +1,7 @@
 # Mesher
 
-An experimental **C++20/Vulkan** mesh editor foundation. The application generates a random-point triangulated sphere, runs a
-symmetric Inflate-brush demonstration by default, and displays the result in a
+An experimental **C++20/Vulkan** mesh editor foundation. The application generates a random-point triangulated sphere, animates a
+symmetric Inflate-brush demonstration by default, and displays each stamp in a
 full-screen 3D viewport with flat face lighting, a 30%-gray wire overlay, and
 a gridded XY floor. **Z is up.** The geometry engine is independent of Vulkan/GLFW and can
 be tested without a graphics device.
@@ -34,10 +34,13 @@ ctest --test-dir build-cpu --output-on-failure
 ```text
 Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]
        [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]
+       [--stamps-per-second HZ]
 ```
 
 Defaults are `--symmetric --vertices 5000 --seed 1 --relax 65`. The initial
 viewport uses the primary monitor in full-screen mode. **Escape** exits.
+**Space** pauses/resumes, **Right** applies one stamp while paused, and
+**R** restores the original sphere and replays the animation.
 
 By default Mesher inflates two mirror-image half-circle strokes across the
 front of the generated sphere, with spherical influence radius **0.4** and
@@ -96,9 +99,9 @@ vertices along the **normalized sum of the unit face normals** of incident
 triangles, evaluated once at the beginning of the stroke by default.
 This avoids a feedback loop in which heavily deformed face normals turn inward,
 folding triangles across the symmetry plane under wide overlapping strokes.
-For experimental live-normal behaviour, construct the brush with
-`NormalSampling::PerStamp`; otherwise use the default
-`NormalSampling::StrokeStart`. Normal strength is a displacement **per stamp**.
+The brush now uses live face normals again: these are recomputed from the
+modified mesh on every stamp. This deliberately exposes the folding effect
+for diagnosis. Normal strength is a displacement **per stamp**.
 
 This milestone intentionally keeps existing topology unchanged and performs
 no adaptive subdivision, decimation, brush picking, interactive painting,
@@ -119,11 +122,12 @@ is deliberately small and deterministic, for validating the stroke engine.
   for the initial 5,000-vertex baseline, **not** yet the planned many-million-
   vertex editing engine. Replace it with an accelerated robust hull/meshing
   algorithm when scaling up.
-- CPU-visible buffers are used for the small initial demo. Persistent,
-  device-local buffers/staging and incremental rendering are future work.
+- CPU-visible vertex buffers are refreshed after each animated stamp for the
+  small diagnostic demo. Efficient dirty-region GPU updates, persistent
+  device-local buffers and staging remain future work.
 - Interactive sculpting, painting, selection, undo, mesh import, and local
-  remeshing are not yet implemented. The offline Inflate driver introduces
-  the brush-stroke foundation without changing triangle connectivity.
+  remeshing are not yet implemented. The animated Inflate driver demonstrates the brush-stroke foundation without
+  changing triangle connectivity. Interactive mouse picking remains future work.
 
 ## Status
 
@@ -133,13 +137,21 @@ actual Vulkan implementation to run. See the GitHub Actions workflow for the
 Linux full-build test configuration.
 ### Wide-brush seam regression
 
-The equatorial ring is shared by vertex **index**, not simply by coincident
-coordinates. The former per-stamp-normal Inflate algorithm could nevertheless
-fold vertices across the symmetry plane under overlapping radius-0.4 stamps;
-on a 5,000-vertex sphere, 7 vertices crossed the plane and 22 triangles had
-reversed radial orientation. Stroke-start-normal Inflate preserves the intended
-outward deformation for that case without changing triangle connectivity.
-The CPU regression verifies an intact manifold, shared ring, and bilateral
-symmetry. This is a targeted fix for normal-feedback folding, **not** a
-universal self-intersection prevention algorithm: collision-aware sculpting
-and local remeshing remain future work.
+The equatorial ring is shared by vertex **index** across both hemispheres.
+With live per-stamp normals and overlapping radius-0.4 brush influences, the
+mesh can nonetheless fold through its reflection plane. The experiment is now
+played in the Vulkan viewport at **10 stamps per second**, initially showing
+the undeformed sphere. Every stamp uploads updated solid and wireframe data;
+the window title reports stamp progress and the number of radially inverted
+triangles. Inversion-count changes are logged to standard output.
+
+**Space** pauses/resumes playback, **Right** single-steps while paused, and
+**R** resets and replays. The speed can be changed with
+`--stamps-per-second HZ`. The animation is intentionally destructive at
+large brush sizes so that the failure can be diagnosed; there are no safety
+guards against self-intersection yet.
+
+The path is recorded using the ordinary distance-sampled `BrushStroke`
+engine and applied one stamp at a time by `InflateDemoAnimation`, whose
+`advance()` method is independent of the Vulkan renderer. An animated run
+and a synchronous run yield identical final positions (CPU regression).

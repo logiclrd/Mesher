@@ -30,23 +30,19 @@ public:
     virtual void end(Mesh& mesh) { (void)mesh; }
 };
 
-// Units of strength: displacement in mesh units per full-influence stamp.
-// The displacement follows the normalized equal-weight sum of unit face
-// normals incident to each vertex. Freezing directions at stroke start is the
-// default: repeated stamps cannot feed back on their own deformed normals.
-// PerStamp retains the experimental live-normal behaviour when desired.
-enum class NormalSampling { StrokeStart, PerStamp };
+// Strength is displacement per full-influence stamp in model units.
+// The normalized average of incident unit face normals is re-evaluated from
+// the deformed mesh BEFORE each stamp. This can fold triangles; the animation
+// demo deliberately exposes that effect rather than concealing it.
 class InflateBrush final : public Brush {
 public:
-    explicit InflateBrush(double strength, NormalSampling sampling = NormalSampling::StrokeStart);
+    explicit InflateBrush(double strength);
     void begin(Mesh& mesh) override;
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
 private:
     double strength_;
-    NormalSampling sampling_;
     std::vector<std::vector<std::uint32_t>> incidentFaces_;
-    std::vector<Vec3> strokeNormals_;
 };
 
 // A stroke begins with a stamp at the starting positions. All subsequent
@@ -80,6 +76,33 @@ private:
     std::size_t stamps_ = 0;
     std::vector<BrushArea> areas_;
     std::vector<Vec3> lastStamped_;
+};
+
+// CPU-only, incremental playback of the demonstration. BrushStroke generates
+// the exact same fixed-distance sample positions as interactive updates, but
+// recording them first lets the viewport advance just one stamp per timer tick.
+// The original vertices are retained to support rewind/replay.
+class InflateDemoAnimation {
+public:
+    InflateDemoAnimation(Mesh& mesh, double step = 0.02,
+                         double strength = 0.012, std::uint32_t segments = 128,
+                         double radius = 0.4);
+    ~InflateDemoAnimation();
+    InflateDemoAnimation(const InflateDemoAnimation&) = delete;
+    InflateDemoAnimation& operator=(const InflateDemoAnimation&) = delete;
+
+    // Applies exactly one simultaneous stamp, or returns false when complete.
+    bool advance();
+    void reset();
+    std::size_t completed() const noexcept { return next_; }
+    std::size_t total() const noexcept { return stamps_.size(); }
+private:
+    Mesh& mesh_;
+    std::vector<Vec3> originalVertices_;
+    std::vector<std::vector<BrushArea>> stamps_;
+    InflateBrush brush_;
+    std::size_t next_ = 0;
+    bool brushActive_ = false;
 };
 
 // Visible symmetric demonstration: two mirror-image hemisphere-side arcs
