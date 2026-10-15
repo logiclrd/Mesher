@@ -106,6 +106,9 @@ private:
     PersistentIndexMap<FaceId,Face> faces_;
     PersistentIndexMap<Edge,std::vector<EdgeSide>> edges_;
     PersistentIndexMap<Cell,std::vector<VertexId>> cells_;
+    // Immutable tombstones survive local ID erasure; IDs never recycle.
+    PersistentIndexMap<VertexId,bool> retiredVertices_;
+    PersistentIndexMap<FaceId,bool> retiredFaces_;
     UpdateStatistics statistics_{};
 };
 
