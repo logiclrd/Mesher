@@ -35,19 +35,23 @@ std::vector<FaceId> incident(const Index& index,Edge e) {
     if(!sides || sides->size()!=2)return {};
     return {(*sides)[0].face,(*sides)[1].face};
 }
-void splitOne(const Index& index,RegionEdit& edit,Edge selected,
-              VertexId midpoint) {
+std::array<FaceId,2> splitOne(const Index& index,RegionEdit& edit,
+                              Edge selected,VertexId midpoint) {
     const auto touching=incident(index,selected);
     if(touching.size()!=2)
         throw std::logic_error("Split requires two incident faces");
+    std::array<FaceId,2> inserted{};
+    unsigned count=0;
     for(const auto face:touching) {
         DirectedEdge e{};
         const auto original=index.face(face).vertices;
         if(!directed(original,selected.a,selected.b,e))
             throw std::logic_error("Split lost its oriented incident edge");
         edit.replaceFace(face,{e.a,midpoint,e.c});
-        edit.appendLocalFace(index.face(face).owner,{midpoint,e.b,e.c});
+        inserted[count++]=edit.appendLocalFace(
+            index.face(face).owner,{midpoint,e.b,e.c});
     }
+    return inserted;
 }
 double radial(const Index& mesh,std::array<VertexId,3> t) {
     const auto a=mesh.vertex(t[0]).position;
@@ -207,12 +211,13 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             RegionEdit edit(current,seeds,{},partitionCapacity_);
             const auto mid=edit.appendLocalVertex(current->vertex(e.a).owner,
                                                   midpoint);
-            splitOne(*current,edit,e,mid);
+            const auto addedFaces=splitOne(*current,edit,e,mid);
             VertexId other=mid;
+            std::array<FaceId,2> mirrorAdded{};
             if(paired) {
                 other=edit.appendLocalVertex(current->vertex(mirrored.a).owner,
                                              reflect(midpoint));
-                splitOne(*current,edit,mirrored,other);
+                mirrorAdded=splitOne(*current,edit,mirrored,other);
             }
             const auto committed=edit.commit();
             result.index=edit.updatedIndex();
@@ -222,6 +227,9 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             if(paired)result.insertedVertices.push_back(other);
             for(const auto face:originalFaces)result.changedFaces.push_back(face);
             for(const auto face:mirrorFaces)result.changedFaces.push_back(face);
+            for(const auto face:addedFaces)result.changedFaces.push_back(face);
+            if(paired)for(const auto face:mirrorAdded)
+                result.changedFaces.push_back(face);
             if(symmetric) {
                 mirrors_.emplace(mid,other);
                 if(paired)mirrors_.emplace(other,mid);
@@ -238,8 +246,17 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             continue;
         }
     }
+    const auto uniqueChangedFaces=[&] {
+        std::sort(result.changedFaces.begin(),result.changedFaces.end());
+        result.changedFaces.erase(std::unique(result.changedFaces.begin(),
+                                              result.changedFaces.end()),
+                                  result.changedFaces.end());
+    };
     if(!settings_.optimizeFlips||!result.statistics.splitPairs||
-       settings_.maximumFlipPairsPerStamp==0)return result;
+       settings_.maximumFlipPairsPerStamp==0) {
+        uniqueChangedFaces();
+        return result;
+    }
 
     std::unordered_set<VertexId> local=touched;
     for(const auto vertex:touched)
@@ -296,10 +313,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             continue;
         }
     }
-    std::sort(result.changedFaces.begin(),result.changedFaces.end());
-    result.changedFaces.erase(std::unique(result.changedFaces.begin(),
-                                          result.changedFaces.end()),
-                              result.changedFaces.end());
+    uniqueChangedFaces();
     return result;
 }
 
