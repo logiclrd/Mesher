@@ -407,7 +407,8 @@ AdaptiveInflateBrush::AdaptiveInflateBrush(const Mesh& mesh,double strength,
       collapser_(mesh,collapse,symmetric
             ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
             : std::vector<std::uint32_t>{}),
-      refiner_(mesh,refine,collapser_.mirrors()) {}
+      refiner_(mesh,refine,collapser_.mirrors()),
+      needsLegacyBaseline_(collapse.enabled || refine.enabled) {}
 void AdaptiveInflateBrush::begin(Mesh& mesh) {
     inflate_.begin(mesh);
     begun_=true;
@@ -416,14 +417,24 @@ void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     if(!begun_)throw std::logic_error("Adaptive Inflate has not begun");
     using Clock=std::chrono::steady_clock;
     auto start=Clock::now();
-    auto before=mesh.vertices;
+    // The default no-remesh path has no use for a global pre-stamp copy.
+    // Keep the original full baseline only while V6/V7 still run the
+    // legacy array-indexed split/flip/collapse implementations.
+    std::vector<Vec3> before;
+    if(needsLegacyBaseline_)before=mesh.vertices;
     inflate_.stamp(mesh,areas);
     auto afterInflate=Clock::now();
-    const auto refined=refiner_.apply(mesh,before,inflate_.affectedFaces(),true);
-    if(refined.splitPairs)collapser_.setMirrors(refiner_.mirrors());
+    RefineStatistics refined{};
+    CollapseStatistics collapsed{};
+    if(needsLegacyBaseline_) {
+        refined=refiner_.apply(mesh,before,inflate_.affectedFaces(),true);
+        if(refined.splitPairs)collapser_.setMirrors(refiner_.mirrors());
+    }
     auto afterRefine=Clock::now();
-    const auto collapsed=collapser_.apply(mesh,before);
-    if(collapsed.accepted)refiner_.setMirrors(collapser_.mirrors());
+    if(needsLegacyBaseline_) {
+        collapsed=collapser_.apply(mesh,before);
+        if(collapsed.accepted)refiner_.setMirrors(collapser_.mirrors());
+    }
     auto afterCollapse=Clock::now();
     const auto candidateCount=inflate_.candidateCount();
     const auto movedCount=inflate_.movedVertices().size();
@@ -440,6 +451,7 @@ void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     lastDetails_.areas.assign(areas.begin(),areas.end());
     lastDetails_.influenced=candidateCount;
     lastDetails_.moved=movedCount;
+    lastDetails_.preStampCopiedVertices=before.size();
     lastDetails_.splitPairs=refined.splitPairs;
     lastDetails_.flipPairs=refined.flipPairs;
     lastDetails_.collapsedPairs=collapsed.accepted;
