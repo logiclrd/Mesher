@@ -679,3 +679,43 @@ GLFW mouse state and position are currently **polled once per render
 loop**, not captured for each OS-delivered mouse motion event. These
 logs show precisely what input the stroke engine received at that
 polling frequency, not a higher-frequency hardware mouse trace.
+
+
+## Dedicated asynchronous sculpt worker
+
+Interactive Inflate now processes its queued 4D Step samples on a **dedicated
+`std::jthread`**, independent of GLFW input polling and Vulkan presentation.
+The viewport enqueues `begin`, `update`, `end`, and brush-radius changes
+as ordered commands. The worker exclusively owns its mutable `Mesh`,
+`AdaptiveInflateBrush` and `BrushStroke`. It consumes samples sequentially
+**as quickly as sculpting permits**, without the previous artificial
+one-stamp-per-presented-frame limit. The existing 4D arc-length interpolation,
+symmetry, skip-free spacing and terminal stamp behavior are unchanged.
+
+The renderer/picker never access the live worker mesh. After completing
+stamps, the worker publishes a **copy of a completed mesh state**, coalesced
+to roughly one update per 8 milliseconds. The UI takes the newest published
+snapshot (intermediate display states may be discarded, but **no actual
+brush stamp is dropped**), builds new Vulkan buffers and renders once per
+frame. No GLFW or Vulkan calls run on the worker. GPU buffer synchronization
+continues to occur on the rendering thread. Mouse picking uses the latest
+displayed mesh, so the brush remains responsive while expensive processing
+is underway; if processing truly cannot keep up, ordered queued input
+accumulates and drains after mouse release. On Escape/shutdown, the worker
+is stopped and joined before the brush/mesh owners are destroyed.
+
+The worker publishes thread-safe statistics including completed stamps,
+pending 4D Steps, pending input segments and queued input commands. The
+`[sculpt]` lines now include `input_commands` and `worker_stamp_ms`;
+`enqueue_or_stamp_ms` is the UI callback time (usually just enqueueing).
+Counts reflect worker-processed commands and can briefly lag raw
+`[input]` events when the background worker is busy. FPS and actual
+completed-stamp rate are still calculated from the viewport's presentation
+and snapshot consumption intervals, independently of CPU worker progress.
+
+The CPU-only `asynchronous_sculpting` test drives the same path through
+both the worker and the synchronous exact sampler, ensures identical
+geometry/topology and stamp totals, and verifies that all work completes
+**even if no rendering thread consumes snapshots**. It also covers
+back-to-back strokes and orderly worker cancellation. The scripted demo,
+comparison benchmarks and synchronous `BrushStroke` interface are unchanged.

@@ -3,6 +3,7 @@
 #include "mesher/brush_radius.hpp"
 
 #include <functional>
+#include <optional>
 #include <string>
 
 namespace mesher {
@@ -21,15 +22,24 @@ struct ViewportAnimation {
 // Times are monotonic seconds elapsed since mouse down. The host picks the
 // freshly modified mesh at every update, stores the resulting input segments,
 // and drains at most one 4D Step sample between rendered frames.
+struct ViewportMeshUpdate {
+    Mesh mesh;
+    std::size_t completedStamps = 0;
+};
+
 struct ViewportInteraction {
     std::function<void(Vec3)> begin;
     std::function<void(Vec3,double)> update;
     std::function<void(Vec3,double)> end;
     // Consume zero or one queued brush sample between rendered frames.
     std::function<bool()> pump;
+    // Async mode: consume the latest fully committed mesh snapshot. When
+    // present, the Vulkan/picking thread never reads the worker's live mesh.
+    std::function<std::optional<ViewportMeshUpdate>()> takeSnapshot;
     std::function<bool()> canBegin;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;
+    std::function<std::size_t()> inputCommands;
     std::function<std::size_t()> totalQueuedSteps;
     // Opt-in event trace for precise mouse-input and queueing diagnostics.
     bool verboseInput = false;

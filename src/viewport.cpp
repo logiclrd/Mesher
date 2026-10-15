@@ -321,6 +321,10 @@ void requestX11Activation(Window window) {
 
 class VulkanViewport {
     const Mesh& mesh_;
+    Mesh displayedMesh_; // UI-owned immutable-between-snapshots drawing mesh.
+    const Mesh& currentMesh() const {
+        return interaction_.takeSnapshot ? displayedMesh_ : mesh_;
+    }
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
@@ -328,6 +332,7 @@ class VulkanViewport {
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
     double lastConsoleTime_=0, viewportStartTime_=0, mouseReleaseTime_=0;
     std::uint64_t logFrames_=0, logStamps_=0;
+    std::size_t displayedStamps_=0;
     std::uint64_t strokeSerial_=0, inputEventSerial_=0;
     bool waitingForDrain_=false;
     Vec3 lastCursorHit_{};
@@ -519,7 +524,7 @@ class VulkanViewport {
         // buffers from a previous frame.
         check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX),
               "Wait before updating dynamic geometry");
-        const auto drawing = buildDrawing(mesh_);
+        const auto drawing = buildDrawing(currentMesh());
         replaceBuffer(solid, drawing.solid);
         replaceBuffer(lines, drawing.lines);
         lastUploadMs_=(glfwGetTime()-started)*1000.0;
@@ -552,7 +557,7 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
-        return firstMeshHit(mesh_,viewportRay(px,py,double(fw),double(fh)));
+        return firstMeshHit(currentMesh(),viewportRay(px,py,double(fw),double(fh)));
     }
 
     // Status lines use a separate window from the 750ms HUD counter, so
@@ -576,7 +581,9 @@ class VulkanViewport {
                                   ? interaction_.pendingSamples():0)
           <<" pending_segments="<<(interaction_.pendingSegments
                                   ? interaction_.pendingSegments():0)
-          <<" callback_ms="<<lastStampCallbackMs_
+          <<" input_commands="<<(interaction_.inputCommands
+                                  ? interaction_.inputCommands():0)
+          <<" enqueue_or_stamp_ms="<<lastStampCallbackMs_
           <<" picking_ms="<<lastPickMs_
           <<" mesh_upload_ms="<<lastUploadMs_
           <<" last_draw_ms="<<lastDrawMs_;
@@ -685,14 +692,17 @@ class VulkanViewport {
                 const double stampStart=glfwGetTime();
                 interaction_.begin(*picked);
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
-                ++stampsThisInterval_; // Initial stamp on mouse down
-                stampedThisFrame_=true;
                 lastConsoleTime_=glfwGetTime();
                 logFrames_=0;
                 logStamps_=0;
-                refreshMesh();
+                if(!interaction_.takeSnapshot) {
+                    // Legacy synchronous path stamps on mouse-down.
+                    ++stampsThisInterval_;
+                    stampedThisFrame_=true;
+                    refreshMesh();
+                    reportAfterStamp(1);
+                }
                 updateTitle();
-                reportAfterStamp(1);
                 logInputEvent("down","started",0,true);
             } else {
                 logInputEvent("down","miss",0,false);
@@ -751,15 +761,31 @@ class VulkanViewport {
     }
 
     void pumpMouseStroke() {
-        if(!interaction_.pump || stampedThisFrame_)return;
-        const double started=glfwGetTime();
-        const bool stamped=interaction_.pump();
-        if(stamped) {
-            lastStampCallbackMs_=(glfwGetTime()-started)*1000.0;
-            ++stampsThisInterval_;
-            refreshMesh();
-            updateTitle();
-            reportAfterStamp(1);
+        if(interaction_.takeSnapshot) {
+            // The worker never shares mutable mesh memory with the renderer.
+            // Intermediate completed states coalesce into the newest
+            // snapshot; every brush stamp itself has still been applied.
+            if(auto snapshot=interaction_.takeSnapshot()) {
+                const auto previous=displayedStamps_;
+                displayedStamps_=snapshot->completedStamps;
+                displayedMesh_=std::move(snapshot->mesh);
+                const auto added=displayedStamps_>=previous
+                    ?displayedStamps_-previous:0;
+                stampsThisInterval_+=added;
+                refreshMesh();
+                updateTitle();
+                if(added)reportAfterStamp(added);
+            }
+        } else if(interaction_.pump && !stampedThisFrame_) {
+            const double started=glfwGetTime();
+            const bool stamped=interaction_.pump();
+            if(stamped) {
+                lastStampCallbackMs_=(glfwGetTime()-started)*1000.0;
+                ++stampsThisInterval_;
+                refreshMesh();
+                updateTitle();
+                reportAfterStamp(1);
+            }
         }
         if(waitingForDrain_ && interaction_.canBegin && interaction_.canBegin()) {
             logInputEvent("drained","finished",
@@ -782,9 +808,10 @@ class VulkanViewport {
 
     std::size_t countInvertedFaces() const {
         std::size_t count = 0;
-        for (const auto& t : mesh_.triangles) {
-            const Vec3 a=mesh_.vertices[t.a], b=mesh_.vertices[t.b],
-                       c=mesh_.vertices[t.c];
+        const auto& drawingMesh=currentMesh();
+        for (const auto& t : drawingMesh.triangles) {
+            const Vec3 a=drawingMesh.vertices[t.a], b=drawingMesh.vertices[t.b],
+                       c=drawingMesh.vertices[t.c];
             // In this sphere demonstration the center is at the origin.
             // This reports radial winding reversals, not all intersections.
             if (dot(cross(b-a,c-a),a+b+c) <= 1e-13) ++count;
@@ -1170,7 +1197,7 @@ class VulkanViewport {
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
                             ViewportInteraction interaction)
-        : mesh_(mesh), animation_(std::move(animation)),
+        : mesh_(mesh), displayedMesh_(mesh), animation_(std::move(animation)),
           interaction_(std::move(interaction)) {
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))

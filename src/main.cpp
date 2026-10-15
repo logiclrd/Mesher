@@ -1,4 +1,5 @@
 #include "mesher/brush.hpp"
+#include "mesher/async_sculpt.hpp"
 #include "mesher/brush_radius.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
@@ -235,8 +236,7 @@ int main(int argc, char** argv) {
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
-        std::unique_ptr<mesher::AdaptiveInflateBrush> liveBrush;
-        std::unique_ptr<mesher::BrushStroke> liveStroke;
+        std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
         if(inflate && !demoMode) {
             const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
             const double requestedBrushRadius=brushRadius;
@@ -245,57 +245,44 @@ int main(int argc, char** argv) {
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
                          <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
+            // The worker owns its own mutable mesh. The viewport keeps a
+            // separate, immutable-between-snapshots mesh for picking/drawing.
+            liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                mesh,step,strength,timeSpeed,curvatureSettings,
+                collapseSettings,refineSettings,options.symmetric);
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
             interaction.verboseInput=verboseInput;
-            interaction.setRadius=[&, brushRange](double radius) {
+            interaction.setRadius=[&,brushRange](double radius) {
                 brushRadius=brushRange.clamp(radius);
-                if(liveStroke && liveStroke->active())
-                    liveStroke->setRadius(brushRadius);
+                liveWorker->setRadius(brushRadius);
             };
-            liveBrush=std::make_unique<mesher::AdaptiveInflateBrush>(
-                mesh,strength,curvatureSettings,collapseSettings,refineSettings,
-                options.symmetric);
-            liveStroke=std::make_unique<mesher::BrushStroke>(mesh,*liveBrush,step);
-            auto areasFor=[&](mesher::Vec3 p) {
-                std::vector<mesher::BrushArea> areas{{p,brushRadius,.3}};
-                if(options.symmetric)
-                    areas.push_back({{-p.x,p.y,p.z},brushRadius,.3});
-                return areas;
-            };
-            interaction.begin=[&,areasFor](mesher::Vec3 point) {
-                liveStroke->startTimed(areasFor(point),timeSpeed);
+            interaction.begin=[&](mesher::Vec3 point) {
+                liveWorker->begin(point,brushRadius);
             };
             interaction.update=[&](mesher::Vec3 point,double elapsed) {
-                if(options.symmetric) {
-                    const std::array<mesher::Vec3,2> pair{
-                        point,{-point.x,point.y,point.z}};
-                    liveStroke->updateTimedRealtime(pair,elapsed);
-                } else {
-                    const std::array<mesher::Vec3,1> pointOnly{point};
-                    liveStroke->updateTimedRealtime(pointOnly,elapsed);
-                }
+                liveWorker->update(point,elapsed);
             };
             interaction.end=[&](mesher::Vec3 point,double elapsed) {
-                if(options.symmetric) {
-                    const std::array<mesher::Vec3,2> pair{
-                        point,{-point.x,point.y,point.z}};
-                    liveStroke->finishTimedRealtime(pair,elapsed);
-                } else {
-                    const std::array<mesher::Vec3,1> pointOnly{point};
-                    liveStroke->finishTimedRealtime(pointOnly,elapsed);
-                }
+                liveWorker->end(point,elapsed);
             };
-            interaction.completedStamps=[&]{return liveBrush->completedStamps();};
-            interaction.skippedStamps=[&]{return liveStroke->skippedStamps();};
-            interaction.pendingSamples=[&]{return liveStroke->pendingSamples();};
-            interaction.pendingSegments=[&]{return liveStroke->pendingSegments();};
-            interaction.totalQueuedSteps=[&]{return liveStroke->totalQueuedSteps();};
-            interaction.canBegin=[&]{return !liveStroke->active();};
-            interaction.pump=[&]{return liveStroke->pumpTimedRealtime();};
+            interaction.takeSnapshot=[&]() -> std::optional<mesher::ViewportMeshUpdate> {
+                auto snapshot=liveWorker->takeSnapshot();
+                if(!snapshot)return std::nullopt;
+                return mesher::ViewportMeshUpdate{
+                    std::move(snapshot->mesh),snapshot->completedStamps};
+            };
+            interaction.completedStamps=[&]{return liveWorker->status().completedStamps;};
+            interaction.skippedStamps=[]{return std::size_t{0};};
+            interaction.pendingSamples=[&]{return liveWorker->status().pendingSteps;};
+            interaction.pendingSegments=[&]{return liveWorker->status().pendingSegments;};
+            interaction.totalQueuedSteps=[&]{return liveWorker->status().totalQueuedSteps;};
+            interaction.inputCommands=[&]{return liveWorker->status().inputCommands;};
+            interaction.canBegin=[&]{return liveWorker->canBegin();};
             interaction.lastStampDetails=[&] {
-                const auto& d=liveBrush->lastDetails();
-                const auto times=liveBrush->lastTimings();
+                const auto status=liveWorker->status();
+                const auto& d=status.details;
+                const auto& times=status.timings;
                 std::ostringstream os;
                 os<<std::fixed<<std::setprecision(4)
                   <<"radius="<<(d.areas.empty()?brushRadius:d.areas.front().radius)
@@ -315,19 +302,26 @@ int main(int argc, char** argv) {
                   <<" inflate_ms="<<times.inflateSeconds*1000
                   <<" refine_ms="<<times.refineSeconds*1000
                   <<" collapse_ms="<<times.collapseSeconds*1000
-                  <<" adjacency_rebuild_ms="<<times.rebuildSeconds*1000;
+                  <<" adjacency_rebuild_ms="<<times.rebuildSeconds*1000
+                  <<" worker_stamp_ms="<<status.lastWorkerStampMs
+                  <<" pending_input_commands="<<status.inputCommands;
                 return os.str();
             };
             interaction.stationaryStampsPerSecond=timeSpeed/step;
             interaction.caption=[&] {
-                return "Mouse Inflate | vertices "+std::to_string(mesh.vertices.size())+
-                       " | stamps "+std::to_string(liveBrush->completedStamps())+
-                       " | pending "+std::to_string(liveStroke->pendingSamples())+
+                const auto status=liveWorker->status();
+                return "Mouse Inflate | vertices "+std::to_string(status.details.vertices
+                              ?status.details.vertices:mesh.vertices.size())+
+                       " | stamps "+std::to_string(status.completedStamps)+
+                       " | pending "+std::to_string(status.pendingSteps)+
+                       " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric");
             };
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
+            std::cout<<"Interactive sculpting uses a dedicated background worker; "
+                     <<"rendering coalesces completed mesh snapshots.\n";
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";
