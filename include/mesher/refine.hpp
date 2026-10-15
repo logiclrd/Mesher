@@ -2,6 +2,7 @@
 #include "mesher/mesh.hpp"
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -25,6 +26,8 @@ struct RefineStatistics {
     std::uint32_t longGrowingEdges = 0;
 };
 
+class LocalConnectivity;
+
 // The mirror map is maintained by index, including newly inserted vertices.
 // Any separate topology optimizer must receive this map and return its updated
 // mapping after compaction.
@@ -32,6 +35,9 @@ class LocalRefiner {
 public:
     LocalRefiner(const Mesh& original, RefineSettings settings,
                  std::vector<std::uint32_t> mirrors = {});
+    ~LocalRefiner();
+    LocalRefiner(const LocalRefiner&) = delete;
+    LocalRefiner& operator=(const LocalRefiner&) = delete;
     void reset(const Mesh& mesh, std::vector<std::uint32_t> mirrors = {});
     void setMirrors(std::vector<std::uint32_t> mirrors);
     // Extends pre-stamp positions at the same new indices created by splitting.
@@ -45,5 +51,8 @@ private:
     RefineSettings settings_;
     double maximumEdge_ = 0;
     std::vector<std::uint32_t> mirrors_;
+    // Remains valid across splits and flips; reset only when an external
+    // operation (such as collapsing/compacting vertices) changes topology.
+    std::unique_ptr<LocalConnectivity> connectivity_;
 };
 } // namespace mesher

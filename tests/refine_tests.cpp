@@ -111,6 +111,73 @@ void testAffectedFaceCandidateEquivalence() {
               "Restricted refinement topology agrees");
     }
 }
+// Rebuilding the index before every stamp is the reference implementation.
+// Persistent local connectivity must produce exactly the same vertex indices,
+// oriented triangles, geometry and flip/split decisions across many updates.
+void testPersistentConnectivityEquivalence() {
+    SphereOptions opts;
+    opts.vertexCount=800;
+    opts.relaxationIterations=20;
+    auto meshA=generateSphere(opts);
+    auto meshB=meshA;
+    const auto initialMirror=symmetricSphereMirrors(opts.vertexCount);
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.55;
+    settings.maximumSplitPairsPerStamp=4;
+    settings.maximumFlipPairsPerStamp=4;
+    LocalRefiner persistent(meshA,settings,initialMirror);
+    LocalRefiner rebuilt(meshB,settings,initialMirror);
+    std::size_t totalSplits=0;
+    for(int pass=0;pass<16;++pass) {
+        const auto beforeA=meshA.vertices;
+        const auto beforeB=meshB.vertices;
+        const auto mirror=persistent.mirrors();
+        const std::uint32_t target=static_cast<std::uint32_t>(10+pass*3);
+        const auto partner=mirror.at(target);
+        check(target!=partner,"Picked vertex must have a distinct mirror");
+        auto push=[&](Mesh& m) {
+            m.vertices[target]=m.vertices[target]*1.06;
+            m.vertices[partner]={-m.vertices[target].x,
+                                  m.vertices[target].y,m.vertices[target].z};
+        };
+        push(meshA);
+        push(meshB);
+        std::vector<std::uint32_t> faces;
+        for(std::uint32_t i=0;i<meshA.triangles.size();++i) {
+            const auto t=meshA.triangles[i];
+            if(t.a==target||t.b==target||t.c==target||
+               t.a==partner||t.b==partner||t.c==partner)
+                faces.push_back(i);
+        }
+        // Force only the reference to rebuild its connectivity while keeping
+        // the original nominal edge target and mirror correspondence.
+        rebuilt.setMirrors(rebuilt.mirrors());
+        auto previousA=beforeA,previousB=beforeB;
+        const auto a=persistent.apply(meshA,previousA,faces,true);
+        const auto b=rebuilt.apply(meshB,previousB,faces,true);
+        totalSplits+=a.splitPairs;
+        check(a.splitPairs==b.splitPairs && a.flipPairs==b.flipPairs &&
+              a.newVertices==b.newVertices && a.longGrowingEdges==b.longGrowingEdges,
+              "Persistent and rebuilt adjacency must select identical edits");
+        check(meshA.vertices.size()==meshB.vertices.size() &&
+              meshA.triangles.size()==meshB.triangles.size(),
+              "Local edits must preserve identical counts");
+        for(std::size_t i=0;i<meshA.vertices.size();++i)
+            check(length(meshA.vertices[i]-meshB.vertices[i])<1e-12,
+                  "Local edits must preserve identical geometry");
+        for(std::size_t i=0;i<meshA.triangles.size();++i) {
+            const auto x=meshA.triangles[i],y=meshB.triangles[i];
+            check(x.a==y.a&&x.b==y.b&&x.c==y.c,
+                  "Local edits must preserve face indices and orientation");
+        }
+        check(validateClosedSphereTopology(meshA),
+              "Persistent edits preserve closed manifold topology");
+        check(persistent.mirrors()==rebuilt.mirrors(),
+              "Persistent edits preserve symmetric vertex mapping");
+    }
+    check(totalSplits>0,"Test must exercise actual repeated splitting");
+}
 void testAnimationSymmetryAndReplay() {
     SphereOptions opts;opts.vertexCount=800;opts.relaxationIterations=20;
     auto mesh=generateSphere(opts),original=mesh;
@@ -158,7 +225,7 @@ void testAnimationSymmetryAndReplay() {
 }
 }
 int main() {
-    try {testSelectiveSplitting();testAffectedFaceCandidateEquivalence();testAnimationSymmetryAndReplay();}
+    try {testSelectiveSplitting();testAffectedFaceCandidateEquivalence();testPersistentConnectivityEquivalence();testAnimationSymmetryAndReplay();}
     catch(const std::exception& e) {
         std::cerr<<"Refinement test failed: "<<e.what()<<'\n';
         return 1;

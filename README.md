@@ -655,3 +655,33 @@ run under GCC; MSVC also runs the 100k Quickhull benchmark, while Clang
 runs all CPU tests. The jobs fail independently and run in parallel so
 platform-specific compiler diagnostics cannot be hidden by a successful
 build with another compiler.
+
+
+## Persistent local refinement connectivity
+
+The stretch refiner now maintains an edge-to-incident-face map and a
+vertex-to-incident-face map **across brush stamps**. Splitting an edge updates
+only its two incident faces and their new triangles. Flipping a diagonal
+changes only its four local face/vertex relationships (including its mirrored
+counterpart); the expensive full-mesh trial copy per candidate is gone.
+One-ring flip candidate discovery also starts at the touched vertices
+instead of rescanning all triangles, and vertex valence is obtained from
+the adjacency map. Triangle quality, curvature/normal gates, mirrored
+pairing, deterministic ordering, and topology validation remain unchanged.
+
+The expensive initial index build happens at first use, and the cache stays
+valid through subsequent refinement stamps. After a directional collapse
+compacts/renumbers the vertices and triangles, `setMirrors()` invalidates
+the index; it is lazily rebuilt on the next refinement. The small-mesh path
+retains strict per-flip manifold checks. Dense meshes validate the entire
+flip batch, with one pre-batch backup and a conservative per-flip retry on
+failure. This preserves safety without copying the complete 100k-vertex
+mesh for every candidate.
+
+The `local_refinement` suite includes repeated-stamp equivalence checks
+against an intentionally rebuilt index, comparing the exact vertex
+positions, triangle order/orientation, topology operation counts and
+symmetric mirror mapping. Note that the collapse component itself still
+uses global face scans and compaction, and CPU picking/render uploads
+remain whole-mesh operations; this patch specifically makes splitting
+and flipping local.
