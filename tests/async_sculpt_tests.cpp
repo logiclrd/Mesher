@@ -178,6 +178,45 @@ void testCoalescedRootsAndCompatibilityBridge() {
             measured.triangles==final.triangles.size(),
             "Viewport bridge reports real converted element counts");
 }
+void testViewportAdapterAfterStableIdSplit() {
+    Mesh original;
+    original.vertices={{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                       {0,0,1},{0,0,-1}};
+    original.triangles={{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                        {5,1,0},{5,2,1},{5,3,2},{5,0,3}};
+    const auto imported=partitionFlatMesh(original,1);
+    const auto initial=RegionTopologyIndex::build(imported.revision);
+    const auto id=imported.flatIndex.vertexIds[0];
+    RegionEdit move(initial,{id},{},1);
+    move.moveVertex(id,{1.25,0,0});
+    (void)move.commit();
+    const auto deformed=move.updatedIndex();
+    LocalStampBaseline baseline{initial,{id},
+                                initial->vertex(id).incidentFaces};
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=1;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,{},1);
+    const auto split=refiner.apply(deformed,baseline);
+    require(split.statistics.splitPairs==1,
+            "Adapter fixture must actually grow topology");
+    ViewportFlattenStatistics stats{};
+    const auto output=flattenRevisionForViewport(
+        *split.index,imported.flatIndex,&stats);
+    require(output.vertices.size()==7&&output.triangles.size()==10,
+            "Viewport adapter includes inserted stable vertex and both new faces");
+    require(length(output.vertices[0]-Vec3{1.25,0,0})==0,
+            "Surviving original vertices preserve original flat array order");
+    require(length(output.vertices.back()-
+                   split.index->vertex(split.insertedVertices[0]).position)==0,
+            "New stable-ID vertex is appended deterministically");
+    require(validateClosedSphereTopology(output),
+            "Converted split revision has closed oriented topology");
+    require(stats.vertices==7&&stats.triangles==10,
+            "Flatten diagnostics reflect dynamically changed topology");
+}
 void testVersionedWorkerWithRemeshingEnabled() {
     SphereOptions options;
     options.vertexCount=500;
@@ -226,6 +265,7 @@ int main() {
         testThreadedMatchesExactSculpt();
         testWorkerCanRestartAndCancel();
         testCoalescedRootsAndCompatibilityBridge();
+        testViewportAdapterAfterStableIdSplit();
         testVersionedWorkerWithRemeshingEnabled();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
