@@ -6,14 +6,16 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
 
 namespace mesher {
 
-// Stable element identifiers are independent of their storage partition.
-// Allocation, validation, and cross-partition connectivity are later milestones.
+// IDs are monotonically allocated within a mesh's shared identity domain.
+// Zero is reserved; deleted/aborted IDs are never recycled. IDs do NOT
+// encode an address, partition, mutable array offset, or flat-mesh index.
 using PartitionId = std::uint32_t;
 using VertexId = std::uint64_t;
 using FaceId = std::uint64_t;
@@ -32,23 +34,28 @@ struct MeshPartition {
 };
 
 class MutableMeshView;
+class MeshIdentityDomain;
 struct MeshDirectoryNode;
 
 // A revision owns an immutable root into a persistent 16-way radix directory.
 // Unchanged partitions (and directory branches) retain identical object identity.
+// A separate, shared atomic ID domain is not geometry and is never copied.
 class MeshRevision {
 public:
     static std::shared_ptr<const MeshRevision> empty();
     std::shared_ptr<const MeshPartition> partition(PartitionId id) const;
     std::size_t partitionCount() const noexcept { return partitionCount_; }
     MutableMeshView createMutableView() const;
+    // Explicit O(N) traversal: for import/export/validation only, not commit.
+    void forEachPartition(const std::function<void(PartitionId,const MeshPartition&)>& visit) const;
 
 private:
     friend class MutableMeshView;
     MeshRevision(std::shared_ptr<const MeshDirectoryNode> root,
-                 std::size_t count);
+                 std::size_t count, std::shared_ptr<MeshIdentityDomain> identities);
     std::shared_ptr<const MeshDirectoryNode> root_;
     std::size_t partitionCount_{};
+    std::shared_ptr<MeshIdentityDomain> identities_;
 };
 
 struct RevisionCommitStatistics {
@@ -73,6 +80,10 @@ public:
 
     MeshPartition& editPartition(PartitionId id);
     void erasePartition(PartitionId id);
+    // Shared atomic source ensures unique IDs across branches/aborted views.
+    // Low-level direct writes are not topology-validated until V3.
+    VertexId addVertex(PartitionId owner, Vec3 position);
+    FaceId addFace(PartitionId owner, std::array<VertexId,3> vertices);
     // Copies only modified directory paths and publishes no data itself.
     // The caller may atomically publish the returned immutable revision.
     RevisionCommit commit();
@@ -86,6 +97,7 @@ private:
     };
     std::shared_ptr<const MeshDirectoryNode> root_;
     std::size_t partitionCount_{};
+    std::shared_ptr<MeshIdentityDomain> identities_;
     std::map<PartitionId,Change> changes_;
     std::size_t clonedPartitions_{};
     bool committed_{};

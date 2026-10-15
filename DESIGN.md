@@ -719,3 +719,39 @@ geometry/topology and stamp totals, and verifies that all work completes
 **even if no rendering thread consumes snapshots**. It also covers
 back-to-back strokes and orderly worker cancellation. The scripted demo,
 comparison benchmarks and synchronous `BrushStroke` interface are unchanged.
+
+## Versioned partition storage (V1–V2)
+
+The interactive Vulkan/Inflate code still works with the existing flat
+`Mesh{vertices,triangles}`. The following versioned storage is built,
+tested and independently usable but **not yet wired to live sculpting**.
+
+- Published `MeshRevision` partition trees are immutable. A mutable view
+  copies each edited partition only once, then commit path-copies the
+  persistent radix directory. For one modified partition a commit copies
+  nine directory nodes regardless of total model size. Atomic publication
+  replaces only the revision root; old reader revisions remain valid.
+- Stable `VertexId` and `FaceId` values are nonzero 64-bit counters, not
+  flat indices or partition coordinates. Revisions derived from the same
+  root share an atomic identity domain; discarded IDs are never reused,
+  including after abandoned transactions, deletions or branching. IDs
+  do not change if a future operation moves an element between partitions.
+- `partitionFlatMesh` performs an **initial** Morton spatial sort of
+  vertices and face centroids, independently grouping at most 256 of each
+  per partition by default. Faces store global stable vertex IDs, so one
+  vertex shared across a seam is still a *single* element even when faces
+  belong to different partitions. A vertex crossing a spatial cell later
+  does not automatically change its partition owner.
+- `FlatMeshIndex` stores the old original ordering only to allow
+  `reconstructFlatMesh` to reproduce every coordinate bit, face index,
+  face ordering and winding exactly. This export deliberately rejects
+  missing/extra elements rather than silently dropping changes from a
+  newer topology; dynamic topology export is a later milestone.
+- `validatePartitionedMesh` checks duplicate/zero IDs and broken
+  cross-partition references; it does not establish manifoldness or
+  collision freedom. Full partition traversal and import/export are
+  intentionally O(N); none is invoked during commit or publish.
+- The low-level mutable partition API is not yet protected by validated
+  topology transactions. Cross-partition read/write sets, localized
+  connectivity/spatial lookup, render updates and retirement policy
+  are separate milestones listed in `todo.md`.

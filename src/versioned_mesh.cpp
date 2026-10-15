@@ -1,5 +1,6 @@
 #include "mesher/versioned_mesh.hpp"
 
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -9,7 +10,26 @@ namespace {
 constexpr unsigned directoryLevels = 8; // 32-bit IDs, four bits per level.
 constexpr unsigned directoryBits = 4;
 constexpr unsigned directoryMask = 15;
+std::uint64_t allocateId(std::atomic<std::uint64_t>& next) {
+    auto current=next.load(std::memory_order_relaxed);
+    for(;;) {
+        if(current==std::numeric_limits<std::uint64_t>::max())
+            throw std::overflow_error("Mesh element ID space exhausted");
+        if(next.compare_exchange_weak(current,current+1,std::memory_order_relaxed))
+            return current;
+    }
 }
+}
+
+// The shared identity source is separate from immutable geometry.
+class MeshIdentityDomain {
+public:
+    VertexId vertex() { return allocateId(nextVertex_); }
+    FaceId face() { return allocateId(nextFace_); }
+private:
+    std::atomic<std::uint64_t> nextVertex_{1};
+    std::atomic<std::uint64_t> nextFace_{1};
+};
 
 struct MeshDirectoryNode {
     std::array<std::shared_ptr<const MeshDirectoryNode>,16> children{};
@@ -54,14 +74,30 @@ std::shared_ptr<const MeshDirectoryNode> replacePartition(
     }
     return next;
 }
+void visitPartition(const std::shared_ptr<const MeshDirectoryNode>& node,
+                    unsigned depth, PartitionId id,
+                    const std::function<void(PartitionId,const MeshPartition&)>& visit) {
+    if(!node)return;
+    if(depth==directoryLevels) {
+        if(node->partition)visit(id,*node->partition);
+        return;
+    }
+    for(std::uint32_t i=0;i<16;++i)
+        if(node->children[i])
+            visitPartition(node->children[i],depth+1,
+                           static_cast<PartitionId>((id<<directoryBits)|i),visit);
+}
 } // namespace
 
 MeshRevision::MeshRevision(std::shared_ptr<const MeshDirectoryNode> root,
-                           std::size_t count)
-    : root_(std::move(root)),partitionCount_(count) {}
+                           std::size_t count,
+                           std::shared_ptr<MeshIdentityDomain> identities)
+    : root_(std::move(root)),partitionCount_(count),
+      identities_(std::move(identities)) {}
 
 std::shared_ptr<const MeshRevision> MeshRevision::empty() {
-    return std::shared_ptr<const MeshRevision>(new MeshRevision(nullptr,0));
+    return std::shared_ptr<const MeshRevision>(
+        new MeshRevision(nullptr,0,std::make_shared<MeshIdentityDomain>()));
 }
 std::shared_ptr<const MeshPartition> MeshRevision::partition(PartitionId id) const {
     return findPartition(root_,id);
@@ -69,8 +105,13 @@ std::shared_ptr<const MeshPartition> MeshRevision::partition(PartitionId id) con
 MutableMeshView MeshRevision::createMutableView() const {
     return MutableMeshView(*this);
 }
+void MeshRevision::forEachPartition(
+    const std::function<void(PartitionId,const MeshPartition&)>& visit) const {
+    visitPartition(root_,0,0,visit);
+}
 MutableMeshView::MutableMeshView(const MeshRevision& base)
-    :root_(base.root_),partitionCount_(base.partitionCount_) {}
+    :root_(base.root_),partitionCount_(base.partitionCount_),
+     identities_(base.identities_) {}
 
 MeshPartition& MutableMeshView::editPartition(PartitionId id) {
     if(committed_)throw std::logic_error("Cannot edit a committed mesh view");
@@ -90,6 +131,19 @@ void MutableMeshView::erasePartition(PartitionId id) {
     if(!changes_.contains(id) && !findPartition(root_,id))return;
     changes_[id]={nullptr,true};
 }
+VertexId MutableMeshView::addVertex(PartitionId owner, Vec3 position) {
+    auto& partition=editPartition(owner);
+    const auto id=identities_->vertex();
+    partition.vertices.push_back({id,position});
+    return id;
+}
+FaceId MutableMeshView::addFace(PartitionId owner,
+                                std::array<VertexId,3> vertices) {
+    auto& partition=editPartition(owner);
+    const auto id=identities_->face();
+    partition.faces.push_back({id,vertices});
+    return id;
+}
 RevisionCommit MutableMeshView::commit() {
     if(committed_)throw std::logic_error("Cannot commit a mesh view twice");
     // Build privately: if allocation throws, the view remains usable.
@@ -108,7 +162,7 @@ RevisionCommit MutableMeshView::commit() {
         ++stats.modifiedPartitions;
     }
     auto next=std::shared_ptr<const MeshRevision>(
-        new MeshRevision(std::move(nextRoot),nextCount));
+        new MeshRevision(std::move(nextRoot),nextCount,identities_));
     committed_=true;
     changes_.clear();
     return {std::move(next),stats};
