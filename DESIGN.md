@@ -1,8 +1,23 @@
 # Mesher design principles (future milestones)
 
-The current milestone is deliberately limited to a generated manifold and a
-Vulkan viewport. This document records architectural directions for subsequent
-sculpting work; they are **not yet implemented**.
+The current milestone includes a generated manifold, Vulkan viewport,
+and a CPU Inflate-brush stroke engine. This document distinguishes implemented
+brush behaviour from future geometry-editing capabilities.
+
+## Implemented brush-stroke contract
+
+- Stroke begins with one or more spherical influences (center, radius, hardness).
+  Influence is the **maximum** of all spheres at a vertex, not their sum.
+  Falloff is 1 inside the hardness fraction of the radius and otherwise
+  decreases to 0 via a smooth S-curve (quintic smootherstep).
+- All centers move the same distance per stroke update. The stroke samples
+  them together at a global fixed arc-length Step, preserving fractional
+  progress across updates and corners. It applies the initial stamp and
+  guarantees the final endpoint is sampled without duplication.
+- Inflate moves vertices along the normalized, equally weighted sum of all
+  incident face unit normals, recomputed for each stamp from pre-stamp geometry.
+- The demo applies mirror-image half-circles on the front of the sphere.
+  Remeshing, density maintenance and interactive painting are **deferred**.
 
 ## Non-destructive, minimally invasive topology
 
@@ -57,6 +72,7 @@ sculpting work; they are **not yet implemented**.
   algorithm before importing meshes with millions of vertices.
 - Select a mutable half-edge / corner-based topology representation with stable
   vertex IDs and bounded local update costs.
-- Define geometric and colour error metrics, brush falloff sampling, surface
-  projection, high-resolution persistence, and brush interaction policy.
+- Define geometric and colour error metrics, surface projection, high-resolution
+  persistence, and live brush input/picking policy. Stroke sampling/falloff
+  and the first Inflate brush are already implemented.
 - Add camera navigation, mesh interaction, editing tools, and import/export.

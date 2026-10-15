@@ -1,9 +1,9 @@
 # Mesher
 
-An experimental **C++20/Vulkan** mesh editor foundation. The first milestone
-creates a random-point triangulated sphere and displays it in a full-screen
-3D viewport with flat face lighting, a 30%-gray wire overlay, and a gridded XY
-floor. **Z is up.** The geometry engine is independent of Vulkan/GLFW and can
+An experimental **C++20/Vulkan** mesh editor foundation. The application generates a random-point triangulated sphere, runs a
+symmetric Inflate-brush demonstration by default, and displays the result in a
+full-screen 3D viewport with flat face lighting, a 30%-gray wire overlay, and
+a gridded XY floor. **Z is up.** The geometry engine is independent of Vulkan/GLFW and can
 be tested without a graphics device.
 
 ## Build
@@ -33,10 +33,19 @@ ctest --test-dir build-cpu --output-on-failure
 
 ```text
 Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]
+       [--no-inflate] [--step D] [--strength D] [--segments N]
 ```
 
 Defaults are `--symmetric --vertices 5000 --seed 1 --relax 65`. The initial
 viewport uses the primary monitor in full-screen mode. **Escape** exits.
+
+By default Mesher inflates two mirror-image half-circle strokes across the
+front of the generated sphere, with spherical influence radius **0.1** and
+hardness **0.3**. The default stroke Step is **0.02** mesh units, strength is
+**0.012** mesh units per full-influence stamp, and each arc is approximated
+with **128** input segments. `--no-inflate` displays the unmodified sphere;
+`--step`, `--strength`, and `--segments` allow experimentation. The demo is
+precomputed before the viewport starts (not interactive yet).
 
 - **Asymmetric:** Uniformly distributed random samples on the unit sphere,
   followed by iterative tangential repulsion using a spatial grid.
@@ -68,6 +77,30 @@ are lit separately (flat shaded), and unique mesh edges are drawn as
 material. The viewport rebuilds Vulkan swapchain-dependent resources on
 resolution changes.
 
+## Brush foundation
+
+`include/mesher/brush.hpp` defines `BrushArea`, `Brush`, `BrushStroke`, and
+`InflateBrush` independently of Vulkan. A stroke starts with one or more
+`(center, radius, hardness)` spheres and samples their combined **maximum**
+influence. Every center has full influence through `hardness × radius`, then
+falls to zero at `radius` according to complementary quintic *smootherstep*.
+Hardness is a fraction in `[0, 1]`.
+
+`BrushStroke::start` stamps immediately. `update` accepts new positions for
+exactly the same number of centers, validates that each has travelled the same
+3D distance, and samples **all** centers simultaneously at constant arc-length
+`Step`. Leftover fractional steps carry across updates, including segment
+corners. `finish` processes the last update, stamps the terminal position if
+not already sampled, and releases brush state. `InflateBrush` moves influenced
+vertices along the **normalized sum of the unit face normals** of incident
+triangles, computed on the mesh before each stamp. It constructs vertex-to-face
+adjacency once per stroke. Normal strength is a displacement **per stamp**.
+
+This milestone intentionally keeps existing topology unchanged and performs
+no adaptive subdivision, decimation, brush picking, interactive painting,
+undo, or acceleration for hundred-million-vertex meshes. The Inflate demo
+is deliberately small and deterministic, for validating the stroke engine.
+
 ## Architectural notes and limitations
 
 - The generator returns a simple `Mesh` containing double-precision vertex
@@ -84,9 +117,9 @@ resolution changes.
   algorithm when scaling up.
 - CPU-visible buffers are used for the small initial demo. Persistent,
   device-local buffers/staging and incremental rendering are future work.
-- This milestone has **no sculpting, painting, selection, undo, or file import**.
-  Those features should build upon a separately validated, locally editable
-  topology data structure rather than mutate GPU geometry directly.
+- Interactive sculpting, painting, selection, undo, mesh import, and local
+  remeshing are not yet implemented. The offline Inflate driver introduces
+  the brush-stroke foundation without changing triangle connectivity.
 
 ## Status
 
