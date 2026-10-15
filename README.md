@@ -631,3 +631,12 @@ CI asserts that the 100k benchmark uses Qhull, and separately builds with
 Qhull disabled to verify the large-mesh fail-fast behavior. The earlier
 Release-build CI measurements of 11–20 seconds used the old quadratic
 backend and should not be represented as Quickhull timings.
+
+## Warnings as errors
+
+All Mesher-owned C++ targets, including the Vulkan application, mesh library,
+CPU tests, and performance benchmark, compile with `-Wall -Wextra -Wpedantic
+-Werror` (GCC/Clang), or `/W4 /WX` (MSVC). This is enforced by CMake and
+therefore by CI, in Release and Debug builds. Warnings from third-party
+prebuilt libraries are not affected. New compiler diagnostics must be fixed
+rather than accumulated as ignored build warnings.

@@ -59,7 +59,7 @@ struct FlipLookup {
         for(std::size_t i=0;i<mesh.triangles.size();++i) {
             const auto t=mesh.triangles[i];
             for(const auto v:{t.a,t.b,t.c})++valence[v];
-            for(const auto [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},
+            for(const auto& [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},
                                   std::pair{t.c,t.a}})
                 faces[edgeKey(a,b)].push_back(i);
         }

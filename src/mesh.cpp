@@ -44,7 +44,7 @@ Face oriented(std::uint32_t a, std::uint32_t b, std::uint32_t c,
 // Incremental convex hull. All source points lie on the sphere, so every
 // point is an extreme vertex. The fixed tetrahedron centroid remains strictly
 // inside the hull and gives us a stable orientation test.
-std::vector<Face> convexHull(const std::vector<Vec3>& points) {
+[[maybe_unused]] std::vector<Face> convexHull(const std::vector<Vec3>& points) {
     if (points.size()<4) throw std::invalid_argument("Hull needs >= 4 points");
     const auto N=static_cast<std::uint32_t>(points.size());
     std::vector<std::uint32_t> order(N);

@@ -14,6 +14,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(MESHER_BUILD_VIEWPORT "Build the Vulkan/GLFW 3D viewport" ON)
 option(MESHER_BUILD_TESTS "Build CPU-only mesh tests" ON)
 
+# Treat warnings as build failures for every Mesher-owned C++ target:
+# executable, library, test suites and benchmark. Imported dependencies are
+# compiled by their providers and are not modified by this setting.
+if(MSVC)
+    add_compile_options(/W4 /WX)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
+
 add_library(mesher_mesh STATIC src/mesh.cpp src/brush.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp)
 target_include_directories(mesher_mesh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
@@ -41,12 +50,6 @@ endif()
 find_package(OpenMP QUIET COMPONENTS CXX)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(mesher_mesh PUBLIC OpenMP::OpenMP_CXX)
-endif()
-
-if(MSVC)
-    target_compile_options(mesher_mesh PRIVATE /W4)
-else()
-    target_compile_options(mesher_mesh PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 if(MESHER_BUILD_VIEWPORT)
