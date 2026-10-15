@@ -1,5 +1,5 @@
 #pragma once
-#include "mesher/brush.hpp"
+#include "mesher/versioned_sculpt.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -14,13 +14,15 @@
 
 namespace mesher {
 
-// The background worker exclusively owns the sculptable mesh, the brush,
-// and the timed BrushStroke. The UI only enqueues input and consumes copies
-// of *completed* mesh states. No Vulkan/GLFW calls occur on the worker.
+// The background worker owns versioned sculpting and the unchanged exact
+// 4D BrushStroke sampler. The UI queues input and receives immutable indexed
+// revision roots; only the viewport compatibility adapter flattens geometry.
+// No Vulkan/GLFW calls or whole-mesh copies occur on the worker.
 class AsyncSculptWorker {
 public:
     struct Snapshot {
-        Mesh mesh;
+        std::shared_ptr<const RegionTopologyIndex> index;
+        std::shared_ptr<const FlatMeshIndex> originalOrder;
         std::size_t completedStamps=0;
     };
     struct Status {
@@ -33,6 +35,9 @@ public:
         StampTimings timings{};
         StampDetails details{};
         double lastWorkerStampMs=0;
+        std::size_t publishedRevisions=0;
+        std::size_t modifiedPartitions=0;
+        std::size_t copiedDirectoryNodes=0;
     };
     AsyncSculptWorker(Mesh initial, double step, double strength,
                       double timeSpeed, CurvatureSettings curvature,
@@ -60,8 +65,8 @@ private:
     void refreshStatus();
     std::vector<Vec3> centers(Vec3 p) const;
 
-    Mesh mesh_;
-    AdaptiveInflateBrush brush_;
+    Mesh samplingOnlyMesh_; // never contains any sculpted geometry
+    std::unique_ptr<VersionedSculptBrush> brush_;
     BrushStroke stroke_;
     double timeSpeed_;
     bool symmetric_;
