@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/mesh.hpp"
+#include "mesher/remesh.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -86,7 +87,8 @@ class InflateDemoAnimation {
 public:
     InflateDemoAnimation(Mesh& mesh, double step = 0.02,
                          double strength = 0.012, std::uint32_t segments = 128,
-                         double radius = 0.4);
+                         double radius = 0.4,
+                         CollapseSettings collapse = {}, bool symmetric = true);
     ~InflateDemoAnimation();
     InflateDemoAnimation(const InflateDemoAnimation&) = delete;
     InflateDemoAnimation& operator=(const InflateDemoAnimation&) = delete;
@@ -96,11 +98,21 @@ public:
     void reset();
     std::size_t completed() const noexcept { return next_; }
     std::size_t total() const noexcept { return stamps_.size(); }
+    const MeshDiagnostics& preCollapseDiagnostics() const noexcept { return preCollapse_; }
+    const MeshDiagnostics& diagnostics() const noexcept { return afterCollapse_; }
+    const CollapseStatistics& lastCollapse() const noexcept { return lastCollapse_; }
+    std::size_t totalRemoved() const noexcept { return totalRemoved_; }
+    double minimumEdgeTarget() const noexcept { return collapser_.minimumEdge(); }
 private:
     Mesh& mesh_;
-    std::vector<Vec3> originalVertices_;
+    Mesh originalMesh_;
     std::vector<std::vector<BrushArea>> stamps_;
     InflateBrush brush_;
+    DirectionalCollapser collapser_;
+    std::vector<std::uint32_t> originalMirrors_;
+    MeshDiagnostics preCollapse_{}, afterCollapse_{};
+    CollapseStatistics lastCollapse_{};
+    std::size_t totalRemoved_ = 0;
     std::size_t next_ = 0;
     bool brushActive_ = false;
 };
