@@ -86,6 +86,11 @@ void testTransactionalSplitAndOverflow() {
           "Stretched edge splits in a local transaction");
     check(result.insertedVertices.size()==1,
           "Fresh stable vertex ID exposed");
+    check(result.changedFaces.size()==4,
+          "Dirty face report includes both replaced and both inserted faces");
+    for(const auto face:result.changedFaces)
+        check(result.index->face(face).vertices[0]!=0,
+              "All reported face IDs resolve in the committed revision");
     check(result.index->updateStatistics().fullMeshTraversals==0,
           "No global index rebuild after splitting");
     check(result.index->revision().partitionCount()>
