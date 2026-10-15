@@ -167,6 +167,18 @@ void testReindexedTopology() {
             "Only flipped faces and their edges may change");
     require(updated->face(f[0]).vertices==std::array<VertexId,3>{v[4],v[3],v[1]},
             "Updated face index must match committed triangle");
+    const auto removed=updated->maybeEdgeSides({std::min(v[0],v[4]),
+                                                 std::max(v[0],v[4])});
+    require(!removed,"Flipped-away diagonal is removed from edge index");
+    const auto newDiagonal=updated->maybeEdgeSides({std::min(v[1],v[3]),
+                                                     std::max(v[1],v[3])});
+    require(newDiagonal && newDiagonal->size()==2,
+            "New cross-partition edge has both oriented incident faces");
+    RegionEdit following(updated,{v[0]});
+    following.moveVertex(v[0],{1.001,0,0});
+    (void)following.commit();
+    require(following.updatedIndex()->updateStatistics().fullMeshTraversals==0,
+            "An edit following a topology change reuses the incremental index");
     const auto rebuild=RegionTopologyIndex::build(result.revision);
     for(const auto id:v) {
         require(updated->vertex(id).incidentFaces==
