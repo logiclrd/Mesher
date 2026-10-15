@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/picking.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -207,13 +208,8 @@ struct PushConstants {
 static_assert(sizeof(PushConstants)==96);
 PushConstants makeConstants(int width,int height) {
     const float aspect=float(width)/float(height);
-    constexpr double halfFov=0.39269908169872414; // 22.5 degrees
-    constexpr double targetFraction=2.0/3.0;
-    const double limit=std::tan(halfFov)*std::min(1.0,double(aspect));
-    // Exact perspective projected radius for a unit sphere, whose angular
-    // silhouette is larger than that of its central plane.
-    const double distance=std::sqrt(1.0+1.0/std::pow(targetFraction*limit,2));
-    const Vec3 eye=normalized(Vec3{0,-1,.33})*distance;
+    // Match picking and rendering camera geometry exactly.
+    const Vec3 eye=viewportCameraEye(double(width),double(height));
     PushConstants result;
     result.viewProjection=multiply(perspective(aspect),cameraView(eye));
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
@@ -287,6 +283,10 @@ void requestX11Activation(Window window) {
 class VulkanViewport {
     const Mesh& mesh_;
     ViewportAnimation animation_;
+    ViewportInteraction interaction_;
+    bool mouseWasDown_=false, sculpting_=false;
+    Vec3 lastCursorHit_{};
+    double mouseStartTime_=0;
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     double nextStampTime_ = 0;
@@ -482,7 +482,7 @@ class VulkanViewport {
         if (extent.width==0 || extent.height==0) return;
         const std::string fpsText="FPS: "+hudDecimal(measuredFps_);
         const std::string stampText="STAMPS: "+hudDecimal(measuredStampRate_)+
-                "/"+hudDecimal(animation_.advance ? animation_.stampsPerSecond : 0.0);
+                "/"+hudDecimal(animation_.advance ? animation_.stampsPerSecond : interaction_.stationaryStampsPerSecond);
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
@@ -490,6 +490,64 @@ class VulkanViewport {
                   "Wait before refreshing HUD");
             replaceBuffer(hud,geometry);
         }
+    }
+
+    std::optional<Vec3> pickCursor() const {
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
+        const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
+        if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
+        return firstMeshHit(mesh_,viewportRay(px,py,double(fw),double(fh)));
+    }
+
+    void updateMouseSculpt() {
+        if(!interaction_.begin)return;
+        const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        if(down&&!mouseWasDown_) {
+            const auto picked=pickCursor();
+            if(picked) {
+                sculpting_=true;
+                lastCursorHit_=*picked;
+                mouseStartTime_=glfwGetTime();
+                interaction_.begin(*picked);
+                ++stampsThisInterval_; // Initial stamp on mouse down
+                refreshMesh();
+                updateTitle();
+            }
+        } else if(down&&sculpting_) {
+            // Raycast AGAINST the mesh modified on the previous tick.
+            if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
+            const std::size_t before=interaction_.completedStamps
+                ? interaction_.completedStamps() : 0;
+            interaction_.update(lastCursorHit_,elapsed);
+            const std::size_t after=interaction_.completedStamps
+                ? interaction_.completedStamps() : before+1;
+            if(after>before) {
+                stampsThisInterval_+=after-before;
+                refreshMesh();
+                updateTitle();
+            }
+        } else if(!down&&mouseWasDown_&&sculpting_) {
+            if(const auto picked=pickCursor())lastCursorHit_=*picked;
+            const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
+            const std::size_t before=interaction_.completedStamps
+                ? interaction_.completedStamps() : 0;
+            interaction_.end(lastCursorHit_,elapsed);
+            const std::size_t after=interaction_.completedStamps
+                ? interaction_.completedStamps() : before+1;
+            if(after>before) {
+                stampsThisInterval_+=after-before;
+                refreshMesh();
+            }
+            sculpting_=false;
+            updateTitle();
+        }
+        mouseWasDown_=down;
     }
 
     void sampleFrameRates() {
@@ -517,7 +575,11 @@ class VulkanViewport {
 
     void updateTitle() {
         std::string title = "Mesher";
-        if (animation_.advance) {
+        if (interaction_.begin) {
+            if(interaction_.caption)title+=" - "+interaction_.caption();
+            title+=sculpting_ ? " | Sculpting" : " | LMB: Inflate";
+            title+=" | Esc: exit";
+        } else if (animation_.advance) {
             if (animation_.caption) title += " - " + animation_.caption();
             const auto inverted = countInvertedFaces();
             title += " | inverted faces: " + std::to_string(inverted);
@@ -884,8 +946,10 @@ class VulkanViewport {
         ++framesThisInterval_;
     }
 public:
-    explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation)
-        : mesh_(mesh), animation_(std::move(animation)) {
+    explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
+                            ViewportInteraction interaction)
+        : mesh_(mesh), animation_(std::move(animation)),
+          interaction_(std::move(interaction)) {
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))
             throw std::invalid_argument("Animation rate must be positive and finite");
@@ -953,9 +1017,14 @@ public:
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS) {
+                if(sculpting_&&interaction_.end) {
+                    interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
+                    sculpting_=false;
+                }
                 restorePreviousFocus_=true;
                 break;
             }
+            updateMouseSculpt();
             if (animation_.advance) {
                 const bool togglePause=justPressed(GLFW_KEY_SPACE, spaceWasDown_);
                 const bool singleStep=justPressed(GLFW_KEY_RIGHT, rightWasDown_);
@@ -997,8 +1066,9 @@ public:
     }
 };
 } // namespace
-void runViewport(const Mesh& mesh, ViewportAnimation animation) {
-    VulkanViewport viewport(mesh, std::move(animation));
+void runViewport(const Mesh& mesh, ViewportAnimation animation,
+                 ViewportInteraction interaction) {
+    VulkanViewport viewport(mesh, std::move(animation), std::move(interaction));
     viewport.run();
 }
 } // namespace mesher

@@ -73,21 +73,49 @@ public:
     void start(std::vector<BrushArea> areas);
     void update(std::span<const Vec3> positions);
     void finish(std::span<const Vec3> positions);
+    // Fourth coordinate is elapsed seconds multiplied by timeSpeed (model
+    // units/second). Shared timestamps and mirrored spatial movement preserve
+    // the equal-4D-length invariant. Even a stationary pointer creates stamps.
+    void startTimed(std::vector<BrushArea> areas, double timeSpeed);
+    void updateTimed(std::span<const Vec3> positions, double elapsedSeconds);
+    void finishTimed(std::span<const Vec3> positions, double elapsedSeconds);
 
     bool active() const noexcept { return active_; }
     std::size_t stamps() const noexcept { return stamps_; }
 private:
-    void advance(std::span<const Vec3> positions);
+    void advance(std::span<const Vec3> positions, double elapsedSeconds);
     void stamp();
 
     Mesh& mesh_;
     Brush& brush_;
     double step_;
     double untilNext_;
+    double timeSpeed_ = 0;
+    double currentTime_ = 0, lastStampTime_ = 0;
+    bool timed_ = false;
     bool active_ = false;
     std::size_t stamps_ = 0;
     std::vector<BrushArea> areas_;
     std::vector<Vec3> lastStamped_;
+};
+
+// Interactive sculpting uses the same Inflate and local topology algorithms
+// as the recorded demo, wrapped as a Brush for the 4D stroke sampler.
+class AdaptiveInflateBrush final : public Brush {
+public:
+    AdaptiveInflateBrush(const Mesh& mesh, double strength,
+                         CurvatureSettings curvature, CollapseSettings collapse,
+                         RefineSettings refine, bool symmetric);
+    void begin(Mesh& mesh) override;
+    void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
+    void end(Mesh& mesh) override;
+    std::size_t completedStamps() const noexcept { return completed_; }
+private:
+    InflateBrush inflate_;
+    DirectionalCollapser collapser_;
+    LocalRefiner refiner_;
+    std::size_t completed_ = 0;
+    bool begun_ = false;
 };
 
 // CPU-only, incremental playback of the demonstration. BrushStroke generates

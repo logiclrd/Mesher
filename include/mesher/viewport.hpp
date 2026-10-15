@@ -16,10 +16,23 @@ struct ViewportAnimation {
     double stampsPerSecond = 10.0;
 };
 
+// User-facing mouse interaction callbacks, independent of GLFW and Vulkan.
+// Times are monotonic seconds elapsed since mouse down. The host picks the
+// freshly modified mesh at every update before invoking the callback.
+struct ViewportInteraction {
+    std::function<void(Vec3)> begin;
+    std::function<void(Vec3,double)> update;
+    std::function<void(Vec3,double)> end;
+    std::function<std::string()> caption;
+    std::function<std::size_t()> completedStamps;
+    double stationaryStampsPerSecond = 0;
+};
+
 // On X11, show a normally managed window, then ask the WM to make it
 // fullscreen on its chosen display. Other platforms use managed maximization.
 // Escape exits. The HUD shows measured rendered FPS and actual stamp throughput.
 // With animation: Space pauses/resumes, Right steps, R replays. The mesh is
 // uploaded after each stamp before the next Vulkan frame.
-void runViewport(const Mesh& mesh, ViewportAnimation animation = {});
+void runViewport(const Mesh& mesh, ViewportAnimation animation = {},
+                 ViewportInteraction interaction = {});
 } // namespace mesher

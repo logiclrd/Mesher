@@ -436,3 +436,52 @@ sculpting will also need pre-stamp refinement where the original triangle
 resolution is inadequate to represent the brush. The geometric and
 vertex-colour fidelity checks on edge flips must be strengthened before
 using this on photogrammetry data.
+
+
+## Mouse sculpting and 4D stroke spacing
+
+**Default viewport mode is now interactive.** Left-click the sphere to begin
+an Inflate stroke, hold stationary to keep inflating, drag across the changing
+surface to sculpt, and release to finish. Escape exits. The viewport raycasts
+against the **latest deformed mesh** each frame (not an original reference
+sphere); dragging outside the silhouette retains the last valid brush center
+until the pointer returns. Floor/grid triangles are excluded from picking.
+
+The brush stroke sampler treats each influence center as a four-dimensional
+point: `(x, y, z, timeSpeed * elapsedSeconds)`. For any update, the travel
+is the 4D Euclidean distance, and existing **Step**, sample interpolation,
+phase/overshoot, equal-distance-between-influence-points, initial stamp,
+and endpoint semantics remain the same. The time coordinate increases
+monotonically; a stationary mouse therefore emits stamps at
+`timeSpeed / Step`. Default `timeSpeed = 0.2` model-units/second and
+`Step = 0.02` give **10 stationary stamps per second**. Motion makes the
+4D trajectory longer, increasing stamp frequency naturally. Use
+`--time-speed N` to adjust stationary speed.
+
+With the default **symmetric sphere**, each mouse point is paired with
+its exact YZ-plane reflection, and the brush uses the maximum influence
+of the two spheres (never doubles overlapping influences). With
+`--asymmetric`, no second influence is created and no mirror mapping
+is passed to topology maintenance. This distinction is determined by the
+generator, not the cursor position. Symmetric topology maintenance remains
+available through `--collapse` and `--refine`.
+
+The live interactive brush uses the same Inflate law and optional
+curvature, stretch-driven refinement, local flipping and directional
+collapse mechanisms as the scripted demo. These topology operations
+remain **opt-in**; try
+`./build/Mesher --refine --collapse --curvature-correction`.
+
+The previous 105-stamp reproducible animation remains available under
+`--demo`, including Space to pause, Right to single-step, and R to replay.
+CSV experiments remain independent of the viewport. `--no-inflate`
+opens a non-sculpting display.
+
+The HUD shows live FPS and actual stamp throughput; for mouse mode its
+denominator is the **stationary** expected rate, not a hard ceiling, because
+spatial movement legitimately increases the number of stamps. Mouse events
+are sampled and applied in the normal render loop; there is no independent
+timer thread or GPU compute-based sculpting. For high-density models, CPU
+raycasting and whole-mesh updates will require acceleration and dirty-region
+updates. A stroke is not yet an undoable transaction; tests should be done
+on generated meshes.

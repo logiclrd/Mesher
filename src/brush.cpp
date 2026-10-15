@@ -159,6 +159,9 @@ void BrushStroke::start(std::vector<BrushArea> areas) {
     areas_ = std::move(areas);
     untilNext_ = step_;
     stamps_ = 0;
+    timed_ = false;
+    timeSpeed_ = 0;
+    currentTime_ = lastStampTime_ = 0;
     stamp();
 }
 
@@ -166,23 +169,37 @@ void BrushStroke::stamp() {
     brush_.stamp(mesh_, areas_);
     lastStamped_.clear();
     for (const auto& a : areas_) lastStamped_.push_back(a.center);
+    lastStampTime_ = currentTime_;
     ++stamps_;
 }
 
-void BrushStroke::advance(std::span<const Vec3> positions) {
+void BrushStroke::startTimed(std::vector<BrushArea> areas, double timeSpeed) {
+    if(!std::isfinite(timeSpeed) || timeSpeed<=0)
+        throw std::invalid_argument("Time speed must be positive and finite");
+    start(std::move(areas));
+    timed_ = true;
+    timeSpeed_ = timeSpeed;
+}
+
+void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds) {
     if (!active_) throw std::logic_error("Stroke has not started");
     if (positions.size() != areas_.size()) throw std::invalid_argument("Stroke point count changed");
     if (positions.empty()) throw std::logic_error("Stroke has no areas");
-    const double travel = length(positions[0] - areas_[0].center);
+    if(!std::isfinite(elapsedSeconds) || elapsedSeconds<currentTime_)
+        throw std::invalid_argument("Stroke time must be finite and nondecreasing");
+    const double dt=elapsedSeconds-currentTime_;
+    const double spatial=length(positions[0] - areas_[0].center);
+    const double travel=std::hypot(spatial,timeSpeed_*dt);
     if (!std::isfinite(travel)) throw std::invalid_argument("Invalid stroke position");
     for (std::size_t i = 0; i < positions.size(); ++i) {
         if (!finite(positions[i])) throw std::invalid_argument("Invalid stroke position");
-        const double d = length(positions[i] - areas_[i].center);
+        const double d = std::hypot(length(positions[i] - areas_[i].center),timeSpeed_*dt);
         if (std::abs(d - travel) > 1e-9 * std::max({1.0, travel, step_}))
             throw std::invalid_argument("All stroke points must travel equal distances");
     }
-    if (travel == 0) return;
+    if (travel == 0) { currentTime_=elapsedSeconds; return; }
 
+    const double fromTime=currentTime_;
     std::vector<Vec3> from;
     from.reserve(areas_.size());
     for (const auto& a : areas_) from.push_back(a.center);
@@ -193,23 +210,74 @@ void BrushStroke::advance(std::span<const Vec3> positions) {
         const double t = std::min(distance / travel, 1.0);
         for (std::size_t i = 0; i < areas_.size(); ++i)
             areas_[i].center = from[i] + (positions[i] - from[i]) * t;
+        currentTime_=fromTime+dt*t;
         stamp();
         distance += step_;
     }
     untilNext_ = distance - travel; // the overshoot into the next segment
     for (std::size_t i = 0; i < areas_.size(); ++i) areas_[i].center = positions[i];
+    currentTime_=elapsedSeconds;
 }
 
-void BrushStroke::update(std::span<const Vec3> positions) { advance(positions); }
-
+void BrushStroke::update(std::span<const Vec3> positions) {
+    if(timed_)throw std::logic_error("Use updateTimed on a timed stroke");
+    advance(positions,currentTime_);
+}
+void BrushStroke::updateTimed(std::span<const Vec3> positions, double elapsedSeconds) {
+    if(!timed_)throw std::logic_error("Use startTimed before updateTimed");
+    advance(positions,elapsedSeconds);
+}
 void BrushStroke::finish(std::span<const Vec3> positions) {
-    advance(positions);
+    if(timed_)throw std::logic_error("Use finishTimed on a timed stroke");
+    advance(positions,currentTime_);
     bool atLastStamp = true;
     for (std::size_t i = 0; i < areas_.size(); ++i)
         if (length(areas_[i].center - lastStamped_[i]) > 1e-12) atLastStamp = false;
     if (!atLastStamp) stamp();
     brush_.end(mesh_);
     active_ = false;
+}
+void BrushStroke::finishTimed(std::span<const Vec3> positions,double elapsedSeconds) {
+    if(!timed_)throw std::logic_error("Use startTimed before finishTimed");
+    advance(positions,elapsedSeconds);
+    bool same=(timeSpeed_*(currentTime_-lastStampTime_)<=1e-12);
+    for(std::size_t i=0;i<areas_.size();++i)
+        if(length(areas_[i].center-lastStamped_[i])>1e-12)same=false;
+    if(!same)stamp();
+    brush_.end(mesh_);
+    active_=false;
+}
+
+AdaptiveInflateBrush::AdaptiveInflateBrush(const Mesh& mesh,double strength,
+                                           CurvatureSettings curvature,
+                                           CollapseSettings collapse,
+                                           RefineSettings refine,bool symmetric)
+    : inflate_(strength,curvature),
+      collapser_(mesh,collapse,symmetric
+            ? symmetricSphereMirrors(static_cast<std::uint32_t>(mesh.vertices.size()))
+            : std::vector<std::uint32_t>{}),
+      refiner_(mesh,refine,collapser_.mirrors()) {}
+void AdaptiveInflateBrush::begin(Mesh& mesh) {
+    inflate_.begin(mesh);
+    begun_=true;
+}
+void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
+    if(!begun_)throw std::logic_error("Adaptive Inflate has not begun");
+    auto before=mesh.vertices;
+    inflate_.stamp(mesh,areas);
+    const auto refined=refiner_.apply(mesh,before);
+    if(refined.splitPairs)collapser_.setMirrors(refiner_.mirrors());
+    const auto collapsed=collapser_.apply(mesh,before);
+    if(collapsed.accepted)refiner_.setMirrors(collapser_.mirrors());
+    if(refined.splitPairs || refined.flipPairs || collapsed.accepted) {
+        inflate_.end(mesh);
+        inflate_.begin(mesh);
+    }
+    ++completed_;
+}
+void AdaptiveInflateBrush::end(Mesh& mesh) {
+    if(begun_)inflate_.end(mesh);
+    begun_=false;
 }
 
 namespace {

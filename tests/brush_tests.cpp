@@ -97,6 +97,59 @@ void testSampling() {
     stationary.finish(std::array<Vec3,1>{{{0,0,0}}});
     check(stationaryBrush.stamps.size()==1,"Don't duplicate unchanged endpoint");
 }
+void testFourDimensionalStroke() {
+    Mesh dummy;
+    RecordingBrush brush;
+    BrushStroke hold(dummy,brush,.1);
+    hold.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.2);
+    const std::array<Vec3,2> positions{{{0,0,0},{0,2,0}}};
+    hold.updateTimed(positions,.25); // half a Step in time
+    check(brush.stamps.size()==1,"No premature stationary-time stamp");
+    hold.updateTimed(positions,.75); // one time-based stamp at 0.5 s
+    check(brush.stamps.size()==2,"A stationary pointer still stamps");
+    hold.updateTimed(positions,1.0);
+    check(brush.stamps.size()==3,"Time overshoot carries across updates");
+    hold.finishTimed(positions,1.0);
+    check(brush.stamps.size()==3,"No duplicate terminal stamp at exact Step");
+    check(!hold.active(),"Timed stroke closes");
+
+    RecordingBrush movingBrush;
+    BrushStroke moving(dummy,movingBrush,.1);
+    moving.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.4);
+    const std::array<Vec3,2> moved{{{.3,0,0},{.3,2,0}}};
+    moving.updateTimed(moved,1.0); // hypot(.3,.4)=.5, five steps
+    check(movingBrush.stamps.size()==6,"4D path combines spatial and time distances");
+    near(movingBrush.stamps[1][0].x,.06,1e-12,
+         "Time-spatial path samples interpolated position");
+    near(movingBrush.stamps[5][1].x,.3,1e-12,"Equal mirrored travel");
+    moving.finishTimed(moved,1.0);
+    check(movingBrush.stamps.size()==6,"No terminal duplicate when aligned in 4D");
+
+    RecordingBrush errorBrush;
+    BrushStroke bad(dummy,errorBrush,.1);
+    bad.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.2);
+    const std::array<Vec3,2> uneven{{{.1,0,0},{.2,2,0}}};
+    bool rejected=false;
+    try{bad.updateTimed(uneven,1.0);}
+    catch(const std::invalid_argument&){rejected=true;}
+    check(rejected&&errorBrush.stamps.size()==1,
+          "Unequal 4D travel rejected before any stamp");
+    rejected=false;
+    try{bad.updateTimed(positions,-1);}
+    catch(const std::invalid_argument&){rejected=true;}
+    check(rejected,"Negative time rejected");
+    bad.finishTimed(positions,.25);
+    check(errorBrush.stamps.size()==2,
+          "Partial final 4D Step applies one terminal stamp");
+
+    bool invalid=false;
+    try{
+        RecordingBrush unused;
+        BrushStroke reject(dummy,unused,.1);
+        reject.startTimed({{{0,0,0},1,.3}},0);
+    }catch(const std::invalid_argument&){invalid=true;}
+    check(invalid,"Time speed must be positive");
+}
 void testCurvatureCorrection() {
     // Four planar triangles forming a shallow bowl. Their shared center
     // has negative signed mean curvature and should rise more rapidly.
@@ -266,7 +319,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testFalloff();testSampling();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testFalloff();testSampling();testFourDimensionalStroke();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

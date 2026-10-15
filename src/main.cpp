@@ -15,8 +15,8 @@
 
 int main(int argc, char** argv) {
     mesher::SphereOptions options;
-    bool inflate = true;
-    double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0;
+    bool inflate = true, demoMode = false;
+    double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
     mesher::CollapseSettings collapseSettings;
     bool compareRemesh = false, compareMitigations = false;
@@ -35,17 +35,19 @@ int main(int argc, char** argv) {
             else if(arg=="--compare-mitigations") compareMitigations=true;
             else if(arg=="--curvature-correction") curvatureSettings.enabled=true;
             else if(arg=="--no-inflate") inflate=false;
-            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength" || arg=="--maximum-edge-ratio") {
+            else if(arg=="--demo") demoMode=true;
+            else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength" || arg=="--maximum-edge-ratio" || arg=="--time-speed") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
                 std::size_t parsed=0;
                 const double v=std::stod(value,&parsed);
                 if(parsed!=value.size() || !std::isfinite(v) ||
-                   ((arg=="--step" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio") && v<=0))
+                   ((arg=="--step" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--time-speed") && v<=0))
                     throw std::invalid_argument("Invalid brush parameter: "+value);
                 if(arg=="--step")step=v;
                 else if(arg=="--brush-radius")brushRadius=v;
                 else if(arg=="--stamps-per-second")stampRate=v;
+                else if(arg=="--time-speed")timeSpeed=v;
                 else if(arg=="--minimum-edge-ratio")collapseSettings.minimumEdgeRatio=v;
                 else if(arg=="--maximum-edge-ratio"){
                     if(v<=0)throw std::invalid_argument("Maximum edge ratio must be positive");
@@ -111,9 +113,10 @@ int main(int argc, char** argv) {
                          <<"       [--curvature-correction] [--curvature-strength GAIN]\n"
                          <<"       [--compare-mitigations] [--compare-local-remesh]\n"
                          <<"       [--refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
-                         <<"       [--max-split-pairs N] [--max-flip-pairs N]\n"
+                         <<"       [--max-split-pairs N] [--max-flip-pairs N]\\n"
+                         <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
-                         <<"          Inflate animation on, radius .4, Step .02, strength .012, 128 segments at 10 stamps/sec.\n"
+                         <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
@@ -214,7 +217,55 @@ int main(int argc, char** argv) {
         }
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
-        if (inflate) {
+        mesher::ViewportInteraction interaction;
+        std::unique_ptr<mesher::AdaptiveInflateBrush> liveBrush;
+        std::unique_ptr<mesher::BrushStroke> liveStroke;
+        if(inflate && !demoMode) {
+            liveBrush=std::make_unique<mesher::AdaptiveInflateBrush>(
+                mesh,strength,curvatureSettings,collapseSettings,refineSettings,
+                options.symmetric);
+            liveStroke=std::make_unique<mesher::BrushStroke>(mesh,*liveBrush,step);
+            auto areasFor=[&](mesher::Vec3 p) {
+                std::vector<mesher::BrushArea> areas{{p,brushRadius,.3}};
+                if(options.symmetric)
+                    areas.push_back({{-p.x,p.y,p.z},brushRadius,.3});
+                return areas;
+            };
+            interaction.begin=[&,areasFor](mesher::Vec3 point) {
+                liveStroke->startTimed(areasFor(point),timeSpeed);
+            };
+            interaction.update=[&](mesher::Vec3 point,double elapsed) {
+                if(options.symmetric) {
+                    const std::array<mesher::Vec3,2> pair{
+                        point,{-point.x,point.y,point.z}};
+                    liveStroke->updateTimed(pair,elapsed);
+                } else {
+                    const std::array<mesher::Vec3,1> pointOnly{point};
+                    liveStroke->updateTimed(pointOnly,elapsed);
+                }
+            };
+            interaction.end=[&](mesher::Vec3 point,double elapsed) {
+                if(options.symmetric) {
+                    const std::array<mesher::Vec3,2> pair{
+                        point,{-point.x,point.y,point.z}};
+                    liveStroke->finishTimed(pair,elapsed);
+                } else {
+                    const std::array<mesher::Vec3,1> pointOnly{point};
+                    liveStroke->finishTimed(pointOnly,elapsed);
+                }
+            };
+            interaction.completedStamps=[&]{return liveBrush->completedStamps();};
+            interaction.stationaryStampsPerSecond=timeSpeed/step;
+            interaction.caption=[&] {
+                return "Mouse Inflate | vertices "+std::to_string(mesh.vertices.size())+
+                       " | stamps "+std::to_string(liveBrush->completedStamps())+
+                       (options.symmetric?" | mirrored":" | asymmetric");
+            };
+            std::cout<<"Mouse Inflate: left-drag or hold to sculpt; time speed "
+                     <<timeSpeed<<" units/sec; step "<<step
+                     <<(options.symmetric?"; mirrored.\n":"; single brush.\n");
+        }
+        if (inflate && demoMode) {
             demo = std::make_unique<mesher::InflateDemoAnimation>(
                 mesh, step, strength, segments, brushRadius,
                 collapseSettings, options.symmetric, curvatureSettings, refineSettings);
@@ -246,7 +297,7 @@ int main(int argc, char** argv) {
             std::cout<<"Animating "<<demo->total()<<" stamps at "<<stampRate
                      <<" stamps/sec; radius "<<brushRadius<<", hardness 0.3.\n";
         }
-        mesher::runViewport(mesh, std::move(playback));
+        mesher::runViewport(mesh, std::move(playback),std::move(interaction));
     }catch(const std::exception& e) {
         std::cerr<<"Mesher: "<<e.what()<<'\n';
         return 1;
