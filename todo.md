@@ -122,11 +122,32 @@ an older revision while the worker edits or publishes a newer one.
   until V7/V8. Stable-ID topology cannot be exported with the original V2
   FlatMeshIndex; the test adapter constructs full current flat geometry.
   These checks do not prove collision freedom or globally optimal geometry.
-- [ ] **V7 — Transactional local collapse without global compaction.**
-  Port `DirectionalCollapser` to stable IDs/tombstones and validated local
-  trials, removing global trial-mesh copies, index compaction and global
-  adjacency rebuilds from normal local operation. Keep symmetric seam and
-  manifold conditions; compare outcomes with prior regression fixtures.
+- [x] **V7 — Transactional local collapse without global compaction.**
+  VersionedDirectionalCollapser consumes V5's immutable before-stamp index
+  and checks only shortening edges from the stamp's affected-face halo.
+  Stable-ID vertex and edge neighborhoods replace full-triangle scans for
+  the exact old two-face link condition. A candidate is staged in one
+  RegionEdit, including mirrored counterpart removal and seam preference;
+  updated face orientations, triangle areas, outward winding and closed
+  vertex fans are validated before publication. Accepted collapses remove
+  only affected face/vertex records with O(log N) persistent index deltas,
+  never copying a whole trial mesh, renumbering vertex/face IDs, compacting
+  arrays, or rebuilding global adjacency. The version-scoped index retains
+  immutable tombstone records for deleted IDs; earlier snapshots still
+  contain original live geometry, and IDs remain permanently unallocated.
+  Output tracks retired vertices/faces, rewritten faces, old-to-new
+  partition/directory copy counts and newly deleted mirror pairs. Both
+  VersionedInflateBrush and VersionedLocalRefiner consume these pair deltas
+  without rebuilding their entire symmetry maps.
+  Fourteenth CPU suite verifies no-op on stationary short edges, actual
+  controlled collapse across partitions, closed genus-zero orientation,
+  old-revision persistence, index agreement with independent full rebuild,
+  literal tombstone records and nonreuse, legacy-compatible symmetrical
+  shrinking/collapse, seam constraints, repeated local trials and next
+  mirrored Inflate/refiner handoff. No full-mesh pass is required during
+  each accepted operation. The live flat DirectionalCollapser and worker
+  remain unchanged until V8; V11 will bound CPU/GPU retirement and retained
+  history costs. This does not promise prevention of self-intersection.
 - [ ] **V8 — Publish revisions from the asynchronous sculpt worker.**
   Replace full `Mesh` snapshot copies with atomically published immutable
   roots. Coalesce intermediate visual revisions but never skip Step stamps.
@@ -168,9 +189,10 @@ an older revision while the worker edits or publishes a newer one.
   self-intersection guarantees or vertex-colour preservation.
 * V1 establishes storage semantics; V2 stable identities; V3 validated
   local edits; V4 persistent indices; V5 local Inflate and pre-stamp baselines;
-  V6 transactional local splitting/flipping. Local collapsing, worker
-  integration, dirty Vulkan buffers, accelerated triangle picking, and
-  durable undo remain explicit future milestones.
+  V6 transactional local splitting/flipping; V7 localized ID-preserving
+  collapse with persistent tombstones. Worker integration, dirty Vulkan
+  buffers, accelerated triangle picking, safe reclamation, and durable undo
+  remain explicit future milestones.
 
 ## Other remaining design goals
 
