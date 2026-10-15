@@ -755,3 +755,52 @@ tested and independently usable but **not yet wired to live sculpting**.
   topology transactions. Cross-partition read/write sets, localized
   connectivity/spatial lookup, render updates and retirement policy
   are separate milestones listed in `todo.md`.
+
+## Local partition transactions and boundary integrity (V3)
+
+`RegionTopologyIndex::build(revision)` constructs an immutable global
+vertex/face/edge lookup for one published revision. Building it currently
+takes O(N) memory and CPU. It can be shared across transactions against that
+same revision, and importantly **commit does not rebuild or scan it**.
+V4 replaces it with incrementally maintained revision-scoped indices.
+
+A `RegionEdit(index,seeds,mirrors,maximumElementsPerPartition)` discovers
+its selected seed vertices (including explicit reflected partners), every
+incident face, and the immutable read halo of adjacent vertex/face owners.
+Owners of selected vertices and incident faces form the **writable halo**.
+Every writable partition is cloned once before any mutation; other partitions
+retain identical objects. Raw mutable `MeshPartition` references are never
+exported from RegionEdit. Unknown vertices, faces, and partition IDs cannot
+be mutated through this API. A default capacity of 256 vertices **and**
+256 faces per partition bounds per-partition cloning and growth; callers who
+import larger V2 partitions can explicitly opt for a larger capacity.
+
+The transaction provides coordinate changes, adding/removing vertices and
+faces, rewriting existing oriented triangles, and a dedicated
+`replaceMirroredFaces` operation. Supplying a mirror involution causes
+`moveVertex` to move both sides atomically and ensures self-mirrored seam
+vertices remain on X=0. A mirrored face-pair replacement verifies the old
+faces really are reflected partners and writes the reversed orientation of
+the new face to its counterpart. Partial symmetric topology insertions and
+deletions are intentionally rejected until V6/V7's paired remesh tools.
+
+Prior to committing the private, already-cloned partitions, validation
+reconstructs only the **changed** geometry and edge/vertex neighborhoods
+from index entries plus local deltas. New and surviving edges must have
+exactly two oppositely oriented incident faces; edges removed entirely
+by a legal flip are allowed. Affected vertex links must each form one
+connected cycle. Dangling IDs, local degeneracy, broken seam restrictions,
+invalid edge incidences and disconnected vertex fans reject the transaction.
+No unvalidated intermediate mesh can reach the published revision root.
+This is a closed-manifold local editing policy for the current prototype,
+not comprehensive intersection detection, a guarantee of global manifoldness,
+or the eventual arbitrary-open-scan editing policy.
+
+After successful validation, `RegionEdit::commit` uses V1's O(D*H)
+directory path copying and returns a new immutable revision without
+publication. `MeshRepository::publishIfCurrent(old,new)` is an atomic
+compare-and-swap that refuses to overwrite a newer revision when a worker
+prepared an edit from an obsolete base. Readers retain older roots safely.
+`MeshRepository::publish` continues to serve the existing single-writer
+path. This V3 engine is independent of the current interactive sculpt worker
+and Vulkan viewport; the worker switch-over and dirty GPU updates are V8/V9.
