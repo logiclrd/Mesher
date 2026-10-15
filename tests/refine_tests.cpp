@@ -68,6 +68,49 @@ void testSelectiveSplitting() {
     check(validateClosedSphereTopology(mesh),"Each split is conforming, manifold");
     validateReflection(mesh,refiner.mirrors());
 }
+void testAffectedFaceCandidateEquivalence() {
+    SphereOptions options;
+    options.vertexCount=800;
+    auto original=generateSphere(options);
+    auto full=original,local=original;
+    const auto mirror=symmetricSphereMirrors(options.vertexCount);
+    const std::uint32_t index=10;
+    const auto partner=mirror[index];
+    full.vertices[index]=full.vertices[index]*1.18;
+    full.vertices[partner]={-full.vertices[index].x,
+                            full.vertices[index].y,full.vertices[index].z};
+    local.vertices=full.vertices;
+    std::vector<std::uint32_t> faces;
+    for(std::uint32_t face=0;face<full.triangles.size();++face) {
+        const auto t=full.triangles[face];
+        if(t.a==index||t.b==index||t.c==index||
+           t.a==partner||t.b==partner||t.c==partner)
+            faces.push_back(face);
+    }
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.5;
+    settings.maximumSplitPairsPerStamp=4;
+    settings.optimizeFlips=true;
+    LocalRefiner allRefiner(full,settings,mirror);
+    LocalRefiner localRefiner(local,settings,mirror);
+    auto beforeFull=original.vertices,beforeLocal=original.vertices;
+    const auto allStats=allRefiner.apply(full,beforeFull);
+    const auto localStats=localRefiner.apply(local,beforeLocal,faces,true);
+    check(allStats.splitPairs==localStats.splitPairs &&
+          allStats.flipPairs==localStats.flipPairs &&
+          full.vertices.size()==local.vertices.size() &&
+          full.triangles.size()==local.triangles.size(),
+          "Restricted growing-edge search matches full scan");
+    for(std::size_t i=0;i<full.vertices.size();++i)
+        check(length(full.vertices[i]-local.vertices[i])<1e-12,
+              "Restricted refinement vertex positions agree");
+    for(std::size_t i=0;i<full.triangles.size();++i) {
+        const auto a=full.triangles[i],b=local.triangles[i];
+        check(a.a==b.a&&a.b==b.b&&a.c==b.c,
+              "Restricted refinement topology agrees");
+    }
+}
 void testAnimationSymmetryAndReplay() {
     SphereOptions opts;opts.vertexCount=800;opts.relaxationIterations=20;
     auto mesh=generateSphere(opts),original=mesh;
@@ -115,7 +158,7 @@ void testAnimationSymmetryAndReplay() {
 }
 }
 int main() {
-    try {testSelectiveSplitting();testAnimationSymmetryAndReplay();}
+    try {testSelectiveSplitting();testAffectedFaceCandidateEquivalence();testAnimationSymmetryAndReplay();}
     catch(const std::exception& e) {
         std::cerr<<"Refinement test failed: "<<e.what()<<'\n';
         return 1;

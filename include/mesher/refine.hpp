@@ -2,6 +2,7 @@
 #include "mesher/mesh.hpp"
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace mesher {
@@ -35,7 +36,9 @@ public:
     void setMirrors(std::vector<std::uint32_t> mirrors);
     // Extends pre-stamp positions at the same new indices created by splitting.
     // The input vector must exactly match mesh.vertices before the call.
-    RefineStatistics apply(Mesh& mesh, std::vector<Vec3>& beforeStamp);
+    RefineStatistics apply(Mesh& mesh, std::vector<Vec3>& beforeStamp,
+                           std::span<const std::uint32_t> affectedFaces = {},
+                           bool restrictToAffected = false);
     const std::vector<std::uint32_t>& mirrors() const noexcept { return mirrors_; }
     double maximumEdge() const noexcept { return maximumEdge_; }
 private:

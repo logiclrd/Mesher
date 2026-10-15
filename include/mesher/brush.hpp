@@ -53,12 +53,14 @@ public:
     void stamp(Mesh& mesh, std::span<const BrushArea> areas) override;
     void end(Mesh& mesh) override;
     const std::vector<std::uint32_t>& movedVertices() const noexcept { return movedVertices_; }
+    const std::vector<std::uint32_t>& affectedFaces() const noexcept { return affectedFaces_; }
 private:
     double strength_;
     CurvatureSettings curvature_;
     std::vector<std::vector<std::uint32_t>> incidentFaces_;
     VertexSpatialGrid spatial_{0.15};
     std::vector<std::uint32_t> movedVertices_;
+    std::vector<std::uint32_t> affectedFaces_;
 };
 
 // A stroke begins with a stamp at the starting positions. All subsequent

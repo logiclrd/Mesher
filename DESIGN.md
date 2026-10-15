@@ -506,3 +506,15 @@ large relaxation iterations across CPU cores. Each worker reads the same
 immutable per-iteration spatial hash and writes a distinct next-position
 slot, preserving the iteration's Jacobi semantics. The serial path remains
 available when OpenMP is absent. CMake detects OpenMP automatically.
+
+
+### Exact stamp-local refinement candidate search
+
+An edge's length cannot change when both endpoints stay still. Inflate now
+passes the face IDs incident to its moved vertices into the refiner, which
+inspects only edges belonging to those faces when identifying stretched-edge
+candidates. The geometry and reflected-topology acceptance rules are
+otherwise unchanged. Scripted runs and standalone refiners retain their
+original full-mesh scan path. A regression compares local versus global
+candidate searches on the same deformation and requires identical vertices,
+triangle connectivity and operation counts.

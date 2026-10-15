@@ -216,7 +216,9 @@ void LocalRefiner::setMirrors(std::vector<Id> mirrors) {
     mirrors_=std::move(mirrors);
 }
 
-RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
+RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before,
+                                     std::span<const Id> affectedFaces,
+                                     bool restrictToAffected) {
     if(before.size()!=mesh.vertices.size())
         throw std::invalid_argument("Refiner expects pre-stamp positions for all vertices");
     verifyMirrors(mesh,mirrors_);
@@ -225,8 +227,9 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
     struct Candidate {Edge key;double length;};
     std::unordered_set<Edge> seen;
     std::vector<Candidate> candidates;
-    for(auto t:mesh.triangles)
-        for(auto [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},std::pair{t.c,t.a}}) {
+    auto considerTriangle=[&](Triangle t) {
+        for(auto [a,b]:{std::pair{t.a,t.b},std::pair{t.b,t.c},
+                        std::pair{t.c,t.a}}) {
             const Edge key=edgeKey(a,b);
             if(!seen.insert(key).second)continue;
             const double afterLength=length(mesh.vertices[a]-mesh.vertices[b]);
@@ -237,6 +240,16 @@ RefineStatistics LocalRefiner::apply(Mesh& mesh,std::vector<Vec3>& before) {
             ++stats.longGrowingEdges;
             candidates.push_back({key,afterLength});
         }
+    };
+    if(restrictToAffected) {
+        for(const auto index:affectedFaces) {
+            if(index>=mesh.triangles.size())
+                throw std::out_of_range("Affected refinement face is invalid");
+            considerTriangle(mesh.triangles[index]);
+        }
+    }else {
+        for(const auto t:mesh.triangles)considerTriangle(t);
+    }
     std::sort(candidates.begin(),candidates.end(),[](const auto& a,const auto& b) {
         return a.length==b.length?a.key<b.key:a.length>b.length;
     });

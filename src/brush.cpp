@@ -66,6 +66,7 @@ void InflateBrush::begin(Mesh& mesh) {
     }
     spatial_.rebuild(mesh.vertices);
     movedVertices_.clear();
+    affectedFaces_.clear();
 }
 
 void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
@@ -73,6 +74,7 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
        spatial_.indexedVertices()!=mesh.vertices.size())
         throw std::logic_error("Inflate requires begin and unchanged topology");
     movedVertices_.clear();
+    affectedFaces_.clear();
 
     // The octree-leaf equivalent makes a brush query proportional to nearby
     // vertices rather than the entire model. Exact influence and unchanged
@@ -141,6 +143,14 @@ void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
         mesh.vertices[movement.index]=mesh.vertices[movement.index]+movement.offset;
         movedVertices_.push_back(movement.index);
     }
+    // An edge can change length only when one of its endpoints moved.
+    // Supply the adjacent faces as exact remeshing candidates, avoiding a
+    // full-mesh search for growing edges after each interactive stamp.
+    for(const auto i:movedVertices_)
+        for(const auto face:incidentFaces_[i])affectedFaces_.push_back(face);
+    std::sort(affectedFaces_.begin(),affectedFaces_.end());
+    affectedFaces_.erase(std::unique(affectedFaces_.begin(),affectedFaces_.end()),
+                         affectedFaces_.end());
     spatial_.update(mesh.vertices,movedVertices_);
 }
 
@@ -343,7 +353,7 @@ void AdaptiveInflateBrush::stamp(Mesh& mesh,std::span<const BrushArea> areas) {
     auto before=mesh.vertices;
     inflate_.stamp(mesh,areas);
     auto afterInflate=Clock::now();
-    const auto refined=refiner_.apply(mesh,before);
+    const auto refined=refiner_.apply(mesh,before,inflate_.affectedFaces(),true);
     if(refined.splitPairs)collapser_.setMirrors(refiner_.mirrors());
     auto afterRefine=Clock::now();
     const auto collapsed=collapser_.apply(mesh,before);
