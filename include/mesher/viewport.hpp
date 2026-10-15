@@ -16,8 +16,10 @@ struct ViewportAnimation {
     double stampsPerSecond = 10.0;
 };
 
-// Primary-monitor fullscreen; Escape exits. With animation: Space pauses or
-// resumes, Right applies one stamp while paused, R restores/replays. A current
-// mesh is uploaded after each stamp before the next Vulkan frame.
+// On X11, show a normally managed window, then ask the WM to make it
+// fullscreen on its chosen display. Other platforms use managed maximization.
+// Escape exits. The HUD shows measured rendered FPS and actual stamp throughput.
+// With animation: Space pauses/resumes, Right steps, R replays. The mesh is
+// uploaded after each stamp before the next Vulkan frame.
 void runViewport(const Mesh& mesh, ViewportAnimation animation = {});
 } // namespace mesher

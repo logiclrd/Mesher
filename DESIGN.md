@@ -216,3 +216,39 @@ unmodified Inflate remains available for A/B comparisons.
 
 See GitHub Actions `mesher-curvature-experiments` artifacts for complete
 per-stamp CSV data.
+
+## Window-manager fullscreen and performance HUD
+
+Mesher now starts as a **normal window-manager-managed window** rather than
+calling GLFW with the primary-monitor handle. On X11 (KDE Plasma, KWin,
+and other EWMH-compatible window managers), the window is first mapped normally
+and then requests `_NET_WM_STATE_FULLSCREEN` from the window manager. The WM
+determines placement according to its rules: follow mouse, fixed monitor, and
+other user preferences. The window does not change display modes or own the
+monitor. When exiting with Escape, Mesher asks the WM to reactivate the window
+that was focused before launch (typically the launching terminal); the WM is
+free to accept or reject that focus request according to its policy.
+
+On builds without X11 integration, GLFW uses a managed **maximized window**
+as a fallback. This may leave panels visible; the portable GLFW API cannot
+request compositor-selected true fullscreen on every backend, especially
+Wayland. In all cases the initial window is not pinned to the primary monitor.
+
+A built-in 5x7 bitmap-font GPU overlay in the **top-right corner** shows
+`FPS` (frames submitted/presented per second) and
+`STAMPS` (actual completed mesh updates per second / requested rate).
+Both are measured over approximately 0.75-second wall-clock intervals,
+not assumed from the configured timer. FPS can be limited by vsync,
+presentation or the GPU; stamp throughput also includes CPU remeshing cost.
+The two rates are deliberately measured independently. The stamp schedule
+is aligned to absolute deadlines rather than restarting its interval after
+each update, with at most one stamp between visible frames; no brush stamps
+are discarded.
+
+The Vulkan HUD is screen-space, depth-independent, and includes a translucent
+dark backing. It requires no external font assets and adapts to swapchain
+resize/fullscreen transitions.
+
+Actual window-manager placement and focus restoration require testing under
+the user's desktop session; CI compiles the complete Vulkan app and shaders,
+but does not have a running KWin compositor to check these desktop behaviours.

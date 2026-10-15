@@ -22,7 +22,7 @@ if(MESHER_BUILD_VIEWPORT)
     find_package(glfw3 3.3 REQUIRED)
     find_program(GLSLC_EXECUTABLE NAMES glslc glslangValidator REQUIRED)
 
-    set(SHADERS mesh.vert mesh.frag wire.vert wire.frag)
+    set(SHADERS mesh.vert mesh.frag wire.vert wire.frag hud.vert hud.frag)
     set(SPIRV_FILES)
     foreach(SHADER IN LISTS SHADERS)
         set(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER}")
@@ -44,6 +44,16 @@ if(MESHER_BUILD_VIEWPORT)
     add_executable(Mesher src/main.cpp src/viewport.cpp)
     add_dependencies(Mesher mesher_shaders)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw)
+    if(UNIX AND NOT APPLE)
+        # EWMH fullscreen is a window-manager request, not a monitor-owned
+        # GLFW fullscreen context. The X11 path is optional so CPU builds and
+        # non-X11 platforms continue to work without extra dependencies.
+        find_package(X11 QUIET)
+        if(X11_FOUND)
+            target_link_libraries(Mesher PRIVATE X11::X11)
+            target_compile_definitions(Mesher PRIVATE MESHER_X11_WM_FULLSCREEN=1)
+        endif()
+    endif()
     target_compile_definitions(Mesher PRIVATE MESHER_SHADER_DIR="${CMAKE_CURRENT_BINARY_DIR}/shaders")
 endif()
 

@@ -11,6 +11,13 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
+#ifdef MESHER_X11_WM_FULLSCREEN
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
+#include <X11/Xatom.h>
+#endif
 #include <utility>
 #include <limits>
 #include <optional>
@@ -77,6 +84,80 @@ Drawing buildDrawing(const Mesh& mesh) {
         out.lines.push_back(makeVertex({8,double(i),z}));
     }
     return out;
+}
+
+
+using Glyph = std::array<std::uint8_t,7>;
+// Compact built-in 5x7 font, independent of installed system fonts.
+Glyph hudGlyph(char ch) {
+    switch(ch) {
+        case '0': return {14,17,19,21,25,17,14};
+        case '1': return {4,12,4,4,4,4,14};
+        case '2': return {14,17,1,2,4,8,31};
+        case '3': return {30,1,1,14,1,1,30};
+        case '4': return {2,6,10,18,31,2,2};
+        case '5': return {31,16,16,30,1,1,30};
+        case '6': return {14,16,16,30,17,17,14};
+        case '7': return {31,1,2,4,8,8,8};
+        case '8': return {14,17,17,14,17,17,14};
+        case '9': return {14,17,17,15,1,1,14};
+        case 'F': return {31,16,16,30,16,16,16};
+        case 'P': return {30,17,17,30,16,16,16};
+        case 'S': return {15,16,16,14,1,1,30};
+        case 'T': return {31,4,4,4,4,4,4};
+        case 'A': return {14,17,17,31,17,17,17};
+        case 'M': return {17,27,21,21,17,17,17};
+        case ':': return {0,4,4,0,4,4,0};
+        case '/': return {1,1,2,4,8,16,16};
+        case '.': return {0,0,0,0,0,12,12};
+        case '-': return {0,0,0,31,0,0,0};
+        default: return {};
+    }
+}
+
+std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
+                             const std::string& fps, const std::string& stamps) {
+    constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
+    constexpr int margin=16, padding=9;
+    const int chars=int(std::max(fps.size(),stamps.size()));
+    const int boxW=chars*characterWidth+2*padding;
+    const int boxH=2*characterHeight+2*padding;
+    const int left=std::max(margin,int(width)-margin-boxW);
+    const int top=margin;
+    std::vector<Vertex> vertices;
+    vertices.reserve(4096);
+    auto rectangle=[&](int x,int y,int w,int h,float material) {
+        auto ndc=[&](int px,int py)->Vec3{
+            return {2.0*px/double(width)-1.0,
+                    2.0*py/double(height)-1.0, 0.0};
+        };
+        const auto a=makeVertex(ndc(x,y),{},material);
+        const auto b=makeVertex(ndc(x+w,y),{},material);
+        const auto c=makeVertex(ndc(x+w,y+h),{},material);
+        const auto d=makeVertex(ndc(x,y+h),{},material);
+        for(auto v:{a,b,c,a,c,d})vertices.push_back(v);
+    };
+    rectangle(left,top,boxW,boxH,1.0f);
+    auto textLine=[&](const std::string& line,int row) {
+        for(std::size_t i=0;i<line.size();++i) {
+            const auto glyph=hudGlyph(line[i]);
+            for(int y=0;y<7;++y)for(int x=0;x<5;++x)
+                if(glyph[y] & (1u << (4-x))) {
+                    rectangle(left+padding+int(i)*characterWidth+x*scale,
+                              top+padding+row*characterHeight+y*scale,
+                              scale,scale,0.0f);
+                }
+        }
+    };
+    textLine(fps,0);
+    textLine(stamps,1);
+    return vertices;
+}
+
+std::string hudDecimal(double value) {
+    std::ostringstream os;
+    os<<std::fixed<<std::setprecision(1)<<std::max(0.0,value);
+    return os.str();
 }
 
 struct Matrix {std::array<float,16> m{};};
@@ -152,14 +233,71 @@ std::vector<char> loadBinary(const std::string& path) {
     return data;
 }
 
+
+#ifdef MESHER_X11_WM_FULLSCREEN
+Window activeX11Window() {
+    Display* display=glfwGetX11Display();
+    if(!display)return None;
+    const Atom active=XInternAtom(display,"_NET_ACTIVE_WINDOW",False);
+    Atom type=None;
+    int format=0;
+    unsigned long count=0, remaining=0;
+    unsigned char* property=nullptr;
+    Window result=None;
+    if(XGetWindowProperty(display,DefaultRootWindow(display),active,
+                          0,1,False,XA_WINDOW,&type,&format,&count,
+                          &remaining,&property)==Success &&
+       type==XA_WINDOW && format==32 && count==1 && property)
+        result=*reinterpret_cast<Window*>(property);
+    if(property)XFree(property);
+    return result;
+}
+void requestX11State(GLFWwindow* window) {
+    Display* display=glfwGetX11Display();
+    if(!display)return;
+    XEvent event{};
+    event.xclient.type=ClientMessage;
+    event.xclient.window=glfwGetX11Window(window);
+    event.xclient.message_type=XInternAtom(display,"_NET_WM_STATE",False);
+    event.xclient.format=32;
+    event.xclient.data.l[0]=1; // _NET_WM_STATE_ADD
+    event.xclient.data.l[1]=long(XInternAtom(display,"_NET_WM_STATE_FULLSCREEN",False));
+    event.xclient.data.l[3]=1; // normal application, not pager
+    XSendEvent(display,DefaultRootWindow(display),False,
+               SubstructureRedirectMask|SubstructureNotifyMask,&event);
+    XFlush(display);
+}
+void requestX11Activation(Window window) {
+    if(window==None)return;
+    Display* display=glfwGetX11Display();
+    if(!display)return;
+    XEvent event{};
+    event.xclient.type=ClientMessage;
+    event.xclient.window=window;
+    event.xclient.message_type=XInternAtom(display,"_NET_ACTIVE_WINDOW",False);
+    event.xclient.format=32;
+    event.xclient.data.l[0]=1; // application-originated activation request
+    event.xclient.data.l[1]=CurrentTime;
+    XSendEvent(display,DefaultRootWindow(display),False,
+               SubstructureRedirectMask|SubstructureNotifyMask,&event);
+    XFlush(display);
+}
+#endif
+
 class VulkanViewport {
     const Mesh& mesh_;
     ViewportAnimation animation_;
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     double nextStampTime_ = 0;
+    double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
+    std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
     std::size_t lastInvertedCount_ = 0;
     GLFWwindow* window=nullptr;
+    bool restorePreviousFocus_ = false;
+#ifdef MESHER_X11_WM_FULLSCREEN
+    Window previousActiveWindow_ = None;
+#endif
     VkInstance instance=VK_NULL_HANDLE;
     VkSurfaceKHR surface=VK_NULL_HANDLE;
     VkPhysicalDevice physical=VK_NULL_HANDLE;
@@ -174,7 +312,7 @@ class VulkanViewport {
     std::vector<VkFramebuffer> framebuffers;
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
-    VkPipeline solidPipeline=VK_NULL_HANDLE,wirePipeline=VK_NULL_HANDLE;
+    VkPipeline solidPipeline=VK_NULL_HANDLE,wirePipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
     VkImageView depthView=VK_NULL_HANDLE;
@@ -185,7 +323,7 @@ class VulkanViewport {
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;};
-    Buffer solid{},lines{};
+    Buffer solid{},lines{},hud{};
 
     static bool containsExtension(const std::vector<VkExtensionProperties>& list,const char* name) {
         return std::any_of(list.begin(),list.end(),[&](const auto& ext){return std::strcmp(ext.extensionName,name)==0;});
@@ -340,6 +478,31 @@ class VulkanViewport {
         replaceBuffer(lines, drawing.lines);
     }
 
+    void refreshHud() {
+        if (extent.width==0 || extent.height==0) return;
+        const std::string fpsText="FPS: "+hudDecimal(measuredFps_);
+        const std::string stampText="STAMPS: "+hudDecimal(measuredStampRate_)+
+                "/"+hudDecimal(animation_.advance ? animation_.stampsPerSecond : 0.0);
+        const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText);
+        if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
+        else {
+            check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+                  "Wait before refreshing HUD");
+            replaceBuffer(hud,geometry);
+        }
+    }
+
+    void sampleFrameRates() {
+        const double now=glfwGetTime();
+        const double elapsed=now-statsBegin_;
+        if(elapsed<0.75)return;
+        measuredFps_=double(framesThisInterval_)/elapsed;
+        measuredStampRate_=double(stampsThisInterval_)/elapsed;
+        framesThisInterval_=stampsThisInterval_=0;
+        statsBegin_=now;
+        refreshHud();
+    }
+
     std::size_t countInvertedFaces() const {
         std::size_t count = 0;
         for (const auto& t : mesh_.triangles) {
@@ -373,6 +536,7 @@ class VulkanViewport {
     void advanceOneStamp() {
         if (!animation_.advance || complete_) return;
         if (animation_.advance()) {
+            ++stampsThisInterval_;
             refreshMesh();
         } else {
             complete_ = true;
@@ -474,9 +638,9 @@ class VulkanViewport {
         check(vkCreateShaderModule(device,&info,nullptr,&result),"Create shader module");
         return result;
     }
-    VkPipeline makePipeline(bool wire) {
-        auto vert=shader(wire?"wire.vert":"mesh.vert");
-        auto frag=shader(wire?"wire.frag":"mesh.frag");
+    VkPipeline makePipeline(bool wire, bool hudOverlay=false) {
+        auto vert=shader(hudOverlay?"hud.vert":wire?"wire.vert":"mesh.vert");
+        auto frag=shader(hudOverlay?"hud.frag":wire?"wire.frag":"mesh.frag");
         VkPipelineShaderStageCreateInfo vs{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
         vs.stage=VK_SHADER_STAGE_VERTEX_BIT;vs.module=vert;vs.pName="main";
         VkPipelineShaderStageCreateInfo fs{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
@@ -507,12 +671,22 @@ class VulkanViewport {
         VkPipelineMultisampleStateCreateInfo multi{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
         multi.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
         VkPipelineDepthStencilStateCreateInfo depth{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-        depth.depthTestEnable=VK_TRUE;depth.depthWriteEnable=wire?VK_FALSE:VK_TRUE;
+        depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;
+        depth.depthWriteEnable=(wire||hudOverlay)?VK_FALSE:VK_TRUE;
         depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
         VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        if(hudOverlay) {
+            blendAttachment.blendEnable=VK_TRUE;
+            blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
+            blendAttachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blendAttachment.colorBlendOp=VK_BLEND_OP_ADD;
+            blendAttachment.srcAlphaBlendFactor=VK_BLEND_FACTOR_ONE;
+            blendAttachment.dstAlphaBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blendAttachment.alphaBlendOp=VK_BLEND_OP_ADD;
+        }
         blend.attachmentCount=1;blend.pAttachments=&blendAttachment;
         VkGraphicsPipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
         pipelineInfo.stageCount=static_cast<std::uint32_t>(stages.size());
@@ -591,6 +765,7 @@ class VulkanViewport {
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline(false);
         wirePipeline=makePipeline(true);
+        hudPipeline=makePipeline(false,true);
         for(auto view:views) {
             const std::array attachments{view,depthView};
             VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -610,7 +785,8 @@ class VulkanViewport {
         finishedForImage.clear();
         if(solidPipeline)vkDestroyPipeline(device,solidPipeline,nullptr);
         if(wirePipeline)vkDestroyPipeline(device,wirePipeline,nullptr);
-        solidPipeline=wirePipeline=VK_NULL_HANDLE;
+        if(hudPipeline)vkDestroyPipeline(device,hudPipeline,nullptr);
+        solidPipeline=wirePipeline=hudPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
@@ -634,6 +810,7 @@ class VulkanViewport {
         check(vkDeviceWaitIdle(device),"Wait for swapchain recreation");
         destroySwapchain();
         createSwapchain();
+        refreshHud();
     }
     void createCommands() {
         VkCommandPoolCreateInfo pool{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
@@ -675,6 +852,9 @@ class VulkanViewport {
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
         vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+        vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
+        vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
+        vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);
         vkCmdEndRenderPass(commandBuffer);
         check(vkEndCommandBuffer(commandBuffer),"End command buffer");
     }
@@ -701,6 +881,7 @@ class VulkanViewport {
         if(code==VK_ERROR_OUT_OF_DATE_KHR||code==VK_SUBOPTIMAL_KHR||acquired==VK_SUBOPTIMAL_KHR)
             recreateSwapchain();
         else check(code,"Present frame");
+        ++framesThisInterval_;
     }
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation)
@@ -711,13 +892,25 @@ public:
         if(!glfwInit())throw std::runtime_error("GLFW initialization failed");
         if(!glfwVulkanSupported())throw std::runtime_error("Vulkan is not supported by GLFW on this system");
         glfwWindowHint(GLFW_CLIENT_API,GLFW_NO_API);
-        GLFWmonitor* monitor=glfwGetPrimaryMonitor();
-        if(!monitor)throw std::runtime_error("No primary monitor found");
-        const GLFWvidmode* mode=glfwGetVideoMode(monitor);
-        if(!mode)throw std::runtime_error("Cannot read monitor video mode");
-        glfwWindowHint(GLFW_REFRESH_RATE,mode->refreshRate);
-        window=glfwCreateWindow(mode->width,mode->height,"Mesher",monitor,nullptr);
-        if(!window)throw std::runtime_error("Cannot open full-screen window");
+        glfwWindowHint(GLFW_VISIBLE,GLFW_FALSE);
+        // A monitor-owned GLFW fullscreen window bypasses normal WM placement.
+        // Begin as a normal, managed window so KDE (or another WM) decides
+        // which monitor it belongs to, following its placement rules.
+        window=glfwCreateWindow(960,720,"Mesher",nullptr,nullptr);
+        if(!window)throw std::runtime_error("Cannot open Mesher window");
+#ifdef MESHER_X11_WM_FULLSCREEN
+        previousActiveWindow_=activeX11Window();
+#endif
+        glfwShowWindow(window);
+        glfwWaitEventsTimeout(0.08); // Give the WM a chance to place/map it.
+#ifdef MESHER_X11_WM_FULLSCREEN
+        requestX11State(window); // EWMH fullscreen on the already-placed window.
+#else
+        // Portable fallback: WM-controlled maximize, not primary-monitor
+        // exclusive fullscreen. GLFW exposes no compositor-chosen fullscreen.
+        glfwMaximizeWindow(window);
+#endif
+        glfwWaitEventsTimeout(0.10); // Allow the fullscreen transition to settle.
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
@@ -726,6 +919,8 @@ public:
         lines=upload(drawing.lines);
         createSwapchain();
         createCommands();
+        refreshHud();
+        statsBegin_=glfwGetTime();
         nextStampTime_ = glfwGetTime() + (animation_.advance
             ? 1.0 / animation_.stampsPerSecond : 0.0);
         updateTitle();
@@ -741,18 +936,26 @@ public:
                 if(b.buffer)vkDestroyBuffer(device,b.buffer,nullptr);
                 if(b.memory)vkFreeMemory(device,b.memory,nullptr);
             };
-            freeBuffer(solid);freeBuffer(lines);
+            freeBuffer(solid);freeBuffer(lines);freeBuffer(hud);
             vkDestroyDevice(device,nullptr);
         }
         if(surface)vkDestroySurfaceKHR(instance,surface,nullptr);
         if(instance)vkDestroyInstance(instance,nullptr);
         if(window)glfwDestroyWindow(window);
+#ifdef MESHER_X11_WM_FULLSCREEN
+        // Only when Escape exits the viewport. Let the WM decide whether to
+        // honor the request rather than overriding focus with XSetInputFocus.
+        if(restorePreviousFocus_)requestX11Activation(previousActiveWindow_);
+#endif
         glfwTerminate();
     }
     void run(){
         while(!glfwWindowShouldClose(window)) {
             glfwPollEvents();
-            if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS)break;
+            if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS) {
+                restorePreviousFocus_=true;
+                break;
+            }
             if (animation_.advance) {
                 const bool togglePause=justPressed(GLFW_KEY_SPACE, spaceWasDown_);
                 const bool singleStep=justPressed(GLFW_KEY_RIGHT, rightWasDown_);
@@ -775,7 +978,13 @@ public:
                     advanceOneStamp();
                     // Never catch up missed frames in a burst. A stamp is
                     // immediately presented before the next is attempted.
-                    nextStampTime_ = glfwGetTime() + 1.0 / animation_.stampsPerSecond;
+                    // Use an anchored cadence rather than adding a full period
+                    // to the time spent processing each stamp. At most one
+                    // stamp is processed between successive renders.
+                    const double period=1.0/animation_.stampsPerSecond;
+                    nextStampTime_+=period;
+                    if(nextStampTime_<glfwGetTime()-period)
+                        nextStampTime_=glfwGetTime();
                 }
             }
             int width=0,height=0;
@@ -783,6 +992,7 @@ public:
             if(width==0||height==0){glfwWaitEvents();continue;}
             if(std::uint32_t(width)!=extent.width||std::uint32_t(height)!=extent.height)recreateSwapchain();
             else draw();
+            sampleFrameRates();
         }
     }
 };
