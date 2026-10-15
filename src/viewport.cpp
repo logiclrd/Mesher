@@ -354,12 +354,12 @@ class VulkanViewport {
             flags|=VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
         }
 #endif
-        VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+        VkApplicationInfo app{}; app.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app.pApplicationName="Mesher";
         app.applicationVersion=VK_MAKE_VERSION(0,1,0);
         app.pEngineName="Mesher";
         app.apiVersion=VK_API_VERSION_1_0;
-        VkInstanceCreateInfo info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+        VkInstanceCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         info.flags=flags;
         info.pApplicationInfo=&app;
         info.enabledExtensionCount=static_cast<std::uint32_t>(extensions.size());
@@ -398,7 +398,7 @@ class VulkanViewport {
         std::set<std::uint32_t> families{graphicsFamily,presentFamily};
         std::vector<VkDeviceQueueCreateInfo> queues;
         for(auto index:families) {
-            VkDeviceQueueCreateInfo q{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+            VkDeviceQueueCreateInfo q{}; q.sType=VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             q.queueFamilyIndex=index;q.queueCount=1;q.pQueuePriorities=&priority;
             queues.push_back(q);
         }
@@ -407,7 +407,7 @@ class VulkanViewport {
         // extensions are enabled, but is mandatory on devices advertising it.
         if(containsExtension(deviceExtensions(physical),"VK_KHR_portability_subset"))
             extensions.push_back("VK_KHR_portability_subset");
-        VkDeviceCreateInfo info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+        VkDeviceCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         info.queueCreateInfoCount=static_cast<std::uint32_t>(queues.size());
         info.pQueueCreateInfos=queues.data();
         info.enabledExtensionCount=static_cast<std::uint32_t>(extensions.size());
@@ -428,14 +428,14 @@ class VulkanViewport {
         if(vertices.empty())throw std::runtime_error("Empty vertex buffer");
         result.vertexCount=result.capacity=static_cast<std::uint32_t>(vertices.size());
         const VkDeviceSize size=vertices.size()*sizeof(Vertex);
-        VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        VkBufferCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         info.size=size;
         info.usage=VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         info.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
         check(vkCreateBuffer(device,&info,nullptr,&result.buffer),"Create vertex buffer");
         VkMemoryRequirements needs;
         vkGetBufferMemoryRequirements(device,result.buffer,&needs);
-        VkMemoryAllocateInfo allocation{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        VkMemoryAllocateInfo allocation{}; allocation.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocation.allocationSize=needs.size;
         allocation.memoryTypeIndex=memoryType(needs.memoryTypeBits,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         check(vkAllocateMemory(device,&allocation,nullptr,&result.memory),"Allocate vertex memory");
@@ -623,7 +623,7 @@ class VulkanViewport {
         throw std::runtime_error("GPU does not support a depth attachment format");
     }
     VkImageView imageView(VkImage image,VkFormat format,VkImageAspectFlags aspect) {
-        VkImageViewCreateInfo info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        VkImageViewCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         info.image=image;
         info.viewType=VK_IMAGE_VIEW_TYPE_2D;
         info.format=format;
@@ -636,7 +636,7 @@ class VulkanViewport {
     }
     void createDepth() {
         depthFormat=chooseDepthFormat();
-        VkImageCreateInfo info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+        VkImageCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         info.imageType=VK_IMAGE_TYPE_2D;
         info.extent={extent.width,extent.height,1};
         info.mipLevels=1;info.arrayLayers=1;
@@ -648,7 +648,7 @@ class VulkanViewport {
         check(vkCreateImage(device,&info,nullptr,&depthImage),"Create depth image");
         VkMemoryRequirements req;
         vkGetImageMemoryRequirements(device,depthImage,&req);
-        VkMemoryAllocateInfo alloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        VkMemoryAllocateInfo alloc{}; alloc.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         alloc.allocationSize=req.size;
         alloc.memoryTypeIndex=memoryType(req.memoryTypeBits,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         check(vkAllocateMemory(device,&alloc,nullptr,&depthMemory),"Allocate depth memory");
@@ -680,7 +680,7 @@ class VulkanViewport {
         dependency.srcStageMask=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT|VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         dependency.dstStageMask=dependency.srcStageMask;
         dependency.dstAccessMask=VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT|VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        VkRenderPassCreateInfo info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+        VkRenderPassCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         info.attachmentCount=static_cast<std::uint32_t>(attachments.size());
         info.pAttachments=attachments.data();
         info.subpassCount=1;info.pSubpasses=&subpass;
@@ -689,7 +689,7 @@ class VulkanViewport {
     }
     VkShaderModule shader(const char* name) {
         const auto bytes=loadBinary(std::string(MESHER_SHADER_DIR)+"/"+name+".spv");
-        VkShaderModuleCreateInfo info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        VkShaderModuleCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         info.codeSize=bytes.size();
         // SPIR-V must be 4-byte aligned (vector<char> storage is suitably
         // aligned for the host allocator, but copy for guaranteed alignment).
@@ -703,9 +703,9 @@ class VulkanViewport {
     VkPipeline makePipeline(bool wire, bool hudOverlay=false) {
         auto vert=shader(hudOverlay?"hud.vert":wire?"wire.vert":"mesh.vert");
         auto frag=shader(hudOverlay?"hud.frag":wire?"wire.frag":"mesh.frag");
-        VkPipelineShaderStageCreateInfo vs{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+        VkPipelineShaderStageCreateInfo vs{}; vs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vs.stage=VK_SHADER_STAGE_VERTEX_BIT;vs.module=vert;vs.pName="main";
-        VkPipelineShaderStageCreateInfo fs{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+        VkPipelineShaderStageCreateInfo fs{}; fs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fs.stage=VK_SHADER_STAGE_FRAGMENT_BIT;fs.module=frag;fs.pName="main";
         std::array stages{vs,fs};
         VkVertexInputBindingDescription binding{0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX};
@@ -713,33 +713,33 @@ class VulkanViewport {
         attrs[0]={0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,px)};
         attrs[1]={1,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,nx)};
         attrs[2]={2,0,VK_FORMAT_R32_SFLOAT,offsetof(Vertex,material)};
-        VkPipelineVertexInputStateCreateInfo input{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+        VkPipelineVertexInputStateCreateInfo input{}; input.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         input.vertexBindingDescriptionCount=1;input.pVertexBindingDescriptions=&binding;
         input.vertexAttributeDescriptionCount=wire?1:static_cast<std::uint32_t>(attrs.size());
         input.pVertexAttributeDescriptions=attrs.data();
-        VkPipelineInputAssemblyStateCreateInfo assembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+        VkPipelineInputAssemblyStateCreateInfo assembly{}; assembly.sType=VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
         assembly.topology=wire?VK_PRIMITIVE_TOPOLOGY_LINE_LIST:VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        VkPipelineViewportStateCreateInfo viewport{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+        VkPipelineViewportStateCreateInfo viewport{}; viewport.sType=VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewport.viewportCount=1;viewport.scissorCount=1;
         const std::array<VkDynamicState,2> dynamics{VK_DYNAMIC_STATE_VIEWPORT,VK_DYNAMIC_STATE_SCISSOR};
-        VkPipelineDynamicStateCreateInfo dynamic{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+        VkPipelineDynamicStateCreateInfo dynamic{}; dynamic.sType=VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamic.dynamicStateCount=static_cast<std::uint32_t>(dynamics.size());
         dynamic.pDynamicStates=dynamics.data();
-        VkPipelineRasterizationStateCreateInfo raster{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+        VkPipelineRasterizationStateCreateInfo raster{}; raster.sType=VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         raster.polygonMode=VK_POLYGON_MODE_FILL;
         raster.lineWidth=1;
         raster.cullMode=VK_CULL_MODE_NONE;
         raster.frontFace=VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        VkPipelineMultisampleStateCreateInfo multi{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+        VkPipelineMultisampleStateCreateInfo multi{}; multi.sType=VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multi.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
-        VkPipelineDepthStencilStateCreateInfo depth{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+        VkPipelineDepthStencilStateCreateInfo depth{}; depth.sType=VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;
         depth.depthWriteEnable=(wire||hudOverlay)?VK_FALSE:VK_TRUE;
         depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
-        VkPipelineColorBlendStateCreateInfo blend{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+        VkPipelineColorBlendStateCreateInfo blend{}; blend.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         if(hudOverlay) {
             blendAttachment.blendEnable=VK_TRUE;
             blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
@@ -750,7 +750,7 @@ class VulkanViewport {
             blendAttachment.alphaBlendOp=VK_BLEND_OP_ADD;
         }
         blend.attachmentCount=1;blend.pAttachments=&blendAttachment;
-        VkGraphicsPipelineCreateInfo pipelineInfo{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+        VkGraphicsPipelineCreateInfo pipelineInfo{}; pipelineInfo.sType=VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipelineInfo.stageCount=static_cast<std::uint32_t>(stages.size());
         pipelineInfo.pStages=stages.data();
         pipelineInfo.pVertexInputState=&input;
@@ -790,7 +790,7 @@ class VulkanViewport {
         }
         std::uint32_t requested=std::max(2u,caps.minImageCount+1);
         if(caps.maxImageCount!=0)requested=std::min(requested,caps.maxImageCount);
-        VkSwapchainCreateInfoKHR info{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
+        VkSwapchainCreateInfoKHR info{}; info.sType=VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         info.surface=surface;
         info.minImageCount=requested;
         info.imageFormat=selected.format;info.imageColorSpace=selected.colorSpace;
@@ -813,7 +813,7 @@ class VulkanViewport {
         // A present-wait semaphore must remain associated with its swapchain
         // image until that image is acquired again. A single shared semaphore
         // could otherwise be reused while presentation still waits on it.
-        VkSemaphoreCreateInfo semaphoreInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        VkSemaphoreCreateInfo semaphoreInfo{}; semaphoreInfo.sType=VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         for(std::size_t i=0;i<images.size();++i) {
             VkSemaphore semaphore=VK_NULL_HANDLE;
             check(vkCreateSemaphore(device,&semaphoreInfo,nullptr,&semaphore),"Create present semaphore");
@@ -822,7 +822,7 @@ class VulkanViewport {
         createDepth();
         createRenderPass();
         VkPushConstantRange range{VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(PushConstants)};
-        VkPipelineLayoutCreateInfo layout{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        VkPipelineLayoutCreateInfo layout{}; layout.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline(false);
@@ -830,7 +830,7 @@ class VulkanViewport {
         hudPipeline=makePipeline(false,true);
         for(auto view:views) {
             const std::array attachments{view,depthView};
-            VkFramebufferCreateInfo fb{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+            VkFramebufferCreateInfo fb{}; fb.sType=VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             fb.renderPass=renderPass;
             fb.attachmentCount=static_cast<std::uint32_t>(attachments.size());
             fb.pAttachments=attachments.data();
@@ -875,27 +875,27 @@ class VulkanViewport {
         refreshHud();
     }
     void createCommands() {
-        VkCommandPoolCreateInfo pool{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        VkCommandPoolCreateInfo pool{}; pool.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         pool.queueFamilyIndex=graphicsFamily;
         pool.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         check(vkCreateCommandPool(device,&pool,nullptr,&commandPool),"Create command pool");
-        VkCommandBufferAllocateInfo alloc{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        VkCommandBufferAllocateInfo alloc{}; alloc.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         alloc.commandPool=commandPool;alloc.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;alloc.commandBufferCount=1;
         check(vkAllocateCommandBuffers(device,&alloc,&commandBuffer),"Allocate command buffer");
-        VkSemaphoreCreateInfo semaphore{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        VkSemaphoreCreateInfo semaphore{}; semaphore.sType=VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         check(vkCreateSemaphore(device,&semaphore,nullptr,&available),"Create acquire semaphore");
-        VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        VkFenceCreateInfo fenceInfo{}; fenceInfo.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags=VK_FENCE_CREATE_SIGNALED_BIT;
         check(vkCreateFence(device,&fenceInfo,nullptr,&fence),"Create frame fence");
     }
     void record(std::uint32_t index) {
         check(vkResetCommandBuffer(commandBuffer,0),"Reset command buffer");
-        VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        VkCommandBufferBeginInfo begin{}; begin.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         check(vkBeginCommandBuffer(commandBuffer,&begin),"Begin command buffer");
         VkClearValue clear[2]{};
         clear[0].color={{0.055f,0.065f,0.075f,1.0f}};
         clear[1].depthStencil={1.0f,0};
-        VkRenderPassBeginInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        VkRenderPassBeginInfo pass{}; pass.sType=VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         pass.renderPass=renderPass;pass.framebuffer=framebuffers[index];
         pass.renderArea.offset={0,0};pass.renderArea.extent=extent;
         pass.clearValueCount=2;pass.pClearValues=clear;
@@ -929,14 +929,14 @@ class VulkanViewport {
         check(vkResetFences(device,1,&fence),"Reset render fence");
         record(image);
         VkPipelineStageFlags wait=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        VkSubmitInfo submit{}; submit.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submit.waitSemaphoreCount=1;submit.pWaitSemaphores=&available;
         submit.pWaitDstStageMask=&wait;
         submit.commandBufferCount=1;submit.pCommandBuffers=&commandBuffer;
         const VkSemaphore completion=finishedForImage[image];
         submit.signalSemaphoreCount=1;submit.pSignalSemaphores=&completion;
         check(vkQueueSubmit(graphicsQueue,1,&submit,fence),"Submit rendering");
-        VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+        VkPresentInfoKHR present{}; present.sType=VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         present.waitSemaphoreCount=1;present.pWaitSemaphores=&completion;
         present.swapchainCount=1;present.pSwapchains=&swapchain;present.pImageIndices=&image;
         auto code=vkQueuePresentKHR(presentQueue,&present);
