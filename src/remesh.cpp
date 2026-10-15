@@ -89,7 +89,7 @@ MeshDiagnostics measureMesh(const Mesh& mesh, std::span<const Vec3> before,
         if (longest>0) d.minimumTriangleAltitude=std::min(d.minimumTriangleAltitude,area2/longest);
         else d.minimumTriangleAltitude=0;
         if (dot(cross(b-a,c-a),a+b+c)<=1e-13) ++d.invertedFaces;
-        for (const auto pair : {std::pair{t.a,t.b},std::pair{t.b,t.c},std::pair{t.c,t.a}}) {
+        for (const auto& pair : {std::pair{t.a,t.b},std::pair{t.b,t.c},std::pair{t.c,t.a}}) {
             if (!visited.insert(edgeKey(pair.first,pair.second)).second) continue;
             const double after=length(mesh.vertices[pair.first]-mesh.vertices[pair.second]);
             d.minimumEdgeLength=std::min(d.minimumEdgeLength,after);

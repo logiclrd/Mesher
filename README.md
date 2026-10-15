@@ -199,3 +199,25 @@ fix a valley when the opposing patches approach without shrinking their own
 edges. The first version rescans the mesh and checks trial topology on CPU,
 so it is not intended for high-resolution scan editing. The nominal spacing
 is defined for the generated unit sphere, not arbitrary imported meshes.
+
+## Measured 5,000-vertex regression (2026-10-15)
+
+Linux CI runs the reproducible `--compare-remesh` experiment with the default
+5,000-vertex unit sphere, two radius-0.4 mirrored Inflate influences, 105
+stamps, default minimum-edge ratio 0.65 and up to 12 symmetric collapse
+operations per stamp:
+
+| Measurement | No collapse | Directional collapse |
+| --- | ---: | ---: |
+| First shrinking edge below threshold | 11 | 11 |
+| First radially inverted face | 98 | 105 |
+| Final inverted faces | 22 | 8 |
+| Final vertices | 5,000 | 4,898 |
+| Minimum edge length | 0.0176079 | 0.0305529 |
+| Minimum triangle altitude | 0.00323476 | 0.0117284 |
+
+There is improvement, **not a guarantee of fold-free geometry**. The current
+conservative constraints preserve closed, oriented mesh connectivity but do
+not detect geometric self-intersections or forbid already existing folds.
+The observations support investigating compression-triggered refinement and
+collapse before adding curvature-aware movement or collision constraints.
