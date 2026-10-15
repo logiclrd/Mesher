@@ -63,77 +63,84 @@ void InflateBrush::begin(Mesh& mesh) {
         incidentFaces_[tri.b].push_back(i);
         incidentFaces_[tri.c].push_back(i);
     }
+    spatial_.rebuild(mesh.vertices);
+    movedVertices_.clear();
 }
 
 void InflateBrush::stamp(Mesh& mesh, std::span<const BrushArea> areas) {
-    if (incidentFaces_.size() != mesh.vertices.size())
-        throw std::logic_error("Inflate brush requires begin and unchanged topology");
-    // All normals and displacements are calculated before modifying any vertex.
-    // Repeating this process changes the normals: it can fold a surface under
-    // intense deformation. This is intentional in the diagnostic demo.
-    struct Movement { std::size_t index; Vec3 offset; };
-    std::vector<Movement> movements;
+    if(incidentFaces_.size()!=mesh.vertices.size() ||
+       spatial_.indexedVertices()!=mesh.vertices.size())
+        throw std::logic_error("Inflate requires begin and unchanged topology");
+    movedVertices_.clear();
 
-    // Cotangent Laplace-Beltrami: Δx = (Σ (cot α + cot β)(xj-xi)) / 2Ai.
-    // Its projection on the outward normal is negative on convex geometry
-    // and positive at concave troughs. Use it only when explicitly requested.
-    // One-ring edge length provides a local length scale to make the gain
-    // dimensionless; clamp the response near degenerate triangle geometry.
-    std::vector<Vec3> cotangentSum;
-    std::vector<double> vertexAreas, edgeLengthSum;
-    std::vector<std::uint32_t> edgeCount;
-    if (curvature_.enabled && curvature_.strength > 0) {
-        const auto n=mesh.vertices.size();
-        cotangentSum.assign(n,{});
-        vertexAreas.assign(n,0.0);
-        edgeLengthSum.assign(n,0.0);
-        edgeCount.assign(n,0);
-        for (const auto t:mesh.triangles) {
+    // The octree-leaf equivalent makes a brush query proportional to nearby
+    // vertices rather than the entire model. Exact influence and unchanged
+    // movement arithmetic retain the original brush semantics.
+    std::vector<std::uint32_t> candidates;
+    for(const auto& area:areas) {
+        validateArea(area);
+        spatial_.querySphere(mesh.vertices,area.center,area.radius,candidates);
+    }
+    std::sort(candidates.begin(),candidates.end());
+    candidates.erase(std::unique(candidates.begin(),candidates.end()),
+                     candidates.end());
+
+    struct Movement { std::uint32_t index; Vec3 offset; };
+    std::vector<Movement> movements;
+    movements.reserve(candidates.size());
+    const bool curvature=curvature_.enabled && curvature_.strength>0;
+    for(const std::uint32_t i:candidates) {
+        const double influence=brushInfluence(mesh.vertices[i],areas);
+        if(influence<=0 || incidentFaces_[i].empty())continue;
+        Vec3 sum{},cotangentSum{};
+        double vertexArea=0,edgeLengthSum=0;
+        std::uint32_t edgeCount=0;
+        const Vec3 point=mesh.vertices[i];
+        for(const auto faceIndex:incidentFaces_[i]) {
+            const auto t=mesh.triangles[faceIndex];
             const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
-            const double twiceArea=length(cross(b-a,c-a));
-            if (twiceArea < 1e-14) continue;
+            const Vec3 n=cross(b-a,c-a);
+            const double twiceArea=length(n);
+            if(twiceArea>1e-20)sum=sum+n/twiceArea;
+            if(!curvature || twiceArea<1e-14)continue;
             const double cotA=std::clamp(dot(b-a,c-a)/twiceArea,-20.0,20.0);
             const double cotB=std::clamp(dot(a-b,c-b)/twiceArea,-20.0,20.0);
             const double cotC=std::clamp(dot(a-c,b-c)/twiceArea,-20.0,20.0);
-            cotangentSum[t.a]=cotangentSum[t.a]+(b-a)*cotC+(c-a)*cotB;
-            cotangentSum[t.b]=cotangentSum[t.b]+(a-b)*cotC+(c-b)*cotA;
-            cotangentSum[t.c]=cotangentSum[t.c]+(a-c)*cotB+(b-c)*cotA;
-            const double areaShare=twiceArea/6.0;
-            for(auto i:{t.a,t.b,t.c})vertexAreas[i]+=areaShare;
             const double ab=length(b-a),bc=length(c-b),ca=length(a-c);
-            edgeLengthSum[t.a]+=ab+ca;edgeLengthSum[t.b]+=ab+bc;edgeLengthSum[t.c]+=bc+ca;
-            edgeCount[t.a]+=2;edgeCount[t.b]+=2;edgeCount[t.c]+=2;
-        }
-    }
-    for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
-        const double influence = brushInfluence(mesh.vertices[i], areas);
-        if (influence <= 0 || incidentFaces_[i].empty()) continue;
-        Vec3 sum{};
-        for (auto faceIndex : incidentFaces_[i]) {
-            const auto t = mesh.triangles[faceIndex];
-            const Vec3 n = cross(mesh.vertices[t.b] - mesh.vertices[t.a],
-                                 mesh.vertices[t.c] - mesh.vertices[t.a]);
-            if (length(n) > 1e-20) sum = sum + normalized(n);
-        }
-        if (length(sum) > 1e-20) {
-            const Vec3 direction=normalized(sum);
-            double multiplier=1.0;
-            if (!cotangentSum.empty() && vertexAreas[i]>1e-14 && edgeCount[i]>0) {
-                const Vec3 laplacian=cotangentSum[i]/(2*vertexAreas[i]);
-                const double nominalLength=edgeLengthSum[i]/edgeCount[i];
-                const double signedCurvature=dot(laplacian,direction);
-                multiplier=std::clamp(
-                    1.0+curvature_.strength*nominalLength*signedCurvature,
-                    0.10,3.0);
+            if(i==t.a) {
+                cotangentSum=cotangentSum+(b-a)*cotC+(c-a)*cotB;
+                edgeLengthSum+=ab+ca;
+            }else if(i==t.b) {
+                cotangentSum=cotangentSum+(a-b)*cotC+(c-b)*cotA;
+                edgeLengthSum+=ab+bc;
+            }else {
+                cotangentSum=cotangentSum+(a-c)*cotB+(b-c)*cotA;
+                edgeLengthSum+=bc+ca;
             }
-            const Vec3 delta = direction * (strength_ * influence * multiplier);
-            if (!finite(mesh.vertices[i] + delta))
-                throw std::overflow_error("Inflate displacement is not finite");
-            movements.push_back({i, delta});
+            vertexArea+=twiceArea/6.0;
+            edgeCount+=2;
         }
+        if(length(sum)<=1e-20)continue;
+        const Vec3 direction=normalized(sum);
+        double multiplier=1.0;
+        if(curvature && vertexArea>1e-14 && edgeCount>0) {
+            const Vec3 laplacian=cotangentSum/(2*vertexArea);
+            const double nominalLength=edgeLengthSum/edgeCount;
+            const double signedCurvature=dot(laplacian,direction);
+            multiplier=std::clamp(1.0+curvature_.strength*nominalLength*signedCurvature,
+                                  0.10,3.0);
+        }
+        const Vec3 delta=direction*(strength_*influence*multiplier);
+        if(!finite(point+delta))
+            throw std::overflow_error("Inflate displacement is not finite");
+        movements.push_back({i,delta});
     }
-    for (const auto& m : movements)
-        mesh.vertices[m.index] = mesh.vertices[m.index] + m.offset;
+    movedVertices_.reserve(movements.size());
+    for(const auto& movement:movements) {
+        mesh.vertices[movement.index]=mesh.vertices[movement.index]+movement.offset;
+        movedVertices_.push_back(movement.index);
+    }
+    spatial_.update(mesh.vertices,movedVertices_);
 }
 
 void InflateBrush::end(Mesh&) { incidentFaces_.clear(); }

@@ -11,6 +11,9 @@
 #include <unordered_set>
 
 namespace mesher {
+#ifdef MESHER_USE_QHULL
+std::vector<Triangle> quickHull(const std::vector<Vec3>& points);
+#endif
 namespace {
 constexpr double pi = 3.1415926535897932384626433832795;
 
@@ -190,11 +193,21 @@ Mesh generateSphere(const SphereOptions& opt) {
     std::mt19937_64 rng(opt.seed);
     Mesh result;
     const double spacing=std::sqrt(8*pi/(double(n)*std::sqrt(3.0)));
+    auto triangulate=[&](const std::vector<Vec3>& vertices) {
+#ifdef MESHER_USE_QHULL
+        return quickHull(vertices);
+#else
+        std::vector<Triangle> triangles;
+        for(const auto f:convexHull(vertices))
+            triangles.push_back({f.a,f.b,f.c});
+        return triangles;
+#endif
+    };
     if(!opt.symmetric) {
         result.vertices.reserve(n);
         for(std::uint32_t i=0;i<n;++i)result.vertices.push_back(randomSphere(rng));
         relax(result.vertices,n,spacing,opt.relaxationIterations,false,axis);
-        for(const auto f:convexHull(result.vertices))result.triangles.push_back({f.a,f.b,f.c});
+        result.triangles=triangulate(result.vertices);
     } else {
         // Minimum ring population consistent with approximately equal triangle
         // edge lengths. Same parity as n gives p=n-m even.
@@ -235,7 +248,7 @@ Mesh generateSphere(const SphereOptions& opt) {
             phi+=gap;
         }
         relax(half,p,spacing,opt.relaxationIterations,true,axis);
-        auto faces=convexHull(half);
+        auto faces=triangulate(half);
         result.vertices=half;
         // Only the p non-seam points are duplicated and reflected.
         for(std::uint32_t i=0;i<p;++i)

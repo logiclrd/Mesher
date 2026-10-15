@@ -519,3 +519,47 @@ the complete stroke with zero skipped stamps; longer term, spatial
 acceleration and efficient local remeshing should reduce the need to
 drop samples. The operation does not assume a particular display
 refresh rate.
+
+
+## Spatial acceleration and 100,000-vertex performance
+
+Sphere relaxation already used a uniform spatial hash and a **2.2-edge-length**
+neighbour cutoff; it did not check every pair of points. The main quadratic
+initialization bottleneck was the subsequent incremental convex hull, which
+scanned all existing faces whenever it inserted a point. Mesher now prefers
+the reentrant **Qhull** Quickhull implementation, preserving the sphere's
+original vertex positions and outward triangle winding. The historical hull
+remains a fallback if Qhull is unavailable, but may be extremely slow on
+100,000+ vertices. On Debian/Ubuntu install `libqhull-dev` before building;
+CMake reports whether it found Qhull.
+
+A reusable 3D spatial hash partitions vertex coordinates into cells of
+0.15 model units. The index supports exact spherical neighbourhood queries,
+rejecting candidates by **squared distance** first, as well as incremental
+updates when vertices move, and full rebuilds when topology changes.
+Its cells accommodate points moving beyond the original sphere bounds.
+Inflate now evaluates normal and cotangent curvature terms **only for
+vertices inside the union of its influence spheres**, using each candidate's
+incident faces. All displacement vectors are still computed before any
+vertices move, so brush stamp simultaneity is preserved.
+
+`mesher_spatial_tests` compares queries against a brute-force ground truth,
+including vertex movement across cell boundaries. The `mesher_benchmark`
+CPU executable reports separate wall times for sphere generation, two
+Inflate stamps, and two Inflate + remeshing stamps:
+
+```sh
+./build/mesher_benchmark 100000 65
+```
+
+The CI workflow runs that case and the existing mesh-generation and sculpt
+regressions. Timings vary by host hardware; the benchmark is diagnostic,
+not an absolute performance gate.
+
+**Known remaining bottlenecks:** the topology editor still searches the
+entire mesh for candidates and validates/copies large trial meshes during
+edge collapses and flips; picking still ray-tests every triangle; and the
+Vulkan renderer rebuilds full vertex buffers after each stamp. These paths
+are not made local simply by accelerating brush vertex queries. A proper
+local adjacency/edge index and triangle BVH, plus GPU dirty-region updates,
+remain the next optimization phase.
