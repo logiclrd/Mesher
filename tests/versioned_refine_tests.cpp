@@ -156,6 +156,23 @@ void testMirrorSplit() {
               "New midpoint reflection exact across partition boundaries");
         if(id==partner)check(a.x==0,"Shared seam midpoint lies on X=0");
     }
+    check(result.insertedMirrorPairs.size()==
+          result.statistics.splitPairs,
+          "Only newly inserted symmetric pairs are exported");
+    VersionedInflateBrush nextBrush(.0001,{},mirrors);
+    for(const auto& pair:result.insertedMirrorPairs)
+        nextBrush.addMirrorPair(pair.first,pair.second);
+    const auto next=nextBrush.stamp(result.index,
+        std::vector<BrushArea>{{{.25,0,.65},2.5,.25},
+                               {{-.25,0,.65},2.5,.25}},1);
+    check(next.moved>0,
+          "Following symmetric Inflate accepts newly split midpoint IDs");
+    for(const auto& [id,partner]:refiner.mirrors()) {
+        const auto a=next.index->vertex(id).position;
+        const auto b=next.index->vertex(partner).position;
+        check(length(Vec3{a.x+b.x,a.y-b.y,a.z-b.z})<1e-12,
+              "Updated mirror mapping stays valid through the next stamp");
+    }
     for(const auto& [id,partner]:refiner.mirrors()) {
         const auto a=result.index->vertex(id).position;
         const auto b=result.index->vertex(partner).position;
