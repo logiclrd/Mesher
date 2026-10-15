@@ -11,6 +11,13 @@ option(MESHER_BUILD_TESTS "Build CPU-only mesh tests" ON)
 add_library(mesher_mesh STATIC src/mesh.cpp src/brush.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp)
 target_include_directories(mesher_mesh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
+# Relaxation iterations read a frozen vertex grid and update independent
+# destination vertices. OpenMP is optional; the serial path stays supported.
+find_package(OpenMP QUIET COMPONENTS CXX)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(mesher_mesh PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 if(MSVC)
     target_compile_options(mesher_mesh PRIVATE /W4)
 else()

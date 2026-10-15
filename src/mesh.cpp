@@ -141,15 +141,22 @@ void relax(std::vector<Vec3>& points, std::size_t movable, double spacing,
         bins.reserve(samples.size()*2);
         for(std::uint32_t i=0;i<samples.size();++i) bins[key(samples[i])].push_back(i);
         std::vector<Vec3> next(points.begin(),points.begin()+movable);
-        for(std::size_t i=0;i<movable;++i) {
+        // Every vertex reads the frozen sample grid and writes only next[i].
+        // Parallel relaxation is deterministic for a fixed input and thread
+        // count, without atomic forces or in-place Gauss-Seidel effects.
+        const auto& lookup=bins;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) if(movable>10000)
+#endif
+        for(std::int64_t i=0;i<static_cast<std::int64_t>(movable);++i) {
             const auto pos=points[i];
             const auto ijk=gridPos(pos);
             Vec3 force{};
             for(int dx=-1;dx<=1;++dx) for(int dy=-1;dy<=1;++dy) for(int dz=-1;dz<=1;++dz) {
                 int ix=ijk[0]+dx,iy=ijk[1]+dy,iz=ijk[2]+dz;
                 if(ix<0||iy<0||iz<0||ix>=count||iy>=count||iz>=count) continue;
-                const auto it=bins.find((std::uint64_t(ix)*count+iy)*count+iz);
-                if(it==bins.end()) continue;
+                const auto it=lookup.find((std::uint64_t(ix)*count+iy)*count+iz);
+                if(it==lookup.end()) continue;
                 for(auto j:it->second) {
                     if(j==i) continue;
                     const Vec3 diff=pos-samples[j];

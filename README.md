@@ -577,3 +577,13 @@ The small-mesh path is unchanged, which keeps the existing demonstration
 regressions directly comparable. This is an intermediate optimization:
 collapser link checks and trial mesh copies still have whole-mesh costs, and
 eventual production topology editing needs persistent local adjacency.
+
+
+### Optional parallel relaxation
+
+The existing 2.2-spacing-radius relaxation remains a local-neighbour
+algorithm. With OpenMP available, Mesher also distributes sufficiently
+large relaxation iterations across CPU cores. Each worker reads the same
+immutable per-iteration spatial hash and writes a distinct next-position
+slot, preserving the iteration's Jacobi semantics. The serial path remains
+available when OpenMP is absent. CMake detects OpenMP automatically.
