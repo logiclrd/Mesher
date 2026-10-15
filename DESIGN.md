@@ -312,3 +312,46 @@ or colours, unlike pure edge splits. The normal-compatibility gate is only
 a coarse fidelity filter: a quantitative geometric and colour-error budget
 is needed before general scan editing. There's no global collision guarantee,
 triangle projection/reconstruction, or smooth 2:1 gradation enforcement.
+
+
+## Local split/flip measurements (2026-10-15)
+
+The five-way `--compare-local-remesh --curvature-strength 0.25` regression
+uses the *same* 105 stamps for all modes and caps splitting, flipping and
+collapsing at **three paired operations of each type per stamp**. The
+numerical results demonstrate local topology reorganization, **not**
+necessarily improved visible surface morphology.
+
+At **5,000 vertices** initially:
+
+| Mode | First radial inversion | Final inverted | Added | Flips | Removed | Final vertices |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 102 | 0 | 0 | 0 | 0 | 5000 |
+| Collapse | Never | 0 | 0 | 0 | 88 | 4912 |
+| Split | 102 | 0 | 612 | 0 | 0 | 5612 |
+| Split + flip | 102 | 0 | 609 | 172 | 0 | 5609 |
+| All | Never | 0 | 610 | 103 | 136 | 5474 |
+
+At **1,500 vertices** initially (same operation caps):
+
+| Mode | Added | Flips | Removed | Final vertices |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline | 0 | 0 | 0 | 1500 |
+| Collapse | 0 | 0 | 24 | 1476 |
+| Split | 292 | 0 | 0 | 1792 |
+| Split + flip | 218 | 104 | 0 | 1718 |
+| All | 263 | 82 | 60 | 1703 |
+
+No inversions occurred in any 1,500-vertex configuration. At the full
+5,000-vertex resolution, **splitting and flipping alone did not eliminate
+the transient inversion at stamp 102**; collapse did, both alone and
+in combination with split/flip. Edge flips reduced subsequent split
+requirements considerably in the smaller test, but only slightly at 5,000.
+This reinforces the need to judge geometry and fidelity in addition to
+polygon counts.
+
+Local refinement is **opt-in** and currently post-stamp only. Production
+sculpting will also need pre-stamp refinement where the original triangle
+resolution is inadequate to represent the brush. The geometric and
+vertex-colour fidelity checks on edge flips must be strengthened before
+using this on photogrammetry data.
