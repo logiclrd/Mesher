@@ -225,6 +225,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             if(symmetric) {
                 mirrors_.emplace(mid,other);
                 if(paired)mirrors_.emplace(other,mid);
+                result.insertedMirrorPairs.push_back({mid,other});
             }
             ++result.statistics.splitPairs;
             result.statistics.newVertices+=paired?2u:1u;
