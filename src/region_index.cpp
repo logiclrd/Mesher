@@ -138,6 +138,8 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
     result->faces_=old.faces_;
     result->edges_=old.edges_;
     result->cells_=old.cells_;
+    result->retiredVertices_=old.retiredVertices_;
+    result->retiredFaces_=old.retiredFaces_;
 
     std::unordered_map<VertexId,Vertex> vertices;
     std::unordered_map<Edge,std::vector<EdgeSide>,EdgeHash> edges;
@@ -225,6 +227,7 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
             if(!v.incidentFaces.empty())
                 throw std::logic_error("Removed vertex retained incident faces");
             result->vertices_.erase(id,&copied);
+            result->retiredVertices_.set(id,true,&copied);
         }else {
             std::sort(v.incidentFaces.begin(),v.incidentFaces.end());
             result->vertices_.set(id,std::move(v),&copied);
@@ -236,7 +239,10 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
             const auto added=addedFaces.find(id);
             const auto owner=added!=addedFaces.end() ? added->second:old.face(id).owner;
             result->faces_.set(id,Face{owner,*replacement},&copied);
-        }else result->faces_.erase(id,&copied);
+        }else {
+            result->faces_.erase(id,&copied);
+            result->retiredFaces_.set(id,true,&copied);
+        }
         ++result->statistics_.changedFaceRecords;
     }
     for(auto& [key,sides]:edges) {
