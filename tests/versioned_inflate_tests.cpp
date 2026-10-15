@@ -146,8 +146,8 @@ void testSymmetricInflate() {
                                               imported.flatIndex);
         compare(flat,output,2e-9);
         for(std::size_t i=0;i<flat.vertices.size();++i) {
-            const auto m=mirrorIndices[i],a=output.vertices[i],
-                       b=output.vertices[m];
+            const auto m=mirrorIndices[i];
+            const auto a=output.vertices[i],b=output.vertices[m];
             require(std::abs(a.x+b.x)<1e-10 &&
                     std::abs(a.y-b.y)<1e-10 &&
                     std::abs(a.z-b.z)<1e-10,
