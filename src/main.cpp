@@ -285,6 +285,10 @@ int main(int argc, char** argv) {
             };
             interaction.completedStamps=[&]{return liveBrush->completedStamps();};
             interaction.skippedStamps=[&]{return liveStroke->skippedStamps();};
+            interaction.pendingSamples=[&]{return liveStroke->pendingSamples();};
+            interaction.pendingSegments=[&]{return liveStroke->pendingSegments();};
+            interaction.canBegin=[&]{return !liveStroke->active();};
+            interaction.pump=[&]{return liveStroke->pumpTimedRealtime();};
             interaction.lastStampDetails=[&] {
                 const auto& d=liveBrush->lastDetails();
                 const auto times=liveBrush->lastTimings();
@@ -314,6 +318,7 @@ int main(int argc, char** argv) {
             interaction.caption=[&] {
                 return "Mouse Inflate | vertices "+std::to_string(mesh.vertices.size())+
                        " | stamps "+std::to_string(liveBrush->completedStamps())+
+                       " | pending "+std::to_string(liveStroke->pendingSamples())+
                        (options.symmetric?" | mirrored":" | asymmetric");
             };
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "

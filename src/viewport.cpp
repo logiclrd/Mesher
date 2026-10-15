@@ -324,6 +324,7 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
     double lastConsoleTime_=0;
     std::uint64_t logFrames_=0, logStamps_=0;
@@ -567,8 +568,10 @@ class VulkanViewport {
           <<" stamps_per_sec="<<double(logStamps_)/elapsed
           <<" stamps_total="<<(interaction_.completedStamps
                                      ? interaction_.completedStamps():0)
-          <<" skipped_total="<<(interaction_.skippedStamps
-                                  ? interaction_.skippedStamps():0)
+          <<" pending_steps="<<(interaction_.pendingSamples
+                                  ? interaction_.pendingSamples():0)
+          <<" pending_segments="<<(interaction_.pendingSegments
+                                  ? interaction_.pendingSegments():0)
           <<" callback_ms="<<lastStampCallbackMs_
           <<" picking_ms="<<lastPickMs_
           <<" mesh_upload_ms="<<lastUploadMs_
@@ -614,7 +617,8 @@ class VulkanViewport {
             mouseWasDown_=down;
             return;
         }
-        if(down&&!mouseWasDown_) {
+        if(down&&!mouseWasDown_ &&
+           (!interaction_.canBegin || interaction_.canBegin())) {
             const double pickStart=glfwGetTime();
             const auto picked=pickCursor();
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
@@ -626,6 +630,7 @@ class VulkanViewport {
                 interaction_.begin(*picked);
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 ++stampsThisInterval_; // Initial stamp on mouse down
+                stampedThisFrame_=true;
                 refreshMesh();
                 updateTitle();
                 reportAfterStamp(1);
@@ -636,40 +641,33 @@ class VulkanViewport {
             if(const auto picked=pickCursor())lastCursorHit_=*picked;
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
-            const std::size_t before=interaction_.completedStamps
-                ? interaction_.completedStamps() : 0;
-            const double stampStart=glfwGetTime();
+            // Store the exact 4D input segment without stamping here.
+            // The frame loop consumes at most one queued Step after polling.
             interaction_.update(lastCursorHit_,elapsed);
-            lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
-            const std::size_t after=interaction_.completedStamps
-                ? interaction_.completedStamps() : before+1;
-            if(after>before) {
-                stampsThisInterval_+=after-before;
-                refreshMesh();
-                updateTitle();
-                reportAfterStamp(after-before);
-            }
         } else if(!down&&mouseWasDown_&&sculpting_) {
             const double pickStart=glfwGetTime();
             if(const auto picked=pickCursor())lastCursorHit_=*picked;
             lastPickMs_=(glfwGetTime()-pickStart)*1000.0;
             const double elapsed=std::max(0.0,glfwGetTime()-mouseStartTime_);
-            const std::size_t before=interaction_.completedStamps
-                ? interaction_.completedStamps() : 0;
-            const double stampStart=glfwGetTime();
+            // Mouse-up closes the input path; older queued steps still
+            // need to be drawn, including after the mouse is released.
             interaction_.end(lastCursorHit_,elapsed);
-            lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
-            const std::size_t after=interaction_.completedStamps
-                ? interaction_.completedStamps() : before+1;
-            if(after>before) {
-                stampsThisInterval_+=after-before;
-                refreshMesh();
-                reportAfterStamp(after-before);
-            }
             sculpting_=false;
             updateTitle();
         }
         mouseWasDown_=down;
+    }
+
+    void pumpMouseStroke() {
+        if(!interaction_.pump || stampedThisFrame_)return;
+        const double started=glfwGetTime();
+        const bool stamped=interaction_.pump();
+        if(!stamped)return;
+        lastStampCallbackMs_=(glfwGetTime()-started)*1000.0;
+        ++stampsThisInterval_;
+        refreshMesh();
+        updateTitle();
+        reportAfterStamp(1);
     }
 
     void sampleFrameRates() {
@@ -1141,6 +1139,7 @@ public:
     }
     void run(){
         while(!glfwWindowShouldClose(window)) {
+            stampedThisFrame_=false;
             glfwPollEvents();
             if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS) {
                 if(sculpting_&&interaction_.end) {
@@ -1151,6 +1150,7 @@ public:
                 break;
             }
             updateMouseSculpt();
+            pumpMouseStroke();
             if (animation_.advance) {
                 const bool togglePause=justPressed(GLFW_KEY_SPACE, spaceWasDown_);
                 const bool singleStep=justPressed(GLFW_KEY_RIGHT, rightWasDown_);

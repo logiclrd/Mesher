@@ -179,7 +179,12 @@ void BrushStroke::start(std::vector<BrushArea> areas) {
     areas_ = std::move(areas);
     untilNext_ = step_;
     stamps_ = 0;
-    skippedStamps_ = 0;
+    pending_.clear();
+    lastInputCenters_.clear();
+    lastInputTime_=0;
+    pendingDistance_=0;
+    inputFinished_=false;
+    realtime_=false;
     timed_ = false;
     timeSpeed_ = 0;
     currentTime_ = lastStampTime_ = 0;
@@ -207,10 +212,10 @@ void BrushStroke::startTimed(std::vector<BrushArea> areas, double timeSpeed) {
     start(std::move(areas));
     timed_ = true;
     timeSpeed_ = timeSpeed;
+    for(const auto& a:areas_)lastInputCenters_.push_back(a.center);
 }
 
-void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds,
-                          bool realtime, bool terminal) {
+void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds) {
     if (!active_) throw std::logic_error("Stroke has not started");
     if (positions.size() != areas_.size()) throw std::invalid_argument("Stroke point count changed");
     if (positions.empty()) throw std::logic_error("Stroke has no areas");
@@ -229,64 +234,12 @@ void BrushStroke::advance(std::span<const Vec3> positions, double elapsedSeconds
         if (std::abs(d - travel) > 1e-9 * std::max({1.0, travel, step_}))
             throw std::invalid_argument("All stroke points must travel equal distances");
     }
-    if (travel == 0) {
-        currentTime_=elapsedSeconds;
-        if(realtime && terminal) {
-            // The terminal input may coincide exactly with the last stamp.
-            brush_.end(mesh_);
-            active_=false;
-        }
-        return;
-    }
+    if (travel == 0) { currentTime_=elapsedSeconds; return; }
 
     const double fromTime=currentTime_;
     std::vector<Vec3> from;
     from.reserve(areas_.size());
     for (const auto& a : areas_) from.push_back(a.center);
-    // Real-time painting must render between costly stamps. Do not execute
-    // the full, potentially unbounded catch-up loop from a single mouse
-    // update. Instead select the most recent grid sample (or the terminal
-    // position on release), and account for dropped earlier samples. The
-    // phase advances by *all* 4D travel, preventing feedback/backlog.
-    if(realtime) {
-        const double tolerance=1e-12*std::max(1.0,travel);
-        std::size_t due=0;
-        if(travel+tolerance>=untilNext_) {
-            const double count=std::floor(std::max(0.0,
-                travel-untilNext_+tolerance)/step_)+1.0;
-            if(!std::isfinite(count) ||
-               count>double(std::numeric_limits<std::size_t>::max()/2))
-                throw std::overflow_error("Too many stroke samples for one update");
-            due=static_cast<std::size_t>(count);
-        }
-        if(due!=0 && !terminal) {
-            const double sampleDistance=untilNext_+double(due-1)*step_;
-            const double t=std::clamp(sampleDistance/travel,0.0,1.0);
-            for(std::size_t i=0;i<areas_.size();++i)
-                areas_[i].center=from[i]+(positions[i]-from[i])*t;
-            currentTime_=fromTime+dt*t;
-            stamp();
-            skippedStamps_+=due-1;
-        } else if(due!=0) {
-            // On release the newest sample is the actual endpoint instead
-            // of the grid point immediately preceding it.
-            skippedStamps_+=due-1;
-        }
-        untilNext_+=double(due)*step_-travel;
-        if(untilNext_<=0)untilNext_=step_;
-        for(std::size_t i=0;i<areas_.size();++i)
-            areas_[i].center=positions[i];
-        currentTime_=elapsedSeconds;
-        if(terminal) {
-            bool same=timeSpeed_*(currentTime_-lastStampTime_)<=1e-12;
-            for(std::size_t i=0;i<areas_.size();++i)
-                if(length(areas_[i].center-lastStamped_[i])>1e-12)same=false;
-            if(!same)stamp();
-            brush_.end(mesh_);
-            active_=false;
-        }
-        return;
-    }
     // Maintain the sampling phase across segment boundaries, independent
     // of the number and sizes of the incoming position updates.
     double distance = untilNext_;
@@ -311,15 +264,103 @@ void BrushStroke::updateTimed(std::span<const Vec3> positions, double elapsedSec
     if(!timed_)throw std::logic_error("Use startTimed before updateTimed");
     advance(positions,elapsedSeconds);
 }
+void BrushStroke::queueTimedInput(std::span<const Vec3> positions,
+                                  double elapsedSeconds) {
+    if(!active_ || !timed_ || inputFinished_)
+        throw std::logic_error("Timed stroke is not accepting input");
+    if(positions.size()!=areas_.size())
+        throw std::invalid_argument("Stroke point count changed");
+    if(!std::isfinite(elapsedSeconds) ||
+       elapsedSeconds+1e-12*std::max(1.0,lastInputTime_)<lastInputTime_)
+        throw std::invalid_argument("Stroke time must be finite and nondecreasing");
+    elapsedSeconds=std::max(elapsedSeconds,lastInputTime_);
+    const double dt=elapsedSeconds-lastInputTime_;
+    const double travel=std::hypot(length(positions[0]-lastInputCenters_[0]),
+                                   timeSpeed_*dt);
+    if(!std::isfinite(travel))
+        throw std::invalid_argument("Invalid stroke position");
+    for(std::size_t i=0;i<positions.size();++i) {
+        if(!finite(positions[i]))throw std::invalid_argument("Invalid stroke position");
+        const double distance=std::hypot(
+            length(positions[i]-lastInputCenters_[i]),timeSpeed_*dt);
+        if(std::abs(distance-travel)>1e-9*std::max({1.0,travel,step_}))
+            throw std::invalid_argument("All stroke points must travel equal distances");
+    }
+    realtime_=true;
+    if(travel>0) {
+        pending_.push_back({std::vector<Vec3>(positions.begin(),positions.end()),
+                            elapsedSeconds});
+        pendingDistance_+=travel;
+    }
+    lastInputCenters_.assign(positions.begin(),positions.end());
+    lastInputTime_=elapsedSeconds;
+}
 void BrushStroke::updateTimedRealtime(std::span<const Vec3> positions,
                                      double elapsedSeconds) {
-    if(!timed_)throw std::logic_error("Use startTimed before updateTimedRealtime");
-    advance(positions,elapsedSeconds,true,false);
+    queueTimedInput(positions,elapsedSeconds);
 }
 void BrushStroke::finishTimedRealtime(std::span<const Vec3> positions,
                                      double elapsedSeconds) {
-    if(!timed_)throw std::logic_error("Use startTimed before finishTimedRealtime");
-    advance(positions,elapsedSeconds,true,true);
+    queueTimedInput(positions,elapsedSeconds);
+    inputFinished_=true;
+}
+std::size_t BrushStroke::pendingSamples() const noexcept {
+    if(!realtime_ || !active_)return 0;
+    // Diagnostic estimate of remaining grid stamps, plus one potential
+    // endpoint stamp on release. No queued position or Step is discarded.
+    const double due=pendingDistance_+1e-12>=untilNext_
+        ? 1.0+std::floor(std::max(0.0,pendingDistance_-untilNext_)/step_)
+        : 0.0;
+    const double capped=std::min(due,double(std::numeric_limits<std::size_t>::max()/2));
+    return static_cast<std::size_t>(capped)+(inputFinished_?1u:0u);
+}
+bool BrushStroke::pumpTimedRealtime() {
+    if(!active_ || !realtime_)return false;
+    while(!pending_.empty()) {
+        const auto& next=pending_.front();
+        const double dt=next.time-currentTime_;
+        const double travel=std::hypot(
+            length(next.centers[0]-areas_[0].center),timeSpeed_*dt);
+        if(travel+1e-12*std::max(1.0,travel)>=untilNext_) {
+            // Traverse exactly one Step in 4D arc length, leaving the rest
+            // of this path segment untouched for the next render iteration.
+            const double fraction=travel>0
+                ? std::clamp(untilNext_/travel,0.0,1.0) : 1.0;
+            for(std::size_t i=0;i<areas_.size();++i)
+                areas_[i].center=areas_[i].center+
+                    (next.centers[i]-areas_[i].center)*fraction;
+            currentTime_+=dt*fraction;
+            pendingDistance_=std::max(0.0,pendingDistance_-untilNext_);
+            untilNext_=step_;
+            if(fraction>=1.0-1e-12) {
+                for(std::size_t i=0;i<areas_.size();++i)
+                    areas_[i].center=next.centers[i];
+                currentTime_=next.time;
+                pending_.pop_front();
+            }
+            stamp();
+            return true;
+        }
+        // Sub-Step movement is cheap. Advance across arbitrarily many short
+        // input segments until a stamp is actually due or the queue empties.
+        for(std::size_t i=0;i<areas_.size();++i)
+            areas_[i].center=next.centers[i];
+        currentTime_=next.time;
+        untilNext_-=travel;
+        pendingDistance_=std::max(0.0,pendingDistance_-travel);
+        pending_.pop_front();
+    }
+    if(inputFinished_) {
+        bool same=timeSpeed_*(currentTime_-lastStampTime_)<=1e-12;
+        for(std::size_t i=0;i<areas_.size();++i)
+            if(length(areas_[i].center-lastStamped_[i])>1e-12)same=false;
+        if(!same)stamp();
+        brush_.end(mesh_);
+        active_=false;
+        realtime_=false;
+        return !same;
+    }
+    return false;
 }
 void BrushStroke::finish(std::span<const Vec3> positions) {
     if(timed_)throw std::logic_error("Use finishTimed on a timed stroke");

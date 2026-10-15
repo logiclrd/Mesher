@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <span>
 #include <vector>
 
@@ -88,22 +89,31 @@ public:
     void updateTimed(std::span<const Vec3> positions, double elapsedSeconds);
     void finishTimed(std::span<const Vec3> positions, double elapsedSeconds);
 
-    // Interactive-only bounded sampling: apply at most one stamp per call.
-    // When the input path contains multiple due samples, fast-forward over
-    // older ones to the newest sample, preserving the 4D Step phase.
-    // The realtime finish applies at most the terminal stamp.
+    // Interactive input capture is inexpensive: record an exact polygonal
+    // (x,y,z,time) path without applying stamps or discarding old segments.
     void updateTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
+    // Queues the terminal point and ends input; the renderer must continue
+    // draining samples until active() becomes false.
     void finishTimedRealtime(std::span<const Vec3> positions, double elapsedSeconds);
+    // Consumes at most one expensive stamp, leaving remaining path for the
+    // next rendered frame. Returns true exactly when a stamp was applied.
+    bool pumpTimedRealtime();
+    std::size_t pendingSegments() const noexcept { return pending_.size(); }
+    std::size_t pendingSamples() const noexcept;
     // Changes the influence radius for subsequent stamps in an active stroke.
     // Does not reset 4D travel phase, so slider drags never create a stamp.
     void setRadius(double radius);
 
     bool active() const noexcept { return active_; }
     std::size_t stamps() const noexcept { return stamps_; }
-    std::size_t skippedStamps() const noexcept { return skippedStamps_; }
+    std::size_t skippedStamps() const noexcept { return 0; } // No dropped samples
 private:
-    void advance(std::span<const Vec3> positions, double elapsedSeconds,
-                 bool realtime=false, bool terminal=false);
+    void advance(std::span<const Vec3> positions, double elapsedSeconds);
+    void queueTimedInput(std::span<const Vec3> positions, double elapsedSeconds);
+    struct PathPoint {
+        std::vector<Vec3> centers;
+        double time = 0;
+    };
     void stamp();
 
     Mesh& mesh_;
@@ -115,7 +125,12 @@ private:
     bool timed_ = false;
     bool active_ = false;
     std::size_t stamps_ = 0;
-    std::size_t skippedStamps_ = 0;
+    std::deque<PathPoint> pending_;
+    std::vector<Vec3> lastInputCenters_;
+    double lastInputTime_ = 0;
+    double pendingDistance_ = 0;
+    bool inputFinished_ = false;
+    bool realtime_ = false;
     std::vector<BrushArea> areas_;
     std::vector<Vec3> lastStamped_;
 };

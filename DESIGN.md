@@ -408,37 +408,41 @@ on generated meshes.
 
 ## Responsive four-dimensional mouse sculpting
 
-The scripted `--demo` and CPU `updateTimed` / `finishTimed` methods
-retain **exact 4D Step sampling**, including all intermediate samples.
-Interactive mouse painting instead uses `updateTimedRealtime` and
-`finishTimedRealtime`, which enforce a **maximum of one actual brush
-stamp per input/render iteration**. This prevents a long or fast mouse
-movement from generating an unbounded number of expensive synchronous
-mesh modifications before the next Vulkan draw.
+The timed `BrushStroke` follows an **exact accumulated polyline in 4D**
+(`x,y,z,timeSpeed * t`). `startTimed` produces the initial stamp.
+`updateTimedRealtime` records each new input segment, including its
+timestamp, without altering the mesh or discarding any sample.
+`finishTimedRealtime` records the final endpoint and stops accepting input,
+but does **not** discard any unprocessed part of the stroke.
 
-When a mouse update contains more than one due 4D Step, the live sampler
-uses the **latest grid sample**, skips earlier samples and advances the
-sampling phase over the entire trajectory. Subsequent input begins from
-the latest mouse position/time, never from the old missed work. Release
-uses at most one final stamp at the exact current pointer location,
-without applying a backlog. The window title reports the cumulative
-`skipped` stamp count in addition to actual stamps. During normal
-movement and when geometry processing keeps pace, no stamps are skipped.
-The HUD's actual STAMPS rate now directly measures geometry changes
-that can be presented between frames, rather than arbitrary batches
-completed within a single stalled frame.
+The viewport calls `pumpTimedRealtime()` at most once between rendered
+frames. A pump walks as many sub-Step segments as necessary, then applies
+**at most one exact Step stamp**, preserving the unused distance across
+segment boundaries and corners. If the mouse is moving faster than the
+remesher can process, the backlog stays in the ordered segment queue;
+the cursor can keep moving and the older samples continue rendering after
+mouse-up. Only after the queue is exhausted does the brush emit a terminal
+stamp (when not already at the exact endpoint) and call `Brush::end`.
+No samples are skipped; processing may lag behind live input on expensive
+meshes. A new stroke can start when the previous one has finished draining.
+Esc closes the viewport and cancels any remaining queued input.
 
-This is a deliberate **real-time responsiveness versus full path fidelity**
-trade-off. If input motion demands more samples than the CPU/GPU can
-process and display, the real-time mode reduces the sampling density
-rather than allowing latency to grow without bound. It preserves
-the four-dimensional arc-length *phase*, but not every intermediate
-stamp under overload. The offline mode remains available to exercise
-the complete stroke with zero skipped stamps; longer term, spatial
-acceleration and efficient local remeshing should reduce the need to
-drop samples. The operation does not assume a particular display
-refresh rate.
+The on-screen FPS and STAMPS rates measure actual completed operations.
+Interactive console output includes `pending_steps` (estimated remaining
+grid stamps, plus a possible terminal sample) and `pending_segments`
+(input control segments still to be processed). These help distinguish
+CPU performance from queueing delays and show explicitly when a stroke
+continues after mouse release. Raw GLFW cursor events are currently picked
+once per viewport iteration, not each operating-system event; connecting
+successive sampled 3D positions is exact, with no shortcutting or
+sample dropping *between those samples*. Faster ray picking would allow
+higher-frequency path capture.
 
+The untimed scripted demonstrations and `updateTimed` / `finishTimed`
+continue to process all samples synchronously. CPU tests compare that
+reference implementation against the one-stamp-per-frame queued sampler
+for long movements, zigzag/corner paths, stationary time, mirrored points,
+and terminal release.
 
 ## Spatial acceleration and 100,000-vertex performance
 

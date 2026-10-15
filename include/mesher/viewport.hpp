@@ -19,11 +19,17 @@ struct ViewportAnimation {
 
 // User-facing mouse interaction callbacks, independent of GLFW and Vulkan.
 // Times are monotonic seconds elapsed since mouse down. The host picks the
-// freshly modified mesh at every update before invoking the callback.
+// freshly modified mesh at every update, stores the resulting input segments,
+// and drains at most one 4D Step sample between rendered frames.
 struct ViewportInteraction {
     std::function<void(Vec3)> begin;
     std::function<void(Vec3,double)> update;
     std::function<void(Vec3,double)> end;
+    // Consume zero or one queued brush sample between rendered frames.
+    std::function<bool()> pump;
+    std::function<bool()> canBegin;
+    std::function<std::size_t()> pendingSamples;
+    std::function<std::size_t()> pendingSegments;
     std::function<std::string()> caption;
     std::function<std::size_t()> completedStamps;
     // Formatter invoked only when a 250ms diagnostic interval is due.

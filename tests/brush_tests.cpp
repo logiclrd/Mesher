@@ -57,11 +57,15 @@ void testRadiusSliderAndLiveStroke() {
     stroke.setRadius(.1);
     const std::array<Vec3,2> locations{{{0,0,0},{0,2,0}}};
     stroke.updateTimedRealtime(locations,.1);
+    check(recorder.radii.size()==1,"Realtime input does not stamp until pumped");
+    check(stroke.pumpTimedRealtime(),"One queued Step applies one stamp");
     check(recorder.radii.size()==2,"Stationary 4D Step produces one new stamp");
     near(recorder.radii[0][0],.4,1e-14,"Start uses configured radius");
     near(recorder.radii[1][0],.1,1e-14,"Slider modifies subsequent stamp");
     near(recorder.radii[1][1],.1,1e-14,"Both mirrored areas change radius");
     stroke.finishTimedRealtime(locations,.1);
+    check(stroke.active(),"Mouse release retains queued stroke until drained");
+    check(!stroke.pumpTimedRealtime(),"Exact Step terminal does not duplicate");
     check(!stroke.active(),"Stroke completes after radius change");
 }
 void testFalloff() {
@@ -191,60 +195,98 @@ void testFourDimensionalStroke() {
 }
 void testRealtimeSamplingBound() {
     Mesh dummy;
-    RecordingBrush recorded;
-    BrushStroke stroke(dummy,recorded,.1);
-    stroke.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.4);
+    RecordingBrush exactBrush,liveBrush;
+    BrushStroke exact(dummy,exactBrush,.1);
+    BrushStroke live(dummy,liveBrush,.1);
+    const std::vector<BrushArea> areas{{{0,0,0},1,.3},{{0,2,0},1,.3}};
+    exact.startTimed(areas,.4);
+    live.startTimed(areas,.4);
+    const std::array<Vec3,2> far{{{.3,0,0},{.3,2,0}}};
+    exact.updateTimed(far,1.0); // five exact grid samples in one update
+    live.updateTimedRealtime(far,1.0);
+    check(liveBrush.stamps.size()==1 && live.pendingSegments()==1,
+          "Long interactive input queues the segment without stamping");
+    check(live.pendingSamples()>=5,"Backlog reports all unprocessed 4D Steps");
+    for(int i=1;i<=5;++i) {
+        check(live.pumpTimedRealtime(),"Pending 4D Step produces one stamp");
+        check(liveBrush.stamps.size()==std::size_t(i+1),
+              "Only one stamp can be processed per frame");
+        near(liveBrush.stamps.back()[0].x,.06*i,1e-12,
+             "Interactive path must not jump to newest position");
+    }
+    check(!live.pumpTimedRealtime(),"No pending stamp at aligned endpoint");
+    check(live.skippedStamps()==0,"Exact realtime path never skips stamps");
+    const std::array<Vec3,2> still{{{.3,0,0},{.3,2,0}}};
+    exact.updateTimed(still,1.125);
+    live.updateTimedRealtime(still,1.125);
+    check(!live.pumpTimedRealtime(),"Sub-Step time accumulates with no stamp");
+    exact.updateTimed(still,1.25);
+    live.updateTimedRealtime(still,1.25);
+    check(live.pumpTimedRealtime(),"Stationary time completes next Step");
+    exact.finishTimed(still,1.25);
+    live.finishTimedRealtime(still,1.25);
+    check(live.active(),"Input release is not early stroke completion");
+    check(!live.pumpTimedRealtime(),"Aligned release closes without duplicate");
+    check(!live.active() && liveBrush.ends==1,"Queued release ends brush once");
+    check(exactBrush.stamps.size()==liveBrush.stamps.size(),
+          "Exact offline and realtime stamp counts agree");
+    for(std::size_t i=0;i<exactBrush.stamps.size();++i)
+        for(std::size_t j=0;j<areas.size();++j)
+            near(length(exactBrush.stamps[i][j]-liveBrush.stamps[i][j]),0,1e-12,
+                 "Exact offline and realtime positions agree");
 
-    // The exact sampler would do five costly stamps here, keeping the
-    // renderer from displaying intermediate results. The realtime sampler
-    // selects the newest grid sample and skips the four older ones.
-    const std::array<Vec3,2> moved{{{.3,0,0},{.3,2,0}}};
-    stroke.updateTimedRealtime(moved,1.0); // 4D arc length = .5
-    check(recorded.stamps.size()==2 && stroke.stamps()==2,
-          "One realtime mouse update cannot batch five stamps");
-    check(stroke.skippedStamps()==4,
-          "Backlogged intermediate samples are explicitly counted");
-    near(recorded.stamps.back()[0].x,.3,1e-12,
-         "Newest 4D grid sample stays near the current mouse position");
-    near(recorded.stamps.back()[1].x,.3,1e-12,
-         "Mirrored point receives the same latest sample");
-
-    // A following update doesn't repay previous backlog: the phase has
-    // already advanced across the whole 4D path.
-    stroke.updateTimedRealtime(moved,1.125); // .05, no stamp yet
-    check(recorded.stamps.size()==2,"No old stamps accumulate into subsequent frames");
-    stroke.updateTimedRealtime(moved,1.25); // next .05 -> one stamp
-    check(recorded.stamps.size()==3 && stroke.skippedStamps()==4,
-          "Stationary 4D time continues at the correct phase");
-    stroke.finishTimedRealtime(moved,1.25);
-    check(recorded.stamps.size()==3 && recorded.ends==1,
-          "Releasing on the sampled endpoint does not add extra stamp");
-
-    RecordingBrush releaseBrush;
-    BrushStroke release(dummy,releaseBrush,.1);
-    release.startTimed({{{0,0,0},1,.3}},.2);
-    const std::array<Vec3,1> endpoint{{{.6,0,0}}};
-    release.finishTimedRealtime(endpoint,2.0); // sqrt(.36 + .16) > 7 steps
-    check(releaseBrush.stamps.size()==2 && releaseBrush.ends==1,
-          "Release applies at most one terminal stamp under heavy backlog");
-    near(releaseBrush.stamps.back()[0].x,.6,1e-12,
-         "Release prioritizes the exact final cursor position");
-    check(release.skippedStamps()>0,"Release also reports skipped intermediates");
+    // Arbitrary sub-Step segments joined at corners: the realtime queue
+    // must preserve the polyline, not shortcut to the latest cursor sample.
+    RecordingBrush offlineCorners,liveCorners;
+    BrushStroke offline(dummy,offlineCorners,.03),queue(dummy,liveCorners,.03);
+    offline.startTimed({{{0,0,0},1,.3}},.15);
+    queue.startTimed({{{0,0,0},1,.3}},.15);
+    const std::array<Vec3,1> a{{{.011,0,0}}},b{{{.022,0,0}}},
+                             c{{{.022,.12,0}}},d{{{.10,.12,0}}},
+                             e{{{.10,.14,0}}};
+    offline.updateTimed(a,.01);
+    offline.updateTimed(b,.02);
+    offline.updateTimed(c,.30);
+    offline.updateTimed(d,.32);
+    offline.finishTimed(e,.40);
+    queue.updateTimedRealtime(a,.01);
+    queue.updateTimedRealtime(b,.02);
+    queue.updateTimedRealtime(c,.30);
+    queue.updateTimedRealtime(d,.32);
+    queue.finishTimedRealtime(e,.40);
+    check(liveCorners.stamps.size()==1 && queue.pendingSegments()==5,
+          "All polyline input segments are queued before stamping");
+    std::size_t frames=0;
+    while(queue.active() && frames++<100) {
+        const auto previous=liveCorners.stamps.size();
+        const bool stamped=queue.pumpTimedRealtime();
+        check(liveCorners.stamps.size()-previous<=1,
+              "Queued stroke never batches stamps between renders");
+        check(stamped==(liveCorners.stamps.size()>previous),
+              "Pump result describes exactly one applied stamp");
+    }
+    check(!queue.active() && liveCorners.ends==1 && frames<100,
+          "Release drains all queued segments, then ends stroke");
+    check(liveCorners.stamps.size()==offlineCorners.stamps.size(),
+          "Zigzag stroke retains offline sample count");
+    for(std::size_t i=0;i<offlineCorners.stamps.size();++i)
+        near(length(offlineCorners.stamps[i][0]-liveCorners.stamps[i][0]),
+             0,1e-12,"Zigzag stroke retains exact positions");
 
     RecordingBrush invalidBrush;
     BrushStroke invalid(dummy,invalidBrush,.1);
     invalid.startTimed({{{0,0,0},1,.3},{{0,2,0},1,.3}},.4);
-    const std::array<Vec3,2> unequal{{{.2,0,0},{.3,2,0}}};
+    const std::array<Vec3,2> uneven{{{.2,0,0},{.3,2,0}}};
     bool rejected=false;
-    try {invalid.updateTimedRealtime(unequal,.8);}
+    try {invalid.updateTimedRealtime(uneven,.8);}
     catch(const std::invalid_argument&) {rejected=true;}
     check(rejected && invalidBrush.stamps.size()==1 &&
-          invalid.skippedStamps()==0,
-          "Realtime sampling validates mirrored 4D travel before changes");
-    const std::array<Vec3,2> initial{{{0,0,0},{0,2,0}}};
-    invalid.finishTimedRealtime(initial,0);
-    check(invalidBrush.stamps.size()==1 && invalidBrush.ends==1,
-          "Exact stationary release closes with no duplicate stamp");
+          invalid.pendingSegments()==0,
+          "Invalid symmetric 4D update leaves queue unmodified");
+    const std::array<Vec3,2> original{{{0,0,0},{0,2,0}}};
+    invalid.finishTimedRealtime(original,0);
+    check(!invalid.pumpTimedRealtime() && invalidBrush.ends==1,
+          "Unchanged release closes without terminal duplicate");
 }
 void testCurvatureCorrection() {
     // Four planar triangles forming a shallow bowl. Their shared center
