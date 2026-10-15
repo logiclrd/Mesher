@@ -15,6 +15,7 @@ struct VersionedRefineResult {
     std::shared_ptr<const RegionTopologyIndex> index;
     RefineStatistics statistics{};
     std::vector<VertexId> insertedVertices;
+    std::vector<std::pair<VertexId,VertexId>> insertedMirrorPairs;
     std::vector<FaceId> changedFaces;
     std::size_t modifiedPartitions{};
     std::size_t copiedDirectoryNodes{};
