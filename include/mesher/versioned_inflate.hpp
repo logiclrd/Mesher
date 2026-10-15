@@ -55,6 +55,10 @@ public:
         double strength,CurvatureSettings curvature={},
         std::vector<std::pair<VertexId,VertexId>> mirrorPairs={});
 
+    // V6 adds only newly split midpoint mirror pairs between stamps.
+    // Existing mappings are never rebuilt or silently changed.
+    void addMirrorPair(VertexId first,VertexId second);
+
     VersionedInflateStamp stamp(
         std::shared_ptr<const RegionTopologyIndex> before,
         std::span<const BrushArea> areas,
