@@ -1,6 +1,8 @@
 #include "mesher/versioned_mesh.hpp"
 
 #include <limits>
+#include <unordered_set>
+#include <cmath>
 #include <stdexcept>
 #include <utility>
 
