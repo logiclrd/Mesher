@@ -142,6 +142,22 @@ void testCheckpointRoundTripAndRecovery() {
                   "Restored BVH reproduces nearest intersections exactly");
         }
         const auto marks=restored.index->revision().identityWatermarks();
+        // Even if a malicious file's checksum is recomputed, tombstones
+        // beyond the saved allocation frontier must never be accepted:
+        // the next allocation would otherwise reuse a retired identity.
+        const auto savedRevision=std::shared_ptr<const MeshRevision>(
+            restored.index,&restored.index->revision());
+        bool rejectedVertex=false,rejectedFace=false;
+        try {
+            (void)RegionTopologyIndex::restore(
+                savedRevision,{marks.nextVertex},{});
+        }catch(const std::invalid_argument&) {rejectedVertex=true;}
+        try {
+            (void)RegionTopologyIndex::restore(
+                savedRevision,{}, {marks.nextFace});
+        }catch(const std::invalid_argument&) {rejectedFace=true;}
+        check(rejectedVertex&&rejectedFace,
+              "Recovered tombstones cannot reach an unallocated stable ID");
         auto view=restored.index->revision().createMutableView();
         const auto fresh=view.addVertex(123,{2,0,0});
         check(fresh==marks.nextVertex&&fresh>b,
