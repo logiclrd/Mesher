@@ -63,6 +63,8 @@ void testThreadedMatchesExactSculpt() {
             "Published snapshot must contain all completed stamps");
     require(snapshot->index&&snapshot->originalOrder,
             "Worker publishes immutable root/index, not copied Mesh");
+    require(!snapshot->dirtyPartitions.empty(),
+            "Coalesced stamps include dirty partitions since last display");
     ViewportFlattenStatistics timing{};
     const auto flat=flattenRevisionForViewport(
         *snapshot->index,*snapshot->originalOrder,&timing);
@@ -140,6 +142,8 @@ void testCoalescedRootsAndCompatibilityBridge() {
     auto held=worker.takeSnapshot();
     require(bool(held) && bool(held->index),
             "One-stamp immutable snapshot is available without mesh copying");
+    require(!held->dirtyPartitions.empty(),
+            "Mouse-down's synchronous first stamp reports dirty partitions");
     const auto preserved=flattenRevisionForViewport(
         *held->index,*held->originalOrder);
     worker.update({-.30,-.69,.65},.15);
