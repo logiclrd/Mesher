@@ -73,7 +73,7 @@ void RevisionHistory::append(
         throw std::overflow_error("History payload counter overflow");
     entries_.push_back({std::move(index),std::move(changedPartitions),
                         std::move(addedMirrors),std::move(removedMirrors),
-                        copiedPayloadBytes});
+                        copiedPayloadBytes,vertices,faces});
     totalBytes_+=copiedPayloadBytes;
     cursor_=entries_.size()-1;
     // The current entry is always retained even if one large edit exceeds
