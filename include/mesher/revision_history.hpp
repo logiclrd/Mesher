@@ -18,6 +18,7 @@ struct HistoryTransition {
     std::vector<PartitionId> dirtyPartitions;
     std::vector<MirrorPair> addMirrors;
     std::vector<MirrorPair> removeMirrors;
+    std::size_t vertices{},faces{};
 };
 
 struct HistoryStatistics {
