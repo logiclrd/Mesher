@@ -157,18 +157,28 @@ bool penetratesBeyondSharedVertex(
 TriangleContact triangleContact(
     const std::array<Vec3,3>& a,const std::array<VertexId,3>& aIds,
     const std::array<Vec3,3>& b,const std::array<VertexId,3>& bIds) {
-    double scale=0,coordinates=0;
-    for(const auto& tri:{a,b})for(unsigned i=0;i<3;++i) {
-        scale=std::max(scale,length(tri[(i+1)%3]-tri[i]));
-        coordinates=std::max({coordinates,std::abs(tri[i].x),
-                              std::abs(tri[i].y),std::abs(tri[i].z)});
+    double scaleA=0,scaleB=0,coordinates=0;
+    for(unsigned i=0;i<3;++i) {
+        scaleA=std::max(scaleA,length(a[(i+1)%3]-a[i]));
+        scaleB=std::max(scaleB,length(b[(i+1)%3]-b[i]));
+        for(const auto p:{a[i],b[i]})
+            coordinates=std::max({coordinates,std::abs(p.x),
+                                  std::abs(p.y),std::abs(p.z)});
     }
-    const double epsilon=std::max(1e-12*scale,
-        64*std::numeric_limits<double>::epsilon()*coordinates);
+    const double scale=std::max(scaleA,scaleB);
+    const double coordinateError=
+        64*std::numeric_limits<double>::epsilon()*coordinates;
+    const double epsilon=std::max(1e-12*scale,coordinateError);
     const auto na=cross(a[1]-a[0],a[2]-a[0]);
     const auto nb=cross(b[1]-b[0],b[2]-b[0]);
-    if(scale==0||length(na)<=epsilon*scale||
-       length(nb)<=epsilon*scale)return TriangleContact::Ambiguous;
+    // Degeneracy is intrinsic to EACH triangle. A well-shaped small face
+    // must not become 'degenerate' merely by meeting a very large face.
+    const double limitA=std::max(1e-12*scaleA*scaleA,
+                                 coordinateError*scaleA);
+    const double limitB=std::max(1e-12*scaleB*scaleB,
+                                 coordinateError*scaleB);
+    if(scale==0||length(na)<=limitA||length(nb)<=limitB)
+        return TriangleContact::Ambiguous;
     if(!possibleOverlap(a,b,na,nb,epsilon))
         return TriangleContact::Disjoint;
 
