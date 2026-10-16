@@ -18,12 +18,12 @@ inline double refinedTriangleQuality(Vec3 a,Vec3 b,Vec3 c) {
     const auto sum=ab+bc+ca;
     return sum>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/sum:0;
 }
-inline using DirectedBoundary=std::pair<VertexId,VertexId>;
+using DirectedBoundary=std::pair<VertexId,VertexId>;
 using SideSplits=std::map<DirectedBoundary,std::vector<VertexId>>;
 // Split any combination of a triangle's three oriented boundary edges.
 // Every original side is advanced geometrically, not by counterpart index.
 // Working triangulation stays in memory until ONE atomic RegionEdit update.
-std::vector<std::array<VertexId,3>> subdivideRetainedTriangle(
+inline std::vector<std::array<VertexId,3>> subdivideRetainedTriangle(
     std::array<VertexId,3> original,
     const SideSplits& splits,
     const std::unordered_map<VertexId,Vec3>& positions,
