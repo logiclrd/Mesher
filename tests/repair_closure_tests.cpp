@@ -1,4 +1,5 @@
 #include "mesher/repair_plan.hpp"
+#include "mesher/repair_surgery.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -209,6 +210,27 @@ void testPinchedTorusHandle() {
                   "Collapsed/inverted torus neck chooses two caps (handle loss)");
             check(plan.estimatedAddedArea<.2,
                   "Near-zero torus throat caps have small area");
+            // Validate actual topology surgery, not only the chosen
+            // closure scores: the removed neck must destroy the handle.
+            const auto repaired=applyRepairSurgery(index,plan);
+            std::size_t vertices=0,faces=0;
+            std::set<std::pair<VertexId,VertexId>> edges;
+            repaired.index->revision().forEachPartition([&](
+                PartitionId,const MeshPartition& part) {
+                vertices+=part.vertices.size();
+                faces+=part.faces.size();
+                for(const auto& face:part.faces)
+                    for(unsigned edge=0;edge<3;++edge) {
+                        auto a=face.vertices[edge],
+                             b=face.vertices[(edge+1)%3];
+                        if(a>b)std::swap(a,b);
+                        edges.emplace(a,b);
+                    }
+            });
+            check(vertices+faces-edges.size()==2,
+                  "Actual committed torus closure has genus zero");
+            check(repaired.capFaces>0&&repaired.zipperFaces==0,
+                  "Actual torus repair caps the inner tunnel, not a zipper");
         }else {
             check(plan.pairs.size()==1&&plan.cappedContours.empty(),
                   "Wide torus tunnel favours zipper over huge separate caps");
