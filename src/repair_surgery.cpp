@@ -145,6 +145,20 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
                 y.end());
     x.push_back(x.front());
     y.push_back(y.front());
+    // The two fronts advance independently by *physical* arclength,
+    // but must not drift halfway around the other ring. Such a grid
+    // path builds folded/crossing scar triangles even if every edge
+    // length and local triangle quality independently looks reasonable.
+    const auto phases=[&](const std::vector<VertexId>& contour) {
+        std::vector<double> s(contour.size(),0);
+        for(std::size_t i=1;i<contour.size();++i)
+            s[i]=s[i-1]+length(pos.at(contour[i])-pos.at(contour[i-1]));
+        if(!(s.back()>0))throw std::logic_error("Zero perimeter scar");
+        for(auto& value:s)value/=s.back();
+        return s;
+    };
+    const auto xa=phases(x),yb=phases(y);
+    constexpr double maximumPhaseLag=.30;
     const double h=std::min(a.target,b.target);
     const auto triangleCost=[&](std::array<VertexId,3> ids)->double {
         const auto p=pos.at(ids[0]),q=pos.at(ids[1]),r=pos.at(ids[2]);
@@ -163,6 +177,7 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
     for(std::size_t i=0;i<=n;++i)for(std::size_t j=0;j<=m;++j) {
         if(i==0&&j==0)continue;
         auto& current=dp[i*stride+j];
+        if(std::abs(xa[i]-yb[j])>maximumPhaseLag)continue;
         if(i>0) {
             const auto cost=triangleCost({x[i],x[i-1],y[j]});
             const auto candidate=dp[(i-1)*stride+j].cost+cost;
