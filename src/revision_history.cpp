@@ -111,7 +111,8 @@ HistoryTransition RevisionHistory::redo() {
     if(!canRedo())throw std::logic_error("History has no redo revision");
     ++cursor_;
     auto& next=entries_[cursor_];
-    return {next.index,next.dirty,next.added,next.removed};
+    return {next.index,next.dirty,next.added,next.removed,
+            next.vertices,next.faces};
 }
 HistoryStatistics RevisionHistory::statistics() const noexcept {
     return {entries_.size(),totalBytes_,dropped_,redoDropped_,
