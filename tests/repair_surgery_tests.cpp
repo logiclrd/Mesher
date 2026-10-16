@@ -404,6 +404,15 @@ void testIsolatedIrregularAndWarpedCap() {
             const auto refused=planRemovalContours(*baseline,removed,strict);
             require(refused.status==RepairPlanStatus::AmbiguousClosure,
                     "Legacy strict frustum planar bound rejects saddle-shaped contour");
+            Mesh extreme=m;
+            for(std::size_t i=0;i<4;++i)
+                extreme.vertices[i].x=-2+(i%2==0?-1.0:1.0);
+            const auto tooWarped=partitionFlatMesh(extreme,1);
+            const auto ix=RegionTopologyIndex::build(tooWarped.revision);
+            const auto noPlan=planRemovalContours(*ix,
+                capIds(tooWarped,end,true));
+            require(noPlan.status==RepairPlanStatus::AmbiguousClosure,
+                    "Severely folded isolated cap still rejects beyond its own bound");
         }
     }
 }
