@@ -155,6 +155,9 @@ void AsyncSculptWorker::run(std::stop_token token) {
                 const bool stamped=stroke_.pumpTimedRealtime();
                 if(stamped) {
                     changed=true;
+                    const auto& dirty=brush_->lastDirtyPartitions();
+                    unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                              dirty.begin(),dirty.end());
                     std::lock_guard guard(statusMutex_);
                     status_.lastWorkerStampMs=
                         std::chrono::duration<double,std::milli>(
