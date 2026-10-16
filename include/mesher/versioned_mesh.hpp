@@ -104,6 +104,7 @@ private:
     std::shared_ptr<MeshIdentityDomain> identities_;
     std::map<PartitionId,Change> changes_;
     std::size_t clonedPartitions_{};
+    std::size_t clonedPartitionBytes_{};
     bool committed_{};
 };
 
