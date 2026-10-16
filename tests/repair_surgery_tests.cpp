@@ -363,8 +363,9 @@ void testMirroredUnevenBoundarySubdivision() {
         "Mirrored boundary subdivision does not create crossing triangles");
 }
 void testSelfMirroredCapAcrossExistingSeam() {
+    for(const double bend:{0.0,.04}) {
     Mesh oct;
-    oct.vertices={{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+    oct.vertices={{1,0,bend},{0,1,0},{-1,0,bend},{0,-1,0},
                   {0,0,1},{0,0,-1}};
     oct.triangles={{4,0,1},{4,1,2},{4,2,3},{4,3,0},
                    {5,1,0},{5,2,1},{5,3,2},{5,0,3}};
@@ -395,6 +396,7 @@ void testSelfMirroredCapAcrossExistingSeam() {
     require(base->retiredFaceCount()==0&&
             scar.index->retiredFaceCount()==4,
             "Old revision remains unchanged after mirrored self-cap");
+    }
 }
 void testMirroredWholeComponentRetirement() {
     const auto test=reflectedCubes(3.0);
