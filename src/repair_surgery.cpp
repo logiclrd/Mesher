@@ -80,16 +80,17 @@ std::vector<std::array<VertexId,3>> capTriangles(
     std::unordered_map<VertexId,Vec3> points;
     for(auto id:polygon)points.emplace(id,basis.point(positions.at(id)));
     const double epsilon=1e-12*loop.target*loop.target;
+    const double coordinateTolerance=1e-12*loop.target;
     // Ear clipping assumes the contour projects to a SIMPLE polygon.
     // A folded 3D ring can self-cross in the cap's projection even
     // though its individual 3D edges do not intersect. Refuse this
     // ambiguous spanning disk rather than emitting overlapping ears.
     const auto onSegment=[&](Vec3 a,Vec3 b,Vec3 p) {
         return std::abs(cross2(a,b,p))<=epsilon&&
-            p.x>=std::min(a.x,b.x)-epsilon&&
-            p.x<=std::max(a.x,b.x)+epsilon&&
-            p.y>=std::min(a.y,b.y)-epsilon&&
-            p.y<=std::max(a.y,b.y)+epsilon;
+            p.x>=std::min(a.x,b.x)-coordinateTolerance&&
+            p.x<=std::max(a.x,b.x)+coordinateTolerance&&
+            p.y>=std::min(a.y,b.y)-coordinateTolerance&&
+            p.y<=std::max(a.y,b.y)+coordinateTolerance;
     };
     const auto intersects=[&](Vec3 a,Vec3 b,Vec3 p,Vec3 q) {
         const double u=cross2(a,b,p),v=cross2(a,b,q);
