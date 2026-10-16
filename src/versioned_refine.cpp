@@ -143,6 +143,16 @@ VersionedLocalRefiner::VersionedLocalRefiner(
     }
 }
 
+void VersionedLocalRefiner::addMirrorPair(VertexId first,VertexId second) {
+    if(mirrors_.empty())return; // asymmetric mode
+    const auto a=mirrors_.find(first),b=mirrors_.find(second);
+    if(!first||!second||
+       (a!=mirrors_.end()&&a->second!=second)||
+       (b!=mirrors_.end()&&b->second!=first))
+        throw std::invalid_argument("Conflicting refinement mirror pair");
+    mirrors_[first]=second;
+    mirrors_[second]=first;
+}
 void VersionedLocalRefiner::removeMirrorPair(VertexId first,VertexId second) {
     const auto a=mirrors_.find(first),b=mirrors_.find(second);
     if(a==mirrors_.end()||b==mirrors_.end()||
