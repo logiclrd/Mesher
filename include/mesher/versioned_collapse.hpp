@@ -45,6 +45,7 @@ public:
 
     // Refinement may introduce a new mirrored midpoint before collapse.
     void addMirrorPair(VertexId first,VertexId second);
+    void removeMirrorPair(VertexId first,VertexId second);
     double minimumEdge() const noexcept {return minimumEdge_;}
     const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
         return mirrors_;

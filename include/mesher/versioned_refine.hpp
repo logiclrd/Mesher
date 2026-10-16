@@ -39,6 +39,7 @@ public:
 
     // Apply the V7 collapse result's retired mirror pairs before the next stamp.
     void removeMirrorPair(VertexId first,VertexId second);
+    void addMirrorPair(VertexId first,VertexId second);
     double maximumEdge() const noexcept { return maximumEdge_; }
     const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
         return mirrors_;

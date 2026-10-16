@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/versioned_sculpt.hpp"
+#include "mesher/durable_checkpoint.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -7,6 +8,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <exception>
 #include <mutex>
 #include <optional>
@@ -43,11 +45,17 @@ public:
         std::size_t liveRevisions=0;
         std::size_t peakLiveRevisions=0;
         double lastPublicationMs=0;
+        HistoryStatistics history{};
+        CheckpointStatistics checkpoints{};
     };
     AsyncSculptWorker(Mesh initial, double step, double strength,
                       double timeSpeed, CurvatureSettings curvature,
                       CollapseSettings collapse, RefineSettings refine,
                       bool symmetric);
+    AsyncSculptWorker(DurableCheckpoint recovered,double step,double strength,
+                     double timeSpeed,CurvatureSettings curvature,
+                     CollapseSettings collapse,RefineSettings refine);
+
     ~AsyncSculptWorker();
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;
     AsyncSculptWorker& operator=(const AsyncSculptWorker&)=delete;
@@ -56,6 +64,12 @@ public:
     void update(Vec3 point,double elapsedSeconds);
     void end(Vec3 point,double elapsedSeconds);
     void setRadius(double radius);
+    void undo();
+    void redo();
+    void saveCheckpoint(std::filesystem::path destination);
+    CheckpointStatistics checkpointStatistics() const {
+        return checkpoints_.statistics();
+    }
 
     bool canBegin() const noexcept {return !reserved_.load();}
     Status status() const;
@@ -65,8 +79,13 @@ public:
     }
 
 private:
-    enum class Kind {Begin,Update,End,Radius};
-    struct Command {Kind kind;Vec3 point{};double elapsed=0,radius=0;};
+    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint};
+    struct Command {
+        Kind kind;
+        Vec3 point{};
+        double elapsed=0,radius=0;
+        std::filesystem::path checkpointPath{};
+    };
     void enqueue(Command command);
     void run(std::stop_token token);
     void publish(bool force=false);
@@ -81,6 +100,7 @@ private:
     std::mutex commandsMutex_;
     std::condition_variable_any ready_;
     std::deque<Command> commands_;
+    AsyncCheckpointWriter checkpoints_;
     std::atomic<bool> reserved_{false};
     mutable std::mutex statusMutex_;
     Status status_{};

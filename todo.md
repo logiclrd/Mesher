@@ -270,10 +270,48 @@ an older revision while the worker edits or publishes a newer one.
   Vulkan driver validation; headless CI can only compile that portion.
   Producer backpressure, GPU fence waits, shared external roots and
   asynchronous destructor cost remain surfaced, not hidden.
-- [ ] **V12 — Persistent history and durable checkpoints.**
-  Build undo/redo and background serialization on immutable revisions while
-  bounding history memory and defining recovery/GC policies. Never block
-  local editing on a whole-mesh save.
+- [x] **V12 — Persistent history and durable checkpoints.**
+  A RevisionHistory retains immutable indexed roots directly with no full
+  mesh copies, and records only dirty partition IDs and added/removed
+  stable-ID symmetry pairs per successful Step. Undo/redo restores root,
+  mirrored correspondences, exact vertex/face counts and V9 dirty updates
+  together; a new edit after undo discards its redo branch. History retains
+  at most 64 revision roots and a 32 MiB budget of accumulated COW-cloned
+  vertex/face payload bytes (whichever limit is reached first), keeping
+  the latest root even after an exceptionally large edit. Old evicted
+  roots are passed to V11's bounded retirement thread. This estimate
+  does not measure true process RSS, retained readers or shared tree nodes.
+  Ctrl+Z undoes one geometry-changing Step; Ctrl+Y or Ctrl+Shift+Z redoes.
+  They operate only between strokes and are serialized by the worker
+  command queue, preserving the existing exact 4D sample semantics.
+  A checksummed binary .mshr checkpoint records every live partition and
+  stable vertex/face ID, identity allocator high-water marks, persistent
+  deletion tombstones, the original remeshing reference vertex count,
+  and symmetrical correspondence pairs. Reading a
+  checkpoint rebuilds immutable connectivity, spatial and picking indices
+  once at startup; it validates record limits and rejects truncated,
+  corrupt or unsupported files. Subsequent new IDs cannot collide with
+  deleted, rolled-back or abandoned historical IDs. Background
+  AsyncCheckpointWriter holds an immutable snapshot and writes the entire
+  mesh via a temporary file, flushes, then replaces the destination,
+  coalescing multiple pending save requests to the latest revision.
+  The sculpt worker never walks or serializes the entire mesh on Ctrl+S.
+  --checkpoint FILE names the save target (default mesher-checkpoint.mshr),
+  while --recover FILE resumes the active worker from recovered topology
+  and symmetry rather than generating a new sphere. A failed checkpoint
+  preserves the last complete destination and reports errors in checkpoint
+  diagnostics, not as sculpt worker failure. Previous in-memory history
+  is not serialized: a restarted session begins a fresh bounded history
+  from the checkpoint. On POSIX the checkpoint file and containing
+  directory are synced; Windows calls FlushFileBuffers on the complete
+  temporary file before replacement. Rename durability and sudden-power-loss
+  guarantees remain filesystem/platform specific.
+  The eighteenth CPU suite checks history truncation/branching, stable
+  mirror reversal, checkpoint replacement/corruption/truncation,
+  allocator/tombstone round-trips, asynchronous coalesced writes and
+  recovery of exact ray hits. Extended worker tests cover actual
+  undo/redo, real Ctrl+S-style save, restart and a further 4D Step.
+  GPU presentation and native input shortcuts still warrant device tests.
 
 ### Acceptance and performance constraints
 
@@ -296,8 +334,9 @@ an older revision while the worker edits or publishes a newer one.
   the active sculpt worker; V9 updates Vulkan face partitions locally.
   V10 keeps exact picking on a path-shared local triangle BVH.
   V11 bounds CPU retirement, adds fence-safe GPU retirement and measures
-  live roots, clone payload bytes and publication latency. Durable revision
-  history and checkpoints remain V12.
+  live roots, clone payload bytes and publication latency. V12 adds bounded
+  root history, reversible mirror deltas, asynchronous stable-ID checkpointing
+  and full recovery. Further painting/import/render ergonomics remain open.
 
 ## Other remaining design goals
 

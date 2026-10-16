@@ -1236,3 +1236,88 @@ per-partition draw call volume also still affect huge-model throughput.
 Headless CI checks all CPU paths and compiles Vulkan on three toolchains;
 on-device rapid input, resizing and shutdown must additionally be
 verified with physical GPU drivers.
+
+## V12: Bounded persistent edit history and durable recovery
+
+The active `VersionedSculptBrush` now owns a `RevisionHistory` of complete,
+validated immutable `RegionTopologyIndex` roots. Each geometry-changing
+4D Step adds one entry with its touched render-partition IDs and the
+mirrored stable-ID pairs added or retired by V6/V7. If a midpoint pair
+is both inserted and collapsed during the same Step, its deltas cancel,
+so history represents the actual transition between two published roots,
+not transient topology inside that stamp. Vertex/face counts are stored
+with the entry. Reverting a Step swaps the exact old immutable root back
+through the single-writer CAS, reverses mirror-pair deltas in Inflate,
+refinement and collapse, and sends the existing dirty partition set to
+V9's coalescing mailbox. Redo reapplies the same transition. A new stamp
+after undo deletes the abandoned redo branch and uses the mesh identity
+domain shared with previous branches, ensuring IDs remain monotonic and
+never recycle even for abandoned topology.
+
+History retains at most 64 roots and 32 MiB of cumulative **COW copied
+partition payload estimates**, whichever limit is met first, always
+retaining the current root even when one stamp exceeds the byte budget.
+The counters exclude AVL/BVH node overhead, allocator fragmentation,
+the base mesh and snapshots held by independent reader threads; thus
+the limit is on retained history *deltas*, not a hard process RSS cap.
+Evicted roots are passed to V11's bounded retirement thread instead of
+being destructed on the viewport thread. `HistoryStatistics` exposes
+root count, estimated payload bytes, undo/redo depth and abandoned
+entries. The existing `BrushStroke` sampler and mouse input queue
+are unchanged; new undo/redo commands are processed by the same
+asynchronous worker **between strokes**, never partway through a Step.
+Ctrl+Z and Ctrl+Y (or Ctrl+Shift+Z) are bound to these commands in the
+interactive viewport. This implementation undoes one geometry-changing
+Step at a time, not an entire mouse stroke as one unit.
+
+The `DurableCheckpoint` format is an explicitly versioned, checksummed,
+little-endian binary serialization of every live partition, vertex
+position and stable ID, triangle ID and vertex references, persistent
+deleted-ID tombstones, stable-ID allocator watermarks (including
+aborted/rolled-back allocations and high-range overflow partition
+numbers), the original mesh density used by split/collapse thresholds,
+and current mirror-pair correspondences. Loading reconstructs
+the original sparse partition directory with the same live IDs, then
+builds the versioned adjacency/spatial/picking indices once on the
+loaded geometry. It validates counts, uniqueness, finite coordinates,
+face references, mirror mappings, checksum and trailing bytes before
+returning the recovered index. Fresh allocations after reload start
+above the restored high-water marks, not above only the maximum
+currently living ID.
+
+`AsyncCheckpointWriter` accepts immutable snapshot handles with a
+destination path. Its single background thread serializes the
+full graph while local brush edits proceed; new requests coalesce the
+single pending request to the latest revision. References to superseded
+requests are handed to a separate bounded retirement queue. The writer
+flushes to `<destination>.tmp` and atomically renames the completed
+checkpoint over the previous one, so a failed partial write never
+becomes the advertised checkpoint. POSIX builds fsync the completed
+file and containing directory; Windows builds also call
+FlushFileBuffers on the completed temporary file before rename.
+Directory-entry durability and sudden-power-loss guarantees remain
+filesystem/platform dependent. A checkpoint always represents a complete
+immutable revision regardless of edits or cursor movement occurring
+concurrently during the save. A failed write increments an observable
+error counter without terminating or blocking the sculpt worker.
+
+`--checkpoint FILE` chooses where Ctrl+S writes (default
+`mesher-checkpoint.mshr` in the working directory).
+`--recover FILE` loads that file at startup, bypasses fresh sphere
+generation, configures symmetry from the recovered correspondences
+and creates a new active versioned worker on the existing stable-ID
+geometry. `--recover` is supported in interactive Inflate mode, not
+the separate legacy benchmark/demo paths. Recovery intentionally starts
+a new bounded in-memory edit history at the checkpoint: the prior
+undo/redo stack is **not** part of the on-disk format. That distinction
+keeps routine checkpoint size proportional to one current model rather
+than all historic versions and makes V11 garbage collection practical.
+
+The eighteenth CPU suite covers bounded history, restoration/branching,
+symmetry deltas, corrupt and truncated files, full tombstone/identity
+round-trip, exact recovered ray picking, atomic replacement and
+background write coalescing. The async tests additionally verify a
+genuine worker undo/redo followed by a checkpoint and a resumed stamp.
+These tests do not constitute an on-device Vulkan validation of
+keyboard shortcuts, crashes during rename or power-loss survival;
+those require real OS/GPU exercise and should be explicitly tested.

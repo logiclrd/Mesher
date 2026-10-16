@@ -19,6 +19,17 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
         return t;
      }(timeSpeed)),symmetric_(symmetric),
      worker_([this](std::stop_token token){run(token);}) {}
+AsyncSculptWorker::AsyncSculptWorker(
+    DurableCheckpoint recovered,double step,double strength,double timeSpeed,
+    CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine)
+    :brush_(std::make_unique<VersionedSculptBrush>(
+         recovered,strength,curvature,collapse,refine)),
+     stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
+        if(!std::isfinite(t)||t<=0)
+            throw std::invalid_argument("Sculpt time speed must be positive");
+        return t;
+     }(timeSpeed)),symmetric_(!recovered.mirrorPairs.empty()),
+     worker_([this](std::stop_token token){run(token);}) {}
 AsyncSculptWorker::~AsyncSculptWorker() {
     worker_.request_stop();
     ready_.notify_all();
@@ -49,10 +60,29 @@ void AsyncSculptWorker::end(Vec3 point,double elapsedSeconds) {
 void AsyncSculptWorker::setRadius(double radius) {
     enqueue({Kind::Radius,{},0,radius});
 }
+void AsyncSculptWorker::undo() {
+    if(!reserved_.load())enqueue({Kind::Undo});
+}
+void AsyncSculptWorker::redo() {
+    if(!reserved_.load())enqueue({Kind::Redo});
+}
+void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
+    if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
+    Command command{Kind::Checkpoint};
+    command.checkpointPath=std::move(path);
+    enqueue(std::move(command));
+}
 AsyncSculptWorker::Status AsyncSculptWorker::status() const {
-    std::lock_guard guard(statusMutex_);
-    if(error_)std::rethrow_exception(error_);
-    return status_;
+    Status current;
+    {
+        std::lock_guard guard(statusMutex_);
+        if(error_)std::rethrow_exception(error_);
+        current=status_;
+    }
+    // Disk I/O finishes independently of worker stamps; do not leave save
+    // completion/error reporting frozen until the next mouse event.
+    current.checkpoints=checkpoints_.statistics();
+    return current;
 }
 std::optional<AsyncSculptWorker::Snapshot> AsyncSculptWorker::takeSnapshot() {
     // Only shared immutable roots are exchanged. No geometry copy is made
@@ -75,6 +105,8 @@ void AsyncSculptWorker::refreshStatus() {
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
     s.clonedPartitionBytes=brush_->clonedPartitionBytes();
+    s.history=brush_->historyStatistics();
+    s.checkpoints=checkpoints_.statistics();
     s.liveRevisions=RegionTopologyIndex::liveRevisionCount();
     s.peakLiveRevisions=RegionTopologyIndex::peakLiveRevisionCount();
     {
@@ -162,6 +194,23 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     break;
                 case Kind::Radius:
                     if(stroke_.active())stroke_.setRadius(command->radius);
+                    break;
+                case Kind::Undo:
+                case Kind::Redo:
+                    if(!stroke_.active()&&stroke_.pendingSamples()==0) {
+                        const bool restored=command->kind==Kind::Undo?
+                            brush_->undo():brush_->redo();
+                        if(restored) {
+                            const auto& dirty=brush_->lastDirtyPartitions();
+                            unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                      dirty.begin(),dirty.end());
+                            changed=true;
+                        }
+                    }
+                    break;
+                case Kind::Checkpoint:
+                    checkpoints_.request(command->checkpointPath,
+                                         brush_->checkpoint());
                     break;
                 }
             }

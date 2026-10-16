@@ -44,6 +44,9 @@ struct ViewportInteraction {
     // each later frame only refreshes its coalesced dirty partition IDs.
     std::shared_ptr<const RegionTopologyIndex> initialRevision;
     std::function<bool()> canBegin;
+    std::function<void()> undo;
+    std::function<void()> redo;
+    std::function<void()> checkpoint;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;
     std::function<std::size_t()> inputCommands;

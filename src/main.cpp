@@ -3,8 +3,11 @@
 #include "mesher/brush_radius.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
+#include "mesher/durable_checkpoint.hpp"
 
 #include <array>
+#include <filesystem>
+#include <optional>
 #include <charconv>
 #include <iostream>
 #include <cstdlib>
@@ -26,6 +29,8 @@ int main(int argc, char** argv) {
     mesher::CurvatureSettings curvatureSettings;
     mesher::RefineSettings refineSettings;
     bool compareLocalRemesh = false;
+    std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
+    std::filesystem::path recoverPath;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
@@ -40,6 +45,11 @@ int main(int argc, char** argv) {
             else if(arg=="--no-inflate") inflate=false;
             else if(arg=="--demo") demoMode=true;
             else if(arg=="--verbose-input") verboseInput=true;
+            else if(arg=="--checkpoint"||arg=="--recover") {
+                if(++i>=argc)throw std::invalid_argument("Missing checkpoint filename");
+                if(arg=="--checkpoint")checkpointPath=argv[i];
+                else recoverPath=argv[i];
+            }
             else if(arg=="--step" || arg=="--strength" || arg=="--brush-radius" || arg=="--stamps-per-second" || arg=="--minimum-edge-ratio" || arg=="--curvature-strength" || arg=="--maximum-edge-ratio" || arg=="--time-speed") {
                 if(++i>=argc) throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string value=argv[i];
@@ -120,6 +130,7 @@ int main(int argc, char** argv) {
                          <<"       [--max-split-pairs N] [--max-flip-pairs N]\\n"
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
+                         <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -130,18 +141,37 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
-        std::cout<<"Generating "<<options.vertexCount
-                 <<(options.symmetric?" symmetric":" asymmetric")
-                 <<" vertices..."<<std::flush;
-        mesher::SphereGenerationTimings generation{};
-        auto mesh=mesher::generateSphere(options,&generation);
-        std::cout<<" "<<mesh.triangles.size()
-                 <<" triangles; watertight manifold verified.\n"
-                 <<std::fixed<<std::setprecision(3)
-                 <<"Sphere timing: relaxation "<<generation.relaxationSeconds
-                 <<" s; hull "<<generation.triangulationSeconds
-                 <<" s; validation "<<generation.validationSeconds
-                 <<" s; total "<<generation.totalSeconds<<" s\n";
+        mesher::Mesh mesh;
+        std::optional<mesher::DurableCheckpoint> recovered;
+        if(!recoverPath.empty()) {
+            if(demoMode||compareLocalRemesh||compareRemesh||
+               compareMitigations||!inflate)
+                throw std::invalid_argument(
+                    "--recover requires interactive Inflate mode");
+            recovered=mesher::readCheckpoint(recoverPath);
+            mesh=mesher::flattenRevisionForViewport(
+                *recovered->index,mesher::FlatMeshIndex{});
+            if(mesh.vertices.empty())throw std::runtime_error("Empty checkpoint mesh");
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            options.symmetric=!recovered->mirrorPairs.empty();
+            std::cout<<"Recovered "<<mesh.vertices.size()<<" vertices, "
+                     <<mesh.triangles.size()<<" faces, "
+                     <<recovered->index->retiredVertexCount()
+                     <<" retired vertices from "<<recoverPath.string()<<"\n";
+        }else {
+            std::cout<<"Generating "<<options.vertexCount
+                     <<(options.symmetric?" symmetric":" asymmetric")
+                     <<" vertices..."<<std::flush;
+            mesher::SphereGenerationTimings generation{};
+            mesh=mesher::generateSphere(options,&generation);
+            std::cout<<" "<<mesh.triangles.size()
+                     <<" triangles; watertight manifold verified.\n"
+                     <<std::fixed<<std::setprecision(3)
+                     <<"Sphere timing: relaxation "<<generation.relaxationSeconds
+                     <<" s; hull "<<generation.triangulationSeconds
+                     <<" s; validation "<<generation.validationSeconds
+                     <<" s; total "<<generation.totalSeconds<<" s\n";
+        }
         if(compareLocalRemesh) {
             struct Variant {const char* name;bool refine;bool flips;bool collapse;};
             constexpr std::array<Variant,5> modes{{
@@ -249,9 +279,20 @@ int main(int argc, char** argv) {
             // The worker publishes immutable geometry/index pairs and dirty
             // face-owner partition IDs. The Vulkan renderer updates only
             // changed partitions; no flat compatibility conversion remains.
-            liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
-                mesh,step,strength,timeSpeed,curvatureSettings,
-                collapseSettings,refineSettings,options.symmetric);
+            if(recovered)
+                liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    std::move(*recovered),step,strength,timeSpeed,
+                    curvatureSettings,collapseSettings,refineSettings);
+            else
+                liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    mesh,step,strength,timeSpeed,curvatureSettings,
+                    collapseSettings,refineSettings,options.symmetric);
+            interaction.undo=[&]{liveWorker->undo();};
+            interaction.redo=[&]{liveWorker->redo();};
+            interaction.checkpoint=[&]{
+                liveWorker->saveCheckpoint(checkpointPath);
+                std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
+            };
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
             interaction.verboseInput=verboseInput;
@@ -316,6 +357,12 @@ int main(int argc, char** argv) {
                    <<" live_revisions="<<status.liveRevisions
                    <<" peak_live_revisions="<<status.peakLiveRevisions
                    <<" worker_publication_ms="<<status.lastPublicationMs
+                   <<" undo_depth="<<status.history.undoDepth
+                   <<" redo_depth="<<status.history.redoDepth
+                   <<" history_roots="<<status.history.retainedRevisions
+                   <<" history_change_bytes="<<status.history.retainedChangeBytes
+                   <<" checkpoints_saved="<<status.checkpoints.completed
+                   <<" checkpoint_failures="<<status.checkpoints.failed
                    <<" renderer=dirty_partitions";
                 return os.str();
             };
@@ -333,7 +380,9 @@ int main(int argc, char** argv) {
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
-                     <<"Vulkan refreshes only dirty face partitions.\n";
+                     <<"Vulkan refreshes only dirty face partitions.\n"
+                     <<"Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo, Ctrl+S "
+                     <<"background checkpoint to "<<checkpointPath.string()<<".\n";
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";
