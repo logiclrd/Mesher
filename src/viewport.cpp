@@ -549,7 +549,7 @@ class VulkanViewport {
         // them. Present and resize use the existing device-idle handling.
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
               "Wait before retiring dirty Vulkan partition buffers");
-        const auto stats=partitionCache_.advance(next,dirty);
+        const auto stats=partitionCache_.advance(next,dirty,&retiredRevisions_);
         std::set<PartitionId> unique(dirty.begin(),dirty.end());
         for(const auto id:unique) {
             const auto found=partitionCache_.partitions().find(id);
