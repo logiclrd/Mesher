@@ -755,8 +755,62 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     for(const auto i:caps) {
         if(completedCaps.contains(i))continue;
         const auto j=ringMirror[i];
-        if(j==i||!caps.contains(j))
-            throw std::logic_error("Unsupported self-reflected or unpaired cap ring");
+        if(!caps.contains(j))
+            throw std::logic_error("A mirrored cap ring has no matching cap choice");
+        if(j==i) {
+            // A self-reflected disk must not be independently filled and
+            // mirrored: that duplicates coincident faces. Partition its
+            // boundary into the positive-X and negative-X arcs between
+            // EXACTLY TWO existing X=0 seam vertices, and triangulate
+            // only the positive arc against the common seam chord. Its
+            // reflected triangles share that single chord and use no
+            // duplicate seam vertices.
+            const auto& ring=loops[i].ids;
+            std::vector<std::size_t> seamIndices;
+            for(std::size_t k=0;k<ring.size();++k)
+                if(pos.at(ring[k]).x==0)seamIndices.push_back(k);
+            if(seamIndices.size()!=2)
+                throw std::logic_error(
+                    "Self-mirrored cap requires exactly two existing seam vertices");
+            std::vector<VertexId> positive;
+            const auto trace=[&](std::size_t from,std::size_t to) {
+                std::vector<VertexId> arc;
+                for(std::size_t k=from;;k=(k+1)%ring.size()) {
+                    arc.push_back(ring[k]);
+                    if(k==to)break;
+                }
+                return arc;
+            };
+            for(const auto candidate:{
+                trace(seamIndices[0],seamIndices[1]),
+                trace(seamIndices[1],seamIndices[0])}) {
+                bool side=true;
+                for(std::size_t k=1;k+1<candidate.size();++k)
+                    if(pos.at(candidate[k]).x<=0)side=false;
+                if(side&&candidate.size()>=3) {
+                    if(!positive.empty())
+                        throw std::logic_error("Self-reflected cap has ambiguous sides");
+                    positive=candidate;
+                }
+            }
+            if(positive.empty())
+                throw std::logic_error(
+                    "Self-reflected cap lacks a contiguous positive-X boundary arc");
+            // Verify the opposite original arc is the SAME reflected
+            // polygon, not a coincident-but-unrelated component.
+            std::set<VertexId> expected;
+            for(const auto id:positive)expected.insert(opposite(id));
+            const std::set<VertexId> actual(ring.begin(),ring.end());
+            for(const auto id:expected)
+                if(!actual.contains(id))
+                    throw std::logic_error("Self-reflected cap arc is not paired");
+            const LocalLoop half{positive,loops[i].target};
+            const auto triangles=capTriangles(half,pos,settings);
+            for(const auto& face:triangles)
+                append(owner(i),owner(i),face,true);
+            completedCaps.insert(i);
+            continue;
+        }
         const auto triangles=capTriangles(loops[i],pos,settings);
         for(const auto& face:triangles)
             append(owner(i),owner(j),face,true);
