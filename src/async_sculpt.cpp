@@ -92,9 +92,20 @@ void AsyncSculptWorker::publish(bool force) {
     if(!force && lastPublish_.time_since_epoch().count()!=0 &&
        now-lastPublish_<std::chrono::milliseconds(8))return;
     Snapshot snapshot{brush_->snapshot(),brush_->originalOrder(),
-                      brush_->completedStamps()};
+                      brush_->completedStamps(),std::move(unpublishedDirty_)};
+    unpublishedDirty_.clear();
     {
         std::lock_guard guard(snapshotMutex_);
+        // A frame can coalesce multiple published revisions; union the dirty
+        // IDs until a consumer has actually taken the previous snapshot.
+        if(latest_) {
+            auto& combined=snapshot.dirtyPartitions;
+            combined.insert(combined.end(),latest_->dirtyPartitions.begin(),
+                            latest_->dirtyPartitions.end());
+        }
+        auto& all=snapshot.dirtyPartitions;
+        std::sort(all.begin(),all.end());
+        all.erase(std::unique(all.begin(),all.end()),all.end());
         latest_=std::move(snapshot);
     }
     lastPublish_=now;
