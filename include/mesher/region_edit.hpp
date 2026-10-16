@@ -267,6 +267,16 @@ public:
     std::pair<FaceId,FaceId> appendMirroredFaces(
         PartitionId firstOwner,PartitionId secondOwner,
         std::array<VertexId,3> firstTriangle);
+    // A face whose oriented vertex cycle maps to ITSELF under X
+    // reflection cannot be edited as two pre-existing face IDs.
+    // If its directed edge (from,to) joins a reflected vertex pair
+    // and its third vertex lies on X=0, split that edge at an already
+    // allocated self-mirrored seam midpoint, retaining the original
+    // FaceId for the first triangle and adding exactly ONE reflected
+    // partner face. This does not publish or independently repair an
+    // entire edge; all incident faces must be split in one transaction.
+    std::pair<FaceId,FaceId> splitSelfMirroredFace(
+        FaceId face,VertexId from,VertexId to,VertexId midpoint);
     void removeMirroredFaces(FaceId first,FaceId second);
     void removeMirroredVertices(VertexId first,VertexId second);
     VertexId mirroredVertex(VertexId vertex) const;
