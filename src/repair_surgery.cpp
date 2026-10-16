@@ -1017,4 +1017,79 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     validateSurgeryGeometry(*baseline,checked,selected,settings,out);
     return out;
 }
+
+PlaneCrossingNormalization normalizeSelfMirroredPlaneEdge(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    VertexId first,VertexId second,
+    const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
+    std::size_t partitionCapacity) {
+    if(!baseline||first==second||vertexMirrors.empty()||
+       partitionCapacity==0)
+        throw std::invalid_argument("Plane-edge normalization requires a symmetric snapshot");
+    const auto a=baseline->vertex(first).position;
+    const auto b=baseline->vertex(second).position;
+    if(!finite(a)||!finite(b)||a.x==0||a.x!=-b.x||
+       a.y!=b.y||a.z!=b.z)
+        throw std::logic_error("Normalization edge must cross X=0 between reflected vertices");
+    std::unordered_map<VertexId,VertexId> mapping;
+    for(const auto& [u,v]:vertexMirrors) {
+        const auto [it,inserted]=mapping.emplace(u,v);
+        if(!inserted&&it->second!=v)
+            throw std::logic_error("Conflicting normalization mirror mapping");
+        const auto [other,added]=mapping.emplace(v,u);
+        if(!added&&other->second!=u)
+            throw std::logic_error("Non-involutive normalization mirror mapping");
+    }
+    if(mapping.find(first)==mapping.end()||mapping.at(first)!=second)
+        throw std::logic_error("Crossing edge endpoints are not reflected partners");
+    const auto edge=RegionTopologyIndex::Edge{
+        std::min(first,second),std::max(first,second)};
+    const auto sides=baseline->maybeEdgeSides(edge);
+    if(!sides||sides->size()!=2||sides->at(0).forward==
+                                      sides->at(1).forward)
+        throw std::logic_error("Crossing normalization needs one closed manifold edge");
+    // Only a self-reflected incident triangle is currently safe to
+    // divide without introducing two coincident half-sheets. Both
+    // incident faces must be accounted for in ONE immutable transaction.
+    for(const auto& side:*sides) {
+        const auto face=baseline->face(side.face).vertices;
+        VertexId third=0;
+        bool found=false;
+        for(const auto v:face)
+            if(v!=first&&v!=second) {
+                third=v;found=true;break;
+            }
+        if(!found||mapping.find(third)==mapping.end()||
+           mapping.at(third)!=third||
+           baseline->vertex(third).position.x!=0)
+            throw std::logic_error("Crossing face must have one reflected seam apex");
+    }
+    RegionEdit edit(baseline,{first,second},vertexMirrors,
+                    partitionCapacity);
+    PlaneCrossingNormalization out;
+    out.seamVertex=edit.appendSeamVertex(
+        baseline->vertex(first).owner,{0,a.y,a.z});
+    for(std::size_t i=0;i<2;++i) {
+        const auto original=sides->at(i).face;
+        const auto vertices=baseline->face(original).vertices;
+        bool forwards=false;
+        for(unsigned k=0;k<3;++k)
+            if(vertices[k]==first&&vertices[(k+1)%3]==second)
+                forwards=true;
+        const auto result=forwards?
+            edit.splitSelfMirroredFace(original,first,second,out.seamVertex):
+            edit.splitSelfMirroredFace(original,second,first,out.seamVertex);
+        out.preservedFaces[i]=result.first;
+        out.insertedFaces[i]=result.second;
+    }
+    out.commit=edit.commit();
+    out.index=edit.updatedIndex();
+    if(!out.index)
+        throw std::logic_error("Plane crossing normalization has no private indexed revision");
+    if(!out.index->triangleIntersections({},
+            {out.preservedFaces[0],out.preservedFaces[1],
+             out.insertedFaces[0],out.insertedFaces[1]}).empty())
+        throw std::logic_error("Normalized plane crossing creates a triangle collision");
+    return out;
+}
 } // namespace mesher

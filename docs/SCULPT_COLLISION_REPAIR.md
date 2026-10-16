@@ -352,3 +352,30 @@ ring with a nonzero seam count other than two is refused.
 A conforming split of cross-plane edges and more complex multi-
 contact contour decomposition remains **future V16c2b** work,
 not something silently approximated by mirroring a duplicate sheet.
+
+## V16c2b1: Atomic self-reflected crossing-edge canonicalization
+
+Conforming X=0 boundaries sometimes require splitting *self-reflected*
+triangles, not only reflected pairs of distinct old face IDs. A
+self-reflected triangle has a crossing edge between opposite-X
+mirror partners and a third vertex fixed in X=0. Dividing the
+crossing edge at its exact plane intersection yields one shared
+self-mirrored midpoint ID. The old face ID becomes the first half;
+the second half receives a new ID, and the two halves are now
+ordinary reflection partners with reversed winding.
+
+The standalone `normalizeSelfMirroredPlaneEdge` operation normalizes
+both incident self-reflected faces atomically, so the midpoint is
+shared by four triangles and no T-junction remains. It validates
+the modified immutable revision against the full collision BVH and
+returns it WITHOUT publishing it. Invalid mapping, mismatched edge
+or incomplete geometry refuses normalization. A symmetric tetrahedron
+regression checks oriented manifoldness, historical old-root
+stability and explicit repository CAS publication.
+
+The V16c2a fail-closed boundary guard stays active in mirrored
+cap/zipper surgery. A future V16c2b2 step must normalize all
+eligible crossing edges and RE-PLAN the removal set after the
+new face IDs and contour topology change. More than two seam
+contacts additionally requires noncrossing decomposition; it
+cannot be inferred from evenness of the number of contacts alone.

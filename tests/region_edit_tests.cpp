@@ -225,6 +225,70 @@ void testMirroredTopologyInsertionAndSharedSeam() {
     }
 }
 
+void testSelfReflectedFaceCrossingEdge() {
+    // A closed orientable tetrahedron symmetric under X reflection.
+    // Its edge +X--X is itself reflected. The two incident triangles
+    // are individually self-reflected, not distinct mirrored face IDs.
+    Mesh tetra;
+    tetra.vertices={{1,0,0},{-1,0,0},{0,1,0},{0,0,1}};
+    tetra.triangles={{0,1,2},{1,0,3},{0,2,3},{1,3,2}};
+    const auto imp=partitionFlatMesh(tetra,1);
+    const auto index=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const auto& f=imp.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirrors={
+        {v[0],v[1]},{v[2],v[2]},{v[3],v[3]}};
+    const auto root=index->pickingRootIdentity();
+    {
+        RegionEdit edit(index,{v[0],v[1]},mirrors,1);
+        const auto seam=edit.appendSeamVertex(index->vertex(v[0]).owner,
+                                               {0,0,0});
+        const auto first=edit.splitSelfMirroredFace(f[0],v[0],v[1],seam);
+        const auto second=edit.splitSelfMirroredFace(f[1],v[1],v[0],seam);
+        require(first.first==f[0]&&second.first==f[1]&&
+                first.second!=second.second,
+                "Both old self-mirrored face IDs survive and gain independent partners");
+        require(edit.mirroredVertex(seam)==seam,
+                "Crossing creates one self-mirrored X=0 midpoint");
+        (void)edit.commit();
+        const auto result=edit.updatedIndex();
+        require(result&&result->vertex(seam).position.x==0&&
+                result->vertex(seam).incidentFaces.size()==4,
+                "Conforming split creates one manifold four-triangle seam fan");
+        require(result->vertex(v[0]).incidentFaces.size()==3&&
+                result->vertex(v[1]).incidentFaces.size()==3,
+                "Both off-plane vertices retain cyclic one-rings");
+        require(result->triangleIntersections(
+            {},{f[0],f[1],first.second,second.second}).empty(),
+            "Conforming X=0 split creates no accidental intersections");
+        require(result->retiredFaceCount()==0&&
+                index->retiredFaceCount()==0&&
+                index->pickingRootIdentity()==root,
+                "Pure crossing normalization has no tombstones or old-root mutation");
+    }
+    {
+        RegionEdit half(index,{v[0],v[1]},mirrors,1);
+        const auto seam=half.appendSeamVertex(
+            index->vertex(v[0]).owner,{0,0,0});
+        (void)half.splitSelfMirroredFace(f[0],v[0],v[1],seam);
+        rejected([&] {(void)half.commit();},
+                 "Splitting only one face along a self-reflected crossing edge is nonmanifold");
+        require(index->pickingRootIdentity()==root,
+                "Failed one-sided normalization cannot publish partial topology");
+    }
+    {
+        RegionEdit invalid(index,{v[0],v[1]},mirrors,1);
+        const auto wrong=invalid.appendSeamVertex(
+            index->vertex(v[0]).owner,{0,.1,0});
+        rejected([&] {
+            (void)invalid.splitSelfMirroredFace(f[0],v[0],v[1],wrong);
+        },"An approximate or displaced shared seam midpoint is not accepted");
+        // A rejected precondition must not make the old revision publish.
+        require(index->retiredFaceCount()==0&&
+                index->pickingRootIdentity()==root,
+                "Malformed attempted normalization leaves the original revision intact");
+    }
+}
 void testMirrorAndSeam() {
     const auto imported=partitionFlatMesh(octahedron(),1);
     auto index=RegionTopologyIndex::build(imported.revision);
@@ -271,6 +335,7 @@ int main() {
         run("local subdivision",testLocalTriangleSubdivision);
         run("mirror and seam",testMirrorAndSeam);
         run("mirrored insertion and shared seam",testMirroredTopologyInsertionAndSharedSeam);
+        run("self-reflected crossing-edge split",testSelfReflectedFaceCrossingEdge);
         std::cout<<"Region edit transaction tests passed\n";
     }catch(const std::exception& ex) {
         std::cerr<<"Region edit transaction failure: "<<ex.what()<<'\n';
