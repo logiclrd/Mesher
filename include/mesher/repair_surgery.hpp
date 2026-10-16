@@ -29,6 +29,12 @@ struct RepairSurgerySettings {
     // Every new scar point must remain near the actually excised geometry
     // at the local ORIGINAL contour resolution, not the brush radius.
     double maximumSurfaceDeviationInEdges=2.5;
+    // Optional reverse-distance guard for EXPOSED surfaces known to be
+    // preserved by the operation. Do not enable blindly for buried red
+    // faces: intentionally discarded internal material has no geometric
+    // counterpart and a two-sided Hausdorff condition is inappropriate.
+    bool requireReverseSurfaceFidelity=false;
+    double maximumReverseDeviationInEdges=2.5;
     // Limit post-commit residual checks to an explicitly bounded local
     // neighborhood. Over-budget validation rejects the private revision.
     std::size_t maxResidualFaces=4096;
@@ -44,6 +50,7 @@ struct RepairSurgeryResult {
     std::size_t capFaces{},zipperFaces{};
     std::size_t verifiedLocalFaces{};
     double maximumSurfaceDeviationInEdges{};
+    double maximumReverseDeviationInEdges{};
 };
 
 // Throws before returning a result if any topology or candidate geometry
