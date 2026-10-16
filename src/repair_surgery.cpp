@@ -1,5 +1,6 @@
 #include "mesher/repair_surgery.hpp"
 #include "repair_surgery_detail.hpp"
+#include "repair_plane_internal.hpp"
 
 #include <algorithm>
 #include <array>
@@ -642,6 +643,29 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     }
     std::unordered_map<VertexId,Vec3> pos;
     for(const auto id:selected)pos.emplace(id,baseline->vertex(id).position);
+    // The symmetry plane must be an actual topological seam. Never
+    // duplicate an edge that crosses it with no shared X=0 vertex.
+    // Perform this fail-closed test before adding ANY repair vertices.
+    for(const auto& contour:checked.contours) {
+        std::vector<Vec3> points;
+        points.reserve(contour.vertexIds.size());
+        for(const auto id:contour.vertexIds)
+            points.push_back(pos.at(id));
+        const auto report=detail::inspectPlaneContour(
+            points,medianEdge(*baseline,contour));
+        if(report.crossingEdges)
+            throw std::logic_error(
+                "Mirrored boundary crosses X=0 without a shared seam vertex");
+        if(report.onPlaneEdges)
+            throw std::logic_error(
+                "Mirrored boundary edge lies along an unclassified X=0 seam");
+        if(report.nearlyOnPlaneVertices)
+            throw std::logic_error(
+                "Mirrored boundary is nearly on X=0 without exact seam identity");
+        if(report.seamVertices!=0&&report.seamVertices!=2)
+            throw std::logic_error(
+                "Mirrored boundary requires exactly two X=0 contacts or none");
+    }
     // Refine the ORIGINAL contour edges in mirrored pairs, including
     // their adjacent retained faces, before triangulating either closure.
     // Directed additions are recorded for BOTH reflected ring traversals.
