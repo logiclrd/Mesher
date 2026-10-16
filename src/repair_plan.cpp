@@ -44,6 +44,11 @@ bool finiteSettings(const RepairPlanSettings& settings) {
            settings.maximumPlanarityInRadii>=0&&
            std::isfinite(settings.maximumIsoperimetricRatio)&&
            settings.maximumIsoperimetricRatio>=1&&
+           std::isfinite(settings.maximumSingleCapPlanarityInRadii)&&
+           settings.maximumSingleCapPlanarityInRadii>=settings.maximumPlanarityInRadii&&
+           std::isfinite(settings.maximumSingleCapIsoperimetricRatio)&&
+           settings.maximumSingleCapIsoperimetricRatio>=
+               settings.maximumIsoperimetricRatio&&
            std::isfinite(settings.minimumNormalAlignment)&&
            settings.minimumNormalAlignment>=0&&
            settings.minimumNormalAlignment<=1;
