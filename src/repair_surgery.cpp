@@ -251,6 +251,9 @@ void validateSurgeryGeometry(
     RepairSurgeryResult& out) {
     if(!std::isfinite(settings.maximumSurfaceDeviationInEdges)||
        settings.maximumSurfaceDeviationInEdges<=0||
+       (settings.requireReverseSurfaceFidelity&&
+        (!std::isfinite(settings.maximumReverseDeviationInEdges)||
+         settings.maximumReverseDeviationInEdges<=0))||
        settings.maxResidualFaces==0)
         throw std::invalid_argument("Invalid residual collision/deviation budgets");
     if(!out.index)
@@ -287,7 +290,12 @@ void validateSurgeryGeometry(
             (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
     }
 
-    if(out.insertedFaces.empty())return;
+    if(out.insertedFaces.empty()) {
+        if(settings.requireReverseSurfaceFidelity)
+            throw std::logic_error(
+                "Reverse surface fidelity cannot retain a wholly discarded shell");
+        return;
+    }
     double h=std::numeric_limits<double>::infinity();
     for(const auto& contour:plan.contours)
         h=std::min(h,medianEdge(baseline,contour));
@@ -320,6 +328,39 @@ void validateSurgeryGeometry(
             if(out.maximumSurfaceDeviationInEdges>
                settings.maximumSurfaceDeviationInEdges)
                 throw std::logic_error("Repair exceeds local surface deviation budget");
+        }
+    }
+    if(settings.requireReverseSurfaceFidelity) {
+        // Reverse sample distance measures deleted feature-bearing surface
+        // to the constructed scar or retained neighborhood. It must only
+        // be used when preservation of the removed surface is the stated
+        // intent: intentionally buried red fragments should be discarded.
+        std::vector<std::array<Vec3,3>> repairedTriangles;
+        repairedTriangles.reserve(verify.size());
+        for(const auto id:verify) {
+            const auto face=out.index->face(id).vertices;
+            repairedTriangles.push_back({
+                out.index->vertex(face[0]).position,
+                out.index->vertex(face[1]).position,
+                out.index->vertex(face[2]).position});
+        }
+        for(const auto& original:removedTriangles) {
+            const auto& a=original[0],&b=original[1],&d=original[2];
+            for(const auto p:std::array<Vec3,4>{a,b,d,(a+b+d)/3}) {
+                double closest=std::numeric_limits<double>::infinity();
+                for(const auto& current:repairedTriangles)
+                    closest=std::min(closest,pointTriangleDistanceSquared(
+                        p,current[0],current[1],current[2]));
+                if(!std::isfinite(closest))
+                    throw std::logic_error("Invalid reverse surface measurement");
+                out.maximumReverseDeviationInEdges=std::max(
+                    out.maximumReverseDeviationInEdges,
+                    std::sqrt(std::max(0.0,closest))/h);
+                if(out.maximumReverseDeviationInEdges>
+                   settings.maximumReverseDeviationInEdges)
+                    throw std::logic_error(
+                        "Repair exceeds reverse surface fidelity budget");
+            }
         }
     }
 }
