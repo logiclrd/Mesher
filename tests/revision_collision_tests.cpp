@@ -49,6 +49,18 @@ void testNarrowPhase() {
     check(contact({{{0,0,0},{0,0,1},{-1,0,1}}},{1,4,5})==
           TriangleContact::ExpectedAdjacency,
           "Noncoplanar shared vertex without penetration is legitimate");
+    // Regression from two correctly sewn cube walls. Their new scar
+    // triangle meets the old horizontal face only at a real shared
+    // vertex; the other scar edge is coplanar with the horizontal
+    // face yet projects entirely OUTSIDE it. Tolerance-expanded edge
+    // clipping used to invent an infinitesimal positive-length overlap.
+    const double xLeft=-1.1+1,xRight=1.1-1;
+    check(triangleContact(
+        Points{{{-2.1,-1,-1},{xLeft,1,-1},{xLeft,-1,-1}}},
+        Ids{1,6,2},
+        Points{{{xLeft,-1,-1},{xRight,1,1},{xRight,1,-1}}},
+        Ids{2,15,7})==TriangleContact::ExpectedAdjacency,
+        "No phantom coplanar edge penetration at a shared scar vertex");
     check(contact({{{0,0,0},{.4,.4,1},{.4,.4,-1}}},{1,4,5})==
           TriangleContact::Intersecting,
           "Shared vertex does not mask a crossing farther from that vertex");

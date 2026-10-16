@@ -122,7 +122,12 @@ bool penetratesBeyondSharedVertex(
                 for(unsigned edgeIndex=0;edgeIndex<3;++edgeIndex) {
                     const auto origin=to[edgeIndex];
                     const auto edge=to[(edgeIndex+1)%3]-origin;
-                    const auto limit=-epsilon*length(edge)*length(normal);
+                    // Clip coplanar edges to the exact supporting
+                    // halfplane. Expanding all three triangle edges by
+                    // epsilon fabricates a positive-length intersection
+                    // near a lawful shared vertex (even when the only
+                    // mathematical contact is that vertex).
+                    const double limit=0;
                     const auto start=dot(cross(edge,p-origin),normal);
                     const auto finish=dot(cross(edge,q-origin),normal);
                     if(start<limit&&finish<limit) {high=-1;break;}
@@ -133,8 +138,8 @@ bool penetratesBeyondSharedVertex(
                     }
                     if(low>high)break;
                 }
-                if(high>low&&length(q-p)*(high-low)>epsilon&&
-                   length(p+(q-p)*((low+high)/2)-shared)>epsilon)
+                if(high>low&&length(q-p)*(high-low)>8*epsilon&&
+                   length(p+(q-p)*((low+high)/2)-shared)>8*epsilon)
                     return true;
                 continue;
             }

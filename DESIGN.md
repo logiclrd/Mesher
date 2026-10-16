@@ -1478,3 +1478,41 @@ orientation, intersection, error-budget, stable-ID, symmetry and
 manifold validation. A repaired torus handle must undergo Euler
 characteristic genus 1 -> genus 0; a wide noncolliding tunnel is not
 removed just for being narrow. Real brush integration remains V17.
+
+## V16a: Private topology surgery, with full V16 still open
+
+`include/mesher/repair_surgery.hpp` and `src/repair_surgery.cpp`
+implement bounded read-only-plan consumption and private geometry
+publication preparation. Surgery reconstructs and compares the V15.1
+closure selection against the SAME immutable indexed revision, opens
+RegionEdit from the surviving/removal face halo, retires selected
+faces, divides exceptionally long boundary edges while ALSO
+retriangulating their surviving neighbor triangles, adds oriented
+ear-clipped cap faces or geometry-driven zipper triangles, retires
+orphaned vertices, and commits privately. The ordinary
+`IndexedMeshRepository::publishIfCurrent()` is the only path to
+publish a successful result, ensuring old render/pick revisions
+remain untouched until publication.
+
+The zipper constructs a bounded front grid over the two rings,
+choosing quality-bounded triangles by dynamic programming. Its
+normalized cumulative arc-length progress is also bounded to prevent
+fronts from becoming radically out of phase; this repaired a genuine
+crossing-scar counterexample that edge-length criteria alone did not
+catch. Only physical edge lengths and geometry enter the score:
+unbalanced original vertex counts do not force fan hubs. After
+RegionEdit's local two-manifold/one-ring validation, the post-state
+V13 BVH is queried for intersections involving new or modified scar
+faces. A precise regression fixes V13's false-positive expanded
+coplanar clipping near lawful shared vertices.
+
+The 23rd CPU suite covers one cap, two-solid zipper, uneven-density
+edge splitting without T-junctions, immutability/retired IDs,
+resource-exhaustion rollback and explicit compare-and-swap
+publication. The previous torus fitness fixture also executes
+actual cap surgery and checks Euler characteristic 0 -> 2. This
+is **V16a only**. Full V16 still requires atomic reflected
+operations on both sides of X=0, strict residual collision checks
+beyond newly inserted surfaces, measured geometric fidelity bounds,
+general curved/nonplanar caps and complex repeated repairs.
+The current implementation must not be wired to the live brush.
