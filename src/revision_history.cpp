@@ -36,7 +36,8 @@ void RevisionHistory::append(
     std::vector<PartitionId> changedPartitions,
     std::vector<MirrorPair> addedMirrors,
     std::vector<MirrorPair> removedMirrors,
-    std::size_t copiedPayloadBytes) {
+    std::size_t copiedPayloadBytes,
+    std::size_t vertices,std::size_t faces) {
     if(!index)throw std::invalid_argument("Cannot append null history root");
     if(index==current())return;
     discardRedo();
