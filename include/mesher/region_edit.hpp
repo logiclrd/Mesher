@@ -258,6 +258,19 @@ public:
     void replaceMirroredFaces(FaceId first,FaceId second,
                               std::array<VertexId,3> replacement);
 
+    // Symmetric topology primitives. Distinct off-plane vertices/faces are
+    // created/deleted in reflected pairs. A vertex on the common X=0 seam
+    // is represented by ONE self-mirrored ID, not duplicate coincident IDs.
+    std::pair<VertexId,VertexId> appendMirroredVertices(
+        PartitionId firstOwner,PartitionId secondOwner,Vec3 firstPosition);
+    VertexId appendSeamVertex(PartitionId owner,Vec3 onPlane);
+    std::pair<FaceId,FaceId> appendMirroredFaces(
+        PartitionId firstOwner,PartitionId secondOwner,
+        std::array<VertexId,3> firstTriangle);
+    void removeMirroredFaces(FaceId first,FaceId second);
+    void removeMirroredVertices(VertexId first,VertexId second);
+    VertexId mirroredVertex(VertexId vertex) const;
+
     // Validates all changed edges/vertex fans using the snapshot index plus
     // local deltas, then commits only the pre-cloned writable partitions.
     // A failure leaves the base revision and any repository unchanged.
@@ -284,6 +297,8 @@ private:
     std::unordered_set<PartitionId> writers_, readers_;
     std::unordered_set<VertexId> accessibleVertices_;
     std::unordered_map<VertexId,VertexId> mirror_;
+    std::unordered_map<FaceId,FaceId> faceMirror_;
+    bool poisoned_{};
     std::unordered_map<VertexId,std::optional<Vec3>> vertexChanges_;
     std::unordered_map<FaceId,std::optional<std::array<VertexId,3>>> faceChanges_;
     std::unordered_map<VertexId,PartitionId> newVertices_;
