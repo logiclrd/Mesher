@@ -126,6 +126,7 @@ VersionedSculptBrush::VersionedSculptBrush(
      collapser_(initialCount,collapse,
                 makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
      partitionCapacity_(partitionCapacity),
+     initialVertexCount_(initialCount),
      vertices_(initialCount),faces_(flatOrder_->faceIds.size()) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
