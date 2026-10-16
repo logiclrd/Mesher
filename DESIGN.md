@@ -1292,9 +1292,10 @@ requests are handed to a separate bounded retirement queue. The writer
 flushes to `<destination>.tmp` and atomically renames the completed
 checkpoint over the previous one, so a failed partial write never
 becomes the advertised checkpoint. POSIX builds fsync the completed
-file and containing directory; platform-dependent sudden-power-loss
-guarantees, particularly on Windows storage stacks, remain outside
-the portable C++ file API. A checkpoint always represents a complete
+file and containing directory; Windows builds also call
+FlushFileBuffers on the completed temporary file before rename.
+Directory-entry durability and sudden-power-loss guarantees remain
+filesystem/platform dependent. A checkpoint always represents a complete
 immutable revision regardless of edits or cursor movement occurring
 concurrently during the save. A failed write increments an observable
 error counter without terminating or blocking the sculpt worker.
