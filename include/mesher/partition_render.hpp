@@ -44,6 +44,7 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
 // UI-owned CPU staging/cache, not part of worker publication. It preserves
 // identical geometry pointers for untouched partitions and rebuilds only
 // named dirty partition IDs; it never enumerates the mesh on an update.
+class RevisionRetirementQueue;
 class PartitionRenderCache {
 public:
     void initialize(std::shared_ptr<const RegionTopologyIndex> initial);
