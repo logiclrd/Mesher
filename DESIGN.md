@@ -1396,3 +1396,39 @@ nor the sculpt worker calls these APIs, and no mesh topology is
 changed. Pathological ambiguity can trigger the O(total faces)
 reference; it is NOT a promised hard O(local) query in all situations.
 All existing V1–V13 invariants remain unchanged.
+
+## V15: Bounded non-destructive boundary and zipper planning
+
+The new `repair_plan.hpp/.cpp` read-only APIs separate deciding which
+faces *might* be removed from how their surviving boundary contours
+would be connected. `planApproximateExcision()` seeds bounded local
+classification from V13 collision pairs in the complete proposed
+revision and follows V14 sampled mostly-buried faces. Explicitly
+nominated enclosed redundant components can be removed entirely,
+with no seam; potential intentional cavities remain unchanged.
+Uncertain winding/contact, topology and work-budget failures cannot
+authorize a repair.
+
+`planRemovalContours()` accepts an already proposed sorted set of
+stable FaceIds, inspects current oriented edge incidences, traces
+closed surviving-face-directed contours through existing VertexIds,
+and rejects branching/open/nonmanifold borders. It proposes local
+ring pairings by perimeter-resampled positions, cyclic offsets and
+either traversal direction, respecting local edge-length-scaled gap
+and perimeter bounds. A bounded (at most sixteen contour) global
+minimum-cost matching avoids incorrect greedy-first matches and
+rejects essentially equivalent ambiguous whole-plan choices.
+Complete isolated shells generate no contours and no zipper.
+The reference two-crossing surface traces remain smooth through
+their intersections; two *local* green seams reconnect the blue
+survivors, not a bridge across the red interior.
+
+The output is a **plan only**: no replacement faces, tombstones,
+copied partitions, worker transactions or publication. Majority
+classifications are merely samples; the computed seam gap and
+maximum removed-edge size are not certified surface-error bounds.
+V16 must independently validate the actual local cut, replacement
+triangles, remaining visible detail, manifoldness and self-intersections
+before publishing. The twenty-first CPU CTest covers multi-contour
+matching, an intentionally greedy-failing fixture, unpaired/budget
+rejections, redundant bubbles, cavity protection and root stability.
