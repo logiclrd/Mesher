@@ -26,6 +26,12 @@ struct RepairSurgerySettings {
     double maximumNewEdgeFactor=4.0;
     double minimumTriangleQuality=0.025;
     std::size_t maximumAddedFanDegree=20;
+    // Every new scar point must remain near the actually excised geometry
+    // at the local ORIGINAL contour resolution, not the brush radius.
+    double maximumSurfaceDeviationInEdges=2.5;
+    // Limit post-commit residual checks to an explicitly bounded local
+    // neighborhood. Over-budget validation rejects the private revision.
+    std::size_t maxResidualFaces=4096;
 };
 struct RepairSurgeryResult {
     std::shared_ptr<const RegionTopologyIndex> index;
@@ -36,6 +42,8 @@ struct RepairSurgeryResult {
     std::vector<VertexId> retiredVertices;
     std::size_t splitBoundaryEdges{};
     std::size_t capFaces{},zipperFaces{};
+    std::size_t verifiedLocalFaces{};
+    double maximumSurfaceDeviationInEdges{};
 };
 
 // Throws before returning a result if any topology or candidate geometry
