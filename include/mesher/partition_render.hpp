@@ -50,7 +50,8 @@ public:
     void initialize(std::shared_ptr<const RegionTopologyIndex> initial);
     PartitionRenderUpdate advance(
         std::shared_ptr<const RegionTopologyIndex> revision,
-        std::span<const PartitionId> dirty);
+        std::span<const PartitionId> dirty,
+        RevisionRetirementQueue* retirement=nullptr);
     const std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>>&
     partitions() const noexcept {return partitions_;}
     std::shared_ptr<const RegionTopologyIndex> revision() const noexcept {
