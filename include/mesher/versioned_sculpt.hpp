@@ -46,6 +46,9 @@ public:
     std::size_t publishedRevisions() const noexcept {return publishedRevisions_;}
     std::size_t modifiedPartitions() const noexcept {return modifiedPartitions_;}
     std::size_t copiedDirectoryNodes() const noexcept {return copiedDirectoryNodes_;}
+    const std::vector<PartitionId>& lastDirtyPartitions() const noexcept {
+        return lastDirtyPartitions_;
+    }
 
 private:
     VersionedSculptBrush(PartitionedMeshImport import,std::size_t initialCount,
