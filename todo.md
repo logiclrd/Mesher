@@ -302,8 +302,9 @@ an older revision while the worker edits or publishes a newer one.
   diagnostics, not as sculpt worker failure. Previous in-memory history
   is not serialized: a restarted session begins a fresh bounded history
   from the checkpoint. On POSIX the checkpoint file and containing
-  directory are synced; Windows relies on file close and filesystem
-  rename semantics, so sudden-power-loss guarantees are platform specific.
+  directory are synced; Windows calls FlushFileBuffers on the complete
+  temporary file before replacement. Rename durability and sudden-power-loss
+  guarantees remain filesystem/platform specific.
   The eighteenth CPU suite checks history truncation/branching, stable
   mirror reversal, checkpoint replacement/corruption/truncation,
   allocator/tombstone round-trips, asynchronous coalesced writes and
