@@ -108,6 +108,12 @@ void testCapsAndSnapshotPublication() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.capFaces==2&&repaired.zipperFaces==0,
             "Four-sided opening is sealed by two oriented triangles");
+    RepairSurgerySettings reverse;
+    reverse.requireReverseSurfaceFidelity=true;
+    reverse.maximumReverseDeviationInEdges=.01;
+    const auto exact=applyRepairSurgery(baseline,plan,reverse);
+    require(exact.maximumReverseDeviationInEdges<1e-10,
+            "Planar replacement preserves both sides of the exposed original surface");
     require(repaired.index->retiredFace(oldFace)&&
             repaired.index->retiredFace(secondFace),
             "Original removed IDs remain retired, never recycled");
@@ -144,6 +150,14 @@ void testZipperJoinsSeparatedSolids() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.zipperFaces>=8&&repaired.capFaces==0,
             "Zipper closes two entire oriented rings");
+    RepairSurgerySettings reverse;
+    reverse.requireReverseSurfaceFidelity=true;
+    reverse.maximumReverseDeviationInEdges=.01;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(baseline,plan,reverse);}
+    catch(const std::logic_error&) {rejected=true;}
+    require(rejected,
+            "Intentional material removal cannot pass an inappropriate strict reverse envelope");
     require(euler(*baseline)==4&&euler(*repaired.index)==2,
             "Joining distinct closed solids changes total Euler characteristic 4 to 2");
     require(repaired.index->triangleIntersections(
