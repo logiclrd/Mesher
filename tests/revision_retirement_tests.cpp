@@ -100,7 +100,9 @@ void testConcurrentReaderAndPublication() {
     std::atomic<bool> completed{false};
     std::atomic<int> readCount{0};
     std::atomic<int> misses{0};
+    std::atomic<bool> readerStarted{false};
     std::jthread observer([&] {
+        readerStarted=true;
         while(!completed.load()) {
             auto state=repo.snapshot();
             auto hit=state->firstRayHit(viewportRay(640,360,1280,720));
