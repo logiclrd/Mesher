@@ -83,14 +83,13 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
         out.solid.push_back(vertex(c,normal));
         for(unsigned i=0;i<3;++i) {
             const auto e=edge(t[i],t[(i+1)%3]);
-            if(!emitted.insert(e).second)continue;
             const auto sides=index.maybeEdgeSides(e);
             if(!sides||sides->empty())
                 throw std::logic_error("Partition wire references nonexistent edge");
             auto smallest=sides->front().face;
             for(const auto& side:*sides)
                 smallest=std::min(smallest,side.face);
-            if(smallest!=face.id)continue;
+            if(smallest!=face.id||!emitted.insert(e).second)continue;
             out.wire.push_back(vertex(index.vertex(e.a).position));
             out.wire.push_back(vertex(index.vertex(e.b).position));
         }
