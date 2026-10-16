@@ -401,7 +401,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   immutability, mixed patches, nested bubble/cavity classification,
   on-surface uncertainty and BVH pruning. No live worker behavior
   changes. V15 still owns actual cut and seam planning.
-- [ ] **V15 — Local approximate excision and boundary pairing plan.**
+- [x] **V15 — Local approximate excision and boundary pairing plan.**
   Given V13/14 outputs, generate a private plan selecting removable faces
   and surviving contours at current **local** density (not brush-radius
   density); preserve as many existing vertices and fine details as
@@ -410,6 +410,21 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   unpairable junctions. Bound estimated geometric deviation, size and
   work, checking the '~2 pixels' intuition as a conditional target, not
   a guarantee. Tests inspect plan geometry/IDs; do not publish repairs.
+  Implemented as two read-only APIs: `planApproximateExcision()` grows
+  bounded tentative hidden-face sets from V13 post-state collisions and
+  V14 barycentric winding samples (plus optional isolated component
+  seeds); `planRemovalContours()` traces retained-face-directed closed
+  boundary loops and computes density-scaled globally consistent
+  zipper pairings. It rejects branching/open boundaries, ambiguous
+  samples, excessive loop gaps, equivalent matchings and processing
+  beyond explicit budgets. The reported face-edge maximum and seam
+  gaps are quality indicators, NOT rigorous Hausdorff error bounds;
+  sampled mostly-hidden triangles may include visible portions.
+  `Ready` is a proposal only: V16 must validate actual surgery.
+  A twenty-first CPU CTest covers two crossing seams, multiple local
+  seam pairs, greedy-matching counterexample, complete redundant
+  bubble without a seam, cavity preservation and conservative failures.
+  No live worker changes or published repairs.
 - [ ] **V16 — Transactional density-aware zipper/ladder surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate oriented watertight triangulated
