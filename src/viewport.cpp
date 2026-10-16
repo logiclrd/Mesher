@@ -332,6 +332,7 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
+    mutable RegionTopologyIndex::PickStatistics lastPickStats_{};
     double lastConsoleTime_=0, viewportStartTime_=0, mouseReleaseTime_=0;
     std::uint64_t logFrames_=0, logStamps_=0;
     std::size_t displayedStamps_=0;
@@ -608,7 +609,8 @@ class VulkanViewport {
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
         const auto ray=viewportRay(px,py,double(fw),double(fh));
-        return displayedIndex_?displayedIndex_->firstRayHit(ray):
+        lastPickStats_={};
+        return displayedIndex_?displayedIndex_->firstRayHit(ray,&lastPickStats_):
                firstMeshHit(currentMesh(),ray);
     }
 
@@ -637,6 +639,9 @@ class VulkanViewport {
                                   ? interaction_.inputCommands():0)
           <<" enqueue_or_stamp_ms="<<lastStampCallbackMs_
           <<" picking_ms="<<lastPickMs_
+          <<" picking_boxes="<<lastPickStats_.boxesTested
+          <<" picking_partitions="<<lastPickStats_.partitionsTested
+          <<" picking_triangles="<<lastPickStats_.trianglesTested
           <<" mesh_upload_ms="<<lastUploadMs_
           <<" dirty_partitions="<<lastDirtyPartitions_
           <<" dirty_faces="<<lastDirtyFaces_
