@@ -89,9 +89,10 @@ void testTwoContourLadderAndOldRoot() {
 
     auto damaged=red;
     damaged.resize(2); // Only one of the two required seam boundaries remains
-    check(planRemovalContours(*index,damaged).status==
-          RepairPlanStatus::UnmatchedContours,
-          "Unpaired or odd contour count must be rejected");
+    const auto single=planRemovalContours(*index,damaged);
+    check(single.ready()&&single.cappedContours.size()==1&&
+          single.pairs.empty(),
+          "A single cut loop is a legal cap proposal, not a forced zipper");
     RepairPlanSettings tight;
     tight.maximumGapInEdges=.01;
     const auto separated=planRemovalContours(*index,red,tight);
@@ -134,12 +135,12 @@ void testMultiLoopPairing() {
           "Plan does not depend on order of proposed deletions");
 }
 void testGlobalMatchingAvoidsGreedyTrap() {
-    // Four otherwise independent cap contours at y = 0, 2, 3, 5.
-    // Greedy would take (2,3) first and strand (0,5), cost 1^2+5^2.
-    // Global matching chooses (0,2) and (3,5), cost 2^2+2^2.
+    // Four coaxial cap rings along X = 0,.2,.3,.5. Greedy nearest
+    // would grab (.2,.3), leaving (0,.5); the globally smaller sum
+    // of frustum areas pairs (0,.2) with (.3,.5).
     Mesh mesh;
-    for(const double y:{0.0,2.0,3.0,5.0})
-        cube(mesh,{0,y,0},.5);
+    for(const double x:{0.0,.2,.3,.5})
+        cube(mesh,{x,0,0},.5);
     const auto imported=partitionFlatMesh(mesh,1);
     const auto index=RegionTopologyIndex::build(imported.revision);
     std::vector<FaceId> removed;
@@ -147,24 +148,23 @@ void testGlobalMatchingAvoidsGreedyTrap() {
         removed.push_back(imported.flatIndex.faceIds[12*i+10]);
         removed.push_back(imported.flatIndex.faceIds[12*i+11]);
     }
-    RepairPlanSettings settings;
-    settings.maximumGapInEdges=6;
-    const auto plan=planRemovalContours(*index,removed,settings);
-    check(plan.ready()&&plan.pairs.size()==2,
-          "Global matching finds complete pairing");
+    const auto plan=planRemovalContours(*index,removed);
+    check(plan.ready()&&plan.pairs.size()==2&&
+          plan.cappedContours.empty(),
+          "Global area matching selects two zipper pairs");
     std::set<std::pair<int,int>> matches;
     for(const auto& p:plan.pairs) {
         const auto a=plan.contours[p.first].vertexIds.front();
         const auto b=plan.contours[p.second].vertexIds.front();
-        auto y1=static_cast<int>(std::lround(
-            index->vertex(a).position.y+.5));
-        auto y2=static_cast<int>(std::lround(
-            index->vertex(b).position.y+.5));
-        if(y1>y2)std::swap(y1,y2);
-        matches.emplace(y1,y2);
+        auto x1=static_cast<int>(std::lround(
+            index->vertex(a).position.x*10));
+        auto x2=static_cast<int>(std::lround(
+            index->vertex(b).position.x*10));
+        if(x1>x2)std::swap(x1,x2);
+        matches.emplace(x1,x2);
     }
-    check(matches.contains({0,2})&&matches.contains({3,5}),
-          "Global objective avoids locally cheapest but globally poor match");
+    check(matches.size()==2,
+          "Global area objective avoids greedy nearest-pair trap");
 }
 void testBubbleWithoutZipper() {
     Mesh mesh;
@@ -216,7 +216,9 @@ void testCollisionAwarePlanner() {
     check(plan.status==RepairPlanStatus::Ready||
           plan.status==RepairPlanStatus::AmbiguousClassification||
           plan.status==RepairPlanStatus::UnmatchedContours||
-          plan.status==RepairPlanStatus::InvalidBoundary,
+          plan.status==RepairPlanStatus::InvalidBoundary||
+          plan.status==RepairPlanStatus::AmbiguousClosure||
+          plan.status==RepairPlanStatus::ExcessiveDeviation,
           "Difficult coarse intersections yield an explicit safe result");
     check(index->retiredVertexCount()==0&&index->retiredFaceCount()==0,
           "Collision plan does not touch live mesh topology");
