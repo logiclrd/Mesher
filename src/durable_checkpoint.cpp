@@ -196,8 +196,13 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     const auto retiredVertexCount=reader.number();
     const auto retiredFaceCount=reader.number();
     if(partitions>maxRecords||pairs>maxRecords||
-       retiredVertexCount>maxRecords||retiredFaceCount>maxRecords)
-        throw std::runtime_error("Checkpoint record counts exceed supported limits");
+       retiredVertexCount>maxRecords||retiredFaceCount>maxRecords||
+       reader.remaining<8||
+       partitions>(reader.remaining-8)/12||
+       pairs>(reader.remaining-8)/16||
+       retiredVertexCount>(reader.remaining-8)/8||
+       retiredFaceCount>(reader.remaining-8)/8)
+        throw std::runtime_error("Checkpoint record counts exceed file limits");
     std::vector<std::pair<PartitionId,MeshPartition>> loaded;
     loaded.reserve(static_cast<std::size_t>(partitions));
     std::uint64_t totalVertices=0,totalFaces=0;
