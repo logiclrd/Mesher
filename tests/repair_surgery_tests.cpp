@@ -508,7 +508,6 @@ void testAtomicSelfReflectedPlaneCrossingNormalization() {
     const auto imported=partitionFlatMesh(tetra,1);
     const auto original=RegionTopologyIndex::build(imported.revision);
     const auto& v=imported.flatIndex.vertexIds;
-    const auto& f=imported.flatIndex.faceIds;
     const std::vector<std::pair<VertexId,VertexId>> mapping={
         {v[0],v[1]},{v[2],v[2]},{v[3],v[3]}};
     IndexedMeshRepository repository(original);
