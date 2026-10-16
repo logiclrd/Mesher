@@ -1159,3 +1159,80 @@ sacrificing exactness. Accelerated picking does not imply GPU
 render/pick synchronization beyond the existing displayed-root
 contract, nor collision-free geometry or bounded old-root
 reclamation (V11).
+
+## V11: Bounded revision retirement and measured CPU/GPU lifetimes
+
+The V1–V10 immutable mesh architecture intentionally allows readers to keep
+any published `RegionTopologyIndex` and its matching `MeshRevision`.
+Dropping the last old-root reference may recursively destruct numerous
+structurally shared directory, AVL, spatial and BVH nodes. If that happens
+in the viewport thread on every consumed revision, it can create
+unpredictable frame-duration spikes unrelated to sculpt computation.
+
+`RevisionRetirementQueue` transfers the viewport's replaced display-root
+and the `PartitionRenderCache`'s previous revision pointer to a dedicated
+`std::jthread`. That thread alone drops those queued references. Queue
+capacity is explicit and fixed (64 roots in the application, configurable
+for stress tests). Saturation **backpressures** the producer rather than
+unboundedly buffering old graphs. Normally enqueueing takes only the
+short mutex handoff; when the releaser cannot keep up, a producer can
+still wait. This is an unavoidable throughput-vs-memory bound, not a
+promise that an arbitrarily slow reclamation thread never affects a frame.
+An independent reader may keep a root after it has left the queue, and
+the app cannot reclaim that reader's objects early. V12 will define
+explicit memory/history budgets and durable checkpoint policy. Normal
+root publication remains an atomic pointer update and does not enumerate
+the mesh or its directories.
+
+Vulkan retains the existing single-in-flight graphics fence discipline.
+When an active solid/wire buffer must grow, disappear, or become empty,
+its previous GPU allocation is put into a short per-frame retirement
+list. The viewport drains that list only **after** waiting for completion
+of the graphics submission that might have referenced the old handle.
+Swapchain recreation still waits for device idle; shutdown waits for
+device idle, drains pending retired buffers and destroys active buffers
+before the device. Unmodified buffers are never reallocated. The list
+is scoped to the frame's replaced geometry, not a growing queue of
+GPU allocations across frames.
+
+Diagnostics intentionally measure different quantities rather than
+claiming one exact global memory total:
+
+- `cloned_partition_bytes`: cumulative actual vertex/face payload
+  sizes copied when an existing partition is cloned for COW. It does
+  not include allocator padding, persistent AVL node sizes, or retained
+  history overhead.
+- `modified_partitions` and `copied_directory_nodes`: existing
+  cumulative structural-sharing work counts.
+- `worker_publication_ms`: elapsed time to publish and coalesce the
+  latest immutable worker snapshot.
+- `live_revisions` and `peak_live_revisions`: counts of live
+  `RegionTopologyIndex` objects, including reader-held old roots.
+  The counts are not bytes.
+- `retire_queue_roots`, `retire_queue_peak` and
+  `retire_backpressure`: bounded application reclaimer queue status.
+- `gpu_resident_bytes`, `gpu_peak_bytes`,
+  `gpu_pending_retirement_bytes` and `gpu_freed_bytes`: Vulkan
+  allocation requirement sizes of currently retained GPU vertex
+  buffers, their historical peaks, pending-fence retirement and
+  released allocations, respectively.
+- `gpu_fence_wait_ms`: time waiting for the prior graphics submission
+  before dirty-partition resource updates.
+
+The seventeenth CTest suite drives 160 consecutive local COW edits and
+retirements using a capacity-3 queue, validates retained older
+topology/picking roots and structural sharing, tests a concurrent
+reader/publisher across 60 indexed commits, verifies queue limits and
+successful final draining, and cancels a background sculpt worker with
+queued input while retaining a previously published reader snapshot.
+The earlier 16 suites continue to protect sampled Step input, mirrored
+topology, remeshing, dirty rendering and exact BVH picking.
+
+No test or memory counter implies hard bounds on third-party
+`shared_ptr` retention, mesh geometry itself, COW copy payloads per
+arbitrarily large selected region, or GPU allocation peak during one
+replacement. The current conservative fence synchronization and
+per-partition draw call volume also still affect huge-model throughput.
+Headless CI checks all CPU paths and compiles Vulkan on three toolchains;
+on-device rapid input, resizing and shutdown must additionally be
+verified with physical GPU drivers.
