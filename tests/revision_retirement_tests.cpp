@@ -84,7 +84,8 @@ void testBoundedRetirementWithSlowReaders() {
           "Live-root counter includes externally held historic snapshots");
     readers.clear();
     rendered.initialize(current); // releases only its identical current root
-    check(current->vertex(id).position.x!=original->vertex(id).position.x,
+    check(length(current->vertex(id).position-
+                 original->vertex(id).position)>1e-8,
           "Revisions retain their own geometric coordinates");
 }
 void testConcurrentReaderAndPublication() {
