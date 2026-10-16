@@ -60,6 +60,9 @@ public:
     void addMirrorPair(VertexId first,VertexId second);
     // V7: drop only the retired pair, preserving unrelated mappings.
     void removeMirrorPair(VertexId first,VertexId second);
+    const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
+        return mirrors_;
+    }
 
     VersionedInflateStamp stamp(
         std::shared_ptr<const RegionTopologyIndex> before,
