@@ -286,7 +286,8 @@ an older revision while the worker edits or publishes a newer one.
   command queue, preserving the existing exact 4D sample semantics.
   A checksummed binary .mshr checkpoint records every live partition and
   stable vertex/face ID, identity allocator high-water marks, persistent
-  deletion tombstones, and symmetrical correspondence pairs. Reading a
+  deletion tombstones, the original remeshing reference vertex count,
+  and symmetrical correspondence pairs. Reading a
   checkpoint rebuilds immutable connectivity, spatial and picking indices
   once at startup; it validates record limits and rejects truncated,
   corrupt or unsupported files. Subsequent new IDs cannot collide with
