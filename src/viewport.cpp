@@ -1364,6 +1364,9 @@ public:
         if(device!=VK_NULL_HANDLE) {
             vkDeviceWaitIdle(device);
             drainGpuRetirements();
+            retiredRevisions_.retire(std::move(displayedIndex_));
+            retiredRevisions_.retire(partitionCache_.detachRevision());
+            retiredRevisions_.drain();
             if(fence)vkDestroyFence(device,fence,nullptr);
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
