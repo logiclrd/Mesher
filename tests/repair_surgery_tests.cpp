@@ -179,6 +179,91 @@ void testUnequalSpacingSharedEdgeSplits() {
     require(baseline->retiredFaceCount()==0,
             "Old snapshot and old identities remain valid after refinement");
 }
+struct MirroredCubes {
+    PartitionedMeshImport import;
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+};
+MirroredCubes reflectedCubes(double displacement) {
+    Mesh m;
+    cube(m,{-displacement,0,0},1);
+    // Reflection reverses triangle winding but shares no vertices;
+    // the X=0 closure surgery must create ONE common seam ring.
+    for(unsigned i=0;i<8;++i) {
+        const auto p=m.vertices[i];
+        m.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(unsigned i=0;i<12;++i) {
+        const auto f=m.triangles[i];
+        m.triangles.push_back({f.a+8,f.c+8,f.b+8});
+    }
+    MirroredCubes result;
+    result.import=partitionFlatMesh(m,1);
+    for(unsigned i=0;i<8;++i)
+        result.mirrors.push_back({result.import.flatIndex.vertexIds[i],
+                                  result.import.flatIndex.vertexIds[i+8]});
+    return result;
+}
+void testMirroredZipperUsesOnePlaneSeam() {
+    const auto test=reflectedCubes(1.1);
+    const auto original=RegionTopologyIndex::build(test.import.revision);
+    const auto& f=test.import.flatIndex.faceIds;
+    const std::vector<FaceId> red{f[10],f[11],f[22],f[23]};
+    const auto plan=planRemovalContours(*original,red);
+    require(plan.ready()&&plan.pairs.size()==1,
+            "Mirrored facing-cube caps select a zipper");
+    const auto before=original->pickingRootIdentity();
+    const auto surgery=applyMirroredRepairSurgery(original,plan,test.mirrors);
+    require(surgery.zipperFaces==16&&surgery.capFaces==0,
+            "Both halves of symmetrical zipper use paired triangles");
+    require(surgery.insertedVertices.size()==4,
+            "One four-vertex seam ring, not duplicate left/right seam vertices");
+    for(const auto id:surgery.insertedVertices) {
+        const auto& v=surgery.index->vertex(id);
+        require(v.position.x==0&&v.incidentFaces.size()==6,
+                "One shared plane vertex joins both symmetric half-surfaces");
+    }
+    require(euler(*original)==4&&euler(*surgery.index)==2,
+            "Mirrored zipper connects two components into one sphere-like solid");
+    require(surgery.index->triangleIntersections(
+        {},surgery.insertedFaces).empty(),
+        "Mirrored scar contains no false crossing or overlap");
+    require(original->pickingRootIdentity()==before&&
+            original->retiredFaceCount()==0,
+            "Mirrored private edit leaves renderer's old root intact");
+}
+void testMirroredIndependentCaps() {
+    const auto test=reflectedCubes(3.0);
+    const auto original=RegionTopologyIndex::build(test.import.revision);
+    const auto& f=test.import.flatIndex.faceIds;
+    const std::vector<FaceId> red{f[10],f[11],f[22],f[23]};
+    const auto plan=planRemovalContours(*original,red);
+    require(plan.ready()&&plan.cappedContours.size()==2,
+            "Widely separated reflected loops prefer caps");
+    const auto surgery=applyMirroredRepairSurgery(original,plan,test.mirrors);
+    require(surgery.capFaces==4&&surgery.zipperFaces==0&&
+            surgery.insertedVertices.empty(),
+            "Reflected caps replace both cut faces without a plane seam");
+    require(euler(*original)==4&&euler(*surgery.index)==4,
+            "Capping keeps two distinct symmetric solid components");
+    require(surgery.index->retiredFace(f[10])&&
+            surgery.index->retiredFace(f[22]),
+            "Both original reflected face IDs are retired atomically");
+}
+void testMirroredRejectsIncompleteMapping() {
+    const auto test=reflectedCubes(1.1);
+    const auto original=RegionTopologyIndex::build(test.import.revision);
+    const auto& f=test.import.flatIndex.faceIds;
+    const auto plan=planRemovalContours(*original,{f[10],f[11],f[22],f[23]});
+    auto incomplete=test.mirrors;
+    incomplete.pop_back();
+    bool failed=false;
+    try{(void)applyMirroredRepairSurgery(original,plan,incomplete);}
+    catch(const std::exception&) {failed=true;}
+    require(failed,"Incomplete mirror mapping refuses surgery");
+    require(original->retiredFaceCount()==0,
+            "Failed symmetric operation has no published topology");
+}
+
 void testRejectionIsTransactional() {
     Mesh m;
     const auto left=prism(m,-2,0,square(1));
@@ -218,6 +303,12 @@ int main() {
         testZipperJoinsSeparatedSolids();
         std::cout<<"Surgery fixture: uneven zipper"<<std::endl;
         testUnequalSpacingSharedEdgeSplits();
+        std::cout<<"Surgery fixture: mirrored zipper"<<std::endl;
+        testMirroredZipperUsesOnePlaneSeam();
+        std::cout<<"Surgery fixture: mirrored caps"<<std::endl;
+        testMirroredIndependentCaps();
+        std::cout<<"Surgery fixture: mirrored refusal"<<std::endl;
+        testMirroredRejectsIncompleteMapping();
         std::cout<<"Surgery fixture: rejection"<<std::endl;
         testRejectionIsTransactional();
         std::cout<<"Private transactional cap/zipper surgery regression passed\n";
