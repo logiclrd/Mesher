@@ -208,6 +208,121 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
                 throw std::logic_error("Zipper produces a high-degree vertex hub");
     return faces;
 }
+double pointTriangleDistanceSquared(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
+    // Closest-point Voronoi-region test. No projection-axis assumptions:
+    // this also measures curved/nonplanar scars in world space.
+    const auto ab=b-a,ac=c-a,ap=p-a;
+    const double d1=dot(ab,ap),d2=dot(ac,ap);
+    if(d1<=0&&d2<=0)return dot(ap,ap);
+    const auto bp=p-b;
+    const double d3=dot(ab,bp),d4=dot(ac,bp);
+    if(d3>=0&&d4<=d3)return dot(bp,bp);
+    const double vc=d1*d4-d3*d2;
+    if(vc<=0&&d1>=0&&d3<=0) {
+        const auto projection=a+ab*(d1/(d1-d3));
+        return dot(p-projection,p-projection);
+    }
+    const auto cp=p-c;
+    const double d5=dot(ab,cp),d6=dot(ac,cp);
+    if(d6>=0&&d5<=d6)return dot(cp,cp);
+    const double vb=d5*d2-d1*d6;
+    if(vb<=0&&d2>=0&&d6<=0) {
+        const auto projection=a+ac*(d2/(d2-d6));
+        return dot(p-projection,p-projection);
+    }
+    const double va=d3*d6-d5*d4;
+    if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0) {
+        const auto bc=c-b;
+        const auto projection=b+bc*((d4-d3)/((d4-d3)+(d5-d6)));
+        return dot(p-projection,p-projection);
+    }
+    const double denominator=va+vb+vc;
+    if(!(denominator>0))
+        throw std::logic_error("Degenerate excised triangle in drift validator");
+    const double v=vb/denominator,w=vc/denominator;
+    const auto closest=a+ab*v+ac*w;
+    return dot(p-closest,p-closest);
+}
+void validateSurgeryGeometry(
+    const RegionTopologyIndex& baseline,
+    const RepairPlan& plan,
+    const std::set<VertexId>& selected,
+    const RepairSurgerySettings& settings,
+    RepairSurgeryResult& out) {
+    if(!std::isfinite(settings.maximumSurfaceDeviationInEdges)||
+       settings.maximumSurfaceDeviationInEdges<=0||
+       settings.maxResidualFaces==0)
+        throw std::invalid_argument("Invalid residual collision/deviation budgets");
+    if(!out.index)
+        throw std::logic_error("Repair geometry has no committed private index");
+    const std::set<FaceId> removed(plan.removedFaces.begin(),
+                                    plan.removedFaces.end());
+    // Verify every surviving face in the local write/read one-ring, not
+    // merely triangles created by the scar. BVH queries this COMPLETE
+    // private post-state revision for collisions with any other face.
+    std::set<FaceId> verify(out.insertedFaces.begin(),out.insertedFaces.end());
+    for(const auto id:selected)
+        for(const auto face:baseline.vertex(id).incidentFaces)
+            if(!removed.contains(face))verify.insert(face);
+    if(verify.size()>settings.maxResidualFaces)
+        throw std::length_error("Residual collision neighborhood exceeds budget");
+    out.verifiedLocalFaces=verify.size();
+    const auto contacts=out.index->triangleIntersections({},
+                           {verify.begin(),verify.end()});
+    if(!contacts.empty()) {
+        const auto describe=[&](FaceId id) {
+            std::string result=std::to_string(id);
+            for(const auto v:out.index->face(id).vertices) {
+                const auto p=out.index->vertex(v).position;
+                result+=" ["+std::to_string(v)+" ("+
+                    std::to_string(p.x)+","+
+                    std::to_string(p.y)+","+
+                    std::to_string(p.z)+")]";
+            }
+            return result;
+        };
+        throw std::logic_error("Private repair has a residual local collision "+
+            describe(contacts.front().first)+" / "+
+            describe(contacts.front().second)+
+            (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
+    }
+
+    if(out.insertedFaces.empty())return;
+    double h=std::numeric_limits<double>::infinity();
+    for(const auto& contour:plan.contours)
+        h=std::min(h,medianEdge(baseline,contour));
+    if(!(h>0)||!std::isfinite(h))
+        throw std::logic_error("No local density for scar drift validation");
+    std::vector<std::array<Vec3,3>> removedTriangles;
+    removedTriangles.reserve(plan.removedFaces.size());
+    for(const auto id:plan.removedFaces) {
+        const auto vertices=baseline.face(id).vertices;
+        removedTriangles.push_back({
+            baseline.vertex(vertices[0]).position,
+            baseline.vertex(vertices[1]).position,
+            baseline.vertex(vertices[2]).position});
+    }
+    for(const auto faceId:out.insertedFaces) {
+        const auto tri=out.index->face(faceId).vertices;
+        const auto a=out.index->vertex(tri[0]).position;
+        const auto b=out.index->vertex(tri[1]).position;
+        const auto c=out.index->vertex(tri[2]).position;
+        for(const auto p:std::array<Vec3,4>{a,b,c,(a+b+c)/3}) {
+            double closest=std::numeric_limits<double>::infinity();
+            for(const auto& original:removedTriangles)
+                closest=std::min(closest,pointTriangleDistanceSquared(
+                    p,original[0],original[1],original[2]));
+            if(!std::isfinite(closest))
+                throw std::logic_error("Invalid geometric drift measurement");
+            out.maximumSurfaceDeviationInEdges=std::max(
+                out.maximumSurfaceDeviationInEdges,
+                std::sqrt(std::max(0.0,closest))/h);
+            if(out.maximumSurfaceDeviationInEdges>
+               settings.maximumSurfaceDeviationInEdges)
+                throw std::logic_error("Repair exceeds local surface deviation budget");
+        }
+    }
+}
 } // namespace
 
 RepairSurgeryResult applyRepairSurgery(
@@ -376,27 +491,364 @@ RepairSurgeryResult applyRepairSurgery(
     output.index=edit.updatedIndex();
     if(!output.index)
         throw std::logic_error("Surgery commit omitted immutable topology index");
-    // V13 tests the complete PRIVATE post-state mesh. Any intersections
-    // involving generated or modified survivor faces reject publication.
-    std::vector<FaceId> geometry=output.insertedFaces;
-    geometry.insert(geometry.end(),affectedSurvivors.begin(),
-                    affectedSurvivors.end());
-    const auto contacts=output.index->triangleIntersections({},geometry);
-    if(!contacts.empty()) {
-        const auto describe=[&](FaceId id) {
-            std::string s=std::to_string(id)+":";
-            for(const auto v:output.index->face(id).vertices) {
-                const auto p=output.index->vertex(v).position;
-                s+=" ["+std::to_string(v)+" "+std::to_string(p.x)+","+
-                   std::to_string(p.y)+","+std::to_string(p.z)+"]";
-            }
-            return s;
-        };
-        throw std::logic_error("Scar intersects current geometry "+
-            describe(contacts.front().first)+" / "+
-            describe(contacts.front().second)+
-            (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
-    }
+    validateSurgeryGeometry(*baseline,checked,selected,settings,output);
     return output;
+}
+
+RepairSurgeryResult applyMirroredRepairSurgery(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    const RepairPlan& proposed,
+    const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
+    const RepairSurgerySettings& settings) {
+    if(!baseline||!proposed.ready()||vertexMirrors.empty())
+        throw std::invalid_argument("Mirrored surgery requires ready plan and mirror pairs");
+    if(settings.partitionCapacity==0||settings.maxNewFaces==0||
+       settings.maxNewVertices==0||settings.maxContourVertices<3||
+       !std::isfinite(settings.maximumBoundaryEdgeFactor)||
+       settings.maximumBoundaryEdgeFactor<=1||
+       !std::isfinite(settings.maximumNewEdgeFactor)||
+       settings.maximumNewEdgeFactor<=1||
+       !std::isfinite(settings.minimumTriangleQuality)||
+       settings.minimumTriangleQuality<=0||
+       settings.minimumTriangleQuality>=1)
+        throw std::invalid_argument("Invalid mirrored surgery work/quality limits");
+    const auto checked=planRemovalContours(*baseline,proposed.removedFaces,
+                                           settings.planning);
+    if(!checked.ready()||checked.removedFaces!=proposed.removedFaces||
+       checked.cappedContours!=proposed.cappedContours||
+       checked.pairs.size()!=proposed.pairs.size()||
+       checked.contours.size()!=proposed.contours.size())
+        throw std::logic_error("Mirrored surgery plan is stale or incompatible");
+    for(std::size_t i=0;i<checked.contours.size();++i)
+        if(checked.contours[i].vertexIds!=proposed.contours[i].vertexIds)
+            throw std::logic_error("Mirrored surgery contours changed");
+    for(std::size_t i=0;i<checked.pairs.size();++i)
+        if(checked.pairs[i].first!=proposed.pairs[i].first||
+           checked.pairs[i].second!=proposed.pairs[i].second)
+            throw std::logic_error("Mirrored surgery pair assignments changed");
+    if(checked.removedFaces.empty())
+        throw std::logic_error("Empty mirrored repair cannot publish a revision");
+
+    std::unordered_map<VertexId,VertexId> mirrored;
+    for(const auto& [a,b]:vertexMirrors) {
+        const auto p=baseline->vertex(a).position;
+        const auto q=baseline->vertex(b).position;
+        if(p.x!=-q.x||p.y!=q.y||p.z!=q.z)
+            throw std::logic_error("Input vertex mapping is not an exact X reflection");
+        const auto [it,inserted]=mirrored.emplace(a,b);
+        if(!inserted&&it->second!=b)
+            throw std::logic_error("Conflicting mirrored vertices");
+        const auto [jt,added]=mirrored.emplace(b,a);
+        if(!added&&jt->second!=a)
+            throw std::logic_error("Mirror map is not an involution");
+    }
+    const auto opposite=[&](VertexId id)->VertexId {
+        const auto it=mirrored.find(id);
+        if(it==mirrored.end())
+            throw std::logic_error("Mirrored repair is missing a vertex mapping");
+        return it->second;
+    };
+    const auto reflectFace=[&](FaceId id)->FaceId {
+        const auto v=baseline->face(id).vertices;
+        const std::array<VertexId,3> reflected={
+            opposite(v[0]),opposite(v[2]),opposite(v[1])};
+        FaceId result=0;
+        for(const auto candidate:baseline->vertex(reflected[0]).incidentFaces) {
+            const auto w=baseline->face(candidate).vertices;
+            for(unsigned shift=0;shift<3;++shift)
+                if(w[shift]==reflected[0]&&
+                   w[(shift+1)%3]==reflected[1]&&
+                   w[(shift+2)%3]==reflected[2]) {
+                    if(result&&result!=candidate)
+                        throw std::logic_error("Multiple matching mirrored faces");
+                    result=candidate;
+                }
+        }
+        if(!result||result==id)
+            throw std::logic_error("Surgery face has no distinct reflected partner");
+        return result;
+    };
+    const std::set<FaceId> deleted(checked.removedFaces.begin(),
+                                    checked.removedFaces.end());
+    for(const auto id:deleted)
+        if(!deleted.contains(reflectFace(id))||
+           reflectFace(reflectFace(id))!=id)
+            throw std::logic_error("Mirrored excision is missing a reflected face");
+
+    std::set<VertexId> selected;
+    for(const auto id:deleted)
+        for(const auto v:baseline->face(id).vertices)selected.insert(v);
+    for(const auto& loop:checked.contours)
+        for(const auto face:loop.survivingFaces)
+            for(const auto v:baseline->face(face).vertices)
+                selected.insert(v);
+    for(const auto id:selected)
+        if(!selected.contains(opposite(id)))
+            throw std::logic_error("Mirrored write halo is asymmetric");
+    RegionEdit edit(baseline,{selected.begin(),selected.end()},
+                    vertexMirrors,settings.partitionCapacity);
+
+    RepairSurgeryResult out;
+    out.retiredFaces.assign(deleted.begin(),deleted.end());
+    for(const auto id:deleted) {
+        const auto partner=reflectFace(id);
+        if(id<partner)edit.removeMirroredFaces(id,partner);
+    }
+    std::unordered_map<VertexId,Vec3> pos;
+    for(const auto id:selected)pos.emplace(id,baseline->vertex(id).position);
+    // Refine the ORIGINAL contour edges in mirrored pairs, including
+    // their adjacent retained faces, before triangulating either closure.
+    // Directed additions are recorded for BOTH reflected ring traversals.
+    // Opposite mirrored face winding reverses the edge direction.
+    using DirectedEdge=std::pair<VertexId,VertexId>;
+    std::map<DirectedEdge,std::vector<VertexId>> insertedOnEdge;
+    std::set<FaceId> splitFaces;
+    std::vector<double> localTargets;
+    for(const auto& contour:checked.contours) {
+        const double h=medianEdge(*baseline,contour);
+        if(!(h>0)||!std::isfinite(h))
+            throw std::logic_error("Nonfinite mirrored boundary target density");
+        localTargets.push_back(h);
+    }
+    for(std::size_t k=0;k<checked.contours.size();++k) {
+        const auto& contour=checked.contours[k];
+        double h=localTargets[k];
+        for(const auto& pair:checked.pairs)
+            if(pair.first==k||pair.second==k)
+                h=std::min(localTargets[pair.first],
+                           localTargets[pair.second]);
+        for(std::size_t i=0;i<contour.vertexIds.size();++i) {
+            const auto a=contour.vertexIds[i];
+            const auto b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
+            if(insertedOnEdge.contains({a,b}))continue;
+            const auto p=pos.at(a),q=pos.at(b);
+            const double L=length(q-p);
+            if(L<=settings.maximumBoundaryEdgeFactor*h)continue;
+            const auto segments=static_cast<std::size_t>(std::ceil(
+                L/(settings.maximumBoundaryEdgeFactor*h)));
+            if(segments<=1)continue;
+            if(segments>settings.maxNewVertices/2+1||
+               out.insertedVertices.size()+2*(segments-1)>
+                   settings.maxNewVertices)
+                throw std::length_error("Mirrored boundary division exceeds vertex budget");
+            const auto source=contour.survivingFaces[i];
+            const auto twin=reflectFace(source);
+            if(source==twin||splitFaces.contains(source)||
+               splitFaces.contains(twin))
+                throw std::logic_error("Multiple mirrored splits within one retained face");
+            const auto tri=baseline->face(source).vertices;
+            VertexId third=0;
+            bool found=false;
+            for(unsigned j=0;j<3;++j)
+                if(tri[j]==a&&tri[(j+1)%3]==b) {
+                    third=tri[(j+2)%3];found=true;break;
+                }
+            if(!found)
+                throw std::logic_error("Mirrored boundary edge lost survivor orientation");
+            if(!pos.contains(third))
+                throw std::logic_error("Retained split vertex outside write halo");
+            const auto ownerA=baseline->face(source).owner;
+            const auto ownerB=baseline->face(twin).owner;
+            std::vector<VertexId> along{a},innerA,innerB;
+            for(std::size_t j=1;j<segments;++j) {
+                const auto point=p+(q-p)*(static_cast<double>(j)/segments);
+                if(point.x==0)
+                    throw std::logic_error("Boundary crosses X=0: needs self-seam split");
+                const auto made=edit.appendMirroredVertices(
+                    ownerA,ownerB,point);
+                pos.emplace(made.first,point);
+                pos.emplace(made.second,Vec3{-point.x,point.y,point.z});
+                mirrored.emplace(made.first,made.second);
+                mirrored.emplace(made.second,made.first);
+                out.insertedVertices.push_back(made.first);
+                out.insertedVertices.push_back(made.second);
+                along.push_back(made.first);
+                innerA.push_back(made.first);
+                innerB.push_back(made.second);
+            }
+            along.push_back(b);
+            edit.replaceMirroredFaces(source,twin,
+                                      {along[0],along[1],third});
+            for(std::size_t j=1;j<segments;++j) {
+                if(out.insertedFaces.size()+2>settings.maxNewFaces)
+                    throw std::length_error("Mirrored face subdivision exceeds budget");
+                const auto made=edit.appendMirroredFaces(
+                    ownerA,ownerB,{along[j],along[j+1],third});
+                out.insertedFaces.push_back(made.first);
+                out.insertedFaces.push_back(made.second);
+            }
+            insertedOnEdge.emplace(DirectedEdge{a,b},std::move(innerA));
+            std::reverse(innerB.begin(),innerB.end());
+            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},
+                                   std::move(innerB));
+            splitFaces.insert(source);
+            splitFaces.insert(twin);
+            out.splitBoundaryEdges+=2;
+        }
+    }
+    std::vector<LocalLoop> loops;
+    loops.reserve(checked.contours.size());
+    for(std::size_t k=0;k<checked.contours.size();++k) {
+        const auto& contour=checked.contours[k];
+        LocalLoop loop;
+        loop.target=localTargets[k];
+        for(const auto& pair:checked.pairs)
+            if(pair.first==k||pair.second==k)
+                loop.target=std::min(localTargets[pair.first],
+                                     localTargets[pair.second]);
+        for(std::size_t i=0;i<contour.vertexIds.size();++i) {
+            const auto a=contour.vertexIds[i];
+            const auto b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
+            loop.ids.push_back(a);
+            const auto it=insertedOnEdge.find({a,b});
+            if(it!=insertedOnEdge.end())
+                loop.ids.insert(loop.ids.end(),it->second.begin(),
+                                it->second.end());
+        }
+        if(loop.ids.size()>settings.maxContourVertices)
+            throw std::length_error("Refined mirrored contour exceeds budget");
+        loops.push_back(std::move(loop));
+    }
+    // Identify reflection of entire directed rings by their SET of vertex
+    // IDs, not their original per-ring vertex indexing or phase.
+    std::vector<std::size_t> ringMirror(loops.size(),loops.size());
+    for(std::size_t i=0;i<loops.size();++i) {
+        std::set<VertexId> image;
+        for(const auto id:loops[i].ids)image.insert(opposite(id));
+        for(std::size_t j=0;j<loops.size();++j) {
+            if(loops[i].ids.size()!=loops[j].ids.size())continue;
+            const std::set<VertexId> candidate(loops[j].ids.begin(),
+                                                loops[j].ids.end());
+            if(candidate==image) {
+                if(ringMirror[i]!=loops.size())
+                    throw std::logic_error("Duplicated reflected contour ring");
+                ringMirror[i]=j;
+            }
+        }
+        if(ringMirror[i]==loops.size())
+            throw std::logic_error("No reflected counterpart for contour");
+    }
+    for(std::size_t i=0;i<loops.size();++i)
+        if(ringMirror[ringMirror[i]]!=i)
+            throw std::logic_error("Contour reflection is not an involution");
+
+    const auto owner=[&](std::size_t loop)->PartitionId {
+        return baseline->face(checked.contours.at(loop).survivingFaces.front()).owner;
+    };
+    const auto append=[&](PartitionId one,PartitionId other,
+                          const std::array<VertexId,3>& face,bool cap) {
+        const auto a=pos.at(face[0]),b=pos.at(face[1]),c=pos.at(face[2]);
+        if(triangleQuality(a,b,c)<settings.minimumTriangleQuality)
+            throw std::logic_error("Mirrored scar would create a skinny triangle");
+        if(out.insertedFaces.size()+2>settings.maxNewFaces)
+            throw std::length_error("Mirrored face budget exceeded");
+        const auto created=edit.appendMirroredFaces(one,other,face);
+        out.insertedFaces.push_back(created.first);
+        out.insertedFaces.push_back(created.second);
+        if(cap)out.capFaces+=2;
+        else out.zipperFaces+=2;
+    };
+
+    const std::set<std::size_t> caps(checked.cappedContours.begin(),
+                                     checked.cappedContours.end());
+    std::set<std::size_t> completedCaps;
+    for(const auto i:caps) {
+        if(completedCaps.contains(i))continue;
+        const auto j=ringMirror[i];
+        if(j==i||!caps.contains(j))
+            throw std::logic_error("Unsupported self-reflected or unpaired cap ring");
+        const auto triangles=capTriangles(loops[i],pos,settings);
+        for(const auto& face:triangles)
+            append(owner(i),owner(j),face,true);
+        completedCaps.insert(i);
+        completedCaps.insert(j);
+    }
+
+    std::map<std::size_t,std::size_t> zipped;
+    for(const auto& pair:checked.pairs) {
+        zipped.emplace(pair.first,pair.second);
+        zipped.emplace(pair.second,pair.first);
+    }
+    std::set<std::size_t> completedZippers;
+    for(const auto& pair:checked.pairs) {
+        const auto a=pair.first,b=pair.second;
+        if(completedZippers.contains(a))continue;
+        const auto ra=ringMirror[a],rb=ringMirror[b];
+        if(zipped.find(ra)==zipped.end()||zipped.at(ra)!=rb)
+            throw std::logic_error("A zipper has no reflected zipper assignment");
+        if(ra==b&&rb==a) {
+            // A zipper whose two contours reflect into one another must
+            // create a SINGLE X=0 seam ring. Otherwise independent
+            // triangulation of each half would cross the symmetry plane.
+            if(loops[a].ids.size()!=loops[b].ids.size())
+                throw std::logic_error("Unequal reflected zipper rings need paired refinement");
+            std::vector<VertexId> seam;
+            seam.reserve(loops[a].ids.size());
+            const std::set<VertexId> otherVertices(
+                loops[b].ids.begin(),loops[b].ids.end());
+            for(const auto id:loops[a].ids) {
+                if(!otherVertices.contains(opposite(id)))
+                    throw std::logic_error("Reflected zipper boundary vertices differ");
+                const auto p=pos.at(id);
+                if(p.x==0)
+                    throw std::logic_error("Self-mirrored zipper boundary requires a different patch");
+                if(out.insertedVertices.size()>=settings.maxNewVertices)
+                    throw std::length_error("Symmetry seam vertex budget exceeded");
+                const auto s=edit.appendSeamVertex(owner(a),{0,p.y,p.z});
+                seam.push_back(s);
+                pos.emplace(s,Vec3{0,p.y,p.z});
+                out.insertedVertices.push_back(s);
+            }
+            for(std::size_t i=0;i<seam.size();++i) {
+                const auto next=(i+1)%seam.size();
+                const auto v=loops[a].ids[i],w=loops[a].ids[next];
+                const auto safeStrip=[&](std::array<VertexId,3> triangle) {
+                    const auto pa=pos.at(triangle[0]),pb=pos.at(triangle[1]),
+                               pc=pos.at(triangle[2]);
+                    if(maxEdge(pa,pb,pc)>settings.maximumNewEdgeFactor*
+                       std::min(loops[a].target,loops[b].target))
+                        throw std::logic_error("Mirrored seam triangle exceeds local edge density");
+                    append(owner(a),owner(b),triangle,false);
+                };
+                safeStrip({w,v,seam[i]});
+                safeStrip({w,seam[i],seam[next]});
+            }
+        }else {
+            if(ra==a||rb==b||ra==b||rb==a)
+                throw std::logic_error("Partly self-reflected zipper not supported");
+            const auto faces=zipperTriangles(loops[a],loops[b],pos,settings);
+            for(const auto& face:faces)
+                append(owner(a),owner(ra),face,false);
+        }
+        completedZippers.insert(a);
+        completedZippers.insert(b);
+        completedZippers.insert(ra);
+        completedZippers.insert(rb);
+    }
+    // Mirror orphan retirement includes any self-mirrored X=0 old vertex.
+    std::set<VertexId> retired;
+    for(const auto id:selected) {
+        if(retired.contains(id))continue;
+        bool orphan=true;
+        for(const auto face:baseline->vertex(id).incidentFaces)
+            if(!deleted.contains(face)){orphan=false;break;}
+        if(!orphan)continue;
+        const auto twin=opposite(id);
+        bool mirrorOrphan=true;
+        for(const auto face:baseline->vertex(twin).incidentFaces)
+            if(!deleted.contains(face)){mirrorOrphan=false;break;}
+        if(!mirrorOrphan)
+            throw std::logic_error("Mirrored orphan state differs");
+        edit.removeMirroredVertices(id,twin);
+        retired.insert(id);
+        retired.insert(twin);
+    }
+    out.retiredVertices.assign(retired.begin(),retired.end());
+    out.commit=edit.commit();
+    out.index=edit.updatedIndex();
+    if(!out.index)
+        throw std::logic_error("Missing immutable mirrored commit");
+    validateSurgeryGeometry(*baseline,checked,selected,settings,out);
+    return out;
 }
 } // namespace mesher

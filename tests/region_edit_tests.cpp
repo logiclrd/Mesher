@@ -162,6 +162,69 @@ void testLocalTriangleSubdivision() {
     rejected([&] { (void)bad.commit(); },"Referenced vertex removal rejected");
 }
 
+void testMirroredTopologyInsertionAndSharedSeam() {
+    const auto imported=partitionFlatMesh(octahedron(),1);
+    const auto index=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirror={
+        {v[0],v[2]},{v[1],v[1]},{v[3],v[3]},
+        {v[4],v[4]},{v[5],v[5]}};
+    {
+        RegionEdit edit(index,{v[0],v[4]},mirror,1);
+        const auto primary=Vec3{.35,.3,.35};
+        const auto pair=edit.appendMirroredVertices(
+            index->vertex(v[0]).owner,index->vertex(v[2]).owner,primary);
+        require(pair.first!=pair.second&&
+                edit.mirroredVertex(pair.first)==pair.second,
+                "Off-plane insertion produces an exact mirrored ID pair");
+        edit.replaceMirroredFaces(f[0],f[1],{v[4],v[0],pair.first});
+        edit.appendMirroredFaces(index->face(f[0]).owner,
+                                 index->face(f[1]).owner,
+                                 {v[0],v[1],pair.first});
+        edit.appendMirroredFaces(index->face(f[0]).owner,
+                                 index->face(f[1]).owner,
+                                 {v[1],v[4],pair.first});
+        const auto result=edit.commit();
+        const auto next=edit.updatedIndex();
+        require(next!=nullptr&&
+                next->vertex(pair.second).position.x==-primary.x&&
+                next->vertex(pair.second).position.y==primary.y,
+                "Paired interior split uses reflected coordinates");
+        require(next->vertex(pair.first).incidentFaces.size()==3&&
+                next->vertex(pair.second).incidentFaces.size()==3,
+                "Both mirrored triangle fans are closed manifolds");
+        require(index->maybeVertex(pair.first)==nullptr&&
+                result.statistics.modifiedPartitions>1,
+                "Base immutable index preserved across partitioned splits");
+    }
+    {
+        RegionEdit edit(index,{v[0],v[4]},mirror,1);
+        const auto seam=edit.appendSeamVertex(
+            index->vertex(v[4]).owner,{0,.5,.5});
+        require(edit.mirroredVertex(seam)==seam,
+                "A new X=0 seam midpoint is represented by one shared ID");
+        edit.replaceMirroredFaces(f[0],f[1],{v[4],v[0],seam});
+        edit.appendMirroredFaces(index->face(f[0]).owner,
+                                 index->face(f[1]).owner,{seam,v[0],v[1]});
+        (void)edit.commit();
+        const auto next=edit.updatedIndex();
+        require(next->vertex(seam).incidentFaces.size()==4,
+                "One seam midpoint belongs to both mirrored half-surfaces");
+        require(next->vertex(seam).position.x==0,
+                "Symmetry seam remains exactly on X=0");
+    }
+    {
+        RegionEdit bad(index,{v[0],v[4]},mirror,1);
+        rejected([&] {
+            (void)bad.appendMirroredFaces(index->face(f[0]).owner,
+                index->face(f[1]).owner,{v[4],v[1],v[3]});
+        },"Mirrored triangle entirely on X=0 cannot duplicate coincident faces");
+        rejected([&] {(void)bad.commit();},
+                 "Atomic symmetric insertion failure poisons transaction");
+    }
+}
+
 void testMirrorAndSeam() {
     const auto imported=partitionFlatMesh(octahedron(),1);
     auto index=RegionTopologyIndex::build(imported.revision);
@@ -207,6 +270,7 @@ int main() {
         run("rollback and scoped access",testRollbackAndScopedAccess);
         run("local subdivision",testLocalTriangleSubdivision);
         run("mirror and seam",testMirrorAndSeam);
+        run("mirrored insertion and shared seam",testMirroredTopologyInsertionAndSharedSeam);
         std::cout<<"Region edit transaction tests passed\n";
     }catch(const std::exception& ex) {
         std::cerr<<"Region edit transaction failure: "<<ex.what()<<'\n';

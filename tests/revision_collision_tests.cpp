@@ -70,6 +70,12 @@ void testNarrowPhase() {
     check(contact({{{0,0,0},{-.5,0,0},{0,-.5,0}}},{1,4,5})==
           TriangleContact::ExpectedAdjacency,
           "Coplanar triangles touching only at one shared vertex are legitimate");
+    check(triangleContact(
+          Points{{{-2.1,-1,-1},{-.1,-.95,-1},{-.1,-1,-1}}},
+          Ids{1,5,4},
+          Points{{{-.1,-.95,-1},{-.1,-.8,-1},{0,-.8,-1}}},
+          Ids{5,6,52})==TriangleContact::ExpectedAdjacency,
+          "Coplanar edge subdivisions may meet neighboring zipper triangles only at a vertex");
     check(contact({{{0,0,0},{.3,.1,0},{.1,.3,0}}},{1,4,5})==
           TriangleContact::Intersecting,
           "Coplanar shared-vertex triangles overlapping in their interiors");
