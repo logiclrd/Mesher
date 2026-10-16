@@ -4,6 +4,8 @@
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/versioned_collapse.hpp"
 #include "mesher/versioned_refine.hpp"
+#include "mesher/revision_history.hpp"
+#include "mesher/durable_checkpoint.hpp"
 
 #include <chrono>
 #include <memory>
@@ -34,6 +36,13 @@ public:
                          RefineSettings refine,bool symmetric,
                          std::size_t partitionCapacity=256);
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
+    bool undo();
+    bool redo();
+    HistoryStatistics historyStatistics() const noexcept {
+        return history_.statistics();
+    }
+    DurableCheckpoint checkpoint() const;
+
     std::shared_ptr<const RegionTopologyIndex> snapshot() const noexcept {
         return published_.snapshot();
     }
@@ -58,6 +67,8 @@ private:
                          bool symmetric,std::size_t partitionCapacity);
     std::shared_ptr<const FlatMeshIndex> flatOrder_;
     IndexedMeshRepository published_;
+    RevisionRetirementQueue historyRetirement_{64};
+    RevisionHistory history_;
     VersionedInflateBrush inflate_;
     VersionedLocalRefiner refiner_;
     VersionedDirectionalCollapser collapser_;
