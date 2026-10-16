@@ -255,7 +255,7 @@ void testMirroredRejectsIncompleteMapping() {
     const auto& f=test.import.flatIndex.faceIds;
     const auto plan=planRemovalContours(*original,{f[10],f[11],f[22],f[23]});
     auto incomplete=test.mirrors;
-    incomplete.pop_back();
+    incomplete.erase(incomplete.begin()+1); // Needed by deleted +X cap ring
     bool failed=false;
     try{(void)applyMirroredRepairSurgery(original,plan,incomplete);}
     catch(const std::exception&) {failed=true;}
