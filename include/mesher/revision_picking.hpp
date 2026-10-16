@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <optional>
@@ -58,6 +59,11 @@ public:
     std::optional<Vec3> firstRayHit(Ray ray,
                                     RegionTopologyIndex::PickStatistics* statistics) const;
     const void* identity() const noexcept {return root_.get();}
+    // Visit all triangles with boxes overlapping an arbitrary query AABB.
+    // Visitor pointers/references are valid while this immutable root lives.
+    void forEachOverlappingTriangle(
+        const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
+        RegionTopologyIndex::CollisionStatistics& stats) const;
 private:
     std::shared_ptr<const Directory> root_;
     static std::shared_ptr<const Partition> buildPartition(

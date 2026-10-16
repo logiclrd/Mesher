@@ -356,7 +356,7 @@ topology published, no dropped 4D Steps, old roots immutable, stable IDs
 never reused, symmetry seam shared, brush radius/density independent,
 existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
-- [ ] **V13 — Immutable post-state triangle proximity/intersection queries.**
+- [x] **V13 — Immutable post-state triangle proximity/intersection queries.**
   Extend revision-specific partition BVHs with triangle-AABB candidate
   queries and robust triangle-triangle static overlap tests. Given a
   private proposed revision plus changed face IDs, find changed/changed
@@ -367,6 +367,15 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   Compare against exhaustive test fixtures. CPU-only API/tests, no live
   geometry modification; assert bounded normal-case index work and retain
   previous revision pointer identity.
+  Implemented as `RegionTopologyIndex::triangleIntersections()` with
+  immutable revision-specific BVH AABB traversal, static SAT/coplanar
+  contact checks, stable-ID pair canonicalization and ambiguity reporting.
+  A dedicated nineteenth CTest checks shared-feature adjacency,
+  overlapping/tangent faces, simultaneous mirrored closed-solid collision,
+  exhaustive face-pair comparison, index pruning, and old-root retention.
+  Detection is an opt-in CPU API only; the brush/worker does not invoke it
+  yet. Numerical predicates are conservative double-precision tests, not
+  exact arithmetic or a claim of complete adversarial robustness.
 - [ ] **V14 — Positive-winding solid and fragment classification.**
   Add reference-accurate signed winding/occupancy evaluation on whole
   *candidate* geometry and accelerated local queries; verify 0 vs 1,

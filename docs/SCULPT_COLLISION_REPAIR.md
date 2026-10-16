@@ -1,8 +1,8 @@
 # Sculpt self-intersection management: positive-winding repair and collision constraints
 
-**Status:** agreed design direction and proposed roadmap after V12; **not implemented**.
+**Status:** V13 detector implemented as an opt-in CPU API; V14–V19 remain proposed/unimplemented.
 **Baseline:** V12 `main` at `9e673c4` when this design was captured (2026-10-16).
-**Code impact:** future worker geometry stages; no change to current production behavior in this documentation milestone.
+**Code impact:** V13 adds query-only CPU collision detection with no change to the live worker or renderer.
 
 ## Problem and reference geometry
 
@@ -81,3 +81,31 @@ A geometric operation from split/flip/collapse can itself create intersections. 
 - Compare incremental intersection candidates with a brute-force reference on small fixtures; compare accelerated classification to a high-accuracy reference away from ambiguous boundaries; test shadow reader old-root immutability, stable-ID nonreuse, mirror invariants and saved/recovered stitched topology.
 - Repeated stamps: no uncontrolled erosion, detail loss, degeneracy, hidden remaining crossings or pathological tiny/long seam edges after hundreds of small motions. Report edge lengths vs local target `h`, error bounds and throughput in addition to raw face counts.
 - Respect V12's existing GCC/Clang/MSVC warning-clean CI, 18 CPU CTest suites and reference benchmarks. Headless tests cannot establish native Vulkan/focus/recovery timing; schedule real Linux/Windows desktop checks with stamps, undo/redo and save/recover before claiming interactive quality.
+
+## V13 implementation: post-state collision queries
+
+`RegionTopologyIndex::triangleIntersections(changedVertices,changedFaces,stats)`
+visits each face in the supplied local dirty set (including incident faces of
+moved vertices), traverses that **revision's** immutable partition BVHs by
+triangle AABB, deduplicates canonical stable face-ID pairs, and applies
+`triangleContact()` to candidates. The query returns definite geometric
+contacts/intersections and explicitly ambiguous pairs; ordinary edge/vertex
+incidences are excluded when the faces only touch at their legal shared feature.
+Statistics expose seed-face count, boxes and partitions visited, candidate
+triangles and deduplicated narrow-phase checks. Retired changed FaceIds are
+ignored; unknown live IDs reject rather than silently return a clean answer.
+
+The triangle narrow phase is an explicitly **conservative, floating-point**
+static test: separated-axis culling, planar polygon overlap for shared-vertex
+coplanar cases, and interval-clipped edge/plane contacts where needed.
+Near-degenerate geometry is marked ambiguous. This is not an exact-predicate
+Boolean kernel; small numeric tolerances can admit false positive contacts,
+and arbitrary degenerate/nonmanifold input remains unsupported. V14 must not
+treat ambiguous cases as certified safe for deletion. V13 also does not detect
+motion that tunnels through a surface between sampling endpoints.
+
+Tests include independent/coplanar/tangent triangles, shared-feature normal
+adjacency, coplanar folded faces, reflected tetrahedral solids moving together
+in one candidate revision, brute-force candidate comparison, local pruning
+on a sphere, independent retained older revisions and a no-op shared BVH.
+Live sculpt collision prevention/merging begins only at V17/V18.

@@ -104,6 +104,26 @@ public:
     std::optional<Vec3> firstRayHit(Ray ray,PickStatistics* statistics=nullptr) const;
     const void* pickingRootIdentity() const noexcept;
 
+    struct CollisionPair {
+        FaceId first{},second{}; // Canonical ascending stable FaceIds
+        // True for ordinary intersections and contacts; ambiguous pairs are
+        // reported separately rather than certified as collision-free.
+        bool ambiguous{};
+        auto operator<=>(const CollisionPair&) const = default;
+    };
+    struct CollisionStatistics {
+        std::size_t seedFaces{},boxesTested{},partitionsTested{};
+        std::size_t candidateTriangles{},narrowPhaseTests{};
+    };
+    // All candidates and narrow-phase tests refer to THIS complete immutable
+    // post-deformation revision. changedVertices and changedFaces are a local
+    // dirty set, not a comparison against geometry from the previous revision.
+    // Retired face IDs may be supplied in changedFaces and are ignored.
+    std::vector<CollisionPair> triangleIntersections(
+        const std::vector<VertexId>& changedVertices,
+        const std::vector<FaceId>& changedFaces,
+        CollisionStatistics* stats=nullptr) const;
+
 private:
     friend class RegionEdit;
     explicit RegionTopologyIndex(std::shared_ptr<const MeshRevision> revision,
