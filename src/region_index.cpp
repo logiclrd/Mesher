@@ -261,6 +261,10 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
         else result->cells_.set(key,std::move(ids),&copied);
         ++result->statistics_.changedCellRecords;
     }
+    result->picking_=RevisionPickingIndex::advance(
+        *old.picking_,old,*result,vertexChanges,faceChanges,
+        result->statistics_.rebuiltPickingPartitions,
+        result->statistics_.copiedPickingDirectoryNodes);
     return result;
 }
 
