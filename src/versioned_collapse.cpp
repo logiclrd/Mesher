@@ -90,6 +90,16 @@ void VersionedDirectionalCollapser::addMirrorPair(
     addMirror(mirrors_,first,second);
 }
 
+void VersionedDirectionalCollapser::removeMirrorPair(
+    VertexId first,VertexId second) {
+    const auto a=mirrors_.find(first),b=mirrors_.find(second);
+    if(a==mirrors_.end()||b==mirrors_.end()||
+       a->second!=second||b->second!=first)
+        throw std::invalid_argument("Cannot remove nonexistent collapse mirror pair");
+    mirrors_.erase(first);
+    if(second!=first)mirrors_.erase(second);
+}
+
 bool VersionedDirectionalCollapser::attempt(
     VersionedCollapseResult& result,VertexId a,VertexId b) {
     const auto current=result.index;
