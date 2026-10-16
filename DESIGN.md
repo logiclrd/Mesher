@@ -1567,3 +1567,44 @@ failure paths retain prior root identity, retire stable IDs without
 reuse and preserve manifold orientation. More difficult nonplanar
 closures, self-mirrored ring topology and bidirectional preservation
 proofs remain necessary for general live integration.
+
+## V16c1: Self-reflected disk caps, multiple boundary splits, reverse detail guard
+
+A symmetric *single* cap ring need not be paired with a second ring.
+A valid ring may reflect onto itself. The first supported case has
+exactly two original vertices on the plane X=0 and a contiguous
+positive-X boundary arc between them. That arc is capped with oriented
+ear-clipped triangles, treating the line between the two EXISTING
+seam endpoints as an internal edge. Mirroring the triangles with
+reversed winding closes the negative-X half across the SAME seam edge,
+without doubling vertices or creating coincident sheets. Malformed
+rings, more plane crossings and incompatible mirror maps still fail
+closed. An octahedral top-hemisphere excision verifies a genus-zero
+closed cap, self-mirrored pole retirement, retained old root and both
+flat/mildly bent rim geometry.
+
+Original retained faces can have two or three contour edges requiring
+subdivision. The old one-split-per-face guard has been replaced by
+collecting directed side subdivisions and triangulating the original
+face once, with all subedges and their orientations preserved. Both
+ordinary and reflected surgery use the same pure triangulator; the
+latter reflects the resulting whole face triangulation atomically
+into the partner face and uses the same mirrored split vertices.
+An internal regression tests two- and three-side triangulation,
+surface area conservation, positive orientation and interior edge
+incidence, not merely incidental existing fixtures.
+
+Two-sided proximity constraints require an important distinction:
+hidden/red faces are INTENTIONALLY erased. A strict removed-to-new
+Hausdorff requirement would wrongly forbid the desired topology
+change. The default remains *new geometry to removed excision*
+sampling. For deletions explicitly intended to preserve exposed
+surface detail, `RepairSurgerySettings::requireReverseSurfaceFidelity`
+enables old-excised-triangle vertices/centroid → closest updated
+local surface distance checks with
+`maximumReverseDeviationInEdges`. This is measured against inserted
+and retained triangles, with the same bounded local-work budget.
+The reverse check is opt-in and rejects entirely discarded shells;
+a precise planar cap passes, while a separated-wall zipper subject to
+an inappropriately strict preservation demand rejects. Both metrics
+are sampled and NOT certified Hausdorff distances.
