@@ -138,6 +138,25 @@ void VersionedSculptBrush::stamp(
     const auto afterCollapse=Clock::now();
     const auto updated=collapsed.index;
 
+    // Identify every face-owner partition whose triangles, flat normals or
+    // canonical edge lines may have changed, using only old/new local halos.
+    // This set spans the entire stamp even when split/flip and collapse both
+    // occur, so a rendered frame never receives a half-updated surface.
+    std::vector<VertexId> changedVertices=inflated.baseline.movedVertices;
+    changedVertices.insert(changedVertices.end(),
+        refined.insertedVertices.begin(),refined.insertedVertices.end());
+    changedVertices.insert(changedVertices.end(),
+        collapsed.removedVertices.begin(),collapsed.removedVertices.end());
+    std::vector<FaceId> changedFaces=inflated.baseline.affectedFaces;
+    changedFaces.insert(changedFaces.end(),
+        refined.changedFaces.begin(),refined.changedFaces.end());
+    changedFaces.insert(changedFaces.end(),
+        collapsed.removedFaces.begin(),collapsed.removedFaces.end());
+    changedFaces.insert(changedFaces.end(),
+        collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    lastDirtyPartitions_=updated==old?std::vector<PartitionId>{}:
+        dirtyRenderPartitions(*old,*updated,changedVertices,changedFaces);
+
     // All geometry and connectivity are already fully validated. Publish
     // the exact index + mesh revision pair atomically once per completed
     // Step, never publishing partially refined intermediate topology.
