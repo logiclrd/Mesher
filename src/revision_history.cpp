@@ -10,7 +10,8 @@ namespace mesher {
 RevisionHistory::RevisionHistory(
     std::shared_ptr<const RegionTopologyIndex> initial,
     std::size_t maximumRevisions,std::size_t maximumChangeBytes,
-    RevisionRetirementQueue* retirement)
+    RevisionRetirementQueue* retirement,
+    std::size_t initialVertices,std::size_t initialFaces)
     :maximumRevisions_(maximumRevisions),maximumChangeBytes_(maximumChangeBytes),
      retirement_(retirement) {
     if(!initial||!maximumRevisions_||!maximumChangeBytes_)
