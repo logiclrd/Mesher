@@ -111,6 +111,8 @@ VersionedSculptBrush::VersionedSculptBrush(
     :flatOrder_(std::make_shared<const FlatMeshIndex>(
          std::move(import.flatIndex))),
      published_(RegionTopologyIndex::build(std::move(import.revision))),
+     history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
+              initialCount,flatOrder_->faceIds.size()),
      inflate_(strength,curvature,makeMirrors(*flatOrder_,initialCount,symmetric)),
      refiner_(initialCount,refine,
               makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
@@ -185,6 +187,14 @@ void VersionedSculptBrush::stamp(
                             collapsed.copiedDirectoryNodes;
     clonedPartitionBytes_+=inflated.commitStatistics.clonedPartitionBytes+
                            refined.clonedPartitionBytes+collapsed.clonedPartitionBytes;
+    // One COW root per actual geometry-changing Step, within both a
+    // fixed entry count and copied-payload budget. Mirror changes are stored
+    // only as incremental transitions, never a full per-stamp map copy.
+    history_.append(updated,lastDirtyPartitions_,
+                    refined.insertedMirrorPairs,collapsed.removedMirrorPairs,
+                    inflated.commitStatistics.clonedPartitionBytes+
+                    refined.clonedPartitionBytes+collapsed.clonedPartitionBytes,
+                    vertices_,faces_);
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
@@ -197,6 +207,65 @@ void VersionedSculptBrush::stamp(
     timings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
               seconds(afterRefine,afterCollapse),0};
     ++completed_;
+}
+
+bool VersionedSculptBrush::undo() {
+    if(!history_.canUndo())return false;
+    const auto previous=published_.snapshot();
+    const auto step=history_.undo();
+    for(const auto& [a,b]:step.removeMirrors) {
+        inflate_.removeMirrorPair(a,b);
+        refiner_.removeMirrorPair(a,b);
+        collapser_.removeMirrorPair(a,b);
+    }
+    for(const auto& [a,b]:step.addMirrors) {
+        inflate_.addMirrorPair(a,b);
+        refiner_.addMirrorPair(a,b);
+        collapser_.addMirrorPair(a,b);
+    }
+    if(!published_.publishIfCurrent(previous,step.index))
+        throw std::logic_error("History undo base revision changed");
+    lastDirtyPartitions_=step.dirtyPartitions;
+    vertices_=step.vertices;
+    faces_=step.faces;
+    details_.vertices=vertices_;
+    details_.triangles=faces_;
+    details_.moved=details_.splitPairs=details_.flipPairs=details_.collapsedPairs=0;
+    ++publishedRevisions_;
+    return true;
+}
+bool VersionedSculptBrush::redo() {
+    if(!history_.canRedo())return false;
+    const auto previous=published_.snapshot();
+    const auto step=history_.redo();
+    for(const auto& [a,b]:step.removeMirrors) {
+        inflate_.removeMirrorPair(a,b);
+        refiner_.removeMirrorPair(a,b);
+        collapser_.removeMirrorPair(a,b);
+    }
+    for(const auto& [a,b]:step.addMirrors) {
+        inflate_.addMirrorPair(a,b);
+        refiner_.addMirrorPair(a,b);
+        collapser_.addMirrorPair(a,b);
+    }
+    if(!published_.publishIfCurrent(previous,step.index))
+        throw std::logic_error("History redo base revision changed");
+    lastDirtyPartitions_=step.dirtyPartitions;
+    vertices_=step.vertices;
+    faces_=step.faces;
+    details_.vertices=vertices_;
+    details_.triangles=faces_;
+    details_.moved=details_.splitPairs=details_.flipPairs=details_.collapsedPairs=0;
+    ++publishedRevisions_;
+    return true;
+}
+DurableCheckpoint VersionedSculptBrush::checkpoint() const {
+    DurableCheckpoint snapshot;
+    snapshot.index=published_.snapshot();
+    for(const auto& [a,b]:inflate_.mirrors())
+        if(a<=b)snapshot.mirrorPairs.push_back({a,b});
+    std::sort(snapshot.mirrorPairs.begin(),snapshot.mirrorPairs.end());
+    return snapshot;
 }
 
 } // namespace mesher
