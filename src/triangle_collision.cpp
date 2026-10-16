@@ -10,9 +10,6 @@ namespace mesher {
 namespace {
 struct Point2 {double x{},y{};};
 Vec3 difference(Vec3 a,Vec3 b) {return a-b;}
-double component(Vec3 p,unsigned axis) {
-    return axis==0?p.x:(axis==1?p.y:p.z);
-}
 unsigned projectionAxis(Vec3 normal) {
     const Vec3 n{std::abs(normal.x),std::abs(normal.y),std::abs(normal.z)};
     return n.x>=n.y&&n.x>=n.z?0:(n.y>=n.z?1:2);
