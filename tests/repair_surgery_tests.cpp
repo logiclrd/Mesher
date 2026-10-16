@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "../src/repair_surgery_detail.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -92,6 +93,49 @@ std::size_t euler(const RegionTopologyIndex& index) {
             }
     });
     return vertices+faces-edges.size();
+}
+void testPureMultiEdgeRetainedFaceSplitting() {
+    using mesher::detail::SideSplits;
+    const std::unordered_map<VertexId,Vec3> p={
+        {1,{0,0,0}},{2,{2,0,0}},{3,{0,2,0}},
+        {4,{1,0,0}},{5,{1,1,0}},{6,{0,1,0}}};
+    const RepairSurgerySettings settings;
+    for(const bool threeEdges:{false,true}) {
+        SideSplits splits={{{1,2},{4}},{{2,3},{5}}};
+        if(threeEdges)splits.emplace(
+            std::pair<VertexId,VertexId>{3,1},std::vector<VertexId>{6});
+        const auto faces=mesher::detail::subdivideRetainedTriangle(
+            {1,2,3},splits,p,settings);
+        require(faces.size()==(threeEdges?4u:3u),
+                "One triangle is split along two or all three boundary edges");
+        double area=0;
+        std::map<std::pair<VertexId,VertexId>,unsigned> incidences;
+        for(const auto& ids:faces) {
+            const auto a=p.at(ids[0]),b=p.at(ids[1]),d=p.at(ids[2]);
+            const double orientedArea=cross(b-a,d-a).z*.5;
+            require(orientedArea>0,
+                    "All subtile faces retain the original triangle winding");
+            area+=orientedArea;
+            for(unsigned i=0;i<3;++i) {
+                auto u=ids[i],v=ids[(i+1)%3];
+                if(u>v)std::swap(u,v);
+                ++incidences[{u,v}];
+            }
+        }
+        require(std::abs(area-2)<1e-12,
+                "Multi-edge subfaces partition the original area exactly");
+        for(const auto& [edge,count]:incidences) {
+            (void)edge;
+            require(count==1||count==2,
+                    "No internal edge has a nonmanifold degree");
+        }
+        require(incidences[{1,4}]==1&&incidences[{4,2}]==1&&
+                incidences[{2,5}]==1&&incidences[{5,3}]==1,
+                "Both originally long boundary sides are conformingly subdivided");
+        if(threeEdges)
+            require(incidences[{3,6}]==1&&incidences[{6,1}]==1,
+                    "Third side subdivides without hanging endpoints");
+    }
 }
 void testCapsAndSnapshotPublication() {
     Mesh m;
@@ -479,6 +523,8 @@ void testRejectionIsTransactional() {
 }
 int main() {
     try {
+        std::cout<<"Surgery fixture: pure multi-edge triangle"<<std::endl;
+        testPureMultiEdgeRetainedFaceSplitting();
         std::cout<<"Surgery fixture: cap"<<std::endl;
         testCapsAndSnapshotPublication();
         std::cout<<"Surgery fixture: separated zipper"<<std::endl;
