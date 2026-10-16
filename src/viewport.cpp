@@ -1309,6 +1309,8 @@ public:
         solid=upload(drawing.solid);
         lines=upload(drawing.lines);
         if(displayedIndex_)initializePartitions();
+        // The viewport owns the displayed and cached references from here.
+        interaction_.initialRevision.reset();
         createSwapchain();
         createCommands();
         refreshHud();
