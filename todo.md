@@ -515,6 +515,25 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   buried red faces, whose deletion correctly destroys their surface.
   Both directions remain sampled estimates, not certified Hausdorff
   distances. All committed surgery continues to be private.
+- [x] **V16c2a — Isolated warped/concave caps and explicit X=0 preflight.**
+  A single cut ring cannot select a zipper: it has no partner, so the
+  frustum model's strict planarity/compactness assumptions are unnecessary.
+  Use a SEPARATE conservative `maximumSingleCapPlanarityInRadii=0.75`
+  and `maximumSingleCapIsoperimetricRatio=3.0` for this case only.
+  Actual ear-clipped cap faces still require simple projected geometry,
+  positive nondegenerate oriented triangles, valid manifold links,
+  quantitative surface deviation, and residual-collision checks on the
+  private revision. Non-adjacent projected contour edges are tested
+  before ear clipping; a crossing/overlap refuses the repair.
+  A concave prism opening and a substantially nonplanar saddle-shaped
+  ring now close correctly; stronger warping and even mildly warped
+  MULTI-ring topology choices remain safely ambiguous.
+  Added deterministic pure symmetry-plane classification and an early
+  mirrored-repair preflight: straddling edges without X=0 vertex IDs,
+  existing boundary edges lying in the plane, near-zero-but-not-exact
+  plane positions and self-reflected loops with more than two plane
+  contacts are explicitly rejected rather than inventing duplicate
+  seam vertices or unsafe orientation. Tests cover these cases.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -527,17 +546,17 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16c2:** decide handling/rejection
-  of boundaries crossing X=0 without pre-existing plane vertices,
-  self-reflected contours with more than two seam contacts, strongly
-  nonplanar/irregular scar loops and difficult multicomponent contact
-  decisions. For sculpt-like deletions, distinguish feature-bearing
-  surfaces from intentionally buried red fragments before enabling
-  reverse fidelity; sampled distances must not be presented as a
-  certified two-sided Hausdorff bound. Extend cross-plane and
-  concavity regression coverage; fail closed on unsupported topology
-  rather than permitting hidden self-intersections or duplicate
-  plane seams. V17 alone integrates the live worker.
+  seam atomically. **Remaining V16c2b:** implement or explicitly
+  scope a conforming seam construction for genuine boundary-edge
+  crossings of X=0 and more than two self-reflected plane contacts.
+  Their current behavior is an early fail-closed refusal; no unsupported
+  duplicate seam is published. Continue investigating strongly folded
+  and high-complexity multi-ring repairs, positive-winding
+  classification of intentionally buried versus feature-bearing
+  surface fragments (for opt-in reverse fidelity), and complete
+  multicomponent collision decisions. Sampled proximity is NOT a
+  certified bidirectional Hausdorff bound. Broaden deliberate
+  fail-closed and repeated-contact stress cases before live V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

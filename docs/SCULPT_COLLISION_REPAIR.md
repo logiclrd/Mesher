@@ -326,3 +326,29 @@ new-to-old distance remains enforced by default. The explicit choice
 of a reverse check, its limit and the measured maximum are retained
 in the surgery settings/result. The samples are not a continuous
 surface Hausdorff proof.
+
+## V16c2a: Separate isolated-cap geometry from multi-ring decisions
+
+For ONE isolated surviving ring, there is no zipper candidate.
+Allow a separately bounded projected-area cap estimate despite
+moderate nonplanarity (up to 0.75 effective radius) or concavity
+(isoperimetric ratio up to 3.0), rather than applying the stricter
+two-contour frustum approximation. Ear clipping now explicitly
+refuses projected self-crossings among non-adjacent ring edges.
+Normal triangle-quality, local post-state BVH intersection and
+deviation checks remain mandatory before even returning a private
+repair result. Heavily distorted rings still fail closed.
+Crucially, multiple rings **never** inherit this relaxed option;
+the topology decision remains ambiguous if the frustum score
+cannot be trusted.
+
+The mirrored X=0 seam is an identity condition, not a tolerance:
+a true seam vertex has x==0 and is one self-mirrored vertex ID.
+The preflight counts exact plane contacts, crossing edges, edges
+entirely on the plane and near-plane nonzero x values relative to
+the local edge scale. An edge straddling the plane without a seam
+vertex, an on-plane edge, a near-plane numerical ambiguity, or a
+ring with a nonzero seam count other than two is refused.
+A conforming split of cross-plane edges and more complex multi-
+contact contour decomposition remains **future V16c2b** work,
+not something silently approximated by mirroring a duplicate sheet.

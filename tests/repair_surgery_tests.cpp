@@ -1,5 +1,6 @@
 #include "mesher/repair_surgery.hpp"
 #include "../src/repair_surgery_detail.hpp"
+#include "../src/repair_plane_internal.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -362,6 +363,141 @@ void testMirroredUnevenBoundarySubdivision() {
         {},result.insertedFaces).empty(),
         "Mirrored boundary subdivision does not create crossing triangles");
 }
+void testIsolatedIrregularAndWarpedCap() {
+    // A single boundary has no alternative zipper partner. Its
+    // nonplanarity or concavity should not automatically prevent
+    // testing a real, bounded cap against the private post-state mesh.
+    for(const bool warped:{false,true}) {
+        Mesh m;
+        const std::vector<std::array<double,2>> concave={
+            {-1,-1},{1,-1},{1,1},{.1,.2},{-1,1}};
+        const auto end=prism(m,-2,2,warped?square(1):concave);
+        if(warped) {
+            for(std::size_t i=0;i<4;++i)
+                m.vertices[i].x=-2+(i%2==0?-.60:.60);
+        }
+        const auto imported=partitionFlatMesh(m,1);
+        const auto baseline=RegionTopologyIndex::build(imported.revision);
+        const auto removed=capIds(imported,end,true);
+        const auto plan=planRemovalContours(*baseline,removed);
+        if(!plan.ready()||plan.cappedContours.size()!=1)
+            throw std::runtime_error(
+                std::string("Isolated ")+(warped?"warped":"concave")+
+                " ring refused: status="+std::to_string(
+                    static_cast<int>(plan.status))+
+                ", reason="+plan.reason);
+        require(plan.pairs.empty(),"Isolated disk must never invent a zipper partner");
+        const auto surgery=applyRepairSurgery(baseline,plan);
+        require(surgery.capFaces==end.count-2&&
+                surgery.zipperFaces==0,
+                "Nonplanar/concave replacement is a complete bounded triangulated disk");
+        require(euler(*surgery.index)==2,
+                "Irregular isolated cap retains a closed genus-zero manifold");
+        require(surgery.verifiedLocalFaces>surgery.capFaces,
+                "Private irregular cap includes surviving faces in collision tests");
+        require(baseline->retiredFaceCount()==0,
+                "Irregular surgery leaves precommit revision unchanged");
+        if(warped) {
+            RepairPlanSettings strict;
+            strict.maximumSingleCapPlanarityInRadii=
+                strict.maximumPlanarityInRadii;
+            const auto refused=planRemovalContours(*baseline,removed,strict);
+            require(refused.status==RepairPlanStatus::AmbiguousClosure,
+                    "Legacy strict frustum planar bound rejects saddle-shaped contour");
+            Mesh extreme=m;
+            for(std::size_t i=0;i<4;++i)
+                extreme.vertices[i].x=-2+(i%2==0?-1.0:1.0);
+            const auto tooWarped=partitionFlatMesh(extreme,1);
+            const auto ix=RegionTopologyIndex::build(tooWarped.revision);
+            const auto noPlan=planRemovalContours(*ix,
+                capIds(tooWarped,end,true));
+            require(noPlan.status==RepairPlanStatus::AmbiguousClosure,
+                    "Severely folded isolated cap still rejects beyond its own bound");
+        }
+    }
+}
+void testProjectedSelfCrossingCapIsRejected() {
+    // A pentagram loop has a nonzero projected area yet is NOT the
+    // boundary of a simple disk. The earlier single-ring relaxation
+    // must never let ear clipping silently fill its overlapped winding.
+    Mesh mesh;
+    std::vector<std::array<double,2>> crossing;
+    for(unsigned i=0;i<5;++i) {
+        const unsigned index=(2*i)%5;
+        const double phi=2*std::numbers::pi_v<double>*index/5;
+        crossing.push_back({std::cos(phi),std::sin(phi)});
+    }
+    const auto cap=prism(mesh,-2,2,crossing);
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    auto relaxed=RepairPlanSettings{};
+    relaxed.maximumSingleCapIsoperimetricRatio=100;
+    const auto plan=planRemovalContours(
+        *original,capIds(imported,cap,true),relaxed);
+    require(plan.ready()&&plan.cappedContours.size()==1,
+            "Topologically closed but crossing pentagram challenges cap triangulator");
+    auto surgerySettings=RepairSurgerySettings{};
+    surgerySettings.planning=relaxed;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(original,plan,surgerySettings);}
+    catch(const std::logic_error& e) {
+        rejected=std::string(e.what()).find(
+            "not simple in its projection")!=std::string::npos;
+    }
+    require(rejected,
+            "Projected nonadjacent ring-edge intersection is rejected before creating cap triangles");
+    require(original->retiredFaceCount()==0,
+            "Rejected crossing cap leaves original revision and history intact");
+}
+void testNonplanarMultiContourStaysAmbiguous() {
+    Mesh m;
+    const auto a=prism(m,-3,-2,square(.7));
+    for(std::size_t i=0;i<4;++i)
+        m.vertices[i].x=-3+(i%2==0?-.42:.42);
+    const auto b=prism(m,2,3,square(.7));
+    const auto imported=partitionFlatMesh(m,1);
+    const auto baseline=RegionTopologyIndex::build(imported.revision);
+    auto removed=capIds(imported,a,true);
+    const auto other=capIds(imported,b,true);
+    removed.insert(removed.end(),other.begin(),other.end());
+    const auto plan=planRemovalContours(*baseline,removed);
+    require(plan.status==RepairPlanStatus::AmbiguousClosure,
+            "A warped multi-ring option must not trust a circular-frustum topology score");
+    require(baseline->retiredFaceCount()==0,
+            "Ambiguous multi-ring geometry never publishes surgery");
+}
+void testSymmetryPlaneClassificationFailsClosed() {
+    const auto check=mesher::detail::inspectPlaneContour;
+    {
+        const auto clean=check({{1,-1,0},{0,0,-1},{-1,-1,0},
+                                {0,0,1}},1);
+        require(clean.seamVertices==2&&clean.crossingEdges==0&&
+                clean.onPlaneEdges==0,
+                "Explicit seam endpoints are allowed for one self-mirrored cap");
+    }
+    {
+        const auto crossed=check({{1,0,0},{-1,1,0},{-1,0,1}},1);
+        require(crossed.crossingEdges==2&&crossed.seamVertices==0,
+                "An X=0 crossing without a topological vertex is detectable");
+    }
+    {
+        const auto crowded=check({{0,0,0},{1,0,0},{0,1,0},
+                                   {-1,0,0},{0,-1,0}},1);
+        require(crowded.seamVertices==3,
+                "A multi-contact self-reflected loop is rejected pending domain decomposition");
+    }
+    {
+        const auto along=check({{0,0,0},{0,1,0},{1,1,0},{1,0,0}},1);
+        require(along.onPlaneEdges==1,
+                "An edge lying on X=0 cannot be treated as two independent seams");
+    }
+    {
+        const auto uncertain=check({{1,0,0},{1e-12,1,0},
+                                    {1,0,1}},1);
+        require(uncertain.nearlyOnPlaneVertices==1,
+                "Near-zero coordinate is not silently treated as an exact shared seam ID");
+    }
+}
 void testSelfMirroredCapAcrossExistingSeam() {
     for(const double bend:{0.0,.04}) {
     Mesh oct;
@@ -541,6 +677,14 @@ int main() {
         testMirroredRejectsIncompleteMapping();
         std::cout<<"Surgery fixture: mirrored uneven boundary"<<std::endl;
         testMirroredUnevenBoundarySubdivision();
+        std::cout<<"Surgery fixture: irregular isolated cap"<<std::endl;
+        testIsolatedIrregularAndWarpedCap();
+        std::cout<<"Surgery fixture: self-crossing projected cap"<<std::endl;
+        testProjectedSelfCrossingCapIsRejected();
+        std::cout<<"Surgery fixture: ambiguous warped multiple loops"<<std::endl;
+        testNonplanarMultiContourStaysAmbiguous();
+        std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
+        testSymmetryPlaneClassificationFailsClosed();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;

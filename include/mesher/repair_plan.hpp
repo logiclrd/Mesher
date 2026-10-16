@@ -43,6 +43,13 @@ struct RepairPlanSettings {
     // More pathological contours require V16's actual-surface evaluation.
     double maximumPlanarityInRadii=0.12;
     double maximumIsoperimetricRatio=1.8;
+    // A SINGLE isolated contour has no competing zipper topology: it
+    // must cap or fail. Permit more warped/concave bounded disks here
+    // only; multi-contour frustum selection retains the strict bounds.
+    // Actual triangulation, orientation, manifoldness and collisions
+    // remain independently validated by the V16 private transaction.
+    double maximumSingleCapPlanarityInRadii=0.75;
+    double maximumSingleCapIsoperimetricRatio=3.0;
     double minimumNormalAlignment=0.85;
 };
 struct RepairContour {

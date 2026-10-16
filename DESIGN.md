@@ -1608,3 +1608,40 @@ The reverse check is opt-in and rejects entirely discarded shells;
 a precise planar cap passes, while a separated-wall zipper subject to
 an inappropriately strict preservation demand rejects. Both metrics
 are sampled and NOT certified Hausdorff distances.
+
+## V16c2a: Cap feasibility is not zipper-choice fitness
+
+A single surviving removal boundary has no second ring to zipper.
+The existing circular-frustum approximation was built for selecting
+*between* cap and zipper across TWO loops, and its strict assumptions
+must not accidentally become a global ban on legitimate irregular
+isolated caps. The V15.1 closure selector now uses distinct
+`maximumSingleCapPlanarityInRadii` and
+`maximumSingleCapIsoperimetricRatio` bounds ONLY when exactly one
+contour exists. These currently default to 0.75 and 3.0.
+Multiple loops retain the original tight circular-frustum parameters
+and return `AmbiguousClosure` when a distorted loop makes that
+approximation unreliable. A single allowed loop is still merely a
+CANDIDATE. V16 constructs a real cap, verifies it is a disk through
+projection-based ear clipping, and uses full private post-state edge,
+vertex-link, orientation, self-collision and deviation checks. In
+particular, non-adjacent edges may not intersect in the projected
+polygon. Relaxing the heuristic does not relax transaction safety.
+
+For mirrored geometry, the X=0 plane is a *topological* seam: an
+existing X=0 vertex must be one self-mirrored stable ID. New symmetric
+surgery preflight classifies boundary vertex contacts, straddling
+edges, on-plane edges, and near-plane (but non-exact) vertices.
+Crossing the symmetry plane without such a vertex is NOT treated as
+two separate crossings to be stitched later or snapped onto X=0.
+Likewise multi-contact (>2) individual rings and on-plane edges are
+currently unsupported and rejected before any repair vertices are
+created. This decision is conservative and testable; future explicit
+conforming plane splits will require consistent face/edge reflection
+and exactly one shared seam ID.
+
+Fixtures: concave prism cap, saddle-warped single isolated opening,
+severely warped isolated refusal, warped multi-ring ambiguity,
+classified clean seam vs crossing/near/on-plane/multicontact cases.
+None invokes the live sculpt worker; the successful revision
+remains immutable until an explicit repository compare-and-swap.
