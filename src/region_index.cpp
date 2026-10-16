@@ -288,15 +288,21 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::restore(
     std::shared_ptr<const MeshRevision> revision,
     const std::vector<VertexId>& retiredVertices,
     const std::vector<FaceId>& retiredFaces,double cellSize) {
+    // Tombstone IDs must have been allocated before the serialized
+    // allocator high-water marks. Otherwise the very next new element
+    // could recycle an identity reported as permanently deleted.
+    const auto marks=revision->identityWatermarks();
     auto result=std::const_pointer_cast<RegionTopologyIndex>(
         build(std::move(revision),cellSize));
     for(const auto id:retiredVertices) {
-        if(!id||result->maybeVertex(id)||result->retiredVertex(id))
+        if(!id||id>=marks.nextVertex||result->maybeVertex(id)||
+           result->retiredVertex(id))
             throw std::invalid_argument("Invalid checkpoint vertex tombstone");
         result->retiredVertices_.set(id,true);
     }
     for(const auto id:retiredFaces) {
-        if(!id||result->faces_.find(id)||result->retiredFace(id))
+        if(!id||id>=marks.nextFace||result->faces_.find(id)||
+           result->retiredFace(id))
             throw std::invalid_argument("Invalid checkpoint face tombstone");
         result->retiredFaces_.set(id,true);
     }
