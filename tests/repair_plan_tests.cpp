@@ -133,6 +133,39 @@ void testMultiLoopPairing() {
     check(reordered.ready()&&reordered.pairs.size()==plan.pairs.size(),
           "Plan does not depend on order of proposed deletions");
 }
+void testGlobalMatchingAvoidsGreedyTrap() {
+    // Four otherwise independent cap contours at y = 0, 2, 3, 5.
+    // Greedy would take (2,3) first and strand (0,5), cost 1^2+5^2.
+    // Global matching chooses (0,2) and (3,5), cost 2^2+2^2.
+    Mesh mesh;
+    for(const double y:{0.0,2.0,3.0,5.0})
+        cube(mesh,{0,y,0},.5);
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto index=RegionTopologyIndex::build(imported.revision);
+    std::vector<FaceId> removed;
+    for(unsigned i=0;i<4;++i) {
+        removed.push_back(imported.flatIndex.faceIds[12*i+10]);
+        removed.push_back(imported.flatIndex.faceIds[12*i+11]);
+    }
+    RepairPlanSettings settings;
+    settings.maximumGapInEdges=6;
+    const auto plan=planRemovalContours(*index,removed,settings);
+    check(plan.ready()&&plan.pairs.size()==2,
+          "Global matching finds complete pairing");
+    std::set<std::pair<int,int>> matches;
+    for(const auto& p:plan.pairs) {
+        const auto a=plan.contours[p.first].vertexIds.front();
+        const auto b=plan.contours[p.second].vertexIds.front();
+        auto y1=static_cast<int>(std::lround(
+            index->vertex(a).position.y+.5));
+        auto y2=static_cast<int>(std::lround(
+            index->vertex(b).position.y+.5));
+        if(y1>y2)std::swap(y1,y2);
+        matches.emplace(y1,y2);
+    }
+    check(matches.contains({0,2})&&matches.contains({3,5}),
+          "Global objective avoids locally cheapest but globally poor match");
+}
 void testBubbleWithoutZipper() {
     Mesh mesh;
     tetra(mesh,{},3);
@@ -209,6 +242,7 @@ int main() {
     try {
         testTwoContourLadderAndOldRoot();
         testMultiLoopPairing();
+        testGlobalMatchingAvoidsGreedyTrap();
         testBubbleWithoutZipper();
         testCollisionAwarePlanner();
         std::cout<<"Density-aware repair planning regression passed\n";
