@@ -119,6 +119,7 @@ private:
     PersistentIndexMap<VertexId,bool> retiredVertices_;
     PersistentIndexMap<FaceId,bool> retiredFaces_;
     UpdateStatistics statistics_{};
+    std::shared_ptr<const RevisionPickingIndex> picking_;
 };
 
 class IndexedMeshRepository {
