@@ -1341,3 +1341,20 @@ required instead.
 
 The associated [V13-V19 task breakdown](todo.md#self-intersection-aware-sculpting-proposed-v13v19)
 is **proposed and unchecked**. V12 remains the newest implemented stage.
+
+## V13: Revision-scoped static triangle collision detector
+
+The first collision-management milestone adds the query-only
+`RegionTopologyIndex::triangleIntersections()` interface and
+`triangleContact()` narrow phase, with a nineteenth CPU suite. Candidate
+triangles are visited through the **existing immutable V10 per-partition
+BVHs** of a single complete proposed revision. Both moved and unmoved
+surfaces are sampled at their **new** positions; pairs are deduplicated by
+stable FaceIds, and normal shared mesh adjacency does not count as
+penetration. Coplanar overlaps, contacts and degenerate/ambiguous cases
+are separately considered. Index locality and previous root immutability
+remain unchanged. There is no live worker wiring, no automatic topology
+repair and no proof of perfect exact-predicate behavior. For detailed
+limitations and the remaining steps see
+[collision-repair design](docs/SCULPT_COLLISION_REPAIR.md) and
+[the V14–V19 roadmap](todo.md).
