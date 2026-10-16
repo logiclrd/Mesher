@@ -296,6 +296,7 @@ bool VersionedSculptBrush::redo() {
 DurableCheckpoint VersionedSculptBrush::checkpoint() const {
     DurableCheckpoint snapshot;
     snapshot.index=published_.snapshot();
+    snapshot.initialVertexCount=initialVertexCount_;
     for(const auto& [a,b]:inflate_.mirrors())
         if(a<=b)snapshot.mirrorPairs.push_back({a,b});
     std::sort(snapshot.mirrorPairs.begin(),snapshot.mirrorPairs.end());
