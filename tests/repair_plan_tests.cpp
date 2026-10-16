@@ -88,7 +88,7 @@ void testTwoContourLadderAndOldRoot() {
           "Empty removal yields no-op without topology writes");
 
     auto damaged=red;
-    damaged.pop_back();
+    damaged.resize(2); // Only one of the two required seam boundaries remains
     check(planRemovalContours(*index,damaged).status==
           RepairPlanStatus::UnmatchedContours,
           "Unpaired or odd contour count must be rejected");
