@@ -80,6 +80,36 @@ std::vector<std::array<VertexId,3>> capTriangles(
     std::unordered_map<VertexId,Vec3> points;
     for(auto id:polygon)points.emplace(id,basis.point(positions.at(id)));
     const double epsilon=1e-12*loop.target*loop.target;
+    // Ear clipping assumes the contour projects to a SIMPLE polygon.
+    // A folded 3D ring can self-cross in the cap's projection even
+    // though its individual 3D edges do not intersect. Refuse this
+    // ambiguous spanning disk rather than emitting overlapping ears.
+    const auto onSegment=[&](Vec3 a,Vec3 b,Vec3 p) {
+        return std::abs(cross2(a,b,p))<=epsilon&&
+            p.x>=std::min(a.x,b.x)-epsilon&&
+            p.x<=std::max(a.x,b.x)+epsilon&&
+            p.y>=std::min(a.y,b.y)-epsilon&&
+            p.y<=std::max(a.y,b.y)+epsilon;
+    };
+    const auto intersects=[&](Vec3 a,Vec3 b,Vec3 p,Vec3 q) {
+        const double u=cross2(a,b,p),v=cross2(a,b,q);
+        const double s=cross2(p,q,a),t=cross2(p,q,b);
+        if(((u>epsilon&&v< -epsilon)||(u< -epsilon&&v>epsilon))&&
+           ((s>epsilon&&t< -epsilon)||(s< -epsilon&&t>epsilon)))
+            return true;
+        return onSegment(a,b,p)||onSegment(a,b,q)||
+               onSegment(p,q,a)||onSegment(p,q,b);
+    };
+    for(std::size_t i=0;i<polygon.size();++i)
+        for(std::size_t j=i+1;j<polygon.size();++j) {
+            const auto n=polygon.size();
+            if(j==i+1||(i==0&&j+1==n))continue;
+            if(intersects(points.at(polygon[i]),
+                          points.at(polygon[(i+1)%n]),
+                          points.at(polygon[j]),
+                          points.at(polygon[(j+1)%n])))
+                throw std::logic_error("Cap contour is not simple in its projection");
+        }
     std::vector<std::array<VertexId,3>> triangles;
     while(polygon.size()>3) {
         std::optional<std::size_t> best;
