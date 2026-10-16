@@ -131,6 +131,8 @@ void testCoalescedRootsAndCompatibilityBridge() {
     options.relaxationIterations=6;
     auto initial=generateSphere(options);
     AsyncSculptWorker worker(initial,.015,.006,.2,{true,.25},{},{},true);
+    PartitionRenderCache renderer;
+    renderer.initialize(worker.initialRevision());
     const Vec3 first{-.25,-.65,.70};
     worker.begin(first,.35);
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
@@ -144,6 +146,7 @@ void testCoalescedRootsAndCompatibilityBridge() {
             "One-stamp immutable snapshot is available without mesh copying");
     require(!held->dirtyPartitions.empty(),
             "Mouse-down's synchronous first stamp reports dirty partitions");
+    renderer.advance(held->index,held->dirtyPartitions);
     const auto preserved=flattenRevisionForViewport(
         *held->index,*held->originalOrder);
     worker.update({-.30,-.69,.65},.15);
@@ -165,6 +168,29 @@ void testCoalescedRootsAndCompatibilityBridge() {
             "No Step is dropped when the viewport consumes no intermediate frames");
     require(!worker.takeSnapshot(),
             "Latest snapshot exchange leaves no obsolete frame pending");
+    renderer.advance(latest->index,latest->dirtyPartitions);
+    PartitionRenderCache fullRebuild;
+    fullRebuild.initialize(latest->index);
+    require(renderer.partitions().size()==fullRebuild.partitions().size(),
+            "Coalesced worker deltas leave no stale/missing render partitions");
+    auto identical=[](const std::vector<PartitionRenderVertex>& a,
+                      const std::vector<PartitionRenderVertex>& b) {
+        if(a.size()!=b.size())return false;
+        for(std::size_t i=0;i<a.size();++i) {
+            const auto& x=a[i],&y=b[i];
+            if(x.px!=y.px||x.py!=y.py||x.pz!=y.pz||
+               x.nx!=y.nx||x.ny!=y.ny||x.nz!=y.nz||
+               x.material!=y.material)return false;
+        }
+        return true;
+    };
+    for(const auto& [id,partition]:fullRebuild.partitions()) {
+        const auto found=renderer.partitions().find(id);
+        require(found!=renderer.partitions().end() &&
+                identical(found->second->solid,partition->solid) &&
+                identical(found->second->wire,partition->wire),
+                "Async coalesced dirty union matches full-revision rendering");
+    }
     auto oldAgain=flattenRevisionForViewport(
         *held->index,*held->originalOrder);
     require(oldAgain.vertices.size()==preserved.vertices.size() &&
