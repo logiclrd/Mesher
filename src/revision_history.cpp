@@ -104,7 +104,8 @@ HistoryTransition RevisionHistory::undo() {
     auto remove=previous.added;
     --cursor_;
     return {entries_[cursor_].index,std::move(changed),
-            std::move(add),std::move(remove)};
+            std::move(add),std::move(remove),
+            entries_[cursor_].vertices,entries_[cursor_].faces};
 }
 HistoryTransition RevisionHistory::redo() {
     if(!canRedo())throw std::logic_error("History has no redo revision");
