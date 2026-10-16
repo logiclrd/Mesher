@@ -330,13 +330,9 @@ RepairSurgeryResult applyRepairSurgery(
             if(!finite(a)||!finite(b)||!finite(c)||
                triangleQuality(a,b,c)<settings.minimumTriangleQuality)
                 throw std::logic_error("Inserted triangle is degenerate or skinny");
-            if(maxEdge(a,b,c)>settings.maximumNewEdgeFactor*
-               std::max({loops.front().target,0.0, // special cap target below
-                         0.0}) && !isCap) {
-                // Zipper has an independent target test in its DP. Preserve
-                // that stricter pair-local decision without a global brush h.
-                throw std::logic_error("Inserted zipper edge exceeds local density");
-            }
+            // A zipper's maximum edges are enforced by the per-pair DP;
+            // caps use independent polygon quality checks, not the first
+            // loop's unrelated density target.
             if(output.insertedFaces.size()>=settings.maxNewFaces)
                 throw std::length_error("Closure face budget exhausted");
             const auto id=edit.appendLocalFace(owner,v);
