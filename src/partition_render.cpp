@@ -113,7 +113,8 @@ void PartitionRenderCache::initialize(
 
 PartitionRenderUpdate PartitionRenderCache::advance(
     std::shared_ptr<const RegionTopologyIndex> revision,
-    std::span<const PartitionId> dirty) {
+    std::span<const PartitionId> dirty,
+    RevisionRetirementQueue* retirement) {
     if(!revision)throw std::invalid_argument("Partition renderer needs revision");
     if(!revision_)throw std::logic_error("Partition renderer not initialized");
     PartitionRenderUpdate stats;
