@@ -166,6 +166,7 @@ RevisionCommit MutableMeshView::commit() {
     std::size_t nextCount=partitionCount_;
     RevisionCommitStatistics stats;
     stats.clonedPartitions=clonedPartitions_;
+    stats.clonedPartitionBytes=clonedPartitionBytes_;
     for(const auto& [id,change]:changes_) {
         const bool before=bool(findPartition(root_,id));
         const bool after=!change.removed;
