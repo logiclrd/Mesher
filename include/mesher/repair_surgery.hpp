@@ -46,4 +46,17 @@ RepairSurgeryResult applyRepairSurgery(
     std::shared_ptr<const RegionTopologyIndex> baseline,
     const RepairPlan& plan,const RepairSurgerySettings& settings={});
 
+// Symmetric V16b variant: all affected vertices must have an explicit
+// involutive reflection pairing. Plans can contain independent mirrored
+// cap pairs, paired mirrored zippers, or a zipper between two contours
+// which reflect into one another (built through ONE shared X=0 ring).
+// Self-reflected individual loops and cases requiring unequal boundary
+// subdivision fail closed until supported by a symmetric refinement.
+RepairSurgeryResult applyMirroredRepairSurgery(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    const RepairPlan& plan,
+    const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
+    const RepairSurgerySettings& settings={});
+
+
 } // namespace mesher
