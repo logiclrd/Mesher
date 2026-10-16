@@ -209,3 +209,44 @@ trigger repair simply because its hole is small. Test paired cases:
 pinched torus, wide torus, merging walls, unequal ring sizes and
 coarsely/fine tessellated ring pairs. A V15.1 Ready result remains
 read-only and is never permission to commit mesh surgery.
+
+## V16a: Private transaction for capped and zipper repairs
+
+`applyRepairSurgery(snapshot,readyPlan,surgerySettings)` constructs
+replacement faces on a private RegionEdit against the exact immutable
+V15.1 planning revision. It independently re-runs the plan to reject
+stale contour or closure choices. Existing removed face IDs and any
+orphaned vertices are retired; unaffected vertices retain positions
+and stable IDs. Every candidate new face must satisfy bounded triangle
+quality and count limits. The resulting RevisionCommit and paired
+immutable index remain **unpublished**: the caller must explicitly
+publish the new index with `IndexedMeshRepository::publishIfCurrent()`.
+
+For independent caps, a projection-based polygon ear clip creates
+oriented non-fan triangles. For a zipper, a two-front dynamic-programming
+strip walks each boundary in opposite winding directions and advances
+them independently. Candidates are scored by triangle shape and size,
+subject to a maximum *normalized physical arc-length phase lag*;
+without that lag constraint, two individually decent triangles could
+form a crossed scar. No vertex-index parity is assumed.
+
+Edges longer than the contour's local target length are divided.
+Subdivision inserts vertices into both the repair boundary and its
+adjacent retained source triangle **within the same RegionEdit**,
+preventing T-junctions. Changed edge incidences and vertex one-ring
+fans are validated on private topology; the V13 BVH then rejects
+intersections involving new or modified scar triangles on the complete
+new revision. The original index/root remains unchanged if any stage
+fails. The V13 triangle narrow-phase was adjusted so tolerance-expanded
+coplanar segments cannot manufacture false penetration at a single
+shared scar vertex; the exact pair is covered by a regression.
+
+This initial V16a path supports a bounded subset of simple, non-
+symmetric contours. The actual torus regression applies surgery to
+the pinched ring and checks Euler characteristic 0 -> 2 (handle removal),
+rather than testing only a theoretical closure decision. V16b
+**remains necessary**: symmetric face/vertex insertion and deletion
+(including shared X=0 seam), full residual intersection checks and
+quantitative geometric drift/feature preservation, more general
+nonplanar/concave surfaces, and repeated robust repair tests.
+None of this runs in the sculpt worker yet; that is V17.
