@@ -133,6 +133,14 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     if(symmetric_)areas.push_back({{-command->point.x,
                         command->point.y,command->point.z},command->radius,.3});
                     stroke_.startTimed(std::move(areas),timeSpeed_);
+                    // startTimed synchronously applies the mouse-down stamp;
+                    // it does not pass through pumpTimedRealtime(), so its
+                    // dirty halo must be collected separately.
+                    {
+                        const auto& dirty=brush_->lastDirtyPartitions();
+                        unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                  dirty.begin(),dirty.end());
+                    }
                     changed=true; // The first stamp happens at mouse-down.
                     break;
                 }
