@@ -374,6 +374,63 @@ std::pair<FaceId,FaceId> RegionEdit::appendMirroredFaces(
         throw;
     }
 }
+std::pair<FaceId,FaceId> RegionEdit::splitSelfMirroredFace(
+    FaceId id,VertexId from,VertexId to,VertexId midpoint) {
+    if(mirror_.empty()||!faces_.contains(id)||faceChanges_.contains(id))
+        throw std::logic_error("Unmodified self-reflected face must be writable");
+    const auto& original=index_->face(id);
+    const auto old=original.vertices;
+    const auto mirror=[this](VertexId v)->VertexId {
+        const auto it=mirror_.find(v);
+        if(it==mirror_.end())
+            throw std::logic_error("Self-reflected face has an unmapped vertex");
+        return it->second;
+    };
+    if(from==to||mirror(from)!=to||mirror(to)!=from||
+       mirror(midpoint)!=midpoint)
+        throw std::logic_error("Crossing edge needs paired ends and one seam midpoint");
+    VertexId third=0;
+    bool oriented=false;
+    for(unsigned i=0;i<3;++i)
+        if(old[i]==from&&old[(i+1)%3]==to) {
+            third=old[(i+2)%3];oriented=true;break;
+        }
+    if(!oriented||mirror(third)!=third)
+        throw std::logic_error("Crossing edge does not belong to a self-reflected triangle");
+    if(!cyclic({mirror(old[0]),mirror(old[2]),mirror(old[1])},old))
+        throw std::logic_error("Face is not self-reflected with reversed winding");
+
+    const auto a=index_->vertex(from).position;
+    const auto b=index_->vertex(to).position;
+    // A valid reflected pair has equal Y/Z, and its plane crossing is
+    // EXACTLY (0,a.y,a.z). No snap-to-plane or midpoint drift.
+    const auto seam=vertexChanges_.find(midpoint);
+    if(seam==vertexChanges_.end()||!seam->second||
+       !newVertices_.contains(midpoint)||a.x==0||
+       a.x!=-b.x||a.y!=b.y||a.z!=b.z||
+       seam->second->x!=0||
+       seam->second->y!=a.y||seam->second->z!=a.z)
+        throw std::logic_error("Self-reflected face split has no exact shared midpoint");
+    try {
+        const std::array<VertexId,3> first{from,midpoint,third};
+        const std::array<VertexId,3> second{midpoint,to,third};
+        ensureReferences(first);
+        ensureReferences(second);
+        // Keep the stable old face ID. The second half receives a fresh
+        // ID; they are *now* distinct reverse-winding mirror partners.
+        setFace(id,first);
+        const auto owner=chooseInsertionPartition(original.owner,false);
+        const auto newId=view_.addFace(owner,second);
+        newFaces_[newId]=owner;
+        faceChanges_[newId]=second;
+        faceMirror_.emplace(id,newId);
+        faceMirror_.emplace(newId,id);
+        return {id,newId};
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
 void RegionEdit::removeMirroredFaces(FaceId a,FaceId b) {
     if(mirror_.empty()||a==b||!faces_.contains(a)||!faces_.contains(b))
         throw std::logic_error("Both paired faces must be editable");
