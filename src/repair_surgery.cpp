@@ -14,8 +14,6 @@
 
 namespace mesher {
 namespace {
-using Edge=RegionTopologyIndex::Edge;
-Edge key(VertexId a,VertexId b) {return {std::min(a,b),std::max(a,b)};}
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
 }
