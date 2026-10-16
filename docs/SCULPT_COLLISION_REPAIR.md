@@ -294,3 +294,35 @@ significant digits through cancellation. Coplanar clipping now uses
 the exact half-plane, while area uses a first-vertex-relative fan of
 cross products. A final area threshold still rejects near-degenerate
 contacts; true positive-area overlaps remain collisions.
+
+## V16c1: One self-mirrored cap and constrained feature-preserving fidelity
+
+A ring fixed as a set by reflection does not have a second independent
+ring to cap. With exactly two existing X=0 seam endpoints and a
+contiguous positive-X half-arc, the cap can use that arc and the one
+seam chord as a temporary half-polygon. The reflected triangle pair
+shares the real seam vertex IDs/chord and closes the complete disk;
+no duplicate half-shell or new seam vertices are constructed.
+The existing vertex-link and V13 collision checks still decide whether
+the final private geometry is valid. A gently nonplanar but bounded
+self-reflected rim is supported; more general plane crossings remain
+explicitly unsupported and therefore cannot publish a revision.
+
+Boundary subdivision no longer assumes one long edge per retained
+triangle. Original faces with multiple split contour edges are handled
+by a single local oriented subtriangulation followed by one atomic
+face replacement and any necessary new faces. Its pure geometry
+routine is directly tested for dividing two or all three sides of a
+triangle. Symmetric pairs use one subtriangulation reflected onto the
+other retained face; seam vertices remain single IDs.
+
+Optional bidirectional fidelity must NOT be applied blindly to
+collision excision: correctly deleting buried triangles creates large
+removed-to-new distances. For operations known to retain exposed
+detail, opt into a sampled reverse distance (original removed vertices
+and triangle centroids to new + surviving local geometry), bounded
+in units of the original local median edge length. The existing
+new-to-old distance remains enforced by default. The explicit choice
+of a reverse check, its limit and the measured maximum are retained
+in the surgery settings/result. The samples are not a continuous
+surface Hausdorff proof.
