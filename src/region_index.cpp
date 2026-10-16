@@ -2,6 +2,7 @@
 #include "mesher/revision_picking.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <deque>
 #include <limits>
