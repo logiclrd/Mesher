@@ -49,6 +49,18 @@ void AsyncSculptWorker::end(Vec3 point,double elapsedSeconds) {
 void AsyncSculptWorker::setRadius(double radius) {
     enqueue({Kind::Radius,{},0,radius});
 }
+void AsyncSculptWorker::undo() {
+    if(!reserved_.load())enqueue({Kind::Undo});
+}
+void AsyncSculptWorker::redo() {
+    if(!reserved_.load())enqueue({Kind::Redo});
+}
+void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
+    if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
+    Command command{Kind::Checkpoint};
+    command.checkpointPath=std::move(path);
+    enqueue(std::move(command));
+}
 AsyncSculptWorker::Status AsyncSculptWorker::status() const {
     std::lock_guard guard(statusMutex_);
     if(error_)std::rethrow_exception(error_);
@@ -75,6 +87,8 @@ void AsyncSculptWorker::refreshStatus() {
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
     s.clonedPartitionBytes=brush_->clonedPartitionBytes();
+    s.history=brush_->historyStatistics();
+    s.checkpoints=checkpoints_.statistics();
     s.liveRevisions=RegionTopologyIndex::liveRevisionCount();
     s.peakLiveRevisions=RegionTopologyIndex::peakLiveRevisionCount();
     {
@@ -162,6 +176,23 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     break;
                 case Kind::Radius:
                     if(stroke_.active())stroke_.setRadius(command->radius);
+                    break;
+                case Kind::Undo:
+                case Kind::Redo:
+                    if(!stroke_.active()&&stroke_.pendingSamples()==0) {
+                        const bool restored=command->kind==Kind::Undo?
+                            brush_->undo():brush_->redo();
+                        if(restored) {
+                            const auto& dirty=brush_->lastDirtyPartitions();
+                            unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                      dirty.begin(),dirty.end());
+                            changed=true;
+                        }
+                    }
+                    break;
+                case Kind::Checkpoint:
+                    checkpoints_.request(command->checkpointPath,
+                                         brush_->checkpoint());
                     break;
                 }
             }
