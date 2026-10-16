@@ -1,6 +1,7 @@
 #include "mesher/revision_history.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -42,6 +43,30 @@ void RevisionHistory::append(
     changedPartitions.erase(std::unique(changedPartitions.begin(),
                                         changedPartitions.end()),
                             changedPartitions.end());
+    // Split and collapse can create and retire the same mirrored midpoint
+    // within one stamp. Such a pair never existed at either endpoint and
+    // must not be replayed by undo or redo.
+    auto canonical=[](MirrorPair pair) {
+        if(pair.first>pair.second)std::swap(pair.first,pair.second);
+        return pair;
+    };
+    for(auto& pair:addedMirrors)pair=canonical(pair);
+    for(auto& pair:removedMirrors)pair=canonical(pair);
+    auto normalize=[](auto& pairs) {
+        std::sort(pairs.begin(),pairs.end());
+        pairs.erase(std::unique(pairs.begin(),pairs.end()),pairs.end());
+    };
+    normalize(addedMirrors);
+    normalize(removedMirrors);
+    std::vector<MirrorPair> netAdded,netRemoved;
+    std::set_difference(addedMirrors.begin(),addedMirrors.end(),
+                        removedMirrors.begin(),removedMirrors.end(),
+                        std::back_inserter(netAdded));
+    std::set_difference(removedMirrors.begin(),removedMirrors.end(),
+                        addedMirrors.begin(),addedMirrors.end(),
+                        std::back_inserter(netRemoved));
+    addedMirrors=std::move(netAdded);
+    removedMirrors=std::move(netRemoved);
     if(copiedPayloadBytes>std::numeric_limits<std::size_t>::max()-totalBytes_)
         throw std::overflow_error("History payload counter overflow");
     entries_.push_back({std::move(index),std::move(changedPartitions),
