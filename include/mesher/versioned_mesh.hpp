@@ -46,6 +46,12 @@ struct MeshDirectoryNode;
 class MeshRevision {
 public:
     static std::shared_ptr<const MeshRevision> empty();
+    // Full checkpoint import only: restores stable IDs and allocator high
+    // waters, including IDs consumed in abandoned/rolled-back branches.
+    static std::shared_ptr<const MeshRevision> restore(
+        std::vector<std::pair<PartitionId,MeshPartition>> partitions,
+        MeshIdentityWatermarks watermarks);
+    MeshIdentityWatermarks identityWatermarks() const noexcept;
     std::shared_ptr<const MeshPartition> partition(PartitionId id) const;
     std::size_t partitionCount() const noexcept { return partitionCount_; }
     MutableMeshView createMutableView() const;
