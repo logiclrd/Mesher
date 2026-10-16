@@ -167,6 +167,18 @@ void testCheckpointRoundTripAndRecovery() {
         writeCheckpoint(file,second);
         check(readCheckpoint(file).index->retiredFaceCount()==0,
               "Subsequent complete checkpoint atomically replaces old version");
+        // Force a failure BEFORE replace by obstructing the temporary path.
+        // The last valid destination must still be readable afterwards.
+        auto obstructed=file;
+        obstructed+=".tmp";
+        std::filesystem::create_directory(obstructed);
+        bool saveFailed=false;
+        try {writeCheckpoint(file,snapshot);}
+        catch(const std::exception&) {saveFailed=true;}
+        check(saveFailed&&readCheckpoint(file).index->retiredFaceCount()==0,
+              "Failed temp write preserves the preceding complete checkpoint");
+        std::error_code cleanupError;
+        std::filesystem::remove(obstructed,cleanupError);
         // Corruption/truncation must never yield partial recovered geometry.
         {
             std::ofstream damaged(file,std::ios::binary|std::ios::app);
