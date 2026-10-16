@@ -43,7 +43,8 @@ public:
         std::vector<PartitionId> changedPartitions,
         std::vector<MirrorPair> addedMirrors,
         std::vector<MirrorPair> removedMirrors,
-        std::size_t copiedPayloadBytes);
+        std::size_t copiedPayloadBytes,
+        std::size_t vertices=0,std::size_t faces=0);
     bool canUndo() const noexcept {return cursor_>0;}
     bool canRedo() const noexcept {return cursor_+1<entries_.size();}
     HistoryTransition undo();
