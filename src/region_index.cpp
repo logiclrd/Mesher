@@ -1,4 +1,5 @@
 #include "mesher/region_edit.hpp"
+#include "mesher/revision_picking.hpp"
 
 #include <algorithm>
 #include <cmath>
