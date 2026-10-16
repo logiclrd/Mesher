@@ -281,3 +281,16 @@ publication. V16c is needed for general self-reflecting contour
 rings, arbitrary seam-crossing subdivisions, robust nonplanar caps
 and bidirectional feature-fidelity guarantees. There is no live
 `Merge geometry` worker activation until V17.
+
+### Coplanar narrow-phase numerical stability
+
+The V13 triangle-collision predicate has a regression for a very thin
+triangulated boundary segment beside a zipper scar. Two coplanar
+triangles touching only at a common vertex previously produced a
+false positive when (a) polygon clipping expanded its half-planes by
+a geometric tolerance, and (b) the projected clipped polygon's area
+was summed with a global-coordinate shoelace formula, losing
+significant digits through cancellation. Coplanar clipping now uses
+the exact half-plane, while area uses a first-vertex-relative fan of
+cross products. A final area threshold still rejects near-degenerate
+contacts; true positive-area overlaps remain collisions.
