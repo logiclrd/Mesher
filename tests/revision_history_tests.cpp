@@ -118,7 +118,7 @@ void testCheckpointRoundTripAndRecovery() {
                                               baseline,a,b);
         check(collapsed.statistics.accepted==1,
               "Checkpoint fixture removes real stable IDs");
-        const auto snapshot=DurableCheckpoint{collapsed.index,{}};
+        const auto snapshot=DurableCheckpoint{collapsed.index,{},6};
         writeCheckpoint(file,snapshot);
         auto restored=readCheckpoint(file);
         check(restored.index->retiredVertex(b)&&
