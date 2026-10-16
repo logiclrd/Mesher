@@ -83,6 +83,8 @@ private:
     std::exception_ptr error_;
     std::mutex snapshotMutex_;
     std::optional<Snapshot> latest_;
+    // Worker-only accumulation between throttled publications.
+    std::vector<PartitionId> unpublishedDirty_;
     std::chrono::steady_clock::time_point lastPublish_{};
     std::jthread worker_;
 };
