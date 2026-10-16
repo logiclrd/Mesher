@@ -129,11 +129,11 @@ void testPureMultiEdgeRetainedFaceSplitting() {
             require(count==1||count==2,
                     "No internal edge has a nonmanifold degree");
         }
-        require(incidences[{1,4}]==1&&incidences[{4,2}]==1&&
-                incidences[{2,5}]==1&&incidences[{5,3}]==1,
+        require(incidences[{1,4}]==1&&incidences[{2,4}]==1&&
+                incidences[{2,5}]==1&&incidences[{3,5}]==1,
                 "Both originally long boundary sides are conformingly subdivided");
         if(threeEdges)
-            require(incidences[{3,6}]==1&&incidences[{6,1}]==1,
+            require(incidences[{3,6}]==1&&incidences[{1,6}]==1,
                     "Third side subdivides without hanging endpoints");
     }
 }
