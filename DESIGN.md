@@ -1645,3 +1645,46 @@ severely warped isolated refusal, warped multi-ring ambiguity,
 classified clean seam vs crossing/near/on-plane/multicontact cases.
 None invokes the live sculpt worker; the successful revision
 remains immutable until an explicit repository compare-and-swap.
+
+## V16c2b1 — Normalize self-reflected crossing edges before contour surgery
+
+A mirror-symmetric triangulated surface can cross the X=0 plane
+through an ORIGINAL edge connecting a reflected vertex pair. Both
+triangles on that edge can map to themselves under reflection,
+including reverse winding. They have NO distinct existing mirrored
+face IDs. Treating the edge as two independent boundary edges, or
+inserting separate ±0 seam vertices, would break the manifold or
+duplicate coincident sheets. A self-reflected face split is a
+different operation from the existing paired-face split.
+
+`RegionEdit::splitSelfMirroredFace(face,from,to,midpoint)` requires
+that `from` and `to` are exact reflected partners, that the original
+face is fixed as an oriented cycle under reflected reverse winding,
+and that its third vertex is already self-mirrored on X=0. The
+midpoint MUST be a newly allocated single-ID seam vertex at exactly
+`(0,from.y,from.z)`; it is not a tolerance-based snap. The
+operation replaces the original FaceId with one half triangle,
+appends its distinct reverse-reflected second half, and records
+both IDs as a mirror pair for RegionEdit's normal commit checks.
+Any failure partway through the paired split poisons the transaction.
+
+`normalizeSelfMirroredPlaneEdge(snapshot,first,second,vertexMirrors)`
+checks a closed two-sided edge with reflected endpoint mapping and
+two self-reflected incident faces, constructs one shared X=0 midpoint,
+applies BOTH face splits in a single private RegionEdit, commits only
+after local edge incidence and vertex-link validation, and queries
+the private post-state index for collisions involving all changed
+triangles. It returns a `PlaneCrossingNormalization` with the
+updated index/commit, preserved original face IDs, newly inserted
+partner face IDs, and exactly one shared seam vertex. A repository
+must publish the resulting index separately by optimistic CAS.
+An oriented symmetric tetrahedron fixture has two such self-
+reflected faces and demonstrates correct four-triangle seam fan,
+unchanged Euler characteristic, old-root retention and rollback.
+
+IMPORTANT: This is a standalone prerequisite, not yet wired into
+`applyMirroredRepairSurgery`. That operation still refuses crossing
+contours until V16c2b2 can transform their removal-face plan onto a
+normalized immutable revision, including accounting for newly
+created triangles and contour edges. A single local primitive
+should never be mistaken for generic arbitrary plane crossing support.
