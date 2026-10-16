@@ -1,8 +1,8 @@
 # Sculpt self-intersection management: positive-winding repair and collision constraints
 
-**Status:** V13 detection and V14 positive-winding classification are implemented as opt-in CPU APIs; V15–V19 remain proposed.
+**Status:** V13/V14 query APIs and V15 non-destructive repair planning are implemented; V16–V19 remain proposed.
 **Baseline:** V12 `main` at `9e673c4` when this design was captured (2026-10-16).
-**Code impact:** V13/V14 add read-only collision and solid classification APIs; neither the live worker nor renderer is changed.
+**Code impact:** V13–V15 supply collision, classification and read-only repair plans; neither the live worker nor renderer is changed.
 
 ## Problem and reference geometry
 
@@ -144,3 +144,31 @@ and old/new root separation, redundant bubbles, cavities, on-surface
 uncertainty, and typical BVH pruning. Full-graph fallback is rare but
 possible when all candidate ray directions graze topology; V14 does
 not claim a hard worst-case local bound or exact-predicate guarantees.
+
+## V15 read-only excision-plan implementation
+
+`planApproximateExcision()` works against one complete immutable
+post-deformation revision. V13 collision pairs nominate relevant
+regions; V14's barycentric positive-winding samples drive bounded
+candidate face selection, while explicit new closed-component
+seeds permit redundant internal bubble elimination without seams.
+Ambiguous samples, over-budget regions and topology that cannot be
+safely paired are diagnostic failures, not silent guesses.
+
+`planRemovalContours()` handles hypothetical face deletions: the
+*surviving-face* orientation determines each directed boundary edge,
+and existing stable vertices form closed non-branching contour loops.
+Nearby rings are paired via perimeter-resampled correspondence
+within a local mesh-edge-scaled gap allowance and a bounded
+minimum-cost global matching. Ambiguous equally plausible
+matchings are rejected; multiple separate collision sites can
+produce multiple local zipper pairs.
+
+The plan contains no stitches and changes no mesh. Face-selection
+thresholds, the maximum removed edge length, and seam-distance
+statistics are approximations, not strict proof of a 2h geometric
+bound. Before removal becomes possible, V16 must ensure that the
+proposed excision preserves important visible geometry and that
+all new seam triangles are oriented, manifold and collision-free.
+The new twenty-first CPU suite exercises these plan structures
+and their rejection paths.
