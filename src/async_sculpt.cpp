@@ -74,6 +74,9 @@ void AsyncSculptWorker::refreshStatus() {
     s.publishedRevisions=brush_->publishedRevisions();
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
+    s.clonedPartitionBytes=brush_->clonedPartitionBytes();
+    s.liveRevisions=RegionTopologyIndex::liveRevisionCount();
+    s.peakLiveRevisions=RegionTopologyIndex::peakLiveRevisionCount();
     {
         std::lock_guard guard(commandsMutex_);
         s.inputCommands=commands_.size();
