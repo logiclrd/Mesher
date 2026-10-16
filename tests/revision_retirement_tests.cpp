@@ -110,6 +110,7 @@ void testConcurrentReaderAndPublication() {
             ++readCount;
         }
     });
+    while(!readerStarted.load())std::this_thread::yield();
     for(int i=0;i<60;++i) {
         auto prior=repo.snapshot();
         std::shared_ptr<const RegionTopologyIndex> next;
