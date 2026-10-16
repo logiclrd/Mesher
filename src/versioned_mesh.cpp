@@ -111,6 +111,49 @@ MeshRevision::MeshRevision(std::shared_ptr<const MeshDirectoryNode> root,
     : root_(std::move(root)),partitionCount_(count),
       identities_(std::move(identities)) {}
 
+MeshIdentityWatermarks MeshRevision::identityWatermarks() const noexcept {
+    return identities_->watermarks();
+}
+std::shared_ptr<const MeshRevision> MeshRevision::restore(
+    std::vector<std::pair<PartitionId,MeshPartition>> partitions,
+    MeshIdentityWatermarks marks) {
+    if(!marks.nextVertex||!marks.nextFace||!marks.nextOverflow||
+       marks.nextOverflow>std::uint64_t{0x80000000})
+        throw std::invalid_argument("Invalid checkpoint identity high water");
+    std::unordered_set<PartitionId> owners;
+    std::unordered_set<VertexId> vertices;
+    std::unordered_set<FaceId> faces;
+    for(const auto& [id,p]:partitions) {
+        if(!owners.insert(id).second)
+            throw std::invalid_argument("Duplicate checkpoint partition");
+        if(id>=0x80000000u) {
+            const auto ordinal=std::uint64_t{0xffffffff}-id+1;
+            if(marks.nextOverflow<=ordinal)
+                throw std::invalid_argument("Checkpoint overflow high water regressed");
+        }
+        if(p.vertices.size()>256||p.faces.size()>256)
+            throw std::invalid_argument("Checkpoint partition exceeds 256 elements");
+        for(const auto& v:p.vertices) {
+            if(!v.id||v.id>=marks.nextVertex||
+               !std::isfinite(v.position.x)||!std::isfinite(v.position.y)||
+               !std::isfinite(v.position.z)||!vertices.insert(v.id).second)
+                throw std::invalid_argument("Invalid checkpoint stable vertex");
+        }
+        for(const auto& f:p.faces)
+            if(!f.id||f.id>=marks.nextFace||!faces.insert(f.id).second)
+                throw std::invalid_argument("Invalid checkpoint stable face");
+    }
+    for(const auto& [_,p]:partitions)
+        for(const auto& f:p.faces)
+            for(const auto v:f.vertices)
+                if(!vertices.contains(v))
+                    throw std::invalid_argument("Checkpoint face has missing vertex");
+    auto base=std::shared_ptr<const MeshRevision>(
+        new MeshRevision(nullptr,0,std::make_shared<MeshIdentityDomain>(marks)));
+    auto edit=base->createMutableView();
+    for(auto& [id,part]:partitions)edit.editPartition(id)=std::move(part);
+    return edit.commit().revision;
+}
 std::shared_ptr<const MeshRevision> MeshRevision::empty() {
     return std::shared_ptr<const MeshRevision>(
         new MeshRevision(nullptr,0,std::make_shared<MeshIdentityDomain>()));
