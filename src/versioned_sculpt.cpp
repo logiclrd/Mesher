@@ -183,6 +183,8 @@ void VersionedSculptBrush::stamp(
     copiedDirectoryNodes_+=inflated.commitStatistics.copiedDirectoryNodes+
                             refined.copiedDirectoryNodes+
                             collapsed.copiedDirectoryNodes;
+    clonedPartitionBytes_+=inflated.commitStatistics.clonedPartitionBytes+
+                           refined.clonedPartitionBytes+collapsed.clonedPartitionBytes;
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
