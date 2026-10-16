@@ -21,6 +21,8 @@
 #endif
 #include <utility>
 #include <limits>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -35,7 +37,7 @@ void check(VkResult code, const char* operation) {
     if(code!=VK_SUCCESS) throw std::runtime_error(std::string(operation)+" failed: "+std::to_string(code));
 }
 
-struct Vertex { float px,py,pz,nx,ny,nz,material; };
+using Vertex=PartitionRenderVertex;
 Vertex makeVertex(Vec3 p, Vec3 n={}, float material=0) {
     return {float(p.x),float(p.y),float(p.z),float(n.x),float(n.y),float(n.z),material};
 }
@@ -321,10 +323,10 @@ void requestX11Activation(Window window) {
 
 class VulkanViewport {
     const Mesh& mesh_;
-    Mesh displayedMesh_; // UI-owned immutable-between-snapshots drawing mesh.
-    const Mesh& currentMesh() const {
-        return interaction_.takeSnapshot ? displayedMesh_ : mesh_;
-    }
+    // Legacy demos use a flat Mesh; live sculpt renders an indexed root.
+    std::shared_ptr<const RegionTopologyIndex> displayedIndex_;
+    PartitionRenderCache partitionCache_;
+    const Mesh& currentMesh() const {return mesh_;}
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
@@ -374,6 +376,10 @@ class VulkanViewport {
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;};
     Buffer solid{},lines{},hud{};
+    struct PartitionBuffers {Buffer solid,wire;};
+    std::map<PartitionId,PartitionBuffers> partitionBuffers_;
+    std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
+    std::size_t lastDirtyBytes_=0;
 
     static bool containsExtension(const std::vector<VkExtensionProperties>& list,const char* name) {
         return std::any_of(list.begin(),list.end(),[&](const auto& ext){return std::strcmp(ext.extensionName,name)==0;});
@@ -496,38 +502,82 @@ class VulkanViewport {
         vkUnmapMemory(device,result.memory);
         return result;
     }
-    // Vertex positions and triangle normals change on every stamp; topology
-    // doesn't, so the allocated GPU buffer sizes remain constant. These
-    // host-coherent allocations were already used by the initial upload.
-    void replaceBuffer(Buffer& buffer, const std::vector<Vertex>& vertices) {
-        if (vertices.size() > buffer.capacity) {
-            // Future refinement may grow the mesh; reallocate only when the
-            // old allocation cannot contain the changed topology.
-            auto newer=upload(vertices);
-            vkDestroyBuffer(device,buffer.buffer,nullptr);
-            vkFreeMemory(device,buffer.memory,nullptr);
-            buffer=newer;
+    void destroyBuffer(Buffer& buffer) {
+        if(buffer.buffer)vkDestroyBuffer(device,buffer.buffer,nullptr);
+        if(buffer.memory)vkFreeMemory(device,buffer.memory,nullptr);
+        buffer={};
+    }
+    // The previous frame fence is waited before any buffer replacement or
+    // retirement. Only buffer objects for dirty partitions are touched; GPU
+    // allocations belonging to unchanged partitions remain entirely intact.
+    void replaceBuffer(Buffer& buffer,const std::vector<Vertex>& vertices) {
+        if(vertices.empty()) {
+            buffer.vertexCount=0;
+            return;
+        }
+        if(buffer.buffer==VK_NULL_HANDLE||vertices.size()>buffer.capacity) {
+            auto next=upload(vertices);
+            destroyBuffer(buffer);
+            buffer=next;
             return;
         }
         buffer.vertexCount=static_cast<std::uint32_t>(vertices.size());
-        const VkDeviceSize size = vertices.size() * sizeof(Vertex);
-        void* data = nullptr;
-        check(vkMapMemory(device, buffer.memory, 0, size, 0, &data),
+        const VkDeviceSize size=vertices.size()*sizeof(Vertex);
+        void* data=nullptr;
+        check(vkMapMemory(device,buffer.memory,0,size,0,&data),
               "Map dynamic vertex buffer");
-        std::memcpy(data, vertices.data(), static_cast<std::size_t>(size));
-        vkUnmapMemory(device, buffer.memory);
+        std::memcpy(data,vertices.data(),static_cast<std::size_t>(size));
+        vkUnmapMemory(device,buffer.memory);
     }
-
+    void initializePartitions() {
+        partitionCache_.initialize(displayedIndex_);
+        for(const auto& [id,geometry]:partitionCache_.partitions()) {
+            auto& dst=partitionBuffers_[id];
+            if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
+            if(!geometry->wire.empty())dst.wire=upload(geometry->wire);
+        }
+    }
+    void refreshPartitions(
+        std::shared_ptr<const RegionTopologyIndex> next,
+        const std::vector<PartitionId>& dirty) {
+        const double started=glfwGetTime();
+        // The one-in-flight graphics submission has stopped reading all
+        // older vertex buffers before we map, replace, or destroy any of
+        // them. Present and resize use the existing device-idle handling.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before retiring dirty Vulkan partition buffers");
+        const auto stats=partitionCache_.advance(next,dirty);
+        std::set<PartitionId> unique(dirty.begin(),dirty.end());
+        for(const auto id:unique) {
+            const auto found=partitionCache_.partitions().find(id);
+            if(found==partitionCache_.partitions().end()) {
+                const auto old=partitionBuffers_.find(id);
+                if(old!=partitionBuffers_.end()) {
+                    destroyBuffer(old->second.solid);
+                    destroyBuffer(old->second.wire);
+                    partitionBuffers_.erase(old);
+                }
+                continue;
+            }
+            auto& dst=partitionBuffers_[id];
+            replaceBuffer(dst.solid,found->second->solid);
+            replaceBuffer(dst.wire,found->second->wire);
+        }
+        displayedIndex_=std::move(next);
+        lastDirtyPartitions_=stats.rebuiltPartitions;
+        lastDirtyFaces_=stats.rebuiltFaces;
+        lastDirtyBytes_=stats.uploadedBytes;
+        lastUploadMs_=(glfwGetTime()-started)*1000;
+    }
     void refreshMesh() {
         const double started=glfwGetTime();
-        // No vertex buffer writes are permitted while the GPU is reading the
-        // buffers from a previous frame.
-        check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX),
-              "Wait before updating dynamic geometry");
-        const auto drawing = buildDrawing(currentMesh());
-        replaceBuffer(solid, drawing.solid);
-        replaceBuffer(lines, drawing.lines);
-        lastUploadMs_=(glfwGetTime()-started)*1000.0;
+        // Synchronous demo mode retains its original flat-mesh buffers.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before updating legacy geometry");
+        const auto drawing=buildDrawing(currentMesh());
+        replaceBuffer(solid,drawing.solid);
+        replaceBuffer(lines,drawing.lines);
+        lastUploadMs_=(glfwGetTime()-started)*1000;
     }
 
     void refreshHud() {
@@ -557,7 +607,9 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
-        return firstMeshHit(currentMesh(),viewportRay(px,py,double(fw),double(fh)));
+        const auto ray=viewportRay(px,py,double(fw),double(fh));
+        return displayedIndex_?displayedIndex_->firstRayHit(ray):
+               firstMeshHit(currentMesh(),ray);
     }
 
     // Status lines use a separate window from the 750ms HUD counter, so
@@ -586,6 +638,9 @@ class VulkanViewport {
           <<" enqueue_or_stamp_ms="<<lastStampCallbackMs_
           <<" picking_ms="<<lastPickMs_
           <<" mesh_upload_ms="<<lastUploadMs_
+          <<" dirty_partitions="<<lastDirtyPartitions_
+          <<" dirty_faces="<<lastDirtyFaces_
+          <<" dirty_upload_bytes="<<lastDirtyBytes_
           <<" last_draw_ms="<<lastDrawMs_;
         if(interaction_.lastStampDetails)os<<" "<<interaction_.lastStampDetails();
         std::cout<<os.str()<<'\n'<<std::flush;
@@ -768,11 +823,11 @@ class VulkanViewport {
             if(auto snapshot=interaction_.takeSnapshot()) {
                 const auto previous=displayedStamps_;
                 displayedStamps_=snapshot->completedStamps;
-                displayedMesh_=std::move(snapshot->mesh);
+                refreshPartitions(std::move(snapshot->index),
+                                  snapshot->dirtyPartitions);
                 const auto added=displayedStamps_>=previous
                     ?displayedStamps_-previous:0;
                 stampsThisInterval_+=added;
-                refreshMesh();
                 updateTitle();
                 if(added)reportAfterStamp(added);
             }
@@ -1157,9 +1212,21 @@ class VulkanViewport {
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,solidPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
         vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+            (void)id;
+            if(!buffers.solid.vertexCount)continue;
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
+            vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
+        }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
         vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+            (void)id;
+            if(!buffers.wire.vertexCount)continue;
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.buffer,&offset);
+            vkCmdDraw(commandBuffer,buffers.wire.vertexCount,1,0,0);
+        }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
         vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);
@@ -1197,8 +1264,9 @@ class VulkanViewport {
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
                             ViewportInteraction interaction)
-        : mesh_(mesh), displayedMesh_(mesh), animation_(std::move(animation)),
+        : mesh_(mesh), animation_(std::move(animation)),
           interaction_(std::move(interaction)) {
+        displayedIndex_=interaction_.initialRevision;
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))
             throw std::invalid_argument("Animation rate must be positive and finite");
@@ -1227,9 +1295,11 @@ public:
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
-        auto drawing=buildDrawing(mesh);
+        const Mesh empty;
+        auto drawing=buildDrawing(displayedIndex_?empty:mesh);
         solid=upload(drawing.solid);
         lines=upload(drawing.lines);
+        if(displayedIndex_)initializePartitions();
         createSwapchain();
         createCommands();
         refreshHud();
@@ -1247,11 +1317,13 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
-            auto freeBuffer=[&](Buffer b) {
-                if(b.buffer)vkDestroyBuffer(device,b.buffer,nullptr);
-                if(b.memory)vkFreeMemory(device,b.memory,nullptr);
-            };
-            freeBuffer(solid);freeBuffer(lines);freeBuffer(hud);
+            destroyBuffer(solid);destroyBuffer(lines);destroyBuffer(hud);
+            for(auto& [id,buffers]:partitionBuffers_) {
+                (void)id;
+                destroyBuffer(buffers.solid);
+                destroyBuffer(buffers.wire);
+            }
+            partitionBuffers_.clear();
             vkDestroyDevice(device,nullptr);
         }
         if(surface)vkDestroySurfaceKHR(instance,surface,nullptr);

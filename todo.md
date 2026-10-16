@@ -174,11 +174,38 @@ an older revision while the worker edits or publishes a newer one.
   vertex/face additions in the viewport compatibility adapter. Desktop
   input and demo-mode behavior remain unchanged. V11 will address bounded
   graph retirement and memory telemetry under extreme stroke loads.
-- [ ] **V9 — Dirty-partition Vulkan rendering.**
-  Maintain renderable buffers per partition, rebuild/upload only changed
-  partitions, and handle cross-partition normals/edges and GPU in-flight
-  lifetimes correctly. Verify no stale or missing triangles during fast
-  sculpt strokes, split/flip/collapse, resizing and shutdown.
+- [x] **V9 — Dirty-partition Vulkan rendering.**
+  The interactive Vulkan renderer now owns one solid and one wire vertex
+  buffer per face-owning partition. A CPU-side PartitionRenderCache builds
+  each partition only once initially, then regenerates only dirty owners
+  using the exact immutable revision from V8. Flat face normals read the
+  referenced vertices across all partitions; shared wire edges are owned
+  by the incident face with the smallest stable FaceId, never duplicated
+  or omitted at partition boundaries. Each V5/V6/V7 stamp computes its
+  affected before/after vertex/face halo and owner partition IDs without
+  scanning all mesh partitions. The async worker unions dirty IDs both
+  across pending stamps and across coalesced unconsumed snapshots, including
+  the immediately applied mouse-down stamp.
+  After waiting for the previous graphics-submission fence, Vulkan replaces
+  only affected per-partition allocations and retires any deleted/empty
+  partition buffers. Unchanged GPU buffer handles, CPU staging geometry and
+  mesh partition identities remain intact. Swapchain resize still uses its
+  existing device-idle path; shutdown waits for the device before destroying
+  all retained partition buffers. Static floor and HUD geometry stay in
+  their old dedicated buffers, and synchronous demos retain the original
+  full-mesh renderer. Indexed picking uses the *displayed* revision for
+  consistency, remaining linear until V10's accelerated hierarchy.
+  V9 removes V8's full-mesh viewport conversion from the live path and
+  reports dirty_partitions, dirty_faces, dirty_upload_bytes and
+  mesh_upload_ms for each displayed revision. The fifteenth CPU CTest
+  compares incremental partition geometry against an independent full
+  rebuild, including local movement, split/collapse, globally unique
+  cross-partition wire edges, retained unchanged buffer pointers and
+  coalesced revisions. Interactive Vulkan window behavior itself is not
+  GPU-integration-tested by headless CI; manual tests remain important.
+  Draw submission still visits partition buffer handles per frame and
+  uses one graphics fence, so V11 will refine retirement and large-scale
+  lifetime/performance telemetry.
 - [ ] **V10 — Revision-consistent accelerated picking.**
   Introduce/update a triangle BVH or partition-local acceleration hierarchy;
   pick the same published revision being displayed. Quantify behavior during
@@ -212,8 +239,9 @@ an older revision while the worker edits or publishes a newer one.
   local edits; V4 persistent indices; V5 local Inflate and pre-stamp baselines;
   V6 transactional local splitting/flipping; V7 localized ID-preserving
   collapse with persistent tombstones; V8 publishes immutable roots from
-  the active sculpt worker. Dirty-partition Vulkan rendering, accelerated
-  triangle picking, safe reclamation, and durable undo remain future tasks.
+  the active sculpt worker; V9 updates Vulkan face partitions locally.
+  Accelerated triangle picking, safe reclamation, and durable undo remain
+  future tasks.
 
 ## Other remaining design goals
 

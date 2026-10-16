@@ -1,0 +1,63 @@
+#pragma once
+
+#include "mesher/region_edit.hpp"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <span>
+#include <vector>
+
+namespace mesher {
+
+// Layout matches the Vulkan viewport's existing seven-float binding.
+struct PartitionRenderVertex {
+    float px{},py{},pz{},nx{},ny{},nz{},material{};
+};
+struct PartitionRenderGeometry {
+    std::vector<PartitionRenderVertex> solid;
+    std::vector<PartitionRenderVertex> wire;
+};
+struct PartitionRenderUpdate {
+    std::size_t rebuiltPartitions{};
+    std::size_t rebuiltFaces{};
+    std::size_t uploadedBytes{};
+};
+
+// Discover face-owner partitions whose geometry, normals or uniquely owned
+// wires can change. Operates on affected vertices/faces and their one-ring
+// before AND after the edit, not on an entire revision/partition directory.
+std::vector<PartitionId> dirtyRenderPartitions(
+    const RegionTopologyIndex& before,const RegionTopologyIndex& after,
+    std::span<const VertexId> changedVertices,
+    std::span<const FaceId> changedFaces);
+
+// Each face is represented in its own owner partition. An edge is emitted
+// by the incident face with the smallest stable FaceId, independent of
+// physical vertex and face partition ownership. This prevents missing or
+// doubled wires across partition boundaries.
+PartitionRenderGeometry buildPartitionRenderGeometry(
+    const RegionTopologyIndex& index,PartitionId owner);
+
+// UI-owned CPU staging/cache, not part of worker publication. It preserves
+// identical geometry pointers for untouched partitions and rebuilds only
+// named dirty partition IDs; it never enumerates the mesh on an update.
+class PartitionRenderCache {
+public:
+    void initialize(std::shared_ptr<const RegionTopologyIndex> initial);
+    PartitionRenderUpdate advance(
+        std::shared_ptr<const RegionTopologyIndex> revision,
+        std::span<const PartitionId> dirty);
+    const std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>>&
+    partitions() const noexcept {return partitions_;}
+    std::shared_ptr<const RegionTopologyIndex> revision() const noexcept {
+        return revision_;
+    }
+private:
+    std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>> partitions_;
+    std::shared_ptr<const RegionTopologyIndex> revision_;
+};
+
+} // namespace mesher

@@ -1,9 +1,12 @@
 #pragma once
 #include "mesher/mesh.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/partition_render.hpp"
 
 #include <functional>
 #include <optional>
+#include <memory>
+#include <vector>
 #include <string>
 
 namespace mesher {
@@ -23,7 +26,8 @@ struct ViewportAnimation {
 // freshly modified mesh at every update, stores the resulting input segments,
 // and drains at most one 4D Step sample between rendered frames.
 struct ViewportMeshUpdate {
-    Mesh mesh;
+    std::shared_ptr<const RegionTopologyIndex> index;
+    std::vector<PartitionId> dirtyPartitions;
     std::size_t completedStamps = 0;
 };
 
@@ -36,6 +40,9 @@ struct ViewportInteraction {
     // Async mode: consume the latest fully committed mesh snapshot. When
     // present, the Vulkan/picking thread never reads the worker's live mesh.
     std::function<std::optional<ViewportMeshUpdate>()> takeSnapshot;
+    // The initial immutable root is an explicit one-time full partition build;
+    // each later frame only refreshes its coalesced dirty partition IDs.
+    std::shared_ptr<const RegionTopologyIndex> initialRevision;
     std::function<bool()> canBegin;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;

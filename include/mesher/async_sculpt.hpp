@@ -24,6 +24,7 @@ public:
         std::shared_ptr<const RegionTopologyIndex> index;
         std::shared_ptr<const FlatMeshIndex> originalOrder;
         std::size_t completedStamps=0;
+        std::vector<PartitionId> dirtyPartitions;
     };
     struct Status {
         std::size_t completedStamps=0;
@@ -55,6 +56,9 @@ public:
     bool canBegin() const noexcept {return !reserved_.load();}
     Status status() const;
     std::optional<Snapshot> takeSnapshot();
+    std::shared_ptr<const RegionTopologyIndex> initialRevision() const noexcept {
+        return brush_->snapshot();
+    }
 
 private:
     enum class Kind {Begin,Update,End,Radius};
@@ -79,6 +83,8 @@ private:
     std::exception_ptr error_;
     std::mutex snapshotMutex_;
     std::optional<Snapshot> latest_;
+    // Worker-only accumulation between throttled publications.
+    std::vector<PartitionId> unpublishedDirty_;
     std::chrono::steady_clock::time_point lastPublish_{};
     std::jthread worker_;
 };

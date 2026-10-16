@@ -1,6 +1,7 @@
 #include "mesher/async_sculpt.hpp"
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <utility>
@@ -91,9 +92,20 @@ void AsyncSculptWorker::publish(bool force) {
     if(!force && lastPublish_.time_since_epoch().count()!=0 &&
        now-lastPublish_<std::chrono::milliseconds(8))return;
     Snapshot snapshot{brush_->snapshot(),brush_->originalOrder(),
-                      brush_->completedStamps()};
+                      brush_->completedStamps(),std::move(unpublishedDirty_)};
+    unpublishedDirty_.clear();
     {
         std::lock_guard guard(snapshotMutex_);
+        // A frame can coalesce multiple published revisions; union the dirty
+        // IDs until a consumer has actually taken the previous snapshot.
+        if(latest_) {
+            auto& combined=snapshot.dirtyPartitions;
+            combined.insert(combined.end(),latest_->dirtyPartitions.begin(),
+                            latest_->dirtyPartitions.end());
+        }
+        auto& all=snapshot.dirtyPartitions;
+        std::sort(all.begin(),all.end());
+        all.erase(std::unique(all.begin(),all.end()),all.end());
         latest_=std::move(snapshot);
     }
     lastPublish_=now;
@@ -121,6 +133,14 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     if(symmetric_)areas.push_back({{-command->point.x,
                         command->point.y,command->point.z},command->radius,.3});
                     stroke_.startTimed(std::move(areas),timeSpeed_);
+                    // startTimed synchronously applies the mouse-down stamp;
+                    // it does not pass through pumpTimedRealtime(), so its
+                    // dirty halo must be collected separately.
+                    {
+                        const auto& dirty=brush_->lastDirtyPartitions();
+                        unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                  dirty.begin(),dirty.end());
+                    }
                     changed=true; // The first stamp happens at mouse-down.
                     break;
                 }
@@ -143,6 +163,9 @@ void AsyncSculptWorker::run(std::stop_token token) {
                 const bool stamped=stroke_.pumpTimedRealtime();
                 if(stamped) {
                     changed=true;
+                    const auto& dirty=brush_->lastDirtyPartitions();
+                    unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                              dirty.begin(),dirty.end());
                     std::lock_guard guard(statusMutex_);
                     status_.lastWorkerStampMs=
                         std::chrono::duration<double,std::milli>(
