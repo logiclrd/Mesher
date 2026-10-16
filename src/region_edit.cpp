@@ -56,6 +56,12 @@ RegionEdit::RegionEdit(
             throw std::invalid_argument("Mirror mapping is not an involution");
         if(a==b&&index_->vertex(a).position.x!=0)
             throw std::invalid_argument("Self-mirrored seam vertex must lie on X=0");
+        if(a!=b) {
+            const auto p=index_->vertex(a).position;
+            const auto q=index_->vertex(b).position;
+            if(p.x!=-q.x||p.y!=q.y||p.z!=q.z)
+                throw std::invalid_argument("Mirror pair must be geometrically reflected");
+        }
     }
     for(const auto id:seeds) {
         (void)index_->vertex(id);
@@ -276,8 +282,139 @@ void RegionEdit::replaceMirroredFaces(
     const std::array<VertexId,3> reflected={
         mapped(replacement[0]),mapped(replacement[2]),mapped(replacement[1])};
     ensureReferences(reflected);
-    setFace(first,replacement);
-    setFace(second,reflected);
+    try {
+        setFace(first,replacement);
+        setFace(second,reflected);
+        faceMirror_.emplace(first,second);
+        faceMirror_.emplace(second,first);
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
+
+VertexId RegionEdit::mirroredVertex(VertexId vertex) const {
+    const auto it=mirror_.find(vertex);
+    if(it==mirror_.end())
+        throw std::logic_error("Vertex has no declared mirror correspondence");
+    return it->second;
+}
+std::pair<VertexId,VertexId> RegionEdit::appendMirroredVertices(
+    PartitionId firstOwner,PartitionId secondOwner,Vec3 position) {
+    if(mirror_.empty()||!finite(position)||position.x==0)
+        throw std::logic_error("Paired vertex insertion requires nonzero X and mirror context");
+    try {
+        const auto first=chooseInsertionPartition(firstOwner,true);
+        const auto a=view_.addVertex(first,position);
+        newVertices_[a]=first;
+        vertexChanges_[a]=position;
+        accessibleVertices_.insert(a);
+        const auto other=Vec3{-position.x,position.y,position.z};
+        const auto second=chooseInsertionPartition(secondOwner,true);
+        const auto b=view_.addVertex(second,other);
+        newVertices_[b]=second;
+        vertexChanges_[b]=other;
+        accessibleVertices_.insert(b);
+        mirror_.emplace(a,b);
+        mirror_.emplace(b,a);
+        return {a,b};
+    }catch(...) {
+        poisoned_=true; // No half-paired topology can ever commit.
+        throw;
+    }
+}
+VertexId RegionEdit::appendSeamVertex(PartitionId owner,Vec3 position) {
+    if(mirror_.empty()||!finite(position)||position.x!=0)
+        throw std::logic_error("Shared symmetry seam vertex must be on X=0");
+    try {
+        const auto writable=chooseInsertionPartition(owner,true);
+        const auto id=view_.addVertex(writable,position);
+        newVertices_[id]=writable;
+        vertexChanges_[id]=position;
+        accessibleVertices_.insert(id);
+        mirror_.emplace(id,id);
+        return id;
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
+std::pair<FaceId,FaceId> RegionEdit::appendMirroredFaces(
+    PartitionId firstOwner,PartitionId secondOwner,
+    std::array<VertexId,3> firstTriangle) {
+    if(mirror_.empty())
+        throw std::logic_error("Paired face insertion requires mirror context");
+    try {
+        ensureReferences(firstTriangle);
+        const std::array<VertexId,3> reflected={
+            mirroredVertex(firstTriangle[0]),
+            mirroredVertex(firstTriangle[2]),
+            mirroredVertex(firstTriangle[1])};
+        ensureReferences(reflected);
+        // A triangle lying entirely on X=0 would create two identical
+        // coincident sheets. Such faces are never a valid mirrored pair.
+        if(firstTriangle==reflected ||
+           (mirror_.at(firstTriangle[0])==firstTriangle[0]&&
+            mirror_.at(firstTriangle[1])==firstTriangle[1]&&
+            mirror_.at(firstTriangle[2])==firstTriangle[2]))
+            throw std::logic_error("Cannot duplicate an all-seam face");
+        const auto first=chooseInsertionPartition(firstOwner,false);
+        const auto a=view_.addFace(first,firstTriangle);
+        newFaces_[a]=first;
+        faceChanges_[a]=firstTriangle;
+        const auto second=chooseInsertionPartition(secondOwner,false);
+        const auto b=view_.addFace(second,reflected);
+        newFaces_[b]=second;
+        faceChanges_[b]=reflected;
+        faceMirror_.emplace(a,b);
+        faceMirror_.emplace(b,a);
+        return {a,b};
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
+void RegionEdit::removeMirroredFaces(FaceId a,FaceId b) {
+    if(mirror_.empty()||a==b||!faces_.contains(a)||!faces_.contains(b))
+        throw std::logic_error("Both paired faces must be editable");
+    const auto original=index_->face(a).vertices;
+    const auto paired=index_->face(b).vertices;
+    if(!cyclic({mirroredVertex(original[0]),
+                mirroredVertex(original[2]),
+                mirroredVertex(original[1])},paired))
+        throw std::logic_error("Removed faces are not reflected partners");
+    try {
+        setFace(a,std::nullopt);
+        setFace(b,std::nullopt);
+        faceMirror_.emplace(a,b);
+        faceMirror_.emplace(b,a);
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
+void RegionEdit::removeMirroredVertices(VertexId a,VertexId b) {
+    if(mirror_.empty()||mirroredVertex(a)!=b||
+       mirroredVertex(b)!=a||!selected_.contains(a)||
+       !selected_.contains(b))
+        throw std::logic_error("Removed vertices are not a selected mirror pair");
+    try {
+        const auto remove=[&](VertexId id) {
+            ensureWritable(index_->vertex(id).owner);
+            auto& part=view_.editPartition(index_->vertex(id).owner);
+            const auto it=std::find_if(part.vertices.begin(),part.vertices.end(),
+                [id](const auto& v){return v.id==id;});
+            if(it==part.vertices.end())
+                throw std::logic_error("Mirrored vertex already removed");
+            part.vertices.erase(it);
+            vertexChanges_[id]=std::nullopt;
+        };
+        remove(a);
+        if(b!=a)remove(b);
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
 }
 
 void RegionEdit::validate() const {
@@ -311,6 +448,38 @@ void RegionEdit::validate() const {
         if(!finite(a)||!finite(b)||!finite(c) ||
            !(length(cross(b-a,c-a))>0))
             throw std::logic_error("Local face has degenerate/non-finite geometry");
+    }
+    if(!mirror_.empty()) {
+        // Validate that every changed triangle has a distinct reflected
+        // partner and that all new/changed vertices remain paired.
+        for(const auto& [id,_]:vertexChanges_) {
+            const auto other=mirroredVertex(id);
+            const auto mine=vertexChanges_.at(id);
+            const auto theirs=vertexChanges_.find(other);
+            if(theirs==vertexChanges_.end()||bool(mine)!=bool(theirs->second))
+                throw std::logic_error("Asymmetric vertex update");
+            if(mine) {
+                const auto p=*mine,q=*theirs->second;
+                if(p.x!=-q.x||p.y!=q.y||p.z!=q.z)
+                    throw std::logic_error("Updated vertices are not reflected");
+            }
+        }
+        for(const auto& [id,triangle]:faceChanges_) {
+            const auto it=faceMirror_.find(id);
+            if(it==faceMirror_.end())
+                throw std::logic_error("Symmetric topology has an unpaired face update");
+            const auto twin=faceChanges_.find(it->second);
+            if(twin==faceChanges_.end()||bool(triangle)!=bool(twin->second))
+                throw std::logic_error("Mirrored faces differ in existence");
+            if(triangle) {
+                const std::array<VertexId,3> reflected={
+                    mirroredVertex((*triangle)[0]),
+                    mirroredVertex((*triangle)[2]),
+                    mirroredVertex((*triangle)[1])};
+                if(!cyclic(reflected,*twin->second))
+                    throw std::logic_error("Mirrored faces differ in winding");
+            }
+        }
     }
     if(faceChanges_.empty()&&vertexChanges_.empty())return;
 
@@ -401,7 +570,8 @@ void RegionEdit::validate() const {
 }
 
 RevisionCommit RegionEdit::commit() {
-    if(committed_)throw std::logic_error("Region was already committed");
+    if(committed_||poisoned_)
+        throw std::logic_error("Region was committed or an atomic mirrored operation failed");
     validate();
     auto result=view_.commit();
     auto nextIndex=RegionTopologyIndex::advance(
