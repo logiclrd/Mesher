@@ -37,7 +37,8 @@ class RevisionHistory {
 public:
     explicit RevisionHistory(std::shared_ptr<const RegionTopologyIndex> initial,
         std::size_t maximumRevisions=64,std::size_t maximumChangeBytes=32*1024*1024,
-        RevisionRetirementQueue* retirement=nullptr);
+        RevisionRetirementQueue* retirement=nullptr,
+        std::size_t initialVertices=0,std::size_t initialFaces=0);
     void append(std::shared_ptr<const RegionTopologyIndex> index,
         std::vector<PartitionId> changedPartitions,
         std::vector<MirrorPair> addedMirrors,
