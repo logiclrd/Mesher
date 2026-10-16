@@ -498,6 +498,60 @@ void testSymmetryPlaneClassificationFailsClosed() {
                 "Near-zero coordinate is not silently treated as an exact shared seam ID");
     }
 }
+void testAtomicSelfReflectedPlaneCrossingNormalization() {
+    // Two self-reflected triangles meet across one undivided edge
+    // joining a mirrored vertex pair. This is the safe normalization
+    // precursor for cut rings that cannot be zipped across X=0 yet.
+    Mesh tetra;
+    tetra.vertices={{1,0,0},{-1,0,0},{0,1,0},{0,0,1}};
+    tetra.triangles={{0,1,2},{1,0,3},{0,2,3},{1,3,2}};
+    const auto imported=partitionFlatMesh(tetra,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mapping={
+        {v[0],v[1]},{v[2],v[2]},{v[3],v[3]}};
+    IndexedMeshRepository repository(original);
+    const auto oldRoot=original->pickingRootIdentity();
+    const auto normalized=normalizeSelfMirroredPlaneEdge(
+        original,v[0],v[1],mapping,1);
+    require(normalized.index&&normalized.seamVertex!=v[0]&&
+            normalized.seamVertex!=v[1]&&
+            normalized.index->vertex(normalized.seamVertex).position.x==0,
+            "One shared X=0 midpoint normalizes the mirror-pair crossing");
+    require(normalized.insertedFaces[0]!=normalized.insertedFaces[1]&&
+            normalized.preservedFaces[0]!=normalized.preservedFaces[1],
+            "One new partner face for each retained self-mirrored old face");
+    require(normalized.index->vertex(
+                normalized.seamVertex).incidentFaces.size()==4&&
+            euler(*original)==2&&euler(*normalized.index)==2,
+            "Entire crossing edge is conforming, genus-preserving and manifold");
+    require(normalized.index->retiredFaceCount()==0&&
+            original->retiredFaceCount()==0&&
+            original->pickingRootIdentity()==oldRoot,
+            "Plane-edge normalization preserves old IDs and historical root");
+    require(repository.snapshot()==original,
+            "Private normalization has not published any topology");
+    require(repository.publishIfCurrent(original,normalized.index),
+            "Validated normalization publishes by one optimistic root swap");
+    require(!repository.publishIfCurrent(original,normalized.index),
+            "Stale normalization cannot overwrite current repository revision");
+    bool refused=false;
+    try {
+        (void)normalizeSelfMirroredPlaneEdge(
+            original,v[0],v[1],{{v[0],v[1]},{v[2],v[2]}},1);
+    }catch(const std::exception&){refused=true;}
+    require(refused,"Missing seam-apex reflection cannot normalize an edge");
+    refused=false;
+    try {
+        (void)normalizeSelfMirroredPlaneEdge(
+            original,v[0],v[2],mapping,1);
+    }catch(const std::exception&){refused=true;}
+    require(refused,"Unpaired edge endpoints are rejected before topology changes");
+    require(original->pickingRootIdentity()==oldRoot&&
+            original->retiredFaceCount()==0,
+            "All failed normalizations leave original index immutable");
+}
 void testSelfMirroredCapAcrossExistingSeam() {
     for(const double bend:{0.0,.04}) {
     Mesh oct;
@@ -685,6 +739,8 @@ int main() {
         testNonplanarMultiContourStaysAmbiguous();
         std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
         testSymmetryPlaneClassificationFailsClosed();
+        std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
+        testAtomicSelfReflectedPlaneCrossingNormalization();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
