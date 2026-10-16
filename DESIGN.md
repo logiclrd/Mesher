@@ -1275,7 +1275,8 @@ little-endian binary serialization of every live partition, vertex
 position and stable ID, triangle ID and vertex references, persistent
 deleted-ID tombstones, stable-ID allocator watermarks (including
 aborted/rolled-back allocations and high-range overflow partition
-numbers) and current mirror-pair correspondences. Loading reconstructs
+numbers), the original mesh density used by split/collapse thresholds,
+and current mirror-pair correspondences. Loading reconstructs
 the original sparse partition directory with the same live IDs, then
 builds the versioned adjacency/spatial/picking indices once on the
 loaded geometry. It validates counts, uniqueness, finite coordinates,
