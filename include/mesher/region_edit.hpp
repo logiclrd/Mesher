@@ -21,6 +21,7 @@ namespace mesher {
 // Initial import builds it once; subsequent RegionEdit commits update only
 // touched records and share all unchanged spatial/connectivity index nodes.
 // Publishing a new index root never scans the mesh.
+class RevisionPickingIndex;
 class RegionTopologyIndex {
 public:
     struct Vertex {
@@ -57,6 +58,8 @@ public:
         std::size_t changedCellRecords{};
         std::size_t copiedTreeNodes{};
         std::size_t fullMeshTraversals{};
+        std::size_t rebuiltPickingPartitions{};
+        std::size_t copiedPickingDirectoryNodes{};
     };
 
     // Full index construction happens only once for an imported mesh.
@@ -83,8 +86,14 @@ public:
     // Exact squared-distance filtering after spatial bucket lookup. This is
     // scoped to this immutable revision, even after newer revisions publish.
     std::vector<VertexId> querySphere(Vec3 center,double radius) const;
-    // Exact immutable-revision picking; accelerated triangle BVH is V10.
-    std::optional<Vec3> firstRayHit(Ray ray) const;
+    struct PickStatistics {
+        std::size_t boxesTested{};
+        std::size_t partitionsTested{};
+        std::size_t trianglesTested{};
+    };
+    // Exact ray picking against this revision's path-shared triangle BVHs.
+    std::optional<Vec3> firstRayHit(Ray ray,PickStatistics* statistics=nullptr) const;
+    const void* pickingRootIdentity() const noexcept;
 
 private:
     friend class RegionEdit;
@@ -110,6 +119,7 @@ private:
     PersistentIndexMap<VertexId,bool> retiredVertices_;
     PersistentIndexMap<FaceId,bool> retiredFaces_;
     UpdateStatistics statistics_{};
+    std::shared_ptr<const RevisionPickingIndex> picking_;
 };
 
 class IndexedMeshRepository {

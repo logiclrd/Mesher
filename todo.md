@@ -206,10 +206,37 @@ an older revision while the worker edits or publishes a newer one.
   Draw submission still visits partition buffer handles per frame and
   uses one graphics fence, so V11 will refine retirement and large-scale
   lifetime/performance telemetry.
-- [ ] **V10 — Revision-consistent accelerated picking.**
-  Introduce/update a triangle BVH or partition-local acceleration hierarchy;
-  pick the same published revision being displayed. Quantify behavior during
-  worker backlogs and retain exact mouse-path/stroke queue semantics.
+- [x] **V10 — Revision-consistent accelerated picking.**
+  The RegionTopologyIndex now owns a structurally shared immutable two-level
+  picking hierarchy: bounded triangle BVHs in each face-owning partition,
+  below an eight-level 16-way persistent partition-ID directory whose
+  nodes carry conservative ray-intersection bounding boxes. One-time
+  import builds the hierarchy from existing face/vertex records. Every
+  region edit gathers only owners of changed faces and the old/new incident
+  faces of moved/added/deleted vertices; those partitions alone rebuild
+  their BVHs, and only nine root-to-leaf directory nodes per affected
+  partition are path-copied. Deleted/empty partition leaves are removed
+  without recycling IDs; old roots and ray geometry remain immutable.
+  Exact nearest positive double-sided ray-triangle intersection preserves
+  the existing barycentric/determinant/distance tolerances, including
+  edge and backface hits; box bounds expand conservatively to avoid
+  false misses. Queries traverse the global and partition bounds and
+  test only surviving candidate triangles instead of O(total faces).
+  The existing viewport already pins the exact displayed revision for
+  both drawing and ray selection: V10 switches that call to the BVH without
+  modifying worker stamping, 4D Step queues, or backlogged stroke input.
+  Picking diagnostics report boxes/partitions/triangles tested alongside
+  picking_ms and pending input, exposing effective pruning interactively.
+  The sixteenth CTest suite compares hits/misses and nearest intersection
+  positions against independent exhaustive face traversal across camera
+  rays, dense spheres, old retained revisions, divergent revision branches,
+  cross-partition split/collapse, and no-op updates. It checks bounded
+  touched owner counts, nine path-copy nodes per owner and absence of
+  full-mesh walks in incremental picking updates. Initial import still
+  traverses all faces once. Partition ID directory grouping is pragmatic
+  rather than a globally optimal spatial hierarchy; large nonlinear
+  deformations may weaken pruning but never change picking correctness.
+  V11 still owns prolonged CPU/GPU reclamation and stress diagnostics.
 - [ ] **V11 — Bounded reclamation, diagnostics and stress tests.**
   Add safe retirement/reclamation for expired CPU graphs without large
   UI-thread destructor pauses, and delay GPU destruction until work finishes.
@@ -240,8 +267,8 @@ an older revision while the worker edits or publishes a newer one.
   V6 transactional local splitting/flipping; V7 localized ID-preserving
   collapse with persistent tombstones; V8 publishes immutable roots from
   the active sculpt worker; V9 updates Vulkan face partitions locally.
-  Accelerated triangle picking, safe reclamation, and durable undo remain
-  future tasks.
+  V10 keeps exact picking on a path-shared local triangle BVH.
+  Safe reclamation and durable undo remain future tasks.
 
 ## Other remaining design goals
 

@@ -1,4 +1,5 @@
 #include "mesher/region_edit.hpp"
+#include "mesher/revision_picking.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -119,6 +120,7 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::build(
         std::sort(ids.begin(),ids.end());
         result->cells_.set(key,std::move(ids));
     }
+    result->picking_=RevisionPickingIndex::build(*result);
     result->statistics_.fullMeshTraversals=1;
     return result;
 }
@@ -259,6 +261,10 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
         else result->cells_.set(key,std::move(ids),&copied);
         ++result->statistics_.changedCellRecords;
     }
+    result->picking_=RevisionPickingIndex::advance(
+        *old.picking_,old,*result,vertexChanges,faceChanges,
+        result->statistics_.rebuiltPickingPartitions,
+        result->statistics_.copiedPickingDirectoryNodes);
     return result;
 }
 
@@ -307,32 +313,17 @@ std::vector<VertexId> RegionTopologyIndex::querySphere(
     return hits;
 }
 
-std::optional<Vec3> RegionTopologyIndex::firstRayHit(Ray ray) const {
+std::optional<Vec3> RegionTopologyIndex::firstRayHit(
+    Ray ray,PickStatistics* statistics) const {
     if(!finite(ray.origin)||!finite(ray.direction)||
        length(ray.direction)<1e-12)
         throw std::invalid_argument("Invalid indexed picking ray");
-    double nearest=std::numeric_limits<double>::infinity();
-    faces_.forEach([&](FaceId,const Face& f) {
-        const auto a=vertex(f.vertices[0]).position;
-        const auto b=vertex(f.vertices[1]).position;
-        const auto c=vertex(f.vertices[2]).position;
-        const auto ab=b-a,ac=c-a;
-        const auto p=cross(ray.direction,ac);
-        const double determinant=dot(ab,p);
-        if(std::abs(determinant)<1e-13)return;
-        const double inverse=1/determinant;
-        const auto displacement=ray.origin-a;
-        const double u=dot(displacement,p)*inverse;
-        if(u<-1e-12||u>1.0+1e-12)return;
-        const auto q=cross(displacement,ab);
-        const double v=dot(ray.direction,q)*inverse;
-        if(v<-1e-12||u+v>1.0+1e-12)return;
-        const double distance=dot(ac,q)*inverse;
-        if(distance>1e-8 && distance<nearest)nearest=distance;
-    });
-    if(!std::isfinite(nearest))return std::nullopt;
-    return ray.origin+ray.direction*nearest;
+    return picking_->firstRayHit(ray,statistics);
 }
+const void* RegionTopologyIndex::pickingRootIdentity() const noexcept {
+    return picking_->identity();
+}
+
 
 IndexedMeshRepository::IndexedMeshRepository(
     std::shared_ptr<const RegionTopologyIndex> initial)

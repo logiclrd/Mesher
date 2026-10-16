@@ -1097,3 +1097,65 @@ partitions. CI compiles the full Vulkan application on GCC, Clang and
 MSVC, but does not execute GPU presentation in its headless jobs.
 Actual window resizing, rapid input and driver lifetime behavior
 must additionally be checked interactively on real hardware.
+
+## V10: Immutable revision-scoped accelerated triangle picking
+
+`RegionTopologyIndex` now embeds a revision-specific
+`RevisionPickingIndex`. A one-time import constructs a bounded-size BVH
+for the faces of every face-owning partition, with each triangle's
+exact current positions and its conservative three-dimensional bounds.
+Above the local BVHs sits an eight-level 16-way persistent directory
+keyed by the stable 32-bit partition ID. Each directory node stores the
+union of its children's AABBs and thus prunes whole sets of face
+partitions from ray queries. This directory shares unchanged subtree
+pointers across revisions; it does not need an O(total-partitions)
+rebuild to accommodate an edit, new overflow partition, or deleted face.
+
+`RegionEdit` already stages exact changes to faces and vertex
+positions. On committing a new revision, the picking hierarchy collects
+only affected face-owner partition IDs: the old and new owners of
+changed face IDs plus owners of incident faces of changed vertices
+in both the prior and new connectivity indexes. It reconstructs just
+those partitions' bounded local triangle BVHs and copies at most nine
+16-way directory nodes per affected owner (root and eight levels).
+Empty-face partitions remove their directory leaf; all old reader-held
+roots still contain their former face geometry and can answer queries
+independently. No full mesh, partition-directory, or overlay-chain
+traversal occurs during an indexed region commit.
+
+The ray test preserves the previous double-sided nearest-triangle
+Möller–Trumbore predicates, including `1e-13` parallel rejection,
+`1e-12` barycentric tolerance and positive hit distance `>1e-8`.
+Ray/AABB checks expand bounds slightly to avoid discarding an edge hit
+that the final triangle test would accept. The nearest positive hit
+still wins even when the camera is inside a mesh. A ray that misses
+returns no hit. The public `RegionTopologyIndex::firstRayHit` API is
+unchanged for ordinary callers, but accepts optional
+`PickStatistics` reporting tested bounds, candidate partitions and
+triangles. Its existing invalid-ray validation remains intact.
+
+The Vulkan viewport already retains the index belonging to the
+*displayed* immutable revision (V9); V10 simply accelerates that
+same reference. Processing further input/stamps on the worker cannot
+change the visible mesh's pick geometry mid-frame. The existing 4D
+`BrushStroke` sampling, input commands, stamp queue and mouse release
+drain are unmodified. Verbose sculpt logs now include
+`picking_boxes`, `picking_partitions` and `picking_triangles`,
+alongside pick time and pending input counters. Thus backlogged
+stamps may delay presentation but cannot force picking to read a
+partially committed or future revision.
+
+The sixteenth CPU suite compares BVH hits against independent
+exhaustive triangle tests on dense meshes, camera and backface rays,
+immutable prior roots, divergent branches and cross-partition
+split/collapse edits. It asserts that typical center-screen rays
+visit a fraction of all faces, and that local commits rebuild
+only a bounded number of partition BVHs with zero full traversals.
+The upper tree groups by stable partition ID rather than an
+optimal global centroid order. Initial spatial partition sorting
+makes ordinary sphere picking effective; extremely distorted or
+widely scattered partition IDs may yield poorer pruning without
+sacrificing exactness. Accelerated picking does not imply GPU
+render/pick synchronization beyond the existing displayed-root
+contract, nor collision-free geometry or bounded old-root
+reclamation (V11).
