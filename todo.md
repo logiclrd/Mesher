@@ -534,6 +534,26 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   plane positions and self-reflected loops with more than two plane
   contacts are explicitly rejected rather than inventing duplicate
   seam vertices or unsafe orientation. Tests cover these cases.
+- [x] **V16c2b1 — Conforming X=0 edge normalization for self-reflected incident triangles.**
+  Mirrored meshes may contain edges whose endpoints reflect into each
+  other, and whose two incident triangles each reflect onto THEMSELVES.
+  The old paired-face RegionEdit interface cannot operate on such a
+  face: there is no distinct pre-existing mirrored partner ID.
+  Added `RegionEdit::splitSelfMirroredFace()`: given an exact new
+  self-mirrored X=0 midpoint on the crossing edge, retain the old
+  triangle's stable FaceId for one oriented half, and introduce a
+  fresh FaceId for its opposite reflected half. Record them as an
+  ordinary mirror pair for local edge/vertex-fan validation.
+  `normalizeSelfMirroredPlaneEdge()` normalizes BOTH incident
+  self-reflected triangles in the SAME private RegionEdit transaction
+  using ONE shared seam vertex, checks complete proposed-revision
+  triangle intersections, and returns the still-unpublished revision
+  for optimistic publication. It refuses incomplete mirror maps,
+  non-manifold edges, wrong midpoint coordinates, and inappropriate
+  asymmetric face topology. Tetrahedral symmetry fixtures verify
+  one seam ID, a closed four-triangle fan, Euler invariance, existing
+  FaceIds, immutable old snapshots and atomic compare-and-swap
+  publication. No live or autonomous recovery behavior was enabled.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -546,17 +566,19 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16c2b:** implement or explicitly
-  scope a conforming seam construction for genuine boundary-edge
-  crossings of X=0 and more than two self-reflected plane contacts.
-  Their current behavior is an early fail-closed refusal; no unsupported
-  duplicate seam is published. Continue investigating strongly folded
-  and high-complexity multi-ring repairs, positive-winding
-  classification of intentionally buried versus feature-bearing
-  surface fragments (for opt-in reverse fidelity), and complete
-  multicomponent collision decisions. Sampled proximity is NOT a
-  certified bidirectional Hausdorff bound. Broaden deliberate
-  fail-closed and repeated-contact stress cases before live V17.
+  seam atomically. **Remaining V16c2b2:** integrate the isolated
+  conforming self-reflected edge normalizer into multi-edge contour
+  pre-normalization and re-plan the cut against its UPDATED immutable
+  revision, including new face IDs and preservation of untouched old
+  ring vertices. Currently `applyMirroredRepairSurgery()` still
+  refuses a crossing boundary; the new primitive does NOT silently
+  enable unsupported automatic normalization. Extend to multi-contact
+  self-reflected contours only with proven noncrossing seam pairing,
+  and distinguish buried/red material from feature-bearing surfaces
+  before automatically enabling reverse fidelity. High-complexity
+  multi-ring collisions and certified geometric bounds remain open.
+  Sampled proximity is NOT a continuous bidirectional Hausdorff
+  proof. Keep fail-closed live behavior through V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
