@@ -10,9 +10,9 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
                                      double timeSpeed,CurvatureSettings curvature,
                                      CollapseSettings collapse,RefineSettings refine,
                                      bool symmetric)
-    :mesh_(std::move(initial)),
-     brush_(mesh_,strength,curvature,collapse,refine,symmetric),
-     stroke_(mesh_,brush_,step),timeSpeed_([](double t) {
+    :brush_(std::make_unique<VersionedSculptBrush>(
+         initial,strength,curvature,collapse,refine,symmetric)),
+     stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
         if(!std::isfinite(t)||t<=0)
             throw std::invalid_argument("Sculpt time speed must be positive");
         return t;
@@ -54,8 +54,8 @@ AsyncSculptWorker::Status AsyncSculptWorker::status() const {
     return status_;
 }
 std::optional<AsyncSculptWorker::Snapshot> AsyncSculptWorker::takeSnapshot() {
-    // A mesh copy is constructed on the worker. The render thread only
-    // moves the latest completed state without blocking sculpt execution.
+    // Only shared immutable roots are exchanged. No geometry copy is made
+    // on the worker or while holding this short-lived snapshot lock.
     std::lock_guard guard(snapshotMutex_);
     auto result=std::move(latest_);
     latest_.reset();
@@ -63,13 +63,16 @@ std::optional<AsyncSculptWorker::Snapshot> AsyncSculptWorker::takeSnapshot() {
 }
 void AsyncSculptWorker::refreshStatus() {
     Status s;
-    s.completedStamps=brush_.completedStamps();
+    s.completedStamps=brush_->completedStamps();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
     s.pendingSteps=stroke_.pendingSamples();
     s.pendingSegments=stroke_.pendingSegments();
     s.active=stroke_.active();
-    s.timings=brush_.lastTimings();
-    s.details=brush_.lastDetails();
+    s.timings=brush_->lastTimings();
+    s.details=brush_->lastDetails();
+    s.publishedRevisions=brush_->publishedRevisions();
+    s.modifiedPartitions=brush_->modifiedPartitions();
+    s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
     {
         std::lock_guard guard(commandsMutex_);
         s.inputCommands=commands_.size();
@@ -87,7 +90,8 @@ void AsyncSculptWorker::publish(bool force) {
     // The UI sees the newest committed mesh; no stamps are skipped.
     if(!force && lastPublish_.time_since_epoch().count()!=0 &&
        now-lastPublish_<std::chrono::milliseconds(8))return;
-    Snapshot snapshot{mesh_,brush_.completedStamps()};
+    Snapshot snapshot{brush_->snapshot(),brush_->originalOrder(),
+                      brush_->completedStamps()};
     {
         std::lock_guard guard(snapshotMutex_);
         latest_=std::move(snapshot);

@@ -148,11 +148,32 @@ an older revision while the worker edits or publishes a newer one.
   each accepted operation. The live flat DirectionalCollapser and worker
   remain unchanged until V8; V11 will bound CPU/GPU retirement and retained
   history costs. This does not promise prevention of self-intersection.
-- [ ] **V8 — Publish revisions from the asynchronous sculpt worker.**
-  Replace full `Mesh` snapshot copies with atomically published immutable
-  roots. Coalesce intermediate visual revisions but never skip Step stamps.
-  Initially, adapt revisions to the existing whole-mesh viewport format if
-  needed; make that remaining conversion cost explicit in diagnostics.
+- [x] **V8 — Publish revisions from the asynchronous sculpt worker.**
+  The active AsyncSculptWorker now owns a VersionedSculptBrush that runs V5
+  local Inflate, V6 directional split/flip and V7 local collapse over
+  persistent immutable indexed revisions. BrushStroke still executes the
+  original exact 4D Step queue and applies every queued sample (including
+  mouse-down, stationary stamps and the release endpoint) in its own worker
+  thread. The callback's Mesh is an empty sampler placeholder, never an
+  editable full mesh. Each completed stamp atomically publishes just the
+  final matching revision/index pair, never its intermediate topology;
+  coalesced snapshots contain only shared pointers plus stamp counts.
+  Old consumer-held revision roots remain valid while stamps proceed.
+  New mirrored vertex pairs and retired pairs are handed off incrementally
+  between Inflate/Refine/Collapse, and local copy statistics are reported.
+  The existing Vulkan viewport still requires a full flat Mesh: V8 adapts
+  **only consumed/coalesced** revision roots on the viewport thread, with
+  explicit viewport_flatten_ms and viewport_flatten_bytes diagnostics.
+  This remaining whole-mesh CPU conversion and GPU upload cost is V9 work;
+  it may still cause visible frame stalls on very large meshes, but never
+  forces the sculpt worker to duplicate geometry for every publication.
+  Expanded async CPU tests compare exact stamp counts and geometry to the
+  existing synchronous reference, check retained old revisions and no
+  lost input with deliberately unread snapshots, exercise enabled
+  split/flip/collapse, and verify initial ordering plus new stable-ID
+  vertex/face additions in the viewport compatibility adapter. Desktop
+  input and demo-mode behavior remain unchanged. V11 will address bounded
+  graph retirement and memory telemetry under extreme stroke loads.
 - [ ] **V9 — Dirty-partition Vulkan rendering.**
   Maintain renderable buffers per partition, rebuild/upload only changed
   partitions, and handle cross-partition normals/edges and GPU in-flight
@@ -190,9 +211,9 @@ an older revision while the worker edits or publishes a newer one.
 * V1 establishes storage semantics; V2 stable identities; V3 validated
   local edits; V4 persistent indices; V5 local Inflate and pre-stamp baselines;
   V6 transactional local splitting/flipping; V7 localized ID-preserving
-  collapse with persistent tombstones. Worker integration, dirty Vulkan
-  buffers, accelerated triangle picking, safe reclamation, and durable undo
-  remain explicit future milestones.
+  collapse with persistent tombstones; V8 publishes immutable roots from
+  the active sculpt worker. Dirty-partition Vulkan rendering, accelerated
+  triangle picking, safe reclamation, and durable undo remain future tasks.
 
 ## Other remaining design goals
 

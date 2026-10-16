@@ -84,6 +84,12 @@ VersionedDirectionalCollapser::VersionedDirectionalCollapser(
     for(const auto& [a,b]:mirrors)addMirror(mirrors_,a,b);
 }
 
+void VersionedDirectionalCollapser::addMirrorPair(
+    VertexId first,VertexId second) {
+    if(mirrors_.empty())return; // asymmetric worker has no mirror map
+    addMirror(mirrors_,first,second);
+}
+
 bool VersionedDirectionalCollapser::attempt(
     VersionedCollapseResult& result,VertexId a,VertexId b) {
     const auto current=result.index;
