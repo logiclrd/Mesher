@@ -1329,7 +1329,7 @@ The new [Sculpt collision and topology repair design](docs/SCULPT_COLLISION_REPA
 captures the post-V12 discussion of self-intersection detection, positive-
 winding occupancy evaluated against **simultaneously deformed proposed
 geometry**, approximate density-aware boundary excision/zipper stitching,
-and distinct per-tool \`Merge geometry\` On/Off modes. It explains why
+and distinct per-tool `Merge geometry` On/Off modes. It explains why
 the two intersecting original surfaces in the reference cross-section
 continue smoothly through both crossings; the buried red portions are
 opposite arcs from their visually corresponding blue extensions.
