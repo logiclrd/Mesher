@@ -380,8 +380,12 @@ void testIsolatedIrregularAndWarpedCap() {
         const auto baseline=RegionTopologyIndex::build(imported.revision);
         const auto removed=capIds(imported,end,true);
         const auto plan=planRemovalContours(*baseline,removed);
-        require(plan.ready()&&plan.cappedContours.size()==1,
-                "Single warped or concave contour produces an eligible isolated cap");
+        if(!plan.ready()||plan.cappedContours.size()!=1)
+            throw std::runtime_error(
+                std::string("Isolated ")+(warped?"warped":"concave")+
+                " ring refused: status="+std::to_string(
+                    static_cast<int>(plan.status))+
+                ", reason="+plan.reason);
         require(plan.pairs.empty(),"Isolated disk must never invent a zipper partner");
         const auto surgery=applyRepairSurgery(baseline,plan);
         require(surgery.capFaces==end.count-2&&
