@@ -566,7 +566,9 @@ class VulkanViewport {
             replaceBuffer(dst.solid,found->second->solid);
             replaceBuffer(dst.wire,found->second->wire);
         }
+        auto oldDisplayed=std::move(displayedIndex_);
         displayedIndex_=std::move(next);
+        retiredRevisions_.retire(std::move(oldDisplayed));
         lastDirtyPartitions_=stats.rebuiltPartitions;
         lastDirtyFaces_=stats.rebuiltFaces;
         lastDirtyBytes_=stats.uploadedBytes;
