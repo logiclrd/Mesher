@@ -178,8 +178,8 @@ void testCoalescedDirtyUnion() {
     auto original=RegionTopologyIndex::build(imported.revision);
     PartitionRenderCache cache;
     cache.initialize(original);
-    const auto selected=original->querySphere({.25,-.65,.65},.13);
-    const auto other=original->querySphere({-.25,-.65,.65},.13);
+    const auto selected=original->querySphere({.25,-.65,.65},.35);
+    const auto other=original->querySphere({-.25,-.65,.65},.35);
     check(!selected.empty()&&!other.empty(),
           "Distinct stroke locations select at least one vertex");
     const auto a=selected.front(),b=other.front();
