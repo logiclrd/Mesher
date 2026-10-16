@@ -212,9 +212,13 @@ void testRejectionIsTransactional() {
 }
 int main() {
     try {
+        std::cout<<"Surgery fixture: cap"<<std::endl;
         testCapsAndSnapshotPublication();
+        std::cout<<"Surgery fixture: separated zipper"<<std::endl;
         testZipperJoinsSeparatedSolids();
+        std::cout<<"Surgery fixture: uneven zipper"<<std::endl;
         testUnequalSpacingSharedEdgeSplits();
+        std::cout<<"Surgery fixture: rejection"<<std::endl;
         testRejectionIsTransactional();
         std::cout<<"Private transactional cap/zipper surgery regression passed\n";
     }catch(const std::exception& error) {
