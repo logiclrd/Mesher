@@ -84,7 +84,8 @@ void testUndoMirrorDelta() {
     auto undo=history.undo();
     check(undo.index==before&&undo.dirtyPartitions.size()==2,
           "Undo includes the complete deduplicated dirty partition delta");
-    check(undo.removeMirrors.size()==1&&undo.removeMirrors.front()==inserted&&
+    const auto canonical=std::minmax(inserted.first,inserted.second);
+    check(undo.removeMirrors.size()==1&&undo.removeMirrors.front()==canonical&&
           undo.addMirrors.size()==1&&undo.addMirrors.front()==removed,
           "Undo reverses added/deleted symmetry correspondence");
     auto redo=history.redo();
