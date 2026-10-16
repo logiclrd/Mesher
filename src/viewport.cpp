@@ -607,7 +607,9 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
-        return firstMeshHit(currentMesh(),viewportRay(px,py,double(fw),double(fh)));
+        const auto ray=viewportRay(px,py,double(fw),double(fh));
+        return displayedIndex_?displayedIndex_->firstRayHit(ray):
+               firstMeshHit(currentMesh(),ray);
     }
 
     // Status lines use a separate window from the 750ms HUD counter, so
@@ -636,6 +638,9 @@ class VulkanViewport {
           <<" enqueue_or_stamp_ms="<<lastStampCallbackMs_
           <<" picking_ms="<<lastPickMs_
           <<" mesh_upload_ms="<<lastUploadMs_
+          <<" dirty_partitions="<<lastDirtyPartitions_
+          <<" dirty_faces="<<lastDirtyFaces_
+          <<" dirty_upload_bytes="<<lastDirtyBytes_
           <<" last_draw_ms="<<lastDrawMs_;
         if(interaction_.lastStampDetails)os<<" "<<interaction_.lastStampDetails();
         std::cout<<os.str()<<'\n'<<std::flush;
@@ -818,11 +823,11 @@ class VulkanViewport {
             if(auto snapshot=interaction_.takeSnapshot()) {
                 const auto previous=displayedStamps_;
                 displayedStamps_=snapshot->completedStamps;
-                displayedMesh_=std::move(snapshot->mesh);
+                refreshPartitions(std::move(snapshot->index),
+                                  snapshot->dirtyPartitions);
                 const auto added=displayedStamps_>=previous
                     ?displayedStamps_-previous:0;
                 stampsThisInterval_+=added;
-                refreshMesh();
                 updateTitle();
                 if(added)reportAfterStamp(added);
             }
@@ -1207,9 +1212,21 @@ class VulkanViewport {
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,solidPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
         vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+            (void)id;
+            if(!buffers.solid.vertexCount)continue;
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
+            vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
+        }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
         vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+            (void)id;
+            if(!buffers.wire.vertexCount)continue;
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.buffer,&offset);
+            vkCmdDraw(commandBuffer,buffers.wire.vertexCount,1,0,0);
+        }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
         vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);
@@ -1247,8 +1264,9 @@ class VulkanViewport {
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
                             ViewportInteraction interaction)
-        : mesh_(mesh), displayedMesh_(mesh), animation_(std::move(animation)),
+        : mesh_(mesh), animation_(std::move(animation)),
           interaction_(std::move(interaction)) {
+        displayedIndex_=interaction_.initialRevision;
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))
             throw std::invalid_argument("Animation rate must be positive and finite");
@@ -1277,9 +1295,11 @@ public:
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
-        auto drawing=buildDrawing(mesh);
+        const Mesh empty;
+        auto drawing=buildDrawing(displayedIndex_?empty:mesh);
         solid=upload(drawing.solid);
         lines=upload(drawing.lines);
+        if(displayedIndex_)initializePartitions();
         createSwapchain();
         createCommands();
         refreshHud();
@@ -1297,11 +1317,13 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
-            auto freeBuffer=[&](Buffer b) {
-                if(b.buffer)vkDestroyBuffer(device,b.buffer,nullptr);
-                if(b.memory)vkFreeMemory(device,b.memory,nullptr);
-            };
-            freeBuffer(solid);freeBuffer(lines);freeBuffer(hud);
+            destroyBuffer(solid);destroyBuffer(lines);destroyBuffer(hud);
+            for(auto& [id,buffers]:partitionBuffers_) {
+                (void)id;
+                destroyBuffer(buffers.solid);
+                destroyBuffer(buffers.wire);
+            }
+            partitionBuffers_.clear();
             vkDestroyDevice(device,nullptr);
         }
         if(surface)vkDestroySurfaceKHR(instance,surface,nullptr);
