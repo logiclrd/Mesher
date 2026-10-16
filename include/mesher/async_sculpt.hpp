@@ -84,7 +84,7 @@ private:
         Kind kind;
         Vec3 point{};
         double elapsed=0,radius=0;
-        std::filesystem::path checkpointPath;
+        std::filesystem::path checkpointPath{};
     };
     void enqueue(Command command);
     void run(std::stop_token token);
