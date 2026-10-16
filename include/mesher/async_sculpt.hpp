@@ -52,6 +52,10 @@ public:
                       double timeSpeed, CurvatureSettings curvature,
                       CollapseSettings collapse, RefineSettings refine,
                       bool symmetric);
+    AsyncSculptWorker(DurableCheckpoint recovered,double step,double strength,
+                     double timeSpeed,CurvatureSettings curvature,
+                     CollapseSettings collapse,RefineSettings refine);
+
     ~AsyncSculptWorker();
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;
     AsyncSculptWorker& operator=(const AsyncSculptWorker&)=delete;
