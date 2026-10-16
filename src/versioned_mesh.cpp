@@ -26,6 +26,12 @@ std::uint64_t allocateId(std::atomic<std::uint64_t>& next) {
 // The shared identity source is separate from immutable geometry.
 class MeshIdentityDomain {
 public:
+    explicit MeshIdentityDomain(MeshIdentityWatermarks marks={})
+        :nextVertex_(marks.nextVertex),nextFace_(marks.nextFace),
+         nextOverflow_(marks.nextOverflow) {}
+    MeshIdentityWatermarks watermarks() const noexcept {
+        return {nextVertex_.load(),nextFace_.load(),nextOverflow_.load()};
+    }
     VertexId vertex() { return allocateId(nextVertex_); }
     FaceId face() { return allocateId(nextFace_); }
     PartitionId overflowPartition() {
