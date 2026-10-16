@@ -1,4 +1,5 @@
 #include "mesher/versioned_sculpt.hpp"
+#include "mesher/partition_render.hpp"
 
 #include <algorithm>
 #include <chrono>
