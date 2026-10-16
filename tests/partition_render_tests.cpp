@@ -106,6 +106,19 @@ void testLocalMoveAndSharedBoundaries() {
           before->vertex(target).position.x!=after->vertex(target).position.x,
           "Old revision remains untouched while cache uses new revision");
 }
+void testWireOwnershipIndependentOfFaceStorageOrder() {
+    const auto imported=partitionFlatMesh(octahedron(),64);
+    auto revision=imported.revision;
+    auto view=revision->createMutableView();
+    auto& partition=view.editPartition(0);
+    std::reverse(partition.faces.begin(),partition.faces.end());
+    const auto reversed=view.commit().revision;
+    const auto index=RegionTopologyIndex::build(reversed);
+    PartitionRenderCache cache;
+    cache.initialize(index);
+    check(edgeCount(cache)==12,
+          "Canonical edge owner must win even if faces are stored backwards");
+}
 void testSplitAndCollapseTopology() {
     auto imported=partitionFlatMesh(octahedron(),1);
     auto before=RegionTopologyIndex::build(imported.revision);
@@ -209,6 +222,7 @@ void testCoalescedDirtyUnion() {
 int main() {
     try {
         testLocalMoveAndSharedBoundaries();
+        testWireOwnershipIndependentOfFaceStorageOrder();
         testSplitAndCollapseTopology();
         testCoalescedDirtyUnion();
         std::cout<<"Dirty partition CPU rendering regression passed\n";
