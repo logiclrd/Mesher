@@ -1,4 +1,5 @@
 #include "mesher/async_sculpt.hpp"
+#include "mesher/partition_render.hpp"
 
 #include <chrono>
 #include <cmath>
