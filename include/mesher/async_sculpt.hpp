@@ -56,6 +56,9 @@ public:
     bool canBegin() const noexcept {return !reserved_.load();}
     Status status() const;
     std::optional<Snapshot> takeSnapshot();
+    std::shared_ptr<const RegionTopologyIndex> initialRevision() const noexcept {
+        return brush_->snapshot();
+    }
 
 private:
     enum class Kind {Begin,Update,End,Radius};
