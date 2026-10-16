@@ -73,9 +73,16 @@ void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     enqueue(std::move(command));
 }
 AsyncSculptWorker::Status AsyncSculptWorker::status() const {
-    std::lock_guard guard(statusMutex_);
-    if(error_)std::rethrow_exception(error_);
-    return status_;
+    Status current;
+    {
+        std::lock_guard guard(statusMutex_);
+        if(error_)std::rethrow_exception(error_);
+        current=status_;
+    }
+    // Disk I/O finishes independently of worker stamps; do not leave save
+    // completion/error reporting frozen until the next mouse event.
+    current.checkpoints=checkpoints_.statistics();
+    return current;
 }
 std::optional<AsyncSculptWorker::Snapshot> AsyncSculptWorker::takeSnapshot() {
     // Only shared immutable roots are exchanged. No geometry copy is made
