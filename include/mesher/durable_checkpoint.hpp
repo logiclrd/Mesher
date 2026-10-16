@@ -19,6 +19,7 @@ namespace mesher {
 struct DurableCheckpoint {
     std::shared_ptr<const RegionTopologyIndex> index;
     std::vector<std::pair<VertexId,VertexId>> mirrorPairs;
+    std::size_t initialVertexCount{}; // reference density for remeshing ratios
 };
 // Binary V12 checkpoint: live partition/face identities, independent shared
 // allocator high-water marks, tombstones and mirrored identities. An explicit
