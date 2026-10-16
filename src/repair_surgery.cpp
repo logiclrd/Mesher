@@ -688,9 +688,12 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     // their adjacent retained faces, before triangulating either closure.
     // Directed additions are recorded for BOTH reflected ring traversals.
     // Opposite mirrored face winding reverses the edge direction.
+    // Accumulate ALL boundary subdivisions before changing any retained
+    // faces. A face may meet two or even three long boundary sides; its
+    // reflected partner must receive the exactly mirrored triangulation.
     using DirectedEdge=std::pair<VertexId,VertexId>;
     std::map<DirectedEdge,std::vector<VertexId>> insertedOnEdge;
-    std::set<FaceId> splitFaces;
+    std::map<FaceId,SideSplits> splitsByFace;
     std::vector<double> localTargets;
     for(const auto& contour:checked.contours) {
         const double h=medianEdge(*baseline,contour);
@@ -721,23 +724,18 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 throw std::length_error("Mirrored boundary division exceeds vertex budget");
             const auto source=contour.survivingFaces[i];
             const auto twin=reflectFace(source);
-            if(source==twin||splitFaces.contains(source)||
-               splitFaces.contains(twin))
-                throw std::logic_error("Multiple mirrored splits within one retained face");
-            const auto tri=baseline->face(source).vertices;
-            VertexId third=0;
+            if(source==twin)
+                throw std::logic_error("A self-reflected survivor face cannot be split in pairs");
+            const auto face=baseline->face(source);
             bool found=false;
             for(unsigned j=0;j<3;++j)
-                if(tri[j]==a&&tri[(j+1)%3]==b) {
-                    third=tri[(j+2)%3];found=true;break;
-                }
+                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b)
+                    found=true;
             if(!found)
                 throw std::logic_error("Mirrored boundary edge lost survivor orientation");
-            if(!pos.contains(third))
-                throw std::logic_error("Retained split vertex outside write halo");
-            const auto ownerA=baseline->face(source).owner;
+            const auto ownerA=face.owner;
             const auto ownerB=baseline->face(twin).owner;
-            std::vector<VertexId> along{a},innerA,innerB;
+            std::vector<VertexId> innerA,innerB;
             for(std::size_t j=1;j<segments;++j) {
                 const auto point=p+(q-p)*(static_cast<double>(j)/segments);
                 if(point.x==0)
@@ -750,29 +748,42 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 mirrored.emplace(made.second,made.first);
                 out.insertedVertices.push_back(made.first);
                 out.insertedVertices.push_back(made.second);
-                along.push_back(made.first);
                 innerA.push_back(made.first);
                 innerB.push_back(made.second);
             }
-            along.push_back(b);
-            edit.replaceMirroredFaces(source,twin,
-                                      {along[0],along[1],third});
-            for(std::size_t j=1;j<segments;++j) {
-                if(out.insertedFaces.size()+2>settings.maxNewFaces)
-                    throw std::length_error("Mirrored face subdivision exceeds budget");
-                const auto made=edit.appendMirroredFaces(
-                    ownerA,ownerB,{along[j],along[j+1],third});
-                out.insertedFaces.push_back(made.first);
-                out.insertedFaces.push_back(made.second);
-            }
-            insertedOnEdge.emplace(DirectedEdge{a,b},std::move(innerA));
             std::reverse(innerB.begin(),innerB.end());
-            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},
-                                   std::move(innerB));
-            splitFaces.insert(source);
-            splitFaces.insert(twin);
+            insertedOnEdge.emplace(DirectedEdge{a,b},innerA);
+            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},innerB);
+            if(!splitsByFace[source].emplace(DirectedEdge{a,b},
+                                             std::move(innerA)).second||
+               !splitsByFace[twin].emplace(
+                   DirectedEdge{opposite(b),opposite(a)},
+                   std::move(innerB)).second)
+                throw std::logic_error("Mirrored boundary was split twice");
             out.splitBoundaryEdges+=2;
         }
+    }
+    std::set<FaceId> completed;
+    for(const auto& [id,_]:splitsByFace) {
+        if(completed.contains(id))continue;
+        const auto twin=reflectFace(id);
+        if(!splitsByFace.contains(twin))
+            throw std::logic_error("Missing mirrored retained face split");
+        const auto face=baseline->face(id);
+        const auto other=baseline->face(twin);
+        const auto parts=subdivideRetainedTriangle(
+            face.vertices,splitsByFace.at(id),pos,settings);
+        edit.replaceMirroredFaces(id,twin,parts.front());
+        for(std::size_t k=1;k<parts.size();++k) {
+            if(out.insertedFaces.size()+2>settings.maxNewFaces)
+                throw std::length_error("Mirrored subdivision face budget exhausted");
+            const auto created=edit.appendMirroredFaces(
+                face.owner,other.owner,parts[k]);
+            out.insertedFaces.push_back(created.first);
+            out.insertedFaces.push_back(created.second);
+        }
+        completed.insert(id);
+        completed.insert(twin);
     }
     std::vector<LocalLoop> loops;
     loops.reserve(checked.contours.size());
