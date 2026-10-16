@@ -345,6 +345,7 @@ class VulkanViewport {
     double mouseStartTime_=0;
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
+    bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
