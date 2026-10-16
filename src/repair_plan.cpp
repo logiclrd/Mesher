@@ -1,4 +1,5 @@
 #include "mesher/repair_plan.hpp"
+#include "repair_closure_internal.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,10 +21,6 @@ struct BoundaryEdge {
     VertexId from{},to{};
     FaceId survivor{};
 };
-struct CandidateMatch {
-    RepairContourPair pair;
-    double squaredError{};
-};
 RepairPlan failure(RepairPlan plan,Status status,const char* reason) {
     plan.status=status;
     plan.reason=reason;
@@ -39,66 +36,17 @@ bool finiteSettings(const RepairPlanSettings& settings) {
            std::isfinite(settings.maximumGapInEdges)&&
            settings.maximumGapInEdges>0&&
            std::isfinite(settings.maximumPerimeterRatio)&&
-           settings.maximumPerimeterRatio>=1;
-}
-std::vector<Vec3> resample(const RegionTopologyIndex& index,
-                           const RepairContour& contour) {
-    constexpr std::size_t count=32;
-    std::vector<Vec3> vertices;
-    vertices.reserve(contour.vertexIds.size());
-    for(auto id:contour.vertexIds)vertices.push_back(index.vertex(id).position);
-    std::vector<double> accumulated(vertices.size()+1,0);
-    for(std::size_t i=0;i<vertices.size();++i)
-        accumulated[i+1]=accumulated[i]+
-            length(vertices[(i+1)%vertices.size()]-vertices[i]);
-    std::vector<Vec3> output;
-    output.reserve(count);
-    std::size_t edge=0;
-    for(std::size_t i=0;i<count;++i) {
-        const double target=contour.perimeter*static_cast<double>(i)/count;
-        while(edge+1<vertices.size()&&accumulated[edge+1]<target)++edge;
-        const auto span=accumulated[edge+1]-accumulated[edge];
-        const double t=span>0?(target-accumulated[edge])/span:0;
-        output.push_back(vertices[edge]*(1-t)+
-                         vertices[(edge+1)%vertices.size()]*t);
-    }
-    return output;
-}
-CandidateMatch bestMatch(const RegionTopologyIndex& index,
-                         const RepairContour& a,const RepairContour& b,
-                         std::size_t first,std::size_t second) {
-    const auto x=resample(index,a),y=resample(index,b);
-    CandidateMatch best{};
-    best.pair.first=first;
-    best.pair.second=second;
-    best.pair.maxSampleDistance=std::numeric_limits<double>::infinity();
-    best.squaredError=std::numeric_limits<double>::infinity();
-    for(unsigned reversed=0;reversed<2;++reversed) {
-        for(std::size_t shift=0;shift<y.size();++shift) {
-            double maxDistance=0,squared=0;
-            for(std::size_t k=0;k<x.size();++k) {
-                const std::size_t position=
-                    reversed?(shift+y.size()-k)%y.size():
-                             (shift+k)%y.size();
-                const auto difference=x[k]-y[position];
-                const double d=length(difference);
-                maxDistance=std::max(maxDistance,d);
-                squared+=dot(difference,difference);
-            }
-            if(maxDistance<best.pair.maxSampleDistance||
-               (maxDistance==best.pair.maxSampleDistance&&
-                squared<best.squaredError)) {
-                best.pair.reverseSecond=reversed!=0;
-                best.pair.sampleOffset=shift;
-                best.pair.maxSampleDistance=maxDistance;
-                best.squaredError=squared;
-            }
-        }
-    }
-    const double h=std::min(a.meanEdgeLength,b.meanEdgeLength);
-    best.pair.gapInEdges=h>0?best.pair.maxSampleDistance/h:
-                          std::numeric_limits<double>::infinity();
-    return best;
+           settings.maximumPerimeterRatio>=1&&
+           std::isfinite(settings.minimumRelativeAreaAdvantage)&&
+           settings.minimumRelativeAreaAdvantage>=0&&
+           settings.minimumRelativeAreaAdvantage<0.5&&
+           std::isfinite(settings.maximumPlanarityInRadii)&&
+           settings.maximumPlanarityInRadii>=0&&
+           std::isfinite(settings.maximumIsoperimetricRatio)&&
+           settings.maximumIsoperimetricRatio>=1&&
+           std::isfinite(settings.minimumNormalAlignment)&&
+           settings.minimumNormalAlignment>=0&&
+           settings.minimumNormalAlignment<=1;
 }
 RegionTopologyIndex::Edge edgeKey(VertexId a,VertexId b) {
     return {std::min(a,b),std::max(a,b)};
@@ -226,95 +174,7 @@ RepairPlan planRemovalContours(const RegionTopologyIndex& index,
         plan.status=Status::Ready;
         return plan;
     }
-    if(plan.contours.size()%2!=0)
-        return failure(std::move(plan),Status::UnmatchedContours,
-                       "An odd number of seam contours cannot be paired");
-
-    // Bounded global minimum-cost perfect matching, not greedy nearest-
-    // first pairing: a locally attractive pair can strand a third loop.
-    // If two whole-plan matchings are essentially tied, refuse to guess.
-    const std::size_t n=plan.contours.size();
-    constexpr std::size_t maximumDpContours=16;
-    if(n>maximumDpContours)
-        return failure(std::move(plan),Status::BudgetExceeded,
-                       "Contour matching exceeds bounded 16-loop DP");
-    std::map<std::pair<std::size_t,std::size_t>,CandidateMatch> candidates;
-    bool distanceRejected=false;
-    for(std::size_t i=0;i<n;++i) {
-        const auto& a=plan.contours[i];
-        for(std::size_t j=i+1;j<n;++j) {
-            const auto& b=plan.contours[j];
-            const double ratio=std::max(a.perimeter,b.perimeter)/
-                               std::min(a.perimeter,b.perimeter);
-            if(ratio>settings.maximumPerimeterRatio)continue;
-            const auto candidate=bestMatch(index,a,b,i,j);
-            if(candidate.pair.gapInEdges<=settings.maximumGapInEdges)
-                candidates.emplace(std::pair{i,j},candidate);
-            else distanceRejected=true;
-        }
-    }
-    const std::size_t total=std::size_t{1}<<n,full=total-1;
-    constexpr double infinite=std::numeric_limits<double>::infinity();
-    std::vector<double> dp(total,infinite);
-    std::vector<std::size_t> partner(total,n);
-    std::vector<bool> tie(total,false);
-    dp[full]=0;
-    for(std::size_t mask=full;mask-->0;) {
-        std::size_t first=0;
-        while(first<n&&(mask&(std::size_t{1}<<first)))++first;
-        if(first==n)continue;
-        for(std::size_t second=first+1;second<n;++second) {
-            if(mask&(std::size_t{1}<<second))continue;
-            const auto candidate=candidates.find({first,second});
-            if(candidate==candidates.end())continue;
-            const auto nextMask=mask|(std::size_t{1}<<first)|
-                                (std::size_t{1}<<second);
-            if(!std::isfinite(dp[nextMask]))continue;
-            const auto& a=plan.contours[first];
-            const auto& b=plan.contours[second];
-            const double h=std::min(a.meanEdgeLength,b.meanEdgeLength);
-            const double normalizedShape=
-                candidate->second.squaredError/(32*h*h);
-            const double cost=candidate->second.pair.gapInEdges*
-                              candidate->second.pair.gapInEdges+
-                              normalizedShape+dp[nextMask];
-            const double tolerance=1e-9*
-                std::max({1.0,std::abs(cost),
-                          std::isfinite(dp[mask])?std::abs(dp[mask]):0.0});
-            if(cost<dp[mask]-tolerance) {
-                dp[mask]=cost;
-                partner[mask]=second;
-                tie[mask]=tie[nextMask];
-            }else if(std::isfinite(dp[mask])&&
-                     std::abs(cost-dp[mask])<=tolerance) {
-                tie[mask]=true;
-            }
-        }
-    }
-    if(!std::isfinite(dp[0]))
-        return failure(std::move(plan),
-                       distanceRejected?Status::ExcessiveDeviation:
-                                        Status::UnmatchedContours,
-                       "Cannot match all contour loops within geometric budgets");
-    if(tie[0])
-        return failure(std::move(plan),Status::UnmatchedContours,
-                       "Multiple comparably good global contour pairings");
-    std::size_t mask=0;
-    while(mask!=full) {
-        std::size_t first=0;
-        while(mask&(std::size_t{1}<<first))++first;
-        const auto second=partner[mask];
-        if(second>=n)
-            return failure(std::move(plan),Status::UnmatchedContours,
-                           "Incomplete contour matching state");
-        const auto& chosen=candidates.at({first,second});
-        plan.maximumSeamGapInEdges=std::max(plan.maximumSeamGapInEdges,
-                                            chosen.pair.gapInEdges);
-        plan.pairs.push_back(chosen.pair);
-        mask|=(std::size_t{1}<<first)|(std::size_t{1}<<second);
-    }
-    plan.status=Status::Ready;
-    return plan;
+    return selectRepairClosures(index,std::move(plan),settings);
 }
 
 RepairPlan planApproximateExcision(const RegionTopologyIndex& index,

@@ -425,10 +425,40 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   seam pairs, greedy-matching counterexample, complete redundant
   bubble without a seam, cavity preservation and conservative failures.
   No live worker changes or published repairs.
-- [ ] **V16 — Transactional density-aware zipper/ladder surgery.**
+- [x] **V15.1 — Topology-aware cap-vs-zipper selection (read-only).**
+  Closing a torus handle and merging two colliding walls present the
+  same pair of directed rings but require different connections.
+  Instead of categorizing collision types, compare the *estimated
+  areas* of constructing two separate caps versus a zipper. For
+  approximately planar, compact and coaxial rings compute polygon
+  enclosed areas A_i, area-weighted centroids C_i, effective radii
+  r_i=sqrt(A_i/pi), d=|C_1-C_2|. Estimate
+  A_caps=A_1+A_2 and A_zip=pi*(r_1+r_2)*hypot(d,r_1-r_2);
+  prefer smaller total area by a meaningful relative margin. No
+  minimum-radius clamp or tuned dimensioned score.
+  Candidate zipper quality still uses independently resampled
+  *absolute arc length* (cyclic offsets/reversal, max and mean
+  correspondence distances), never matching original vertex indices.
+  A bounded global DP decides which rings to zip and which to cap,
+  including odd ring counts. Flag near-ties, nonplanar/distorted,
+  unsupported off-axis and over-limit cases as ambiguous instead of
+  guessing. Explicit closed redundant bubbles still require no seam.
+  Add torus pinch (cap destroys handle) and nonpinched tunnel (zip
+  preserves handle), overlapping walls (zip), small distant rings
+  (caps), unequal radii, uneven vertex spacing and ambiguity fixtures.
+  This is *advisory topology planning only*; the V16 actual cap/zip
+  surfaces may differ and MUST be validated independently.
+- [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
-  remove red/buried faces, generate oriented watertight triangulated
-  seams with mismatched vertex counts and validated local edge lengths,
+  remove red/buried faces, generate either selected independently
+  triangulated caps or an oriented watertight density-aware zipper,
+  handling mismatched vertex counts and local edge lengths. Zippers
+  MUST advance by physical arc length (not vertex-index parity);
+  subdivide long edges where necessary and simultaneously retriangulate
+  their surviving adjacent faces to avoid T-junctions. Reject extreme
+  triangle shapes and high-degree hubs, preserve high-resolution detail,
+  and avoid requiring a global minimum-radius regularizer. Verify
+  cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
   seam atomically. Handle cross-partition capacities; validate result
   for manifoldness, orientation, residual/new self-intersections and

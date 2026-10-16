@@ -1,6 +1,6 @@
 # Sculpt self-intersection management: positive-winding repair and collision constraints
 
-**Status:** V13/V14 query APIs and V15 non-destructive repair planning are implemented; V16–V19 remain proposed.
+**Status:** V13–V15 queries/plans plus V15.1 read-only closure choice are implemented; V16–V19 remain proposed.
 **Baseline:** V12 `main` at `9e673c4` when this design was captured (2026-10-16).
 **Code impact:** V13–V15 supply collision, classification and read-only repair plans; neither the live worker nor renderer is changed.
 
@@ -172,3 +172,40 @@ proposed excision preserves important visible geometry and that
 all new seam triangles are oriented, manifold and collision-free.
 The new twenty-first CPU suite exercises these plan structures
 and their rejection paths.
+
+## V15.1: Fitness-driven cap-vs-zipper selection
+
+The same two surviving rings may need independent caps (collapsing
+torus tunnel) or a zipper (two penetrating walls). Both can be valid
+manifold closures, so topology alone is insufficient to choose.
+Estimate candidate **additional surface area** for both choices,
+prefer the smaller one only when the relative advantage is meaningful:
+
+- Effective ring radii: r_i=sqrt(A_i/pi), from area of each sufficiently
+  planar compact directed contour; use its area-weighted centroid C_i.
+- Two independent caps: A_caps=A1+A2.
+- Coaxial circular-frustum zipper: A_zip=pi*(r1+r2)*
+  hypot(length(C1-C2),r1-r2).
+
+This shares the same r_i between alternatives, so an arbitrary minimum
+radius clamp is unnecessary. Dimensional units agree. It is an
+approximation to the actual surface triangulations, *not* an
+exact/general minimum-area solution. Nonplanar or insufficiently
+coaxial loops and close numerical decisions remain ambiguous.
+The global bounded selector considers a cap for each individual
+loop or a pairwise zipper, rather than forcing even-ring pairings.
+
+For geometric zipper feasibility, use normalized cumulative *arc
+length* correspondence, searching rotations and both orientations;
+unevenly spaced source vertices must not bias the distance metric
+or force extreme zipper triangles. V16 must advance fronts by physical
+distance, subdivide any exceptionally long surviving boundary edges,
+also retriangulate their adjacent surviving surface faces to prevent
+T-junctions, and reject skinny triangles or distorted scar geometry.
+
+A torus whose inner tunnel collapses requires cap closure to remove
+the handle (genus 1 to 0); a torus with a still-open tunnel does not
+trigger repair simply because its hole is small. Test paired cases:
+pinched torus, wide torus, merging walls, unequal ring sizes and
+coarsely/fine tessellated ring pairs. A V15.1 Ready result remains
+read-only and is never permission to commit mesh surgery.

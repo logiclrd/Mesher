@@ -18,7 +18,8 @@ enum class RepairPlanStatus {
     BudgetExceeded,
     InvalidBoundary,
     UnmatchedContours,
-    ExcessiveDeviation
+    ExcessiveDeviation,
+    AmbiguousClosure
 };
 struct RepairPlanSettings {
     // Hard per-query limits; neither changed brush radius nor model scale
@@ -35,6 +36,14 @@ struct RepairPlanSettings {
     // error bound; near-tangent/uneven-density cases can be rejected.
     double maximumGapInEdges=2.5;
     double maximumPerimeterRatio=3.0;
+    // Prefer neither closure when its area advantage is within this
+    // fractional margin. Ambiguous topology cannot be published.
+    double minimumRelativeAreaAdvantage=0.03;
+    // Frustum estimates assume fairly planar, compact, near-parallel rings.
+    // More pathological contours require V16's actual-surface evaluation.
+    double maximumPlanarityInRadii=0.12;
+    double maximumIsoperimetricRatio=1.8;
+    double minimumNormalAlignment=0.85;
 };
 struct RepairContour {
     // Each directed edge follows the retained/surviving face's winding;
@@ -53,12 +62,28 @@ struct RepairContourPair {
     double maxSampleDistance{};
     double gapInEdges{};
 };
+enum class ClosureKind {Zipper,IndependentCaps};
+struct RepairClosureChoice {
+    std::size_t first{},second{};
+    ClosureKind kind{ClosureKind::Zipper};
+    // Projected polygon area and signed-area centroids drive a circular,
+    // coaxial-frustum PRELIMINARY score. Values are squared length units.
+    double ringAreaFirst{},ringAreaSecond{},centroidSeparation{};
+    double effectiveRadiusFirst{},effectiveRadiusSecond{};
+    double capArea{},zipperArea{},relativeAreaAdvantage{};
+    // Arc-length correspondence is needed for actual V16 zipper triangles,
+    // never original vertex-index parity; this is its V15 distance proxy.
+    double meanSquaredCorrespondenceDistance{};
+};
 struct RepairPlan {
     RepairPlanStatus status{RepairPlanStatus::NoChanges};
     std::string reason;
     std::vector<FaceId> removedFaces;
     std::vector<RepairContour> contours;
-    std::vector<RepairContourPair> pairs;
+    std::vector<RepairContourPair> pairs; // chosen zipper connections only
+    std::vector<std::size_t> cappedContours; // independent disks
+    std::vector<RepairClosureChoice> closureChoices;
+    double estimatedAddedArea{};
     std::size_t intersections{},classifiedFaces{},uncertainFaces{};
     std::size_t mixedFaces{},boundaryEdges{};
     // Approximation heuristics, NOT certified geometric error bounds.
