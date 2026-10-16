@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/region_edit.hpp"
+#include "mesher/revision_retirement.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -54,7 +55,7 @@ private:
     mutable std::mutex mutex_;
     std::condition_variable ready_,idle_;
     std::optional<Task> pending_;
-    std::vector<Task> superseded_; // bounded to one between worker wakeups
+    RevisionRetirementQueue discarded_{64};
     CheckpointStatistics statistics_;
     std::jthread worker_;
 };
