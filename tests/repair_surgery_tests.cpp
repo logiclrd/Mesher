@@ -322,6 +322,51 @@ void testMirroredWholeComponentRetirement() {
     require(base->retiredVertexCount()==0&&base->retiredFaceCount()==0,
             "Old two-component snapshot remains intact");
 }
+void testRepeatedMirroredSurgeryKeepsHistory() {
+    Mesh mesh;
+    for(const double y:{-4.0,4.0}) {
+        const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+        const auto faceStart=static_cast<std::uint32_t>(mesh.triangles.size());
+        cube(mesh,{-1.1,y,0},1);
+        for(std::uint32_t i=0;i<8;++i) {
+            const auto p=mesh.vertices[first+i];
+            mesh.vertices.push_back({-p.x,p.y,p.z});
+        }
+        for(std::uint32_t i=0;i<12;++i) {
+            const auto f=mesh.triangles[faceStart+i];
+            mesh.triangles.push_back({f.a+8,f.c+8,f.b+8});
+        }
+    }
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto initial=RegionTopologyIndex::build(imported.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirror;
+    for(const unsigned base:{0u,16u})
+        for(unsigned i=0;i<8;++i)
+            mirror.emplace_back(imported.flatIndex.vertexIds[base+i],
+                                imported.flatIndex.vertexIds[base+i+8]);
+    const auto& f=imported.flatIndex.faceIds;
+    const auto plan1=planRemovalContours(*initial,
+        {f[10],f[11],f[22],f[23]});
+    require(plan1.ready()&&plan1.pairs.size()==1,
+            "First reflected repair ring is valid");
+    const auto first=applyMirroredRepairSurgery(initial,plan1,mirror);
+    const auto firstRoot=first.index->pickingRootIdentity();
+    const auto plan2=planRemovalContours(*first.index,
+        {f[34],f[35],f[46],f[47]});
+    require(plan2.ready()&&plan2.pairs.size()==1,
+            "Second reflected repair uses stable old face IDs");
+    const auto second=applyMirroredRepairSurgery(first.index,plan2,mirror);
+    require(initial->retiredFaceCount()==0&&
+            first.index->retiredFaceCount()==4&&
+            second.index->retiredFaceCount()==8,
+            "Three immutable generations hold independent retirement histories");
+    require(first.index->pickingRootIdentity()==firstRoot&&
+            second.index->pickingRootIdentity()!=firstRoot,
+            "Second independent surgery cannot mutate previous BVH root");
+    require(euler(*initial)==8&&euler(*first.index)==6&&
+            euler(*second.index)==4,
+            "Two sequential mirrored mergers each reduce Euler characteristic by two");
+}
 void testGeometricValidationBudgets() {
     Mesh m;
     cube(m,{-1.1,0,0},1);
@@ -404,6 +449,8 @@ int main() {
         testMirroredWholeComponentRetirement();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
+        std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
+        testRepeatedMirroredSurgeryKeepsHistory();
         std::cout<<"Surgery fixture: rejection"<<std::endl;
         testRejectionIsTransactional();
         std::cout<<"Private transactional cap/zipper surgery regression passed\n";
