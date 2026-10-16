@@ -492,6 +492,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   unequal edge density, x=0 unique seam IDs, mirrored full retirement,
   negative mirror maps, local drift rejection, and multiple sequential
   repairs preserving older immutable roots.
+- [x] **V16c1 — Self-reflected cap, multi-edge survivor splitting and conditional reverse fidelity.**
+  A single ring which reflects onto itself is now cappable when its
+  directed boundary has exactly two existing X=0 seam vertices and one
+  uninterrupted positive-X arc. One half is triangulated as a disk
+  against the chord joining the two shared seam vertices; its other
+  half is constructed by reflected face pairs, never duplicate
+  coincident seam sheets. The old self-mirrored deleted pole is
+  retired exactly once, with coherent historical revision and
+  manifold checks. A slightly nonplanar symmetric contour is also
+  covered. For ordinary AND mirrored repairs, multiple boundary
+  edges belonging to one original surviving triangle are now
+  subdivided together in one transaction; the original face ID is
+  retained and all additional subtriangles remain properly oriented.
+  The pure two-/three-edge routine is independently tested for
+  winding, area and edge incidence. Added opt-in
+  `requireReverseSurfaceFidelity` and
+  `maximumReverseDeviationInEdges`: for explicitly feature-bearing
+  excisions only, also check original triangle vertices/centroids
+  against the final local retained/new surface in local-edge units.
+  This reverse guard is NOT automatically enabled for intentionally
+  buried red faces, whose deletion correctly destroys their surface.
+  Both directions remain sampled estimates, not certified Hausdorff
+  distances. All committed surgery continues to be private.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -504,16 +527,17 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16c robustness:** classify and
-  triangulate self-reflected individual contour rings, supported
-  X=0-crossing boundary subdivisions and multiple long edges on one
-  retained triangle, highly nonplanar or irregular scar loops, difficult
-  multicomponent collision cases and strict bidirectional geometric
-  fidelity (not merely one-sided new-to-deleted sample deviation).
-  Extend tests to cover local feature preservation under repeated
-  sculpt-like collisions and guaranteed fail-closed unsupported cases.
-  Arbitrary full sculpt-worker activation remains blocked until these
-  policies are explicit. V17 will own live integration.
+  seam atomically. **Remaining V16c2:** decide handling/rejection
+  of boundaries crossing X=0 without pre-existing plane vertices,
+  self-reflected contours with more than two seam contacts, strongly
+  nonplanar/irregular scar loops and difficult multicomponent contact
+  decisions. For sculpt-like deletions, distinguish feature-bearing
+  surfaces from intentionally buried red fragments before enabling
+  reverse fidelity; sampled distances must not be presented as a
+  certified two-sided Hausdorff bound. Extend cross-plane and
+  concavity regression coverage; fail closed on unsupported topology
+  rather than permitting hidden self-intersections or duplicate
+  plane seams. V17 alone integrates the live worker.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
