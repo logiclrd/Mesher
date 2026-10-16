@@ -258,7 +258,8 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     auto index=RegionTopologyIndex::restore(
         std::move(revision),retiredVertices,retiredFaces);
     validateMirrors(mirrors,*index);
-    return {std::move(index),std::move(mirrors)};
+    return {std::move(index),std::move(mirrors),
+            static_cast<std::size_t>(initialVertexCount)};
 }
 
 AsyncCheckpointWriter::AsyncCheckpointWriter()
