@@ -62,7 +62,20 @@ std::size_t RegionTopologyIndex::CellHash::operator()(Cell c) const noexcept {
 }
 RegionTopologyIndex::RegionTopologyIndex(
     std::shared_ptr<const MeshRevision> revision,double cellSize)
-    :revision_(std::move(revision)),cellSize_(cellSize) {}
+    :revision_(std::move(revision)),cellSize_(cellSize) {
+    const auto live=liveIndexedRoots.fetch_add(1)+1;
+    auto peak=peakIndexedRoots.load();
+    while(peak<live&&!peakIndexedRoots.compare_exchange_weak(peak,live)) {}
+}
+RegionTopologyIndex::~RegionTopologyIndex() {
+    liveIndexedRoots.fetch_sub(1);
+}
+std::size_t RegionTopologyIndex::liveRevisionCount() noexcept {
+    return liveIndexedRoots.load();
+}
+std::size_t RegionTopologyIndex::peakLiveRevisionCount() noexcept {
+    return peakIndexedRoots.load();
+}
 RegionTopologyIndex::Cell RegionTopologyIndex::cellFor(
     Vec3 point,double cellSize) {
     return {toCell(point.x,cellSize),toCell(point.y,cellSize),
