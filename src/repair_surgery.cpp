@@ -869,7 +869,7 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 }
                 return arc;
             };
-            for(const auto candidate:{
+            for(const auto& candidate:{
                 trace(seamIndices[0],seamIndices[1]),
                 trace(seamIndices[1],seamIndices[0])}) {
                 bool side=true;
