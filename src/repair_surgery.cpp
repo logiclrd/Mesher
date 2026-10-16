@@ -208,6 +208,51 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
                 throw std::logic_error("Zipper produces a high-degree vertex hub");
     return faces;
 }
+using DirectedBoundary=std::pair<VertexId,VertexId>;
+using SideSplits=std::map<DirectedBoundary,std::vector<VertexId>>;
+// Split any combination of a triangle's three oriented boundary edges.
+// Every original side is advanced geometrically, not by counterpart index.
+// Working triangulation stays in memory until ONE atomic RegionEdit update.
+std::vector<std::array<VertexId,3>> subdivideRetainedTriangle(
+    std::array<VertexId,3> original,
+    const SideSplits& splits,
+    const std::unordered_map<VertexId,Vec3>& positions,
+    const RepairSurgerySettings& settings) {
+    std::vector<std::array<VertexId,3>> triangles{original};
+    for(unsigned side=0;side<3;++side) {
+        const auto from=original[side],to=original[(side+1)%3];
+        const auto found=splits.find({from,to});
+        if(found==splits.end())continue;
+        VertexId at=from;
+        for(const auto inserted:found->second) {
+            bool replaced=false;
+            for(std::size_t i=0;i<triangles.size();++i) {
+                const auto triangle=triangles[i];
+                for(unsigned j=0;j<3;++j) {
+                    if(triangle[j]!=at||triangle[(j+1)%3]!=to)
+                        continue;
+                    const auto tip=triangle[(j+2)%3];
+                    triangles[i]={at,inserted,tip};
+                    triangles.push_back({inserted,to,tip});
+                    replaced=true;
+                    break;
+                }
+                if(replaced)break;
+            }
+            if(!replaced)
+                throw std::logic_error("Boundary split has lost its retained side");
+            at=inserted;
+        }
+    }
+    for(const auto& triangle:triangles) {
+        const auto a=positions.at(triangle[0]),
+                   b=positions.at(triangle[1]),
+                   d=positions.at(triangle[2]);
+        if(triangleQuality(a,b,d)<settings.minimumTriangleQuality)
+            throw std::logic_error("Refined retained face has a skinny triangle");
+    }
+    return triangles;
+}
 double pointTriangleDistanceSquared(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
     // Closest-point Voronoi-region test. No projection-axis assumptions:
     // this also measures curved/nonplanar scars in world space.
@@ -417,24 +462,23 @@ RepairSurgeryResult applyRepairSurgery(
     for(const auto id:deleted)edit.removeFace(id);
     // Each boundary segment must retain its owner orientation and must be
     // subdivided in the SAME transaction as the surviving adjacent triangle.
-    std::set<FaceId> alreadySplit;
     std::set<FaceId> affectedSurvivors;
+    std::map<FaceId,SideSplits> boundarySplits;
     std::vector<LocalLoop> loops;
     loops.reserve(checked.contours.size());
     std::vector<double> medians;
-    for(const auto& c:checked.contours)
-        medians.push_back(medianEdge(*baseline,c));
+    for(const auto& contour:checked.contours)
+        medians.push_back(medianEdge(*baseline,contour));
     for(std::size_t k=0;k<checked.contours.size();++k) {
         const auto& contour=checked.contours[k];
         LocalLoop loop;
         loop.target=medians[k];
-        // For a zipper, the finer boundary sets the geometric target.
         for(const auto& pair:checked.pairs)
             if(pair.first==k||pair.second==k)
                 loop.target=std::min(medians[pair.first],
                                      medians[pair.second]);
         if(!(loop.target>0)||!std::isfinite(loop.target))
-            throw std::logic_error("No finite local boundary editing resolution");
+            throw std::logic_error("No finite local boundary resolution");
         for(std::size_t i=0;i<contour.vertexIds.size();++i) {
             const auto a=contour.vertexIds[i],
                        b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
@@ -445,46 +489,49 @@ RepairSurgeryResult applyRepairSurgery(
             if(segments<=1)continue;
             if(segments>settings.maxNewVertices+1||
                output.insertedVertices.size()+segments-1>
-               settings.maxNewVertices)
+                   settings.maxNewVertices)
                 throw std::length_error("Boundary subdivision vertex budget exhausted");
             const auto survivingId=contour.survivingFaces[i];
-            if(!alreadySplit.insert(survivingId).second)
-                throw std::logic_error("Two subdivided contour edges share a face");
             const auto face=baseline->face(survivingId);
-            affectedSurvivors.insert(survivingId);
-            VertexId third=0;
             bool oriented=false;
-            for(unsigned j=0;j<3;++j) {
-                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b) {
-                    third=face.vertices[(j+2)%3];oriented=true;break;
-                }
-            }
-            if(!oriented)throw std::logic_error("Stale retained face orientation");
-            std::vector<VertexId> sequence{a};
+            for(unsigned j=0;j<3;++j)
+                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b)
+                    oriented=true;
+            if(!oriented)
+                throw std::logic_error("Stale retained face orientation");
+            auto& splits=boundarySplits[survivingId][{a,b}];
+            if(!splits.empty())
+                throw std::logic_error("Repeated boundary edge subdivision");
+            affectedSurvivors.insert(survivingId);
             for(std::size_t j=1;j<segments;++j) {
                 const auto point=p+(q-p)*(static_cast<double>(j)/segments);
-                const auto newVertex=edit.appendLocalVertex(
+                const auto id=edit.appendLocalVertex(
                     baseline->vertex(a).owner,point);
-                positions.emplace(newVertex,point);
-                output.insertedVertices.push_back(newVertex);
-                loop.ids.push_back(newVertex);
-                sequence.push_back(newVertex);
-            }
-            sequence.push_back(b);
-            // Preserve original survivor FaceId for its first subtriangle.
-            edit.replaceFace(survivingId,{sequence[0],sequence[1],third});
-            for(std::size_t j=1;j<segments;++j) {
-                const auto newFace=edit.appendLocalFace(face.owner,
-                    {sequence[j],sequence[j+1],third});
-                output.insertedFaces.push_back(newFace);
-                if(output.insertedFaces.size()>settings.maxNewFaces)
-                    throw std::length_error("Subdivision face budget exhausted");
+                positions.emplace(id,point);
+                output.insertedVertices.push_back(id);
+                loop.ids.push_back(id);
+                splits.push_back(id);
             }
             ++output.splitBoundaryEdges;
         }
         if(loop.ids.size()>settings.maxContourVertices)
-            throw std::length_error("Refined ring exceeds contour vertex limit");
+            throw std::length_error("Refined contour exceeds budget");
         loops.push_back(std::move(loop));
+    }
+    // A single original triangle may border TWO or THREE long contour
+    // edges. Construct all their splits together, retaining its first
+    // FaceId and appending only the additional oriented triangles.
+    for(const auto& [id,segments]:boundarySplits) {
+        const auto& face=baseline->face(id);
+        const auto parts=subdivideRetainedTriangle(
+            face.vertices,segments,positions,settings);
+        edit.replaceFace(id,parts.front());
+        for(std::size_t i=1;i<parts.size();++i) {
+            if(output.insertedFaces.size()>=settings.maxNewFaces)
+                throw std::length_error("Survivor subdivision face budget exhausted");
+            output.insertedFaces.push_back(
+                edit.appendLocalFace(face.owner,parts[i]));
+        }
     }
     auto chooseOwner=[&](std::size_t loop)->PartitionId {
         const auto& c=checked.contours[loop];
