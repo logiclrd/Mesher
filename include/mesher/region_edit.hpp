@@ -65,6 +65,12 @@ public:
     // Full index construction happens only once for an imported mesh.
     static std::shared_ptr<const RegionTopologyIndex> build(
         std::shared_ptr<const MeshRevision> revision,double cellSize=.15);
+    static std::shared_ptr<const RegionTopologyIndex> restore(
+        std::shared_ptr<const MeshRevision> revision,
+        const std::vector<VertexId>& retiredVertices,
+        const std::vector<FaceId>& retiredFaces,double cellSize=.15);
+    std::vector<VertexId> retiredVertexIds() const;
+    std::vector<FaceId> retiredFaceIds() const;
 
     ~RegionTopologyIndex();
     static std::size_t liveRevisionCount() noexcept;
