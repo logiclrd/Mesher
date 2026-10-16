@@ -13,6 +13,8 @@
 
 namespace mesher {
 namespace {
+std::atomic<std::size_t> liveIndexedRoots{0};
+std::atomic<std::size_t> peakIndexedRoots{0};
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
 }
