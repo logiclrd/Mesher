@@ -35,6 +35,10 @@ public:
                          CurvatureSettings curvature,CollapseSettings collapse,
                          RefineSettings refine,bool symmetric,
                          std::size_t partitionCapacity=256);
+    VersionedSculptBrush(DurableCheckpoint restored,double strength,
+                         CurvatureSettings curvature,CollapseSettings collapse,
+                         RefineSettings refine,
+                         std::size_t partitionCapacity=256);
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
