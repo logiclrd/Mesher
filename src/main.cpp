@@ -312,6 +312,10 @@ int main(int argc, char** argv) {
                    <<" published_revisions="<<status.publishedRevisions
                    <<" modified_partitions="<<status.modifiedPartitions
                    <<" copied_directory_nodes="<<status.copiedDirectoryNodes
+                   <<" cloned_partition_bytes="<<status.clonedPartitionBytes
+                   <<" live_revisions="<<status.liveRevisions
+                   <<" peak_live_revisions="<<status.peakLiveRevisions
+                   <<" worker_publication_ms="<<status.lastPublicationMs
                    <<" renderer=dirty_partitions";
                 return os.str();
             };
