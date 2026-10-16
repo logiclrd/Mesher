@@ -8,11 +8,11 @@
 
 namespace mesher {
 
-// V16a: atomic, NON-symmetric closure surgery on a private region revision.
+// Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
-// The symmetric topology path (including X=0 seam sharing) is a separate
-// prerequisite before live Merge Geometry integration.
+// Mirrored surgery is available below; unsupported complex topology
+// remains fail-closed before live Merge Geometry integration.
 struct RepairSurgerySettings {
     RepairPlanSettings planning{};
     std::size_t partitionCapacity=256;
@@ -29,6 +29,12 @@ struct RepairSurgerySettings {
     // Every new scar point must remain near the actually excised geometry
     // at the local ORIGINAL contour resolution, not the brush radius.
     double maximumSurfaceDeviationInEdges=2.5;
+    // Optional reverse-distance guard for EXPOSED surfaces known to be
+    // preserved by the operation. Do not enable blindly for buried red
+    // faces: intentionally discarded internal material has no geometric
+    // counterpart and a two-sided Hausdorff condition is inappropriate.
+    bool requireReverseSurfaceFidelity=false;
+    double maximumReverseDeviationInEdges=2.5;
     // Limit post-commit residual checks to an explicitly bounded local
     // neighborhood. Over-budget validation rejects the private revision.
     std::size_t maxResidualFaces=4096;
@@ -44,12 +50,13 @@ struct RepairSurgeryResult {
     std::size_t capFaces{},zipperFaces{};
     std::size_t verifiedLocalFaces{};
     double maximumSurfaceDeviationInEdges{};
+    double maximumReverseDeviationInEdges{};
 };
 
 // Throws before returning a result if any topology or candidate geometry
 // check fails. Neither the passed snapshot nor any repository is modified.
-// V16a only accepts previously validated, non-symmetric plans and supported
-// non-self-overlapping local cuts. V16b will add mirrored topology changes.
+// This overload accepts a validated non-symmetric plan; all geometry
+// quality checks and private publication guards still apply.
 RepairSurgeryResult applyRepairSurgery(
     std::shared_ptr<const RegionTopologyIndex> baseline,
     const RepairPlan& plan,const RepairSurgerySettings& settings={});
@@ -58,8 +65,8 @@ RepairSurgeryResult applyRepairSurgery(
 // involutive reflection pairing. Plans can contain independent mirrored
 // cap pairs, paired mirrored zippers, or a zipper between two contours
 // which reflect into one another (built through ONE shared X=0 ring).
-// Self-reflected individual loops and cases requiring unequal boundary
-// subdivision fail closed until supported by a symmetric refinement.
+// Self-reflected single capped loops with exactly two existing X=0
+// endpoints are supported. More complex cross-plane cases fail closed.
 RepairSurgeryResult applyMirroredRepairSurgery(
     std::shared_ptr<const RegionTopologyIndex> baseline,
     const RepairPlan& plan,

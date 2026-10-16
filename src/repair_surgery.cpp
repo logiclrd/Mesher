@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "repair_surgery_detail.hpp"
 
 #include <algorithm>
 #include <array>
@@ -208,6 +209,8 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
                 throw std::logic_error("Zipper produces a high-degree vertex hub");
     return faces;
 }
+using detail::SideSplits;
+using detail::subdivideRetainedTriangle;
 double pointTriangleDistanceSquared(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
     // Closest-point Voronoi-region test. No projection-axis assumptions:
     // this also measures curved/nonplanar scars in world space.
@@ -251,6 +254,9 @@ void validateSurgeryGeometry(
     RepairSurgeryResult& out) {
     if(!std::isfinite(settings.maximumSurfaceDeviationInEdges)||
        settings.maximumSurfaceDeviationInEdges<=0||
+       (settings.requireReverseSurfaceFidelity&&
+        (!std::isfinite(settings.maximumReverseDeviationInEdges)||
+         settings.maximumReverseDeviationInEdges<=0))||
        settings.maxResidualFaces==0)
         throw std::invalid_argument("Invalid residual collision/deviation budgets");
     if(!out.index)
@@ -287,7 +293,12 @@ void validateSurgeryGeometry(
             (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
     }
 
-    if(out.insertedFaces.empty())return;
+    if(out.insertedFaces.empty()) {
+        if(settings.requireReverseSurfaceFidelity)
+            throw std::logic_error(
+                "Reverse surface fidelity cannot retain a wholly discarded shell");
+        return;
+    }
     double h=std::numeric_limits<double>::infinity();
     for(const auto& contour:plan.contours)
         h=std::min(h,medianEdge(baseline,contour));
@@ -320,6 +331,39 @@ void validateSurgeryGeometry(
             if(out.maximumSurfaceDeviationInEdges>
                settings.maximumSurfaceDeviationInEdges)
                 throw std::logic_error("Repair exceeds local surface deviation budget");
+        }
+    }
+    if(settings.requireReverseSurfaceFidelity) {
+        // Reverse sample distance measures deleted feature-bearing surface
+        // to the constructed scar or retained neighborhood. It must only
+        // be used when preservation of the removed surface is the stated
+        // intent: intentionally buried red fragments should be discarded.
+        std::vector<std::array<Vec3,3>> repairedTriangles;
+        repairedTriangles.reserve(verify.size());
+        for(const auto id:verify) {
+            const auto face=out.index->face(id).vertices;
+            repairedTriangles.push_back({
+                out.index->vertex(face[0]).position,
+                out.index->vertex(face[1]).position,
+                out.index->vertex(face[2]).position});
+        }
+        for(const auto& original:removedTriangles) {
+            const auto& a=original[0],&b=original[1],&d=original[2];
+            for(const auto p:std::array<Vec3,4>{a,b,d,(a+b+d)/3}) {
+                double closest=std::numeric_limits<double>::infinity();
+                for(const auto& current:repairedTriangles)
+                    closest=std::min(closest,pointTriangleDistanceSquared(
+                        p,current[0],current[1],current[2]));
+                if(!std::isfinite(closest))
+                    throw std::logic_error("Invalid reverse surface measurement");
+                out.maximumReverseDeviationInEdges=std::max(
+                    out.maximumReverseDeviationInEdges,
+                    std::sqrt(std::max(0.0,closest))/h);
+                if(out.maximumReverseDeviationInEdges>
+                   settings.maximumReverseDeviationInEdges)
+                    throw std::logic_error(
+                        "Repair exceeds reverse surface fidelity budget");
+            }
         }
     }
 }
@@ -376,24 +420,23 @@ RepairSurgeryResult applyRepairSurgery(
     for(const auto id:deleted)edit.removeFace(id);
     // Each boundary segment must retain its owner orientation and must be
     // subdivided in the SAME transaction as the surviving adjacent triangle.
-    std::set<FaceId> alreadySplit;
     std::set<FaceId> affectedSurvivors;
+    std::map<FaceId,SideSplits> boundarySplits;
     std::vector<LocalLoop> loops;
     loops.reserve(checked.contours.size());
     std::vector<double> medians;
-    for(const auto& c:checked.contours)
-        medians.push_back(medianEdge(*baseline,c));
+    for(const auto& contour:checked.contours)
+        medians.push_back(medianEdge(*baseline,contour));
     for(std::size_t k=0;k<checked.contours.size();++k) {
         const auto& contour=checked.contours[k];
         LocalLoop loop;
         loop.target=medians[k];
-        // For a zipper, the finer boundary sets the geometric target.
         for(const auto& pair:checked.pairs)
             if(pair.first==k||pair.second==k)
                 loop.target=std::min(medians[pair.first],
                                      medians[pair.second]);
         if(!(loop.target>0)||!std::isfinite(loop.target))
-            throw std::logic_error("No finite local boundary editing resolution");
+            throw std::logic_error("No finite local boundary resolution");
         for(std::size_t i=0;i<contour.vertexIds.size();++i) {
             const auto a=contour.vertexIds[i],
                        b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
@@ -404,46 +447,49 @@ RepairSurgeryResult applyRepairSurgery(
             if(segments<=1)continue;
             if(segments>settings.maxNewVertices+1||
                output.insertedVertices.size()+segments-1>
-               settings.maxNewVertices)
+                   settings.maxNewVertices)
                 throw std::length_error("Boundary subdivision vertex budget exhausted");
             const auto survivingId=contour.survivingFaces[i];
-            if(!alreadySplit.insert(survivingId).second)
-                throw std::logic_error("Two subdivided contour edges share a face");
             const auto face=baseline->face(survivingId);
-            affectedSurvivors.insert(survivingId);
-            VertexId third=0;
             bool oriented=false;
-            for(unsigned j=0;j<3;++j) {
-                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b) {
-                    third=face.vertices[(j+2)%3];oriented=true;break;
-                }
-            }
-            if(!oriented)throw std::logic_error("Stale retained face orientation");
-            std::vector<VertexId> sequence{a};
+            for(unsigned j=0;j<3;++j)
+                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b)
+                    oriented=true;
+            if(!oriented)
+                throw std::logic_error("Stale retained face orientation");
+            auto& splits=boundarySplits[survivingId][{a,b}];
+            if(!splits.empty())
+                throw std::logic_error("Repeated boundary edge subdivision");
+            affectedSurvivors.insert(survivingId);
             for(std::size_t j=1;j<segments;++j) {
                 const auto point=p+(q-p)*(static_cast<double>(j)/segments);
-                const auto newVertex=edit.appendLocalVertex(
+                const auto id=edit.appendLocalVertex(
                     baseline->vertex(a).owner,point);
-                positions.emplace(newVertex,point);
-                output.insertedVertices.push_back(newVertex);
-                loop.ids.push_back(newVertex);
-                sequence.push_back(newVertex);
-            }
-            sequence.push_back(b);
-            // Preserve original survivor FaceId for its first subtriangle.
-            edit.replaceFace(survivingId,{sequence[0],sequence[1],third});
-            for(std::size_t j=1;j<segments;++j) {
-                const auto newFace=edit.appendLocalFace(face.owner,
-                    {sequence[j],sequence[j+1],third});
-                output.insertedFaces.push_back(newFace);
-                if(output.insertedFaces.size()>settings.maxNewFaces)
-                    throw std::length_error("Subdivision face budget exhausted");
+                positions.emplace(id,point);
+                output.insertedVertices.push_back(id);
+                loop.ids.push_back(id);
+                splits.push_back(id);
             }
             ++output.splitBoundaryEdges;
         }
         if(loop.ids.size()>settings.maxContourVertices)
-            throw std::length_error("Refined ring exceeds contour vertex limit");
+            throw std::length_error("Refined contour exceeds budget");
         loops.push_back(std::move(loop));
+    }
+    // A single original triangle may border TWO or THREE long contour
+    // edges. Construct all their splits together, retaining its first
+    // FaceId and appending only the additional oriented triangles.
+    for(const auto& [id,segments]:boundarySplits) {
+        const auto& face=baseline->face(id);
+        const auto parts=subdivideRetainedTriangle(
+            face.vertices,segments,positions,settings);
+        edit.replaceFace(id,parts.front());
+        for(std::size_t i=1;i<parts.size();++i) {
+            if(output.insertedFaces.size()>=settings.maxNewFaces)
+                throw std::length_error("Survivor subdivision face budget exhausted");
+            output.insertedFaces.push_back(
+                edit.appendLocalFace(face.owner,parts[i]));
+        }
     }
     auto chooseOwner=[&](std::size_t loop)->PartitionId {
         const auto& c=checked.contours[loop];
@@ -600,9 +646,12 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     // their adjacent retained faces, before triangulating either closure.
     // Directed additions are recorded for BOTH reflected ring traversals.
     // Opposite mirrored face winding reverses the edge direction.
+    // Accumulate ALL boundary subdivisions before changing any retained
+    // faces. A face may meet two or even three long boundary sides; its
+    // reflected partner must receive the exactly mirrored triangulation.
     using DirectedEdge=std::pair<VertexId,VertexId>;
     std::map<DirectedEdge,std::vector<VertexId>> insertedOnEdge;
-    std::set<FaceId> splitFaces;
+    std::map<FaceId,SideSplits> splitsByFace;
     std::vector<double> localTargets;
     for(const auto& contour:checked.contours) {
         const double h=medianEdge(*baseline,contour);
@@ -633,23 +682,18 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 throw std::length_error("Mirrored boundary division exceeds vertex budget");
             const auto source=contour.survivingFaces[i];
             const auto twin=reflectFace(source);
-            if(source==twin||splitFaces.contains(source)||
-               splitFaces.contains(twin))
-                throw std::logic_error("Multiple mirrored splits within one retained face");
-            const auto tri=baseline->face(source).vertices;
-            VertexId third=0;
+            if(source==twin)
+                throw std::logic_error("A self-reflected survivor face cannot be split in pairs");
+            const auto face=baseline->face(source);
             bool found=false;
             for(unsigned j=0;j<3;++j)
-                if(tri[j]==a&&tri[(j+1)%3]==b) {
-                    third=tri[(j+2)%3];found=true;break;
-                }
+                if(face.vertices[j]==a&&face.vertices[(j+1)%3]==b)
+                    found=true;
             if(!found)
                 throw std::logic_error("Mirrored boundary edge lost survivor orientation");
-            if(!pos.contains(third))
-                throw std::logic_error("Retained split vertex outside write halo");
-            const auto ownerA=baseline->face(source).owner;
+            const auto ownerA=face.owner;
             const auto ownerB=baseline->face(twin).owner;
-            std::vector<VertexId> along{a},innerA,innerB;
+            std::vector<VertexId> innerA,innerB;
             for(std::size_t j=1;j<segments;++j) {
                 const auto point=p+(q-p)*(static_cast<double>(j)/segments);
                 if(point.x==0)
@@ -662,29 +706,42 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 mirrored.emplace(made.second,made.first);
                 out.insertedVertices.push_back(made.first);
                 out.insertedVertices.push_back(made.second);
-                along.push_back(made.first);
                 innerA.push_back(made.first);
                 innerB.push_back(made.second);
             }
-            along.push_back(b);
-            edit.replaceMirroredFaces(source,twin,
-                                      {along[0],along[1],third});
-            for(std::size_t j=1;j<segments;++j) {
-                if(out.insertedFaces.size()+2>settings.maxNewFaces)
-                    throw std::length_error("Mirrored face subdivision exceeds budget");
-                const auto made=edit.appendMirroredFaces(
-                    ownerA,ownerB,{along[j],along[j+1],third});
-                out.insertedFaces.push_back(made.first);
-                out.insertedFaces.push_back(made.second);
-            }
-            insertedOnEdge.emplace(DirectedEdge{a,b},std::move(innerA));
             std::reverse(innerB.begin(),innerB.end());
-            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},
-                                   std::move(innerB));
-            splitFaces.insert(source);
-            splitFaces.insert(twin);
+            insertedOnEdge.emplace(DirectedEdge{a,b},innerA);
+            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},innerB);
+            if(!splitsByFace[source].emplace(DirectedEdge{a,b},
+                                             std::move(innerA)).second||
+               !splitsByFace[twin].emplace(
+                   DirectedEdge{opposite(b),opposite(a)},
+                   std::move(innerB)).second)
+                throw std::logic_error("Mirrored boundary was split twice");
             out.splitBoundaryEdges+=2;
         }
+    }
+    std::set<FaceId> completed;
+    for(const auto& [id,_]:splitsByFace) {
+        if(completed.contains(id))continue;
+        const auto twin=reflectFace(id);
+        if(!splitsByFace.contains(twin))
+            throw std::logic_error("Missing mirrored retained face split");
+        const auto face=baseline->face(id);
+        const auto other=baseline->face(twin);
+        const auto parts=subdivideRetainedTriangle(
+            face.vertices,splitsByFace.at(id),pos,settings);
+        edit.replaceMirroredFaces(id,twin,parts.front());
+        for(std::size_t k=1;k<parts.size();++k) {
+            if(out.insertedFaces.size()+2>settings.maxNewFaces)
+                throw std::length_error("Mirrored subdivision face budget exhausted");
+            const auto created=edit.appendMirroredFaces(
+                face.owner,other.owner,parts[k]);
+            out.insertedFaces.push_back(created.first);
+            out.insertedFaces.push_back(created.second);
+        }
+        completed.insert(id);
+        completed.insert(twin);
     }
     std::vector<LocalLoop> loops;
     loops.reserve(checked.contours.size());
@@ -755,8 +812,62 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     for(const auto i:caps) {
         if(completedCaps.contains(i))continue;
         const auto j=ringMirror[i];
-        if(j==i||!caps.contains(j))
-            throw std::logic_error("Unsupported self-reflected or unpaired cap ring");
+        if(!caps.contains(j))
+            throw std::logic_error("A mirrored cap ring has no matching cap choice");
+        if(j==i) {
+            // A self-reflected disk must not be independently filled and
+            // mirrored: that duplicates coincident faces. Partition its
+            // boundary into the positive-X and negative-X arcs between
+            // EXACTLY TWO existing X=0 seam vertices, and triangulate
+            // only the positive arc against the common seam chord. Its
+            // reflected triangles share that single chord and use no
+            // duplicate seam vertices.
+            const auto& ring=loops[i].ids;
+            std::vector<std::size_t> seamIndices;
+            for(std::size_t k=0;k<ring.size();++k)
+                if(pos.at(ring[k]).x==0)seamIndices.push_back(k);
+            if(seamIndices.size()!=2)
+                throw std::logic_error(
+                    "Self-mirrored cap requires exactly two existing seam vertices");
+            std::vector<VertexId> positive;
+            const auto trace=[&](std::size_t from,std::size_t to) {
+                std::vector<VertexId> arc;
+                for(std::size_t k=from;;k=(k+1)%ring.size()) {
+                    arc.push_back(ring[k]);
+                    if(k==to)break;
+                }
+                return arc;
+            };
+            for(const auto& candidate:{
+                trace(seamIndices[0],seamIndices[1]),
+                trace(seamIndices[1],seamIndices[0])}) {
+                bool side=true;
+                for(std::size_t k=1;k+1<candidate.size();++k)
+                    if(pos.at(candidate[k]).x<=0)side=false;
+                if(side&&candidate.size()>=3) {
+                    if(!positive.empty())
+                        throw std::logic_error("Self-reflected cap has ambiguous sides");
+                    positive=candidate;
+                }
+            }
+            if(positive.empty())
+                throw std::logic_error(
+                    "Self-reflected cap lacks a contiguous positive-X boundary arc");
+            // Verify the opposite original arc is the SAME reflected
+            // polygon, not a coincident-but-unrelated component.
+            std::set<VertexId> expected;
+            for(const auto id:positive)expected.insert(opposite(id));
+            const std::set<VertexId> actual(ring.begin(),ring.end());
+            for(const auto id:expected)
+                if(!actual.contains(id))
+                    throw std::logic_error("Self-reflected cap arc is not paired");
+            const LocalLoop half{positive,loops[i].target};
+            const auto triangles=capTriangles(half,pos,settings);
+            for(const auto& face:triangles)
+                append(owner(i),owner(i),face,true);
+            completedCaps.insert(i);
+            continue;
+        }
         const auto triangles=capTriangles(loops[i],pos,settings);
         for(const auto& face:triangles)
             append(owner(i),owner(j),face,true);

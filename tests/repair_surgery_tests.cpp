@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "../src/repair_surgery_detail.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -93,6 +94,49 @@ std::size_t euler(const RegionTopologyIndex& index) {
     });
     return vertices+faces-edges.size();
 }
+void testPureMultiEdgeRetainedFaceSplitting() {
+    using mesher::detail::SideSplits;
+    const std::unordered_map<VertexId,Vec3> p={
+        {1,{0,0,0}},{2,{2,0,0}},{3,{0,2,0}},
+        {4,{1,0,0}},{5,{1,1,0}},{6,{0,1,0}}};
+    const RepairSurgerySettings settings;
+    for(const bool threeEdges:{false,true}) {
+        SideSplits splits={{{1,2},{4}},{{2,3},{5}}};
+        if(threeEdges)splits.emplace(
+            std::pair<VertexId,VertexId>{3,1},std::vector<VertexId>{6});
+        const auto faces=mesher::detail::subdivideRetainedTriangle(
+            {1,2,3},splits,p,settings);
+        require(faces.size()==(threeEdges?4u:3u),
+                "One triangle is split along two or all three boundary edges");
+        double area=0;
+        std::map<std::pair<VertexId,VertexId>,unsigned> incidences;
+        for(const auto& ids:faces) {
+            const auto a=p.at(ids[0]),b=p.at(ids[1]),d=p.at(ids[2]);
+            const double orientedArea=cross(b-a,d-a).z*.5;
+            require(orientedArea>0,
+                    "All subtile faces retain the original triangle winding");
+            area+=orientedArea;
+            for(unsigned i=0;i<3;++i) {
+                auto u=ids[i],v=ids[(i+1)%3];
+                if(u>v)std::swap(u,v);
+                ++incidences[{u,v}];
+            }
+        }
+        require(std::abs(area-2)<1e-12,
+                "Multi-edge subfaces partition the original area exactly");
+        for(const auto& [edge,count]:incidences) {
+            (void)edge;
+            require(count==1||count==2,
+                    "No internal edge has a nonmanifold degree");
+        }
+        require(incidences[{1,4}]==1&&incidences[{2,4}]==1&&
+                incidences[{2,5}]==1&&incidences[{3,5}]==1,
+                "Both originally long boundary sides are conformingly subdivided");
+        if(threeEdges)
+            require(incidences[{3,6}]==1&&incidences[{1,6}]==1,
+                    "Third side subdivides without hanging endpoints");
+    }
+}
 void testCapsAndSnapshotPublication() {
     Mesh m;
     cube(m,{},1);
@@ -108,6 +152,12 @@ void testCapsAndSnapshotPublication() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.capFaces==2&&repaired.zipperFaces==0,
             "Four-sided opening is sealed by two oriented triangles");
+    RepairSurgerySettings reverse;
+    reverse.requireReverseSurfaceFidelity=true;
+    reverse.maximumReverseDeviationInEdges=.01;
+    const auto exact=applyRepairSurgery(baseline,plan,reverse);
+    require(exact.maximumReverseDeviationInEdges<1e-10,
+            "Planar replacement preserves both sides of the exposed original surface");
     require(repaired.index->retiredFace(oldFace)&&
             repaired.index->retiredFace(secondFace),
             "Original removed IDs remain retired, never recycled");
@@ -144,6 +194,14 @@ void testZipperJoinsSeparatedSolids() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.zipperFaces>=8&&repaired.capFaces==0,
             "Zipper closes two entire oriented rings");
+    RepairSurgerySettings reverse;
+    reverse.requireReverseSurfaceFidelity=true;
+    reverse.maximumReverseDeviationInEdges=.01;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(baseline,plan,reverse);}
+    catch(const std::logic_error&) {rejected=true;}
+    require(rejected,
+            "Intentional material removal cannot pass an inappropriate strict reverse envelope");
     require(euler(*baseline)==4&&euler(*repaired.index)==2,
             "Joining distinct closed solids changes total Euler characteristic 4 to 2");
     require(repaired.index->triangleIntersections(
@@ -304,6 +362,42 @@ void testMirroredUnevenBoundarySubdivision() {
         {},result.insertedFaces).empty(),
         "Mirrored boundary subdivision does not create crossing triangles");
 }
+void testSelfMirroredCapAcrossExistingSeam() {
+    for(const double bend:{0.0,.04}) {
+    Mesh oct;
+    oct.vertices={{1,0,bend},{0,1,0},{-1,0,bend},{0,-1,0},
+                  {0,0,1},{0,0,-1}};
+    oct.triangles={{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                   {5,1,0},{5,2,1},{5,3,2},{5,0,3}};
+    const auto imp=partitionFlatMesh(oct,1);
+    const auto base=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const auto& faces=imp.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirrors={
+        {v[0],v[2]},{v[1],v[1]},{v[3],v[3]},
+        {v[4],v[4]},{v[5],v[5]}};
+    const auto plan=planRemovalContours(*base,
+        {faces[0],faces[1],faces[2],faces[3]});
+    require(plan.ready()&&plan.cappedContours.size()==1&&
+            plan.contours.size()==1,
+            "Symmetric upper octahedron removal has a single self-reflected rim");
+    const auto scar=applyMirroredRepairSurgery(base,plan,mirrors);
+    require(scar.capFaces==2&&scar.zipperFaces==0&&
+            scar.insertedVertices.empty(),
+            "Single self-reflected cap creates exactly two shared-chord triangles");
+    require(scar.retiredVertices.size()==1&&
+            scar.retiredVertices.front()==v[4],
+            "Original pole is retired once despite self-mirror mapping");
+    require(euler(*base)==2&&euler(*scar.index)==2,
+            "Symmetric single-ring cap preserves genus zero and orientable manifold");
+    require(scar.index->vertex(v[1]).incidentFaces.size()==4&&
+            scar.index->vertex(v[3]).incidentFaces.size()==4,
+            "Both existing X=0 seam endpoints have one continuous four-face fan");
+    require(base->retiredFaceCount()==0&&
+            scar.index->retiredFaceCount()==4,
+            "Old revision remains unchanged after mirrored self-cap");
+    }
+}
 void testMirroredWholeComponentRetirement() {
     const auto test=reflectedCubes(3.0);
     const auto base=RegionTopologyIndex::build(test.import.revision);
@@ -431,6 +525,8 @@ void testRejectionIsTransactional() {
 }
 int main() {
     try {
+        std::cout<<"Surgery fixture: pure multi-edge triangle"<<std::endl;
+        testPureMultiEdgeRetainedFaceSplitting();
         std::cout<<"Surgery fixture: cap"<<std::endl;
         testCapsAndSnapshotPublication();
         std::cout<<"Surgery fixture: separated zipper"<<std::endl;
@@ -445,6 +541,8 @@ int main() {
         testMirroredRejectsIncompleteMapping();
         std::cout<<"Surgery fixture: mirrored uneven boundary"<<std::endl;
         testMirroredUnevenBoundarySubdivision();
+        std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
+        testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
         testMirroredWholeComponentRetirement();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
