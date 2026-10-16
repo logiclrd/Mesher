@@ -134,7 +134,10 @@ PartitionRenderUpdate PartitionRenderCache::advance(
                              sizeof(PartitionRenderVertex);
         partitions_[id]=std::move(geometry);
     }
+    auto previous=std::move(revision_);
     revision_=std::move(revision);
+    if(retirement && previous!=revision_)
+        retirement->retire(std::move(previous));
     return stats;
 }
 } // namespace mesher
