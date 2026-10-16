@@ -342,7 +342,7 @@ an older revision while the worker edits or publishes a newer one.
 ## Self-intersection-aware sculpting (proposed V13–V19)
 
 **Design:** [Sculpt collision and topology repair](docs/SCULPT_COLLISION_REPAIR.md).
-The agreed model is positive winding (\`w > 0\`) on the **complete
+The agreed model is positive winding (`w > 0`) on the **complete
 post-deformation candidate revision**, not on the pre-stamp revision and not
 the odd/even or generic nonzero winding rule. A two-sheet crossing removes
 the buried parts of **both original smooth surfaces**; density-aware
