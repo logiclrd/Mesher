@@ -502,38 +502,82 @@ class VulkanViewport {
         vkUnmapMemory(device,result.memory);
         return result;
     }
-    // Vertex positions and triangle normals change on every stamp; topology
-    // doesn't, so the allocated GPU buffer sizes remain constant. These
-    // host-coherent allocations were already used by the initial upload.
-    void replaceBuffer(Buffer& buffer, const std::vector<Vertex>& vertices) {
-        if (vertices.size() > buffer.capacity) {
-            // Future refinement may grow the mesh; reallocate only when the
-            // old allocation cannot contain the changed topology.
-            auto newer=upload(vertices);
-            vkDestroyBuffer(device,buffer.buffer,nullptr);
-            vkFreeMemory(device,buffer.memory,nullptr);
-            buffer=newer;
+    void destroyBuffer(Buffer& buffer) {
+        if(buffer.buffer)vkDestroyBuffer(device,buffer.buffer,nullptr);
+        if(buffer.memory)vkFreeMemory(device,buffer.memory,nullptr);
+        buffer={};
+    }
+    // The previous frame fence is waited before any buffer replacement or
+    // retirement. Only buffer objects for dirty partitions are touched; GPU
+    // allocations belonging to unchanged partitions remain entirely intact.
+    void replaceBuffer(Buffer& buffer,const std::vector<Vertex>& vertices) {
+        if(vertices.empty()) {
+            buffer.vertexCount=0;
+            return;
+        }
+        if(buffer.buffer==VK_NULL_HANDLE||vertices.size()>buffer.capacity) {
+            auto next=upload(vertices);
+            destroyBuffer(buffer);
+            buffer=next;
             return;
         }
         buffer.vertexCount=static_cast<std::uint32_t>(vertices.size());
-        const VkDeviceSize size = vertices.size() * sizeof(Vertex);
-        void* data = nullptr;
-        check(vkMapMemory(device, buffer.memory, 0, size, 0, &data),
+        const VkDeviceSize size=vertices.size()*sizeof(Vertex);
+        void* data=nullptr;
+        check(vkMapMemory(device,buffer.memory,0,size,0,&data),
               "Map dynamic vertex buffer");
-        std::memcpy(data, vertices.data(), static_cast<std::size_t>(size));
-        vkUnmapMemory(device, buffer.memory);
+        std::memcpy(data,vertices.data(),static_cast<std::size_t>(size));
+        vkUnmapMemory(device,buffer.memory);
     }
-
+    void initializePartitions() {
+        partitionCache_.initialize(displayedIndex_);
+        for(const auto& [id,geometry]:partitionCache_.partitions()) {
+            auto& dst=partitionBuffers_[id];
+            if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
+            if(!geometry->wire.empty())dst.wire=upload(geometry->wire);
+        }
+    }
+    void refreshPartitions(
+        std::shared_ptr<const RegionTopologyIndex> next,
+        const std::vector<PartitionId>& dirty) {
+        const double started=glfwGetTime();
+        // The one-in-flight graphics submission has stopped reading all
+        // older vertex buffers before we map, replace, or destroy any of
+        // them. Present and resize use the existing device-idle handling.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before retiring dirty Vulkan partition buffers");
+        const auto stats=partitionCache_.advance(next,dirty);
+        std::set<PartitionId> unique(dirty.begin(),dirty.end());
+        for(const auto id:unique) {
+            const auto found=partitionCache_.partitions().find(id);
+            if(found==partitionCache_.partitions().end()) {
+                const auto old=partitionBuffers_.find(id);
+                if(old!=partitionBuffers_.end()) {
+                    destroyBuffer(old->second.solid);
+                    destroyBuffer(old->second.wire);
+                    partitionBuffers_.erase(old);
+                }
+                continue;
+            }
+            auto& dst=partitionBuffers_[id];
+            replaceBuffer(dst.solid,found->second->solid);
+            replaceBuffer(dst.wire,found->second->wire);
+        }
+        displayedIndex_=std::move(next);
+        lastDirtyPartitions_=stats.rebuiltPartitions;
+        lastDirtyFaces_=stats.rebuiltFaces;
+        lastDirtyBytes_=stats.uploadedBytes;
+        lastUploadMs_=(glfwGetTime()-started)*1000;
+    }
     void refreshMesh() {
         const double started=glfwGetTime();
-        // No vertex buffer writes are permitted while the GPU is reading the
-        // buffers from a previous frame.
-        check(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX),
-              "Wait before updating dynamic geometry");
-        const auto drawing = buildDrawing(currentMesh());
-        replaceBuffer(solid, drawing.solid);
-        replaceBuffer(lines, drawing.lines);
-        lastUploadMs_=(glfwGetTime()-started)*1000.0;
+        // Synchronous demo mode retains its original flat-mesh buffers.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before updating legacy geometry");
+        const auto drawing=buildDrawing(currentMesh());
+        replaceBuffer(solid,drawing.solid);
+        replaceBuffer(lines,drawing.lines);
+        lastUploadMs_=(glfwGetTime()-started)*1000;
     }
 
     void refreshHud() {
