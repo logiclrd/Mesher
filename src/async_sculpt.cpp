@@ -19,6 +19,17 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
         return t;
      }(timeSpeed)),symmetric_(symmetric),
      worker_([this](std::stop_token token){run(token);}) {}
+AsyncSculptWorker::AsyncSculptWorker(
+    DurableCheckpoint recovered,double step,double strength,double timeSpeed,
+    CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine)
+    :brush_(std::make_unique<VersionedSculptBrush>(
+         recovered,strength,curvature,collapse,refine)),
+     stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
+        if(!std::isfinite(t)||t<=0)
+            throw std::invalid_argument("Sculpt time speed must be positive");
+        return t;
+     }(timeSpeed)),symmetric_(!recovered.mirrorPairs.empty()),
+     worker_([this](std::stop_token token){run(token);}) {}
 AsyncSculptWorker::~AsyncSculptWorker() {
     worker_.request_stop();
     ready_.notify_all();
