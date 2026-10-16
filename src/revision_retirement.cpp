@@ -5,11 +5,9 @@
 
 namespace mesher {
 RevisionRetirementQueue::RevisionRetirementQueue(std::size_t maxPending)
-    :maxPending_(maxPending),
-     worker_([this](std::stop_token token){run(token);}) {
-    if(!maxPending_)
-        throw std::invalid_argument("Revision retirement capacity must be positive");
-}
+    :maxPending_(maxPending?maxPending:
+        throw std::invalid_argument("Revision retirement capacity must be positive")),
+     worker_([this](std::stop_token token){run(token);}) {}
 RevisionRetirementQueue::~RevisionRetirementQueue() {
     // Stop means finish everything currently pending and then exit. A caller
     // can hold an old root beyond queue destruction: shared ownership works.
