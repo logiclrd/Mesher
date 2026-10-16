@@ -1,6 +1,7 @@
 #include "mesher/async_sculpt.hpp"
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <utility>
