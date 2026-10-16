@@ -66,6 +66,9 @@ public:
     static std::shared_ptr<const RegionTopologyIndex> build(
         std::shared_ptr<const MeshRevision> revision,double cellSize=.15);
 
+    ~RegionTopologyIndex();
+    static std::size_t liveRevisionCount() noexcept;
+    static std::size_t peakLiveRevisionCount() noexcept;
     const MeshRevision& revision() const noexcept {return *revision_;}
     const Vertex& vertex(VertexId id) const {return vertices_.at(id);}
     const Face& face(FaceId id) const {return faces_.at(id);}

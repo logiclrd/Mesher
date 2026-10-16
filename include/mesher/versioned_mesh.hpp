@@ -64,6 +64,7 @@ private:
 struct RevisionCommitStatistics {
     std::size_t modifiedPartitions{};
     std::size_t clonedPartitions{};
+    std::size_t clonedPartitionBytes{}; // actual copied vertex+face payloads
     std::size_t copiedDirectoryNodes{};
 };
 struct RevisionCommit {
@@ -103,6 +104,7 @@ private:
     std::shared_ptr<MeshIdentityDomain> identities_;
     std::map<PartitionId,Change> changes_;
     std::size_t clonedPartitions_{};
+    std::size_t clonedPartitionBytes_{};
     bool committed_{};
 };
 

@@ -133,7 +133,11 @@ MeshPartition& MutableMeshView::editPartition(PartitionId id) {
         change.partition=previous ? std::make_shared<MeshPartition>(*previous)
                                   : std::make_shared<MeshPartition>();
         change.removed=false;
-        if(previous)++clonedPartitions_;
+        if(previous) {
+            ++clonedPartitions_;
+            clonedPartitionBytes_+=previous->vertices.size()*sizeof(PartitionVertex)+
+                                   previous->faces.size()*sizeof(PartitionFace);
+        }
     }
     return *change.partition;
 }
@@ -162,6 +166,7 @@ RevisionCommit MutableMeshView::commit() {
     std::size_t nextCount=partitionCount_;
     RevisionCommitStatistics stats;
     stats.clonedPartitions=clonedPartitions_;
+    stats.clonedPartitionBytes=clonedPartitionBytes_;
     for(const auto& [id,change]:changes_) {
         const bool before=bool(findPartition(root_,id));
         const bool after=!change.removed;

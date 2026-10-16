@@ -9,6 +9,7 @@
 #include <memory>
 #include <span>
 #include <vector>
+#include <utility>
 
 namespace mesher {
 
@@ -44,16 +45,22 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
 // UI-owned CPU staging/cache, not part of worker publication. It preserves
 // identical geometry pointers for untouched partitions and rebuilds only
 // named dirty partition IDs; it never enumerates the mesh on an update.
+class RevisionRetirementQueue;
 class PartitionRenderCache {
 public:
     void initialize(std::shared_ptr<const RegionTopologyIndex> initial);
     PartitionRenderUpdate advance(
         std::shared_ptr<const RegionTopologyIndex> revision,
-        std::span<const PartitionId> dirty);
+        std::span<const PartitionId> dirty,
+        RevisionRetirementQueue* retirement=nullptr);
     const std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>>&
     partitions() const noexcept {return partitions_;}
     std::shared_ptr<const RegionTopologyIndex> revision() const noexcept {
         return revision_;
+    }
+    // Shutdown path: hand the last retained cache root to the reaper.
+    std::shared_ptr<const RegionTopologyIndex> detachRevision() noexcept {
+        return std::move(revision_);
     }
 private:
     std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>> partitions_;

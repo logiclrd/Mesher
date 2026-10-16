@@ -74,6 +74,9 @@ void AsyncSculptWorker::refreshStatus() {
     s.publishedRevisions=brush_->publishedRevisions();
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
+    s.clonedPartitionBytes=brush_->clonedPartitionBytes();
+    s.liveRevisions=RegionTopologyIndex::liveRevisionCount();
+    s.peakLiveRevisions=RegionTopologyIndex::peakLiveRevisionCount();
     {
         std::lock_guard guard(commandsMutex_);
         s.inputCommands=commands_.size();
@@ -81,6 +84,7 @@ void AsyncSculptWorker::refreshStatus() {
     {
         std::lock_guard guard(statusMutex_);
         s.lastWorkerStampMs=status_.lastWorkerStampMs;
+        s.lastPublicationMs=status_.lastPublicationMs;
         status_=std::move(s);
     }
 }
@@ -91,6 +95,7 @@ void AsyncSculptWorker::publish(bool force) {
     // The UI sees the newest committed mesh; no stamps are skipped.
     if(!force && lastPublish_.time_since_epoch().count()!=0 &&
        now-lastPublish_<std::chrono::milliseconds(8))return;
+    const auto started=Clock::now();
     Snapshot snapshot{brush_->snapshot(),brush_->originalOrder(),
                       brush_->completedStamps(),std::move(unpublishedDirty_)};
     unpublishedDirty_.clear();
@@ -109,6 +114,11 @@ void AsyncSculptWorker::publish(bool force) {
         latest_=std::move(snapshot);
     }
     lastPublish_=now;
+    {
+        std::lock_guard guard(statusMutex_);
+        status_.lastPublicationMs=std::chrono::duration<double,std::milli>(
+            Clock::now()-started).count();
+    }
 }
 void AsyncSculptWorker::run(std::stop_token token) {
     using Clock=std::chrono::steady_clock;

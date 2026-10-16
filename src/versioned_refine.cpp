@@ -232,6 +232,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             result.index=edit.updatedIndex();
             result.modifiedPartitions+=committed.statistics.modifiedPartitions;
             result.copiedDirectoryNodes+=committed.statistics.copiedDirectoryNodes;
+            result.clonedPartitionBytes+=committed.statistics.clonedPartitionBytes;
             result.insertedVertices.push_back(mid);
             if(paired)result.insertedVertices.push_back(other);
             for(const auto face:originalFaces)result.changedFaces.push_back(face);
@@ -314,6 +315,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             result.index=edit.updatedIndex();
             result.modifiedPartitions+=committed.statistics.modifiedPartitions;
             result.copiedDirectoryNodes+=committed.statistics.copiedDirectoryNodes;
+            result.clonedPartitionBytes+=committed.statistics.clonedPartitionBytes;
             for(const auto face:first->faces)result.changedFaces.push_back(face);
             if(second)for(const auto face:second->faces)
                 result.changedFaces.push_back(face);

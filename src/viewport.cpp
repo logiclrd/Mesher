@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
 
 #define GLFW_INCLUDE_VULKAN
@@ -324,6 +325,7 @@ void requestX11Activation(Window window) {
 class VulkanViewport {
     const Mesh& mesh_;
     // Legacy demos use a flat Mesh; live sculpt renders an indexed root.
+    RevisionRetirementQueue retiredRevisions_{64};
     std::shared_ptr<const RegionTopologyIndex> displayedIndex_;
     PartitionRenderCache partitionCache_;
     const Mesh& currentMesh() const {return mesh_;}
@@ -332,6 +334,7 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
+    double lastGpuFenceWaitMs_=0;
     mutable RegionTopologyIndex::PickStatistics lastPickStats_{};
     double lastConsoleTime_=0, viewportStartTime_=0, mouseReleaseTime_=0;
     std::uint64_t logFrames_=0, logStamps_=0;
@@ -375,12 +378,15 @@ class VulkanViewport {
     VkSemaphore available=VK_NULL_HANDLE;
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
-    struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;};
+    struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
     Buffer solid{},lines{},hud{};
     struct PartitionBuffers {Buffer solid,wire;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
     std::size_t lastDirtyBytes_=0;
+    std::vector<Buffer> deferredGpuBuffers_;
+    std::size_t gpuResidentBytes_=0,gpuPeakResidentBytes_=0;
+    std::size_t gpuRetiredBytes_=0,gpuFreedBytes_=0;
 
     static bool containsExtension(const std::vector<VkExtensionProperties>& list,const char* name) {
         return std::any_of(list.begin(),list.end(),[&](const auto& ext){return std::strcmp(ext.extensionName,name)==0;});
@@ -496,6 +502,9 @@ class VulkanViewport {
         allocation.allocationSize=needs.size;
         allocation.memoryTypeIndex=memoryType(needs.memoryTypeBits,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         check(vkAllocateMemory(device,&allocation,nullptr,&result.memory),"Allocate vertex memory");
+        result.allocatedBytes=static_cast<std::size_t>(needs.size);
+        gpuResidentBytes_+=result.allocatedBytes;
+        gpuPeakResidentBytes_=std::max(gpuPeakResidentBytes_,gpuResidentBytes_);
         check(vkBindBufferMemory(device,result.buffer,result.memory,0),"Bind vertex memory");
         void* data=nullptr;
         check(vkMapMemory(device,result.memory,0,size,0,&data),"Map vertex memory");
@@ -506,19 +515,37 @@ class VulkanViewport {
     void destroyBuffer(Buffer& buffer) {
         if(buffer.buffer)vkDestroyBuffer(device,buffer.buffer,nullptr);
         if(buffer.memory)vkFreeMemory(device,buffer.memory,nullptr);
+        if(buffer.allocatedBytes) {
+            gpuResidentBytes_-=buffer.allocatedBytes;
+            gpuFreedBytes_+=buffer.allocatedBytes;
+        }
         buffer={};
+    }
+    void retireGpuBuffer(Buffer& buffer) {
+        if(!buffer.buffer && !buffer.memory)return;
+        gpuRetiredBytes_+=buffer.allocatedBytes;
+        deferredGpuBuffers_.push_back(buffer);
+        buffer={};
+    }
+    // Only called after the previous graphics fence or vkDeviceWaitIdle.
+    // An old vertex allocation may be queued during a frame, but is never
+    // freed until the submission which could reference it has completed.
+    void drainGpuRetirements() {
+        for(auto& old:deferredGpuBuffers_)destroyBuffer(old);
+        deferredGpuBuffers_.clear();
+        gpuRetiredBytes_=0;
     }
     // The previous frame fence is waited before any buffer replacement or
     // retirement. Only buffer objects for dirty partitions are touched; GPU
     // allocations belonging to unchanged partitions remain entirely intact.
     void replaceBuffer(Buffer& buffer,const std::vector<Vertex>& vertices) {
         if(vertices.empty()) {
-            buffer.vertexCount=0;
+            retireGpuBuffer(buffer);
             return;
         }
         if(buffer.buffer==VK_NULL_HANDLE||vertices.size()>buffer.capacity) {
             auto next=upload(vertices);
-            destroyBuffer(buffer);
+            retireGpuBuffer(buffer);
             buffer=next;
             return;
         }
@@ -545,17 +572,20 @@ class VulkanViewport {
         // The one-in-flight graphics submission has stopped reading all
         // older vertex buffers before we map, replace, or destroy any of
         // them. Present and resize use the existing device-idle handling.
+        const auto fenceBegin=glfwGetTime();
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
               "Wait before retiring dirty Vulkan partition buffers");
-        const auto stats=partitionCache_.advance(next,dirty);
+        lastGpuFenceWaitMs_=(glfwGetTime()-fenceBegin)*1000;
+        drainGpuRetirements();
+        const auto stats=partitionCache_.advance(next,dirty,&retiredRevisions_);
         std::set<PartitionId> unique(dirty.begin(),dirty.end());
         for(const auto id:unique) {
             const auto found=partitionCache_.partitions().find(id);
             if(found==partitionCache_.partitions().end()) {
                 const auto old=partitionBuffers_.find(id);
                 if(old!=partitionBuffers_.end()) {
-                    destroyBuffer(old->second.solid);
-                    destroyBuffer(old->second.wire);
+                    retireGpuBuffer(old->second.solid);
+                    retireGpuBuffer(old->second.wire);
                     partitionBuffers_.erase(old);
                 }
                 continue;
@@ -564,7 +594,10 @@ class VulkanViewport {
             replaceBuffer(dst.solid,found->second->solid);
             replaceBuffer(dst.wire,found->second->wire);
         }
+        auto oldDisplayed=std::move(displayedIndex_);
         displayedIndex_=std::move(next);
+        if(oldDisplayed!=displayedIndex_)
+            retiredRevisions_.retire(std::move(oldDisplayed));
         lastDirtyPartitions_=stats.rebuiltPartitions;
         lastDirtyFaces_=stats.rebuiltFaces;
         lastDirtyBytes_=stats.uploadedBytes;
@@ -646,6 +679,16 @@ class VulkanViewport {
           <<" dirty_partitions="<<lastDirtyPartitions_
           <<" dirty_faces="<<lastDirtyFaces_
           <<" dirty_upload_bytes="<<lastDirtyBytes_
+          <<" gpu_resident_bytes="<<gpuResidentBytes_
+          <<" gpu_peak_bytes="<<gpuPeakResidentBytes_
+          <<" gpu_pending_retirement_bytes="<<gpuRetiredBytes_
+          <<" gpu_freed_bytes="<<gpuFreedBytes_
+          <<" gpu_fence_wait_ms="<<lastGpuFenceWaitMs_
+          <<" cpu_roots_live="<<RegionTopologyIndex::liveRevisionCount()
+          <<" cpu_roots_peak="<<RegionTopologyIndex::peakLiveRevisionCount()
+          <<" retire_queue_roots="<<retiredRevisions_.statistics().queuedRoots
+          <<" retire_queue_peak="<<retiredRevisions_.statistics().peakQueuedRoots
+          <<" retire_backpressure="<<retiredRevisions_.statistics().backpressureWaits
           <<" last_draw_ms="<<lastDrawMs_;
         if(interaction_.lastStampDetails)os<<" "<<interaction_.lastStampDetails();
         std::cout<<os.str()<<'\n'<<std::flush;
@@ -1176,6 +1219,7 @@ class VulkanViewport {
         }
         if(glfwWindowShouldClose(window))return;
         check(vkDeviceWaitIdle(device),"Wait for swapchain recreation");
+        drainGpuRetirements();
         destroySwapchain();
         createSwapchain();
         refreshHud();
@@ -1241,6 +1285,7 @@ class VulkanViewport {
     void draw() {
         const double drawStart=glfwGetTime();
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"Wait for render fence");
+        drainGpuRetirements();
         std::uint32_t image=0;
         auto acquired=vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,available,VK_NULL_HANDLE,&image);
         if(acquired==VK_ERROR_OUT_OF_DATE_KHR){recreateSwapchain();return;}
@@ -1305,6 +1350,8 @@ public:
         solid=upload(drawing.solid);
         lines=upload(drawing.lines);
         if(displayedIndex_)initializePartitions();
+        // The viewport owns the displayed and cached references from here.
+        interaction_.initialRevision.reset();
         createSwapchain();
         createCommands();
         refreshHud();
@@ -1318,6 +1365,10 @@ public:
     ~VulkanViewport() {
         if(device!=VK_NULL_HANDLE) {
             vkDeviceWaitIdle(device);
+            drainGpuRetirements();
+            retiredRevisions_.retire(std::move(displayedIndex_));
+            retiredRevisions_.retire(partitionCache_.detachRevision());
+            retiredRevisions_.drain();
             if(fence)vkDestroyFence(device,fence,nullptr);
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);

@@ -1,4 +1,5 @@
 #include "mesher/partition_render.hpp"
+#include "mesher/revision_retirement.hpp"
 
 #include <algorithm>
 #include <set>
@@ -112,7 +113,8 @@ void PartitionRenderCache::initialize(
 
 PartitionRenderUpdate PartitionRenderCache::advance(
     std::shared_ptr<const RegionTopologyIndex> revision,
-    std::span<const PartitionId> dirty) {
+    std::span<const PartitionId> dirty,
+    RevisionRetirementQueue* retirement) {
     if(!revision)throw std::invalid_argument("Partition renderer needs revision");
     if(!revision_)throw std::logic_error("Partition renderer not initialized");
     PartitionRenderUpdate stats;
@@ -132,7 +134,10 @@ PartitionRenderUpdate PartitionRenderCache::advance(
                              sizeof(PartitionRenderVertex);
         partitions_[id]=std::move(geometry);
     }
+    auto previous=std::move(revision_);
     revision_=std::move(revision);
+    if(retirement && previous!=revision_)
+        retirement->retire(std::move(previous));
     return stats;
 }
 } // namespace mesher

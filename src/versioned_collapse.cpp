@@ -180,6 +180,7 @@ bool VersionedDirectionalCollapser::attempt(
         result.index=transaction.updatedIndex();
         result.modifiedPartitions+=committed.statistics.modifiedPartitions;
         result.copiedDirectoryNodes+=committed.statistics.copiedDirectoryNodes;
+        result.clonedPartitionBytes+=committed.statistics.clonedPartitionBytes;
         for(const auto& f:changes) {
             if(f.deleted)result.removedFaces.push_back(f.id);
             else if(f.original!=f.next)result.rewrittenFaces.push_back(f.id);

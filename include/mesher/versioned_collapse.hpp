@@ -20,6 +20,7 @@ struct VersionedCollapseResult {
     std::vector<std::pair<VertexId,VertexId>> removedMirrorPairs;
     std::size_t modifiedPartitions{};
     std::size_t copiedDirectoryNodes{};
+    std::size_t clonedPartitionBytes{};
 };
 
 // Directional edge collapse on immutable geometry. Each candidate commits an

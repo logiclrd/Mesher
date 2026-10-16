@@ -237,12 +237,39 @@ an older revision while the worker edits or publishes a newer one.
   rather than a globally optimal spatial hierarchy; large nonlinear
   deformations may weaken pruning but never change picking correctness.
   V11 still owns prolonged CPU/GPU reclamation and stress diagnostics.
-- [ ] **V11 — Bounded reclamation, diagnostics and stress tests.**
-  Add safe retirement/reclamation for expired CPU graphs without large
-  UI-thread destructor pauses, and delay GPU destruction until work finishes.
-  Instrument touched partitions, clone bytes, root-path copies, publication
-  latency, retained revisions, retirement queue and memory use. Stress
-  concurrent readers, rapid edits, long stalls, cancellation and shutdown.
+- [x] **V11 — Bounded reclamation, diagnostics and stress tests.**
+  Old viewport-held RegionTopologyIndex graphs and cache roots are handed to
+  a dedicated RevisionRetirementQueue thread rather than dropping their last
+  references inside the Vulkan update loop. The queue has a configurable
+  hard capacity (64 roots in the viewport); saturation imposes explicit
+  backpressure instead of allowing unbounded pending history. This is a
+  deliberate bounded-memory/latency tradeoff: an overloaded retirement
+  worker can still stall an enqueuing producer, and external undo/history
+  readers can retain arbitrarily many roots until V12's history policy.
+  The retirement worker drains on orderly shutdown and independent reader
+  references remain valid until their actual last release.
+  Superseded Vulkan vertex buffers enter a per-frame GPU retirement list
+  instead of being destroyed while their old handles could be referenced by
+  in-flight work. Draining happens after the existing graphics fence or
+  final device idle, including resize and shutdown. Replacing a zero-length
+  buffer also retires its old allocation rather than keeping invisible GPU
+  memory. Diagnostics distinguish live/peak GPU allocation bytes, bytes
+  queued for fence-safe retirement, cumulative freed bytes and fence wait
+  duration. There is no new whole-mesh GPU walk per stamp.
+  New CPU counters report live/peak immutable indexed roots, copied COW
+  partition payload bytes, modified partition and directory node counts,
+  actual coalesced publication latency and bounded retirement queue depth,
+  peak and backpressure events. Clone bytes count copied vertex+face payload
+  sizes, not allocator overhead or all retained persistent AVL/BVH objects;
+  GPU resident accounting measures Vulkan allocation requirement sizes.
+  The seventeenth CTest stresses 160 local indexed edits with a deliberately
+  tiny retirement capacity, independent old readers, 60 concurrent
+  publications/picks, no full traversals, a deliberately unconsumed
+  asynchronous stroke, and shutdown with queued work while an immutable
+  reader remains alive. GPU presentation/lifetime still requires physical
+  Vulkan driver validation; headless CI can only compile that portion.
+  Producer backpressure, GPU fence waits, shared external roots and
+  asynchronous destructor cost remain surfaced, not hidden.
 - [ ] **V12 — Persistent history and durable checkpoints.**
   Build undo/redo and background serialization on immutable revisions while
   bounding history memory and defining recovery/GC policies. Never block
@@ -268,7 +295,9 @@ an older revision while the worker edits or publishes a newer one.
   collapse with persistent tombstones; V8 publishes immutable roots from
   the active sculpt worker; V9 updates Vulkan face partitions locally.
   V10 keeps exact picking on a path-shared local triangle BVH.
-  Safe reclamation and durable undo remain future tasks.
+  V11 bounds CPU retirement, adds fence-safe GPU retirement and measures
+  live roots, clone payload bytes and publication latency. Durable revision
+  history and checkpoints remain V12.
 
 ## Other remaining design goals
 

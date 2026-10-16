@@ -19,6 +19,7 @@ struct VersionedRefineResult {
     std::vector<FaceId> changedFaces;
     std::size_t modifiedPartitions{};
     std::size_t copiedDirectoryNodes{};
+    std::size_t clonedPartitionBytes{};
 };
 
 // Stateful counterpart to LocalRefiner, but stable IDs and persistent local
