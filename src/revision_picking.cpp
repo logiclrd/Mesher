@@ -152,6 +152,72 @@ void queryDirectory(
     for(const auto& child:directory->children)
         if(child)queryDirectory(child,bounds,visitor,stats);
 }
+// Ray crossing signs encode the *integer* signed winding of a closed,
+// consistently oriented immersed mesh. Unlike nearest-hit picking, every
+// strictly interior positive ray hit contributes to the total.
+void crossingPartition(const Partition& part,Ray ray,
+                      RegionTopologyIndex::WindingStatistics& stats,
+                      int& winding,bool& ambiguous) {
+    ++stats.partitionsTested;
+    std::vector<std::int32_t> stack{0};
+    while(!stack.empty()) {
+        const auto id=stack.back();stack.pop_back();
+        const auto& node=part.nodes[static_cast<std::size_t>(id)];
+        ++stats.boxesTested;
+        if(!rayBounds(node.bounds,ray,
+                      std::numeric_limits<double>::infinity()))continue;
+        if(node.count==0) {
+            if(node.left>=0)stack.push_back(node.left);
+            if(node.right>=0)stack.push_back(node.right);
+            continue;
+        }
+        for(std::size_t i=node.begin;i<node.begin+node.count;++i) {
+            const auto& tri=part.triangles[i];
+            if(!rayBounds(tri.bounds,ray,
+                          std::numeric_limits<double>::infinity()))continue;
+            ++stats.trianglesTested;
+            const auto& [a,b,c]=tri.vertices;
+            const auto ab=b-a,ac=c-a;
+            const auto normal=cross(ab,ac);
+            const auto determinant=dot(ab,cross(ray.direction,ac));
+            const double threshold=1e-13*length(normal);
+            if(std::abs(determinant)<=threshold) {
+                // Parallel rays lying in the face plane are ill-defined.
+                if(std::abs(dot(ray.origin-a,normal))<=
+                   1e-12*length(normal))ambiguous=true;
+                continue;
+            }
+            const auto p=ray.origin-a;
+            const double u=dot(p,cross(ray.direction,ac))/determinant;
+            const double v=dot(ray.direction,cross(p,ab))/determinant;
+            const double t=dot(ac,cross(p,ab))/determinant;
+            constexpr double margin=1e-11;
+            if(u< -margin||v< -margin||u+v>1+margin||t< -margin)
+                continue;
+            // Grazing any triangle boundary or starting on a face cannot
+            // safely be counted independently of adjacent face hits.
+            if(t<=margin||u<=margin||v<=margin||
+               1-u-v<=margin) {
+                ambiguous=true;
+                continue;
+            }
+            winding+=determinant<0?1:-1;
+        }
+    }
+}
+void crossingDirectory(
+    const std::shared_ptr<const RevisionPickingIndex::Directory>& directory,
+    Ray ray,RegionTopologyIndex::WindingStatistics& stats,
+    int& winding,bool& ambiguous) {
+    if(!directory)return;
+    ++stats.boxesTested;
+    if(!rayBounds(directory->bounds,ray,
+                  std::numeric_limits<double>::infinity()))return;
+    if(directory->partition)
+        crossingPartition(*directory->partition,ray,stats,winding,ambiguous);
+    for(const auto& child:directory->children)
+        if(child)crossingDirectory(child,ray,stats,winding,ambiguous);
+}
 void hitPartition(const Partition& part,Ray ray,double& best,
                   RegionTopologyIndex::PickStatistics& stats) {
     ++stats.partitionsTested;
@@ -273,6 +339,15 @@ void RevisionPickingIndex::forEachOverlappingTriangle(
     const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
     RegionTopologyIndex::CollisionStatistics& stats) const {
     queryDirectory(root_,bounds,visitor,stats);
+}
+int RevisionPickingIndex::signedRayCrossings(
+    Ray ray,RegionTopologyIndex::WindingStatistics& stats,
+    bool& ambiguous) const {
+    int winding=0;
+    ambiguous=false;
+    ++stats.raysTested;
+    crossingDirectory(root_,ray,stats,winding,ambiguous);
+    return winding;
 }
 std::optional<Vec3> RevisionPickingIndex::firstRayHit(
     Ray ray,RegionTopologyIndex::PickStatistics* measured) const {

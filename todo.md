@@ -376,7 +376,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   Detection is an opt-in CPU API only; the brush/worker does not invoke it
   yet. Numerical predicates are conservative double-precision tests, not
   exact arithmetic or a claim of complete adversarial robustness.
-- [ ] **V14 — Positive-winding solid and fragment classification.**
+- [x] **V14 — Positive-winding solid and fragment classification.**
   Add reference-accurate signed winding/occupancy evaluation on whole
   *candidate* geometry and accelerated local queries; verify 0 vs 1,
   1 vs 2, and negative-winding regions. Classify exposed vs buried
@@ -386,6 +386,21 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   cavities instead of silently deleting them. Unit-test both-sheets-
   moved, X=0 symmetry, original smooth surface continuation and
   uncertainty handling. No destructive topology changes.
+  Implemented via `positiveWindingAt()` (two agreeing signed
+  ray-crossing counts over revision-specific persistent BVHs, with a
+  rare full-mesh solid-angle reference fallback), independently checked
+  by `referenceWindingAt()`. `classifyFaceFragments()` reports
+  bounded-depth barycentric *sample patches*, including separately
+  classified exposed/buried portions of the same original triangle;
+  they are NOT exact intersection-trimmed fragments or permission for
+  destructive face deletion. `classifyClosedComponent()` walks a
+  bounded closed connected component, rejects intersections/ambiguous
+  samples, labels redundant closed shells, and reports enclosed cavity
+  boundaries as policy-dependent. The twentieth CPU CTest exercises
+  winding 0/1/2/-1, simultaneous symmetric movement, old/new revision
+  immutability, mixed patches, nested bubble/cavity classification,
+  on-surface uncertainty and BVH pruning. No live worker behavior
+  changes. V15 still owns actual cut and seam planning.
 - [ ] **V15 — Local approximate excision and boundary pairing plan.**
   Given V13/14 outputs, generate a private plan selecting removable faces
   and surviving contours at current **local** density (not brush-radius

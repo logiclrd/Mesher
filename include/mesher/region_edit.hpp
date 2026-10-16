@@ -124,6 +124,58 @@ public:
         const std::vector<FaceId>& changedFaces,
         CollisionStatistics* stats=nullptr) const;
 
+    struct WindingStatistics {
+        std::size_t boxesTested{}, partitionsTested{}, trianglesTested{};
+        std::size_t raysTested{}, referenceFallbacks{};
+    };
+    struct WindingSample {
+        int winding{};
+        bool reliable{};
+    };
+    // Signed crossing count of a ray from this point to infinity. At least
+    // two independent rays must agree. Grazing/on-surface input is uncertain;
+    // the exceptional solid-angle fallback is deliberately a full traversal.
+    WindingSample positiveWindingAt(Vec3 point,
+        WindingStatistics* statistics=nullptr) const;
+    // Independent O(all faces) signed-solid-angle reference, for testing and
+    // the exceptional case when every chosen ray passes near a mesh feature.
+    long double referenceWindingAt(Vec3 point) const;
+
+    enum class FragmentKind {
+        Exposed,         // positive-winding occupancy changes across patch
+        Buried,          // both sides have strictly positive winding
+        Outside,         // both sides are nonpositive
+        ReversedBoundary,// occupancy changes in the opposite orientation
+        Ambiguous
+    };
+    struct SurfaceFragment {
+        FaceId face{};
+        // Barycentric coordinates of the patch's three corners, in original
+        // face vertex order. These are *sampled*, not exact cut fragments.
+        std::array<std::array<double,3>,3> corners{};
+        FragmentKind kind{FragmentKind::Ambiguous};
+        int negativeWinding{},positiveWinding{};
+    };
+    // Read-only sampled subtriangle classification. Requested depth splits a
+    // triangle 4^depth ways to reveal mixed inside/outside portions. No patch
+    // is certified as an exact intersection-trimmed polygon: V15 owns cuts.
+    // Bounded depth prevents unbounded processing of pathological geometry.
+    std::vector<SurfaceFragment> classifyFaceFragments(
+        FaceId face,unsigned depth=2) const;
+
+    enum class ComponentKind {Redundant,Boundary,PotentialCavity,Ambiguous};
+    struct ComponentClassification {
+        ComponentKind kind{ComponentKind::Ambiguous};
+        std::size_t facesVisited{};
+        bool complete{};
+    };
+    // Inspect one topologically connected CLOSED face component, limited to
+    // maxFaces; classification is conservative if components self-intersect,
+    // contain near-coincident surfaces, or cannot be fully enumerated.
+    // An oriented enclosed cavity boundary is policy-dependent, never erased.
+    ComponentClassification classifyClosedComponent(
+        FaceId seed,std::size_t maxFaces=10000) const;
+
 private:
     friend class RegionEdit;
     explicit RegionTopologyIndex(std::shared_ptr<const MeshRevision> revision,

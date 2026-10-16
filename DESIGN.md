@@ -1358,3 +1358,41 @@ repair and no proof of perfect exact-predicate behavior. For detailed
 limitations and the remaining steps see
 [collision-repair design](docs/SCULPT_COLLISION_REPAIR.md) and
 [the V14–V19 roadmap](todo.md).
+
+## V14: Post-revision positive winding and read-only surface labels
+
+`RegionTopologyIndex::positiveWindingAt(point)` now calculates the signed
+integer winding of the entire immutable revision using the V10/V13 BVH:
+deterministic oblique ray crossings contribute +1 for outward departures
+and -1 for inward crossings, with at least two independent directions
+required to agree. Input exactly on the mesh or grazing triangle edges
+is uncertain; an exceptional fallback compares to an independent
+O(total faces) long-double solid-angle sum
+(`referenceWindingAt()`). In ordinary queries, only BVH candidate faces
+are tested and no full graph scan occurs. Winding >0 denotes occupied
+solid; both winding 1 and 2 are solid, while 0 and negative winding
+are not. The lookup reads ONLY the candidate revision; before-stamp
+geometry is irrelevant to occupancy.
+
+`classifyFaceFragments(face,depth)` subdivides a source triangle into
+4^depth *sample regions* with original barycentric coordinates and
+labels the opposing offset sides as exposed, buried, outside, or
+ambiguous. These samples are deliberately not an exact triangle
+intersection arrangement. A patch marked buried can still contain a
+small visible subregion; no V14 result should itself authorize
+deletion. Offsets at two local scales must agree and the winding jump
+across an oriented face must be one. Unknown and near-contact results
+remain ambiguous. V15 owns conservative actual boundary planning.
+
+`classifyClosedComponent(seed,maxFaces)` traverses local face-edge
+adjacency, rejecting open, intersecting or over-budget shells. A
+redundant contained positive shell or isolated negative shell can be
+reported without a seam; an enclosed cavity *boundary* is reported
+as `PotentialCavity`, not silently removed. This distinction alone
+cannot prove user intent for arbitrary imported solids.
+
+V14 introduces the twentieth CPU CTest suite. Neither the renderer
+nor the sculpt worker calls these APIs, and no mesh topology is
+changed. Pathological ambiguity can trigger the O(total faces)
+reference; it is NOT a promised hard O(local) query in all situations.
+All existing V1–V13 invariants remain unchanged.

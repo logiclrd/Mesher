@@ -1,8 +1,8 @@
 # Sculpt self-intersection management: positive-winding repair and collision constraints
 
-**Status:** V13 detector implemented as an opt-in CPU API; V14–V19 remain proposed/unimplemented.
+**Status:** V13 detection and V14 positive-winding classification are implemented as opt-in CPU APIs; V15–V19 remain proposed.
 **Baseline:** V12 `main` at `9e673c4` when this design was captured (2026-10-16).
-**Code impact:** V13 adds query-only CPU collision detection with no change to the live worker or renderer.
+**Code impact:** V13/V14 add read-only collision and solid classification APIs; neither the live worker nor renderer is changed.
 
 ## Problem and reference geometry
 
@@ -109,3 +109,38 @@ adjacency, coplanar folded faces, reflected tetrahedral solids moving together
 in one candidate revision, brute-force candidate comparison, local pruning
 on a sphere, independent retained older revisions and a no-op shared BVH.
 Live sculpt collision prevention/merging begins only at V17/V18.
+
+## V14 implementation and conservative boundaries
+
+The immutable revision now exposes `positiveWindingAt()` (accelerated
+integer signed ray-crossing count; multiple ray agreement required),
+`referenceWindingAt()` (slow independent signed-solid-angle sum),
+`classifyFaceFragments()` (bounded 4^depth barycentric *sample patches*,
+not exact clipped polygons), and `classifyClosedComponent()`
+(bounded connected shell inspection).
+
+The classifications use the whole **new** proposed revision, so they
+account for two surfaces simultaneously moving toward each other.
+Signed winding 2 is filled; negative winding is outside. An
+`Exposed` sample changes positive occupancy across an original face,
+a `Buried` sample lies in positive material on both sides, and an
+`Outside` sample is nonpositive on both sides. Near-coincident,
+on-surface, and numerically inconsistent probes return ambiguous.
+Returned patch labels are advisory until V15 has planned validated
+trim boundaries: a sample cannot certify that every point of an
+original triangle or subtriangle has the same class.
+
+Disconnected, completely closed, intersection-free shell components
+can be inspected within an explicit face budget. An isolated reversed
+bubble or redundant positive internal shell is reported as redundant;
+a legitimate enclosed void boundary is reported as
+`PotentialCavity` because artist intent cannot be inferred from
+winding alone. Component checks are not allowed to delete geometry.
+
+The twentieth CPU CTest adds direct validation of 0/1/2/-1 winding
+against a long-double solid-angle reference, mixed exposed/buried
+samples on a single intersected face, symmetric simultaneous motion
+and old/new root separation, redundant bubbles, cavities, on-surface
+uncertainty, and typical BVH pruning. Full-graph fallback is rare but
+possible when all candidate ray directions graze topology; V14 does
+not claim a hard worst-case local bound or exact-predicate guarantees.
