@@ -366,8 +366,12 @@ RepairSurgeryResult applyRepairSurgery(
     std::vector<FaceId> geometry=output.insertedFaces;
     geometry.insert(geometry.end(),affectedSurvivors.begin(),
                     affectedSurvivors.end());
-    if(!output.index->triangleIntersections({},geometry).empty())
-        throw std::logic_error("Reconstructed scar introduces triangle intersections");
+    const auto contacts=output.index->triangleIntersections({},geometry);
+    if(!contacts.empty())
+        throw std::logic_error("Scar intersects current geometry at faces "+
+            std::to_string(contacts.front().first)+"/"+
+            std::to_string(contacts.front().second)+
+            (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
     return output;
 }
 } // namespace mesher
