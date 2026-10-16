@@ -16,7 +16,7 @@ RevisionHistory::RevisionHistory(
      retirement_(retirement) {
     if(!initial||!maximumRevisions_||!maximumChangeBytes_)
         throw std::invalid_argument("History needs initial revision and positive limits");
-    entries_.push_back({std::move(initial),{},{},{},0});
+    entries_.push_back({std::move(initial),{},{},{},0,initialVertices,initialFaces});
 }
 void RevisionHistory::retire(Entry&& entry) {
     if(entry.bytes>totalBytes_)throw std::logic_error("History byte accounting underflow");
