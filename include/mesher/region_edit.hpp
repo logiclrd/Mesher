@@ -58,6 +58,8 @@ public:
         std::size_t changedCellRecords{};
         std::size_t copiedTreeNodes{};
         std::size_t fullMeshTraversals{};
+        std::size_t rebuiltPickingPartitions{};
+        std::size_t copiedPickingDirectoryNodes{};
     };
 
     // Full index construction happens only once for an imported mesh.
