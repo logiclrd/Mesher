@@ -179,7 +179,7 @@ void testCrossPartitionSplitAndCollapse() {
     for(int i=0;i<40;++i) {
         const auto angle=i*0.15707963267948966;
         const auto eye=Vec3{2.0*std::cos(angle),2.0*std::sin(angle),1.4};
-        compare(*before,{eye,normalized(-eye)});
+        compare(*before,{eye,normalized(Vec3{}-eye)});
         compare(*split.index,{eye,normalized(-eye)});
     }
     RegionEdit shrink(before,{b},{},1);
