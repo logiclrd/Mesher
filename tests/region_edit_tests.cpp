@@ -267,6 +267,16 @@ void testSelfReflectedFaceCrossingEdge() {
                 "Pure crossing normalization has no tombstones or old-root mutation");
     }
     {
+        RegionEdit half(index,{v[0],v[1]},mirrors,1);
+        const auto seam=half.appendSeamVertex(
+            index->vertex(v[0]).owner,{0,0,0});
+        (void)half.splitSelfMirroredFace(f[0],v[0],v[1],seam);
+        rejected([&] {(void)half.commit();},
+                 "Splitting only one face along a self-reflected crossing edge is nonmanifold");
+        require(index->pickingRootIdentity()==root,
+                "Failed one-sided normalization cannot publish partial topology");
+    }
+    {
         RegionEdit invalid(index,{v[0],v[1]},mirrors,1);
         const auto wrong=invalid.appendSeamVertex(
             index->vertex(v[0]).owner,{0,.1,0});
