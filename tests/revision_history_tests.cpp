@@ -89,7 +89,7 @@ void testUndoMirrorDelta() {
           undo.addMirrors.size()==1&&undo.addMirrors.front()==removed,
           "Undo reverses added/deleted symmetry correspondence");
     auto redo=history.redo();
-    check(redo.index==changed&&redo.addMirrors.front()==inserted&&
+    check(redo.index==changed&&redo.addMirrors.front()==canonical&&
           redo.removeMirrors.front()==removed,
           "Redo reapplies forward symmetry delta");
 }
