@@ -120,6 +120,7 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::build(
         std::sort(ids.begin(),ids.end());
         result->cells_.set(key,std::move(ids));
     }
+    result->picking_=RevisionPickingIndex::build(*result);
     result->statistics_.fullMeshTraversals=1;
     return result;
 }
