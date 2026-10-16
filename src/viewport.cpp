@@ -21,6 +21,8 @@
 #endif
 #include <utility>
 #include <limits>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -35,7 +37,7 @@ void check(VkResult code, const char* operation) {
     if(code!=VK_SUCCESS) throw std::runtime_error(std::string(operation)+" failed: "+std::to_string(code));
 }
 
-struct Vertex { float px,py,pz,nx,ny,nz,material; };
+using Vertex=PartitionRenderVertex;
 Vertex makeVertex(Vec3 p, Vec3 n={}, float material=0) {
     return {float(p.x),float(p.y),float(p.z),float(n.x),float(n.y),float(n.z),material};
 }
@@ -321,10 +323,10 @@ void requestX11Activation(Window window) {
 
 class VulkanViewport {
     const Mesh& mesh_;
-    Mesh displayedMesh_; // UI-owned immutable-between-snapshots drawing mesh.
-    const Mesh& currentMesh() const {
-        return interaction_.takeSnapshot ? displayedMesh_ : mesh_;
-    }
+    // Legacy demos use a flat Mesh; live sculpt renders an indexed root.
+    std::shared_ptr<const RegionTopologyIndex> displayedIndex_;
+    PartitionRenderCache partitionCache_;
+    const Mesh& currentMesh() const {return mesh_;}
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
@@ -374,6 +376,10 @@ class VulkanViewport {
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;};
     Buffer solid{},lines{},hud{};
+    struct PartitionBuffers {Buffer solid,wire;};
+    std::map<PartitionId,PartitionBuffers> partitionBuffers_;
+    std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
+    std::size_t lastDirtyBytes_=0;
 
     static bool containsExtension(const std::vector<VkExtensionProperties>& list,const char* name) {
         return std::any_of(list.begin(),list.end(),[&](const auto& ext){return std::strcmp(ext.extensionName,name)==0;});
