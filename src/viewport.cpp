@@ -325,6 +325,7 @@ void requestX11Activation(Window window) {
 class VulkanViewport {
     const Mesh& mesh_;
     // Legacy demos use a flat Mesh; live sculpt renders an indexed root.
+    RevisionRetirementQueue retiredRevisions_{64};
     std::shared_ptr<const RegionTopologyIndex> displayedIndex_;
     PartitionRenderCache partitionCache_;
     const Mesh& currentMesh() const {return mesh_;}
