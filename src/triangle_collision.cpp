@@ -115,13 +115,27 @@ bool penetratesBeyondSharedVertex(
             const double dp=dot(p-to[0],normal);
             const double dq=dot(q-to[0],normal);
             if(std::abs(dp)<=planeTolerance&&std::abs(dq)<=planeTolerance) {
-                // An edge contained in the opposite plane can overlap the
-                // opposite triangle beyond the common vertex.
-                for(const double t:{0.25,0.5,0.75}) {
-                    const auto at=p+(q-p)*t;
-                    if(length(at-shared)>epsilon&&
-                       pointInsideTriangle(at,to,normal,epsilon))return true;
+                // Clip the WHOLE coplanar segment against all three
+                // half-planes, rather than sampling three points and
+                // potentially missing a very short overlap.
+                double low=0,high=1;
+                for(unsigned edgeIndex=0;edgeIndex<3;++edgeIndex) {
+                    const auto origin=to[edgeIndex];
+                    const auto edge=to[(edgeIndex+1)%3]-origin;
+                    const auto limit=-epsilon*length(edge)*length(normal);
+                    const auto start=dot(cross(edge,p-origin),normal);
+                    const auto finish=dot(cross(edge,q-origin),normal);
+                    if(start<limit&&finish<limit) {high=-1;break;}
+                    if(start<limit||finish<limit) {
+                        const double t=(limit-start)/(finish-start);
+                        if(start<limit)low=std::max(low,t);
+                        else high=std::min(high,t);
+                    }
+                    if(low>high)break;
                 }
+                if(high>low&&length(q-p)*(high-low)>epsilon&&
+                   length(p+(q-p)*((low+high)/2)-shared)>epsilon)
+                    return true;
                 continue;
             }
             if((dp>planeTolerance&&dq>planeTolerance)||
