@@ -208,6 +208,109 @@ std::vector<std::array<VertexId,3>> zipperTriangles(
                 throw std::logic_error("Zipper produces a high-degree vertex hub");
     return faces;
 }
+double pointTriangleDistanceSquared(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
+    // Closest-point Voronoi-region test. No projection-axis assumptions:
+    // this also measures curved/nonplanar scars in world space.
+    const auto ab=b-a,ac=c-a,ap=p-a;
+    const double d1=dot(ab,ap),d2=dot(ac,ap);
+    if(d1<=0&&d2<=0)return dot(ap,ap);
+    const auto bp=p-b;
+    const double d3=dot(ab,bp),d4=dot(ac,bp);
+    if(d3>=0&&d4<=d3)return dot(bp,bp);
+    const double vc=d1*d4-d3*d2;
+    if(vc<=0&&d1>=0&&d3<=0) {
+        const auto projection=a+ab*(d1/(d1-d3));
+        return dot(p-projection,p-projection);
+    }
+    const auto cp=p-c;
+    const double d5=dot(ab,cp),d6=dot(ac,cp);
+    if(d6>=0&&d5<=d6)return dot(cp,cp);
+    const double vb=d5*d2-d1*d6;
+    if(vb<=0&&d2>=0&&d6<=0) {
+        const auto projection=a+ac*(d2/(d2-d6));
+        return dot(p-projection,p-projection);
+    }
+    const double va=d3*d6-d5*d4;
+    if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0) {
+        const auto bc=c-b;
+        const auto projection=b+bc*((d4-d3)/((d4-d3)+(d5-d6)));
+        return dot(p-projection,p-projection);
+    }
+    const double denominator=va+vb+vc;
+    if(!(denominator>0))
+        throw std::logic_error("Degenerate excised triangle in drift validator");
+    const double v=vb/denominator,w=vc/denominator;
+    const auto closest=a+ab*v+ac*w;
+    return dot(p-closest,p-closest);
+}
+void validateSurgeryGeometry(
+    const RegionTopologyIndex& baseline,
+    const RepairPlan& plan,
+    const std::set<VertexId>& selected,
+    const RepairSurgerySettings& settings,
+    RepairSurgeryResult& out) {
+    if(!std::isfinite(settings.maximumSurfaceDeviationInEdges)||
+       settings.maximumSurfaceDeviationInEdges<=0||
+       settings.maxResidualFaces==0)
+        throw std::invalid_argument("Invalid residual collision/deviation budgets");
+    if(!out.index)
+        throw std::logic_error("Repair geometry has no committed private index");
+    const std::set<FaceId> removed(plan.removedFaces.begin(),
+                                    plan.removedFaces.end());
+    // Verify every surviving face in the local write/read one-ring, not
+    // merely triangles created by the scar. BVH queries this COMPLETE
+    // private post-state revision for collisions with any other face.
+    std::set<FaceId> verify(out.insertedFaces.begin(),out.insertedFaces.end());
+    for(const auto id:selected)
+        for(const auto face:baseline.vertex(id).incidentFaces)
+            if(!removed.contains(face))verify.insert(face);
+    if(verify.size()>settings.maxResidualFaces)
+        throw std::length_error("Residual collision neighborhood exceeds budget");
+    out.verifiedLocalFaces=verify.size();
+    const auto contacts=out.index->triangleIntersections({},
+                           {verify.begin(),verify.end()});
+    if(!contacts.empty())
+        throw std::logic_error("Private repair has a residual local collision "+
+            std::to_string(contacts.front().first)+"/"+
+            std::to_string(contacts.front().second)+
+            (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
+
+    if(out.insertedFaces.empty())return;
+    double h=std::numeric_limits<double>::infinity();
+    for(const auto& contour:plan.contours)
+        h=std::min(h,medianEdge(baseline,contour));
+    if(!(h>0)||!std::isfinite(h))
+        throw std::logic_error("No local density for scar drift validation");
+    std::vector<std::array<Vec3,3>> removedTriangles;
+    removedTriangles.reserve(plan.removedFaces.size());
+    for(const auto id:plan.removedFaces) {
+        const auto vertices=baseline.face(id).vertices;
+        removedTriangles.push_back({
+            baseline.vertex(vertices[0]).position,
+            baseline.vertex(vertices[1]).position,
+            baseline.vertex(vertices[2]).position});
+    }
+    for(const auto faceId:out.insertedFaces) {
+        const auto tri=out.index->face(faceId).vertices;
+        const auto a=out.index->vertex(tri[0]).position;
+        const auto b=out.index->vertex(tri[1]).position;
+        const auto c=out.index->vertex(tri[2]).position;
+        for(const auto p:std::array<Vec3,4>{a,b,c,(a+b+c)/3}) {
+            double closest=std::numeric_limits<double>::infinity();
+            for(const auto& original:removedTriangles)
+                closest=std::min(closest,pointTriangleDistanceSquared(
+                    p,original[0],original[1],original[2]));
+            if(!std::isfinite(closest))
+                throw std::logic_error("Invalid geometric drift measurement");
+            out.maximumSurfaceDeviationInEdges=std::max(
+                out.maximumSurfaceDeviationInEdges,
+                std::sqrt(std::max(0.0,closest))/h);
+            if(out.maximumSurfaceDeviationInEdges>
+               settings.maximumSurfaceDeviationInEdges)
+                throw std::logic_error("Repair exceeds local surface deviation budget");
+        }
+    }
+}
 } // namespace
 
 RepairSurgeryResult applyRepairSurgery(
@@ -376,27 +479,7 @@ RepairSurgeryResult applyRepairSurgery(
     output.index=edit.updatedIndex();
     if(!output.index)
         throw std::logic_error("Surgery commit omitted immutable topology index");
-    // V13 tests the complete PRIVATE post-state mesh. Any intersections
-    // involving generated or modified survivor faces reject publication.
-    std::vector<FaceId> geometry=output.insertedFaces;
-    geometry.insert(geometry.end(),affectedSurvivors.begin(),
-                    affectedSurvivors.end());
-    const auto contacts=output.index->triangleIntersections({},geometry);
-    if(!contacts.empty()) {
-        const auto describe=[&](FaceId id) {
-            std::string s=std::to_string(id)+":";
-            for(const auto v:output.index->face(id).vertices) {
-                const auto p=output.index->vertex(v).position;
-                s+=" ["+std::to_string(v)+" "+std::to_string(p.x)+","+
-                   std::to_string(p.y)+","+std::to_string(p.z)+"]";
-            }
-            return s;
-        };
-        throw std::logic_error("Scar intersects current geometry "+
-            describe(contacts.front().first)+" / "+
-            describe(contacts.front().second)+
-            (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
-    }
+    validateSurgeryGeometry(*baseline,checked,selected,settings,output);
     return output;
 }
 
@@ -636,15 +719,7 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     out.index=edit.updatedIndex();
     if(!out.index)
         throw std::logic_error("Missing immutable mirrored commit");
-    // Check entire nearby surviving shell, not just new triangles. V13's
-    // narrow-phase runs against the complete immutable proposed revision.
-    std::set<FaceId> verify(out.insertedFaces.begin(),out.insertedFaces.end());
-    for(const auto id:selected)
-        for(const auto face:baseline->vertex(id).incidentFaces)
-            if(!deleted.contains(face))verify.insert(face);
-    if(!out.index->triangleIntersections({},
-          {verify.begin(),verify.end()}).empty())
-        throw std::logic_error("Mirrored surgery left residual/local intersections");
+    validateSurgeryGeometry(*baseline,checked,selected,settings,out);
     return out;
 }
 } // namespace mesher
