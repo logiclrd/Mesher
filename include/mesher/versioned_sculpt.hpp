@@ -66,6 +66,7 @@ private:
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
     StampTimings timings_{};
     StampDetails details_{};
+    std::vector<PartitionId> lastDirtyPartitions_;
 };
 
 } // namespace mesher
