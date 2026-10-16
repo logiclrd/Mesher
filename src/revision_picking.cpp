@@ -104,6 +104,54 @@ std::int32_t createNode(Partition& part,std::size_t start,std::size_t end) {
     part.nodes[static_cast<std::size_t>(id)].right=right;
     return id;
 }
+bool overlaps(const Bounds& a,const Bounds& b) {
+    if(!a.valid||!b.valid)return false;
+    const auto epsilon=[](double v,double w) {
+        return 64*std::numeric_limits<double>::epsilon()*
+               std::max({1.0,std::abs(v),std::abs(w)});
+    };
+    return a.low.x<=b.high.x+epsilon(a.low.x,b.high.x)&&
+           b.low.x<=a.high.x+epsilon(b.low.x,a.high.x)&&
+           a.low.y<=b.high.y+epsilon(a.low.y,b.high.y)&&
+           b.low.y<=a.high.y+epsilon(b.low.y,a.high.y)&&
+           a.low.z<=b.high.z+epsilon(a.low.z,b.high.z)&&
+           b.low.z<=a.high.z+epsilon(b.low.z,a.high.z);
+}
+void queryPartition(const Partition& part,const Bounds& bounds,
+                    const std::function<void(const Triangle&)>& visitor,
+                    RegionTopologyIndex::CollisionStatistics& stats) {
+    ++stats.partitionsTested;
+    std::vector<std::int32_t> stack{0};
+    while(!stack.empty()) {
+        const auto id=stack.back();stack.pop_back();
+        const auto& node=part.nodes[static_cast<std::size_t>(id)];
+        ++stats.boxesTested;
+        if(!overlaps(node.bounds,bounds))continue;
+        if(node.count) {
+            for(std::size_t i=node.begin;i<node.begin+node.count;++i) {
+                const auto& tri=part.triangles[i];
+                if(overlaps(tri.bounds,bounds)) {
+                    ++stats.candidateTriangles;
+                    visitor(tri);
+                }
+            }
+        }else {
+            if(node.left>=0)stack.push_back(node.left);
+            if(node.right>=0)stack.push_back(node.right);
+        }
+    }
+}
+void queryDirectory(
+    const std::shared_ptr<const RevisionPickingIndex::Directory>& directory,
+    const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
+    RegionTopologyIndex::CollisionStatistics& stats) {
+    if(!directory)return;
+    ++stats.boxesTested;
+    if(!overlaps(directory->bounds,bounds))return;
+    if(directory->partition)queryPartition(*directory->partition,bounds,visitor,stats);
+    for(const auto& child:directory->children)
+        if(child)queryDirectory(child,bounds,visitor,stats);
+}
 void hitPartition(const Partition& part,Ray ray,double& best,
                   RegionTopologyIndex::PickStatistics& stats) {
     ++stats.partitionsTested;
@@ -220,6 +268,11 @@ std::shared_ptr<const RevisionPickingIndex> RevisionPickingIndex::advance(
         result->root_=replace(result->root_,owner,0,
                               buildPartition(after,owner),copiedNodes);
     return result;
+}
+void RevisionPickingIndex::forEachOverlappingTriangle(
+    const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
+    RegionTopologyIndex::CollisionStatistics& stats) const {
+    queryDirectory(root_,bounds,visitor,stats);
 }
 std::optional<Vec3> RevisionPickingIndex::firstRayHit(
     Ray ray,RegionTopologyIndex::PickStatistics* measured) const {
