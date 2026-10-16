@@ -52,6 +52,9 @@ void testNarrowPhase() {
     check(contact({{{0,0,0},{.4,.4,1},{.4,.4,-1}}},{1,4,5})==
           TriangleContact::Intersecting,
           "Shared vertex does not mask a crossing farther from that vertex");
+    check(contact({{{0,0,0},{1000000,0,0},{0,0,1}}},{1,4,5})==
+          TriangleContact::Intersecting,
+          "A short coplanar edge overlap is detected along a very long edge");
     check(contact({{{0,0,0},{-.5,0,0},{0,-.5,0}}},{1,4,5})==
           TriangleContact::ExpectedAdjacency,
           "Coplanar triangles touching only at one shared vertex are legitimate");
