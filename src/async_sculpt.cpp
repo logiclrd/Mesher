@@ -84,6 +84,7 @@ void AsyncSculptWorker::refreshStatus() {
     {
         std::lock_guard guard(statusMutex_);
         s.lastWorkerStampMs=status_.lastWorkerStampMs;
+        s.lastPublicationMs=status_.lastPublicationMs;
         status_=std::move(s);
     }
 }
