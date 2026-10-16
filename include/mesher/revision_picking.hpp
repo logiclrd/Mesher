@@ -64,6 +64,10 @@ public:
     void forEachOverlappingTriangle(
         const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
         RegionTopologyIndex::CollisionStatistics& stats) const;
+    // Signed intersection sum for a single direction. Ambiguity includes
+    // grazing vertices/edges, starting on the surface and near-parallel hits.
+    int signedRayCrossings(Ray ray,
+        RegionTopologyIndex::WindingStatistics& stats,bool& ambiguous) const;
 private:
     std::shared_ptr<const Directory> root_;
     static std::shared_ptr<const Partition> buildPartition(
