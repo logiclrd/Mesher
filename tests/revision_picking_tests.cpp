@@ -11,6 +11,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include <unordered_map>
 
 using namespace mesher;
 namespace {
