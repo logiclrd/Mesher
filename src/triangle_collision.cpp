@@ -22,9 +22,17 @@ Point2 project(Vec3 p,unsigned axis) {
 double cross2(Point2 a,Point2 b) {return a.x*b.y-a.y*b.x;}
 Point2 subtract(Point2 a,Point2 b) {return {a.x-b.x,a.y-b.y};}
 double area2(const std::vector<Point2>& polygon) {
+    if(polygon.size()<3)return 0;
+    // Compute area from local differences, not the global-coordinate
+    // shoelace sum. Coplanar clipping can produce a triangle whose
+    // extent is near machine precision at a shared vertex. The global
+    // sum suffers cancellation O(eps * |coordinates|^2) and mistakes
+    // that single-point contact for a substantial overlap.
+    const auto origin=polygon.front();
     double area=0;
-    for(std::size_t i=0;i<polygon.size();++i)
-        area+=cross2(polygon[i],polygon[(i+1)%polygon.size()]);
+    for(std::size_t i=1;i+1<polygon.size();++i)
+        area+=cross2(subtract(polygon[i],origin),
+                     subtract(polygon[i+1],origin));
     return area;
 }
 bool projectedInteriorOverlap(const std::array<Vec3,3>& a,
