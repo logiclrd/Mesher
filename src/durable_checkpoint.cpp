@@ -15,6 +15,9 @@
 #include <cerrno>
 #include <fcntl.h>
 #include <unistd.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 namespace mesher {
@@ -82,7 +85,14 @@ void durableFlush(const std::filesystem::path& path) {
     (void)::close(fd);
     if(!ok)throw std::runtime_error("Cannot sync checkpoint file");
 #else
-    (void)path; // Flush through std::ofstream; durable media sync is OS-specific.
+    const HANDLE handle=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,
+        FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(handle==INVALID_HANDLE_VALUE)
+        throw std::runtime_error("Unable to reopen checkpoint for FlushFileBuffers");
+    const BOOL flushed=FlushFileBuffers(handle);
+    (void)CloseHandle(handle);
+    if(!flushed)throw std::runtime_error("Cannot flush checkpoint file");
 #endif
 }
 void durableDirectory(const std::filesystem::path& path) {
