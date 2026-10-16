@@ -1432,3 +1432,49 @@ triangles, remaining visible detail, manifoldness and self-intersections
 before publishing. The twenty-first CPU CTest covers multi-contour
 matching, an intentionally greedy-failing fixture, unpaired/budget
 rejections, redundant bubbles, cavity protection and root stability.
+
+## V15.1: Choosing between independent caps and geometric zippering
+
+Two different *valid* topologies can complete the same excision:
+independently capping two rings (which may destroy a torus handle),
+or joining them with an annular zipper (which may merge distinct walls).
+Neither manifoldness nor intersection-freedom alone chooses the
+artistically appropriate result. Prefer the repair requiring **less
+added surface area**, after strict geometry and topological checks;
+do not prefer a topology merely because it preserves old connectivity.
+
+For sufficiently planar compact nearly coaxial rings, use a fast
+circular-frustum estimate. Let projected enclosed ring areas be
+A1,A2, r_i=sqrt(A_i/pi), area-weighted centroids C_i and separation
+d=length(C1-C2). Then estimate
+A_caps=A1+A2,
+A_zip=pi*(r1+r2)*sqrt(d*d+(r1-r2)^2).
+These have identical units (area) and use the same ring dimensions
+for both alternatives. For equal circles the inequality simplifies to
+d<r for zipper preference; small distant rings naturally select caps.
+**No artificial minimum radius is required.** A relative advantage
+threshold rejects close decisions. This formula is exact for ideal
+parallel coaxial circles and only a preliminary estimate otherwise.
+Nonplanar, irregular or tilted/off-axis loops must be rejected or
+re-evaluated using more accurate candidate surfaces before committing.
+
+V15.1's closure selector globally compares single-ring cap choices
+with paired zipper choices using bounded subset dynamic programming;
+it no longer assumes that two or any even number of rings *must* zip.
+It retains the existing independent 32-point normalized-arc-length
+loop resampling, allowing cyclic offset and reversal. This is used
+only for pairing compatibility and the mean/max point-correspondence
+diagnostic; vertex list indices must **never** be used to pair original
+unevenly tessellated ring vertices. Actual zipper triangles and
+caps do not exist until V16.
+
+V16's advancing-front zipper follows physical distance around each
+boundary, adaptively splitting exceptional long boundary edges and
+updating any retained neighboring triangles sharing those edges in
+the SAME RegionEdit transaction. Neither triangle fans of extreme
+aspect ratio nor T-junctions are acceptable. The selected closure
+is not authoritative until actual cap/zipper triangles have passed
+orientation, intersection, error-budget, stable-ID, symmetry and
+manifold validation. A repaired torus handle must undergo Euler
+characteristic genus 1 -> genus 0; a wide noncolliding tunnel is not
+removed just for being narrow. Real brush integration remains V17.
