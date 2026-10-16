@@ -416,6 +416,39 @@ void testIsolatedIrregularAndWarpedCap() {
         }
     }
 }
+void testProjectedSelfCrossingCapIsRejected() {
+    // A pentagram loop has a nonzero projected area yet is NOT the
+    // boundary of a simple disk. The earlier single-ring relaxation
+    // must never let ear clipping silently fill its overlapped winding.
+    Mesh mesh;
+    std::vector<std::array<double,2>> crossing;
+    for(unsigned i=0;i<5;++i) {
+        const unsigned index=(2*i)%5;
+        const double phi=2*std::numbers::pi_v<double>*index/5;
+        crossing.push_back({std::cos(phi),std::sin(phi)});
+    }
+    const auto cap=prism(mesh,-2,2,crossing);
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    auto relaxed=RepairPlanSettings{};
+    relaxed.maximumSingleCapIsoperimetricRatio=100;
+    const auto plan=planRemovalContours(
+        *original,capIds(imported,cap,true),relaxed);
+    require(plan.ready()&&plan.cappedContours.size()==1,
+            "Topologically closed but crossing pentagram challenges cap triangulator");
+    auto surgerySettings=RepairSurgerySettings{};
+    surgerySettings.planning=relaxed;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(original,plan,surgerySettings);}
+    catch(const std::logic_error& e) {
+        rejected=std::string(e.what()).find(
+            "not simple in its projection")!=std::string::npos;
+    }
+    require(rejected,
+            "Projected nonadjacent ring-edge intersection is rejected before creating cap triangles");
+    require(original->retiredFaceCount()==0,
+            "Rejected crossing cap leaves original revision and history intact");
+}
 void testNonplanarMultiContourStaysAmbiguous() {
     Mesh m;
     const auto a=prism(m,-3,-2,square(.7));
@@ -646,6 +679,8 @@ int main() {
         testMirroredUnevenBoundarySubdivision();
         std::cout<<"Surgery fixture: irregular isolated cap"<<std::endl;
         testIsolatedIrregularAndWarpedCap();
+        std::cout<<"Surgery fixture: self-crossing projected cap"<<std::endl;
+        testProjectedSelfCrossingCapIsRejected();
         std::cout<<"Surgery fixture: ambiguous warped multiple loops"<<std::endl;
         testNonplanarMultiContourStaysAmbiguous();
         std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
