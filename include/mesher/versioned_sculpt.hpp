@@ -65,6 +65,7 @@ private:
     std::size_t vertices_{},faces_{};
     std::size_t completed_{},publishedRevisions_{};
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
+    std::size_t clonedPartitionBytes_{};
     StampTimings timings_{};
     StampDetails details_{};
     std::vector<PartitionId> lastDirtyPartitions_;
