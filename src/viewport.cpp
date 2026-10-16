@@ -1405,6 +1405,23 @@ public:
                 restorePreviousFocus_=true;
                 break;
             }
+            // History actions only when the worker is between strokes. The
+            // actual root swap happens on the worker, then V9 dirty buffers
+            // update from its coalesced snapshot as usual.
+            const bool ctrl=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS||
+                            glfwGetKey(window,GLFW_KEY_RIGHT_CONTROL)==GLFW_PRESS;
+            const bool shift=glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS||
+                             glfwGetKey(window,GLFW_KEY_RIGHT_SHIFT)==GLFW_PRESS;
+            const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
+            const bool y=justPressed(GLFW_KEY_Y,redoWasDown_);
+            const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
+            if(ctrl&&!sculpting_&&
+               (!interaction_.canBegin||interaction_.canBegin())) {
+                if(shift&&z&&interaction_.redo)interaction_.redo();
+                else if(z&&interaction_.undo)interaction_.undo();
+                else if(y&&interaction_.redo)interaction_.redo();
+            }
+            if(ctrl&&save&&interaction_.checkpoint)interaction_.checkpoint();
             updateMouseSculpt();
             pumpMouseStroke();
             if (animation_.advance) {
