@@ -59,6 +59,7 @@ private:
         std::vector<PartitionId> dirty;
         std::vector<MirrorPair> added,removed;
         std::size_t bytes{};
+        std::size_t vertices{},faces{};
     };
     void retire(Entry&& entry);
     void discardRedo();
