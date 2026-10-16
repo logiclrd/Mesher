@@ -199,6 +199,9 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     if(reader.number()!=magic||reader.number(4)!=12)
         throw std::runtime_error("Unsupported checkpoint magic/version");
     MeshIdentityWatermarks marks{reader.number(),reader.number(),reader.number()};
+    const auto initialVertexCount=reader.number();
+    if(!initialVertexCount||initialVertexCount>maxRecords)
+        throw std::runtime_error("Checkpoint reference density invalid");
     const auto partitions=reader.number();
     const auto pairs=reader.number();
     const auto retiredVertexCount=reader.number();
