@@ -1218,6 +1218,7 @@ class VulkanViewport {
         }
         if(glfwWindowShouldClose(window))return;
         check(vkDeviceWaitIdle(device),"Wait for swapchain recreation");
+        drainGpuRetirements();
         destroySwapchain();
         createSwapchain();
         refreshHud();
