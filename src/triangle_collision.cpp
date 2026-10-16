@@ -49,7 +49,12 @@ bool projectedInteriorOverlap(const std::array<Vec3,3>& a,
         for(std::size_t j=0;j<polygon.size();++j) {
             const auto start=polygon[j],end=polygon[(j+1)%polygon.size()];
             const double ds=signedSide(start),de=signedSide(end);
-            const bool inStart=ds>=-tolerance,inEnd=de>=-tolerance;
+            // Polygon clipping must use the exact halfplane. A
+            // tolerance-expanded halfplane creates artificial positive-
+            // area overlap for two coplanar triangles that touch only
+            // at a shared corner (especially after boundary splitting).
+            // The area test below retains a scale-aware tolerance.
+            const bool inStart=ds>=0,inEnd=de>=0;
             if(inStart!=inEnd) {
                 const double fraction=ds/(ds-de);
                 next.push_back({start.x+(end.x-start.x)*fraction,
