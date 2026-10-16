@@ -180,7 +180,7 @@ void testCrossPartitionSplitAndCollapse() {
         const auto angle=i*0.15707963267948966;
         const auto eye=Vec3{2.0*std::cos(angle),2.0*std::sin(angle),1.4};
         compare(*before,{eye,normalized(Vec3{}-eye)});
-        compare(*split.index,{eye,normalized(-eye)});
+        compare(*split.index,{eye,normalized(Vec3{}-eye)});
     }
     RegionEdit shrink(before,{b},{},1);
     shrink.moveVertex(b,{.6,.4,0});
@@ -199,8 +199,8 @@ void testCrossPartitionSplitAndCollapse() {
           "Deleted faces retained as tombstones and removed from BVH");
     for(int i=0;i<40;++i) {
         const auto eye=Vec3{3,2*std::cos(i*.125),2*std::sin(i*.125)};
-        compare(*result.index,{eye,normalized(-eye)});
-        compare(*before,{eye,normalized(-eye)});
+        compare(*result.index,{eye,normalized(Vec3{}-eye)});
+        compare(*before,{eye,normalized(Vec3{}-eye)});
     }
 }
 }
