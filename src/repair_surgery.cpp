@@ -269,11 +269,23 @@ void validateSurgeryGeometry(
     out.verifiedLocalFaces=verify.size();
     const auto contacts=out.index->triangleIntersections({},
                            {verify.begin(),verify.end()});
-    if(!contacts.empty())
+    if(!contacts.empty()) {
+        const auto describe=[&](FaceId id) {
+            std::string result=std::to_string(id);
+            for(const auto v:out.index->face(id).vertices) {
+                const auto p=out.index->vertex(v).position;
+                result+=" ["+std::to_string(v)+" ("+
+                    std::to_string(p.x)+","+
+                    std::to_string(p.y)+","+
+                    std::to_string(p.z)+")]";
+            }
+            return result;
+        };
         throw std::logic_error("Private repair has a residual local collision "+
-            std::to_string(contacts.front().first)+"/"+
-            std::to_string(contacts.front().second)+
+            describe(contacts.front().first)+" / "+
+            describe(contacts.front().second)+
             (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
+    }
 
     if(out.insertedFaces.empty())return;
     double h=std::numeric_limits<double>::infinity();
