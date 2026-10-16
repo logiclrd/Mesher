@@ -470,6 +470,28 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   torus closure additionally verifies Euler characteristic 0 -> 2.
   Fixed V13's tolerance-expanded coplanar edge clipping, which
   previously mistook lawful shared-vertex contact for penetration.
+- [x] **V16b — Atomic mirrored caps/zippers, shared X=0 seam, and stronger validation.**
+  RegionEdit now provides explicit reflected vertex/face addition, mirrored
+  replacement/removal, and exactly one self-mirrored X=0 seam vertex ID.
+  Paired-operation errors poison the private transaction rather than
+  risking publication of a half-reflected edit; commit checks mirror
+  mapping, symmetric vertex positions, face existence and reversed winding.
+  `applyMirroredRepairSurgery()` checks full vertex involution and
+  face/contour/closure reflection, refuses incomplete or ambiguous
+  symmetry, and builds mirrored cap pairs or matching zipper pairs.
+  For two rings reflecting into each other, the zipper is constructed
+  on BOTH sides of a SINGLE shared X=0 seam ring; no coincident duplicate
+  sheets. Long mirrored contour edges are subdivided in reflected pairs
+  together with both adjacent retained triangles, without T-junctions
+  or unpaired new vertices. Entire reflected isolated components can
+  be retired atomically. Both mirrored and ordinary private surgery
+  now verify all nearby surviving faces against the complete post-state
+  collision BVH and enforce bounded one-sided scar-to-excised-surface
+  deviation in *local* edge-length units. Over-budget or ambiguous
+  geometry fails privately. Tests cover reflected caps, mirrored zipper,
+  unequal edge density, x=0 unique seam IDs, mirrored full retirement,
+  negative mirror maps, local drift rejection, and multiple sequential
+  repairs preserving older immutable roots.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -482,16 +504,16 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16b:** implement paired symmetric topology
-  creation/removal in RegionEdit, including self-mirrored X=0 vertices,
-  reflected triangle winding and symmetrical cuts/caps/zippers; test
-  cross-plane operations. Independently validate complete repaired
-  geometry against all residual local intersections (not just
-  newly generated/modified triangles), enforce quantitative deviation
-  bounds and geometric feature preservation, cover nonplanar/concave
-  caps and more complex scars, and repeat standalone surgeries with
-  old-revision retention. Fail closed on unsupported geometries;
-  no repair is published on failure. V17 will own live integration.
+  seam atomically. **Remaining V16c robustness:** classify and
+  triangulate self-reflected individual contour rings, supported
+  X=0-crossing boundary subdivisions and multiple long edges on one
+  retained triangle, highly nonplanar or irregular scar loops, difficult
+  multicomponent collision cases and strict bidirectional geometric
+  fidelity (not merely one-sided new-to-deleted sample deviation).
+  Extend tests to cover local feature preservation under repeated
+  sculpt-like collisions and guaranteed fail-closed unsupported cases.
+  Arbitrary full sculpt-worker activation remains blocked until these
+  policies are explicit. V17 will own live integration.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
