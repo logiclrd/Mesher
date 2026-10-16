@@ -16,6 +16,13 @@ using Clock=std::chrono::steady_clock;
 double seconds(Clock::time_point a,Clock::time_point b) {
     return std::chrono::duration<double>(b-a).count();
 }
+std::size_t elementCount(const RegionTopologyIndex& index,bool vertices) {
+    std::size_t count=0;
+    index.revision().forEachPartition([&](PartitionId,const MeshPartition& p) {
+        count+=vertices?p.vertices.size():p.faces.size();
+    });
+    return count;
+}
 std::vector<std::pair<VertexId,VertexId>> makeMirrors(
     const FlatMeshIndex& order,std::size_t count,bool symmetric) {
     if(!symmetric)return {};
@@ -120,6 +127,28 @@ VersionedSculptBrush::VersionedSculptBrush(
                 makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
      partitionCapacity_(partitionCapacity),
      vertices_(initialCount),faces_(flatOrder_->faceIds.size()) {
+    if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
+    details_.vertices=vertices_;
+    details_.triangles=faces_;
+}
+
+VersionedSculptBrush::VersionedSculptBrush(
+    DurableCheckpoint recovered,double strength,CurvatureSettings curvature,
+    CollapseSettings collapse,RefineSettings refine,
+    std::size_t partitionCapacity)
+    :flatOrder_(std::make_shared<const FlatMeshIndex>()),
+     published_(recovered.index),
+     history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
+              elementCount(*recovered.index,true),
+              elementCount(*recovered.index,false)),
+     inflate_(strength,curvature,recovered.mirrorPairs),
+     refiner_(elementCount(*recovered.index,true),refine,
+              recovered.mirrorPairs,partitionCapacity),
+     collapser_(elementCount(*recovered.index,true),collapse,
+                recovered.mirrorPairs,partitionCapacity),
+     partitionCapacity_(partitionCapacity),
+     vertices_(elementCount(*recovered.index,true)),
+     faces_(elementCount(*recovered.index,false)) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
