@@ -1,5 +1,6 @@
 #include "mesher/repair_surgery.hpp"
 #include "../src/repair_surgery_detail.hpp"
+#include "../src/repair_plane_internal.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -419,6 +420,38 @@ void testNonplanarMultiContourStaysAmbiguous() {
     require(baseline->retiredFaceCount()==0,
             "Ambiguous multi-ring geometry never publishes surgery");
 }
+void testSymmetryPlaneClassificationFailsClosed() {
+    const auto check=mesher::detail::inspectPlaneContour;
+    {
+        const auto clean=check({{1,-1,0},{0,0,-1},{-1,-1,0},
+                                {0,0,1}},1);
+        require(clean.seamVertices==2&&clean.crossingEdges==0&&
+                clean.onPlaneEdges==0,
+                "Explicit seam endpoints are allowed for one self-mirrored cap");
+    }
+    {
+        const auto crossed=check({{1,0,0},{-1,1,0},{-1,0,1}},1);
+        require(crossed.crossingEdges==2&&crossed.seamVertices==0,
+                "An X=0 crossing without a topological vertex is detectable");
+    }
+    {
+        const auto crowded=check({{0,0,0},{1,0,0},{0,1,0},
+                                   {-1,0,0},{0,-1,0}},1);
+        require(crowded.seamVertices==3,
+                "A multi-contact self-reflected loop is rejected pending domain decomposition");
+    }
+    {
+        const auto along=check({{0,0,0},{0,1,0},{1,1,0},{1,0,0}},1);
+        require(along.onPlaneEdges==1,
+                "An edge lying on X=0 cannot be treated as two independent seams");
+    }
+    {
+        const auto uncertain=check({{1,0,0},{1e-12,1,0},
+                                    {1,0,1}},1);
+        require(uncertain.nearlyOnPlaneVertices==1,
+                "Near-zero coordinate is not silently treated as an exact shared seam ID");
+    }
+}
 void testSelfMirroredCapAcrossExistingSeam() {
     for(const double bend:{0.0,.04}) {
     Mesh oct;
@@ -602,6 +635,8 @@ int main() {
         testIsolatedIrregularAndWarpedCap();
         std::cout<<"Surgery fixture: ambiguous warped multiple loops"<<std::endl;
         testNonplanarMultiContourStaysAmbiguous();
+        std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
+        testSymmetryPlaneClassificationFailsClosed();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
