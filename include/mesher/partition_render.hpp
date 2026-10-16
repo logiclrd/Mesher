@@ -57,6 +57,10 @@ public:
     std::shared_ptr<const RegionTopologyIndex> revision() const noexcept {
         return revision_;
     }
+    // Shutdown path: hand the last retained cache root to the reaper.
+    std::shared_ptr<const RegionTopologyIndex> detachRevision() noexcept {
+        return std::move(revision_);
+    }
 private:
     std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>> partitions_;
     std::shared_ptr<const RegionTopologyIndex> revision_;
