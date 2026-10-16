@@ -59,7 +59,7 @@ void testPositiveNegativeAndOverlap() {
     const auto baseline=indexed(one);
     checkWinding(*baseline,{0,0,0},1);
     checkWinding(*baseline,{4,0,0},0);
-    check(!baseline->positiveWindingAt({0,0,0}).winding==false,
+    check(baseline->positiveWindingAt({0,0,0}).winding>0,
           "One solid has positive occupancy");
     const auto vertex=one.vertices[0];
     check(!baseline->positiveWindingAt(vertex).reliable,
