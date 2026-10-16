@@ -1516,3 +1516,54 @@ operations on both sides of X=0, strict residual collision checks
 beyond newly inserted surfaces, measured geometric fidelity bounds,
 general curved/nonplanar caps and complex repeated repairs.
 The current implementation must not be wired to the live brush.
+
+## V16b: Paired topology transactions and local geometric acceptance
+
+RegionEdit now exposes atomic symmetric topology primitives:
+`appendMirroredVertices(firstOwner,secondOwner,p)` adds two distinct
+off-X=0 vertices at reflected coordinates; `appendSeamVertex(owner,p)`
+adds exactly ONE self-reflected stable ID on X=0;
+`appendMirroredFaces()`, `removeMirroredFaces()`, and
+`removeMirroredVertices()` apply both sides of each paired topology
+change. `replaceMirroredFaces()` and moves retain their existing
+semantics. Commit checks that each changed face has a reflected
+partner with reverse winding, and each updated vertex has reflected
+position/existence. A failure mid-paired operation poisons the
+unpublished transaction so no half-paired state can commit.
+
+`applyMirroredRepairSurgery()` rechecks V15.1 plan and verifies
+the explicitly supplied vertex involution, the reflection of every
+removed face, the reflection mapping between contour sets, and
+closure-choice invariance. Each distinct mirrored cap pair generates
+one representative ear triangulation and its reflected counterpart.
+Each pair of independent mirrored zippers uses the ordinary bounded
+arc-length front algorithm with automatic reflected triangles.
+When two boundary rings directly reflect into each other, they
+instead connect through exactly ONE central X=0 seam ring; its
+vertices are shared (self-mirrored), with triangles inserted in
+properly oriented reflected pairs. There is no index-parity
+correspondence and no double seam. Long contour edges are split in
+mirrored pairs; both old retained neighboring faces are simultaneously
+retriangulated, avoiding hanging nodes and distortion. Unsupported
+self-reflected individual rings, edges that cross X=0 during
+subdivision, or cases with multiple split edges on one original
+triangle are refused, not silently repaired asymmetrically.
+
+For BOTH ordinary and mirrored paths, `validateSurgeryGeometry()`
+checks residual contacts involving ALL retained faces incident to
+the edit neighborhood, plus all newly introduced faces, against the
+complete PRIVATE post-repair indexed revision; no local collision
+may survive in that queried neighborhood. It also measures each
+new vertex and new face centroid against the nearest original
+excised triangle and rejects scar displacement beyond a configurable
+multiple of the median local contour edge length. This is a
+bounded, one-sided proximity test (not a bidirectional certified
+Hausdorff envelope). Validation work is explicitly limited by a
+maximum local-face budget. The returned revision has still NOT been
+published: the caller must use `publishIfCurrent()` separately.
+
+Sequential independent mirrored cuts, component retirement, and
+failure paths retain prior root identity, retire stable IDs without
+reuse and preserve manifold orientation. More difficult nonplanar
+closures, self-mirrored ring topology and bidirectional preservation
+proofs remain necessary for general live integration.
