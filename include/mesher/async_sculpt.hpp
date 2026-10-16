@@ -39,6 +39,10 @@ public:
         std::size_t publishedRevisions=0;
         std::size_t modifiedPartitions=0;
         std::size_t copiedDirectoryNodes=0;
+        std::size_t clonedPartitionBytes=0;
+        std::size_t liveRevisions=0;
+        std::size_t peakLiveRevisions=0;
+        double lastPublicationMs=0;
     };
     AsyncSculptWorker(Mesh initial, double step, double strength,
                       double timeSpeed, CurvatureSettings curvature,
