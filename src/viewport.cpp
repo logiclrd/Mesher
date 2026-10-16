@@ -540,7 +540,7 @@ class VulkanViewport {
     // allocations belonging to unchanged partitions remain entirely intact.
     void replaceBuffer(Buffer& buffer,const std::vector<Vertex>& vertices) {
         if(vertices.empty()) {
-            buffer.vertexCount=0;
+            retireGpuBuffer(buffer);
             return;
         }
         if(buffer.buffer==VK_NULL_HANDLE||vertices.size()>buffer.capacity) {
