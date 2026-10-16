@@ -133,6 +133,14 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
     writer.number(marks.nextVertex);
     writer.number(marks.nextFace);
     writer.number(marks.nextOverflow);
+    writer.number(snapshot.initialVertexCount?snapshot.initialVertexCount:
+        [&] {
+            std::size_t vertices=0;
+            index.revision().forEachPartition([&](PartitionId,const MeshPartition& p) {
+                vertices+=p.vertices.size();
+            });
+            return vertices;
+        }());
     writer.number(index.revision().partitionCount());
     writer.number(snapshot.mirrorPairs.size());
     writer.number(retiredVertices.size());
