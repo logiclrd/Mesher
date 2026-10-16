@@ -250,3 +250,34 @@ rather than testing only a theoretical closure decision. V16b
 quantitative geometric drift/feature preservation, more general
 nonplanar/concave surfaces, and repeated robust repair tests.
 None of this runs in the sculpt worker yet; that is V17.
+
+## V16b: Symmetric topology and bounded local post-repair checks
+
+All symmetry-related topology changes happen in one RegionEdit
+transaction. Reflected vertices and faces are paired by stable IDs;
+new shared vertices on X=0 have exactly one self-mirrored ID. A
+symmetric zipper joining two rings which reflect into one another
+uses a central seam ring in the plane X=0; its two halves share the
+same vertices and have reverse-reflected triangle winding, never
+two nearly coincident sheets. Paired planar caps, paired independent
+zippers and full symmetric shell removals use the same transaction
+rules. Reflected boundary edge subdivision also updates BOTH
+neighboring retained triangles before validating the new topology.
+Incomplete mirror maps or unsupported crossing/interleaved contour
+cases fail conservatively.
+
+Both the non-symmetric and symmetric surgery paths now verify all
+surviving faces in the local edit neighborhood (rather than only new
+scar faces) against the COMPLETE post-repair indexed revision.
+Every inserted vertex and triangle centroid is also checked for
+distance to the excised triangles, normalized by local median edge
+length; an explicit maximum bounds this one-sided drift, and a
+local collision face-count cap bounds the work. Neither guarantee
+is a mathematical bidirectional geometric fidelity certificate.
+
+The old revision remains immutable on all failures. The successful
+private RevisionCommit and index still require explicit atomic
+publication. V16c is needed for general self-reflecting contour
+rings, arbitrary seam-crossing subdivisions, robust nonplanar caps
+and bidirectional feature-fidelity guarantees. There is no live
+`Merge geometry` worker activation until V17.
