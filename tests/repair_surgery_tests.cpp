@@ -345,9 +345,9 @@ void testSelfMirroredCapAcrossExistingSeam() {
             "Original pole is retired once despite self-mirror mapping");
     require(euler(*base)==2&&euler(*scar.index)==2,
             "Symmetric single-ring cap preserves genus zero and orientable manifold");
-    require(scar.index->vertex(v[1]).incidentFaces.size()==3&&
-            scar.index->vertex(v[3]).incidentFaces.size()==3,
-            "Both existing X=0 seam endpoints remain single shared IDs");
+    require(scar.index->vertex(v[1]).incidentFaces.size()==4&&
+            scar.index->vertex(v[3]).incidentFaces.size()==4,
+            "Both existing X=0 seam endpoints have one continuous four-face fan");
     require(base->retiredFaceCount()==0&&
             scar.index->retiredFaceCount()==4,
             "Old revision remains unchanged after mirrored self-cap");
