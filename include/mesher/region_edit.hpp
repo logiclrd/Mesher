@@ -21,6 +21,7 @@ namespace mesher {
 // Initial import builds it once; subsequent RegionEdit commits update only
 // touched records and share all unchanged spatial/connectivity index nodes.
 // Publishing a new index root never scans the mesh.
+class RevisionPickingIndex;
 class RegionTopologyIndex {
 public:
     struct Vertex {
