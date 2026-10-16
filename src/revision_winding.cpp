@@ -83,6 +83,39 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
     WindingStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
+    // Detect a query ON the surface before counting crossings. A ray
+    // departing precisely from a mesh vertex can otherwise miss every
+    // triangle and incorrectly report a confident zero winding.
+    const double locationScale=std::max({1.0,std::abs(point.x),
+                                         std::abs(point.y),std::abs(point.z)});
+    const double locationEpsilon=
+        128*std::numeric_limits<double>::epsilon()*locationScale;
+    RevisionPickingIndex::Bounds tiny{
+        {point.x-locationEpsilon,point.y-locationEpsilon,
+         point.z-locationEpsilon},
+        {point.x+locationEpsilon,point.y+locationEpsilon,
+         point.z+locationEpsilon},true};
+    CollisionStatistics proximity;
+    bool onSurface=false;
+    picking_->forEachOverlappingTriangle(tiny,[&](
+        const RevisionPickingIndex::Triangle& face) {
+        if(onSurface)return;
+        const auto& tri=face.vertices;
+        const auto normal=cross(tri[1]-tri[0],tri[2]-tri[0]);
+        const double magnitude=length(normal);
+        if(magnitude<=0)return;
+        if(std::abs(dot(point-tri[0],normal))>
+           locationEpsilon*magnitude)return;
+        for(unsigned i=0;i<3;++i) {
+            const auto edge=tri[(i+1)%3]-tri[i];
+            if(dot(cross(edge,point-tri[i]),normal)<
+               -locationEpsilon*length(edge)*magnitude)return;
+        }
+        onSurface=true;
+    },proximity);
+    stats.boxesTested+=proximity.boxesTested;
+    stats.partitionsTested+=proximity.partitionsTested;
+    if(onSurface)return {0,false};
     const std::array<Vec3,3> directions{{
         normalized(Vec3{1,0.193117,0.527463}),
         normalized(Vec3{-0.327151,1,0.169281}),
