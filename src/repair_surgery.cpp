@@ -574,18 +574,117 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     }
     std::unordered_map<VertexId,Vec3> pos;
     for(const auto id:selected)pos.emplace(id,baseline->vertex(id).position);
+    // Refine the ORIGINAL contour edges in mirrored pairs, including
+    // their adjacent retained faces, before triangulating either closure.
+    // Directed additions are recorded for BOTH reflected ring traversals.
+    // Opposite mirrored face winding reverses the edge direction.
+    using DirectedEdge=std::pair<VertexId,VertexId>;
+    std::map<DirectedEdge,std::vector<VertexId>> insertedOnEdge;
+    std::set<FaceId> splitFaces;
+    std::vector<double> localTargets;
+    for(const auto& contour:checked.contours) {
+        const double h=medianEdge(*baseline,contour);
+        if(!(h>0)||!std::isfinite(h))
+            throw std::logic_error("Nonfinite mirrored boundary target density");
+        localTargets.push_back(h);
+    }
+    for(std::size_t k=0;k<checked.contours.size();++k) {
+        const auto& contour=checked.contours[k];
+        double h=localTargets[k];
+        for(const auto& pair:checked.pairs)
+            if(pair.first==k||pair.second==k)
+                h=std::min(localTargets[pair.first],
+                           localTargets[pair.second]);
+        for(std::size_t i=0;i<contour.vertexIds.size();++i) {
+            const auto a=contour.vertexIds[i];
+            const auto b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
+            if(insertedOnEdge.contains({a,b}))continue;
+            const auto p=pos.at(a),q=pos.at(b);
+            const double L=length(q-p);
+            if(L<=settings.maximumBoundaryEdgeFactor*h)continue;
+            const auto segments=static_cast<std::size_t>(std::ceil(
+                L/(settings.maximumBoundaryEdgeFactor*h)));
+            if(segments<=1)continue;
+            if(segments>settings.maxNewVertices/2+1||
+               out.insertedVertices.size()+2*(segments-1)>
+                   settings.maxNewVertices)
+                throw std::length_error("Mirrored boundary division exceeds vertex budget");
+            const auto source=contour.survivingFaces[i];
+            const auto twin=reflectFace(source);
+            if(source==twin||splitFaces.contains(source)||
+               splitFaces.contains(twin))
+                throw std::logic_error("Multiple mirrored splits within one retained face");
+            const auto tri=baseline->face(source).vertices;
+            VertexId third=0;
+            bool found=false;
+            for(unsigned j=0;j<3;++j)
+                if(tri[j]==a&&tri[(j+1)%3]==b) {
+                    third=tri[(j+2)%3];found=true;break;
+                }
+            if(!found)
+                throw std::logic_error("Mirrored boundary edge lost survivor orientation");
+            if(!pos.contains(third))
+                throw std::logic_error("Retained split vertex outside write halo");
+            const auto ownerA=baseline->face(source).owner;
+            const auto ownerB=baseline->face(twin).owner;
+            std::vector<VertexId> along{a},innerA,innerB;
+            for(std::size_t j=1;j<segments;++j) {
+                const auto point=p+(q-p)*(static_cast<double>(j)/segments);
+                if(point.x==0)
+                    throw std::logic_error("Boundary crosses X=0: needs self-seam split");
+                const auto made=edit.appendMirroredVertices(
+                    ownerA,ownerB,point);
+                pos.emplace(made.first,point);
+                pos.emplace(made.second,Vec3{-point.x,point.y,point.z});
+                mirrored.emplace(made.first,made.second);
+                mirrored.emplace(made.second,made.first);
+                out.insertedVertices.push_back(made.first);
+                out.insertedVertices.push_back(made.second);
+                along.push_back(made.first);
+                innerA.push_back(made.first);
+                innerB.push_back(made.second);
+            }
+            along.push_back(b);
+            edit.replaceMirroredFaces(source,twin,
+                                      {along[0],along[1],third});
+            for(std::size_t j=1;j<segments;++j) {
+                if(out.insertedFaces.size()+2>settings.maxNewFaces)
+                    throw std::length_error("Mirrored face subdivision exceeds budget");
+                const auto made=edit.appendMirroredFaces(
+                    ownerA,ownerB,{along[j],along[j+1],third});
+                out.insertedFaces.push_back(made.first);
+                out.insertedFaces.push_back(made.second);
+            }
+            insertedOnEdge.emplace(DirectedEdge{a,b},std::move(innerA));
+            std::reverse(innerB.begin(),innerB.end());
+            insertedOnEdge.emplace(DirectedEdge{opposite(b),opposite(a)},
+                                   std::move(innerB));
+            splitFaces.insert(source);
+            splitFaces.insert(twin);
+            out.splitBoundaryEdges+=2;
+        }
+    }
     std::vector<LocalLoop> loops;
     loops.reserve(checked.contours.size());
-    for(const auto& c:checked.contours) {
-        LocalLoop loop{c.vertexIds,medianEdge(*baseline,c)};
-        if(!(loop.target>0)||loop.ids.size()>settings.maxContourVertices)
-            throw std::logic_error("Unsupported reflected contour size");
-        for(std::size_t i=0;i<loop.ids.size();++i) {
-            const double edgeLength=length(pos.at(loop.ids[i])-
-                pos.at(loop.ids[(i+1)%loop.ids.size()]));
-            if(edgeLength>settings.maximumBoundaryEdgeFactor*loop.target)
-                throw std::logic_error("Mirror-aware subdivision required; reject unsupported scar");
+    for(std::size_t k=0;k<checked.contours.size();++k) {
+        const auto& contour=checked.contours[k];
+        LocalLoop loop;
+        loop.target=localTargets[k];
+        for(const auto& pair:checked.pairs)
+            if(pair.first==k||pair.second==k)
+                loop.target=std::min(localTargets[pair.first],
+                                     localTargets[pair.second]);
+        for(std::size_t i=0;i<contour.vertexIds.size();++i) {
+            const auto a=contour.vertexIds[i];
+            const auto b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
+            loop.ids.push_back(a);
+            const auto it=insertedOnEdge.find({a,b});
+            if(it!=insertedOnEdge.end())
+                loop.ids.insert(loop.ids.end(),it->second.begin(),
+                                it->second.end());
         }
+        if(loop.ids.size()>settings.maxContourVertices)
+            throw std::length_error("Refined mirrored contour exceeds budget");
         loops.push_back(std::move(loop));
     }
     // Identify reflection of entire directed rings by their SET of vertex
