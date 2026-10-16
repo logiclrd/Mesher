@@ -1033,3 +1033,67 @@ Async regression tests exercise exact input-stamp counts, geometry
 comparison against the established synchronous sampling path, retained
 immutable snapshots, nonblocking coalescing, enabled versioned remeshing,
 and compatibility conversion after local topology growth.
+
+## V9: Dirty-partition Vulkan drawing
+
+The interactive viewport no longer requires a flat `Mesh` conversion
+when a worker revision arrives. On startup only, it traverses the initial
+immutable revision to build `PartitionRenderCache` CPU geometry and paired
+Vulkan solid/wire buffers for every face-owning partition. Subsequent
+`ViewportMeshUpdate` values contain exactly the revision root and the
+union of dirty partition IDs since the previous *consumed* frame; the
+worker coalesces these deltas even when it skips intermediate visual
+revisions. The first mouse-down stamp is included explicitly because
+`BrushStroke::startTimed` executes it synchronously outside the usual
+pump method. Every queued 4D Step stamp is still processed by the worker.
+
+`VersionedSculptBrush` gathers moved vertex IDs, split-inserted and
+collapse-retired vertex IDs, pre-stamp affected face IDs and all
+replaced/inserted/deleted face IDs. `dirtyRenderPartitions` visits the
+before/after indexed incident-face and one-ring neighborhood, collecting
+face-owner partitions of triangles whose vertex positions, face winding,
+normal vectors or wire ownership might have changed. It does not scan
+the whole partition directory during stamp processing. The renderer
+rebuilds only named dirty partition geometry, reusing exact unchanged
+CPU geometry pointers and preserving all unrelated GPU allocations.
+
+Each triangle lives in its stable face-owner partition and carries
+the same flat triangle normal as the legacy renderer, even if its
+three vertices belong to other physical partitions. An undirected
+wire edge is drawn exactly once: its canonical owner is the incident
+face having the numerically smallest stable `FaceId`. Consequently
+cross-boundary edges are complete and nonduplicated even after flips,
+splits and collapses. The floor grid and HUD continue to use their
+existing separate buffers and shaders, while the synchronous demo
+retains its original flat-mesh renderer.
+
+Before replacing, mapping or destroying any dirty vertex buffer,
+the viewport waits on the existing one-in-flight graphics fence,
+ensuring that the last submitted draw is no longer accessing the
+old GPU memory. Empty/deleted partitions have their handles retired
+only after that fence. Swapchain resize still waits for device idle
+and then retains the existing partition allocations across recreation;
+shutdown waits for device idle before destroying all buffers. The
+current one-fence submission model is conservative rather than a
+general GPU resource retirement queue (planned V11).
+
+The viewport now uses `RegionTopologyIndex::firstRayHit` against
+the *displayed* revision, not a stale old flat mesh, to select stroke
+centers consistently with visible geometry. This is exact but still
+linear in face count until V10. Display logs report the updated
+partition count, rebuilt face count, byte footprint of dirty data
+and total update time. No full viewport flatten is performed on
+ordinary interactive updates. Per-frame draw submission still walks
+the retained GPU partition handle map, with one draw call per solid
+and wire partition; large-scale draw-call batching and retirement
+optimization are independent future work.
+
+The fifteenth CPU regression suite compares the incremental cache
+against independent full rebuilds after local vertex displacement,
+cross-partition splitting, directional collapsing and coalesced edits.
+It checks no duplicate or missing wire edges, dirty partition bounds,
+GPU-payload byte accounting and retained object identity for untouched
+partitions. CI compiles the full Vulkan application on GCC, Clang and
+MSVC, but does not execute GPU presentation in its headless jobs.
+Actual window resizing, rapid input and driver lifetime behavior
+must additionally be checked interactively on real hardware.
