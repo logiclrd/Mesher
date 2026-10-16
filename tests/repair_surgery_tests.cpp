@@ -227,6 +227,10 @@ void testMirroredZipperUsesOnePlaneSeam() {
     require(surgery.index->triangleIntersections(
         {},surgery.insertedFaces).empty(),
         "Mirrored scar contains no false crossing or overlap");
+    require(surgery.verifiedLocalFaces>surgery.insertedFaces.size()&&
+            surgery.maximumSurfaceDeviationInEdges<
+                RepairSurgerySettings{}.maximumSurfaceDeviationInEdges,
+            "Mirrored surgery verifies surviving local geometry and reports bounded drift");
     require(original->pickingRootIdentity()==before&&
             original->retiredFaceCount()==0,
             "Mirrored private edit leaves renderer's old root intact");
@@ -264,6 +268,55 @@ void testMirroredRejectsIncompleteMapping() {
             "Failed symmetric operation has no published topology");
 }
 
+void testMirroredWholeComponentRetirement() {
+    const auto test=reflectedCubes(3.0);
+    const auto base=RegionTopologyIndex::build(test.import.revision);
+    const auto all=test.import.flatIndex.faceIds;
+    const auto plan=planRemovalContours(*base,all);
+    require(plan.ready()&&plan.contours.empty(),
+            "Two entire reflected closed shells need no repair seam");
+    const auto result=applyMirroredRepairSurgery(base,plan,test.mirrors);
+    require(result.insertedFaces.empty()&&
+            result.retiredFaces.size()==24&&
+            result.retiredVertices.size()==16,
+            "Both removed reflected components retire their identities");
+    require(result.index->retiredVertexCount()==16&&
+            result.index->retiredFaceCount()==24,
+            "Atomic symmetric tombstones remain in the private index");
+    require(base->retiredVertexCount()==0&&base->retiredFaceCount()==0,
+            "Old two-component snapshot remains intact");
+}
+void testGeometricValidationBudgets() {
+    Mesh m;
+    cube(m,{-1.1,0,0},1);
+    cube(m,{1.1,0,0},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    const auto& f=imported.flatIndex.faceIds;
+    const auto plan=planRemovalContours(*base,
+        {f[10],f[11],f[20],f[21]});
+    require(plan.ready()&&plan.pairs.size()==1,
+            "Drift budget uses the nearby zipper fixture");
+    const auto standard=applyRepairSurgery(base,plan);
+    require(standard.verifiedLocalFaces>standard.insertedFaces.size(),
+            "Residual validator checks surviving faces beyond inserted scar");
+    require(standard.maximumSurfaceDeviationInEdges>0,
+            "Cross-gap zipper has measurable deviation from removed geometry");
+    auto strict=RepairSurgerySettings{};
+    strict.maximumSurfaceDeviationInEdges=.001;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(base,plan,strict);}
+    catch(const std::exception&) {rejected=true;}
+    require(rejected,"Too-strict quantitative drift budget refuses surgery");
+    strict={};
+    strict.maxResidualFaces=1;
+    rejected=false;
+    try {(void)applyRepairSurgery(base,plan,strict);}
+    catch(const std::exception&) {rejected=true;}
+    require(rejected,"Bounded local collision verification rejects over-budget neighborhood");
+    require(base->retiredFaceCount()==0,
+            "Both geometric validation refusals leave original immutable revision intact");
+}
 void testRejectionIsTransactional() {
     Mesh m;
     const auto left=prism(m,-2,0,square(1));
@@ -309,6 +362,10 @@ int main() {
         testMirroredIndependentCaps();
         std::cout<<"Surgery fixture: mirrored refusal"<<std::endl;
         testMirroredRejectsIncompleteMapping();
+        std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
+        testMirroredWholeComponentRetirement();
+        std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
+        testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: rejection"<<std::endl;
         testRejectionIsTransactional();
         std::cout<<"Private transactional cap/zipper surgery regression passed\n";
