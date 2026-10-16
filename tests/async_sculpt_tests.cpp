@@ -2,6 +2,7 @@
 #include "mesher/partition_render.hpp"
 
 #include <chrono>
+#include <filesystem>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -248,6 +249,84 @@ void testViewportAdapterAfterStableIdSplit() {
     require(stats.vertices==7&&stats.triangles==10,
             "Flatten diagnostics reflect dynamically changed topology");
 }
+void testWorkerHistoryAndRecoveredCheckpoint() {
+    auto initial=generateSphere(SphereOptions{500,true,7,6});
+    const auto file=std::filesystem::temp_directory_path()/
+        ("mesher-worker-v12-"+std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count())+".mshr");
+    try {
+        std::shared_ptr<const RegionTopologyIndex> published;
+        std::shared_ptr<const RegionTopologyIndex> original;
+        {
+            AsyncSculptWorker worker(initial,.025,.006,.2,{true,.25},{},{},true);
+            original=worker.initialRevision();
+            const Vec3 point{-.2,-.65,.72};
+            worker.begin(point,.3);
+            worker.end(point,0);
+            const auto limit=std::chrono::steady_clock::now()+
+                             std::chrono::seconds(12);
+            while(!worker.canBegin()&&std::chrono::steady_clock::now()<limit)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            require(worker.canBegin(),"One-stamp worker completes before undo");
+            auto saved=worker.takeSnapshot();
+            require(saved&&saved->index&&saved->index!=original,
+                    "Changed stamp publishes a distinct current root");
+            published=saved->index;
+            worker.undo();
+            auto undoLimit=std::chrono::steady_clock::now()+
+                           std::chrono::seconds(12);
+            while(worker.status().history.redoDepth==0&&
+                  std::chrono::steady_clock::now()<undoLimit)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            auto undone=worker.takeSnapshot();
+            require(undone&&undone->index==original,
+                    "Ctrl+Z worker command publishes exact old immutable root");
+            worker.redo();
+            auto redoLimit=std::chrono::steady_clock::now()+
+                           std::chrono::seconds(12);
+            while(worker.status().history.redoDepth!=0&&
+                  std::chrono::steady_clock::now()<redoLimit)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            auto restored=worker.takeSnapshot();
+            require(restored&&restored->index==published,
+                    "Ctrl+Y reuses original persistent root without rebuilding");
+            require(!restored->dirtyPartitions.empty(),
+                    "Undo/redo publish existing partition deltas to GPU mailbox");
+            worker.saveCheckpoint(file);
+            auto fileLimit=std::chrono::steady_clock::now()+
+                           std::chrono::seconds(12);
+            while(worker.checkpointStatistics().completed==0&&
+                  std::chrono::steady_clock::now()<fileLimit)
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            require(worker.checkpointStatistics().completed>0,
+                    "Asynchronous Ctrl+S checkpoint writes without blocking stamps");
+        }
+        auto recovered=readCheckpoint(file);
+        require(recovered.index->revision().partitionCount()==
+                published->revision().partitionCount()&&
+                !recovered.mirrorPairs.empty(),
+                "Reload preserves partitioned geometry and symmetry pairs");
+        AsyncSculptWorker resumed(std::move(recovered),.025,.006,.2,
+                                  {true,.25},{},{});
+        resumed.begin({-.25,-.65,.70},.3);
+        resumed.end({-.25,-.65,.70},0);
+        const auto limit=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(12);
+        while(!resumed.canBegin()&&std::chrono::steady_clock::now()<limit)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(resumed.canBegin()&&resumed.status().completedStamps>=1,
+                "Restored checkpoint resumes interactive worker with exact Step");
+        auto next=resumed.takeSnapshot();
+        require(next&&next->index,
+                "Recovered worker publishes new immutable mesh revisions");
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(file,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(file,ec);
+}
 void testVersionedWorkerWithRemeshingEnabled() {
     SphereOptions options;
     options.vertexCount=500;
@@ -297,6 +376,7 @@ int main() {
         testWorkerCanRestartAndCancel();
         testCoalescedRootsAndCompatibilityBridge();
         testViewportAdapterAfterStableIdSplit();
+        testWorkerHistoryAndRecoveredCheckpoint();
         testVersionedWorkerWithRemeshingEnabled();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
