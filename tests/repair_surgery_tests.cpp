@@ -268,6 +268,42 @@ void testMirroredRejectsIncompleteMapping() {
             "Failed symmetric operation has no published topology");
 }
 
+void testMirroredUnevenBoundarySubdivision() {
+    Mesh m;
+    const auto cut=prism(m,-2.1,-.1,unevenSquare(1));
+    const auto vertexCount=static_cast<std::uint32_t>(m.vertices.size());
+    const auto faceCount=static_cast<std::uint32_t>(m.triangles.size());
+    for(std::uint32_t i=0;i<vertexCount;++i) {
+        const auto p=m.vertices[i];
+        m.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(std::uint32_t i=0;i<faceCount;++i) {
+        const auto f=m.triangles[i];
+        m.triangles.push_back({f.a+vertexCount,
+                               f.c+vertexCount,f.b+vertexCount});
+    }
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    for(std::uint32_t i=0;i<vertexCount;++i)
+        mirrors.push_back({imported.flatIndex.vertexIds[i],
+                           imported.flatIndex.vertexIds[i+vertexCount]});
+    auto red=capIds(imported,cut,false);
+    for(std::size_t i=0;i<cut.count;++i)
+        red.push_back(imported.flatIndex.faceIds[faceCount+cut.right+i]);
+    const auto plan=planRemovalContours(*base,red);
+    require(plan.ready()&&plan.pairs.size()==1,
+            "Uneven reflected contour still selects central zipper");
+    const auto result=applyMirroredRepairSurgery(base,plan,mirrors);
+    require(result.splitBoundaryEdges>0&&
+            result.insertedVertices.size()>cut.count,
+            "Mirrored long-edge split creates paired vertices and shared plane scar");
+    require(euler(*base)==4&&euler(*result.index)==2,
+            "Symmetric unequal boundary density stays a closed two-manifold");
+    require(result.index->triangleIntersections(
+        {},result.insertedFaces).empty(),
+        "Mirrored boundary subdivision does not create crossing triangles");
+}
 void testMirroredWholeComponentRetirement() {
     const auto test=reflectedCubes(3.0);
     const auto base=RegionTopologyIndex::build(test.import.revision);
@@ -362,6 +398,8 @@ int main() {
         testMirroredIndependentCaps();
         std::cout<<"Surgery fixture: mirrored refusal"<<std::endl;
         testMirroredRejectsIncompleteMapping();
+        std::cout<<"Surgery fixture: mirrored uneven boundary"<<std::endl;
+        testMirroredUnevenBoundarySubdivision();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
         testMirroredWholeComponentRetirement();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
