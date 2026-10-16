@@ -996,3 +996,40 @@ nonmanifold or open scans, global topology validation during each stamp,
 or deterministic equality of every legacy sequence despite differences
 in stable-ID ordering and local candidate restriction. Those are distinct
 contracts and must not be inferred from closed-manifold local tests.
+
+## V8: Asynchronous publication of immutable indexed mesh revisions
+
+The interactive worker now calls `VersionedSculptBrush`, which performs
+V5 Inflate, V6 splitting/flipping and V7 collapse within its dedicated
+thread. It reuses the unchanged `BrushStroke` queue and 4D Step sampler:
+each mouse-down, pending arc-length sample, stationary time sample and
+terminal position is processed once, independent of rendering frequency.
+The BrushStroke's `Mesh` parameter is an empty placeholder; no mutable
+whole-mesh geometry is passed through that interface.
+
+A complete stamp uses one immutable pre-edit baseline for all stages.
+Newly inserted mirror pairs reach the collapser before its pass, and
+deleted mirror pairs are removed from Inflate/Refinement afterward.
+The worker atomically publishes only the resulting complete mesh/index
+pair through `IndexedMeshRepository`. Intermediate operations remain
+private. Publication and the coalesced snapshot mailbox exchange
+shared immutable root pointers, not copied vertex or triangle arrays.
+Unconsumed visual revisions may be coalesced, but sampled stamps are
+never skipped and readers can retain previous roots safely.
+
+The Vulkan renderer still consumes flat `Mesh` geometry. V8's explicit
+`flattenRevisionForViewport` adapter runs only on the viewport's
+snapshot-consumption path, never during worker stamp/publication.
+It traverses the chosen immutable revision, retains the original flat
+ordering for surviving imported IDs and appends new elements in ascending
+stable-ID order, while remapping triangle indices. The adapter measures
+`viewport_flatten_ms` and `viewport_flatten_bytes`; worker status
+also tracks cumulative edited partitions, directory-node copies and
+published revisions. The remaining full-mesh conversion and Vulkan
+buffer upload are intentional V9 costs, and UI frames can still stall
+on large meshes. V11 will improve old-root reclamation and stress metrics.
+
+Async regression tests exercise exact input-stamp counts, geometry
+comparison against the established synchronous sampling path, retained
+immutable snapshots, nonblocking coalescing, enabled versioned remeshing,
+and compatibility conversion after local topology growth.
