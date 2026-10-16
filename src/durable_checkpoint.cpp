@@ -101,7 +101,7 @@ void durableDirectory(const std::filesystem::path& path) {
 void validateMirrors(const std::vector<std::pair<VertexId,VertexId>>& pairs,
                      const RegionTopologyIndex& index) {
     std::unordered_map<VertexId,VertexId> seen;
-    for(const auto [a,b]:pairs) {
+    for(const auto& [a,b]:pairs) {
         if(!a||!b||!index.maybeVertex(a)||!index.maybeVertex(b))
             throw std::invalid_argument("Checkpoint mirror refers to deleted vertex");
         const auto i=seen.find(a),j=seen.find(b);
@@ -141,7 +141,7 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
                 for(const auto vertex:face.vertices)writer.number(vertex);
             }
         });
-    for(const auto [a,b]:snapshot.mirrorPairs) {
+    for(const auto& [a,b]:snapshot.mirrorPairs) {
         writer.number(a);
         writer.number(b);
     }
