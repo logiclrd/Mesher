@@ -48,7 +48,7 @@ struct RepairPlanSettings {
     // only; multi-contour frustum selection retains the strict bounds.
     // Actual triangulation, orientation, manifoldness and collisions
     // remain independently validated by the V16 private transaction.
-    double maximumSingleCapPlanarityInRadii=0.65;
+    double maximumSingleCapPlanarityInRadii=0.75;
     double maximumSingleCapIsoperimetricRatio=3.0;
     double minimumNormalAlignment=0.85;
 };
