@@ -74,4 +74,25 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     const RepairSurgerySettings& settings={});
 
 
+// Normalize one self-reflected edge which crosses X=0 and is bounded by
+// exactly two self-reflected triangles. Both triangles are split against
+// the SAME newly inserted, self-mirrored seam vertex. The operation
+// returns a validated, still-unpublished private revision; it does not
+// attempt the later cap/zipper excision or publish a worker Step.
+// General plane crossings through unpaired faces and multi-contact
+// contours remain unsupported and fail closed.
+struct PlaneCrossingNormalization {
+    std::shared_ptr<const RegionTopologyIndex> index;
+    RevisionCommit commit;
+    VertexId seamVertex{};
+    std::array<FaceId,2> insertedFaces{};
+    std::array<FaceId,2> preservedFaces{};
+};
+PlaneCrossingNormalization normalizeSelfMirroredPlaneEdge(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    VertexId first,VertexId second,
+    const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
+    std::size_t partitionCapacity=256);
+
+
 } // namespace mesher
