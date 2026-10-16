@@ -32,6 +32,9 @@ struct MeshPartition {
     std::vector<PartitionVertex> vertices;
     std::vector<PartitionFace> faces;
 };
+struct MeshIdentityWatermarks {
+    std::uint64_t nextVertex{1},nextFace{1},nextOverflow{1};
+};
 
 class MutableMeshView;
 class MeshIdentityDomain;
