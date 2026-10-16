@@ -304,6 +304,40 @@ void testMirroredUnevenBoundarySubdivision() {
         {},result.insertedFaces).empty(),
         "Mirrored boundary subdivision does not create crossing triangles");
 }
+void testSelfMirroredCapAcrossExistingSeam() {
+    Mesh oct;
+    oct.vertices={{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                  {0,0,1},{0,0,-1}};
+    oct.triangles={{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                   {5,1,0},{5,2,1},{5,3,2},{5,0,3}};
+    const auto imp=partitionFlatMesh(oct,1);
+    const auto base=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const auto& faces=imp.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirrors={
+        {v[0],v[2]},{v[1],v[1]},{v[3],v[3]},
+        {v[4],v[4]},{v[5],v[5]}};
+    const auto plan=planRemovalContours(*base,
+        {faces[0],faces[1],faces[2],faces[3]});
+    require(plan.ready()&&plan.cappedContours.size()==1&&
+            plan.contours.size()==1,
+            "Symmetric upper octahedron removal has a single self-reflected rim");
+    const auto scar=applyMirroredRepairSurgery(base,plan,mirrors);
+    require(scar.capFaces==2&&scar.zipperFaces==0&&
+            scar.insertedVertices.empty(),
+            "Single self-reflected cap creates exactly two shared-chord triangles");
+    require(scar.retiredVertices.size()==1&&
+            scar.retiredVertices.front()==v[4],
+            "Original pole is retired once despite self-mirror mapping");
+    require(euler(*base)==2&&euler(*scar.index)==2,
+            "Symmetric single-ring cap preserves genus zero and orientable manifold");
+    require(scar.index->vertex(v[1]).incidentFaces.size()==3&&
+            scar.index->vertex(v[3]).incidentFaces.size()==3,
+            "Both existing X=0 seam endpoints remain single shared IDs");
+    require(base->retiredFaceCount()==0&&
+            scar.index->retiredFaceCount()==4,
+            "Old revision remains unchanged after mirrored self-cap");
+}
 void testMirroredWholeComponentRetirement() {
     const auto test=reflectedCubes(3.0);
     const auto base=RegionTopologyIndex::build(test.import.revision);
@@ -445,6 +479,8 @@ int main() {
         testMirroredRejectsIncompleteMapping();
         std::cout<<"Surgery fixture: mirrored uneven boundary"<<std::endl;
         testMirroredUnevenBoundarySubdivision();
+        std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
+        testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
         testMirroredWholeComponentRetirement();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
