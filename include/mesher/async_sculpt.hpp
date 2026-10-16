@@ -24,6 +24,7 @@ public:
         std::shared_ptr<const RegionTopologyIndex> index;
         std::shared_ptr<const FlatMeshIndex> originalOrder;
         std::size_t completedStamps=0;
+        std::vector<PartitionId> dirtyPartitions;
     };
     struct Status {
         std::size_t completedStamps=0;
