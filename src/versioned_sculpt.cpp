@@ -143,11 +143,15 @@ VersionedSculptBrush::VersionedSculptBrush(
               elementCount(*recovered.index,true),
               elementCount(*recovered.index,false)),
      inflate_(strength,curvature,recovered.mirrorPairs),
-     refiner_(elementCount(*recovered.index,true),refine,
+     refiner_(recovered.initialVertexCount?recovered.initialVertexCount:
+              elementCount(*recovered.index,true),refine,
               recovered.mirrorPairs,partitionCapacity),
-     collapser_(elementCount(*recovered.index,true),collapse,
+     collapser_(recovered.initialVertexCount?recovered.initialVertexCount:
+                elementCount(*recovered.index,true),collapse,
                 recovered.mirrorPairs,partitionCapacity),
      partitionCapacity_(partitionCapacity),
+     initialVertexCount_(recovered.initialVertexCount?recovered.initialVertexCount:
+                         elementCount(*recovered.index,true)),
      vertices_(elementCount(*recovered.index,true)),
      faces_(elementCount(*recovered.index,false)) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
