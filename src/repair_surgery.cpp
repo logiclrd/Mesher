@@ -502,6 +502,16 @@ RepairSurgeryResult applyMirroredRepairSurgery(
     const RepairSurgerySettings& settings) {
     if(!baseline||!proposed.ready()||vertexMirrors.empty())
         throw std::invalid_argument("Mirrored surgery requires ready plan and mirror pairs");
+    if(settings.partitionCapacity==0||settings.maxNewFaces==0||
+       settings.maxNewVertices==0||settings.maxContourVertices<3||
+       !std::isfinite(settings.maximumBoundaryEdgeFactor)||
+       settings.maximumBoundaryEdgeFactor<=1||
+       !std::isfinite(settings.maximumNewEdgeFactor)||
+       settings.maximumNewEdgeFactor<=1||
+       !std::isfinite(settings.minimumTriangleQuality)||
+       settings.minimumTriangleQuality<=0||
+       settings.minimumTriangleQuality>=1)
+        throw std::invalid_argument("Invalid mirrored surgery work/quality limits");
     const auto checked=planRemovalContours(*baseline,proposed.removedFaces,
                                            settings.planning);
     if(!checked.ready()||checked.removedFaces!=proposed.removedFaces||
@@ -792,8 +802,16 @@ RepairSurgeryResult applyMirroredRepairSurgery(
             for(std::size_t i=0;i<seam.size();++i) {
                 const auto next=(i+1)%seam.size();
                 const auto v=loops[a].ids[i],w=loops[a].ids[next];
-                append(owner(a),owner(b),{w,v,seam[i]},false);
-                append(owner(a),owner(b),{w,seam[i],seam[next]},false);
+                const auto safeStrip=[&](std::array<VertexId,3> triangle) {
+                    const auto pa=pos.at(triangle[0]),pb=pos.at(triangle[1]),
+                               pc=pos.at(triangle[2]);
+                    if(maxEdge(pa,pb,pc)>settings.maximumNewEdgeFactor*
+                       std::min(loops[a].target,loops[b].target))
+                        throw std::logic_error("Mirrored seam triangle exceeds local edge density");
+                    append(owner(a),owner(b),triangle,false);
+                };
+                safeStrip({w,v,seam[i]});
+                safeStrip({w,seam[i],seam[next]});
             }
         }else {
             if(ra==a||rb==b||ra==b||rb==a)
