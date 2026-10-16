@@ -1,11 +1,13 @@
 #include "mesher/region_edit.hpp"
 #include "mesher/revision_picking.hpp"
+#include "mesher/triangle_collision.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <deque>
 #include <limits>
+#include <set>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -375,6 +377,69 @@ std::optional<Vec3> RegionTopologyIndex::firstRayHit(
 }
 const void* RegionTopologyIndex::pickingRootIdentity() const noexcept {
     return picking_->identity();
+}
+
+std::vector<RegionTopologyIndex::CollisionPair>
+RegionTopologyIndex::triangleIntersections(
+    const std::vector<VertexId>& changedVertices,
+    const std::vector<FaceId>& changedFaces,
+    CollisionStatistics* measured) const {
+    CollisionStatistics local{};
+    auto& stats=measured?*measured:local;
+    stats={};
+    std::set<FaceId> affected;
+    for(const auto id:changedVertices) {
+        const auto v=maybeVertex(id);
+        if(!v) {
+            if(retiredVertex(id))continue;
+            throw std::out_of_range("Unknown collision-query vertex ID");
+        }
+        affected.insert(v->incidentFaces.begin(),v->incidentFaces.end());
+    }
+    for(const auto id:changedFaces) {
+        if(retiredFace(id))continue;
+        (void)face(id);
+        affected.insert(id);
+    }
+    stats.seedFaces=affected.size();
+    std::set<std::pair<FaceId,FaceId>> visited;
+    std::vector<CollisionPair> found;
+    for(const auto id:affected) {
+        const auto& record=face(id);
+        std::array<Vec3,3> points{};
+        RevisionPickingIndex::Bounds bounds{};
+        for(unsigned i=0;i<3;++i) {
+            const auto p=vertex(record.vertices[i]).position;
+            points[i]=p;
+            if(!bounds.valid) {
+                bounds.low=bounds.high=p;
+                bounds.valid=true;
+            }else {
+                bounds.low.x=std::min(bounds.low.x,p.x);
+                bounds.low.y=std::min(bounds.low.y,p.y);
+                bounds.low.z=std::min(bounds.low.z,p.z);
+                bounds.high.x=std::max(bounds.high.x,p.x);
+                bounds.high.y=std::max(bounds.high.y,p.y);
+                bounds.high.z=std::max(bounds.high.z,p.z);
+            }
+        }
+        picking_->forEachOverlappingTriangle(bounds,[&](
+            const RevisionPickingIndex::Triangle& candidate) {
+            if(candidate.id==id)return;
+            const auto key=std::minmax(id,candidate.id);
+            if(!visited.emplace(key.first,key.second).second)return;
+            ++stats.narrowPhaseTests;
+            const auto kind=triangleContact(points,record.vertices,
+                                            candidate.vertices,
+                                            face(candidate.id).vertices);
+            if(kind==TriangleContact::Intersecting||
+               kind==TriangleContact::Ambiguous)
+                found.push_back({key.first,key.second,
+                                 kind==TriangleContact::Ambiguous});
+        },stats);
+    }
+    std::sort(found.begin(),found.end());
+    return found;
 }
 
 
