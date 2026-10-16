@@ -121,6 +121,8 @@ void testCheckpointRoundTripAndRecovery() {
         const auto snapshot=DurableCheckpoint{collapsed.index,{},6};
         writeCheckpoint(file,snapshot);
         auto restored=readCheckpoint(file);
+        check(restored.initialVertexCount==6,
+              "Checkpoint preserves original remeshing reference density");
         check(restored.index->retiredVertex(b)&&
               restored.index->retiredFaceCount()==2,
               "Checkpoint recovers persistent vertex and face tombstones");
