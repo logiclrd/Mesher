@@ -113,7 +113,16 @@ std::set<std::pair<FaceId,FaceId>> indexedPairs(
 void testSimultaneouslyMovingSolids() {
     Mesh mesh;
     addTetrahedron(mesh,{-2,0,0},.5);
-    addTetrahedron(mesh,{2,0,0},.5);
+    // Construct the second closed solid by exact X=0 reflection, with
+    // opposite triangle winding and stable original-order mirror pairs.
+    for(unsigned i=0;i<4;++i) {
+        const auto p=mesh.vertices[i];
+        mesh.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(unsigned i=0;i<4;++i) {
+        const auto face=mesh.triangles[i];
+        mesh.triangles.push_back({face.a+4,face.c+4,face.b+4});
+    }
     const auto imported=partitionFlatMesh(mesh,1);
     const auto initial=RegionTopologyIndex::build(imported.revision);
     check(allPairs(*initial).empty(),"Two separate closed tetrahedra start valid");
@@ -127,6 +136,12 @@ void testSimultaneouslyMovingSolids() {
     }
     (void)edit.commit();
     const auto proposed=edit.updatedIndex();
+    for(unsigned i=0;i<4;++i) {
+        const auto left=proposed->vertex(both[i]).position;
+        const auto right=proposed->vertex(both[i+4]).position;
+        check(left.x==-right.x&&left.y==right.y&&left.z==right.z,
+              "Simultaneously moved surfaces preserve exact reflection");
+    }
     check(proposed->updateStatistics().fullMeshTraversals==0,
           "Simultaneous movement does not perform a full index traversal");
     RegionTopologyIndex::CollisionStatistics stats;
