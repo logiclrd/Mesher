@@ -77,6 +77,7 @@ private:
     VersionedLocalRefiner refiner_;
     VersionedDirectionalCollapser collapser_;
     std::size_t partitionCapacity_;
+    std::size_t initialVertexCount_{};
     std::size_t vertices_{},faces_{};
     std::size_t completed_{},publishedRevisions_{};
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
