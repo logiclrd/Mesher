@@ -158,8 +158,18 @@ RepairPlan selectRepairClosures(const RegionTopologyIndex& index,
                         "More than 16 closure rings");
     std::vector<RingGeometry> geometry(n);
     std::vector<std::vector<Vec3>> points(n);
+    RepairPlanSettings ringBounds=settings;
+    if(n==1) {
+        // With only one contour there is no annular partner and no
+        // frustum choice. A nonplanar but simple disk can be tested by
+        // the real ear clip and post-state intersection validator.
+        ringBounds.maximumPlanarityInRadii=
+            settings.maximumSingleCapPlanarityInRadii;
+        ringBounds.maximumIsoperimetricRatio=
+            settings.maximumSingleCapIsoperimetricRatio;
+    }
     for(std::size_t i=0;i<n;++i) {
-        if(!ringGeometry(index,plan.contours[i],settings,geometry[i]))
+        if(!ringGeometry(index,plan.contours[i],ringBounds,geometry[i]))
             return fail(std::move(plan),RepairPlanStatus::AmbiguousClosure,
                         "Contour nonplanar, degenerate or too elongated for fast area estimate");
         points[i]=resample(index,plan.contours[i]);
