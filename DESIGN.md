@@ -1321,3 +1321,23 @@ genuine worker undo/redo followed by a checkpoint and a resumed stamp.
 These tests do not constitute an on-device Vulkan validation of
 keyboard shortcuts, crashes during rename or power-loss survival;
 those require real OS/GPU exercise and should be explicitly tested.
+
+
+## Proposed collision-management direction after V12
+
+The new [Sculpt collision and topology repair design](docs/SCULPT_COLLISION_REPAIR.md)
+captures the post-V12 discussion of self-intersection detection, positive-
+winding occupancy evaluated against **simultaneously deformed proposed
+geometry**, approximate density-aware boundary excision/zipper stitching,
+and distinct per-tool `Merge geometry` On/Off modes. It explains why
+the two intersecting original surfaces in the reference cross-section
+continue smoothly through both crossings; the buried red portions are
+opposite arcs from their visually corresponding blue extensions.
+Neither exact intersection Boolean reconstruction nor full continuous
+collision detection is required for the initial interactive approach.
+A geometric error budget, repeat-edit drift controls, robust seam
+validation, uncertainty reporting and atomic revision publication are
+required instead.
+
+The associated [V13-V19 task breakdown](todo.md#self-intersection-aware-sculpting-proposed-v13v19)
+is **proposed and unchecked**. V12 remains the newest implemented stage.

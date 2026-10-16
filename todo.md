@@ -338,6 +338,102 @@ an older revision while the worker edits or publishes a newer one.
   root history, reversible mirror deltas, asynchronous stable-ID checkpointing
   and full recovery. Further painting/import/render ergonomics remain open.
 
+
+## Self-intersection-aware sculpting (proposed V13–V19)
+
+**Design:** [Sculpt collision and topology repair](docs/SCULPT_COLLISION_REPAIR.md).
+The agreed model is positive winding (`w > 0`) on the **complete
+post-deformation candidate revision**, not on the pre-stamp revision and not
+the odd/even or generic nonzero winding rule. A two-sheet crossing removes
+the buried parts of **both original smooth surfaces**; density-aware
+ladder/zipper seams connect the surviving boundary contours, not an
+arbitrary bridge across the enclosed red region. See the design note for
+the exact upper/lower red-arc correspondence in the reference drawing.
+The live V12 path remains unchanged until a later integration milestone.
+
+Each task below is independently testable/mergeable, with no incomplete
+topology published, no dropped 4D Steps, old roots immutable, stable IDs
+never reused, symmetry seam shared, brush radius/density independent,
+existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
+
+- [ ] **V13 — Immutable post-state triangle proximity/intersection queries.**
+  Extend revision-specific partition BVHs with triangle-AABB candidate
+  queries and robust triangle-triangle static overlap tests. Given a
+  private proposed revision plus changed face IDs, find changed/changed
+  and changed/unchanged intersections within the *new* revision, including
+  topologically distant partitions and simultaneous symmetric movement.
+  Deduplicate pair IDs; distinguish legitimate adjacent contacts from
+  improper overlaps and cover coplanar/tangent/near-degenerate cases.
+  Compare against exhaustive test fixtures. CPU-only API/tests, no live
+  geometry modification; assert bounded normal-case index work and retain
+  previous revision pointer identity.
+- [ ] **V14 — Positive-winding solid and fragment classification.**
+  Add reference-accurate signed winding/occupancy evaluation on whole
+  *candidate* geometry and accelerated local queries; verify 0 vs 1,
+  1 vs 2, and negative-winding regions. Classify exposed vs buried
+  portions on both sides of crossing triangles without assuming each
+  whole triangle has one classification. Identify fully redundant
+  isolated internal components; explicitly flag ambiguous intentional
+  cavities instead of silently deleting them. Unit-test both-sheets-
+  moved, X=0 symmetry, original smooth surface continuation and
+  uncertainty handling. No destructive topology changes.
+- [ ] **V15 — Local approximate excision and boundary pairing plan.**
+  Given V13/14 outputs, generate a private plan selecting removable faces
+  and surviving contours at current **local** density (not brush-radius
+  density); preserve as many existing vertices and fine details as
+  possible. Pair matching boundaries, orientations and seam sides for
+  simple and multi-loop intersections; handle/diagnose ambiguous or
+  unpairable junctions. Bound estimated geometric deviation, size and
+  work, checking the '~2 pixels' intuition as a conditional target, not
+  a guarantee. Tests inspect plan geometry/IDs; do not publish repairs.
+- [ ] **V16 — Transactional density-aware zipper/ladder surgery.**
+  Implement a RegionEdit-based private operation consuming a V15 plan:
+  remove red/buried faces, generate oriented watertight triangulated
+  seams with mismatched vertex counts and validated local edge lengths,
+  retire IDs/tombstones, and update mirrored pairs + single shared X=0
+  seam atomically. Handle cross-partition capacities; validate result
+  for manifoldness, orientation, residual/new self-intersections and
+  bounded geometric drift. On failure no new revision is published.
+  Test repeated standalone surgeries and old-revision stability.
+- [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
+  Wire post-state detection, positive-winding classification, excision
+  and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
+  geometry-changing Step and one undo/redo history entry. Re-evaluate
+  interactions with split/flip/collapse, checking the *final* candidate,
+  not only post-Inflate triangles. Account for newly created mirror pairs,
+  dirty renderer/picker partitions, checkpoints and worker statistics.
+  Add repeat-contact hysteresis; verify symmetric towers merging, many
+  stamps with bounded surface erosion, old-root readers, checkpoint
+  round-trip, and that failure retains a valid model and all input Steps.
+- [ ] **V18 — Opt-in 'Merge geometry: Off' collision constraints.**
+  On the same post-state triangle neighborhood, constrain normal
+  displacement to prevent new non-adjacent crossings and maintain a
+  mesh-scale (not brush-scale) clearance; retain tangential movement
+  where valid. Do not perform unrelated cleanup of pre-existing bad
+  imported geometry. Exercise moving **both** opposing sheets together,
+  symmetry, grazing/sliding contact, and conservative large-stamp
+  behavior. Exact swept-volume CCD remains deferred with a documented
+  tunneling limitation. Keep the current live default until explicitly
+  selected/validated.
+- [ ] **V19 — 3D robustness, performance and desktop acceptance.**
+  Stress multiple/near-tangent/coplanar intersection regions, tunnels,
+  ambiguous enclosed shells, very uneven/local high-density triangles,
+  repeat zipper edits and pathological collision workloads. Add explicit
+  accuracy/budget/failure diagnostics, performance measurement at
+  5k/20k/100k and larger where practical, and user-observed Linux/Windows
+  Vulkan tests including symmetry, picking, undo/redo and save/recover.
+  Do not claim universal real-time complexity, exact CCD, all imported
+  mesh semantics or strict total-memory bounds.
+
+**Non-goals of V13–V19:** CGAL as a required hot-path dependency,
+mandatory exact intersection-curve Boolean reconstruction, global
+volumetric remeshing, global per-Step BVH rebuilds, unconditional
+two-edge-length error guarantees, forced genus-zero preservation,
+or treating an arbitrary enclosed cavity as automatically disposable.
+Manifold/CGAL may be studied or used only as benchmark/reference
+implementations where appropriate. All actual new behavior must be
+separately verified before being marked complete.
+
 ## Other remaining design goals
 
 Keep brush radius independent of editing density, first-class vertex-colour
