@@ -87,8 +87,15 @@ VersionedDirectionalCollapser::VersionedDirectionalCollapser(
 void VersionedDirectionalCollapser::addMirrorPair(
     VertexId first,VertexId second) {
     if(mirrors_.empty())return; // asymmetric worker has no mirror map
-    const bool novel=!mirrors_.contains(first);
-    if(stepOpen_&&novel)pendingMirrors_.push_back({true,first,second});
+    // Validate BEFORE recording an undo entry: an invalid correspondence
+    // must not leave a journal entry for a mutation that never occurred.
+    const auto a=mirrors_.find(first),b=mirrors_.find(second);
+    if(!first||!second||
+       (a!=mirrors_.end()&&a->second!=second)||
+       (b!=mirrors_.end()&&b->second!=first))
+        throw std::invalid_argument("Conflicting collapse mirror pair");
+    if(stepOpen_&&a==mirrors_.end())
+        pendingMirrors_.push_back({true,first,second});
     addMirror(mirrors_,first,second);
 }
 
