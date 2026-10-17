@@ -1923,6 +1923,52 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17d1: Classified candidate repair at the single-Step publication boundary
+
+Opt-in CPU clients can enable `SculptCollisionSettings::enabled` for the
+`VersionedSculptBrush` or `AsyncSculptWorker`. The desktop Merge geometry
+option is intentionally **not exposed**. The current application defaults
+to the V17c behavior and never performs new collision processing.
+
+For each changed Step the policy works on the **entire, unpublished** result
+of Inflate, local split/flip, and collapse. It invokes V15's
+classification-aware planner and V16's private surgery via
+`applyClassifiedExcisionRepair`, choosing the explicit
+`PreserveSampledExposedFeatures` policy. V13 BVH collision discovery and
+V16 residual surgery verification have finite hard ceilings (max 2,048
+seed faces, 131,072 box visits, 16,384 partition visits, 131,072 candidate
+triangles, 65,536 distinct narrow-phase tests, and 2,048 reported contacts
+per query); smaller caller budgets prevail. V14's exceptional O(all faces)
+reference winding fallback is forbidden. A rejected or over-budget plan,
+failed surgery or ambiguous final contact vetoes the entire Step and uses
+the V17c rollback and diagnostics path rather than terminating the worker.
+
+A repair is not accepted just because the scar itself is locally clean.
+The last query includes the original moved and rewritten faces, the entire
+set of surgery-created faces, preserved neighboring contour faces, plus
+retired IDs (which V13 ignores safely), all tested against the COMPLETE
+post-surgery immutable revision. Successful non-mirrored surgery replaces
+the root proposed for the **single** existing publish CAS and updates dirty
+render partitions, surviving vertex/face counts, copied-payload accounting
+and the one history entry. The V17c validation callback, if supplied,
+receives that final repaired candidate. All intermediate revisions stay
+private and old readers continue referring to the unchanged baseline.
+
+**Mirrored caveat:** ordinary symmetric Steps with NO detected collisions
+can pass this optional gate. The V15 classifier is run for colliding
+symmetric cases, but V17d1 refuses any symmetric repair requirement:
+V16's mirrored surgeon does not by itself supply the new/retired mirror-ID
+deltas needed by the brush/refiner/collapser/checkpoint history. Publishing
+its geometry without those deltas would corrupt symmetry. The separate
+V17d2 gate will supply transactional mirrored classification, plane-crossing
+normalization, and ID-delta staging, with genuine repeated-contact tests.
+No claims of general exact boolean trimming, global two-sided Hausdorff
+preservation, swept-volume CCD or hard aggregate per-stroke timing follow
+from V17d1. Isolated-component seeds are only accepted explicitly by the
+private test/evaluator; the normal worker does NOT enumerate disconnected
+shells mesh-wide on each stamp. Existing asymmetric private V16 capability
+remains conservatively bounded by its geometry/refusal rules.
+
 ## V17c: Reversible speculative Step with recoverable refusal
 
 The live V8 worker still samples the exact 4D stroke. V17c adds an **opt-in**
