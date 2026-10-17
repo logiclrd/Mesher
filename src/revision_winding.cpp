@@ -223,7 +223,8 @@ RegionTopologyIndex::classifyFaceFragments(
 
 RegionTopologyIndex::ComponentClassification
 RegionTopologyIndex::classifyClosedComponent(
-    FaceId seed,std::size_t maxFaces,bool allowReferenceFallback) const {
+    FaceId seed,std::size_t maxFaces,bool allowReferenceFallback,
+    const CollisionQueryLimits& collisionLimits) const {
     (void)face(seed); // invalid seed must be observable
     ComponentClassification output;
     if(maxFaces==0)return output;
@@ -255,7 +256,7 @@ RegionTopologyIndex::classifyClosedComponent(
     for(const auto id:faces) {
         // Avoid classifying an intersecting connected component using a
         // single face sample, which could miss cut fragments.
-        if(!triangleIntersections({}, {id}).empty())
+        if(!triangleIntersections({}, {id},nullptr,collisionLimits).empty())
             return {ComponentKind::Ambiguous,faces.size(),true};
         const auto fragments=classifyFaceFragments(id,0,allowReferenceFallback);
         const auto kind=fragments.front().kind;
