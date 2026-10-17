@@ -18,16 +18,7 @@ Edge canonical(VertexId a,VertexId b) {
     if(a>b)std::swap(a,b);
     return {a,b};
 }
-bool finite(Vec3 p) {
-    return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
-}
 double dist2(Vec3 a,Vec3 b) {const auto d=a-b;return dot(d,d);}
-double scale(const RegionTopologyIndex& index,
-             const std::array<VertexId,3>& f) {
-    const auto a=index.vertex(f[0]).position,b=index.vertex(f[1]).position,
-               c=index.vertex(f[2]).position;
-    return std::max({length(b-a),length(c-b),length(a-c)});
-}
 std::vector<Tri> splitBoundaryFace(
     Tri original,
     const std::map<std::pair<std::size_t,std::size_t>,
