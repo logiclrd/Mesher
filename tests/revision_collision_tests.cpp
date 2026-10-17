@@ -322,6 +322,13 @@ void testTransverseIntersectionSectionsAndPatches() {
     check(clipped.patches[0].triangles.size()==3,
           "Boundary-to-boundary chord triangulates its two complementary polygons");
 
+    const Points crossingEdge{{{.7,-3,-1},{.7,2,1},{.7,.1,-1}}};
+    const auto mixed=splitTransverseTriangleContact(a,ai,crossingEdge,bi);
+    check(mixed.status==Status::TransverseSegment&&
+          mixed.patches[0].interior[0]!=mixed.patches[0].interior[1]&&
+          mixed.patches[1].interior[0]!=mixed.patches[1].interior[1],
+          "One edge endpoint and one face-interior endpoint produce a conforming chord");
+
     const Points coplanar{{{.3,.3,0},{1.0,.3,0},{.3,1.0,0}}};
     check(splitTransverseTriangleContact(a,ai,coplanar,bi).status==
           Status::UnsupportedContact,
@@ -353,10 +360,10 @@ void testTransverseIntersectionSectionsAndPatches() {
     try {(void)splitTransverseContactBatch(*index,intersections,0);}
     catch(const std::length_error&){exhausted=true;}
     check(exhausted,"Over-budget intersection sections refuse, never truncate");
-    auto mixed=intersections;
-    mixed.push_back({intersections.front().first,
-                     intersections.front().second,true});
-    const auto refused=splitTransverseContactBatch(*index,mixed,2);
+    auto mixedBatch=intersections;
+    mixedBatch.push_back({intersections.front().first,
+                          intersections.front().second,true});
+    const auto refused=splitTransverseContactBatch(*index,mixedBatch,2);
     check(refused.status==Status::UnsupportedContact&&
           refused.sections.empty(),
           "One ambiguous contact invalidates an entire section batch");
