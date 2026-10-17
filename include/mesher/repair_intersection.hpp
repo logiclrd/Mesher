@@ -274,4 +274,46 @@ struct CutRemovalProposal {
 CutRemovalProposal planExactCutRemoval(
     const ConformingCutCandidate& cut,const CutRemovalSettings& settings={});
 
+
+// V17e2b2d1: strictly private handoff to existing V16 geometry surgery.
+// Even a V15 Ready nomination is NEVER considered a Boolean union until
+// V16's own private closure/manifold/residual/fidelity audit, a second
+// full modified-child collision check, and protected-child reverse
+// surface fidelity have ALL accepted the SAME immutable revision chain.
+// This function does not access the repository CAS, undo, renderer, or
+// persistent mirror/history journals. Refusals return NO surgery root.
+enum class ExactCutSurgeryStatus {
+    Refused,
+    NoChanges,
+    PrivateValidated
+};
+struct ExactCutSurgerySettings {
+    CutRemovalSettings removal{};
+    RepairSurgerySettings surgery{};
+    std::size_t maxFinalCollisionFaces=8192;
+    RegionTopologyIndex::CollisionQueryLimits finalCollisionLimits{
+        16384,131072,16384,131072,65536,4096};
+    std::size_t maxProtectedWitnesses=4096;
+    std::size_t maxProtectedDistanceTests=262144;
+    double maxProtectedDeviationInEdges=1e-7;
+};
+struct ExactCutSurgeryAttempt {
+    ExactCutSurgeryStatus status{ExactCutSurgeryStatus::Refused};
+    std::string refusal;
+    // Exists ONLY on PrivateValidated. The original immutable baseline
+    // stays untouched even if a later validation gate rejects this root.
+    std::optional<RepairSurgeryResult> surgery;
+    std::size_t selectedFaces{},protectedFaces{};
+    std::size_t checkedFinalContacts{},protectedWitnesses{};
+    double maximumProtectedDeviationInEdges{};
+};
+// For mirrored cuts the caller MUST supply the immutable pre-cut vertex
+// involution; the private candidate contributes every NEW mirrored vertex.
+// Reflection maps are checked by stable IDs, never guessed by position
+// for potentially coincident, independent contact sheets.
+ExactCutSurgeryAttempt attemptPrivateExactCutSurgery(
+    const ConformingCutCandidate& cut,
+    const ExactCutSurgerySettings& settings={},
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
+
 } // namespace mesher
