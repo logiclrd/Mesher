@@ -29,6 +29,9 @@ struct RepairPlanSettings {
     std::size_t maxBoundaryEdges=2048;
     std::size_t maxContours=16;
     unsigned sampleDepth=2; // V14 4^depth, bounded there at depth<=4
+    // V17 opt-in: uncertain ray samples fail closed rather than invoking
+    // V14's exceptional full-mesh reference winding traversal.
+    bool allowReferenceWindingFallback=true;
     // Whole-triangle removal is an approximation: a mixed triangle can be
     // selected only if at least this fraction of samples is buried/outside.
     double minimumHiddenFraction=0.625;
