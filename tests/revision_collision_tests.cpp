@@ -751,6 +751,41 @@ void testPrivateConformingRevisionCommitsAtomically() {
         const auto strict=planExactCutRemoval(whole);
         check(strict.ready()||strict.proposedRemoval.empty(),
               "Default V15 contour-shape refusal returns no removal permission");
+        ExactCutJoinLimits joinLimits;
+        joinLimits.removal=supportedContours;
+        const auto joined=joinCertifiedCutSections(whole,joinLimits);
+        std::cout<<"[seam-join] complete="<<joined.complete
+                 <<" reason="<<joined.refusal
+                 <<" boundaries="<<joined.checkedBoundaryEdges
+                 <<" welds="<<joined.weldedPairs.size()<<'\n';
+        if(joined.complete) {
+            check(joined.commit&&joined.index&&
+                  joined.commit->revision.get()==&joined.index->revision()&&
+                  joined.index!=whole.index&&joined.index!=baseline&&
+                  joined.checkedContacts==all.size(),
+                  "Actual provenance-bound closed-shell union commits only one private COW root");
+            check(joined.retiredFaces.size()==16&&
+                  joined.checkedBoundaryEdges>0&&
+                  !joined.weldedPairs.empty(),
+                  "True cut-curve join retires exact hidden fragments and welds independent sheets");
+            check(baseline->pickingRootIdentity()==sourceRoot,
+                  "Genuine unpublished union leaves historical picking root untouched");
+        }else
+            check(!joined.index&&!joined.commit&&
+                  joined.retiredFaces.empty()&&joined.weldedPairs.empty(),
+                  "Unsupported section-chain geometry refuses without exposing partial union");
+        auto missingSection=whole;
+        missingSection.sectionFirst.pop_back();
+        const auto missingJoin=joinCertifiedCutSections(missingSection,joinLimits);
+        check(!missingJoin.complete&&!missingJoin.index&&
+              !missingJoin.commit,
+              "Missing contact-edge provenance forbids a partial weld");
+        auto capped=joinLimits;
+        capped.maxBoundaryEdges=1;
+        const auto budgetJoin=joinCertifiedCutSections(whole,capped);
+        check(!budgetJoin.complete&&!budgetJoin.index&&
+              !budgetJoin.commit,
+              "Insufficient local seam edge budget returns no partial joined revision");
         const auto nomination=planExactCutRemoval(whole,supportedContours);
         std::cout<<"[exact-removal-probe] status="
                  <<static_cast<int>(nomination.status)
@@ -1152,6 +1187,26 @@ void testMirroredCompleteContactCoverage() {
     // preliminary V15 zipper candidate window.
     supportedContours.contours.maximumGapInEdges=2.5;
     supportedContours.contours.minimumNormalAlignment=0;
+    ExactCutJoinLimits joinLimits;
+    joinLimits.removal=supportedContours;
+    const auto withoutMap=joinCertifiedCutSections(cut,joinLimits);
+    check(!withoutMap.complete&&!withoutMap.index,
+          "Reflected weld requires explicit original vertex orbits");
+    const auto joined=joinCertifiedCutSections(cut,joinLimits,&mirrors);
+    std::cout<<"[seam-join-mirror] complete="<<joined.complete
+             <<" reason="<<joined.refusal
+             <<" boundaries="<<joined.checkedBoundaryEdges
+             <<" welds="<<joined.weldedPairs.size()<<'\n';
+    if(joined.complete)
+        check(joined.commit&&joined.index&&
+              joined.checkedBoundaryEdges>0&&
+              !joined.weldedPairs.empty()&&
+              root->pickingRootIdentity()==historical,
+              "Both mirrored closed intersections join in ONE unpublished stable-ID RegionEdit");
+    else
+        check(!joined.commit&&!joined.index&&
+              joined.retiredFaces.empty()&&joined.weldedPairs.empty(),
+              "Unsupported mirrored seam geometry safely refuses whole revision");
     const auto mirroredProposal=planExactCutRemoval(cut,supportedContours);
     std::cout<<"[exact-removal-mirror-probe] status="
              <<static_cast<int>(mirroredProposal.status)
