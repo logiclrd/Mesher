@@ -44,10 +44,6 @@ bool sameEnds(const std::array<Vec3,2>& a,
     return (similar(a[0],b[0])&&similar(a[1],b[1]))||
            (similar(a[0],b[1])&&similar(a[1],b[0]));
 }
-std::pair<FaceId,FaceId> canonical(FaceId a,FaceId b) {
-    if(b<a)std::swap(a,b);
-    return {a,b};
-}
 
 // Each child is a planar triangle. If all three vertex distances to the
 // opposing source plane are on ONE side (or on its line), its OPEN INTERIOR
@@ -108,7 +104,7 @@ bool tracedByChildEdges(const std::vector<FaceId>& children,
     }
     std::sort(intervals.begin(),intervals.end());
     double covered=0;
-    for(const auto [low,high]:intervals) {
+    for(const auto& [low,high]:intervals) {
         if(low>covered+epsilon)return false;
         covered=std::max(covered,high);
         if(covered>=spanLength-epsilon)return true;
