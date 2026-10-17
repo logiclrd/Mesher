@@ -52,7 +52,7 @@ struct SculptCollisionEvaluation {
     RepairPlan plan{};
     std::optional<RepairSurgeryResult> repair;
     std::string refusal;
-    std::size_t finalVerifiedContacts{};
+    std::size_t finalNarrowPhaseTests{};
     bool safe() const noexcept {return refusal.empty();}
 };
 // A self-contained, unpublished post-state evaluation. Optional seeds are
