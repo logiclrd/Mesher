@@ -241,8 +241,14 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     }
     std::vector<std::pair<VertexId,VertexId>> mirrors;
     mirrors.reserve(static_cast<std::size_t>(pairs));
-    for(std::uint64_t j=0;j<pairs;++j)
-        mirrors.emplace_back(reader.number(),reader.number());
+    // These are stateful stream reads: C++ does not specify function
+    // argument evaluation order for emplace_back(a(),b()). Explicit
+    // sequencing preserves saved canonical pairs on GCC/Clang/MSVC.
+    for(std::uint64_t j=0;j<pairs;++j) {
+        const auto first=reader.number();
+        const auto second=reader.number();
+        mirrors.emplace_back(first,second);
+    }
     std::vector<VertexId> retiredVertices;
     std::vector<FaceId> retiredFaces;
     retiredVertices.reserve(static_cast<std::size_t>(retiredVertexCount));
