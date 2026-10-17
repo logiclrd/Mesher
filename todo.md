@@ -1007,8 +1007,10 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   Unlisted/stale/ambiguous contacts, failed section traces, area holes,
   overlaps, near-degenerate and unsupported contact geometries refuse
   atomically: NO usable partial certificate, NO deletion or publication.
-  Closed two-tetra full-contact positive regression and incomplete or
-  forged lists, endpoints, work limits and historical root preservation.
+  Closed two-tetra full-contact positive regression (nine V13 pairs),
+  complete binary-exact mirrored two-tetra pair regression (both
+  reflected groups), and incomplete or forged lists, endpoints, work
+  limits and historical root preservation.
   This establishes COMPLETE local contact-curve coverage only WITHIN the
   supported finite-tolerance transverse V13 domain, not universally
   exact predicates or authorization to delete cavity interfaces.
