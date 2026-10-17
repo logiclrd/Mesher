@@ -440,3 +440,36 @@ No intermediate geometry is published on refusal. The remaining
 V16 safety work concerns high-complexity collision/excision,
 feature-bearing surface classification and fidelity validation,
 not creating duplicate reflection-plane seams by normalization.
+
+## V16d1: Feature-sensitive reverse fidelity from original V14 samples
+
+When material is removed to resolve an intersection, some old
+triangles may have sampled regions that lie on the exterior
+positive-winding boundary and OTHER regions that are completely
+buried inside the solid. Applying a reverse-distance requirement
+to every removed vertex incorrectly forces buried geometry to
+remain present. Ignoring every exposed fragment, however, risks
+destroying fine surface features.
+
+V16d1 offers a read-only original-revision sampled provenance
+report. Optional `requireExposedFragmentFidelity` checks the
+distance from the barycentric centroids of Exposed and
+ReversedBoundary patches to the local final surface. Buried and
+Outside patches are permitted to disappear. Ambiguous samples
+cause a private refusal. This mode is mutually exclusive with
+the older `requireReverseSurfaceFidelity` mode that checks all
+removed faces irrespective of original winding evidence.
+Budgets constrain sampling and the number of evaluated
+sample/triangle distances, and the result reports the counts.
+
+The low-level read-only removal plan must NOT be treated as
+authoritative classification of what should be deleted; callers
+must explicitly choose preservation policy. The default remains
+unchanged. Neither one-sided proximity metric certifies a
+continuous surface Hausdorff distance or feature equivalence.
+
+An outer cube cap and an inner, positively wound redundant shell
+are regression fixtures for these opposite policies. Eight
+widely separated cube caps exercise a combined private
+near-coplanar multi-component edit, collision validation and
+bounded-work refusal. No live worker is wired in V16d1.
