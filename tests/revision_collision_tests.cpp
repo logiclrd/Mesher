@@ -371,6 +371,208 @@ void testTransverseIntersectionSectionsAndPatches() {
           index->retiredFaceCount()==0,
           "All derived sections remain private; original BVH and topology unchanged");
 }
+struct ConformingFixture {
+    PartitionedMeshImport import;
+    std::array<FaceId,3> faces{};
+    std::vector<std::pair<VertexId,VertexId>> reflections;
+};
+ConformingFixture conformingFixture(bool mirrored=false) {
+    const std::array<Vec3,3> a{{{0,0,0},{2,0,0},{0,2,0}}};
+    const std::array<Vec3,3> b{{{.7,-.5,-1},{.7,1.7,1},{.7,.2,-1}}};
+    const std::array<VertexId,3> ai{1,2,3},bi{4,5,6};
+    const auto cut=splitTransverseTriangleContact(a,ai,b,bi);
+    check(cut.status==IntersectionSectionStatus::TransverseSegment,
+          "Shared-edge fixture starts with a real independent intersection");
+    unsigned zero=0;
+    for(unsigned j=0;j<3;++j)
+        if(cut.patches[1].endpointBarycentrics[0][j]==0) {
+            ++zero;
+            break;
+        }
+    Mesh mesh;
+    for(const auto p:a)mesh.vertices.push_back(p);
+    for(const auto p:b)mesh.vertices.push_back(p);
+    // The endpoint on one B edge must also subdivide the *other*
+    // original incident face, not only B's intersected face.
+    const auto start=(zero+1)%3,end=(zero+2)%3;
+    const auto third=b[start]+b[end]-b[zero];
+    mesh.vertices.push_back(third);
+    mesh.triangles.push_back({0,1,2});
+    mesh.triangles.push_back({3,4,5});
+    mesh.triangles.push_back({
+        static_cast<std::uint32_t>(3+end),
+        static_cast<std::uint32_t>(3+start),6});
+    const auto baseVertexCount=mesh.vertices.size();
+    const auto baseFaceCount=mesh.triangles.size();
+    if(mirrored) {
+        for(std::size_t i=0;i<baseVertexCount;++i) {
+            const auto p=mesh.vertices[i];
+            mesh.vertices.push_back({-p.x,p.y,p.z});
+        }
+        for(std::size_t i=0;i<baseFaceCount;++i) {
+            const auto f=mesh.triangles[i];
+            mesh.triangles.push_back({
+                static_cast<std::uint32_t>(f.a+baseVertexCount),
+                static_cast<std::uint32_t>(f.c+baseVertexCount),
+                static_cast<std::uint32_t>(f.b+baseVertexCount)});
+        }
+    }
+    auto imported=partitionFlatMesh(mesh,1);
+    ConformingFixture fixture;
+    fixture.faces={imported.flatIndex.faceIds[0],
+                   imported.flatIndex.faceIds[1],
+                   imported.flatIndex.faceIds[2]};
+    if(mirrored)for(std::size_t i=0;i<baseVertexCount;++i)
+        fixture.reflections.emplace_back(imported.flatIndex.vertexIds[i],
+            imported.flatIndex.vertexIds[i+baseVertexCount]);
+    fixture.import=std::move(imported);
+    return fixture;
+}
+void testConformingSharedEdgeGraphAndBudgets() {
+    auto fixture=conformingFixture(false);
+    const auto index=RegionTopologyIndex::build(fixture.import.revision);
+    const auto originalRoot=index->pickingRootIdentity();
+    const auto all=index->triangleIntersections(
+        fixture.import.flatIndex.vertexIds,{});
+    auto found=std::find_if(all.begin(),all.end(),
+        [&](const auto& pair) {
+            return pair.first==fixture.faces[0]&&
+                   pair.second==fixture.faces[1];
+        });
+    check(found!=all.end(),"V13 discovers original intersecting pair");
+    const std::vector<RegionTopologyIndex::CollisionPair> pairs{*found};
+    const auto result=buildConformingCutPlan(*index,pairs);
+    check(result.status==IntersectionSectionStatus::TransverseSegment&&
+          result.segments.size()==1&&result.faces.size()==3&&
+          result.refusal.empty(),
+          "Conformance includes an original noncolliding adjacent face");
+    const auto& segment=result.segments[0];
+    for(unsigned k=0;k<2;++k) {
+        check(segment.firstSide[k]!=segment.secondSide[k],
+              "Two intersecting sheets MUST NOT pre-weld coincident section endpoints");
+        const auto p=result.points[segment.firstSide[k]].position,
+                   q=result.points[segment.secondSide[k]].position;
+        check(length(p-q)<1e-9,
+              "Distinct contact-sheet vertices still have matching geometric section coordinates");
+    }
+    const auto& bface=index->face(fixture.faces[1]).vertices;
+    auto edgePoint=segment.secondSide[0];
+    auto incidentEdge=result.points[edgePoint].boundaryEdge;
+    if(!incidentEdge) {
+        edgePoint=segment.secondSide[1];
+        incidentEdge=result.points[edgePoint].boundaryEdge;
+    }
+    check(incidentEdge.has_value(),
+          "At least one B intersection endpoint lies on a shared source edge");
+    const auto incident=index->edgeSides(*incidentEdge);
+    check(incident.size()==2,
+          "The shared cut edge belongs to exactly two original incident faces");
+    const auto findFace=[&](FaceId id)->const ConformingCutFace& {
+        const auto it=std::find_if(result.faces.begin(),result.faces.end(),
+            [&](const auto& face){return face.sourceFace==id;});
+        check(it!=result.faces.end(),"Conforming neighbor face exists");
+        return *it;
+    };
+    for(const auto& side:incident) {
+        bool present=false;
+        const auto& split=findFace(side.face);
+        for(const auto tri:split.triangles)
+            if(std::find(tri.begin(),tri.end(),edgePoint)!=tri.end())
+                present=true;
+        check(present,"All incident faces share the SAME ephemeral split-point index");
+    }
+    check(findFace(fixture.faces[2]).triangles.size()>1,
+          "Noncolliding neighboring face is conformingly subdivided");
+    for(const auto& cut:result.faces) {
+        const auto ids=index->face(cut.sourceFace).vertices;
+        const auto a=index->vertex(ids[0]).position,
+                   b=index->vertex(ids[1]).position,
+                   c=index->vertex(ids[2]).position;
+        const auto normal=cross(b-a,c-a);
+        double total=0;
+        for(const auto face:cut.triangles) {
+            const auto p=result.points[face[0]].position,
+                       q=result.points[face[1]].position,
+                       r=result.points[face[2]].position;
+            const auto signedArea=dot(cross(q-p,r-p),normal)/length(normal);
+            check(signedArea>0,"All globally indexed face patches retain positive winding");
+            total+=signedArea;
+        }
+        check(std::abs(total-length(normal))<1e-8,
+              "Each reconstructed source/neighbor face conserves its original area");
+    }
+    const auto refuses=[&](ConformingCutLimits limits) {
+        bool exhausted=false;
+        try {(void)buildConformingCutPlan(*index,pairs,limits);}
+        catch(const std::length_error&) {exhausted=true;}
+        return exhausted;
+    };
+    ConformingCutLimits limits;
+    limits.maxContacts=0;
+    check(refuses(limits),"Zero pair budget refuses before private construction");
+    limits={};limits.maxAffectedFaces=2;
+    check(refuses(limits),"Plan refuses one fewer than needed incident faces");
+    limits={};limits.maxNewPoints=3;
+    check(refuses(limits),"Plan refuses insufficient newly generated private vertices");
+    limits={};limits.maxTriangles=2;
+    check(refuses(limits),"Plan refuses insufficient total reconstructed subtriangles");
+    auto ambiguous=pairs;ambiguous[0].ambiguous=true;
+    const auto refused=buildConformingCutPlan(*index,ambiguous);
+    check(refused.status==IntersectionSectionStatus::UnsupportedContact&&
+          refused.points.empty()&&refused.faces.empty()&&
+          refused.segments.empty(),
+          "Ambiguous batch refuses without returning partial topology");
+    auto repeated=pairs;repeated.push_back(pairs.front());
+    check(buildConformingCutPlan(*index,repeated).status==
+          IntersectionSectionStatus::UnsupportedContact,
+          "Multiple sections sharing a source face require a later global polygon arrangement");
+    check(index->pickingRootIdentity()==originalRoot&&
+          index->retiredFaceCount()==0,
+          "Building and refusing cut graphs never mutate held immutable revision/index roots");
+    (void)bface;
+}
+void testConformingReflectedCutGraph() {
+    const auto fixture=conformingFixture(true);
+    const auto index=RegionTopologyIndex::build(fixture.import.revision);
+    const auto all=index->triangleIntersections(
+        fixture.import.flatIndex.vertexIds,{});
+    const auto reflectedFirst=fixture.import.flatIndex.faceIds[3],
+               reflectedSecond=fixture.import.flatIndex.faceIds[4];
+    const auto select=[&](FaceId a,FaceId b) {
+        const auto it=std::find_if(all.begin(),all.end(),
+            [&](const auto& p){return p.first==a&&p.second==b;});
+        check(it!=all.end(),"Reflected triangle pair is a real V13 intersection");
+        return *it;
+    };
+    const std::vector<RegionTopologyIndex::CollisionPair> pairs{
+        select(fixture.faces[0],fixture.faces[1]),
+        select(reflectedFirst,reflectedSecond)};
+    std::unordered_map<VertexId,VertexId> reflection;
+    for(const auto& [a,b]:fixture.reflections) {
+        reflection.emplace(a,b);
+        reflection.emplace(b,a);
+    }
+    const auto result=buildConformingCutPlan(*index,pairs,{},&reflection);
+    check(result.status==IntersectionSectionStatus::TransverseSegment&&
+          result.faces.size()==6&&result.segments.size()==2&&
+          result.mirroredCutPoints.size()==4,
+          "Two independent exact reflections pair every cut node without welding solids");
+    std::set<std::size_t> mirrored;
+    for(const auto [a,b]:result.mirroredCutPoints) {
+        check(a!=b&&mirrored.insert(a).second&&mirrored.insert(b).second,
+              "Reflected off-plane cut points form unique reciprocal pairs");
+        const auto p=result.points[a].position,q=result.points[b].position;
+        check(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+              "Mirrored cut section coordinates are EXACT reflected values");
+    }
+    // Missing just one original vertex pair cannot authorize a partly
+    // reflected cut; every generated partner must be matched.
+    reflection.erase(fixture.reflections.front().first);
+    const auto refused=buildConformingCutPlan(*index,pairs,{},&reflection);
+    check(refused.status==IntersectionSectionStatus::UnsupportedContact&&
+          refused.points.empty()&&refused.faces.empty(),
+          "Incomplete original reflection map refuses all candidate cut topology");
+}
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -398,6 +600,8 @@ int main() {
     try {
         testNarrowPhase();
         testTransverseIntersectionSectionsAndPatches();
+        testConformingSharedEdgeGraphAndBudgets();
+        testConformingReflectedCutGraph();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
