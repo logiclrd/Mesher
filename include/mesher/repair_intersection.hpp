@@ -127,6 +127,10 @@ struct ConformingCutCandidate {
     std::vector<VertexId> insertedVertices;
     std::vector<FaceId> insertedFaces;
     std::vector<FaceId> rewrittenFaces;
+    // Exact original-face provenance for EVERY child triangle, including
+    // rewritten old FaceIds; never inferred from coordinate proximity.
+    std::vector<std::pair<FaceId,FaceId>> childSources;
+    std::shared_ptr<const RegionTopologyIndex> originalIndex;
     // V17e2b2b3b: complete NET inserted-vertex and rewritten/inserted
     // face mirror orbits, ready for a future original-root Step journal.
     // Empty for the nonmirrored path; no published map is mutated here.
