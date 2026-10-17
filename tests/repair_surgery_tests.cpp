@@ -1178,9 +1178,12 @@ void testNearTangentAndFoldedClassificationStress() {
                     require(repaired.surgery->index->triangleIntersections(
                             {},repaired.surgery->insertedFaces).empty(),
                             "Accepted near-contact surgery has no residual scar intersections");
-            }catch(const std::exception&) {
-                // Budget, uncertain winding or candidate geometry may
+            }catch(const std::logic_error&) {
+                // Uncertain winding or invalid private geometry may
                 // legitimately refuse this difficult near-contact edit.
+                // Do NOT swallow our regression assertions (runtime_error).
+            }catch(const std::length_error&) {
+                // Bounded geometry-validation work may also refuse.
             }
         }
         require(initial->pickingRootIdentity()==root&&
