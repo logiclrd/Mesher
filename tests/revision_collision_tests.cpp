@@ -1,4 +1,5 @@
 #include "mesher/triangle_collision.hpp"
+#include "mesher/repair_intersection.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
 
@@ -264,6 +265,112 @@ void testBoundedCollisionDiscovery() {
           index->retiredFaceCount()==0,
           "All bounded queries preserve held immutable roots");
 }
+void testTransverseIntersectionSectionsAndPatches() {
+    using Status=IntersectionSectionStatus;
+    using Points=std::array<Vec3,3>;
+    const Points a{{{0,0,0},{2,0,0},{0,2,0}}};
+    const std::array<VertexId,3> ai{1,2,3},bi{4,5,6};
+    // Both segment endpoints are in the INTERIOR of A, but on two
+    // different edges of B. The section must become an edge in both.
+    const Points b{{{.7,-.5,-1},{.7,1.7,1},{.7,.2,-1}}};
+    auto interior=splitTransverseTriangleContact(a,ai,b,bi);
+    check(interior.status==Status::TransverseSegment,
+          "Transverse independent triangles produce one bounded segment");
+    check(interior.patches[0].interior[0]&&
+          interior.patches[0].interior[1]&&
+          !interior.patches[1].interior[0]&&
+          !interior.patches[1].interior[1],
+          "The same segment can be interior to one face, edge-clipped on the other");
+    for(unsigned side=0;side<2;++side) {
+        const auto& patch=interior.patches[side];
+        check(!patch.triangles.empty()&&patch.triangles.size()<=7,
+              "Per-triangle cut remains within fixed local complexity");
+        unsigned sectionEdges=0;
+        double totalArea=0;
+        const auto normal=cross(patch.positions[1]-patch.positions[0],
+                                patch.positions[2]-patch.positions[0]);
+        for(const auto& tri:patch.triangles) {
+            const auto p=patch.positions[tri[0]],q=patch.positions[tri[1]],
+                       r=patch.positions[tri[2]];
+            const auto signedArea=dot(cross(q-p,r-p),normal)/length(normal);
+            check(signedArea>0,"Subdivided triangle retains original winding");
+            totalArea+=signedArea;
+            for(unsigned j=0;j<3;++j)
+                if((tri[j]==3&&tri[(j+1)%3]==4)||
+                   (tri[j]==4&&tri[(j+1)%3]==3))++sectionEdges;
+        }
+        check(sectionEdges==2,
+              "Shared segment is a conforming internal edge of EACH tessellated face");
+        check(std::abs(totalArea-length(normal))<1e-8,
+              "Subdivision conserves exactly one original triangle area");
+        for(unsigned k=0;k<2;++k) {
+            const auto bary=patch.endpointBarycentrics[k];
+            check(std::abs(bary[0]+bary[1]+bary[2]-1)<1e-8,
+                  "Intersection endpoint retains valid barycentric provenance");
+            check(length(patch.positions[3+k]-interior.endpoints[k])<1e-12,
+                  "Both faces share one identical 3D section endpoint");
+        }
+    }
+    const Points wide{{{.7,-2,-1},{.7,3,-1},{.7,.5,2}}};
+    const auto clipped=splitTransverseTriangleContact(a,ai,wide,bi);
+    check(clipped.status==Status::TransverseSegment&&
+          !clipped.patches[0].interior[0]&&
+          !clipped.patches[0].interior[1]&&
+          clipped.patches[1].interior[0]&&
+          clipped.patches[1].interior[1],
+          "Two boundary intersections split a face into chord-separated polygons");
+    check(clipped.patches[0].triangles.size()==3,
+          "Boundary-to-boundary chord triangulates its two complementary polygons");
+
+    const Points crossingEdge{{{.7,-3,-1},{.7,2,1},{.7,.1,-1}}};
+    const auto mixed=splitTransverseTriangleContact(a,ai,crossingEdge,bi);
+    check(mixed.status==Status::TransverseSegment&&
+          mixed.patches[0].interior[0]!=mixed.patches[0].interior[1]&&
+          mixed.patches[1].interior[0]!=mixed.patches[1].interior[1],
+          "One edge endpoint and one face-interior endpoint produce a conforming chord");
+
+    const Points coplanar{{{.3,.3,0},{1.0,.3,0},{.3,1.0,0}}};
+    check(splitTransverseTriangleContact(a,ai,coplanar,bi).status==
+          Status::UnsupportedContact,
+          "Coplanar overlap must not masquerade as a transverse cut");
+    const Points tangent{{{0,0,0},{0,0,1},{-1,0,1}}};
+    check(splitTransverseTriangleContact(a,ai,tangent,bi).status==
+          Status::UnsupportedContact,
+          "Single-point grazing contact has no authorizing cut segment");
+    const Points away{{{3,3,-1},{4,3,1},{4,4,-1}}};
+    check(splitTransverseTriangleContact(a,ai,away,bi).status==
+          Status::Disjoint,"Separated faces require no reconstruction");
+
+    Mesh mesh;
+    for(const auto& p:a)mesh.vertices.push_back(p);
+    for(const auto& p:b)mesh.vertices.push_back(p);
+    mesh.triangles.push_back({0,1,2});
+    mesh.triangles.push_back({3,4,5});
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto index=RegionTopologyIndex::build(imported.revision);
+    const auto originalRoot=index->pickingRootIdentity();
+    const auto intersections=index->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(intersections.size()==1,"Actual V13 post-state BVH reports one section");
+    const auto sections=splitTransverseContactBatch(*index,intersections,1);
+    check(sections.status==Status::TransverseSegment&&
+          sections.sections.size()==1,
+          "Bounded batch converts a complete V13 crossing without editing the root");
+    bool exhausted=false;
+    try {(void)splitTransverseContactBatch(*index,intersections,0);}
+    catch(const std::length_error&){exhausted=true;}
+    check(exhausted,"Over-budget intersection sections refuse, never truncate");
+    auto mixedBatch=intersections;
+    mixedBatch.push_back({intersections.front().first,
+                          intersections.front().second,true});
+    const auto refused=splitTransverseContactBatch(*index,mixedBatch,2);
+    check(refused.status==Status::UnsupportedContact&&
+          refused.sections.empty(),
+          "One ambiguous contact invalidates an entire section batch");
+    check(index->pickingRootIdentity()==originalRoot&&
+          index->retiredFaceCount()==0,
+          "All derived sections remain private; original BVH and topology unchanged");
+}
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -290,6 +397,7 @@ void testPruningAndNoOp() {
 int main() {
     try {
         testNarrowPhase();
+        testTransverseIntersectionSectionsAndPatches();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
