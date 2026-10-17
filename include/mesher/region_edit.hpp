@@ -32,6 +32,14 @@ struct CollisionQueryLimits {
     std::size_t maxNarrowPhaseTests=std::numeric_limits<std::size_t>::max();
     std::size_t maxReportedContacts=std::numeric_limits<std::size_t>::max();
 };
+// Bounded BVH work for EACH positive-winding query. The caller can pass
+// remaining aggregate allowances across multiple fragment samples.
+struct WindingQueryLimits {
+    std::size_t maxBoxTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxPartitionTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxTriangleTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxRays=std::numeric_limits<std::size_t>::max();
+};
 class RevisionPickingIndex;
 class RegionTopologyIndex {
 public:
@@ -161,7 +169,8 @@ public:
     // exhausted ray evidence then reports unreliable, never false certainty.
     WindingSample positiveWindingAt(Vec3 point,
         WindingStatistics* statistics=nullptr,
-        bool allowReferenceFallback=true) const;
+        bool allowReferenceFallback=true,
+        const WindingQueryLimits& limits={}) const;
     // Independent O(all faces) signed-solid-angle reference, for testing and
     // the exceptional case when every chosen ray passes near a mesh feature.
     long double referenceWindingAt(Vec3 point) const;
