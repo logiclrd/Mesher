@@ -928,7 +928,8 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   incident edge-neighbor must conserve original signed area and positive
   winding; disjoint overlapping constraints, ambiguous/degenerate
   cycles or exhausted pair-tests/graph-edge/new-node/face/triangle
-  budgets refuse without exposing a partial plan. The existing
+  budgets (including visibility/ear-clipping predicate tests) refuse
+  without exposing a partial plan. The existing
   **single-section path** is retained unchanged for supported cases.
   Real three-tetrahedron regressions exercise two sections CROSSING
   inside one triangle and a second endpoint MEETING the other curve
