@@ -157,8 +157,9 @@ bool arrangeFace(
     std::set<std::pair<std::size_t,std::size_t>> graph;
     std::set<std::size_t> boundaryPoints;
     const auto addEdge=[&](std::size_t a,std::size_t b) {
-        if(a==b||arrangementEdges>=limits.maxArrangementEdges)
-            return false;
+        if(a==b)return false;
+        if(arrangementEdges>=limits.maxArrangementEdges)
+            throw std::length_error("Planar arrangement graph-edge budget");
         if(a>b)std::swap(a,b);
         if(!graph.insert({a,b}).second)return false;
         ++arrangementEdges;
