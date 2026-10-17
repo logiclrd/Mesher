@@ -234,15 +234,16 @@ IntersectionSection splitTransverseTriangleContact(
         return segment.first+(segment.second-segment.first)*
               ((t-begin)/(end-begin));
     };
-    answer.endpoints[0]=(on(u,lo)+on(v,lo))*.5;
-    answer.endpoints[1]=(on(u,hi)+on(v,hi))*.5;
+    IntersectionSection complete;
+    complete.endpoints[0]=(on(u,lo)+on(v,lo))*.5;
+    complete.endpoints[1]=(on(u,hi)+on(v,hi))*.5;
     if(length(on(u,lo)-on(v,lo))>epsilon||
        length(on(u,hi)-on(v,hi))>epsilon||
-       !buildPatch(answer.patches[0],a,answer.endpoints,epsilon)||
-       !buildPatch(answer.patches[1],b,answer.endpoints,epsilon))
-        return answer;
-    answer.status=IntersectionSectionStatus::TransverseSegment;
-    return answer;
+       !buildPatch(complete.patches[0],a,complete.endpoints,epsilon)||
+       !buildPatch(complete.patches[1],b,complete.endpoints,epsilon))
+        return answer; // Unsupported: no partial patch data escapes.
+    complete.status=IntersectionSectionStatus::TransverseSegment;
+    return complete;
 }
 
 IntersectionSectionBatch splitTransverseContactBatch(
