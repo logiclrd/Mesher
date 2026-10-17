@@ -890,6 +890,31 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   fragment classification and certified excision then V16 closure,
   mirrored correspondence, residual collision and preserved-witness
   checks. Demonstrate actual repeated successful tower unions before UI.
+- [x] **V17e2b2b1 — Unpublished conforming closed-manifold RegionEdit.**
+  Given one bounded set of true V13 contacts on a CLOSED orientable mesh,
+  regenerate the V17e2b2a conformance plan (never trust arbitrary external
+  face/vertex indices), then allocate unique persistent VertexIds for its
+  cut points, retain each affected original FaceId for its first child
+  triangle and append remaining child triangles as new FaceIds in ONE
+  unpublished RegionEdit. Original shared-edge incident faces use ONE
+  generated vertex ID; two intersecting solids use DISTINCT generated
+  IDs even when their geometric coordinates coincide. Commit only after
+  RegionEdit has validated all altered edge orientations, vertex fans,
+  links and local triangle geometry. Any unsupported contact, stale plan,
+  budget/partition-capacity exhaustion or invalid manifold operation
+  discards the private candidate without changing the old immutable root,
+  render readers, repository publication or history. A closed pair of
+  transverse tetrahedra exercises actual private materialization,
+  preserved old IDs and roots, inserted IDs and failure rollback. It is
+  explicitly a geometry subdivision, NOT an authorized boolean union:
+  residual intersections are EXPECTED until fragment classification.
+  Mirrored persistent face insertion is still refused: a separate staged
+  reflected face-ID mapping is needed.
+  **V17e2b2b2 onward:** multiple intersection curves per source triangle
+  through a bounded polygon arrangement; mirrored face transaction;
+  per-fragment positive-winding classification and validated excision,
+  contour stitching and complete residual/witness checks. Verify
+  SUCCESSFUL repeated real symmetric unions before enabling UI.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
