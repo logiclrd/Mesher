@@ -107,4 +107,31 @@ ConformingCutPlan buildConformingCutPlan(
     const ConformingCutLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
 
+
+// V17e2b2b1: materialize a fully validated conforming cut graph in ONE
+// PRIVATE RegionEdit on closed orientable input meshes. This does NOT
+// classify, excise, heal, validate residual collisions, or publish the
+// result. Contact surfaces retain distinct cut vertex identities.
+struct ConformingCutCandidate {
+    RevisionCommit commit;
+    std::shared_ptr<const RegionTopologyIndex> index;
+    std::vector<VertexId> insertedVertices;
+    std::vector<FaceId> insertedFaces;
+    std::vector<FaceId> rewrittenFaces;
+    std::vector<std::array<VertexId,2>> sectionFirst;
+    std::vector<std::array<VertexId,2>> sectionSecond;
+};
+// Always REBUILDS the cut plan from the current immutable revision and
+// exact caller-supplied V13 contact pairs; never trusts an arbitrary
+// precomputed point/face graph. For now symmetric RegionEdit construction
+// needs a separate paired-face staging protocol and is explicitly refused.
+// Unsupported multiple transverse curves through one original face also
+// refuse in buildConformingCutPlan. Failure leaves every old root untouched.
+ConformingCutCandidate materializeTransverseCutCandidate(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const ConformingCutLimits& limits={},
+    std::size_t partitionCapacity=256,
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
+
 } // namespace mesher
