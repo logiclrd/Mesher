@@ -935,6 +935,81 @@ void testRepeatedMirroredSurgeryKeepsHistory() {
             euler(*second.index)==4,
             "Two sequential mirrored mergers each reduce Euler characteristic by two");
 }
+void testSampledExcisionProvenanceAndSelectiveReverseFidelity() {
+    Mesh m;
+    cube(m,{},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<FaceId> cap{f[2],f[3]};
+    const auto exposed=inspectRemovalSurfaceProvenance(*original,cap);
+    require(exposed.sampledFaces==2&&exposed.featureFragments()>0&&
+            exposed.totalFragments()==32&&
+            exposed.ambiguousFragments==0,
+            "V14 records explicit sampled exposed occupancy at a cube surface");
+    auto plan=planRemovalContours(*original,cap);
+    require(plan.ready()&&plan.cappedContours.size()==1,
+            "Exposed original cube cap remains eligible for replacement");
+    RepairSurgerySettings guarded;
+    guarded.requireExposedFragmentFidelity=true;
+    guarded.maximumReverseDeviationInEdges=.01;
+    const auto replacement=applyRepairSurgery(original,plan,guarded);
+    require(replacement.removalProvenance.exposedFragments==
+                exposed.exposedFragments&&
+            replacement.checkedReverseFragments==exposed.featureFragments()&&
+            replacement.reverseDistanceTests>0&&
+            replacement.maximumReverseDeviationInEdges<1e-10,
+            "Exposed-fragment reverse sampling preserves exactly replaced cap detail");
+
+    guarded.maxProvenanceFragments=1;
+    bool refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Provenance sample budget rejects rather than truncating classification");
+    guarded.maxProvenanceFragments=2048;
+    guarded.maxReverseDistanceTests=1;
+    refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Reverse nearest-face work budget fails closed");
+    guarded.maxReverseDistanceTests=131072;
+    guarded.requireReverseSurfaceFidelity=true;
+    refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::invalid_argument&){refused=true;}
+    require(refused,
+            "Two incompatible reverse-fidelity policies cannot be silently combined");
+    require(original->retiredFaceCount()==0,
+            "All sampled classification and failure paths leave old root unchanged");
+}
+void testRedundantBuriedShellCanDisappearWithoutReversePenalty() {
+    Mesh m;
+    cube(m,{},3);
+    cube(m,{},.5);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& ids=imported.flatIndex.faceIds;
+    const std::vector<FaceId> inner(ids.begin()+12,ids.end());
+    const auto provenance=inspectRemovalSurfaceProvenance(*original,inner);
+    require(provenance.sampledFaces==12&&provenance.buriedFragments>0&&
+            provenance.featureFragments()==0&&provenance.ambiguousFragments==0,
+            "Nested redundant inner shell is positively wound on BOTH sides");
+    const auto plan=planRemovalContours(*original,inner);
+    require(plan.ready()&&plan.contours.empty(),
+            "Entire buried inner shell requires no cap or zipper");
+    RepairSurgerySettings settings;
+    settings.requireExposedFragmentFidelity=true;
+    settings.maximumReverseDeviationInEdges=.001;
+    const auto repair=applyRepairSurgery(original,plan,settings);
+    require(repair.insertedFaces.empty()&&
+            repair.retiredFaces.size()==12&&
+            repair.removalProvenance.buriedFragments==provenance.buriedFragments&&
+            repair.checkedReverseFragments==0&&
+            euler(*repair.index)==2,
+            "Buried shell disappears without an impossible reverse detail constraint");
+    require(original->retiredFaceCount()==0,
+            "Buried shell removal keeps original nested index immutable");
+}
 void testGeometricValidationBudgets() {
     Mesh m;
     cube(m,{-1.1,0,0},1);
@@ -1041,6 +1116,10 @@ int main() {
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
         testMirroredWholeComponentRetirement();
+        std::cout<<"Surgery fixture: exposed V14 feature fidelity"<<std::endl;
+        testSampledExcisionProvenanceAndSelectiveReverseFidelity();
+        std::cout<<"Surgery fixture: buried shell removal provenance"<<std::endl;
+        testRedundantBuriedShellCanDisappearWithoutReversePenalty();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
