@@ -736,6 +736,39 @@ void testPrivateConformingRevisionCommitsAtomically() {
               "All true original contacts have actual source-paired child edge traces");
         check(baseline->pickingRootIdentity()==sourceRoot,
               "Complete full-contact coverage preserves the immutable original root");
+        check(checked.discoveryWork.reportedContacts==all.size()&&
+              checked.checkedContacts==checked.coveredContacts.size()&&
+              checked.edgeTraceTests>0&&checked.childPairTests>0,
+              "Coverage independently visits every original collision and both edge traces");
+        auto truncated=whole;
+        truncated.sourceContacts.pop_back();
+        truncated.sectionFirst.pop_back();
+        truncated.sectionSecond.pop_back();
+        const auto missing=certifyConformingCutCoverage(truncated);
+        check(!missing.complete&&missing.coveredContacts.empty(),
+              "Dropping one actual original contact invalidates complete certification");
+        auto wrong=whole;
+        wrong.sectionFirst.front()[0]=0;
+        const auto missingPoint=certifyConformingCutCoverage(wrong);
+        check(!missingPoint.complete&&missingPoint.coveredContacts.empty(),
+              "Malformed permanent section endpoint cannot produce certification");
+        CutCoverageLimits hard;
+        hard.maxEdgeTraceTests=0;
+        bool edgeCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {edgeCap=true;}
+        check(edgeCap&&baseline->pickingRootIdentity()==sourceRoot,
+              "Zero child edge trace budget refuses without publishing or truncating");
+        hard={};hard.maxChildPairTests=0;
+        bool childCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {childCap=true;}
+        check(childCap,"Child plane and overlap predicate work is bounded");
+        hard={};hard.originalCollisionLimits.maxReportedContacts=0;
+        bool collisionCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {collisionCap=true;}
+        check(collisionCap,"Original contact count is capped inside BVH discovery");
     }
 
     // A forged source FaceId cannot influence deletion through classification.
