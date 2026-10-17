@@ -83,12 +83,16 @@ bool positiveArea(const RegionTopologyIndex& index,FaceId source,
 bool earClip(const std::vector<std::size_t>& boundary,
              const std::map<std::size_t,Point2>& pos,
              double areaTolerance,std::vector<Tri>& triangles,
-             std::size_t maximum) {
+             std::size_t maximum,
+             std::size_t& predicates,std::size_t maximumPredicates) {
     if(boundary.size()<3)return false;
     std::vector<std::size_t> polygon=boundary;
     while(polygon.size()>3) {
         bool clipped=false;
         for(std::size_t i=0;i<polygon.size();++i) {
+            if(predicates>=maximumPredicates)
+                throw std::length_error("Ear-clipping predicate budget");
+            ++predicates;
             const auto prev=polygon[(i+polygon.size()-1)%polygon.size()],
                        mid=polygon[i],
                        next=polygon[(i+1)%polygon.size()];
@@ -99,6 +103,9 @@ bool earClip(const std::vector<std::size_t>& boundary,
             bool contains=false;
             for(const auto id:polygon) {
                 if(id==prev||id==mid||id==next)continue;
+                if(predicates>=maximumPredicates)
+                    throw std::length_error("Ear-clipping point-test budget");
+                ++predicates;
                 const auto p=pos.at(id);
                 const auto ap=subtract(p,a),bp=subtract(p,b),
                            cp=subtract(p,c);
@@ -137,6 +144,7 @@ bool arrangeFace(
     std::size_t& newlyCreated,
     std::size_t& arrangementTests,
     std::size_t& arrangementEdges,
+    std::size_t& arrangementPredicates,
     std::size_t& totalTriangles,
     const ConformingCutLimits& limits,
     std::vector<Tri>& result,std::string& diagnostic) {
@@ -283,6 +291,9 @@ bool arrangeFace(
         const auto r=subtract(q,p);
         for(const auto& [a,b]:graph) {
             if(a==from||b==from||a==to||b==to)continue;
+            if(arrangementPredicates>=limits.maxArrangementPredicates)
+                throw std::length_error("Scaffold visibility-test budget");
+            ++arrangementPredicates;
             const auto x=locate(a),y=locate(b);
             const auto segment=subtract(y,x),xp=subtract(x,p);
             const auto denominator=cross2(r,segment);
@@ -366,7 +377,8 @@ bool arrangeFace(
             const auto allowed=limits.maxTriangles-totalTriangles;
             const auto before=result.size();
             if(!earClip(polygon,positions,areaTolerance,result,
-                        before+allowed))return refuse(__LINE__);
+                        before+allowed,arrangementPredicates,
+                        limits.maxArrangementPredicates))return refuse(__LINE__);
             totalTriangles+=result.size()-before;
     }
     return foundPositive>0&&positiveArea(index,faceId,result,points);
@@ -397,7 +409,8 @@ ConformingCutPlan buildMultiSectionCutPlan(
     std::set<FaceId> affected;
     std::set<std::pair<FaceId,FaceId>> contactPairs;
     std::size_t newlyCreated=0,arrangementTests=0,
-                arrangementEdges=0,totalTriangles=0;
+                arrangementEdges=0,arrangementPredicates=0,
+                totalTriangles=0;
     const auto original=[&](VertexId id)->std::size_t {
         const auto it=originals.find(id);
         if(it!=originals.end())return it->second;
@@ -519,7 +532,8 @@ ConformingCutPlan buildMultiSectionCutPlan(
         std::string diagnostic;
         if(!arrangeFace(index,face,corners,cuts,perFace[face],
                         result.points,newlyCreated,arrangementTests,
-                        arrangementEdges,totalTriangles,limits,triangles,diagnostic)) {
+                        arrangementEdges,arrangementPredicates,
+                        totalTriangles,limits,triangles,diagnostic)) {
             const auto reason="Planar arrangement on face "+
                 std::to_string(face)+": "+diagnostic;
             return reject(reason.c_str());
