@@ -685,6 +685,48 @@ void testPrivateConformingRevisionCommitsAtomically() {
         for(const auto& fragment:occupancy.fragments)
             check(fragment.negativeWinding-fragment.positiveWinding==1,
                   "Uniformly sampled true child triangle has a unit winding jump");
+    // The previous one-pair test deliberately selects only PART of the
+    // original intersection graph: this new independent certificate must
+    // refuse rather than treating a correct-looking section as complete.
+    const auto coverage=certifyConformingCutCoverage(candidate);
+    check(!coverage.complete&&coverage.coveredContacts.empty()&&
+          !coverage.refusal.empty(),
+          "Missing neighboring original contact refuses entire V17e2b2c2 graph");
+    auto forgedCoverage=candidate;
+    forgedCoverage.sourceContacts[0].ambiguous=true;
+    const auto invalidCoverage=certifyConformingCutCoverage(forgedCoverage);
+    check(!invalidCoverage.complete&&invalidCoverage.coveredContacts.empty(),
+          "Forged ambiguous contact never permits coverage certification");
+    CutCoverageLimits zeroCoverage;
+    zeroCoverage.originalCollisionLimits.maxSeedFaces=0;
+    bool originalBudget=false;
+    try {(void)certifyConformingCutCoverage(candidate,zeroCoverage);}
+    catch(const std::length_error&) {originalBudget=true;}
+    check(originalBudget&&baseline->pickingRootIdentity()==sourceRoot,
+          "Original contact rediscovery has a strict internal work limit");
+    zeroCoverage={};zeroCoverage.maxContacts=0;
+    bool zeroContacts=false;
+    try {(void)certifyConformingCutCoverage(candidate,zeroCoverage);}
+    catch(const std::length_error&) {zeroContacts=true;}
+    check(zeroContacts,"Declared contact count has a strict coverage limit");
+    auto wrongEndpoint=candidate;
+    wrongEndpoint.sectionFirst[0][0]=0;
+    const auto missingEnd=certifyConformingCutCoverage(wrongEndpoint);
+    check(!missingEnd.complete&&missingEnd.coveredContacts.empty(),
+          "Missing section endpoint cannot create a valid edge trace");
+    // Probe full original contacts to exercise the positive certificate
+    // whenever this geometry is supported by the bounded arranger.
+    try {
+        const auto whole=materializeTransverseCutCandidate(baseline,all);
+        const auto checked=certifyConformingCutCoverage(whole);
+        std::cout<<"[coverage-probe] originalPairs="<<all.size()
+                 <<" certificate="<<checked.complete
+                 <<" refusal="<<checked.refusal<<'\\n';
+    }catch(const std::logic_error& error) {
+        std::cout<<"[coverage-probe] full arrangement unsupported: "
+                 <<error.what()<<'\\n';
+    }
+
     // A forged source FaceId cannot influence deletion through classification.
     auto forged=candidate;
     forged.childSources.front().second=0;
@@ -795,6 +837,17 @@ void testCrossingMultipleSectionsPerOriginalTriangle() {
     check(!privateRevision.index->triangleIntersections(
         privateRevision.insertedVertices,{}).empty(),
         "Multiple-curve subdivision retains collision until classified removal");
+    const auto multiCoverage=certifyConformingCutCoverage(privateRevision);
+    check(!multiCoverage.complete&&multiCoverage.coveredContacts.empty()&&
+          !multiCoverage.refusal.empty(),
+          "Two listed contacts on triple sheets are not a complete global cut graph");
+    const auto emptyTrace=[&] {
+        auto tampered=privateRevision;
+        tampered.sectionSecond[0][0]=0;
+        return certifyConformingCutCoverage(tampered);
+    }();
+    check(!emptyTrace.complete&&emptyTrace.coveredContacts.empty(),
+          "Multi-section cut cannot certify an erased second-sheet trace");
 
     ConformingCutLimits limits;
     limits.maxArrangementPairTests=0;
