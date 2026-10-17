@@ -841,6 +841,26 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   fixtures that genuinely yield repeated successful symmetric unions.
   Continue aggregate Step budgets, post-CAS exception atomicity, broader
   exposed-witness selection and desktop UI gates separately.
+- [x] **V17e2b1 — Bounded transverse intersection sections and private per-face patches.**
+  Add a dedicated read-only V13 companion for noncoplanar, genuinely
+  transverse triangle-pair contact: calculate a COMMON 3D segment,
+  independently verify it on both face planes, retain both local
+  barycentric endpoint coordinates, and triangulate each original face
+  so the matching segment becomes an explicit, two-sided internal edge.
+  Support boundary-to-boundary, boundary-to-interior and interior-to-
+  interior endpoints without index-parity assumptions. Strictly preserve
+  oriented area; reject vertex grazing, tangency, coplanarity, nearly
+  parallel planes, unstable/degenerate triangles and uncertifiable
+  triangulations. No partial batch may escape on one uncertain face;
+  bound per-batch sections and maintain original persistent BVH roots.
+  Regression validates exact common endpoints, per-face winding/area,
+  mixed boundary and interior endpoints, budget exhaustion and ambiguity.
+  This primitive is **NOT a mesh RegionEdit and never publishes geometry**.
+  **V17e2b2 remains:** global per-edge conformance across surviving
+  neighboring triangles and symmetry pairs, fragment-by-fragment V14
+  occupancy classification and V15 removal, private V16 closure, residual
+  collision and witness validation, real repeated successful unions.
+  The interactive Merge geometry switch remains off.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
