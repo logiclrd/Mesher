@@ -818,6 +818,13 @@ void testPrivateConformingRevisionCommitsAtomically() {
         counterfeit.sourceContacts.pop_back();
         counterfeit.sectionFirst.pop_back();
         counterfeit.sectionSecond.pop_back();
+        auto mismatchedPlanning=gated;
+        mismatchedPlanning.surgery.planning.maximumGapInEdges+=.25;
+        const auto inconsistent=attemptPrivateExactCutSurgery(
+            whole,mismatchedPlanning);
+        check(inconsistent.status==ExactCutSurgeryStatus::Refused&&
+              !inconsistent.surgery,
+              "V16 cannot re-plan surgery with different V15 contour thresholds");
         const auto staleSurgery=attemptPrivateExactCutSurgery(
             counterfeit,gated);
         check(staleSurgery.status==ExactCutSurgeryStatus::Refused&&
