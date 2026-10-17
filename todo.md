@@ -915,6 +915,34 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   per-fragment positive-winding classification and validated excision,
   contour stitching and complete residual/witness checks. Verify
   SUCCESSFUL repeated real symmetric unions before enabling UI.
+- [x] **V17e2b2b2 — Bounded multi-section planar face arrangement (unpublished).**
+  Extend the V17e2b2a conformance graph when two or more independent
+  V13 contacts include the SAME original triangle. Collect section
+  endpoints by original face/edge provenance, find and insert every
+  pairwise interior crossing or endpoint-on-curve junction with a shared
+  ephemeral point index, split all constraints, and assemble planar
+  subfaces using an oriented half-edge walk and bounded ear clipping.
+  Constrained ends inside a source triangle use separately checked,
+  noncrossing triangulation scaffolds; those edges are NOT interpreted
+  as Boolean intersection curves. Every reconstructed source face and
+  incident edge-neighbor must conserve original signed area and positive
+  winding; disjoint overlapping constraints, ambiguous/degenerate
+  cycles or exhausted pair-tests/graph-edge/new-node/face/triangle
+  budgets (including visibility/ear-clipping predicate tests) refuse
+  without exposing a partial plan. The existing
+  **single-section path** is retained unchanged for supported cases.
+  Real three-tetrahedron regressions exercise two sections CROSSING
+  inside one triangle and a second endpoint MEETING the other curve
+  there. Both must produce a single unpublished manifold RegionEdit;
+  failure budgets, duplicate contacts and historical roots are tested.
+  This is NOT an accepted merge: fragments have not been classified or
+  excised, and genuine original collisions remain afterward.
+  Mirrored MULTI-SECTION persistent face staging remains unsupported
+  and explicitly fail-closed.
+  **Next V17e2b2b3:** mirrored permanent vertex/face journal for the
+  complete subdivided arrangement, then V14 fragment occupancy and
+  V15 authorized cuts, V16 verified contours/closure and repeated
+  successful physical symmetric unions. Do not turn on Merge geometry.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

@@ -696,6 +696,182 @@ void testPrivateConformingRevisionCommitsAtomically() {
           "All failures preserve exact original picking index object graph");
 }
 
+void testCrossingMultipleSectionsPerOriginalTriangle() {
+    Mesh mesh;
+    // A's original horizontal triangle is traversed by two genuinely
+    // transverse V13 sections, one at X=.7, one at Y=.7. They cross
+    // strictly within the face at (.7,.7,0). Each crossing solid
+    // remains topologically distinct until classified Boolean repair.
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+        {-2,.7,-1},{3,.7,-1},{.5,.7,2},{.5,2.5,3}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto v=4u*solid;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            v+t[0],v+t[1],v+t[2]});
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto baseline=RegionTopologyIndex::build(imported.revision);
+    const auto initialRoot=baseline->pickingRootIdentity();
+    const auto all=baseline->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    const auto lookup=[&](FaceId a,FaceId b) {
+        const auto pair=std::minmax(a,b);
+        const auto found=std::find_if(all.begin(),all.end(),
+            [&](const auto& item) {
+                return item.first==pair.first&&item.second==pair.second;
+            });
+        check(found!=all.end(),"V13 reports both true original transverse contacts");
+        return *found;
+    };
+    const auto& faces=imported.flatIndex.faceIds;
+    const std::vector<RegionTopologyIndex::CollisionPair> contacts{
+        lookup(faces[0],faces[4]),lookup(faces[0],faces[8])};
+    const auto plan=buildConformingCutPlan(*baseline,contacts);
+    if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+        throw std::runtime_error("Multi-section arrangement: "+plan.refusal);
+    check(plan.segments.size()==2&&plan.faces.size()>3,
+          "Crossing curves include both source sheets and incident face neighbors");
+    std::optional<std::size_t> junction;
+    for(std::size_t i=0;i<plan.points.size();++i) {
+        const auto& point=plan.points[i];
+        if(point.owningFace==faces[0]&&!point.boundaryEdge&&
+           !point.existingVertex&&
+           length(point.position-Vec3{.7,.7,0})<1e-8) {
+            check(!junction,"Crossing section junction must have ONE local index");
+            junction=i;
+        }
+    }
+    check(junction.has_value(),
+          "Actual interior crossing becomes a shared constrained node");
+    const auto cutA=std::find_if(plan.faces.begin(),plan.faces.end(),
+        [&](const auto& part){return part.sourceFace==faces[0];});
+    check(cutA!=plan.faces.end(),"Original twice-cut triangle is triangulated");
+    unsigned junctionTriangles=0;
+    for(const auto t:cutA->triangles)
+        if(std::find(t.begin(),t.end(),*junction)!=t.end())
+            ++junctionTriangles;
+    check(junctionTriangles>=4,
+          "Intersection-curve junction has a complete nonoverlapping oriented face fan");
+
+    const auto privateRevision=materializeTransverseCutCandidate(
+        baseline,contacts);
+    check(privateRevision.index&&privateRevision.index!=baseline&&
+          privateRevision.sectionFirst.size()==2&&
+          privateRevision.sectionSecond.size()==2,
+          "Multiple real contact pairs materialize in ONE unpublished RegionEdit");
+    check(privateRevision.insertedVertices.size()>4&&
+          privateRevision.insertedFaces.size()>8,
+          "All face boundaries, intersections and adjacent incident triangles are subdivided");
+    const auto released=baseline->maybeFace(faces[0]);
+    check(released&&privateRevision.index->maybeFace(faces[0])&&
+          baseline->pickingRootIdentity()==initialRoot&&
+          baseline->retiredFaceCount()==0,
+          "Old immutable original face and picking-root identity survive multi-curve staging");
+    check(!privateRevision.index->triangleIntersections(
+        privateRevision.insertedVertices,{}).empty(),
+        "Multiple-curve subdivision retains collision until classified removal");
+
+    ConformingCutLimits limits;
+    limits.maxArrangementPairTests=0;
+    bool testsExceeded=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,limits);}
+    catch(const std::length_error&) {testsExceeded=true;}
+    check(testsExceeded&&baseline->pickingRootIdentity()==initialRoot,
+          "Zero arrangement-pair budget fails without publishing partial changes");
+    limits={};
+    limits.maxArrangementEdges=2;
+    bool edgesExceeded=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,limits);}
+    catch(const std::length_error&) {edgesExceeded=true;}
+    check(edgesExceeded,"Bounded arrangement graph edges refuse over-budget work");
+    limits={};
+    limits.maxArrangementPredicates=0;
+    bool predicatesExceeded=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,limits);}
+    catch(const std::length_error&) {predicatesExceeded=true;}
+    check(predicatesExceeded,
+          "Zero visibility/ear predicate budget refuses before an incomplete revision");
+
+    const auto malformed=std::vector<RegionTopologyIndex::CollisionPair>{
+        contacts[0],contacts[0]};
+    const auto refused=buildConformingCutPlan(*baseline,malformed);
+    check(refused.status==IntersectionSectionStatus::UnsupportedContact&&
+          refused.points.empty()&&refused.faces.empty(),
+          "Duplicate transverse constraint cannot leak a partial arrangement");
+    const std::unordered_map<VertexId,VertexId> fakeMirror;
+    const auto unsupported=buildConformingCutPlan(
+        *baseline,contacts,{},&fakeMirror);
+    check(unsupported.status==IntersectionSectionStatus::UnsupportedContact&&
+          unsupported.points.empty(),
+          "Unsupported multi-curve mirror staging remains explicitly fail-closed");
+}
+
+void testSectionsMeetAtInteriorTjunction() {
+    Mesh mesh;
+    // B crosses all of A at X=.7, while C's transverse section
+    // terminates exactly on B's section at (.7,.7,0).
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+        {-1,.7,-1},{.7,.7,-1},{.7,.7,1},{.5,2.5,3}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto base=solid*4;
+        for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            base+tri[0],base+tri[1],base+tri[2]});
+    }
+    auto import=partitionFlatMesh(mesh,256);
+    auto root=RegionTopologyIndex::build(import.revision);
+    const auto contacts=root->triangleIntersections(
+        import.flatIndex.vertexIds,{});
+    const auto& f=import.flatIndex.faceIds;
+    const auto lookup=[&](FaceId a,FaceId b) {
+        const auto ordered=std::minmax(a,b);
+        const auto it=std::find_if(contacts.begin(),contacts.end(),
+            [&](const auto& p){return p.first==ordered.first&&
+                                     p.second==ordered.second;});
+        check(it!=contacts.end(),
+              "T-junction is a real V13 transverse original-face contact");
+        return *it;
+    };
+    const std::vector<RegionTopologyIndex::CollisionPair> selected{
+        lookup(f[0],f[4]),lookup(f[0],f[8])};
+    const auto plan=buildConformingCutPlan(*root,selected);
+    if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+        throw std::runtime_error("Interior T-junction: "+plan.refusal);
+    const auto center=std::find_if(plan.points.begin(),plan.points.end(),
+        [&](const auto& point) {
+            return point.owningFace==f[0]&&!point.boundaryEdge&&
+                   !point.existingVertex&&
+                   length(point.position-Vec3{.7,.7,0})<1e-8;
+        });
+    check(center!=plan.points.end(),
+          "T-junction merges a face-local curve endpoint with a crossing node");
+    const auto id=static_cast<std::size_t>(center-plan.points.begin());
+    const auto face=std::find_if(plan.faces.begin(),plan.faces.end(),
+        [&](const auto& p){return p.sourceFace==f[0];});
+    check(face!=plan.faces.end(),"Original source face has a complete T arrangement");
+    unsigned incidence=0;
+    for(const auto tri:face->triangles)
+        if(std::find(tri.begin(),tri.end(),id)!=tri.end())++incidence;
+    check(incidence>=3,
+          "Interior meeting point has a single shared fan, not a hanging vertex");
+    const auto candidate=materializeTransverseCutCandidate(root,selected);
+    check(candidate.index&&candidate.index!=root&&
+          candidate.rewrittenFaces.size()==plan.faces.size(),
+          "T-arranged sections materialize as one complete unpublished manifold revision");
+}
+
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -726,6 +902,8 @@ int main() {
         testConformingSharedEdgeGraphAndBudgets();
         testConformingReflectedCutGraph();
         testPrivateConformingRevisionCommitsAtomically();
+        testCrossingMultipleSectionsPerOriginalTriangle();
+        testSectionsMeetAtInteriorTjunction();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();

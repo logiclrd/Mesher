@@ -1923,6 +1923,49 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2b2: Multiple transverse sections per source face
+
+When an original FaceId participates in multiple distinct certified V13
+contacts, the V17e2b2a fast path delegates to the bounded read-only
+multi-section planar arrangement. Each local contact contributes two
+original-face-constrained endpoints; original mesh EDGE intersections
+are deduplicated and reused across all incident triangles, while
+independent intersecting sheets never share their cut VertexId identity.
+Within EACH source face, all segment pairs are checked for proper
+crossings and meeting endpoints. They are split at shared 2D junctions
+in a consistent original-face coordinate frame and inserted into one
+undirected embedded graph together with the full subdivided perimeter.
+Internal degree-one constrained endpoints are completed with carefully
+visibility-tested noncrossing ordinary triangulation scaffold edges;
+these do not authorize Boolean surgery. Directed halfedge walks extract
+the positively wound bounded faces, which are ear-clipped into
+nonoverlapping oriented triangles. The resulting faces preserve their
+original FaceIds for first children and are materialized with all
+incident edge-neighbor subdivisions via the existing ONE unpublished
+V17e2b2b1 RegionEdit. The ordinary single-section path is unchanged.
+
+Limits apply to input collision pairs, source/neighbor face count,
+all newly created points, total output triangles, pairwise section
+intersection tests, arrangement graph edges, and scaffold-visibility/
+ear-clipping predicate tests. Coplanar/collinear
+overlapping constraints, touching original corners, uncertain point
+coincidences, dangling non-simple face walks and degenerate triangulations
+refuse the *whole* arrangement without exposing partial cut topology.
+The RegionEdit still performs its independent closed manifold
+edge-orientation and vertex-fan checks before producing any COW root.
+Three closed intersecting tetrahedra exercise proper crossings and
+interior T-junctions; the tests preserve the original immutable index
+and confirm collisions remain present until actual fragment removal.
+
+**Scope:** This is a planar subdivision algorithm, NOT a successful
+Boolean union or publishable Merge geometry Step. Mirrored multiple
+sections are conservatively refused until their generated point and
+child FaceIds can be journaled as a complete symmetric RegionEdit pair
+transaction. Classification of split fragments by V14 positive winding,
+V15 authorized excision, V16 cap/zipper and complete residual-collision
+and anchored-feature auditing remain necessary. The desktop Merge
+geometry option stays off and the V17 parent stays open.
+
 ## V17e2b2b1: Transactional conforming cut materialization, no union
 
 `materializeTransverseCutCandidate` builds the V17e2b2a bounded
