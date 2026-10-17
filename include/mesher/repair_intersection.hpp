@@ -3,6 +3,7 @@
 #include "mesher/triangle_collision.hpp"
 #include "mesher/region_edit.hpp"
 #include "mesher/repair_plan.hpp"
+#include "mesher/repair_surgery.hpp"
 
 #include <array>
 #include <cstddef>
