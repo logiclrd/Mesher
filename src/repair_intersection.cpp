@@ -11,19 +11,19 @@
 
 namespace mesher {
 namespace {
-using Triangle=std::array<Vec3,3>;
+using TrianglePoints=std::array<Vec3,3>;
 using Bary=std::array<double,3>;
 using Face=std::array<unsigned,3>;
 constexpr double relativeTolerance=1e-9;
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
 }
-double edgeScale(const Triangle& a) {
+double edgeScale(const TrianglePoints& a) {
     return std::max({length(a[1]-a[0]),length(a[2]-a[1]),
                      length(a[0]-a[2])});
 }
 std::optional<std::pair<Vec3,Vec3>> planeSection(
-    const Triangle& triangle,Vec3 origin,Vec3 normal,
+    const TrianglePoints& triangle,Vec3 origin,Vec3 normal,
     Vec3 direction,double tolerance) {
     std::vector<Vec3> points;
     for(unsigned i=0;i<3;++i) {
@@ -51,7 +51,7 @@ std::optional<std::pair<Vec3,Vec3>> planeSection(
     if(length(hi-lo)<=tolerance)return std::nullopt;
     return std::make_pair(lo,hi);
 }
-std::optional<Bary> barycentric(Vec3 p,const Triangle& a,
+std::optional<Bary> barycentric(Vec3 p,const TrianglePoints& a,
                                 double geometricTolerance) {
     const auto e0=a[1]-a[0],e1=a[2]-a[0],v=p-a[0];
     const double d00=dot(e0,e0),d01=dot(e0,e1),
@@ -84,7 +84,7 @@ bool inside(Face triangle,Vec3 p,const std::array<Vec3,5>& points,
            w>relativeTolerance;
 }
 bool buildPatch(IntersectionPatch& patch,
-                const Triangle& tri,std::array<Vec3,2> endpoints,
+                const TrianglePoints& tri,std::array<Vec3,2> endpoints,
                 double tolerance) {
     const auto n=cross(tri[1]-tri[0],tri[2]-tri[0]);
     const auto area=length(n);
@@ -190,8 +190,8 @@ bool buildPatch(IntersectionPatch& patch,
 } // namespace
 
 IntersectionSection splitTransverseTriangleContact(
-    const Triangle& a,const std::array<VertexId,3>& aIds,
-    const Triangle& b,const std::array<VertexId,3>& bIds) {
+    const TrianglePoints& a,const std::array<VertexId,3>& aIds,
+    const TrianglePoints& b,const std::array<VertexId,3>& bIds) {
     IntersectionSection answer;
     const auto contact=triangleContact(a,aIds,b,bIds);
     if(contact==TriangleContact::Disjoint||
@@ -262,7 +262,7 @@ IntersectionSectionBatch splitTransverseContactBatch(
         const auto a=index.face(pair.first).vertices;
         const auto b=index.face(pair.second).vertices;
         const auto positions=[&](const std::array<VertexId,3>& ids) {
-            return Triangle{{index.vertex(ids[0]).position,
+            return TrianglePoints{{index.vertex(ids[0]).position,
                              index.vertex(ids[1]).position,
                              index.vertex(ids[2]).position}};
         };
