@@ -195,6 +195,40 @@ void testSameRevisionSymmetricMovement() {
               "New revision still exactly symmetric");
     }
 }
+void testNoFullMeshFallbackOnAmbiguousRays() {
+    // Each of the three independent signed-winding rays meets a triangle
+    // edge, so ordinary ray evidence cannot establish occupancy. Keep the
+    // source geometry away from the query point itself.
+    Mesh mesh;
+    const std::array<Vec3,3> directions{{
+        normalized(Vec3{1,0.193117,0.527463}),
+        normalized(Vec3{-0.327151,1,0.169281}),
+        normalized(Vec3{0.187397,-0.521311,1})
+    }};
+    for(const auto direction:directions) {
+        const Vec3 up=std::abs(direction.z)<.8?Vec3{0,0,1}:Vec3{0,1,0};
+        const auto tangent=normalized(cross(up,direction));
+        const auto other=cross(direction,tangent);
+        const auto middle=direction*2;
+        const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back(middle-tangent*.2);
+        mesh.vertices.push_back(middle+tangent*.2);
+        mesh.vertices.push_back(middle+other*.2);
+        mesh.triangles.push_back({first,first+1,first+2});
+    }
+    const auto index=indexed(mesh);
+    RegionTopologyIndex::WindingStatistics bounded;
+    const auto uncertain=index->positiveWindingAt({},&bounded,false);
+    check(!uncertain.reliable&&bounded.raysTested==3&&
+          bounded.referenceFallbacks==0&&
+          bounded.referenceFallbackRefusals==1,
+          "Strict live policy refuses ambiguous rays without scanning all faces");
+    RegionTopologyIndex::WindingStatistics legacy;
+    (void)index->positiveWindingAt({},&legacy);
+    check(legacy.referenceFallbacks==1&&
+          legacy.referenceFallbackRefusals==0,
+          "Legacy callers retain the exceptional reference-winding fallback");
+}
 void testAcceleratedQueriesPrune() {
     SphereOptions options;
     options.vertexCount=900;
@@ -202,12 +236,12 @@ void testAcceleratedQueriesPrune() {
     const auto imported=partitionFlatMesh(generateSphere(options),16);
     const auto index=RegionTopologyIndex::build(imported.revision);
     RegionTopologyIndex::WindingStatistics stats;
-    const auto test=index->positiveWindingAt({0,0,0},&stats);
+    const auto test=index->positiveWindingAt({0,0,0},&stats,false);
     check(test.reliable&&test.winding==1,
           "Large closed generated sphere has positive winding inside");
     check(stats.trianglesTested<imported.flatIndex.faceIds.size()/3,
           "Accelerated winding prunes most triangles");
-    check(stats.referenceFallbacks==0,
+    check(stats.referenceFallbacks==0&&stats.referenceFallbackRefusals==0,
           "Normal winding queries do not traverse full mesh");
     check(std::abs(index->referenceWindingAt({0,0,0})-1)<1e-9L,
           "Accelerated winding matches complete solid-angle sum");
@@ -219,6 +253,7 @@ int main() {
         testMixedSurfaceFragments();
         testEnclosedComponents();
         testSameRevisionSymmetricMovement();
+        testNoFullMeshFallbackOnAmbiguousRays();
         testAcceleratedQueriesPrune();
         std::cout<<"Positive winding and surface classification regression passed\n";
     }catch(const std::exception& error) {
