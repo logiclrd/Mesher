@@ -1056,6 +1056,126 @@ void testRedundantBuriedShellCanDisappearWithoutReversePenalty() {
     require(original->retiredFaceCount()==0,
             "Buried shell removal keeps original nested index immutable");
 }
+void testMixedExposedAndBuriedFaceProvenance() {
+    // A geometric intersection divides a SINGLE source triangle into
+    // patches that are feature-bearing and patches that are buried.
+    // Whole-face reverse sampling cannot represent that distinction.
+    Mesh m;
+    cube(m,{-0.4,-0.4,0},1);
+    cube(m,{0.4,0.4,0.3},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto index=RegionTopologyIndex::build(imported.revision);
+    const auto oldRoot=index->pickingRootIdentity();
+    bool foundMixed=false;
+    for(const auto id:imported.flatIndex.faceIds) {
+        const auto classified=index->classifyFaceFragments(id,3);
+        bool exposed=false,buried=false;
+        for(const auto& fragment:classified) {
+            exposed|=fragment.kind==RegionTopologyIndex::FragmentKind::Exposed;
+            buried|=fragment.kind==RegionTopologyIndex::FragmentKind::Buried;
+        }
+        if(!exposed||!buried)continue;
+        const auto sampled=inspectRemovalSurfaceProvenance(
+            *index,{id},3,64);
+        require(sampled.sampledFaces==1&&
+                sampled.totalFragments()==64&&
+                sampled.exposedFragments>0&&sampled.buriedFragments>0,
+                "One intersected face has BOTH exposed and buried original patches");
+        bool limited=false;
+        try {(void)inspectRemovalSurfaceProvenance(*index,{id},3,63);}
+        catch(const std::length_error&){limited=true;}
+        require(limited,
+                "Provenance cannot truncate a partially sampled mixed face");
+        foundMixed=true;
+        break;
+    }
+    require(foundMixed,
+            "Overlap fixture contains an actual mixed exposed/buried face");
+    require(index->retiredFaceCount()==0&&
+            index->pickingRootIdentity()==oldRoot,
+            "Mixed-fragment inspection is strictly read-only");
+}
+void testExplicitClassifiedRepairPolicyAndNoChanges() {
+    Mesh m;
+    cube(m,{},3);
+    cube(m,{},.5);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto initialRoot=original->pickingRootIdentity();
+    const auto seed=imported.flatIndex.faceIds[12];
+    IndexedMeshRepository repository(original);
+    const auto noChanges=applyClassifiedExcisionRepair(
+        original,{},{},{},ClassifiedFeaturePolicy::TopologyOnly);
+    require(noChanges.plan.status==RepairPlanStatus::NoChanges&&
+            !noChanges.surgery.has_value(),
+            "No collision and no component seed produce no private revision");
+    const auto raw=applyClassifiedExcisionRepair(
+        original,{},{},{seed},ClassifiedFeaturePolicy::TopologyOnly);
+    require(raw.plan.ready()&&raw.surgery.has_value()&&
+            raw.plan.removedFaces.size()==12&&
+            raw.surgery->retiredFaces.size()==12,
+            "Classification-aware path only removes an isolated V14-redundant shell");
+    const auto guarded=applyClassifiedExcisionRepair(
+        original,{},{},{seed},
+        ClassifiedFeaturePolicy::PreserveSampledExposedFeatures);
+    require(guarded.plan.ready()&&guarded.surgery.has_value()&&
+            guarded.surgery->removalProvenance.featureFragments()==0&&
+            guarded.surgery->checkedReverseFragments==0&&
+            guarded.surgery->retiredFaces.size()==12,
+            "Explicit exposed-detail policy allows the certified redundant shell to disappear");
+    require(repository.snapshot()==original&&
+            original->pickingRootIdentity()==initialRoot&&
+            original->retiredFaceCount()==0,
+            "Classification and both private surgeries leave old reader root intact");
+    auto forbidden=RepairSurgerySettings{};
+    forbidden.requireExposedFragmentFidelity=true;
+    bool rejected=false;
+    try {
+        (void)applyClassifiedExcisionRepair(
+            original,{},{},{seed},ClassifiedFeaturePolicy::TopologyOnly,
+            forbidden);
+    }catch(const std::invalid_argument&){rejected=true;}
+    require(rejected,
+            "Classified wrapper rejects two conflicting ways of setting feature policy");
+}
+void testSequentialOverlappingHistoryAndStaleCuts() {
+    Mesh m;
+    for(unsigned i=0;i<5;++i)
+        cube(m,{0,static_cast<double>(i)*8,0},1);
+    const auto imported=partitionFlatMesh(m,1);
+    auto current=RegionTopologyIndex::build(imported.revision);
+    IndexedMeshRepository repository(current);
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> history{current};
+    for(unsigned i=0;i<5;++i) {
+        const auto& f=imported.flatIndex.faceIds;
+        const std::vector<FaceId> removal{f[12*i+2],f[12*i+3]};
+        const auto plan=planRemovalContours(*current,removal);
+        require(plan.ready()&&plan.cappedContours.size()==1,
+                "Each sequential cap has an independent complete closure");
+        const auto oldRoot=current->pickingRootIdentity();
+        const auto privateResult=applyRepairSurgery(current,plan);
+        require(repository.snapshot()==current&&
+                current->pickingRootIdentity()==oldRoot,
+                "A candidate revision never mutates the published old root");
+        require(repository.publishIfCurrent(current,privateResult.index),
+                "Each separate repair step publishes by one original-root CAS");
+        const auto previous=current;
+        current=privateResult.index;
+        history.push_back(current);
+        bool staleRejected=false;
+        try {(void)applyRepairSurgery(current,plan);}
+        catch(const std::exception&){staleRejected=true;}
+        require(staleRejected,
+                "A prior removal plan cannot be reapplied after its FaceIds retire");
+        require(previous->retiredFaceCount()==i*2&&
+                current->retiredFaceCount()==(i+1)*2&&
+                euler(*current)==10,
+                "Repeated repairs preserve five manifold shells and immutable retirement history");
+    }
+    for(unsigned i=0;i<history.size();++i)
+        require(history[i]->retiredFaceCount()==i*2,
+                "All held historical snapshots remain individually readable");
+}
 void testGeometricValidationBudgets() {
     Mesh m;
     cube(m,{-1.1,0,0},1);
@@ -1168,6 +1288,12 @@ int main() {
         testRedundantBuriedShellCanDisappearWithoutReversePenalty();
         std::cout<<"Surgery fixture: eight independent near-coplanar caps"<<std::endl;
         testEightIndependentNearCoplanarCapRepairs();
+        std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
+        testMixedExposedAndBuriedFaceProvenance();
+        std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testExplicitClassifiedRepairPolicyAndNoChanges();
+        std::cout<<"Surgery fixture: sequential stale overlapping repair plans"<<std::endl;
+        testSequentialOverlappingHistoryAndStaleCuts();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
