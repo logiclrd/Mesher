@@ -1923,6 +1923,39 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b1: Read-only intersection sections before conforming topology
+
+A newly separate, bounded CPU geometry primitive
+`splitTransverseTriangleContact` takes two independent oriented V13
+triangle surfaces and stable face-corner IDs. It first uses the V13
+collision predicate, then extracts one COMMON, finite non-coplanar
+intersection segment by clipping both triangles against the other's
+supporting plane. The same two 3D endpoint coordinates are then validated
+against BOTH triangle planes and stored with independent barycentric
+coordinates. Each source triangle is triangulated *in memory* with that
+intersection segment a genuine internal edge. Boundary-to-boundary cuts,
+one interior endpoint, or two interior endpoints are supported, and all
+subtriangles must preserve winding and the exact original signed area
+within a bounded numerical tolerance. A finite `maxPairs` guards the
+read-only V13-indexed batch: any unsupported member invalidates the
+entire return set; over-budget work throws without partial output.
+Original revision roots, vertex IDs and face IDs never change.
+
+**Important restriction:** Two-face local section triangulation is NOT
+a conforming topology commit. Intersection curves generally cross existing
+edges shared by a *third* surviving face, and cutting one triangle requires
+staging the same exact edge vertex in all incident faces, plus mirrored
+matching IDs on the reflected surface. The section vertices here have only
+*local* indices 3 and 4, no globally allocated VertexIds. Coplanar
+overlaps, tangencies, corner cuts, nearly parallel planes, and uncertain
+or too-degenerate sections deliberately return `UnsupportedContact`.
+V17e2b2 must build a bounded edge-conformance graph and a candidate
+`RegionEdit` before the fragment-level exposed/buried classifier can
+authorize any excision and V16 can verify it. Do not interpret this
+milestone as successfully merging the physically contacting tower fixtures:
+their existing V16 residual-collision blocker persists and the Merge
+geometry switch stays disabled.
+
 ## V17e2a: Anchored original-surface refusal and physical merger diagnosis
 
 The CPU-opt-in candidate evaluator now accepts a deliberately selected
