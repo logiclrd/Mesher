@@ -1316,6 +1316,47 @@ void testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift() {
     require(evaluateSculptCollisionCandidate(
         {root,root,{},{}},false,selected).safe(),
         "Exact witness distance-test budget accepts the unchanged original surface");
+
+    // Deliberately calibrate the guard BETWEEN measured first- and second-
+    // Step distances. A policy comparing only consecutive revisions would
+    // accept both; a reference anchored to root must reject the second.
+    VersionedInflateBrush incremental(.025,{});
+    const auto once=incremental.stamp(root,area,1);
+    const auto twice=incremental.stamp(once.index,area,1);
+    const auto firstAudit=auditSurfaceWitnesses(
+        *once.index,witnesses,protectedFaces,2.0,256);
+    const auto secondAudit=auditSurfaceWitnesses(
+        *twice.index,witnesses,protectedFaces,2.0,256);
+    require(firstAudit.maximumDistanceInEdges>0&&
+            secondAudit.maximumDistanceInEdges>
+                firstAudit.maximumDistanceInEdges+1e-6,
+            "Two successive small deformations accumulate measurable original-surface drift");
+    selected.anchoredSurface->maximumDistanceInEdges=
+        (firstAudit.maximumDistanceInEdges+
+         secondAudit.maximumDistanceInEdges)/2;
+    auto firstCheck=evaluateSculptCollisionCandidate(
+        {root,once.index,once.baseline.movedVertices,
+         once.baseline.affectedFaces},false,selected);
+    auto secondCheck=evaluateSculptCollisionCandidate(
+        {root,twice.index,twice.baseline.movedVertices,
+         twice.baseline.affectedFaces},false,selected);
+    require(firstCheck.safe()&&!secondCheck.safe()&&
+            secondCheck.anchoredSurfaceAudit&&
+            secondCheck.anchoredSurfaceAudit->maximumDistanceInEdges>
+                selected.anchoredSurface->maximumDistanceInEdges,
+            "Anchored witness validation permits a small first Step but refuses accumulated erosion");
+    VersionedSculptBrush guardedSequence(recovered,.025,{}, {},{},1,{},selected);
+    guardedSequence.stamp(dummy,area);
+    const auto accepted=guardedSequence.snapshot();
+    require(accepted!=root&&guardedSequence.publishedRevisions()==1&&
+            guardedSequence.historyStatistics().undoDepth==1,
+            "First small protected Step publishes once");
+    guardedSequence.stamp(dummy,area);
+    require(guardedSequence.snapshot()==accepted&&
+            guardedSequence.rejectedStamps()==1&&
+            guardedSequence.publishedRevisions()==1&&
+            guardedSequence.historyStatistics().undoDepth==1,
+            "Second small Step exceeding cumulative original-surface drift is rejected without publication");
 }
 
 void testContactEpisodeHysteresisNeverCachesApproval() {
