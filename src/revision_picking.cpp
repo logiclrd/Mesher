@@ -119,18 +119,25 @@ bool overlaps(const Bounds& a,const Bounds& b) {
 }
 void queryPartition(const Partition& part,const Bounds& bounds,
                     const std::function<void(const Triangle&)>& visitor,
-                    RegionTopologyIndex::CollisionStatistics& stats) {
+                    RegionTopologyIndex::CollisionStatistics& stats,
+                    const RegionTopologyIndex::CollisionQueryLimits& limits) {
+    if(stats.partitionsTested>=limits.maxPartitionTests)
+        throw std::length_error("Collision partition-test budget exhausted");
     ++stats.partitionsTested;
     std::vector<std::int32_t> stack{0};
     while(!stack.empty()) {
         const auto id=stack.back();stack.pop_back();
         const auto& node=part.nodes[static_cast<std::size_t>(id)];
+        if(stats.boxesTested>=limits.maxBoxTests)
+            throw std::length_error("Collision BVH box-test budget exhausted");
         ++stats.boxesTested;
         if(!overlaps(node.bounds,bounds))continue;
         if(node.count) {
             for(std::size_t i=node.begin;i<node.begin+node.count;++i) {
                 const auto& tri=part.triangles[i];
                 if(overlaps(tri.bounds,bounds)) {
+                    if(stats.candidateTriangles>=limits.maxCandidateTriangles)
+                        throw std::length_error("Collision candidate budget exhausted");
                     ++stats.candidateTriangles;
                     visitor(tri);
                 }
@@ -144,13 +151,17 @@ void queryPartition(const Partition& part,const Bounds& bounds,
 void queryDirectory(
     const std::shared_ptr<const RevisionPickingIndex::Directory>& directory,
     const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
-    RegionTopologyIndex::CollisionStatistics& stats) {
+    RegionTopologyIndex::CollisionStatistics& stats,
+    const RegionTopologyIndex::CollisionQueryLimits& limits) {
     if(!directory)return;
+    if(stats.boxesTested>=limits.maxBoxTests)
+        throw std::length_error("Collision directory box-test budget exhausted");
     ++stats.boxesTested;
     if(!overlaps(directory->bounds,bounds))return;
-    if(directory->partition)queryPartition(*directory->partition,bounds,visitor,stats);
+    if(directory->partition)
+        queryPartition(*directory->partition,bounds,visitor,stats,limits);
     for(const auto& child:directory->children)
-        if(child)queryDirectory(child,bounds,visitor,stats);
+        if(child)queryDirectory(child,bounds,visitor,stats,limits);
 }
 // Ray crossing signs encode the *integer* signed winding of a closed,
 // consistently oriented immersed mesh. Unlike nearest-hit picking, every
@@ -337,8 +348,9 @@ std::shared_ptr<const RevisionPickingIndex> RevisionPickingIndex::advance(
 }
 void RevisionPickingIndex::forEachOverlappingTriangle(
     const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
-    RegionTopologyIndex::CollisionStatistics& stats) const {
-    queryDirectory(root_,bounds,visitor,stats);
+    RegionTopologyIndex::CollisionStatistics& stats,
+    const RegionTopologyIndex::CollisionQueryLimits& limits) const {
+    queryDirectory(root_,bounds,visitor,stats,limits);
 }
 int RevisionPickingIndex::signedRayCrossings(
     Ray ray,RegionTopologyIndex::WindingStatistics& stats,
