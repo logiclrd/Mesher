@@ -304,7 +304,7 @@ ConformingCutPlan buildConformingCutPlan(
         for(std::size_t i=0;i<result.points.size();++i)
             if(!result.points[i].existingVertex)
                 indexed[keyFor(result.points[i])].push_back(i);
-        const localScale=[&](const ConformingCutPoint& point) {
+        const auto localScale=[&](const ConformingCutPoint& point) {
             if(point.boundaryEdge)
                 return length(index.vertex(point.boundaryEdge->a).position-
                               index.vertex(point.boundaryEdge->b).position);
@@ -314,7 +314,7 @@ ConformingCutPlan buildConformingCutPlan(
                        c=index.vertex(ids[2]).position;
             return std::max({length(b-a),length(c-b),length(a-c)});
         };
-        const reflectTolerance=[&](const ConformingCutPoint& a,
+        const auto reflectTolerance=[&](const ConformingCutPoint& a,
                                    const ConformingCutPoint& b) {
             const double geometric=1e-9*std::max(localScale(a),localScale(b));
             const auto coords=std::max({
