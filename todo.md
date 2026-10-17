@@ -1060,18 +1060,50 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   No Step CAS/history,
   renderer, picking or UI changes. Actual unjoined transverse seams
   require the next independent proven surgery milestone.
-- [ ] **V17e2b2d2 — Join real cut section seams, then exact-child removal.**
-  For c3-approved closed-shell unions, build a bounded PRIVATE local
-  arrangement that pairs independent per-sheet cut-curve vertices,
-  correctly wires opposite oriented surviving boundary edges, removes
-  only c3-authorized buried/outside fragments, and produces ONE
-  manifold-validated closure without spurious caps. Do not merge
-  geometric coincidences from unrelated curves or separate sheets:
-  every weld must follow explicit V13 section provenance and preserve
-  mirrored orbits. Re-evaluate c3, carry stable ID retire/add pair
-  journals, verify protected boundary fidelity and all final residual
-  collisions against the whole cut halo. Unsupported crossings,
-  complex X=0 seam fans or nonconforming curve chains must refuse.
+- [x] **V17e2b2d2 — Provenance-bound private cut-seam Boolean join.**
+  Recompute c2 V13 complete contact coverage, c1 exact-child positive
+  winding and c3 cavity-safe sorted FaceId excision against the SAME
+  immutable cut revision. Enumerate every real boundary edge between
+  selected removed and surviving child faces; REQUIRE each belongs to
+  exactly one original V13 finite transverse contact section. On BOTH
+  independent source sheets, pair complete continuous exposed
+  child-EDGE chains with IDENTICAL permanent subdivision coordinates
+  and OPPOSITE oriented survivor edges. Refuse missing/duplicated
+  contacts, unmatched subdivisions, nonexact coordinates or unmatched
+  seam vertices; never weld by global position/nearness. Resolve all
+  explicit seam vertex equivalence classes to one stable canonical ID,
+  preserving mirror equivariance where original/new exact reflected
+  pairs are supplied; X=0 self-reflected welds still unsupported.
+  Retire ONLY c3-authorized Buried/Outside child faces, rewrite all
+  retained incident faces of joined vertices, retire actual orphans
+  and commit the entire supported closure in ONE unpublished RegionEdit.
+  Verify manifold edge links/fans, bounded WHOLE changed-child
+  residual collision absence, original immutable roots, EXACT protected
+  Exposed/ReversedBoundary face geometry and reflected surviving face
+  winding. Positive acceptance: two closed tetrahedral surface
+  components -> ONE connected closed manifold; two reflected pairs
+  (four input components) -> TWO connected closed manifold unions.
+  Negative checks: truncated contact sections, hard boundary budgets,
+  omitted historical mirror involution. No V15 zipper-strip/cap faces
+  or UI/worker/history publication; finite-tolerance transverse domain
+  only and test-specific finite c3 contour thresholds.
+- [ ] **V17e2b2d3 — Compose one original-root private Step and net ID journals.**
+  Rebase the completed two-revision conforming cut + exact seam join
+  as ONE atomic revision candidate rooted in the ORIGINAL published
+  snapshot; reconcile net inserted/rewritten/retired permanent FaceIds
+  and VertexIds and complete new/original mirror mappings, dirty
+  partitions, cursor/picking dependencies, checkpoint and undo/redo
+  semantics without ever publishing the intermediate cut revision.
+  Repeat full residual-contact, full protected-surface fidelity and
+  every changed region/connected-component acceptance test against
+  the combined final candidate. Test CAS conflict, stale old-root
+  readers and all-or-nothing refusal; do not enable desktop UI yet.
+- [ ] **V17e2b2d4 — Generalize supported transverse cut seam topology.**
+  Exercise multiple section curves through one original face, crossing
+  and T-junction subdivision chains in COMPLETE closed-shell unions,
+  uneven densities, mirrored section intersections and X=0 seam orbits.
+  Prove mesh-fidelity bounds and fan validity or fail closed; never
+  reinterpret unrelated coincident sheets as contact partners.
 - [ ] **V17e2b2d — Private exact-child excision and validated closure.**
   Consume only a V17e2b2c3 Ready nomination tied to one exact candidate
   revision; redo and validate the full private V16 surgery, mirrored
