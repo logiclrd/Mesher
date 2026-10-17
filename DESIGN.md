@@ -1782,3 +1782,54 @@ root and preserves the two-shell Euler characteristic. General
 post-excision handling of pre-existing crossing sheets belongs
 to separate collision-repair geometry work and is not silently
 attempted as seam canonicalization.
+
+## V16d1 — Sampling provenance separately from topological permission
+
+The V14 positive-winding classifier already labels each sampled
+barycentric face fragment `Exposed`, `ReversedBoundary`,
+`Buried`, `Outside` or `Ambiguous`. A face may be MIXED.
+A raw V15.1 `planRemovalContours()` call is a topology proposal,
+not evidence that its deletion was justified by collision winding.
+To preserve this separation, V16d1 adds a read-only
+`inspectRemovalSurfaceProvenance(index,removedFaces,depth,maxFragments)`
+returning counts of ORIGINAL-revision sampled fragments by category.
+Its bounded sample count and result are observations, not
+certified intersection-trimmed polygons or a deletion authorization.
+
+An optional V16d1 `requireExposedFragmentFidelity` policy applies a
+reverse-distance guard ONLY to the centroids of the V14 patches
+classified Exposed or ReversedBoundary. Original barycentric
+coordinates are used to sample the actual original surface, and
+distance is measured to the final candidate's retained and newly
+inserted local triangles, divided by the local ORIGINAL contour
+resolution. Buried/Outside fragments can disappear without an
+impossible preservation obligation. Ambiguous patches refuse
+the private operation, not silently default to Buried. The
+historical `requireReverseSurfaceFidelity` checks every
+removed face's vertices and centroid and remains available as
+a distinct explicit policy. These two policies are mutually
+exclusive, because they express different feature semantics.
+
+Both work budgets are explicit: `maxProvenanceFragments`
+bounds original-winding sampling, and `maxReverseDistanceTests`
+bounds pairs of reverse samples and local candidate triangles.
+Results expose `removalProvenance`, `checkedReverseFragments`,
+`reverseDistanceTests` and `maximumReverseDeviationInEdges`.
+All validation runs against a PRIVATE committed candidate index;
+failure never publishes the candidate. Normal surgery defaults
+remain unchanged. Even the selective mode is OPT-IN: neither
+whole-face `minimumHiddenFraction` nor a read-only removal plan
+is proof that an exposed feature should or should not be erased.
+
+Tests distinguish a cap replacing exposed detail on the outer
+cube from a truly buried smaller concentric shell on which both
+sides have positive winding. The exposed cap passes an exacting
+local reverse bound; complete removal of the buried shell does
+not invent an exposure-preservation condition. Conflicting
+policy flags and tiny classification/distance budgets reject.
+A separate eight-component fixture exercises nearby coplanar
+cap replacement against the complete private BVH and confirms
+budgeted fail-closed operation with no old-root changes.
+
+This is a sampled, per-patch proximity metric, not a certified
+Hausdorff envelope or automatic selection of what to delete.
