@@ -135,24 +135,43 @@ MirroredCrossingRepair repairMirroredContoursAcrossPlane(
         points.reserve(contour.vertexIds.size());
         for(const auto id:contour.vertexIds)
             points.push_back(original->vertex(id).position);
-        const auto report=detail::inspectPlaneContour(
+        const auto report=detail::inspectPlaneContactTopology(
             points,contour.meanEdgeLength);
         if(report.onPlaneEdges||report.nearlyOnPlaneVertices)
             throw std::logic_error(
                 "Unclassified on-plane or near-plane contour cannot be normalized");
-        if(report.seamVertices+report.crossingEdges!=0&&
-           report.seamVertices+report.crossingEdges!=2)
+        if(report.tangentVertices)
             throw std::logic_error(
-                "Contour must have exactly two combined plane contacts");
+                "Tangential X=0 boundary contact needs topological decomposition");
+        // The fixed locus of a reflection on an embedded disk is one
+        // unbranched arc. Four transverse contacts do NOT authorize
+        // independently drawing two (possibly crossing) seam chords.
+        if(report.totalTransverseContacts()!=0&&
+           report.totalTransverseContacts()!=2)
+            throw std::logic_error(
+                "Self-reflected disk requires exactly two transverse X=0 contacts");
         for(std::size_t i=0;i<contour.vertexIds.size();++i) {
             const auto a=contour.vertexIds[i];
             const auto b=contour.vertexIds[(i+1)%contour.vertexIds.size()];
             const auto p=original->vertex(a).position;
             const auto q=original->vertex(b).position;
             if(!((p.x<0&&q.x>0)||(p.x>0&&q.x<0)))continue;
-            const auto it=mirror.find(a);
-            if(it==mirror.end()||it->second!=b||p.x!=-q.x||
-               p.y!=q.y||p.z!=q.z)
+            const auto orbit=detail::classifyPlaneCrossingOrbit(a,b,mirror);
+            if(orbit==detail::PlaneEdgeOrbit::DistinctReflected) {
+                // Since reflection fixes X=0 pointwise, the crossing of
+                // this edge and the crossing of its DISTINCT reflected
+                // edge are at the same position. This is already a
+                // geometric edge-edge intersection, not a valid pair
+                // of independent manifold seams.
+                const auto reflected=canonical(mirror.at(a),mirror.at(b));
+                if(!original->maybeEdgeSides(reflected))
+                    throw std::logic_error(
+                        "Mirrored crossing edge has no topological counterpart");
+                throw std::logic_error(
+                    "Distinct reflected X=0 crossing edges already intersect at one plane point");
+            }
+            if(orbit!=detail::PlaneEdgeOrbit::SelfReflected||
+               p.x!=-q.x||p.y!=q.y||p.z!=q.z)
                 throw std::logic_error(
                     "Crossing boundary edge is not an exact reflected endpoint pair");
             crossingEdges.insert(canonical(a,b));
