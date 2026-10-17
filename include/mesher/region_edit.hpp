@@ -127,6 +127,7 @@ public:
     struct WindingStatistics {
         std::size_t boxesTested{}, partitionsTested{}, trianglesTested{};
         std::size_t raysTested{}, referenceFallbacks{};
+        std::size_t referenceFallbackRefusals{};
     };
     struct WindingSample {
         int winding{};
@@ -135,8 +136,11 @@ public:
     // Signed crossing count of a ray from this point to infinity. At least
     // two independent rays must agree. Grazing/on-surface input is uncertain;
     // the exceptional solid-angle fallback is deliberately a full traversal.
+    // A caller preparing a live Step can disable that O(all faces) fallback:
+    // exhausted ray evidence then reports unreliable, never false certainty.
     WindingSample positiveWindingAt(Vec3 point,
-        WindingStatistics* statistics=nullptr) const;
+        WindingStatistics* statistics=nullptr,
+        bool allowReferenceFallback=true) const;
     // Independent O(all faces) signed-solid-angle reference, for testing and
     // the exceptional case when every chosen ray passes near a mesh feature.
     long double referenceWindingAt(Vec3 point) const;
@@ -161,7 +165,8 @@ public:
     // is certified as an exact intersection-trimmed polygon: V15 owns cuts.
     // Bounded depth prevents unbounded processing of pathological geometry.
     std::vector<SurfaceFragment> classifyFaceFragments(
-        FaceId face,unsigned depth=2) const;
+        FaceId face,unsigned depth=2,
+        bool allowReferenceFallback=true) const;
 
     enum class ComponentKind {Redundant,Boundary,PotentialCavity,Ambiguous};
     struct ComponentClassification {
@@ -174,7 +179,8 @@ public:
     // contain near-coincident surfaces, or cannot be fully enumerated.
     // An oriented enclosed cavity boundary is policy-dependent, never erased.
     ComponentClassification classifyClosedComponent(
-        FaceId seed,std::size_t maxFaces=10000) const;
+        FaceId seed,std::size_t maxFaces=10000,
+        bool allowReferenceFallback=true) const;
 
 private:
     friend class RegionEdit;
