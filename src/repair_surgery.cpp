@@ -362,7 +362,8 @@ void validateSurgeryGeometry(
         throw std::length_error("Residual collision neighborhood exceeds budget");
     out.verifiedLocalFaces=verify.size();
     const auto contacts=out.index->triangleIntersections({},
-                           {verify.begin(),verify.end()});
+                           {verify.begin(),verify.end()},nullptr,
+                           settings.residualCollisionLimits);
     if(!contacts.empty()) {
         const auto describe=[&](FaceId id) {
             std::string result=std::to_string(id);
