@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -303,6 +304,26 @@ ConformingCutPlan buildConformingCutPlan(
         for(std::size_t i=0;i<result.points.size();++i)
             if(!result.points[i].existingVertex)
                 indexed[keyFor(result.points[i])].push_back(i);
+        const localScale=[&](const ConformingCutPoint& point) {
+            if(point.boundaryEdge)
+                return length(index.vertex(point.boundaryEdge->a).position-
+                              index.vertex(point.boundaryEdge->b).position);
+            const auto ids=index.face(point.owningFace).vertices;
+            const auto a=index.vertex(ids[0]).position,
+                       b=index.vertex(ids[1]).position,
+                       c=index.vertex(ids[2]).position;
+            return std::max({length(b-a),length(c-b),length(a-c)});
+        };
+        const reflectTolerance=[&](const ConformingCutPoint& a,
+                                   const ConformingCutPoint& b) {
+            const double geometric=1e-9*std::max(localScale(a),localScale(b));
+            const auto coords=std::max({
+                std::abs(a.position.x),std::abs(a.position.y),
+                std::abs(a.position.z),std::abs(b.position.x),
+                std::abs(b.position.y),std::abs(b.position.z)});
+            return std::max(geometric,
+                128*std::numeric_limits<double>::epsilon()*coords);
+        };
         std::set<std::size_t> matched;
         try {
             for(std::size_t i=0;i<result.points.size();++i) {
@@ -326,24 +347,66 @@ ConformingCutPlan buildConformingCutPlan(
                 const auto found=indexed.find(counterpart);
                 if(found==indexed.end())
                     return refusal("Reflected cut edge/face is missing");
+                const auto reflection=Vec3{-point.position.x,
+                                            point.position.y,point.position.z};
                 std::optional<std::size_t> twin;
                 for(const auto candidate:found->second) {
-                    const auto p=result.points[candidate].position;
-                    if(p.x==-point.position.x&&
-                       p.y==point.position.y&&p.z==point.position.z) {
-                        if(twin)return refusal("Ambiguous reflected cut point");
-                        twin=candidate;
-                    }
+                    const auto& other=result.points[candidate];
+                    if(dist2(reflection,other.position)>
+                       std::pow(reflectTolerance(point,other),2))continue;
+                    if(twin)return refusal("Ambiguous reflected cut point");
+                    twin=candidate;
                 }
-                if(!twin)return refusal("New cut point lacks exact mirrored partner");
+                if(!twin)
+                    return refusal("New cut point lacks a bounded reflected partner");
                 if(matched.contains(*twin))
                     return refusal("Reflected cut correspondence is not one-to-one");
+                // Make symmetry EXACT before handing the private plan to
+                // eventual RegionEdit staging. Numerical adjustments are
+                // allowed only within local original face/edge scale.
+                if(i==*twin) {
+                    if(point.position.x!=0)
+                        return refusal("Self-mirrored section point is off X=0");
+                }else {
+                    result.points[*twin].position=reflection;
+                }
                 matched.insert(i);matched.insert(*twin);
                 result.mirroredCutPoints.emplace_back(i,*twin);
             }
         }catch(const std::logic_error&) {
             return refusal("Original reflection mapping is inconsistent");
         }
+        // The symmetry snap must not move any point away from its own
+        // source plane/edge or invalidate a single reconstructed patch.
+        for(const auto& point:result.points) {
+            if(point.existingVertex)continue;
+            const auto p=point.position;
+            if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z))
+                return refusal("Nonfinite mirrored cut point");
+            const auto tolerance=1e-9*localScale(point);
+            if(point.boundaryEdge) {
+                const auto a=index.vertex(point.boundaryEdge->a).position;
+                const auto b=index.vertex(point.boundaryEdge->b).position;
+                const auto d=b-a;
+                const auto d2=dot(d,d);
+                if(!(d2>0))return refusal("Degenerate original mirrored edge");
+                const auto t=dot(p-a,d)/d2;
+                if(!(t>0&&t<1)||length((a+d*t)-p)>tolerance)
+                    return refusal("Mirrored point moved off original cut edge");
+            }else {
+                const auto ids=index.face(point.owningFace).vertices;
+                const auto a=index.vertex(ids[0]).position,
+                           b=index.vertex(ids[1]).position,
+                           c=index.vertex(ids[2]).position;
+                const auto n=cross(b-a,c-a);
+                if(!(length(n)>0)||
+                   std::abs(dot(p-a,n))/length(n)>tolerance)
+                    return refusal("Mirrored point moved off source face plane");
+            }
+        }
+        for(const auto& face:result.faces)
+            if(!areaPreserved(index,face.sourceFace,face.triangles,result.points))
+                return refusal("Mirrored reconciliation violates source face winding/area");
     }
     result.status=IntersectionSectionStatus::TransverseSegment;
     return result;
