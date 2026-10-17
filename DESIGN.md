@@ -1923,6 +1923,47 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e1: Repeat-contact safety acceptance, not a merger guarantee
+
+The optional CPU-only V17d2 path now has a deterministic **physical**
+contact stress fixture in the repair-surgery CPU suite. Two distinct
+mirrored cube-tower pairs begin separated from X=0; the normal-directed
+symmetric Inflate sample is checked independently to confirm its actual
+post-state faces collide. Sixteen successive brush Steps alternate the
+real towers, keeping all historical reader roots alive. At each Step:
+(1) V13/V14 are run rather than cached, (2) a refused candidate publishes
+no root or undo entry and preserves the mirror map/dirty render set, or an
+accepted candidate must have zero contacts across EVERY active face in
+the complete output, and (3) the original outer walls retain their sampled
+position fidelity. Fifty-six fixed original exposed-surface witnesses are
+read from the **initial** revision and re-audited after EVERY attempt;
+the distance test is explicitly bounded for these small fixtures. This
+complements V16's separate thirty-two-generation *same-patch* cap/zipper
+fidelity regression, which anchors and checks the original capped patch
+rather than shifting its reference to the previous revision.
+
+For diagnostics only, `SculptContactTracker` tracks the number of
+contact episodes, contacts, genuinely clean checks and unknown/overbudget
+checks. A configurable default of three consecutive **conclusive clean**
+queries ends an active episode; uncertain queries cannot end contact.
+The worker exposes those counters. This is deliberately NOT a repair
+cache: every proposed changed Step still runs the complete V13-V16
+validation, with identical refusal/commit behavior as before. History
+undo/redo may change geometry while retaining the diagnostic counters;
+they must never be treated as authoritative per-revision topology state.
+
+**Critical acceptance distinction:** The regression proves safety at
+physical repeated contact, NOT reliable **successful merging** of those
+contacts. V15's whole-triangle approximate hidden-fragment classification
+can conservatively reject symmetric folds/tangencies, including all
+attempts in a particular stress run. The model remains valid on refusal,
+but that is not sufficient for the eventual interactive Merge geometry
+experience. More V17 work is required on actual successful repeat unions,
+ongoing original-surface witness policies that permit intentional edits,
+bounded aggregate per-Step work, and post-publication strong exception
+atomicity. Do not enable the desktop Merge geometry control on the basis
+of this acceptance harness alone.
+
 ## V17d2: Atomic mirror correspondence for classified surgery
 
 The V17d1 CPU-only opt-in now also supports classification-approved
