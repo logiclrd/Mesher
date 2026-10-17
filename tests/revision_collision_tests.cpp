@@ -559,7 +559,7 @@ void testConformingReflectedCutGraph() {
           result.mirroredCutPoints.size()==4,
           "Two independent exact reflections pair every cut node without welding solids");
     std::set<std::size_t> mirrored;
-    for(const auto [a,b]:result.mirroredCutPoints) {
+    for(const auto& [a,b]:result.mirroredCutPoints) {
         check(a!=b&&mirrored.insert(a).second&&mirrored.insert(b).second,
               "Reflected off-plane cut points form unique reciprocal pairs");
         const auto p=result.points[a].position,q=result.points[b].position;
