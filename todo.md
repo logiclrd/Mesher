@@ -717,6 +717,21 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   This bounds ONE exceptional CPU path only. V17 still needs bounded
   collision enumeration, per-Step rejection/rollback and symmetric
   classified integration before any live activation.
+- [x] **V17b — Bounded V13 collision discovery and private residual checks.**
+  Add an optional per-query collision work budget that limits unique seed
+  faces, BVH AABB boxes, visited partitions, overlapping triangle
+  candidates, unique narrow-phase triangle pairs and reported contacts.
+  Exhaustion throws length_error before exceeding its counter; no partial
+  collision list is returned. V15 maps incomplete collision discovery
+  (including isolated-component verification) to BudgetExceeded with
+  measured query statistics, while V16 uses a separate bounded private
+  residual-collision check. Existing offline callers retain unbounded
+  defaults; the future live policy must choose finite values explicitly.
+  Regression covers exact-limit success and six one-under-limit refusals,
+  empty-query behavior, V15 conservative refusals and V16 immutable
+  snapshot safety. Per-query limits are not total stroke time/RSS bounds:
+  winding-ray BVH work, repeated component queries, worker rollback and
+  symmetry-aware live classification remain V17 work.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
