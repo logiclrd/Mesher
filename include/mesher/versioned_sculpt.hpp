@@ -6,10 +6,12 @@
 #include "mesher/versioned_refine.hpp"
 #include "mesher/revision_history.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/repair_surgery.hpp"
 
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -40,6 +42,26 @@ struct ProposedSculptStep {
 };
 using SculptStepValidator=std::function<std::string(const ProposedSculptStep&)>;
 
+// V17d1: opt-in private classified collision evaluation. The desktop
+// Merge geometry UI remains disabled, with current sculpt default unchanged.
+struct SculptCollisionSettings {
+    bool enabled=false;
+    RepairSurgerySettings surgery{};
+};
+struct SculptCollisionEvaluation {
+    RepairPlan plan{};
+    std::optional<RepairSurgeryResult> repair;
+    std::string refusal;
+    std::size_t finalVerifiedContacts{};
+    bool safe() const noexcept {return refusal.empty();}
+};
+// A self-contained, unpublished post-state evaluation. Optional seeds are
+// explicitly known NEW closed components; the normal brush passes none.
+SculptCollisionEvaluation evaluateSculptCollisionCandidate(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptCollisionSettings& settings,
+    const std::vector<FaceId>& isolatedComponentSeeds={});
+
 // The BrushStroke owns sampling and queue semantics; this brush owns *all*
 // editable geometry and uses a dummy Mesh solely to satisfy BrushStroke's
 // existing callback signature. Each stamp publishes one immutable index/root
@@ -50,12 +72,14 @@ public:
                          CurvatureSettings curvature,CollapseSettings collapse,
                          RefineSettings refine,bool symmetric,
                          std::size_t partitionCapacity=256,
-                         SculptStepValidator validator={});
+                         SculptStepValidator validator={},
+                         SculptCollisionSettings collision={});
     VersionedSculptBrush(DurableCheckpoint restored,double strength,
                          CurvatureSettings curvature,CollapseSettings collapse,
                          RefineSettings refine,
                          std::size_t partitionCapacity=256,
-                         SculptStepValidator validator={});
+                         SculptStepValidator validator={},
+                         SculptCollisionSettings collision={});
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
@@ -72,6 +96,8 @@ public:
     }
     std::size_t completedStamps() const noexcept {return completed_;}
     std::size_t rejectedStamps() const noexcept {return rejected_;}
+    std::size_t collisionCheckedStamps() const noexcept {return collisionChecked_;}
+    std::size_t collisionRepairedStamps() const noexcept {return collisionRepaired_;}
     const std::string& lastRejection() const noexcept {return lastRejection_;}
     StampTimings lastTimings() const noexcept {return timings_;}
     const StampDetails& lastDetails() const noexcept {return details_;}
@@ -88,7 +114,8 @@ private:
                          double strength,CurvatureSettings curvature,
                          CollapseSettings collapse,RefineSettings refine,
                          bool symmetric,std::size_t partitionCapacity,
-                         SculptStepValidator validator);
+                         SculptStepValidator validator,
+                         SculptCollisionSettings collision);
     std::shared_ptr<const FlatMeshIndex> flatOrder_;
     IndexedMeshRepository published_;
     RevisionRetirementQueue historyRetirement_{64};
@@ -101,6 +128,9 @@ private:
     std::size_t vertices_{},faces_{};
     std::size_t completed_{},publishedRevisions_{},rejected_{};
     SculptStepValidator validator_;
+    SculptCollisionSettings collision_{};
+    bool symmetric_=false;
+    std::size_t collisionChecked_{},collisionRepaired_{};
     std::string lastRejection_;
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
     std::size_t clonedPartitionBytes_{};
