@@ -33,7 +33,8 @@ RemovalSurfaceProvenance inspectRemovalSurfaceProvenance(
     const RegionTopologyIndex& baseline,
     const std::vector<FaceId>& removed,
     unsigned sampleDepth=2,
-    std::size_t maxFragments=2048);
+    std::size_t maxFragments=2048,
+    bool allowReferenceFallback=true);
 
 // Cross-revision geometry sampling for detecting cumulative local drift.
 struct SurfaceWitnessAudit {
