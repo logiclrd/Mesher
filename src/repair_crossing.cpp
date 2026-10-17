@@ -85,7 +85,7 @@ void requireSameClosureTopology(const RepairPlan& initial,
     if(oldCaps!=newCaps)
         throw std::logic_error("Crossing normalization unexpectedly changed cap choices");
     auto pairKey=[](std::size_t a,std::size_t b) {
-        return std::minmax(a,b);
+        return std::pair<std::size_t,std::size_t>{std::min(a,b),std::max(a,b)};
     };
     std::set<std::pair<std::size_t,std::size_t>> oldPairs,newPairs;
     for(const auto& pair:initial.pairs)
