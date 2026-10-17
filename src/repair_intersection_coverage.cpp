@@ -157,6 +157,43 @@ CutCoverageCertificate certifyConformingCutCoverage(
         if(!children.contains(id))
             return reject("Original rewritten face missing from child journal");
 
+    // This coverage result must stand on its own: never assume a separate
+    // sampled-winding assessment has validated the private child geometry.
+    // For every original source, all staged children must lie within its
+    // oriented planar triangle and conserve its full signed area.
+    for(const auto& [source,ids]:children) {
+        const auto original=facePoints(*cut.originalIndex,source);
+        const auto n=cross(original[1]-original[0],
+                           original[2]-original[0]);
+        const auto norm=length(n);
+        const auto scale=extent(original);
+        if(!(norm>0)||!std::isfinite(norm)||!(scale>0))
+            return reject("Original face has no valid oriented area");
+        const auto epsilon=1e-9*scale;
+        double area=0;
+        for(const auto child:ids) {
+            const auto tri=facePoints(*cut.index,child);
+            for(const auto p:tri) {
+                if(!finite(p)||std::abs(dot(p-original[0],n))/norm>
+                   epsilon)
+                    return reject("Child moved off original planar face");
+                for(unsigned j=0;j<3;++j) {
+                    const auto a=original[j],b=original[(j+1)%3];
+                    if(dot(cross(b-a,p-a),n)<
+                       -epsilon*length(b-a)*norm)
+                        return reject("Child escapes original triangle boundary");
+                }
+            }
+            const auto oriented=dot(
+                cross(tri[1]-tri[0],tri[2]-tri[0]),n)/norm;
+            if(!std::isfinite(oriented)||!(oriented>1e-12*norm))
+                return reject("Child lost positive original face winding");
+            area+=oriented;
+        }
+        if(std::abs(area-norm)>1e-8*norm)
+            return reject("Source face is not completely conserved by its children");
+    }
+
     // Recover every V13 contact involving any modified ORIGINAL face.
     // This is independent of the subset the planner was told to cut.
     // Each limit is applied INSIDE the BVH query; exhaustion never returns
