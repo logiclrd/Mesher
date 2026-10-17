@@ -34,6 +34,7 @@ public:
         std::size_t rejectedStamps=0;
         std::size_t collisionCheckedStamps=0;
         std::size_t collisionRepairedStamps=0;
+        SculptContactStatistics contact{};
         std::string lastRejection;
         std::size_t totalQueuedSteps=0;
         std::size_t pendingSteps=0;
