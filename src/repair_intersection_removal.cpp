@@ -115,8 +115,6 @@ CutRemovalProposal planExactCutRemoval(
 
         const bool mirrored=!cut.mirroredFaces.empty()||
                             !cut.mirroredVertices.empty();
-        if(!mirrored&&(!cut.mirroredFaces.empty()||!cut.mirroredVertices.empty()))
-            return refused("Orphaned partial symmetry journal");
         std::map<FaceId,FaceId> mirrors;
         if(mirrored)
             mirrors=verifiedMirrorFaces(cut,children,
@@ -209,8 +207,6 @@ CutRemovalProposal planExactCutRemoval(
     }catch(const std::length_error& e) {
         return refused(e.what(),Status::BudgetExceeded);
     }catch(const std::logic_error& e) {
-        return refused(e.what());
-    }catch(const std::out_of_range& e) {
         return refused(e.what());
     }
 }
