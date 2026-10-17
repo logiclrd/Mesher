@@ -360,8 +360,8 @@ bool arrangeFace(
                 const auto& at=outgoing.at(v);
                 const auto reverse=std::find(at.begin(),at.end(),u);
                 if(reverse==at.end())return refuse(__LINE__);
-                const auto index=static_cast<std::size_t>(reverse-at.begin());
-                const auto w=at[(index+at.size()-1)%at.size()];
+                const auto reversePosition=static_cast<std::size_t>(reverse-at.begin());
+                const auto w=at[(reversePosition+at.size()-1)%at.size()];
                 u=v;v=w;
                 if(u==start&&v==neighbor) {
                     closed=true;break;
