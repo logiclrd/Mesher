@@ -685,6 +685,92 @@ void testPrivateConformingRevisionCommitsAtomically() {
         for(const auto& fragment:occupancy.fragments)
             check(fragment.negativeWinding-fragment.positiveWinding==1,
                   "Uniformly sampled true child triangle has a unit winding jump");
+    // The previous one-pair test deliberately selects only PART of the
+    // original intersection graph: this new independent certificate must
+    // refuse rather than treating a correct-looking section as complete.
+    const auto coverage=certifyConformingCutCoverage(candidate);
+    check(!coverage.complete&&coverage.coveredContacts.empty()&&
+          !coverage.refusal.empty(),
+          "Missing neighboring original contact refuses entire V17e2b2c2 graph");
+    auto forgedCoverage=candidate;
+    forgedCoverage.sourceContacts[0].ambiguous=true;
+    const auto invalidCoverage=certifyConformingCutCoverage(forgedCoverage);
+    check(!invalidCoverage.complete&&invalidCoverage.coveredContacts.empty(),
+          "Forged ambiguous contact never permits coverage certification");
+    CutCoverageLimits zeroCoverage;
+    zeroCoverage.originalCollisionLimits.maxSeedFaces=0;
+    bool originalBudget=false;
+    try {(void)certifyConformingCutCoverage(candidate,zeroCoverage);}
+    catch(const std::length_error&) {originalBudget=true;}
+    check(originalBudget&&baseline->pickingRootIdentity()==sourceRoot,
+          "Original contact rediscovery has a strict internal work limit");
+    zeroCoverage={};zeroCoverage.maxContacts=0;
+    bool zeroContacts=false;
+    try {(void)certifyConformingCutCoverage(candidate,zeroCoverage);}
+    catch(const std::length_error&) {zeroContacts=true;}
+    check(zeroContacts,"Declared contact count has a strict coverage limit");
+    auto wrongEndpoint=candidate;
+    wrongEndpoint.sectionFirst[0][0]=0;
+    const auto missingEnd=certifyConformingCutCoverage(wrongEndpoint);
+    check(!missingEnd.complete&&missingEnd.coveredContacts.empty(),
+          "Missing section endpoint cannot create a valid edge trace");
+    // Exercise the full ORIGINAL contact graph, not the selected subset.
+    // This is the positive case only if V17's bounded arranger supports
+    // the complete transverse graph for this closed two-tetra fixture.
+    {
+        ConformingCutCandidate whole;
+        try {whole=materializeTransverseCutCandidate(baseline,all);}
+        catch(const std::logic_error& error) {
+            throw std::runtime_error(
+                std::string("Complete cut fixture unsupported: ")+error.what()+
+                " (original pairs="+std::to_string(all.size())+")");
+        }
+        const auto checked=certifyConformingCutCoverage(whole);
+        if(!checked.complete)
+            throw std::runtime_error(
+                "Complete cut fixture coverage refused: "+checked.refusal+
+                " (original pairs="+std::to_string(all.size())+")");
+        check(checked.checkedContacts==all.size()&&
+              checked.coveredContacts.size()==all.size()&&
+              checked.checkedChildren==whole.childSources.size(),
+              "All true original contacts have actual source-paired child edge traces");
+        check(baseline->pickingRootIdentity()==sourceRoot,
+              "Complete full-contact coverage preserves the immutable original root");
+        check(checked.discoveryWork.reportedContacts==all.size()&&
+              checked.checkedContacts==checked.coveredContacts.size()&&
+              checked.edgeTraceTests>0&&checked.childPairTests>0,
+              "Coverage independently visits every original collision and both edge traces");
+        auto truncated=whole;
+        truncated.sourceContacts.pop_back();
+        truncated.sectionFirst.pop_back();
+        truncated.sectionSecond.pop_back();
+        const auto missing=certifyConformingCutCoverage(truncated);
+        check(!missing.complete&&missing.coveredContacts.empty(),
+              "Dropping one actual original contact invalidates complete certification");
+        auto wrong=whole;
+        wrong.sectionFirst.front()[0]=0;
+        const auto missingPoint=certifyConformingCutCoverage(wrong);
+        check(!missingPoint.complete&&missingPoint.coveredContacts.empty(),
+              "Malformed permanent section endpoint cannot produce certification");
+        CutCoverageLimits hard;
+        hard.maxEdgeTraceTests=0;
+        bool edgeCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {edgeCap=true;}
+        check(edgeCap&&baseline->pickingRootIdentity()==sourceRoot,
+              "Zero child edge trace budget refuses without publishing or truncating");
+        hard={};hard.maxChildPairTests=0;
+        bool childCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {childCap=true;}
+        check(childCap,"Child plane and overlap predicate work is bounded");
+        hard={};hard.originalCollisionLimits.maxReportedContacts=0;
+        bool collisionCap=false;
+        try {(void)certifyConformingCutCoverage(whole,hard);}
+        catch(const std::length_error&) {collisionCap=true;}
+        check(collisionCap,"Original contact count is capped inside BVH discovery");
+    }
+
     // A forged source FaceId cannot influence deletion through classification.
     auto forged=candidate;
     forged.childSources.front().second=0;
@@ -795,6 +881,17 @@ void testCrossingMultipleSectionsPerOriginalTriangle() {
     check(!privateRevision.index->triangleIntersections(
         privateRevision.insertedVertices,{}).empty(),
         "Multiple-curve subdivision retains collision until classified removal");
+    const auto multiCoverage=certifyConformingCutCoverage(privateRevision);
+    check(!multiCoverage.complete&&multiCoverage.coveredContacts.empty()&&
+          !multiCoverage.refusal.empty(),
+          "Two listed contacts on triple sheets are not a complete global cut graph");
+    const auto emptyTrace=[&] {
+        auto tampered=privateRevision;
+        tampered.sectionSecond[0][0]=0;
+        return certifyConformingCutCoverage(tampered);
+    }();
+    check(!emptyTrace.complete&&emptyTrace.coveredContacts.empty(),
+          "Multi-section cut cannot certify an erased second-sheet trace");
 
     ConformingCutLimits limits;
     limits.maxArrangementPairTests=0;
@@ -892,6 +989,55 @@ void testSectionsMeetAtInteriorTjunction() {
           "T-arranged sections materialize as one complete unpublished manifold revision");
 }
 
+
+void testMirroredCompleteContactCoverage() {
+    // Two real closed intersecting tetrahedra translated to X>0 plus
+    // their exact reverse-winding reflection. Unlike the selective four
+    // intersection fixtures, this hands the planner the COMPLETE V13
+    // original contact graph of BOTH independent mirrored sheet groups.
+    Mesh mesh;
+    const std::array<Vec3,8> original{{
+        {0,0,0},{2,0,0},{0,2,0},
+        {.75,-.5,-1},{.75,1.75,1},{.75,.25,-1},
+        {.5,.5,-3},{3,.5,0}
+    }};
+    const std::array<std::array<std::uint32_t,3>,8> faces{{
+        {0,1,2},{1,0,6},{2,1,6},{0,2,6},
+        {3,4,5},{4,3,7},{5,4,7},{3,5,7}
+    }};
+    for(const auto p:original)mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(const auto p:original)mesh.vertices.push_back({-p.x-5,p.y,p.z});
+    for(const auto t:faces)mesh.triangles.push_back({t[0],t[1],t[2]});
+    for(const auto t:faces)
+        mesh.triangles.push_back({t[0]+8,t[2]+8,t[1]+8});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    const auto historical=root->pickingRootIdentity();
+    std::unordered_map<VertexId,VertexId> mirrors;
+    for(std::size_t i=0;i<8;++i) {
+        const auto a=imported.flatIndex.vertexIds[i],
+                   b=imported.flatIndex.vertexIds[i+8];
+        mirrors.emplace(a,b);mirrors.emplace(b,a);
+    }
+    const auto originalContacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(originalContacts.size()>=8&&originalContacts.size()%2==0,
+          "Both reflected closed tetra pairs have complete reciprocal original contacts");
+    const auto cut=materializeTransverseCutCandidate(
+        root,originalContacts,{},256,&mirrors);
+    const auto checked=certifyConformingCutCoverage(cut);
+    if(!checked.complete)
+        throw std::runtime_error(
+            "Complete mirrored original contact coverage: "+checked.refusal);
+    check(checked.checkedContacts==originalContacts.size()&&
+          checked.coveredContacts.size()==originalContacts.size()&&
+          !cut.mirroredFaces.empty()&&
+          !cut.mirroredVertices.empty(),
+          "Both mirrored sheets have complete reciprocal persistent curve coverage");
+    check(root->pickingRootIdentity()==historical&&
+          root->retiredFaceCount()==0,
+          "Mirrored full-contact certification preserves all source roots");
+}
 
 void testMirroredMultipleSectionsReadOnly() {
     const auto exercise=[&](bool tJunction) {
@@ -1177,6 +1323,7 @@ int main() {
         testCrossingMultipleSectionsPerOriginalTriangle();
         testSectionsMeetAtInteriorTjunction();
         testMirroredMultipleSectionsReadOnly();
+        testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();

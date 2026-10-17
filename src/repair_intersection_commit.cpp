@@ -53,6 +53,7 @@ ConformingCutCandidate materializeTransverseCutCandidate(
                     partitionCapacity);
     ConformingCutCandidate output;
     output.originalIndex=baseline;
+    output.sourceContacts=contacts;
     std::vector<VertexId> assigned;
     assigned.reserve(plan.points.size());
     for(const auto& point:plan.points) {

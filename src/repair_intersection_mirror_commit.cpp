@@ -200,6 +200,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
                     std::move(localMirrors),partitionCapacity);
     ConformingCutCandidate output;
     output.originalIndex=baseline;
+    output.sourceContacts=contacts;
     std::vector<VertexId> assigned(plan.points.size());
     for(std::size_t i=0;i<plan.points.size();++i)
         if(plan.points[i].existingVertex)assigned[i]=*plan.points[i].existingVertex;

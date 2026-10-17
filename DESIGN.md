@@ -1923,6 +1923,64 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2c2: Independent finite-tolerance contact-coverage certificate
+
+`certifyConformingCutCoverage` accepts ONLY a complete unpublished
+`ConformingCutCandidate` with immutable original and new roots, a full
+explicit child-to-original FaceId journal and the exact V13 original
+collision pairs supplied to its RegionEdit. Unlike the previous c1
+classification, it does **not** reason from finitely many winding samples.
+It independently rediscovers **every** V13 contact involving each changed
+ORIGINAL source face, with bounded BVH, triangle, and reported-hit work,
+and demands exact equality with the proposed contact pair set. Any omitted
+original contact, stale/duplicate pair, ambiguity, unsupported tangent,
+grazing/coplanar geometry or budget exhaustion refuses the entire result.
+
+Every declared pair is independently re-evaluated using the original
+transverse section extractor. The section's permanent cut endpoint IDs
+must resolve to both of the same original geometric endpoints while
+remaining topologically DISTINCT on the two sheets. On EACH sheet,
+the entire original intersection segment must be covered, without
+missing intervals, by collinear edges of the ACTUAL child FaceIds.
+A curve broken at a crossing or interior T-junction is naturally accepted
+as a chain of multiple edges; an uncut diagonal through the open
+interior does not count. To distinguish true open-interior interference
+from harmless crossings of an opposing face's infinite supporting
+plane OUTSIDE the actual triangle, the verifier clips the child's
+intersection with that plane to the FINITE original transverse
+contact interval. A positive-length overlap in the open interior
+refuses, whereas an intersection beyond the opposing face does not.
+Within the supported finite-tolerance predicate domain, this excludes
+a remaining unmodeled child-interior contact. Geometry
+is checked independently: children must remain oriented, coplanar,
+inside the source boundary and sum to the original signed area; child
+triangles of the same source must not overlap each other. RegionEdit
+has already validated edge incidence and linked manifold fans.
+
+**Scope of the guarantee:** The complete set of supported V13 original
+triangle intersections is checked for the entire affected source halo.
+For transverse noncoplanar pairs, the intersection is a straight line
+segment. By verifying that the *whole* segment is on child edges and
+that none of those children straddles the opposing plane, the verifier
+rules out an unmodeled CROSSING through their open interiors; finite
+winding probes are not treated as proof of this property. Claims apply
+only to the solver's finite-tolerance predicate domain: very close,
+grazing, degenerate, ill-conditioned, coplanar or unresolved geometry
+must fail closed. The certificate returns no partial covered-contact
+set on refusal, performs no deletion or publication, and neither
+classifies cavities nor selects which faces should be removed.
+Regression includes all nine original contacts from a full closed
+two-tetrahedron source pair and both complete mirrored groups with
+dyadic local coordinates, plus selectively omitted contacts, forged
+permanent endpoints, child edge and collision budget exhaustion, and
+stable historical roots. Unsupported translated-decimal configurations
+remain fail-closed rather than being mislabeled as complete.
+A subsequent stage must combine certified contact coverage with c1
+reliable positive-signed-winding occupancy on EACH real child and
+explicit material/cavity policy, then run private V15 excision, V16
+closure, full residual/fidelity auditing, and final Step-wide CAS.
+The desktop Merge geometry option remains disabled.
+
 ## V17e2b2c1: Bounded two-sided winding on real subdivision children
 
 The new assessment operates on actual child FaceIds in the unpublished
