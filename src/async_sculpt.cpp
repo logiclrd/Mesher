@@ -102,6 +102,7 @@ void AsyncSculptWorker::refreshStatus() {
     s.rejectedStamps=brush_->rejectedStamps();
     s.collisionCheckedStamps=brush_->collisionCheckedStamps();
     s.collisionRepairedStamps=brush_->collisionRepairedStamps();
+    s.contact=brush_->contactStatistics();
     s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
     s.pendingSteps=stroke_.pendingSamples();
