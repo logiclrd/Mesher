@@ -125,7 +125,8 @@ ExactCutJoinResult joinCertifiedCutSections(
         if(!cut.index||!cut.originalIndex||!cut.commit.revision||
            cut.commit.revision.get()!=&cut.index->revision()||
            !limits.partitionCapacity||!limits.maxBoundaryEdges||
-           !limits.maxSeamPairs||!limits.maxRewrittenFaces||
+           !limits.maxSeamPairs||!limits.maxTraceTests||
+           !limits.maxRewrittenFaces||
            !limits.maxCandidateFaces)
             return refused("Missing exact private cut root or invalid seam budgets");
         const auto nomination=planExactCutRemoval(cut,limits.removal);
