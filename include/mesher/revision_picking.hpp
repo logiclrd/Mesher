@@ -68,7 +68,8 @@ public:
     // Signed intersection sum for a single direction. Ambiguity includes
     // grazing vertices/edges, starting on the surface and near-parallel hits.
     int signedRayCrossings(Ray ray,
-        RegionTopologyIndex::WindingStatistics& stats,bool& ambiguous) const;
+        RegionTopologyIndex::WindingStatistics& stats,bool& ambiguous,
+        const WindingQueryLimits& limits={}) const;
 private:
     std::shared_ptr<const Directory> root_;
     static std::shared_ptr<const Partition> buildPartition(

@@ -1923,6 +1923,52 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2c1: Bounded two-sided winding on real subdivision children
+
+The new assessment operates on actual child FaceIds in the unpublished
+V17e2b2b1/b3b `ConformingCutCandidate`, not artificial V14 barycentric
+subpatches of a whole partially intersected original triangle. Each
+retained/replaced and inserted child carries explicit `(child, original)`
+FaceId provenance from the creating RegionEdit; the exact immutable
+original and private candidate index roots are held for independent
+verification. Missing, contradictory or forged provenance, children
+outside their original plane/boundary, inverted small triangles, or failure
+of the sum of all oriented child areas to equal the original area refuse
+the entire classification batch.
+
+For each actual child triangle, take its center and three additional
+STRICTLY INTERIOR barycentric witnesses. On each side of its oriented
+plane, query at two positive offset distances constrained by both the
+ORIGINAL mesh edge length and current child edge scale. Accelerated rays
+must provide reliable integer winding WITHOUT an exceptional O(all faces)
+solid-angle fallback. The minus and plus winding must differ by +1,
+remain identical across both distances and all four witnesses, and
+classify occupied material only for `w>0`; `w=2` and `w=1` both
+mean solid, `w=0` and negative winding mean void. For example, a
+positively oriented nested internal shell has solid on BOTH sides and
+is tentatively buried, whereas a real inward-oriented enclosed cavity
+surface can still separate positive solid from zero-winding void and
+must stay exposed. Unreliable rays, offset below floating-point resolution,
+close surfaces, inconsistent interior samples or exhausted finite work
+budgets refuse the entire result. No partial fragment labels escape.
+
+Unlike the historical V14 query, both initial on-surface proximity and
+actual ray BVH directory/partition/triangle visits now take hard ceilings
+BEFORE each visit. The fragment batch tracks remaining aggregate box,
+partition, triangle, ray and winding-point query budgets. The legacy
+unbounded winding API remains available by default for non-live callers.
+The new classifier is pure, never publishes or modifies a root, mirror
+map, history, renderer or checkpoint, and returns NO removal authorization.
+
+**Important mathematical boundary:** Sampling four interior witnesses of
+a geometrically exact child face does NOT alone prove that no additional,
+unmodeled intersection curve crosses an unsampled portion. Hence this
+first standalone stage is an occupancy ASSESSMENT, not a certified exact
+Boolean deletion oracle. V17e2b2c2 must prove bounded local contact-curve
+COMPLETENESS and absence of any unmodeled child interior intersections
+before safe exact-fragment excision can be considered. No V15 deletion,
+V16 closure, live publication or UI activation is enabled.
+
 ## V17e2b2b3b: Persistent mirrored cut staging in one private RegionEdit
 
 The completed read-only mirrored V17e2b2b3a planar arrangement (or the

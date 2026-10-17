@@ -52,6 +52,7 @@ ConformingCutCandidate materializeTransverseCutCandidate(
     RegionEdit edit(baseline,{selected.begin(),selected.end()}, {},
                     partitionCapacity);
     ConformingCutCandidate output;
+    output.originalIndex=baseline;
     std::vector<VertexId> assigned;
     assigned.reserve(plan.points.size());
     for(const auto& point:plan.points) {
@@ -94,9 +95,13 @@ ConformingCutCandidate materializeTransverseCutCandidate(
         };
         edit.replaceFace(patch.sourceFace,transform(patch.triangles.front()));
         output.rewrittenFaces.push_back(patch.sourceFace);
-        for(std::size_t i=1;i<patch.triangles.size();++i)
-            output.insertedFaces.push_back(edit.appendLocalFace(
-                original.owner,transform(patch.triangles[i])));
+        output.childSources.emplace_back(patch.sourceFace,patch.sourceFace);
+        for(std::size_t i=1;i<patch.triangles.size();++i) {
+            const auto id=edit.appendLocalFace(
+                original.owner,transform(patch.triangles[i]));
+            output.insertedFaces.push_back(id);
+            output.childSources.emplace_back(id,patch.sourceFace);
+        }
     }
     for(const auto& segment:plan.segments) {
         std::array<VertexId,2> first{},second{};

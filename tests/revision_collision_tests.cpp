@@ -671,6 +671,26 @@ void testPrivateConformingRevisionCommitsAtomically() {
     check(!candidate.index->triangleIntersections(
                 candidate.insertedVertices,{}).empty(),
           "Unclassified private intersection subdivisions still retain actual collisions");
+    check(candidate.originalIndex==baseline&&
+          candidate.childSources.size()==candidate.rewrittenFaces.size()+
+                                          candidate.insertedFaces.size(),
+          "Permanent real child FaceIds retain their exact original source provenance");
+    const auto occupancy=assessConformingCutFragments(candidate);
+    check((occupancy.complete&&
+           occupancy.fragments.size()==candidate.childSources.size())||
+          (!occupancy.complete&&occupancy.fragments.empty()&&
+           !occupancy.refusal.empty()),
+          "Real cut child occupancy is either complete or entirely fail-closed");
+    if(occupancy.complete)
+        for(const auto& fragment:occupancy.fragments)
+            check(fragment.negativeWinding-fragment.positiveWinding==1,
+                  "Uniformly sampled true child triangle has a unit winding jump");
+    // A forged source FaceId cannot influence deletion through classification.
+    auto forged=candidate;
+    forged.childSources.front().second=0;
+    const auto invalid=assessConformingCutFragments(forged);
+    check(!invalid.complete&&invalid.fragments.empty(),
+          "A forged or stale original face provenance refuses all fragment labels");
 
     bool budgetFailed=false;
     try {(void)materializeTransverseCutCandidate(
@@ -1047,6 +1067,16 @@ void testMirroredMultipleSectionsReadOnly() {
             }
         check(!cut.index->triangleIntersections(cut.insertedVertices,{}).empty(),
               "A private symmetric subdivision is NOT yet a Boolean union");
+        check(cut.originalIndex==index&&
+              cut.childSources.size()==cut.rewrittenFaces.size()+
+                                       cut.insertedFaces.size(),
+              "Mirrored persistent cut returns provenance for both child face orbits");
+        const auto assessed=assessConformingCutFragments(cut);
+        check((assessed.complete&&
+               assessed.fragments.size()==cut.childSources.size())||
+              (!assessed.complete&&assessed.fragments.empty()&&
+               !assessed.refusal.empty()),
+              "Mirrored true-child assessment never leaks partial authoritative labels");
         check(index->pickingRootIdentity()==oldRoot&&
               index->retiredFaceCount()==0,
               "One mirrored commit preserves all original immutable reader objects");

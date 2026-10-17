@@ -127,6 +127,10 @@ struct ConformingCutCandidate {
     std::vector<VertexId> insertedVertices;
     std::vector<FaceId> insertedFaces;
     std::vector<FaceId> rewrittenFaces;
+    // Exact original-face provenance for EVERY child triangle, including
+    // rewritten old FaceIds; never inferred from coordinate proximity.
+    std::vector<std::pair<FaceId,FaceId>> childSources;
+    std::shared_ptr<const RegionTopologyIndex> originalIndex;
     // V17e2b2b3b: complete NET inserted-vertex and rewritten/inserted
     // face mirror orbits, ready for a future original-root Step journal.
     // Empty for the nonmirrored path; no published map is mutated here.
@@ -149,5 +153,42 @@ ConformingCutCandidate materializeTransverseCutCandidate(
     const ConformingCutLimits& limits={},
     std::size_t partitionCapacity=256,
     const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
+
+
+ // V17e2b2c: inspect the ACTUAL conforming child faces rather than a
+ // sampled subdivision of their original unsplit parents. All original
+ // source FaceIds are explicit and the entire test is read-only.
+ // No finite set of interior witnesses proves a continuous Boolean winding
+ // bound on its own: this is a conservative occupancy ASSESSMENT, not a
+ // deletion permit. Uncertain/disagreeing children refuse the whole batch.
+struct CutFragmentLimits {
+    std::size_t maxFragments=512;
+    std::size_t maxWindingQueries=8192;
+    std::size_t maxWindingBoxTests=1048576;
+    std::size_t maxWindingPartitionTests=131072;
+    std::size_t maxWindingTriangleTests=262144;
+    std::size_t maxWindingRays=24576;
+};
+struct CutFragmentOccupancy {
+    FaceId child{};
+    FaceId original{};
+    RegionTopologyIndex::FragmentKind kind{
+        RegionTopologyIndex::FragmentKind::Ambiguous};
+    int negativeWinding{},positiveWinding{};
+};
+struct CutFragmentAssessment {
+    bool complete{};
+    std::string refusal;
+    std::vector<CutFragmentOccupancy> fragments;
+    std::size_t windingQueries{};
+    RegionTopologyIndex::WindingStatistics windingWork{};
+};
+// Uses exact REAL child FaceIds, original per-child source provenance,
+// multiple strictly interior witnesses and offsets on BOTH normal sides,
+// positive signed winding (w>0, NOT parity or nonzero), and bounded
+// accelerated ray queries with NO whole-mesh solid-angle fallback.
+// No faces are removed or nominated for V15 deletion by this API.
+CutFragmentAssessment assessConformingCutFragments(
+    const ConformingCutCandidate& cut,const CutFragmentLimits& limits={});
 
 } // namespace mesher

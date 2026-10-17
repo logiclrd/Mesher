@@ -79,7 +79,7 @@ long double RegionTopologyIndex::referenceWindingAt(Vec3 point) const {
 
 RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
     Vec3 point,WindingStatistics* measured,
-    bool allowReferenceFallback) const {
+    bool allowReferenceFallback,const WindingQueryLimits& limits) const {
     if(!finite(point))throw std::invalid_argument("Nonfinite winding query point");
     WindingStatistics local{};
     auto& stats=measured?*measured:local;
@@ -98,6 +98,10 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
          point.z+locationEpsilon},true};
     CollisionStatistics proximity;
     bool onSurface=false;
+    CollisionQueryLimits proximityLimits;
+    proximityLimits.maxBoxTests=limits.maxBoxTests;
+    proximityLimits.maxPartitionTests=limits.maxPartitionTests;
+    proximityLimits.maxCandidateTriangles=limits.maxTriangleTests;
     picking_->forEachOverlappingTriangle(tiny,[&](
         const RevisionPickingIndex::Triangle& face) {
         if(onSurface)return;
@@ -113,9 +117,10 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
                -locationEpsilon*length(edge)*magnitude)return;
         }
         onSurface=true;
-    },proximity);
+    },proximity,proximityLimits);
     stats.boxesTested+=proximity.boxesTested;
     stats.partitionsTested+=proximity.partitionsTested;
+    stats.trianglesTested+=proximity.candidateTriangles;
     if(onSurface)return {0,false};
     const std::array<Vec3,3> directions{{
         normalized(Vec3{1,0.193117,0.527463}),
@@ -127,7 +132,7 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
     for(const auto direction:directions) {
         bool ambiguous=false;
         const int count=picking_->signedRayCrossings(
-            {point,direction},stats,ambiguous);
+            {point,direction},stats,ambiguous,limits);
         if(ambiguous)continue;
         if(confident>0&&count!=answer)
             return {0,false}; // disagreeing rays: do not certify
