@@ -1923,6 +1923,47 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2a: Anchored original-surface refusal and physical merger diagnosis
+
+The CPU-opt-in candidate evaluator now accepts a deliberately selected
+`SculptAnchoredSurfaceGuard` with (1) fixed witness points sampled from an
+**original** exposed patch, (2) explicit surviving candidate FaceIds whose
+triangles are permitted to represent that feature, (3) an original edge
+scale, (4) a maximum normalized distance and (5) a hard upper bound on
+witness-triangle comparisons. The guard uses V16's existing bounded
+`auditSurfaceWitnesses` and runs **before** a Step's only publication,
+for both no-contact and completely repaired candidates. A witness that
+exceeds tolerance, a reference FaceId that retired, or an exhausted work
+budget refuses the entire Step under V17c. It never silently falls back
+to a full-mesh search or treats consecutive snapshot drift as the original
+reference. Because intentionally sculpted features are allowed to move,
+clients must explicitly nominate ONLY features that should stay fixed;
+there is no default global guard or implicitly frozen surface.
+
+The regression takes the original witnesses on one cube exterior patch,
+computes two successively displaced private candidates, chooses a guard
+threshold STRICTLY between their measured deviations from the original,
+accepts the first and rejects the second in the actual published brush.
+Zero-cost initial geometry, deliberate stronger erosion, exact work cap,
+unchanged published roots and empty dirty updates are independently tested.
+V17e1's sixteen symmetric two-tower Steps now also run with explicitly
+anchored unchanged outer-wall witnesses, supplementing their exhaustive
+external seven-sample audit of original geometry after every Step.
+
+**Physical union diagnosis:** A deliberately failing V17e2 probe required
+successful unions from real symmetric tower contact. It revealed that
+at least one proposed V15-classified private merger enters V16 reconstruction
+but is refused by the residual checker because newly constructed surface
+triangles intersect surviving faces. Such an attempted reconstruction
+MUST remain rejected; reducing the V15 hidden-triangle threshold or simply
+ignoring V16 residual contacts would violate the publication contract.
+The permanent acceptance suite distinguishes a fully successful union
+from this explicit reconstruction-stage blocker and retains immutable
+baseline/undo/witness checks. The requested *repeated successful physical
+union* acceptance is **not** claimed complete: V17e2b requires a supported
+and verified intersection-curve subdivision or an independently certified
+repeat-contact fixture which genuinely yields successive classified unions.
+
 ## V17e1: Repeat-contact safety acceptance, not a merger guarantee
 
 The optional CPU-only V17d2 path now has a deterministic **physical**
