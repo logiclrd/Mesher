@@ -769,6 +769,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   crossing normalization with complete mirror-ID creation/retirement
   staging, final residual collision checks, repeat-contact/hysteresis and
   real multi-Step symmetrical merger acceptance before UI activation.
+- [x] **V17d2 — Mirror-aware private surgery transaction (supported classified cases).**
+  Resolve a V15 classification-approved mirrored removal through V16's
+  capped/zippered mirrored surgeon, including supported shared-X=0 plane
+  crossing normalization, entirely privately. Only collisions that admit a
+  complete mirrored validated result may commit; ambiguous or unsupported
+  reflection/crossing configurations refuse the original Step. Net new
+  mirror IDs are matched by EXACT reflected coordinates (unique off-plane
+  partners and one self-pair per X=0 seam vertex); retired IDs require
+  the entire existing mirror orbit to disappear. The V17c refiner/collapser
+  journals stage these added/retired pairs before any validator/CAS, and
+  undo them on rejection. Accepted repairs publish ONE root and history
+  transition, adding the same pair deltas to Inflate, undo/redo and durable
+  checkpoints. Normalization's temporary faces and vertices are eliminated
+  from net counts; its committed COW work is included in accounting.
+  Regression covers genuinely redundant mirrored interior shells, veto
+  rollback, accepted mirror retirement, undo/redo and disk checkpoint
+  restoration, a shared-plane zipper's self-mirror seam correspondence,
+  and missing/inconsistent-orbit refusal. Existing UI stays unchanged.
+  **V17 completion still requires:** repeated *classified* symmetric tower
+  merges from real contact, ongoing sampled witness-erosion and contact
+  hysteresis policies, aggregate work budgets, stronger post-CAS exception
+  atomicity and desktop on/off control. V16's supported surgery fixture
+  alone does not prove arbitrary overlapping shells can classify as repairable.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
