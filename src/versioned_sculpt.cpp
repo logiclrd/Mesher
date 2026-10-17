@@ -85,7 +85,7 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
             outcome.refusal+=": "+outcome.plan.reason;
         return outcome;
     }
-    const auto classified=applyClassifiedExcisionRepair(
+    auto classified=applyClassifiedExcisionRepair(
         proposed.candidate,vertices,faces,isolatedComponentSeeds,
         ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,surgery);
     outcome.plan=classified.plan;
@@ -302,11 +302,18 @@ void VersionedSculptBrush::stamp(
     std::optional<RepairSurgeryResult> collisionRepair;
     if(collision_.enabled&&updated!=old) {
         ++collisionChecked_;
-        const auto judged=evaluateSculptCollisionCandidate(
-            {old,updated,std::span<const VertexId>(changedVertices),
-             std::span<const FaceId>(changedFaces)},symmetric_,collision_);
-        collisionRefusal=judged.refusal;
-        if(judged.repair) {
+        SculptCollisionEvaluation judged;
+        try {
+            judged=evaluateSculptCollisionCandidate(
+                {old,updated,std::span<const VertexId>(changedVertices),
+                 std::span<const FaceId>(changedFaces)},symmetric_,collision_);
+        }catch(const std::length_error& error) {
+            collisionRefusal=error.what();
+        }catch(const std::logic_error& error) {
+            collisionRefusal=error.what();
+        }
+        if(collisionRefusal.empty())collisionRefusal=judged.refusal;
+        if(collisionRefusal.empty()&&judged.repair) {
             collisionRepair=std::move(judged.repair);
             updated=collisionRepair->index;
             changedVertices.insert(changedVertices.end(),
