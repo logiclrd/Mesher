@@ -1464,6 +1464,8 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
                 "Fixed outer-wall witnesses detect no cumulative erosion across contact Steps");
         held.push_back(current);
     }
+    if(brush.collisionRepairedStamps()==0)
+        throw std::runtime_error(std::string("V17e2 tower merger probe: zero successful unions; final refusal: ")+brush.lastRejection());
     require(accepted+refused==16&&
             brush.collisionRepairedStamps()<=accepted&&
             brush.publishedRevisions()==accepted&&
