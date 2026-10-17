@@ -71,6 +71,9 @@ struct ConformingCutLimits {
     std::size_t maxAffectedFaces=1024;
     std::size_t maxNewPoints=4096;
     std::size_t maxTriangles=8192;
+    // The multiple-curve face arrangement has quadratic intersection work.
+    std::size_t maxArrangementPairTests=16384;
+    std::size_t maxArrangementEdges=16384;
 };
 struct ConformingCutPoint {
     Vec3 position{};
@@ -98,8 +101,8 @@ struct ConformingCutPlan {
 // BOTH original incident faces; an independent intersecting sheet retains
 // its own distinct point. Faces from outside the original collision pair
 // are added to the plan if their shared edge needs a conforming split.
-// Unsupported intersections, repeated multi-section source faces, absent
-// mirror companions and nonmanifold boundary edges refuse the whole plan.
+// Unsupported intersections, invalid overlapping/coincident curve segments,
+// absent mirror companions and nonmanifold boundary edges refuse the whole plan.
 // Does not perform a RegionEdit, winding classification, or root CAS.
 ConformingCutPlan buildConformingCutPlan(
     const RegionTopologyIndex& index,
@@ -125,8 +128,8 @@ struct ConformingCutCandidate {
 // exact caller-supplied V13 contact pairs; never trusts an arbitrary
 // precomputed point/face graph. For now symmetric RegionEdit construction
 // needs a separate paired-face staging protocol and is explicitly refused.
-// Unsupported multiple transverse curves through one original face also
-// refuse in buildConformingCutPlan. Failure leaves every old root untouched.
+// An unsupported or ambiguous multiple-section arrangement still refuses
+// without returning partial topology. Failure leaves old roots untouched.
 ConformingCutCandidate materializeTransverseCutCandidate(
     std::shared_ptr<const RegionTopologyIndex> baseline,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
