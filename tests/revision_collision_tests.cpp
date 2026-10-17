@@ -22,6 +22,43 @@ void check(bool condition,const char* message) {
 using Points=std::array<Vec3,3>;
 using Ids=std::array<VertexId,3>;
 
+// A genuine Boolean join must connect the two original surface
+// components; overlapping but independent coincident shells do not pass.
+std::size_t connectedClosedSurfaceComponents(const RegionTopologyIndex& index) {
+    std::set<FaceId> live;
+    index.revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces)live.insert(face.id);
+        });
+    if(live.size()>16384)
+        throw std::length_error("Union fixture exceeds component audit budget");
+    std::set<FaceId> visited;
+    std::size_t components=0;
+    for(const auto seed:live) {
+        if(visited.contains(seed))continue;
+        ++components;
+        std::vector<FaceId> stack{seed};
+        visited.insert(seed);
+        while(!stack.empty()) {
+            const auto id=stack.back();stack.pop_back();
+            const auto ids=index.face(id).vertices;
+            for(unsigned k=0;k<3;++k) {
+                const auto a=std::min(ids[k],ids[(k+1)%3]),
+                           b=std::max(ids[k],ids[(k+1)%3]);
+                const auto& sides=index.edgeSides({a,b});
+                check(sides.size()==2,
+                      "A certified joined surface must be closed and edge-manifold");
+                for(const auto& other:sides)
+                    if(visited.insert(other.face).second)
+                        stack.push_back(other.face);
+            }
+        }
+    }
+    check(visited.size()==live.size(),
+          "Connected component traversal covers every live private face");
+    return components;
+}
+
 void testNarrowPhase() {
     const Points a{{{0,0,0},{1,0,0},{0,1,0}}};
     const Ids ai{1,2,3};
@@ -766,6 +803,10 @@ void testPrivateConformingRevisionCommitsAtomically() {
                   joined.index!=whole.index&&joined.index!=baseline&&
                   joined.checkedContacts==all.size(),
                   "Actual provenance-bound closed-shell union commits only one private COW root");
+            check(connectedClosedSurfaceComponents(*baseline)==2&&
+                  connectedClosedSurfaceComponents(*whole.index)==2&&
+                  connectedClosedSurfaceComponents(*joined.index)==1,
+                  "Two distinct original closed shells become ONE connected manifold union");
             check(joined.retiredFaces.size()==16&&
                   joined.checkedBoundaryEdges>0&&
                   !joined.weldedPairs.empty(),
@@ -1201,13 +1242,17 @@ void testMirroredCompleteContactCoverage() {
              <<" welds="<<joined.weldedPairs.size()<<'\n';
     if(!joined.complete)
         throw std::runtime_error("Full mirrored positive seam join refused: "+joined.refusal);
-    if(joined.complete)
+    if(joined.complete) {
+        check(connectedClosedSurfaceComponents(*root)==4&&
+              connectedClosedSurfaceComponents(*cut.index)==4&&
+              connectedClosedSurfaceComponents(*joined.index)==2,
+              "Both mirrored pairs each become a single closed connected union");
         check(joined.commit&&joined.index&&
               joined.checkedBoundaryEdges>0&&
               !joined.weldedPairs.empty()&&
               root->pickingRootIdentity()==historical,
               "Both mirrored closed intersections join in ONE unpublished stable-ID RegionEdit");
-    else
+    }else
         check(!joined.commit&&!joined.index&&
               joined.retiredFaces.empty()&&joined.weldedPairs.empty(),
               "Unsupported mirrored seam geometry safely refuses whole revision");
