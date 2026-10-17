@@ -8,6 +8,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <unordered_map>
