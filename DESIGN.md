@@ -1922,3 +1922,26 @@ refuse, but no private operation may mutate its source root.
 This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
+
+## V16 Final Acceptance Review — qualified private foundation
+
+The completed V16a–V16d2b fixtures and cross-platform CI support
+**acceptance of the PRIVATE, transactionally validated surface-repair
+foundation**, with a strictly limited geometry subset and fail-closed
+behavior. The per-operation, per-revision success tests do NOT constitute
+live brush activation, universal intersection reconstruction, automated
+deletion authorization from low-level contour nominations, continuous
+Hausdorff bounds, or a real-time performance guarantee.
+
+The [V16 final acceptance matrix and V17 activation contract](
+docs/V16_FINAL_ACCEPTANCE.md) identify the precise tested fixtures,
+known geometric refusal cases and mandatory live-boundary checks.
+In particular, V17 must supply a classified symmetry-aware caller,
+check relevant residual collisions on the final full Step candidate,
+budget exceptional whole-mesh winding and pathological discovery work,
+handle rejected Steps without terminating the worker or skipping input,
+and commit every mutable mirror/history/dirty-partition detail together
+with **one** CAS from the original Step root. The original-anchored
+surface-witness audit remains read-only until V17 chooses explicit
+feature anchors and cumulative tolerance. V18 is separate nonmerge
+collision-constrained displacement; V19 remains wider desktop acceptance.
