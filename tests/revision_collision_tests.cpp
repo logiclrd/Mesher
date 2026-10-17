@@ -561,10 +561,14 @@ void testConformingReflectedCutGraph() {
         reflection.emplace(b,a);
     }
     const auto result=buildConformingCutPlan(*index,pairs,{},&reflection);
-    check(result.status==IntersectionSectionStatus::TransverseSegment&&
-          result.faces.size()==6&&result.segments.size()==2&&
-          result.mirroredCutPoints.size()==4,
-          "Two independent exact reflections pair every cut node without welding solids");
+    if(result.status!=IntersectionSectionStatus::TransverseSegment||
+       result.faces.size()!=6||result.segments.size()!=2||
+       result.mirroredCutPoints.size()!=4)
+        throw std::runtime_error(
+            "Reflected conformance failure: "+result.refusal+
+            " faces="+std::to_string(result.faces.size())+
+            " sections="+std::to_string(result.segments.size())+
+            " mirrorPairs="+std::to_string(result.mirroredCutPoints.size()));
     std::set<std::size_t> mirrored;
     for(const auto& [a,b]:result.mirroredCutPoints) {
         check(a!=b&&mirrored.insert(a).second&&mirrored.insert(b).second,
