@@ -14,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 
 namespace mesher {
 
@@ -47,20 +48,36 @@ using SculptStepValidator=std::function<std::string(const ProposedSculptStep&)>;
 struct SculptCollisionSettings {
     bool enabled=false;
     RepairSurgerySettings surgery{};
+    // Explicit newly isolated closed-component seeds supplied by a caller.
+    // No global component sweep is inferred from a brush stamp. Retired
+    // seeds are ignored on later stamps; empty by default in the UI.
+    std::vector<FaceId> isolatedComponentSeeds{};
 };
 struct SculptCollisionEvaluation {
     RepairPlan plan{};
     std::optional<RepairSurgeryResult> repair;
+    // Net mirror changes in this PRIVATE repair only. The V17c journal
+    // stages them before the original CAS, then history/checkpoints commit.
+    std::vector<MirrorPair> insertedMirrors;
+    std::vector<MirrorPair> retiredMirrors;
     std::string refusal;
     std::size_t finalNarrowPhaseTests{};
     bool safe() const noexcept {return refusal.empty();}
 };
+// Derive and verify net new/retired mirror orbits for an already validated
+// private mirrored surgery. Useful for explicit CPU repair acceptance too;
+// this never mutates the index or publishes a root.
+void deriveMirroredRepairDeltas(
+    SculptCollisionEvaluation& evaluation,
+    const RegionTopologyIndex& candidate,
+    const std::unordered_map<VertexId,VertexId>& livingMirrors);
 // A self-contained, unpublished post-state evaluation. Optional seeds are
 // explicitly known NEW closed components; the normal brush passes none.
 SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptCollisionSettings& settings,
-    const std::vector<FaceId>& isolatedComponentSeeds={});
+    const std::vector<FaceId>& isolatedComponentSeeds={},
+    const std::unordered_map<VertexId,VertexId>* vertexMirrors=nullptr);
 
 // The BrushStroke owns sampling and queue semantics; this brush owns *all*
 // editable geometry and uses a dummy Mesh solely to satisfy BrushStroke's

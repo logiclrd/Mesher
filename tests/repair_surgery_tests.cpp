@@ -7,11 +7,13 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <numbers>
 #include <set>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 using namespace mesher;
@@ -270,6 +272,160 @@ MirroredCubes reflectedCubes(double displacement) {
         result.mirrors.push_back({result.import.flatIndex.vertexIds[i],
                                   result.import.flatIndex.vertexIds[i+8]});
     return result;
+}
+struct MirroredNestedSolids {
+    PartitionedMeshImport import;
+    std::vector<MirrorPair> pairs;
+    std::array<FaceId,2> internalSeeds{};
+};
+MirroredNestedSolids reflectedNestedSolids() {
+    Mesh mesh;
+    cube(mesh,{-4,0,0},2.5);
+    cube(mesh,{-4,0,0},.5);
+    const auto count=static_cast<std::uint32_t>(mesh.vertices.size());
+    const auto faceCount=mesh.triangles.size();
+    for(std::uint32_t i=0;i<count;++i) {
+        const auto p=mesh.vertices[i];
+        mesh.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(std::size_t i=0;i<faceCount;++i) {
+        const auto t=mesh.triangles[i];
+        mesh.triangles.push_back({t.a+count,t.c+count,t.b+count});
+    }
+    auto imported=partitionFlatMesh(mesh,1);
+    MirroredNestedSolids fixture;
+    for(std::uint32_t i=0;i<count;++i)
+        fixture.pairs.emplace_back(
+            imported.flatIndex.vertexIds[i],
+            imported.flatIndex.vertexIds[i+count]);
+    fixture.internalSeeds={
+        imported.flatIndex.faceIds[12],
+        imported.flatIndex.faceIds[faceCount+12]};
+    fixture.import=std::move(imported);
+    return fixture;
+}
+std::unordered_map<VertexId,VertexId> mirrorMap(
+    const std::vector<MirrorPair>& pairs) {
+    std::unordered_map<VertexId,VertexId> mapped;
+    for(const auto& [a,b]:pairs) {
+        mapped.emplace(a,b);
+        mapped.emplace(b,a);
+    }
+    return mapped;
+}
+void testMirroredCandidateRetirementAndLiveRollback() {
+    auto fixture=reflectedNestedSolids();
+    const auto initial=RegionTopologyIndex::build(fixture.import.revision);
+    const auto originalRoot=initial->pickingRootIdentity();
+    SculptCollisionSettings mode;
+    mode.enabled=true;
+    mode.isolatedComponentSeeds.assign(
+        fixture.internalSeeds.begin(),fixture.internalSeeds.end());
+    const ProposedSculptStep proposed{initial,initial,{},{}};
+    const auto initialMap=mirrorMap(fixture.pairs);
+    const auto delta=evaluateSculptCollisionCandidate(
+        proposed,true,mode,mode.isolatedComponentSeeds,&initialMap);
+    require(delta.safe()&&delta.plan.ready()&&delta.repair&&
+            delta.repair->retiredVertices.size()==16&&
+            delta.repair->retiredFaces.size()==24&&
+            delta.retiredMirrors.size()==8&&delta.insertedMirrors.empty(),
+            "Classified reflected interior shells retire complete mirror orbits");
+    auto incompleteRetirement=delta;
+    incompleteRetirement.repair->retiredVertices.pop_back();
+    bool orphanRejected=false;
+    try {deriveMirroredRepairDeltas(incompleteRetirement,*initial,initialMap);}
+    catch(const std::logic_error&) {orphanRejected=true;}
+    require(orphanRejected,"Deleting only one end of a mirrored vertex pair is refused");
+    require(initial->retiredFaceCount()==0&&
+            initial->pickingRootIdentity()==originalRoot,
+            "Symmetric classified evaluation preserves original index identity");
+
+    DurableCheckpoint recovered;
+    recovered.index=initial;
+    recovered.mirrorPairs=fixture.pairs;
+    recovered.initialVertexCount=fixture.import.flatIndex.vertexIds.size();
+    std::size_t called=0;
+    VersionedSculptBrush brush(recovered,.001,{}, {},{},256,
+        [&](const ProposedSculptStep& p)->std::string {
+            ++called;
+            require(p.candidate->retiredFaceCount()==24,
+                    "Validator sees private symmetric repaired candidate, never partial state");
+            return called==1?"Intentional mirrored repair veto":"";
+        },mode);
+    Mesh dummy;
+    const std::array<BrushArea,2> areas{{
+        {{-6.5,-2.5,-2.5},.9,.6},{{6.5,-2.5,-2.5},.9,.6}
+    }};
+    const auto old=brush.snapshot();
+    const auto origPairs=brush.checkpoint().mirrorPairs;
+    brush.stamp(dummy,areas);
+    require(called==1&&brush.rejectedStamps()==1&&
+            brush.snapshot()==old&&brush.publishedRevisions()==0&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.checkpoint().mirrorPairs==origPairs&&
+            brush.lastDirtyPartitions().empty(),
+            "Mirror retirement veto rolls back both speculative maps and history");
+    brush.stamp(dummy,areas);
+    const auto accepted=brush.snapshot();
+    const auto finalPairs=brush.checkpoint().mirrorPairs;
+    require(called==2&&brush.rejectedStamps()==1&&
+            brush.collisionRepairedStamps()==1&&
+            accepted!=old&&brush.publishedRevisions()==1&&
+            brush.historyStatistics().undoDepth==1&&
+            finalPairs.size()==origPairs.size()-8&&
+            accepted->retiredFaceCount()==24,
+            "Accepted symmetric excision retires exactly eight mirror pairs in one CAS");
+    require(brush.lastDetails().vertices==16&&
+            brush.lastDetails().triangles==24&&
+            !brush.lastDirtyPartitions().empty(),
+            "Sculpt metrics and dirty renderer partitions describe final symmetric root");
+    const auto saved=brush.checkpoint();
+    const auto path=std::filesystem::temp_directory_path()/
+        "mesher-v17d2-mirrored-acceptance.chk";
+    try {
+        writeCheckpoint(path,saved);
+        const auto restored=readCheckpoint(path);
+        require(restored.mirrorPairs==saved.mirrorPairs&&
+                restored.index->retiredFaceCount()==24,
+                "Round-trip checkpoint retains mirrored repair tombstones and live orbit map");
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(path,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(path,ec);
+    require(brush.undo()&&brush.snapshot()==old&&
+            brush.checkpoint().mirrorPairs==origPairs,
+            "Undo restores exact original root and all removed mirror pairs");
+    require(brush.redo()&&brush.snapshot()==accepted&&
+            brush.checkpoint().mirrorPairs==finalPairs,
+            "Redo reinstates accepted private surgery and precise canonical mirror IDs");
+}
+void testNewMirroredSeamPairsAndMissingOrbits() {
+    const auto fixture=reflectedCubes(1.1);
+    const auto candidate=RegionTopologyIndex::build(fixture.import.revision);
+    const auto& f=fixture.import.flatIndex.faceIds;
+    const auto plan=planRemovalContours(
+        *candidate,{f[10],f[11],f[22],f[23]});
+    require(plan.ready(),"Mirrored plane seam fixture has valid private plan");
+    SculptCollisionEvaluation staged;
+    staged.repair=applyMirroredRepairSurgery(candidate,plan,fixture.mirrors);
+    const auto pairs=mirrorMap(fixture.mirrors);
+    deriveMirroredRepairDeltas(staged,*candidate,pairs);
+    require(staged.insertedMirrors.size()==4&&
+            staged.retiredMirrors.empty(),
+            "One shared X=0 four-vertex seam creates four self-mirror pairs");
+    for(const auto& [a,b]:staged.insertedMirrors)
+        require(a==b&&staged.repair->index->vertex(a).position.x==0,
+                "Every inserted seam correspondence is exact self-reflection");
+    auto incomplete=staged;
+    incomplete.repair->insertedVertices.push_back(
+        fixture.import.flatIndex.vertexIds.front());
+    bool refused=false;
+    try {deriveMirroredRepairDeltas(incomplete,*candidate,pairs);}
+    catch(const std::logic_error&) {refused=true;}
+    require(refused,"Surgery may not claim a pre-existing ID as a new mirror orbit");
 }
 void testMirroredZipperUsesOnePlaneSeam() {
     const auto test=reflectedCubes(1.1);
@@ -1542,6 +1698,8 @@ int main() {
         std::cout<<"Surgery fixture: uneven zipper"<<std::endl;
         testUnequalSpacingSharedEdgeSplits();
         std::cout<<"Surgery fixture: mirrored zipper"<<std::endl;
+        testMirroredCandidateRetirementAndLiveRollback();
+        testNewMirroredSeamPairsAndMissingOrbits();
         testMirroredZipperUsesOnePlaneSeam();
         std::cout<<"Surgery fixture: mirrored caps"<<std::endl;
         testMirroredIndependentCaps();

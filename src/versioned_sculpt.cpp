@@ -3,9 +3,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <set>
 #include <stdexcept>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -37,12 +41,59 @@ std::vector<std::pair<VertexId,VertexId>> makeMirrors(
 }
 }
 
+// V17d2: every new and retired vertex from a mirrored private repair
+// receives a canonical involutive mirror pair. Only the small set of
+// surgery-touched IDs is examined for delta derivation. Existing pairs are
+// checked by V16 when the surgeon is called; the caller supplies the
+// collapser's already staged post-refinement/post-collapse map.
+void deriveMirroredRepairDeltas(
+    SculptCollisionEvaluation& outcome,
+    const RegionTopologyIndex& candidate,
+    const std::unordered_map<VertexId,VertexId>& oldMirrors) {
+    if(!outcome.repair)return;
+    const auto& repaired=*outcome.repair;
+    const auto& final=*repaired.index;
+    using Point=std::tuple<double,double,double>;
+    const std::set<VertexId> added(repaired.insertedVertices.begin(),
+                                   repaired.insertedVertices.end());
+    const std::set<VertexId> removed(repaired.retiredVertices.begin(),
+                                     repaired.retiredVertices.end());
+    std::map<Point,VertexId> byPosition;
+    for(const auto id:added) {
+        if(candidate.maybeVertex(id)||!final.maybeVertex(id))
+            throw std::logic_error("Surgery added mirror ID has invalid lifetime");
+        const auto p=final.vertex(id).position;
+        if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z)||
+           !byPosition.emplace(Point{p.x,p.y,p.z},id).second)
+            throw std::logic_error("Surgery added duplicate or nonfinite mirror vertex");
+    }
+    for(const auto id:added) {
+        const auto p=final.vertex(id).position;
+        const auto it=byPosition.find(Point{-p.x,p.y,p.z});
+        if(it==byPosition.end())
+            throw std::logic_error("Surgery new vertex has no exact reflected partner");
+        const auto twin=it->second;
+        if(id<=twin)outcome.insertedMirrors.emplace_back(id,twin);
+    }
+    for(const auto id:removed) {
+        if(!candidate.maybeVertex(id)||final.maybeVertex(id))
+            throw std::logic_error("Surgery retired mirror ID has invalid lifetime");
+        const auto it=oldMirrors.find(id);
+        if(it==oldMirrors.end()||!removed.contains(it->second)||
+           !oldMirrors.contains(it->second)||
+           oldMirrors.at(it->second)!=id)
+            throw std::logic_error("Surgery retired only one side of a mirror orbit");
+        if(id<=it->second)outcome.retiredMirrors.emplace_back(id,it->second);
+    }
+}
+
 // V17d1: deliberately separate read-only classification and private surgery
 // from the final published Step. The live viewport never enables this yet.
 SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptCollisionSettings& settings,
-    const std::vector<FaceId>& isolatedComponentSeeds) {
+    const std::vector<FaceId>& isolatedComponentSeeds,
+    const std::unordered_map<VertexId,VertexId>* vertexMirrors) {
     if(!proposed.before||!proposed.candidate)
         throw std::invalid_argument("Classified collision evaluation needs complete roots");
     SculptCollisionEvaluation outcome;
@@ -73,59 +124,110 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     const std::vector<FaceId> faces(
         proposed.changedFaces.begin(),proposed.changedFaces.end());
     if(symmetric) {
-        // V16's mirrored surgeon is private but its new/retired vertex pairs
-        // are not yet journaled in the live brush. In V17d1, classify, but
-        // NEVER publish an unpaired mirrored scar.
         outcome.plan=planApproximateExcision(
             *proposed.candidate,vertices,faces,isolatedComponentSeeds,plan);
         if(outcome.plan.status==RepairPlanStatus::NoChanges&&
            outcome.plan.intersections==0)return outcome;
-        outcome.refusal="Symmetric collision repair needs atomic mirrored ID deltas";
-        if(!outcome.plan.reason.empty())
-            outcome.refusal+=": "+outcome.plan.reason;
-        return outcome;
-    }
-    auto classified=applyClassifiedExcisionRepair(
-        proposed.candidate,vertices,faces,isolatedComponentSeeds,
-        ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,surgery);
-    outcome.plan=classified.plan;
-    if(outcome.plan.status==RepairPlanStatus::NoChanges&&
-       outcome.plan.intersections==0)return outcome;
-    if(!classified.surgery) {
-        outcome.refusal="Classified collision repair refused: "+
-            (outcome.plan.reason.empty()?
-             std::string("ambiguous or unsupported surface"):outcome.plan.reason);
-        return outcome;
+        if(!outcome.plan.ready()) {
+            outcome.refusal="Symmetric classified collision refused: "+
+                outcome.plan.reason;
+            return outcome;
+        }
+        // V16 accepts a compact canonical vector, whereas the V17c staged
+        // map is mutable. Convert ONLY after classification discovers a
+        // repair; collision-free symmetric Steps never copy all mirror IDs.
+        if(!vertexMirrors||vertexMirrors->empty()) {
+            outcome.refusal="Symmetric collision candidate has no staged mirror map";
+            return outcome;
+        }
+        std::vector<MirrorPair> pairs;
+        pairs.reserve(vertexMirrors->size()/2+1);
+        for(const auto& [a,b]:*vertexMirrors)
+            if(a<=b)pairs.emplace_back(a,b);
+        surgery.requireExposedFragmentFidelity=true;
+        auto across=repairMirroredContoursAcrossPlane(
+            proposed.candidate,outcome.plan,pairs,surgery);
+        auto normalized=std::move(across.surgery);
+        normalized.commit.statistics=across.accumulatedStatistics;
+        // Crossing normalization is a private precursor of surgery. Roll its
+        // survivors into the SAME net Step; never count temporary IDs that
+        // normalization created and the final surgery then retired.
+        for(const auto id:across.planeSeamVertices)
+            if(normalized.index->maybeVertex(id))
+                normalized.insertedVertices.push_back(id);
+        for(const auto id:across.normalizationInsertedFaces)
+            if(normalized.index->maybeFace(id))
+                normalized.insertedFaces.push_back(id);
+        const auto netVertexAdded=[&](VertexId id) {
+            return !proposed.candidate->maybeVertex(id)&&
+                    normalized.index->maybeVertex(id);
+        };
+        const auto netVertexRemoved=[&](VertexId id) {
+            return proposed.candidate->maybeVertex(id)&&
+                   !normalized.index->maybeVertex(id);
+        };
+        const auto netFaceAdded=[&](FaceId id) {
+            return !proposed.candidate->maybeFace(id)&&
+                    normalized.index->maybeFace(id);
+        };
+        const auto netFaceRemoved=[&](FaceId id) {
+            return proposed.candidate->maybeFace(id)&&
+                   !normalized.index->maybeFace(id);
+        };
+        const auto retain=[&](auto& ids,const auto& test) {
+            std::erase_if(ids,[&](auto id){return !test(id);});
+            std::sort(ids.begin(),ids.end());
+            ids.erase(std::unique(ids.begin(),ids.end()),ids.end());
+        };
+        retain(normalized.insertedVertices,netVertexAdded);
+        retain(normalized.retiredVertices,netVertexRemoved);
+        retain(normalized.insertedFaces,netFaceAdded);
+        retain(normalized.retiredFaces,netFaceRemoved);
+        outcome.repair=std::move(normalized);
+        deriveMirroredRepairDeltas(outcome,*proposed.candidate,*vertexMirrors);
+    }else {
+        auto classified=applyClassifiedExcisionRepair(
+            proposed.candidate,vertices,faces,isolatedComponentSeeds,
+            ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,surgery);
+        outcome.plan=classified.plan;
+        if(outcome.plan.status==RepairPlanStatus::NoChanges&&
+           outcome.plan.intersections==0)return outcome;
+        if(!classified.surgery) {
+            outcome.refusal="Classified collision repair refused: "+
+                (outcome.plan.reason.empty()?
+                 std::string("ambiguous or unsupported surface"):outcome.plan.reason);
+            return outcome;
+        }
+        outcome.repair=std::move(classified.surgery);
     }
     // A healed scar is NOT evidence that the entire changed stamp is clean.
     // Re-query every surviving moved/rewritten face and every added face
     // against the COMPLETE healed candidate before granting publication.
     std::vector<VertexId> finalVertices=vertices;
     finalVertices.insert(finalVertices.end(),
-        classified.surgery->insertedVertices.begin(),
-        classified.surgery->insertedVertices.end());
+        outcome.repair->insertedVertices.begin(),
+        outcome.repair->insertedVertices.end());
     finalVertices.insert(finalVertices.end(),
-        classified.surgery->retiredVertices.begin(),
-        classified.surgery->retiredVertices.end());
+        outcome.repair->retiredVertices.begin(),
+        outcome.repair->retiredVertices.end());
     std::vector<FaceId> finalFaces=faces;
     finalFaces.insert(finalFaces.end(),
-        classified.surgery->insertedFaces.begin(),
-        classified.surgery->insertedFaces.end());
+        outcome.repair->insertedFaces.begin(),
+        outcome.repair->insertedFaces.end());
     finalFaces.insert(finalFaces.end(),
-        classified.surgery->retiredFaces.begin(),
-        classified.surgery->retiredFaces.end());
-    for(const auto& contour:classified.plan.contours)
+        outcome.repair->retiredFaces.begin(),
+        outcome.repair->retiredFaces.end());
+    for(const auto& contour:outcome.plan.contours)
         finalFaces.insert(finalFaces.end(),
             contour.survivingFaces.begin(),contour.survivingFaces.end());
     RegionTopologyIndex::CollisionStatistics measured;
-    const auto residual=classified.surgery->index->triangleIntersections(
+    const auto residual=outcome.repair->index->triangleIntersections(
         finalVertices,finalFaces,&measured,surgery.residualCollisionLimits);
     outcome.finalNarrowPhaseTests=measured.narrowPhaseTests;
     if(!residual.empty()) {
         outcome.refusal="Entire repaired Step retains a collision or ambiguous contact";
         return outcome;
     }
-    outcome.repair=std::move(classified.surgery);
     return outcome;
 }
 
@@ -300,13 +402,18 @@ void VersionedSculptBrush::stamp(
     // set, never a partly repaired intermediate revision.
     std::string collisionRefusal;
     std::optional<RepairSurgeryResult> collisionRepair;
+    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
     if(collision_.enabled&&updated!=old) {
         ++collisionChecked_;
         SculptCollisionEvaluation judged;
         try {
+            std::vector<FaceId> seeds;
+            for(const auto id:collision_.isolatedComponentSeeds)
+                if(updated->maybeFace(id))seeds.push_back(id);
             judged=evaluateSculptCollisionCandidate(
                 {old,updated,std::span<const VertexId>(changedVertices),
-                 std::span<const FaceId>(changedFaces)},symmetric_,collision_);
+                 std::span<const FaceId>(changedFaces)},symmetric_,collision_,seeds,
+                symmetric_?&collapser_.mirrors():nullptr);
         }catch(const std::length_error& error) {
             collisionRefusal=error.what();
         }catch(const std::logic_error& error) {
@@ -314,6 +421,19 @@ void VersionedSculptBrush::stamp(
         }
         if(collisionRefusal.empty())collisionRefusal=judged.refusal;
         if(collisionRefusal.empty()&&judged.repair) {
+            // All changes to both speculative mirror maps are journaled.
+            // Refusal by the subsequent V17c validator reverses them with
+            // no full-map copy and no changes to Inflate or the repository.
+            repairedAddedMirrors=std::move(judged.insertedMirrors);
+            repairedRemovedMirrors=std::move(judged.retiredMirrors);
+            for(const auto& [a,b]:repairedRemovedMirrors) {
+                collapser_.removeMirrorPair(a,b);
+                refiner_.removeMirrorPair(a,b);
+            }
+            for(const auto& [a,b]:repairedAddedMirrors) {
+                collapser_.addMirrorPair(a,b);
+                refiner_.addMirrorPair(a,b);
+            }
             collisionRepair=std::move(judged.repair);
             updated=collisionRepair->index;
             changedVertices.insert(changedVertices.end(),
@@ -385,6 +505,10 @@ void VersionedSculptBrush::stamp(
         inflate_.removeMirrorPair(pair.first,pair.second);
         refiner_.removeMirrorPair(pair.first,pair.second);
     }
+    for(const auto& [a,b]:repairedRemovedMirrors)
+        inflate_.removeMirrorPair(a,b);
+    for(const auto& [a,b]:repairedAddedMirrors)
+        inflate_.addMirrorPair(a,b);
     vertices_+=refined.insertedVertices.size();
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
@@ -411,8 +535,14 @@ void VersionedSculptBrush::stamp(
     // One COW root per actual geometry-changing Step, within both a
     // fixed entry count and copied-payload budget. Mirror changes are stored
     // only as incremental transitions, never a full per-stamp map copy.
+    auto addedMirrors=refined.insertedMirrorPairs;
+    auto removedMirrors=collapsed.removedMirrorPairs;
+    addedMirrors.insert(addedMirrors.end(),repairedAddedMirrors.begin(),
+                        repairedAddedMirrors.end());
+    removedMirrors.insert(removedMirrors.end(),repairedRemovedMirrors.begin(),
+                          repairedRemovedMirrors.end());
     history_.append(updated,lastDirtyPartitions_,
-                    refined.insertedMirrorPairs,collapsed.removedMirrorPairs,
+                    std::move(addedMirrors),std::move(removedMirrors),
                     inflated.commitStatistics.clonedPartitionBytes+
                     refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
                     (collisionRepair?
