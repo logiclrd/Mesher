@@ -327,6 +327,122 @@ void testWorkerHistoryAndRecoveredCheckpoint() {
     std::error_code ec;
     std::filesystem::remove(file,ec);
 }
+void testRejectedSymmetricStepRollsBackMirrorsAndHistory() {
+    SphereOptions options;
+    options.vertexCount=500;
+    options.relaxationIterations=6;
+    const auto initial=generateSphere(options);
+    RefineSettings refine;
+    refine.enabled=true;
+    refine.maximumEdgeRatio=.25;
+    refine.maximumSplitPairsPerStamp=2;
+    refine.optimizeFlips=false;
+    std::size_t validated=0;
+    std::size_t candidateVertices=0;
+    VersionedSculptBrush brush(initial,.065,{}, {},refine,true,256,
+        [&](const ProposedSculptStep& proposed)->std::string {
+            ++validated;
+            require(proposed.before==brush.snapshot(),
+                    "Validator sees exactly the original published Step root");
+            require(proposed.candidate!=proposed.before&&
+                    !proposed.changedVertices.empty()&&
+                    !proposed.changedFaces.empty(),
+                    "Validator observes complete private candidate and dirty geometry");
+            candidateVertices=0;
+            proposed.candidate->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& p) {
+                    candidateVertices+=p.vertices.size();
+                });
+            return validated==1?"Intentional V17c symmetric Step refusal":"";
+        });
+    Mesh dummy;
+    const std::array<BrushArea,2> areas{{
+        {{-.25,-.65,.7},.55,.3},{{.25,-.65,.7},.55,.3}
+    }};
+    const auto old=brush.snapshot();
+    const auto originalMirrors=brush.checkpoint().mirrorPairs;
+    const auto originalHistory=brush.historyStatistics();
+    brush.stamp(dummy,areas);
+    require(validated==1&&brush.rejectedStamps()==1&&
+            brush.completedStamps()==1&&brush.publishedRevisions()==0,
+            "Rejected Step is accounted without publishing a new revision");
+    require(brush.snapshot()==old&&brush.lastDirtyPartitions().empty()&&
+            brush.historyStatistics().undoDepth==originalHistory.undoDepth&&
+            brush.checkpoint().mirrorPairs==originalMirrors,
+            "Rejected symmetric Step restores root, render, mirror and history state");
+    require(brush.lastRejection()=="Intentional V17c symmetric Step refusal",
+            "Rejection reason remains available for diagnostics");
+    require(candidateVertices>initial.vertices.size(),
+            "Rejected private Step exercised actual symmetric vertex splitting");
+    brush.stamp(dummy,areas);
+    require(validated==2&&brush.rejectedStamps()==1&&
+            brush.completedStamps()==2&&brush.publishedRevisions()==1&&
+            brush.snapshot()!=old,
+            "Next Step successfully remeshes after rollback");
+    const auto accepted=brush.snapshot();
+    const auto acceptedMirrors=brush.checkpoint().mirrorPairs;
+    require(acceptedMirrors.size()>originalMirrors.size()&&
+            brush.historyStatistics().undoDepth==1,
+            "Accepted symmetric split adds mirror pairs and exactly one undo entry");
+    require(brush.undo()&&brush.snapshot()==old&&
+            brush.checkpoint().mirrorPairs==originalMirrors,
+            "Undo after rejection returns to exact original root and mirror map");
+    require(brush.redo()&&brush.snapshot()==accepted&&
+            brush.checkpoint().mirrorPairs==acceptedMirrors,
+            "Redo reinstates accepted Step without resurrecting rejected geometry");
+}
+void testWorkerRejectsOneStepAndDrainsRemainingInput() {
+    SphereOptions options;
+    options.vertexCount=500;
+    options.relaxationIterations=6;
+    auto initial=generateSphere(options);
+    std::size_t checked=0; // callback only executes on the worker thread
+    AsyncSculptWorker worker(initial,.02,.015,.2,{}, {},{},false,
+        [&](const ProposedSculptStep& proposed)->std::string {
+            ++checked;
+            require(proposed.candidate!=proposed.before,
+                    "Worker validates unpublished candidate before final CAS");
+            if(checked==1)
+                return "Expected worker refusal (no geometry publication)";
+            if(checked==2)
+                throw std::length_error("Expected bounded geometry refusal");
+            return {};
+        });
+    const auto firstRoot=worker.initialRevision();
+    worker.begin({-.25,-.65,.7},.35);
+    const auto firstLimit=std::chrono::steady_clock::now()+
+                          std::chrono::seconds(12);
+    while(worker.status().completedStamps==0&&
+          std::chrono::steady_clock::now()<firstLimit)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto first=worker.status();
+    require(first.completedStamps==1&&first.rejectedStamps==1&&
+            first.publishedRevisions==0&&
+            first.history.undoDepth==0&&
+            worker.initialRevision()==firstRoot,
+            "Worker consumes rejected mouse-down Step without publishing or stopping");
+    auto notification=worker.takeSnapshot();
+    require(notification&&notification->index==firstRoot&&
+            notification->dirtyPartitions.empty(),
+            "Rejected input may update status but emits no GPU dirty partitions");
+    worker.update({-.30,-.67,.67},.2);
+    worker.end({-.32,-.68,.66},.32);
+    const auto limit=std::chrono::steady_clock::now()+
+                     std::chrono::seconds(15);
+    while(!worker.canBegin()&&std::chrono::steady_clock::now()<limit)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto final=worker.status();
+    require(worker.canBegin()&&final.pendingSteps==0&&
+            final.pendingSegments==0&&final.inputCommands==0,
+            "Worker drains the full exact 4D path after recoverable refusal");
+    require(final.rejectedStamps==2&&final.completedStamps>2&&
+            final.publishedRevisions>0&&
+            final.history.undoDepth==final.publishedRevisions,
+            "Counted refused Steps add neither history entries nor revisions");
+    const auto last=worker.takeSnapshot();
+    require(last&&last->index&&last->index!=firstRoot,
+            "After two refusals later Step still publishes a valid indexed revision");
+}
 void testVersionedWorkerWithRemeshingEnabled() {
     SphereOptions options;
     options.vertexCount=500;
@@ -377,6 +493,8 @@ int main() {
         testCoalescedRootsAndCompatibilityBridge();
         testViewportAdapterAfterStableIdSplit();
         testWorkerHistoryAndRecoveredCheckpoint();
+        testRejectedSymmetricStepRollsBackMirrorsAndHistory();
+        testWorkerRejectsOneStepAndDrainsRemainingInput();
         testVersionedWorkerWithRemeshingEnabled();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
