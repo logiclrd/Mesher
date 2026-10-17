@@ -990,6 +990,55 @@ void testSectionsMeetAtInteriorTjunction() {
 }
 
 
+void testMirroredCompleteContactCoverage() {
+    // Two real closed intersecting tetrahedra translated to X>0 plus
+    // their exact reverse-winding reflection. Unlike the selective four
+    // intersection fixtures, this hands the planner the COMPLETE V13
+    // original contact graph of BOTH independent mirrored sheet groups.
+    Mesh mesh;
+    const std::array<Vec3,8> original{{
+        {0,0,0},{2,0,0},{0,2,0},
+        {.7,-.5,-1},{.7,1.7,1},{.7,.2,-1},
+        {.4,.4,-3},{3,.5,0}
+    }};
+    const std::array<std::array<std::uint32_t,3>,8> faces{{
+        {0,1,2},{1,0,6},{2,1,6},{0,2,6},
+        {3,4,5},{4,3,7},{5,4,7},{3,5,7}
+    }};
+    for(const auto p:original)mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(const auto p:original)mesh.vertices.push_back({-p.x-5,p.y,p.z});
+    for(const auto t:faces)mesh.triangles.push_back({t[0],t[1],t[2]});
+    for(const auto t:faces)
+        mesh.triangles.push_back({t[0]+8,t[2]+8,t[1]+8});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    const auto historical=root->pickingRootIdentity();
+    std::unordered_map<VertexId,VertexId> mirrors;
+    for(std::size_t i=0;i<8;++i) {
+        const auto a=imported.flatIndex.vertexIds[i],
+                   b=imported.flatIndex.vertexIds[i+8];
+        mirrors.emplace(a,b);mirrors.emplace(b,a);
+    }
+    const auto originalContacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(originalContacts.size()==18,
+          "Both reflected closed tetra pairs have nine transverse original contacts");
+    const auto cut=materializeTransverseCutCandidate(
+        root,originalContacts,{},256,&mirrors);
+    const auto checked=certifyConformingCutCoverage(cut);
+    if(!checked.complete)
+        throw std::runtime_error(
+            "Complete mirrored original contact coverage: "+checked.refusal);
+    check(checked.checkedContacts==originalContacts.size()&&
+          checked.coveredContacts.size()==originalContacts.size()&&
+          !cut.mirroredFaces.empty()&&
+          !cut.mirroredVertices.empty(),
+          "Both mirrored sheets have complete reciprocal persistent curve coverage");
+    check(root->pickingRootIdentity()==historical&&
+          root->retiredFaceCount()==0,
+          "Mirrored full-contact certification preserves all source roots");
+}
+
 void testMirroredMultipleSectionsReadOnly() {
     const auto exercise=[&](bool tJunction) {
         Mesh mesh;
@@ -1274,6 +1323,7 @@ int main() {
         testCrossingMultipleSectionsPerOriginalTriangle();
         testSectionsMeetAtInteriorTjunction();
         testMirroredMultipleSectionsReadOnly();
+        testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
