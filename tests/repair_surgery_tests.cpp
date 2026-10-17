@@ -1101,6 +1101,46 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testActualCollisionSculptCandidateNeverLeaksPartialGeometry() {
+    Mesh m;
+    cube(m,{-0.55,0,0},.9);
+    cube(m,{0.55,0,0},.9);
+    SculptCollisionSettings mode;
+    mode.enabled=true;
+    VersionedSculptBrush brush(m,.0001,{}, {},{},false,256,{},mode);
+    const auto before=brush.snapshot();
+    require(!before->triangleIntersections(
+                brush.originalOrder()->vertexIds,{}).empty(),
+            "Sculpt fixture begins with genuine intersecting disjoint surfaces");
+    Mesh dummy;
+    const std::array<BrushArea,1> area{{{{0,0,0},5,.3}}};
+    brush.stamp(dummy,area);
+    require(brush.completedStamps()==1&&brush.collisionCheckedStamps()==1,
+            "Worker policy actually inspects changed collision geometry");
+    require(brush.rejectedStamps()+brush.collisionRepairedStamps()==1,
+            "Detected candidate either passes fully classified surgery or refuses");
+    if(brush.rejectedStamps()) {
+        require(brush.snapshot()==before&&
+                brush.publishedRevisions()==0&&
+                brush.historyStatistics().undoDepth==0&&
+                brush.lastDirtyPartitions().empty(),
+                "Unrepairable actual contact refuses without any published delta");
+    }else {
+        require(brush.snapshot()!=before&&
+                brush.publishedRevisions()==1&&
+                brush.historyStatistics().undoDepth==1,
+                "Approved classified surgery atomically publishes one final Step");
+        std::vector<FaceId> all;
+        brush.snapshot()->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& p) {
+                for(const auto& f:p.faces)all.push_back(f.id);
+            });
+        require(brush.snapshot()->triangleIntersections({},all).empty(),
+                "Actual accepted repair has no remaining contact anywhere in fixture");
+    }
+    require(before->retiredFaceCount()==0,
+            "Old retained snapshot still has all original face IDs");
+}
 void testCompleteSculptCandidateClassifiedRepairGate() {
     Mesh mesh;
     cube(mesh,{},3);
@@ -1544,6 +1584,7 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
         testCompleteSculptCandidateClassifiedRepairGate();
         testExplicitClassifiedRepairPolicyAndNoChanges();
         std::cout<<"Surgery fixture: sequential stale overlapping repair plans"<<std::endl;
