@@ -951,15 +951,20 @@ void testSampledExcisionProvenanceAndSelectiveReverseFidelity() {
     const auto& f=imported.flatIndex.faceIds;
     const std::vector<FaceId> cap{f[2],f[3]};
     const auto exposed=inspectRemovalSurfaceProvenance(*original,cap);
+    const auto strictProvenance=inspectRemovalSurfaceProvenance(
+        *original,cap,2,2048,false);
     require(exposed.sampledFaces==2&&exposed.featureFragments()>0&&
             exposed.totalFragments()==32&&
-            exposed.ambiguousFragments==0,
+            exposed.ambiguousFragments==0&&
+            strictProvenance.exposedFragments==exposed.exposedFragments&&
+            strictProvenance.ambiguousFragments==0,
             "V14 records explicit sampled exposed occupancy at a cube surface");
     auto plan=planRemovalContours(*original,cap);
     require(plan.ready()&&plan.cappedContours.size()==1,
             "Exposed original cube cap remains eligible for replacement");
     RepairSurgerySettings guarded;
     guarded.requireExposedFragmentFidelity=true;
+    guarded.planning.allowReferenceWindingFallback=false;
     guarded.maximumReverseDeviationInEdges=.01;
     const auto replacement=applyRepairSurgery(original,plan,guarded);
     require(replacement.removalProvenance.exposedFragments==
