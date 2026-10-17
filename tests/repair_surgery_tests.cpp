@@ -498,6 +498,63 @@ void testSymmetryPlaneClassificationFailsClosed() {
                 "Near-zero coordinate is not silently treated as an exact shared seam ID");
     }
 }
+void testMirroredPlaneOrbitAndDiskFixedArc() {
+    using namespace mesher::detail;
+    const std::map<VertexId,VertexId> reflected{
+        {1,3},{3,1},{2,4},{4,2}};
+    const Vec3 a{1,0,0},b{-.5,1,0};
+    const Vec3 ma{-1,0,0},mb{.5,1,0};
+    require(classifyPlaneCrossingOrbit(1,2,reflected)==
+                PlaneEdgeOrbit::DistinctReflected,
+            "Two topologically different mirrored crossing edges are a distinct orbit");
+    const auto crossing=crossingPointOnPlane(a,b);
+    const auto reflectedCrossing=crossingPointOnPlane(ma,mb);
+    require(crossing.x==0&&crossing.y==reflectedCrossing.y&&
+            crossing.z==reflectedCrossing.z,
+            "Different mirrored crossing edges hit the same fixed-plane point");
+    require(classifyPlaneCrossingOrbit(1,3,reflected)==
+                PlaneEdgeOrbit::SelfReflected,
+            "An edge joining a mirror pair has its own single-edge orbit");
+    require(classifyPlaneCrossingOrbit(1,5,reflected)==
+                PlaneEdgeOrbit::Unmapped,
+            "Unknown mirror vertex does not authorize a crossing normalization");
+    bool invalid=false;
+    try {(void)crossingPointOnPlane({1,0,0},{2,0,0});}
+    catch(const std::invalid_argument&){invalid=true;}
+    require(invalid,"A noncrossing edge has no plane intersection");
+
+    const auto inspect=inspectPlaneContactTopology;
+    {
+        const auto normal=inspect(
+            {{1,-1,0},{0,0,-1},{-1,-1,0},{0,0,1}},1);
+        require(normal.transverseVertices==2&&
+                normal.totalTransverseContacts()==2&&
+                normal.tangentVertices==0,
+                "A valid symmetric cap disk has two transverse fixed-plane endpoints");
+    }
+    {
+        const auto four=inspect(
+            {{0,-4,0},{1,-3,0},{0,-2,0},{-1,-1,0},
+             {0,0,0},{1,1,0},{0,2,0},{-1,3,0}},1);
+        require(four.totalTransverseContacts()==4&&
+                four.tangentVertices==0,
+                "Four seam contacts must not be paired as two independent cap chords");
+    }
+    {
+        const auto touching=inspect(
+            {{0,0,0},{1,0,0},{1,1,0}},1);
+        require(touching.totalTransverseContacts()==0&&
+                touching.tangentVertices==1,
+                "A tangent X=0 touch cannot be counted as a transverse cap endpoint");
+    }
+    {
+        const auto mixed=inspect(
+            {{0,0,0},{1,0,0},{-1,1,0},{0,2,0},{1,3,0}},1);
+        require(mixed.crossingEdges==1&&
+                mixed.totalTransverseContacts()==2,
+                "Actual seam points and crossing edges both count toward the same topology limit");
+    }
+}
 void testAtomicSelfReflectedPlaneCrossingNormalization() {
     // Two self-reflected triangles meet across one undivided edge
     // joining a mirrored vertex pair. This is the safe normalization
@@ -864,6 +921,8 @@ int main() {
         testNonplanarMultiContourStaysAmbiguous();
         std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
         testSymmetryPlaneClassificationFailsClosed();
+        std::cout<<"Surgery fixture: mirrored crossing orbit and fixed-arc topology"<<std::endl;
+        testMirroredPlaneOrbitAndDiskFixedArc();
         std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
         testAtomicSelfReflectedPlaneCrossingNormalization();
         std::cout<<"Surgery fixture: no crossing wrapper compatibility"<<std::endl;
