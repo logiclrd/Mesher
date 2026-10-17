@@ -195,6 +195,14 @@ void testZipperJoinsSeparatedSolids() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.zipperFaces>=8&&repaired.capFaces==0,
             "Zipper closes two entire oriented rings");
+    RepairSurgerySettings preserveExposed;
+    preserveExposed.requireExposedFragmentFidelity=true;
+    preserveExposed.maximumReverseDeviationInEdges=.01;
+    bool exposedLossRejected=false;
+    try {(void)applyRepairSurgery(baseline,plan,preserveExposed);}
+    catch(const std::logic_error&){exposedLossRejected=true;}
+    require(exposedLossRejected,
+            "Explicit exterior-detail preservation prevents a zipper from erasing exposed cap centers");
     RepairSurgerySettings reverse;
     reverse.requireReverseSurfaceFidelity=true;
     reverse.maximumReverseDeviationInEdges=.01;
