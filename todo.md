@@ -816,6 +816,31 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   deformation), collision hysteresis affecting geometric *decisions*,
   aggregate work budgets and demonstrated successful multi-tower unions
   remain the next V17 acceptance work. UI Merge geometry remains off.
+- [x] **V17e2a — Bounded cumulative original-surface guard and diagnosed physical merger blocker.**
+  Add opt-in `SculptAnchoredSurfaceGuard` to the V17d candidate policy:
+  explicitly nominated ORIGINAL seven-point-per-face witnesses, stable
+  local surviving FaceId search domain, original reference edge length,
+  max deviation in those original edge units and hard distance-test cap.
+  Every proposed changed Step with a conclusive no-contact classification
+  or fully verified private repair is audited BEFORE the V17c publication.
+  Exceeded cumulative drift, retired candidate reference faces or over-
+  budget work refuse the Step without partial roots, history, mirror or
+  render deltas. Deliberately edited original features must be excluded
+  explicitly by callers; there is no automatic global erosion policy.
+  Regress an accepted first small deformation followed by a second whose
+  *absolute* drift exceeds a bound between measured one/two-Step values;
+  test direct/private/live refusal and exact budget boundary. Exercise
+  the same guard on V17e1's physical symmetric tower outer walls.
+  Probe genuine tower union success WITHOUT lowering V15's hidden-area
+  threshold. The physical fixture reaches V16 but can reject when a
+  reconstructed scar still intersects surviving faces; record this as a
+  specific reconstruction blocker, not as a successful merged union.
+  **V17e2b remains:** implement a conservative split/clip strategy for
+  the actual triangle-surface intersection curves (with matching surviving
+  subdivision), or otherwise find certified repairable physical contact
+  fixtures that genuinely yield repeated successful symmetric unions.
+  Continue aggregate Step budgets, post-CAS exception atomicity, broader
+  exposed-witness selection and desktop UI gates separately.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
