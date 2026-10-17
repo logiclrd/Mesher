@@ -551,6 +551,33 @@ void testAtomicSelfReflectedPlaneCrossingNormalization() {
             original->retiredFaceCount()==0,
             "All failed normalizations leave original index immutable");
 }
+void testNormalizeAndReplanNoCrossingCompatibility() {
+    Mesh m;
+    cube(m,{-3,0,0},1);
+    cube(m,{3,0,0},1);
+    const auto imp=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const auto& f=imp.flatIndex.faceIds;
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    for(unsigned i=0;i<8;++i)
+        mirrors.emplace_back(v[i],v[i+8]);
+    const auto plan=planRemovalContours(
+        *base,{f[10],f[11],f[20],f[21]});
+    require(plan.ready()&&plan.cappedContours.size()==2,
+            "Two separated reflected square openings prefer caps");
+    const auto wrapped=repairMirroredContoursAcrossPlane(
+        base,plan,mirrors);
+    require(wrapped.normalizedCrossingEdges==0&&
+            wrapped.planeSeamVertices.empty()&&
+            wrapped.normalizationInsertedFaces.empty()&&
+            wrapped.surgery.capFaces==4,
+            "Without a crossing, the wrapper delegates unchanged mirrored surgery");
+    require(wrapped.accumulatedStatistics.modifiedPartitions==
+                wrapped.surgery.commit.statistics.modifiedPartitions&&
+            euler(*wrapped.surgery.index)==4,
+            "Ordinary mirrored cap produces no hidden normalization transactions");
+}
 void testCrossingContourFullNormalizeReplanRepair() {
     // Four-equator-vertex bipyramid: top four triangles are removed.
     // Its cut contour has TWO X=0 crossings and NO seam vertex.
@@ -845,6 +872,8 @@ int main() {
         testSymmetryPlaneClassificationFailsClosed();
         std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
         testAtomicSelfReflectedPlaneCrossingNormalization();
+        std::cout<<"Surgery fixture: no crossing wrapper compatibility"<<std::endl;
+        testNormalizeAndReplanNoCrossingCompatibility();
         std::cout<<"Surgery fixture: single crossing normalize/replan"<<std::endl;
         testSingleCrossingContourRepair();
         std::cout<<"Surgery fixture: two crossing normalize/replan"<<std::endl;
