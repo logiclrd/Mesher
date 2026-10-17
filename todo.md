@@ -673,7 +673,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   through V13/V14/V15 candidate planning; unsupported folded
   topology refuses privately and accepted scars must pass
   post-state collision verification.
-- [ ] **V16 — Transactional density-aware zipper/cap surgery.**
+- [x] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
   triangulated caps or an oriented watertight density-aware zipper,
@@ -685,10 +685,10 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16 final acceptance / V17 boundary:**
-  define what collision repairs can be considered safe to activate
-  from a live stamp worker and what must remain explicit,
-  non-destructive refusals. Tested geometry currently covers
+  seam atomically. **Qualified V16 final acceptance:** the tested PRIVATE supported subset
+  and non-destructive refusal boundary are recorded in
+  [docs/V16_FINAL_ACCEPTANCE.md](docs/V16_FINAL_ACCEPTANCE.md).
+  This does NOT activate live geometry merging. Tested geometry currently covers
   selected capped/zippered manifold repairs but not arbitrary
   deeply folded multicomponent surface retopology. The new
   original-revision witness audit detects sampled cumulative
@@ -699,7 +699,12 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   partitions/IDs, and keep one compare-and-swap per input Step.
   Distinct reflected crossing edges remain pre-existing
   intersections, not independent seam midpoints. V17 owns
-  live brush integration and its repeated-contact tests.
+  live brush integration and its repeated-contact tests. V17 must
+  bound exceptional full-mesh winding fallbacks and pathological
+  collision discovery, recover rejected Steps without stopping the
+  worker or dropping queued input, stage mirror/auxiliary state until
+  final publication, and check the full changed candidate for residual
+  collisions beyond just the newly constructed scar.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
