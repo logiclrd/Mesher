@@ -1923,6 +1923,40 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17b: Bounded collision discovery without partial-safe results
+
+V13 `RegionTopologyIndex::triangleIntersections` now accepts an optional
+`CollisionQueryLimits` for **each complete query**: maximum distinct seed
+faces (including faces expanded from dirty vertices), AABB box tests across
+the persistent directory and per-partition BVHs, partition visits,
+overlapping triangle candidate visits, distinct narrow-phase pair tests,
+and returned intersecting/ambiguous contacts. Counters report the real work.
+Check each budget BEFORE increment or narrow-phase action; a limit of zero
+forbids that work. At exhaustion throw `std::length_error` rather than
+returning a truncated list that could be confused with a clean surface.
+The historical no-limits default preserves current offline callers. A
+future live worker must supply finite budgets explicitly.
+
+`RevisionPickingIndex::forEachOverlappingTriangle` accepts these limits
+and raises a bounded-work exception *inside* the visit, so the caller
+cannot discover the excess after traversing the whole mesh. V15's
+`planApproximateExcision` returns `BudgetExceeded` when its initial V13
+contact search or V14 isolated-component contact check exhausts its
+limits, with initial V13 work counters exposed in `RepairPlan`. The V16
+private scar validator also forwards an optional distinct residual-
+collision query budget and refuses without publication if it is exhausted.
+
+Regression tests compare complete and exact-limit query results, decrement
+one of six budgets at a time to exercise each refusal, and verify a
+zero-budget empty query, a bounded collision-aware removal plan and
+buried component planning, plus private residual verification with intact
+immutable source roots. This does not make arbitrary intersecting geometry
+repairable. **Scope:** each query is bounded individually, not all V14
+component queries over an entire Step; the V17 worker still needs aggregate
+work/time policies, bounding of winding *ray* traversal, conservative
+per-Step rollback, correct symmetry-aware classified excision, and full
+post-surgery collision revalidation before activating Merge geometry.
+
 ## V17a: Optional fail-closed avoidance of whole-revision winding fallback
 
 The V14 positive-winding point query ordinarily tries up to three accelerated

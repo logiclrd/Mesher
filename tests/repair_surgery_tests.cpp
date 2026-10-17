@@ -1405,8 +1405,15 @@ void testGeometricValidationBudgets() {
     try {(void)applyRepairSurgery(base,plan,strict);}
     catch(const std::exception&) {rejected=true;}
     require(rejected,"Bounded local collision verification rejects over-budget neighborhood");
+    strict={};
+    strict.residualCollisionLimits.maxBoxTests=1;
+    rejected=false;
+    try {(void)applyRepairSurgery(base,plan,strict);}
+    catch(const std::length_error&) {rejected=true;}
+    require(rejected,
+            "Final private scar refuses when BVH collision validation exceeds its work limit");
     require(base->retiredFaceCount()==0,
-            "Both geometric validation refusals leave original immutable revision intact");
+            "All geometry budget refusals preserve the original immutable revision");
 }
 void testRejectionIsTransactional() {
     Mesh m;

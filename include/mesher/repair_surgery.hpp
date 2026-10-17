@@ -96,6 +96,9 @@ struct RepairSurgerySettings {
     // Limit post-commit residual checks to an explicitly bounded local
     // neighborhood. Over-budget validation rejects the private revision.
     std::size_t maxResidualFaces=4096;
+    // Bound the BVH visit/candidate/contact work for the final private scar.
+    // A refusal throws length_error without publishing any proposed root.
+    RegionTopologyIndex::CollisionQueryLimits residualCollisionLimits{};
 };
 struct RepairSurgeryResult {
     std::shared_ptr<const RegionTopologyIndex> index;

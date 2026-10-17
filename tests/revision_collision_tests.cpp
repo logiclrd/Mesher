@@ -192,6 +192,78 @@ void testSimultaneouslyMovingSolids() {
     check(invalid,"Unknown vertex is not silently accepted as a clean query");
 }
 
+void testBoundedCollisionDiscovery() {
+    // Two identical, distinct tetrahedron shells guarantee overlapping
+    // post-state triangles, including duplicate candidate visits.
+    Mesh mesh;
+    addTetrahedron(mesh,{},1);
+    addTetrahedron(mesh,{},1);
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto index=RegionTopologyIndex::build(imported.revision);
+    const auto originalRoot=index->pickingRootIdentity();
+    const auto& faces=imported.flatIndex.faceIds;
+    using Limits=RegionTopologyIndex::CollisionQueryLimits;
+    using Statistics=RegionTopologyIndex::CollisionStatistics;
+    Statistics full{};
+    const auto expected=index->triangleIntersections({},faces,&full);
+    check(!expected.empty()&&full.seedFaces==8&&
+          full.boxesTested>0&&full.partitionsTested>0&&
+          full.candidateTriangles>0&&full.narrowPhaseTests>0&&
+          full.reportedContacts==expected.size(),
+          "Overlapping shells generate measurable collision work and contacts");
+    Limits exact;
+    exact.maxSeedFaces=full.seedFaces;
+    exact.maxBoxTests=full.boxesTested;
+    exact.maxPartitionTests=full.partitionsTested;
+    exact.maxCandidateTriangles=full.candidateTriangles;
+    exact.maxNarrowPhaseTests=full.narrowPhaseTests;
+    exact.maxReportedContacts=full.reportedContacts;
+    Statistics measured{};
+    check(indexedPairs(index->triangleIntersections({},faces,&measured,exact))==
+          indexedPairs(expected),
+          "Exact observed work limits still return every collision");
+    check(measured.seedFaces==full.seedFaces&&
+          measured.boxesTested==full.boxesTested&&
+          measured.partitionsTested==full.partitionsTested&&
+          measured.candidateTriangles==full.candidateTriangles&&
+          measured.narrowPhaseTests==full.narrowPhaseTests&&
+          measured.reportedContacts==full.reportedContacts,
+          "Limits count real BVH and narrow-phase work exactly");
+
+    // Each dimension is independently restrictive. Never return the
+    // partial discoveries as if they were a complete clean result.
+    for(unsigned dimension=0;dimension<6;++dimension) {
+        auto limited=exact;
+        std::size_t budget=0;
+        switch(dimension) {
+            case 0: budget=--limited.maxSeedFaces;break;
+            case 1: budget=--limited.maxBoxTests;break;
+            case 2: budget=--limited.maxPartitionTests;break;
+            case 3: budget=--limited.maxCandidateTriangles;break;
+            case 4: budget=--limited.maxNarrowPhaseTests;break;
+            default: budget=--limited.maxReportedContacts;break;
+        }
+        Statistics partial{};
+        bool refused=false;
+        try {(void)index->triangleIntersections({},faces,&partial,limited);}
+        catch(const std::length_error&){refused=true;}
+        check(refused,"Exhausting any collision-work dimension refuses the query");
+        const std::array<std::size_t,6> counters{{
+            partial.seedFaces,partial.boxesTested,partial.partitionsTested,
+            partial.candidateTriangles,partial.narrowPhaseTests,
+            partial.reportedContacts
+        }};
+        check(counters[dimension]==budget,
+              "Refusal never performs more than the permitted measured work");
+    }
+    auto zero=exact;
+    zero.maxSeedFaces=0;
+    check(index->triangleIntersections({},{},nullptr,zero).empty(),
+          "A zero budget still permits genuinely empty queries");
+    check(index->pickingRootIdentity()==originalRoot&&
+          index->retiredFaceCount()==0,
+          "All bounded queries preserve held immutable roots");
+}
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -219,6 +291,7 @@ int main() {
     try {
         testNarrowPhase();
         testSimultaneouslyMovingSolids();
+        testBoundedCollisionDiscovery();
         testPruningAndNoOp();
         std::cout<<"Revision triangle collision regression passed\n";
     }catch(const std::exception& error) {

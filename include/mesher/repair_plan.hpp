@@ -32,6 +32,9 @@ struct RepairPlanSettings {
     // V17 opt-in: uncertain ray samples fail closed rather than invoking
     // V14's exceptional full-mesh reference winding traversal.
     bool allowReferenceWindingFallback=true;
+    // Per-query V13 BVH/search budgets. Defaults retain earlier offline
+    // semantics; V17 must supply finite limits for the live worker.
+    RegionTopologyIndex::CollisionQueryLimits collisionLimits{};
     // Whole-triangle removal is an approximation: a mixed triangle can be
     // selected only if at least this fraction of samples is buried/outside.
     double minimumHiddenFraction=0.625;
@@ -95,6 +98,7 @@ struct RepairPlan {
     std::vector<RepairClosureChoice> closureChoices;
     double estimatedAddedArea{};
     std::size_t intersections{},classifiedFaces{},uncertainFaces{};
+    RegionTopologyIndex::CollisionStatistics collisionStatistics{};
     std::size_t mixedFaces{},boundaryEdges{};
     // Approximation heuristics, NOT certified geometric error bounds.
     double maximumSeamGapInEdges{};

@@ -63,7 +63,8 @@ public:
     // Visitor pointers/references are valid while this immutable root lives.
     void forEachOverlappingTriangle(
         const Bounds& bounds,const std::function<void(const Triangle&)>& visitor,
-        RegionTopologyIndex::CollisionStatistics& stats) const;
+        RegionTopologyIndex::CollisionStatistics& stats,
+        const RegionTopologyIndex::CollisionQueryLimits& limits={}) const;
     // Signed intersection sum for a single direction. Ambiguity includes
     // grazing vertices/edges, starting on the surface and near-parallel hits.
     int signedRayCrossings(Ray ray,

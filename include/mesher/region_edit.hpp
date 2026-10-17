@@ -8,6 +8,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -21,6 +22,16 @@ namespace mesher {
 // Initial import builds it once; subsequent RegionEdit commits update only
 // touched records and share all unchanged spatial/connectivity index nodes.
 // Publishing a new index root never scans the mesh.
+// Bounded per-query post-state collision discovery. Declared outside the
+// index class so all C++20 compilers can bind default-initialized limits.
+struct CollisionQueryLimits {
+    std::size_t maxSeedFaces=std::numeric_limits<std::size_t>::max();
+    std::size_t maxBoxTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxPartitionTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxCandidateTriangles=std::numeric_limits<std::size_t>::max();
+    std::size_t maxNarrowPhaseTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxReportedContacts=std::numeric_limits<std::size_t>::max();
+};
 class RevisionPickingIndex;
 class RegionTopologyIndex {
 public:
@@ -113,8 +124,13 @@ public:
     };
     struct CollisionStatistics {
         std::size_t seedFaces{},boxesTested{},partitionsTested{};
-        std::size_t candidateTriangles{},narrowPhaseTests{};
+        std::size_t candidateTriangles{},narrowPhaseTests{},reportedContacts{};
     };
+    // Work limits apply to ONE complete post-state collision query. Defaults
+    // preserve historical unbounded CPU callers; V17 live callers must supply
+    // explicit finite limits. Zero forbids that kind of work. The query throws
+    // length_error on exhaustion, NEVER returns a truncated collision list.
+    using CollisionQueryLimits=mesher::CollisionQueryLimits;
     // All candidates and narrow-phase tests refer to THIS complete immutable
     // post-deformation revision. changedVertices and changedFaces are a local
     // dirty set, not a comparison against geometry from the previous revision.
@@ -122,7 +138,8 @@ public:
     std::vector<CollisionPair> triangleIntersections(
         const std::vector<VertexId>& changedVertices,
         const std::vector<FaceId>& changedFaces,
-        CollisionStatistics* stats=nullptr) const;
+        CollisionStatistics* stats=nullptr,
+        const CollisionQueryLimits& limits={}) const;
 
     struct WindingStatistics {
         std::size_t boxesTested{}, partitionsTested{}, trianglesTested{};
@@ -180,7 +197,8 @@ public:
     // An oriented enclosed cavity boundary is policy-dependent, never erased.
     ComponentClassification classifyClosedComponent(
         FaceId seed,std::size_t maxFaces=10000,
-        bool allowReferenceFallback=true) const;
+        bool allowReferenceFallback=true,
+        const CollisionQueryLimits& collisionLimits={}) const;
 
 private:
     friend class RegionEdit;

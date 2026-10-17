@@ -190,16 +190,30 @@ RepairPlan planApproximateExcision(const RegionTopologyIndex& index,
     if(!finiteSettings(settings))
         throw std::invalid_argument("Invalid repair-plan bounds/thresholds");
     RepairPlan summary;
-    const auto intersections=index.triangleIntersections(
-        changedVertices,changedFaces);
+    std::vector<RegionTopologyIndex::CollisionPair> intersections;
+    try {
+        intersections=index.triangleIntersections(
+            changedVertices,changedFaces,&summary.collisionStatistics,
+            settings.collisionLimits);
+    }catch(const std::length_error&) {
+        return failure(std::move(summary),Status::BudgetExceeded,
+                       "V13 collision search exceeded query work limits");
+    }
     summary.intersections=intersections.size();
     std::set<FaceId> removed;
     // Explicitly nominated new disconnected components may be discarded
     // only when V14 identifies the WHOLE closed component as redundant.
     for(const auto seed:componentSeeds) {
-        const auto component=index.classifyClosedComponent(
-            seed,settings.maxRemovedFaces,
-            settings.allowReferenceWindingFallback);
+        RegionTopologyIndex::ComponentClassification component;
+        try {
+            component=index.classifyClosedComponent(
+                seed,settings.maxRemovedFaces,
+                settings.allowReferenceWindingFallback,
+                settings.collisionLimits);
+        }catch(const std::length_error&) {
+            return failure(std::move(summary),Status::BudgetExceeded,
+                           "V14 closed-component collision check exceeded work limits");
+        }
         if(!component.complete)
             return failure(std::move(summary),Status::BudgetExceeded,
                            "Closed-component traversal exceeded budget");
@@ -266,6 +280,7 @@ RepairPlan planApproximateExcision(const RegionTopologyIndex& index,
     auto plan=planRemovalContours(index,
         std::vector<FaceId>(removed.begin(),removed.end()),settings);
     plan.intersections=summary.intersections;
+    plan.collisionStatistics=summary.collisionStatistics;
     plan.classifiedFaces=summary.classifiedFaces;
     plan.uncertainFaces=summary.uncertainFaces;
     plan.mixedFaces=summary.mixedFaces;

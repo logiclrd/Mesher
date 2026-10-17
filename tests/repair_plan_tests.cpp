@@ -178,6 +178,11 @@ void testBubbleWithoutZipper() {
           "Fully redundant bubble planned for deletion");
     check(plan.contours.empty()&&plan.pairs.empty()&&plan.boundaryEdges==0,
           "Entire internal closed shell needs no seam");
+    RepairPlanSettings componentCollision;
+    componentCollision.collisionLimits.maxBoxTests=0;
+    check(planApproximateExcision(*index,{},{},{id},componentCollision).status==
+          RepairPlanStatus::BudgetExceeded,
+          "Bounded internal-component contact checks refuse before authorizing deletion");
     RepairPlanSettings liveLimits;
     liveLimits.allowReferenceWindingFallback=false;
     const auto strictlyBounded=planApproximateExcision(
@@ -213,7 +218,21 @@ void testCollisionAwarePlanner() {
     RepairPlanSettings limits;
     limits.sampleDepth=2;
     const auto plan=planApproximateExcision(*index,ids,{}, {},limits);
-    check(plan.intersections>0,"V13 finds crossing pairs for V15");
+    check(plan.intersections>0&&plan.collisionStatistics.reportedContacts>0,
+          "V13 finds complete crossing pairs with measured collision work for V15");
+    RepairPlanSettings boundedCollision;
+    boundedCollision.collisionLimits.maxReportedContacts=0;
+    const auto truncated=planApproximateExcision(
+        *index,ids,{},{},boundedCollision);
+    check(truncated.status==RepairPlanStatus::BudgetExceeded&&
+          truncated.removedFaces.empty()&&
+          truncated.collisionStatistics.reportedContacts==0,
+          "Over-budget V13 intersections refuse instead of authorizing partial excision");
+    boundedCollision.collisionLimits.maxSeedFaces=0;
+    boundedCollision.collisionLimits.maxReportedContacts=1;
+    check(planApproximateExcision(*index,ids,{},{},boundedCollision).status==
+          RepairPlanStatus::BudgetExceeded,
+          "Over-budget dirty seed expansion refuses classification");
     check(plan.classifiedFaces>0||
           plan.status==RepairPlanStatus::AmbiguousClassification,
           "Post-revision classification is consulted for crossing faces");

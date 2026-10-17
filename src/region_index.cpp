@@ -383,25 +383,32 @@ std::vector<RegionTopologyIndex::CollisionPair>
 RegionTopologyIndex::triangleIntersections(
     const std::vector<VertexId>& changedVertices,
     const std::vector<FaceId>& changedFaces,
-    CollisionStatistics* measured) const {
+    CollisionStatistics* measured,
+    const CollisionQueryLimits& limits) const {
     CollisionStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
     std::set<FaceId> affected;
+    const auto addSeed=[&](FaceId id) {
+        if(affected.contains(id))return;
+        if(affected.size()>=limits.maxSeedFaces)
+            throw std::length_error("Collision seed-face budget exhausted");
+        affected.insert(id);
+        stats.seedFaces=affected.size();
+    };
     for(const auto id:changedVertices) {
         const auto v=maybeVertex(id);
         if(!v) {
             if(retiredVertex(id))continue;
             throw std::out_of_range("Unknown collision-query vertex ID");
         }
-        affected.insert(v->incidentFaces.begin(),v->incidentFaces.end());
+        for(const auto face:v->incidentFaces)addSeed(face);
     }
     for(const auto id:changedFaces) {
         if(retiredFace(id))continue;
         (void)face(id);
-        affected.insert(id);
+        addSeed(id);
     }
-    stats.seedFaces=affected.size();
     std::set<std::pair<FaceId,FaceId>> visited;
     std::vector<CollisionPair> found;
     for(const auto id:affected) {
@@ -427,16 +434,23 @@ RegionTopologyIndex::triangleIntersections(
             const RevisionPickingIndex::Triangle& candidate) {
             if(candidate.id==id)return;
             const auto key=std::minmax(id,candidate.id);
-            if(!visited.emplace(key.first,key.second).second)return;
+            if(visited.contains({key.first,key.second}))return;
+            if(stats.narrowPhaseTests>=limits.maxNarrowPhaseTests)
+                throw std::length_error("Collision narrow-phase budget exhausted");
+            visited.emplace(key.first,key.second);
             ++stats.narrowPhaseTests;
             const auto kind=triangleContact(points,record.vertices,
                                             candidate.vertices,
                                             face(candidate.id).vertices);
             if(kind==TriangleContact::Intersecting||
-               kind==TriangleContact::Ambiguous)
+               kind==TriangleContact::Ambiguous) {
+                if(stats.reportedContacts>=limits.maxReportedContacts)
+                    throw std::length_error("Collision contact-count budget exhausted");
+                ++stats.reportedContacts;
                 found.push_back({key.first,key.second,
                                  kind==TriangleContact::Ambiguous});
-        },stats);
+            }
+        },stats,limits);
     }
     std::sort(found.begin(),found.end());
     return found;
