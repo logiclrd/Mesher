@@ -14,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 
 namespace mesher {
 
@@ -51,6 +52,10 @@ struct SculptCollisionSettings {
 struct SculptCollisionEvaluation {
     RepairPlan plan{};
     std::optional<RepairSurgeryResult> repair;
+    // Net mirror changes in this PRIVATE repair only. The V17c journal
+    // stages them before the original CAS, then history/checkpoints commit.
+    std::vector<MirrorPair> insertedMirrors;
+    std::vector<MirrorPair> retiredMirrors;
     std::string refusal;
     std::size_t finalNarrowPhaseTests{};
     bool safe() const noexcept {return refusal.empty();}
@@ -60,7 +65,8 @@ struct SculptCollisionEvaluation {
 SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptCollisionSettings& settings,
-    const std::vector<FaceId>& isolatedComponentSeeds={});
+    const std::vector<FaceId>& isolatedComponentSeeds={},
+    const std::unordered_map<VertexId,VertexId>* vertexMirrors=nullptr);
 
 // The BrushStroke owns sampling and queue semantics; this brush owns *all*
 // editable geometry and uses a dummy Mesh solely to satisfy BrushStroke's
