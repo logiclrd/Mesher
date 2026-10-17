@@ -1969,6 +1969,12 @@ grazing, degenerate, ill-conditioned, coplanar or unresolved geometry
 must fail closed. The certificate returns no partial covered-contact
 set on refusal, performs no deletion or publication, and neither
 classifies cavities nor selects which faces should be removed.
+Regression includes all nine original contacts from a full closed
+two-tetrahedron source pair and both complete mirrored groups with
+dyadic local coordinates, plus selectively omitted contacts, forged
+permanent endpoints, child edge and collision budget exhaustion, and
+stable historical roots. Unsupported translated-decimal configurations
+remain fail-closed rather than being mislabeled as complete.
 A subsequent stage must combine certified contact coverage with c1
 reliable positive-signed-winding occupancy on EACH real child and
 explicit material/cavity policy, then run private V15 excision, V16
