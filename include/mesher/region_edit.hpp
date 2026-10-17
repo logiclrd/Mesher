@@ -22,6 +22,16 @@ namespace mesher {
 // Initial import builds it once; subsequent RegionEdit commits update only
 // touched records and share all unchanged spatial/connectivity index nodes.
 // Publishing a new index root never scans the mesh.
+// Bounded per-query post-state collision discovery. Declared outside the
+// index class so all C++20 compilers can bind default-initialized limits.
+struct CollisionQueryLimits {
+    std::size_t maxSeedFaces=std::numeric_limits<std::size_t>::max();
+    std::size_t maxBoxTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxPartitionTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxCandidateTriangles=std::numeric_limits<std::size_t>::max();
+    std::size_t maxNarrowPhaseTests=std::numeric_limits<std::size_t>::max();
+    std::size_t maxReportedContacts=std::numeric_limits<std::size_t>::max();
+};
 class RevisionPickingIndex;
 class RegionTopologyIndex {
 public:
@@ -120,14 +130,7 @@ public:
     // preserve historical unbounded CPU callers; V17 live callers must supply
     // explicit finite limits. Zero forbids that kind of work. The query throws
     // length_error on exhaustion, NEVER returns a truncated collision list.
-    struct CollisionQueryLimits {
-        std::size_t maxSeedFaces=std::numeric_limits<std::size_t>::max();
-        std::size_t maxBoxTests=std::numeric_limits<std::size_t>::max();
-        std::size_t maxPartitionTests=std::numeric_limits<std::size_t>::max();
-        std::size_t maxCandidateTriangles=std::numeric_limits<std::size_t>::max();
-        std::size_t maxNarrowPhaseTests=std::numeric_limits<std::size_t>::max();
-        std::size_t maxReportedContacts=std::numeric_limits<std::size_t>::max();
-    };
+    using CollisionQueryLimits=mesher::CollisionQueryLimits;
     // All candidates and narrow-phase tests refer to THIS complete immutable
     // post-deformation revision. changedVertices and changedFaces are a local
     // dirty set, not a comparison against geometry from the previous revision.
