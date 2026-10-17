@@ -982,6 +982,44 @@ void testSampledExcisionProvenanceAndSelectiveReverseFidelity() {
     require(original->retiredFaceCount()==0,
             "All sampled classification and failure paths leave old root unchanged");
 }
+void testEightIndependentNearCoplanarCapRepairs() {
+    // A broad edit neighborhood should not turn lawful coplanar scar
+    // contacts into phantom intersections, nor should it accidentally
+    // zipper distant components. All eight caps remain one PRIVATE step.
+    Mesh m;
+    for(unsigned i=0;i<8;++i)
+        cube(m,{0,static_cast<double>(i)*8,0},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    std::vector<FaceId> removed;
+    for(unsigned i=0;i<8;++i) {
+        removed.push_back(imported.flatIndex.faceIds[12*i+2]);
+        removed.push_back(imported.flatIndex.faceIds[12*i+3]);
+    }
+    const auto plan=planRemovalContours(*base,removed);
+    require(plan.ready()&&plan.contours.size()==8&&
+            plan.cappedContours.size()==8&&plan.pairs.empty(),
+            "Distant near-coplanar cap regions never acquire false zipper partners");
+    const auto oldRoot=base->pickingRootIdentity();
+    const auto fixed=applyRepairSurgery(base,plan);
+    require(fixed.capFaces==16&&fixed.zipperFaces==0&&
+            fixed.retiredFaces.size()==16&&euler(*fixed.index)==16,
+            "Eight independent caps preserve eight closed genus-zero components");
+    require(fixed.verifiedLocalFaces>=fixed.capFaces&&
+            fixed.index->triangleIntersections(
+                {},fixed.insertedFaces).empty(),
+            "Complete local BVH verification accepts valid coplanar scar contacts");
+    require(base->retiredFaceCount()==0&&
+            base->pickingRootIdentity()==oldRoot,
+            "Large multi-component surgery never mutates old reader roots");
+    RepairSurgerySettings bounded;
+    bounded.maxResidualFaces=8;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(base,plan,bounded);}
+    catch(const std::length_error&){rejected=true;}
+    require(rejected,
+            "Broad multi-component residual checks refuse over-budget work privately");
+}
 void testRedundantBuriedShellCanDisappearWithoutReversePenalty() {
     Mesh m;
     cube(m,{},3);
@@ -1120,6 +1158,8 @@ int main() {
         testSampledExcisionProvenanceAndSelectiveReverseFidelity();
         std::cout<<"Surgery fixture: buried shell removal provenance"<<std::endl;
         testRedundantBuriedShellCanDisappearWithoutReversePenalty();
+        std::cout<<"Surgery fixture: eight independent near-coplanar caps"<<std::endl;
+        testEightIndependentNearCoplanarCapRepairs();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
