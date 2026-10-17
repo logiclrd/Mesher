@@ -314,8 +314,15 @@ ExactCutJoinResult joinCertifiedCutSections(
         // Orphans comprise vertices without ANY surviving incident faces
         // after the face retirement and all exact seam substitutions.
         std::set<VertexId> removedVertices;
+        std::set<VertexId> rewiredSurvivors;
+        for(const auto& [face,triangle]:rewritten) {
+            (void)face;
+            rewiredSurvivors.insert(triangle.begin(),triangle.end());
+        }
         for(const auto v:changedVertices) {
-            bool retained=false;
+            // An ID originally orphaned on its own sheet may now own
+            // NEW references from the opposite sheet. Do not retire it.
+            bool retained=rewiredSurvivors.contains(v);
             for(const auto face:index.vertex(v).incidentFaces) {
                 if(deleted.contains(face))continue;
                 const auto it=rewritten.find(face);
