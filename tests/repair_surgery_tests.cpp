@@ -557,7 +557,7 @@ void testNormalizeAndReplanNoCrossingCompatibility() {
     const auto& f=fixture.import.flatIndex.faceIds;
     const auto& mirrors=fixture.mirrors;
     const auto plan=planRemovalContours(
-        *base,{f[10],f[11],f[20],f[21]});
+        *base,{f[10],f[11],f[22],f[23]});
     require(plan.ready()&&plan.cappedContours.size()==2,
             "Two separated reflected square openings prefer caps");
     const auto wrapped=repairMirroredContoursAcrossPlane(
