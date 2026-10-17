@@ -8,6 +8,32 @@
 
 namespace mesher {
 
+// Read-only V14 provenance for a nominated excision set. Counts are
+// SAMPLED fragment classifications, not a certified polygon partition.
+// Exposed and reversed boundaries carry occupancy information; buried
+// and outside samples do not require reverse proximity to the new scar.
+// Ambiguity must never be converted into confident feature preservation.
+struct RemovalSurfaceProvenance {
+    std::size_t sampledFaces{};
+    std::size_t exposedFragments{};
+    std::size_t reversedBoundaryFragments{};
+    std::size_t buriedFragments{};
+    std::size_t outsideFragments{};
+    std::size_t ambiguousFragments{};
+    std::size_t featureFragments() const noexcept {
+        return exposedFragments+reversedBoundaryFragments;
+    }
+    std::size_t totalFragments() const noexcept {
+        return featureFragments()+buriedFragments+outsideFragments+
+               ambiguousFragments;
+    }
+};
+RemovalSurfaceProvenance inspectRemovalSurfaceProvenance(
+    const RegionTopologyIndex& baseline,
+    const std::vector<FaceId>& removed,
+    unsigned sampleDepth=2,
+    std::size_t maxFragments=2048);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
@@ -35,6 +61,13 @@ struct RepairSurgerySettings {
     // counterpart and a two-sided Hausdorff condition is inappropriate.
     bool requireReverseSurfaceFidelity=false;
     double maximumReverseDeviationInEdges=2.5;
+    // Alternative opt-in: preserve ONLY V14-sampled Exposed and
+    // ReversedBoundary fragments. Buried/Outside pieces may disappear.
+    // Ambiguous classification refuses privately. Mutually exclusive
+    // with requireReverseSurfaceFidelity (which checks ALL removed faces).
+    bool requireExposedFragmentFidelity=false;
+    std::size_t maxProvenanceFragments=2048;
+    std::size_t maxReverseDistanceTests=131072;
     // Limit post-commit residual checks to an explicitly bounded local
     // neighborhood. Over-budget validation rejects the private revision.
     std::size_t maxResidualFaces=4096;
@@ -51,6 +84,9 @@ struct RepairSurgeryResult {
     std::size_t verifiedLocalFaces{};
     double maximumSurfaceDeviationInEdges{};
     double maximumReverseDeviationInEdges{};
+    RemovalSurfaceProvenance removalProvenance{};
+    std::size_t checkedReverseFragments{};
+    std::size_t reverseDistanceTests{};
 };
 
 // Throws before returning a result if any topology or candidate geometry
