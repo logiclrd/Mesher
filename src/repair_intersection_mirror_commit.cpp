@@ -199,6 +199,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     RegionEdit edit(baseline,{seeds.begin(),seeds.end()},
                     std::move(localMirrors),partitionCapacity);
     ConformingCutCandidate output;
+    output.originalIndex=baseline;
     std::vector<VertexId> assigned(plan.points.size());
     for(std::size_t i=0;i<plan.points.size();++i)
         if(plan.points[i].existingVertex)assigned[i]=*plan.points[i].existingVertex;
@@ -228,6 +229,8 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
                                   transformed(a.triangles.front()));
         output.rewrittenFaces.push_back(a.sourceFace);
         output.rewrittenFaces.push_back(b.sourceFace);
+        output.childSources.emplace_back(a.sourceFace,a.sourceFace);
+        output.childSources.emplace_back(b.sourceFace,b.sourceFace);
         output.mirroredFaces.emplace_back(a.sourceFace,b.sourceFace);
         for(std::size_t k=1;k<a.triangles.size();++k) {
             const auto [first,second]=edit.appendMirroredFaces(
@@ -236,6 +239,8 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
                 transformed(a.triangles[k]));
             output.insertedFaces.push_back(first);
             output.insertedFaces.push_back(second);
+            output.childSources.emplace_back(first,a.sourceFace);
+            output.childSources.emplace_back(second,b.sourceFace);
             output.mirroredFaces.emplace_back(first,second);
         }
     }
