@@ -774,7 +774,7 @@ void testFourCrossingsAcrossTwoIndependentContours() {
     const auto& faces=imported.flatIndex.faceIds;
     std::vector<std::pair<VertexId,VertexId>> mirrors;
     std::vector<FaceId> removed;
-    for(const auto [first,faceStart]:bases) {
+    for(const auto& [first,faceStart]:bases) {
         mirrors.insert(mirrors.end(),{
             {v[first],v[first+3]},{v[first+1],v[first+2]},
             {v[first+4],v[first+4]},{v[first+5],v[first+5]}
