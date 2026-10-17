@@ -1946,7 +1946,8 @@ V17e2b2b1 RegionEdit. The ordinary single-section path is unchanged.
 
 Limits apply to input collision pairs, source/neighbor face count,
 all newly created points, total output triangles, pairwise section
-intersection tests and arrangement graph edges. Coplanar/collinear
+intersection tests, arrangement graph edges, and scaffold-visibility/
+ear-clipping predicate tests. Coplanar/collinear
 overlapping constraints, touching original corners, uncertain point
 coincidences, dangling non-simple face walks and degenerate triangulations
 refuse the *whole* arrangement without exposing partial cut topology.
