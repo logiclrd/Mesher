@@ -78,7 +78,8 @@ long double RegionTopologyIndex::referenceWindingAt(Vec3 point) const {
 }
 
 RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
-    Vec3 point,WindingStatistics* measured) const {
+    Vec3 point,WindingStatistics* measured,
+    bool allowReferenceFallback) const {
     if(!finite(point))throw std::invalid_argument("Nonfinite winding query point");
     WindingStatistics local{};
     auto& stats=measured?*measured:local;
@@ -134,7 +135,12 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
         ++confident;
         if(confident>=2)return {answer,true};
     }
-    // Exceptional fallback. Do not incur O(N) on normal local queries.
+    // V17 worker policy may forbid this exceptional O(all faces) pass.
+    // In that mode an unresolved ray classification stays ambiguous.
+    if(!allowReferenceFallback) {
+        ++stats.referenceFallbackRefusals;
+        return {0,false};
+    }
     ++stats.referenceFallbacks;
     const auto exact=referenceWindingAt(point);
     if(!std::isfinite(exact))return {0,false};
@@ -148,7 +154,8 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
 }
 
 std::vector<RegionTopologyIndex::SurfaceFragment>
-RegionTopologyIndex::classifyFaceFragments(FaceId id,unsigned depth) const {
+RegionTopologyIndex::classifyFaceFragments(
+    FaceId id,unsigned depth,bool allowReferenceFallback) const {
     if(depth>4)throw std::invalid_argument("Fragment depth exceeds bounded limit");
     const auto tri=facePoints(*this,id);
     const auto normal=cross(tri[1]-tri[0],tri[2]-tri[0]);
@@ -189,10 +196,10 @@ RegionTopologyIndex::classifyFaceFragments(FaceId id,unsigned depth) const {
             128*std::numeric_limits<double>::epsilon()*
                 std::max({1.0,std::abs(center.x),
                           std::abs(center.y),std::abs(center.z)}));
-        const auto minus=positiveWindingAt(center-n*delta);
-        const auto plus=positiveWindingAt(center+n*delta);
-        const auto minusFar=positiveWindingAt(center-n*(delta*2));
-        const auto plusFar=positiveWindingAt(center+n*(delta*2));
+        const auto minus=positiveWindingAt(center-n*delta,nullptr,allowReferenceFallback);
+        const auto plus=positiveWindingAt(center+n*delta,nullptr,allowReferenceFallback);
+        const auto minusFar=positiveWindingAt(center-n*(delta*2),nullptr,allowReferenceFallback);
+        const auto plusFar=positiveWindingAt(center+n*(delta*2),nullptr,allowReferenceFallback);
         if(!minus.reliable||!plus.reliable||
            !minusFar.reliable||!plusFar.reliable||
            minus.winding!=minusFar.winding||
@@ -216,7 +223,7 @@ RegionTopologyIndex::classifyFaceFragments(FaceId id,unsigned depth) const {
 
 RegionTopologyIndex::ComponentClassification
 RegionTopologyIndex::classifyClosedComponent(
-    FaceId seed,std::size_t maxFaces) const {
+    FaceId seed,std::size_t maxFaces,bool allowReferenceFallback) const {
     (void)face(seed); // invalid seed must be observable
     ComponentClassification output;
     if(maxFaces==0)return output;
@@ -250,7 +257,7 @@ RegionTopologyIndex::classifyClosedComponent(
         // single face sample, which could miss cut fragments.
         if(!triangleIntersections({}, {id}).empty())
             return {ComponentKind::Ambiguous,faces.size(),true};
-        const auto fragments=classifyFaceFragments(id,0);
+        const auto fragments=classifyFaceFragments(id,0,allowReferenceFallback);
         const auto kind=fragments.front().kind;
         if(kind!=Kind::Buried&&kind!=Kind::Outside)allRedundant=false;
         if(kind!=Kind::Exposed&&kind!=Kind::ReversedBoundary)allBoundary=false;
@@ -271,7 +278,7 @@ RegionTopologyIndex::classifyClosedComponent(
                                  length(points[2]-points[1]),
                                  length(points[0]-points[2])})*1e-4;
     const auto probe=center+normal*small;
-    const auto global=positiveWindingAt(probe);
+    const auto global=positiveWindingAt(probe,nullptr,allowReferenceFallback);
     if(!global.reliable)return {ComponentKind::Ambiguous,faces.size(),true};
     long double componentAngle=0;
     for(const auto id:faces)
