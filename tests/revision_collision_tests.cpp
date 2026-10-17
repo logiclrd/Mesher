@@ -1199,6 +1199,8 @@ void testMirroredCompleteContactCoverage() {
              <<" reason="<<joined.refusal
              <<" boundaries="<<joined.checkedBoundaryEdges
              <<" welds="<<joined.weldedPairs.size()<<'\n';
+    if(!joined.complete)
+        throw std::runtime_error("Full mirrored positive seam join refused: "+joined.refusal);
     if(joined.complete)
         check(joined.commit&&joined.index&&
               joined.checkedBoundaryEdges>0&&
