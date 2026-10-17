@@ -48,6 +48,10 @@ using SculptStepValidator=std::function<std::string(const ProposedSculptStep&)>;
 struct SculptCollisionSettings {
     bool enabled=false;
     RepairSurgerySettings surgery{};
+    // Explicit newly isolated closed-component seeds supplied by a caller.
+    // No global component sweep is inferred from a brush stamp. Retired
+    // seeds are ignored on later stamps; empty by default in the UI.
+    std::vector<FaceId> isolatedComponentSeeds{};
 };
 struct SculptCollisionEvaluation {
     RepairPlan plan{};
@@ -60,6 +64,13 @@ struct SculptCollisionEvaluation {
     std::size_t finalNarrowPhaseTests{};
     bool safe() const noexcept {return refusal.empty();}
 };
+// Derive and verify net new/retired mirror orbits for an already validated
+// private mirrored surgery. Useful for explicit CPU repair acceptance too;
+// this never mutates the index or publishes a root.
+void deriveMirroredRepairDeltas(
+    SculptCollisionEvaluation& evaluation,
+    const RegionTopologyIndex& candidate,
+    const std::unordered_map<VertexId,VertexId>& livingMirrors);
 // A self-contained, unpublished post-state evaluation. Optional seeds are
 // explicitly known NEW closed components; the normal brush passes none.
 SculptCollisionEvaluation evaluateSculptCollisionCandidate(
