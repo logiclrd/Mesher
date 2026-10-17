@@ -43,6 +43,19 @@ struct ProposedSculptStep {
 };
 using SculptStepValidator=std::function<std::string(const ProposedSculptStep&)>;
 
+// Externally nominated ORIGINAL surface witnesses. A client selects
+// preserved exposed features; deliberately sculpted surfaces must not be
+// in this set. The guard compares to one fixed original reference across
+// all Steps, not to the previous accepted Step. Candidate FaceIds are a
+// bounded stable local search domain (not the whole mesh).
+struct SculptAnchoredSurfaceGuard {
+    std::vector<Vec3> originalWitnesses;
+    std::vector<FaceId> candidateFaces;
+    double originalEdgeLength=1.0;
+    double maximumDistanceInEdges=0.01;
+    std::size_t maxDistanceTests=131072;
+};
+
 // V17d1: opt-in private classified collision evaluation. The desktop
 // Merge geometry UI remains disabled, with current sculpt default unchanged.
 struct SculptCollisionSettings {
@@ -56,6 +69,8 @@ struct SculptCollisionSettings {
     // authorizes a previously rejected candidate. Quiet *conclusive*
     // assessments close an episode; ambiguous/budget queries do not.
     std::size_t quietChecksToEndContact=3;
+    // Optional cumulative erosion guard, not required for legacy callers.
+    std::optional<SculptAnchoredSurfaceGuard> anchoredSurface;
 };
 // Hysteresis groups a run of contact attempts for diagnostics. It does
 // NOT cache geometry decisions or skip expensive V13/V14 verification.
@@ -86,6 +101,7 @@ struct SculptCollisionEvaluation {
     std::vector<MirrorPair> retiredMirrors;
     std::string refusal;
     std::size_t finalNarrowPhaseTests{};
+    std::optional<SurfaceWitnessAudit> anchoredSurfaceAudit;
     bool safe() const noexcept {return refusal.empty();}
 };
 // Derive and verify net new/retired mirror orbits for an already validated

@@ -1257,6 +1257,108 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift() {
+    Mesh mesh;
+    cube(mesh,{},1);
+    const auto imported=partitionFlatMesh(mesh,1);
+    auto root=RegionTopologyIndex::build(imported.revision);
+    const std::vector<FaceId> protectedFaces{
+        imported.flatIndex.faceIds[2],imported.flatIndex.faceIds[3]};
+    const auto witnesses=sampleSurfaceWitnesses(*root,protectedFaces);
+    SculptCollisionSettings selected;
+    selected.enabled=true;
+    selected.anchoredSurface=SculptAnchoredSurfaceGuard{
+        witnesses,protectedFaces,2.0,1e-9,256};
+    const auto pristine=evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected);
+    require(pristine.safe()&&pristine.anchoredSurfaceAudit&&
+            pristine.anchoredSurfaceAudit->maximumDistanceInEdges<1e-12,
+            "Initial reference has zero deviation at original exposed patch");
+
+    const auto f=root->face(protectedFaces.front()).vertices;
+    const auto center=root->vertex(f[0]).position;
+    const std::array<BrushArea,1> area{{{center,.7,1}}};
+    VersionedInflateBrush moved(.35,{});
+    const auto displaced=moved.stamp(root,area,1);
+    require(displaced.index!=root&&displaced.moved>0,
+            "Anchored guard regression applies an actual changed brush vertex");
+
+    auto guarded=evaluateSculptCollisionCandidate(
+        {root,displaced.index,displaced.baseline.movedVertices,
+         displaced.baseline.affectedFaces},false,selected);
+    require(!guarded.safe()&&!guarded.repair&&
+            guarded.anchoredSurfaceAudit&&
+            guarded.anchoredSurfaceAudit->maximumDistanceInEdges>1e-9&&
+            guarded.refusal.find("Cumulative anchored")!=std::string::npos,
+            "Small individually lawful deformation refuses because original patch eroded");
+
+    DurableCheckpoint recovered;
+    recovered.index=root;
+    recovered.initialVertexCount=imported.flatIndex.vertexIds.size();
+    VersionedSculptBrush brush(recovered,.35,{}, {},{},1,{},selected);
+    Mesh dummy;
+    brush.stamp(dummy,area);
+    require(brush.rejectedStamps()==1&&brush.snapshot()==root&&
+            brush.publishedRevisions()==0&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.lastDirtyPartitions().empty(),
+            "Original witness refusal consumes a Step without any geometry/history delta");
+
+    selected.anchoredSurface->maxDistanceTests=witnesses.size()*
+                                                protectedFaces.size()-1;
+    bool exhausted=false;
+    try {(void)evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected);}
+    catch(const std::length_error&) {exhausted=true;}
+    require(exhausted,"Anchored witness audit refuses work over its exact budget");
+    selected.anchoredSurface->maxDistanceTests=witnesses.size()*
+                                                protectedFaces.size();
+    require(evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected).safe(),
+        "Exact witness distance-test budget accepts the unchanged original surface");
+
+    // Deliberately calibrate the guard BETWEEN measured first- and second-
+    // Step distances. A policy comparing only consecutive revisions would
+    // accept both; a reference anchored to root must reject the second.
+    VersionedInflateBrush incremental(.025,{});
+    const auto once=incremental.stamp(root,area,1);
+    const auto twice=incremental.stamp(once.index,area,1);
+    const auto firstAudit=auditSurfaceWitnesses(
+        *once.index,witnesses,protectedFaces,2.0,256);
+    const auto secondAudit=auditSurfaceWitnesses(
+        *twice.index,witnesses,protectedFaces,2.0,256);
+    require(firstAudit.maximumDistanceInEdges>0&&
+            secondAudit.maximumDistanceInEdges>
+                firstAudit.maximumDistanceInEdges+1e-6,
+            "Two successive small deformations accumulate measurable original-surface drift");
+    selected.anchoredSurface->maximumDistanceInEdges=
+        (firstAudit.maximumDistanceInEdges+
+         secondAudit.maximumDistanceInEdges)/2;
+    auto firstCheck=evaluateSculptCollisionCandidate(
+        {root,once.index,once.baseline.movedVertices,
+         once.baseline.affectedFaces},false,selected);
+    auto secondCheck=evaluateSculptCollisionCandidate(
+        {root,twice.index,twice.baseline.movedVertices,
+         twice.baseline.affectedFaces},false,selected);
+    require(firstCheck.safe()&&!secondCheck.safe()&&
+            secondCheck.anchoredSurfaceAudit&&
+            secondCheck.anchoredSurfaceAudit->maximumDistanceInEdges>
+                selected.anchoredSurface->maximumDistanceInEdges,
+            "Anchored witness validation permits a small first Step but refuses accumulated erosion");
+    VersionedSculptBrush guardedSequence(recovered,.025,{}, {},{},1,{},selected);
+    guardedSequence.stamp(dummy,area);
+    const auto accepted=guardedSequence.snapshot();
+    require(accepted!=root&&guardedSequence.publishedRevisions()==1&&
+            guardedSequence.historyStatistics().undoDepth==1,
+            "First small protected Step publishes once");
+    guardedSequence.stamp(dummy,area);
+    require(guardedSequence.snapshot()==accepted&&
+            guardedSequence.rejectedStamps()==1&&
+            guardedSequence.publishedRevisions()==1&&
+            guardedSequence.historyStatistics().undoDepth==1,
+            "Second small Step exceeding cumulative original-surface drift is rejected without publication");
+}
+
 void testContactEpisodeHysteresisNeverCachesApproval() {
     SculptContactTracker tracker(3);
     tracker.observe(true);
@@ -1349,11 +1451,13 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
     SculptCollisionSettings policy;
     policy.enabled=true;
     policy.quietChecksToEndContact=3;
+    policy.anchoredSurface=SculptAnchoredSurfaceGuard{
+        witnesses,exterior,2.0,1e-8,16384};
     VersionedSculptBrush brush(starting,.48,{}, {},{},1,{},policy);
     Mesh dummy;
     std::vector<std::shared_ptr<const RegionTopologyIndex>> held{
         brush.snapshot()};
-    std::size_t accepted=0,refused=0;
+    std::size_t accepted=0,refused=0,scarResidualRefusals=0;
     for(unsigned step=0;step<16;++step) {
         const auto before=brush.snapshot();
         const auto root=before->pickingRootIdentity();
@@ -1366,6 +1470,8 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
         const auto current=brush.snapshot();
         if(current==before) {
             ++refused;
+            if(brush.lastRejection().find("residual local collision")!=
+               std::string::npos)++scarResidualRefusals;
             require(brush.rejectedStamps()==refused&&
                     brush.historyStatistics().undoDepth==history.undoDepth&&
                     brush.checkpoint().mirrorPairs==pairs&&
@@ -1412,6 +1518,10 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
             "Hysteresis observes all assessments even when classification refuses");
     require(refused>0||brush.collisionRepairedStamps()>0,
             "Physical contact demands either classified merger or conservative refusal");
+    require(scarResidualRefusals>0||brush.collisionRepairedStamps()>0,
+            "Physical tower contact must demonstrate either successful union or a V16 scar-contact blocker");
+    // Known current limitation: a fully classified private zipper can still
+    // leave intersections; the V16 residual check MUST reject that Step.
     for(const auto& version:held)
         require(version->pickingRootIdentity()!=nullptr,
                 "Held immutable reader roots survive all repeated contact attempts");
@@ -1902,6 +2012,7 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift();
         testContactEpisodeHysteresisNeverCachesApproval();
         testRepeatedRealSymmetricTowerContactAndAnchoredSurface();
         testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
