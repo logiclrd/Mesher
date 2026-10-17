@@ -734,6 +734,48 @@ void testPrivateConformingRevisionCommitsAtomically() {
               checked.coveredContacts.size()==all.size()&&
               checked.checkedChildren==whole.childSources.size(),
               "All true original contacts have actual source-paired child edge traces");
+        const auto nomination=planExactCutRemoval(whole);
+        std::cout<<"[exact-removal-probe] status="
+                 <<static_cast<int>(nomination.status)
+                 <<" reason="<<nomination.refusal
+                 <<" removed="<<nomination.proposedRemoval.size()
+                 <<" protected="<<nomination.protectedChildren.size()
+                 <<'\n';
+        check(nomination.status==CutRemovalStatus::Ready||
+              nomination.status==CutRemovalStatus::NoChanges||
+              nomination.status==CutRemovalStatus::Refused,
+              "Nomination API returns only explicit read-only states");
+        if(nomination.ready()) {
+            check(nomination.contourPlan.ready()&&
+                  nomination.contourPlan.removedFaces==
+                      nomination.proposedRemoval,
+                  "Accepted face nominations exactly match the V15 private contour set");
+            for(const auto id:nomination.protectedChildren)
+                check(!std::binary_search(
+                    nomination.proposedRemoval.begin(),
+                    nomination.proposedRemoval.end(),id),
+                    "Cavity and exterior boundary FaceIds are never nominated");
+        }else {
+            check(nomination.proposedRemoval.empty()||
+                  nomination.status==CutRemovalStatus::NoChanges,
+                  "Any refusal leaves no partial deletion list");
+        }
+        auto stale=whole;
+        stale.sourceContacts.pop_back();
+        stale.sectionFirst.pop_back();
+        stale.sectionSecond.pop_back();
+        const auto rejected=planExactCutRemoval(stale);
+        check(rejected.status==CutRemovalStatus::Refused&&
+              rejected.proposedRemoval.empty()&&
+              rejected.protectedChildren.empty(),
+              "Incomplete original contact graph refuses without partial face nomination");
+        CutRemovalSettings tight;
+        tight.coverage.originalCollisionLimits.maxSeedFaces=0;
+        const auto limited=planExactCutRemoval(whole,tight);
+        check(limited.status==CutRemovalStatus::BudgetExceeded&&
+              limited.proposedRemoval.empty(),
+              "Exhausted V13 work limit refuses the complete proposed removal");
+
         check(baseline->pickingRootIdentity()==sourceRoot,
               "Complete full-contact coverage preserves the immutable original root");
         check(checked.discoveryWork.reportedContacts==all.size()&&
@@ -1034,6 +1076,29 @@ void testMirroredCompleteContactCoverage() {
           !cut.mirroredFaces.empty()&&
           !cut.mirroredVertices.empty(),
           "Both mirrored sheets have complete reciprocal persistent curve coverage");
+    const auto mirroredProposal=planExactCutRemoval(cut);
+    std::cout<<"[exact-removal-mirror-probe] status="
+             <<static_cast<int>(mirroredProposal.status)
+             <<" reason="<<mirroredProposal.refusal
+             <<" removed="<<mirroredProposal.proposedRemoval.size()
+             <<" mirrorPairs="<<mirroredProposal.mirroredRemoval.size()
+             <<'\n';
+    if(mirroredProposal.ready()) {
+        check(mirroredProposal.mirroredRemoval.size()*2==
+                  mirroredProposal.proposedRemoval.size()&&
+              mirroredProposal.contourPlan.ready(),
+              "Mirror child FaceId removals form full orbits and valid V15 contours");
+    }else
+        check(mirroredProposal.proposedRemoval.empty()||
+              mirroredProposal.status==CutRemovalStatus::NoChanges,
+              "Unaccepted mirrored removal cannot expose partial face retirements");
+    auto incompleteMirror=cut;
+    incompleteMirror.mirroredFaces.pop_back();
+    const auto badOrbit=planExactCutRemoval(incompleteMirror);
+    check(badOrbit.status==CutRemovalStatus::Refused&&
+          badOrbit.proposedRemoval.empty(),
+          "A missing mirrored child face pair vetoes both paired removal halves");
+
     check(root->pickingRootIdentity()==historical&&
           root->retiredFaceCount()==0,
           "Mirrored full-contact certification preserves all source roots");
