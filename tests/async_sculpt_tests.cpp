@@ -454,6 +454,12 @@ void testWorkerRejectsOneStepAndDrainsRemainingInput() {
             worker.initialRevision()==firstRoot,
             "Worker consumes rejected mouse-down Step without publishing or stopping");
     auto notification=worker.takeSnapshot();
+    const auto noticeLimit=std::chrono::steady_clock::now()+
+                           std::chrono::seconds(5);
+    while(!notification&&std::chrono::steady_clock::now()<noticeLimit) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        notification=worker.takeSnapshot();
+    }
     require(notification&&notification->index==firstRoot&&
             notification->dirtyPartitions.empty(),
             "Rejected input may update status but emits no GPU dirty partitions");
