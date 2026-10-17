@@ -764,6 +764,9 @@ void testPrivateConformingRevisionCommitsAtomically() {
                 nomination.refusal+" (status="+
                 std::to_string(static_cast<int>(nomination.status))+")");
         if(nomination.ready()) {
+            check(!nomination.proposedRemoval.empty()&&
+                  !nomination.protectedChildren.empty(),
+                  "Exact-child policy must both remove redundant material and preserve exposed boundaries");
             check(nomination.contourPlan.ready()&&
                   nomination.contourPlan.removedFaces==
                       nomination.proposedRemoval,
@@ -1117,6 +1120,9 @@ void testMirroredCompleteContactCoverage() {
             mirroredProposal.refusal+" (status="+
             std::to_string(static_cast<int>(mirroredProposal.status))+")");
     if(mirroredProposal.ready()) {
+        check(!mirroredProposal.proposedRemoval.empty()&&
+              !mirroredProposal.protectedChildren.empty(),
+              "Mirrored exact-child policy preserves both live boundary halves");
         check(mirroredProposal.mirroredRemoval.size()*2==
                   mirroredProposal.proposedRemoval.size()&&
               mirroredProposal.contourPlan.ready()&&
