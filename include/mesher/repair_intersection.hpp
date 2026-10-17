@@ -2,6 +2,7 @@
 
 #include "mesher/triangle_collision.hpp"
 #include "mesher/region_edit.hpp"
+#include "mesher/repair_plan.hpp"
 
 #include <array>
 #include <cstddef>
@@ -198,7 +199,8 @@ CutFragmentAssessment assessConformingCutFragments(
 // V17e2b2c2: bounded, read-only certification that every V13 contact
 // involving a changed ORIGINAL face is declared, every declared transverse
 // section is traced by child edges on BOTH sheets, and no child of either
-// contact source crosses the other's supporting plane in its open interior.
+// contact source crosses the other source's FINITE transverse contact
+// interval through its open interior (the infinite plane alone is not enough).
 // The resulting certificate covers the supported finite-tolerance model;
 // no Boolean trimming, seam welding, history entry or deletion occurs.
 struct CutCoverageLimits {
@@ -223,5 +225,53 @@ struct CutCoverageCertificate {
 };
 CutCoverageCertificate certifyConformingCutCoverage(
     const ConformingCutCandidate& cut,const CutCoverageLimits& limits={});
+
+
+// V17e2b2c3: a PRIVATE, read-only authorization proposal. Evidence from
+// V17e2b2c1 and c2 is RECOMPUTED against the SAME immutable candidate
+// (never accepted as caller-supplied labels/certificates). No actual face
+// retirement, stitching, mirror journal application or publication occurs.
+enum class CutRemovalPolicy {
+    PositiveWindingUnionPreserveCavities
+};
+enum class CutRemovalStatus {
+    Refused, BudgetExceeded, NoChanges, Ready
+};
+struct CutRemovalSettings {
+    CutCoverageLimits coverage{};
+    CutFragmentLimits occupancy{};
+    RepairPlanSettings contours{};
+    std::size_t maxProposedRemoval=256;
+    CutRemovalPolicy policy{
+        CutRemovalPolicy::PositiveWindingUnionPreserveCavities};
+};
+struct CutRemovalProposal {
+    CutRemovalStatus status{CutRemovalStatus::Refused};
+    std::string refusal;
+    std::shared_ptr<const RegionTopologyIndex> originalIndex;
+    std::shared_ptr<const RegionTopologyIndex> candidateIndex;
+    // Complete, immutable snapshot of the actual per-child decision,
+    // populated ONLY on NoChanges/Ready. Protected means it CANNOT be
+    // removed by this policy; reversed cavity boundaries stay protected.
+    std::vector<CutFragmentOccupancy> classifiedChildren;
+    std::vector<FaceId> proposedRemoval;
+    std::vector<FaceId> protectedChildren;
+    std::vector<std::pair<FaceId,FaceId>> mirroredRemoval;
+    // V15 contour-index pair orbits, each output once (i<partner).
+    // Self-paired seam contours remain unsupported in this first gate.
+    std::vector<std::pair<std::size_t,std::size_t>> mirroredContours;
+    // V15 checks contour shape and closure options, but does not perform
+    // surgery; its low-level readiness is NOT a publication authorization.
+    RepairPlan contourPlan;
+    std::size_t buried{},outside{},exposed{},reversedBoundary{};
+    std::size_t checkedContacts{},windingQueries{};
+    bool ready() const noexcept {return status==CutRemovalStatus::Ready;}
+};
+// Treat any V13 coverage refusal, uncertain occupancy, incomplete child or
+// mirror orbit, unsupported cavity configuration, or invalid V15 closure
+// contour as an atomic refusal. No PARTIAL removal set escapes. Even Ready
+// can only be consumed by a later V16 whole-candidate surgery validator.
+CutRemovalProposal planExactCutRemoval(
+    const ConformingCutCandidate& cut,const CutRemovalSettings& settings={});
 
 } // namespace mesher

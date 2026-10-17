@@ -734,6 +734,69 @@ void testPrivateConformingRevisionCommitsAtomically() {
               checked.coveredContacts.size()==all.size()&&
               checked.checkedChildren==whole.childSources.size(),
               "All true original contacts have actual source-paired child edge traces");
+        // The default V15 approximate frustum/cap prefilter can refuse
+        // strongly nonplanar tetrahedral cut loops. This explicit,
+        // finite test-only contour envelope exercises the legitimate
+        // positive nomination WITHOUT bypassing the V15 topology checks
+        // or changing the conservative production defaults. V16 remains
+        // responsible for actually validating/closing the surface.
+        CutRemovalSettings supportedContours;
+        supportedContours.contours.maximumPlanarityInRadii=4.0;
+        supportedContours.contours.maximumSingleCapPlanarityInRadii=4.0;
+        supportedContours.contours.maximumIsoperimetricRatio=20.0;
+        supportedContours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        supportedContours.contours.maximumPerimeterRatio=20.0;
+        supportedContours.contours.maximumGapInEdges=20.0;
+        supportedContours.contours.minimumNormalAlignment=0;
+        const auto strict=planExactCutRemoval(whole);
+        check(strict.ready()||strict.proposedRemoval.empty(),
+              "Default V15 contour-shape refusal returns no removal permission");
+        const auto nomination=planExactCutRemoval(whole,supportedContours);
+        std::cout<<"[exact-removal-probe] status="
+                 <<static_cast<int>(nomination.status)
+                 <<" reason="<<nomination.refusal
+                 <<" removed="<<nomination.proposedRemoval.size()
+                 <<" protected="<<nomination.protectedChildren.size()
+                 <<'\n';
+        if(!nomination.ready())
+            throw std::runtime_error(
+                "Full-contact exact-child nomination refused: "+
+                nomination.refusal+" (status="+
+                std::to_string(static_cast<int>(nomination.status))+")");
+        if(nomination.ready()) {
+            check(!nomination.proposedRemoval.empty()&&
+                  !nomination.protectedChildren.empty(),
+                  "Exact-child policy must both remove redundant material and preserve exposed boundaries");
+            check(nomination.contourPlan.ready()&&
+                  nomination.contourPlan.removedFaces==
+                      nomination.proposedRemoval,
+                  "Accepted face nominations exactly match the V15 private contour set");
+            for(const auto id:nomination.protectedChildren)
+                check(!std::binary_search(
+                    nomination.proposedRemoval.begin(),
+                    nomination.proposedRemoval.end(),id),
+                    "Cavity and exterior boundary FaceIds are never nominated");
+        }else {
+            check(nomination.proposedRemoval.empty()||
+                  nomination.status==CutRemovalStatus::NoChanges,
+                  "Any refusal leaves no partial deletion list");
+        }
+        auto stale=whole;
+        stale.sourceContacts.pop_back();
+        stale.sectionFirst.pop_back();
+        stale.sectionSecond.pop_back();
+        const auto rejected=planExactCutRemoval(stale);
+        check(rejected.status==CutRemovalStatus::Refused&&
+              rejected.proposedRemoval.empty()&&
+              rejected.protectedChildren.empty(),
+              "Incomplete original contact graph refuses without partial face nomination");
+        CutRemovalSettings tight;
+        tight.coverage.originalCollisionLimits.maxSeedFaces=0;
+        const auto limited=planExactCutRemoval(whole,tight);
+        check(limited.status==CutRemovalStatus::BudgetExceeded&&
+              limited.proposedRemoval.empty(),
+              "Exhausted V13 work limit refuses the complete proposed removal");
+
         check(baseline->pickingRootIdentity()==sourceRoot,
               "Complete full-contact coverage preserves the immutable original root");
         check(checked.discoveryWork.reportedContacts==all.size()&&
@@ -1034,6 +1097,49 @@ void testMirroredCompleteContactCoverage() {
           !cut.mirroredFaces.empty()&&
           !cut.mirroredVertices.empty(),
           "Both mirrored sheets have complete reciprocal persistent curve coverage");
+    CutRemovalSettings supportedContours;
+    supportedContours.contours.maximumPlanarityInRadii=4.0;
+    supportedContours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    supportedContours.contours.maximumIsoperimetricRatio=20.0;
+    supportedContours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    supportedContours.contours.maximumPerimeterRatio=20.0;
+    // Keep geometrically distant reflected components OUT of the same
+    // preliminary V15 zipper candidate window.
+    supportedContours.contours.maximumGapInEdges=2.5;
+    supportedContours.contours.minimumNormalAlignment=0;
+    const auto mirroredProposal=planExactCutRemoval(cut,supportedContours);
+    std::cout<<"[exact-removal-mirror-probe] status="
+             <<static_cast<int>(mirroredProposal.status)
+             <<" reason="<<mirroredProposal.refusal
+             <<" removed="<<mirroredProposal.proposedRemoval.size()
+             <<" mirrorPairs="<<mirroredProposal.mirroredRemoval.size()
+             <<'\n';
+    if(!mirroredProposal.ready())
+        throw std::runtime_error(
+            "Full mirrored exact-child nomination refused: "+
+            mirroredProposal.refusal+" (status="+
+            std::to_string(static_cast<int>(mirroredProposal.status))+")");
+    if(mirroredProposal.ready()) {
+        check(!mirroredProposal.proposedRemoval.empty()&&
+              !mirroredProposal.protectedChildren.empty(),
+              "Mirrored exact-child policy preserves both live boundary halves");
+        check(mirroredProposal.mirroredRemoval.size()*2==
+                  mirroredProposal.proposedRemoval.size()&&
+              mirroredProposal.contourPlan.ready()&&
+              mirroredProposal.mirroredContours.size()*2==
+                  mirroredProposal.contourPlan.contours.size(),
+              "Mirror FaceIds, contour loops and V15 repair choices form complete orbits");
+    }else
+        check(mirroredProposal.proposedRemoval.empty()||
+              mirroredProposal.status==CutRemovalStatus::NoChanges,
+              "Unaccepted mirrored removal cannot expose partial face retirements");
+    auto incompleteMirror=cut;
+    incompleteMirror.mirroredFaces.pop_back();
+    const auto badOrbit=planExactCutRemoval(incompleteMirror);
+    check(badOrbit.status==CutRemovalStatus::Refused&&
+          badOrbit.proposedRemoval.empty(),
+          "A missing mirrored child face pair vetoes both paired removal halves");
+
     check(root->pickingRootIdentity()==historical&&
           root->retiredFaceCount()==0,
           "Mirrored full-contact certification preserves all source roots");

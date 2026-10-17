@@ -1014,16 +1014,37 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   This establishes COMPLETE local contact-curve coverage only WITHIN the
   supported finite-tolerance transverse V13 domain, not universally
   exact predicates or authorization to delete cavity interfaces.
-- [ ] **V17e2b2c3 — Combine certified exact-child occupancy and removal policy.**
-  Require a c2 contact-complete certificate AND c1 reliable positive
-  winding across every true child, with matching unchanged root/IDs.
-  Explicitly nominate buried or outside children for a private V15
-  excision according to union/cavity policy; never delete legitimate
-  exposed or reversed cavity interfaces merely because winding is
-  nonzero. Stage complete mirrored orbits, resulting contour boundaries,
-  and fail-closed removal sets. No topology changes accepted until
-  V16 closes and validates the WHOLE candidate and V17 publishes one
-  complete historical Step.
+- [x] **V17e2b2c3 — Atomic cavity-safe real-child removal planning.**
+  Recompute the complete c2 V13 contact/child-edge certificate AND the
+  strict bounded c1 two-sided positive-winding classifications against
+  the SAME immutable conforming cut revision. Every REAL child FaceId
+  must have exact matching source provenance and a reliable unit
+  signed-winding jump. Preserve Exposed and ReversedBoundary interfaces
+  including true cavity walls. Nominate ONLY Buried (positive/positive)
+  and Outside (nonpositive/nonpositive) triangles, never by winding
+  parity or a whole-original-face fraction. Require complete stable-ID
+  mirrored FACE and new vertex orbits, exact opposite face winding,
+  identical reflected occupancy classes, symmetric removal sets and
+  reflected directed contour-loop/closure choices; missing or mismatched
+  twins refuse atomically. Pass those exact sorted FaceIds to V15's
+  planRemovalContours; Ready only with a V15-valid complete plan, with
+  no partial removal FaceIds or contour metadata on refusal/budget
+  exhaustion. The standard shape thresholds remain conservative;
+  supported strongly nonplanar tetra regression sets use EXPLICIT finite
+  V15 preliminary thresholds, with no relaxation to production defaults.
+  Real full-contact nonmirrored and reflected closed-shell fixtures
+  exercise Ready, protected surfaces, mirrored paired removal and
+  directional contour consistency, missing contacts/mirrors and hard
+  work-budget refusal. This only NOMINATES surfaces on ONE unpublished
+  candidate: no face retirement, seam weld, V16 surgery, history or CAS.
+- [ ] **V17e2b2d — Private exact-child excision and validated closure.**
+  Consume only a V17e2b2c3 Ready nomination tied to one exact candidate
+  revision; redo and validate the full private V16 surgery, mirrored
+  seam pairing, closure and complete residual-collision/fidelity audit.
+  Reject unsupported contours before publishing ANY Step; stage full
+  inserted/retired stable-ID and mirror deltas for a later single
+  original-root V17c Step CAS. The desktop Merge geometry control
+  remains disabled until repeated actual union acceptance.
 - [ ] **V17e2b2c — Exact subdivided-fragment positive-winding classification.**
   Classify the exposed/buried status of each REAL child triangle on both
   sides using positive signed winding w>0 and strict local predicates,
