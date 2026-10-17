@@ -748,6 +748,27 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   two input samples yet drains and publishes later Steps. No live merge
   policy or new UI setting is activated here. Full commit-stage failure
   atomicity and collision/feature validators remain subsequent V17 work.
+- [x] **V17d1 — Private complete-candidate classified collision integration (non-symmetric).**
+  Provide a CPU-opt-in collision policy that inspects the COMPLETE
+  post-Inflate/refine/collapse candidate at the V17c prepublication
+  boundary. V13 discovery has hard finite per-query ceilings independent
+  of legacy default settings; V14's global solid-angle fallback is OFF;
+  V15 classification is required before V16 private removal and exposed-
+  feature preservation. After surgery, V13 re-checks every changed vertex,
+  changed/retired/rewritten face, new scar face and contour survivor against
+  the COMPLETE repaired revision, not only the scar. Failure rejects the
+  Step without publication or history/dirty changes. Accepted non-mirrored
+  surgery updates vertex/face counts, dirty renderer partitions, copied
+  payload, single root CAS and one history entry. Symmetric no-contact
+  Steps can pass; any classified symmetric surgery requirement still
+  refuses rather than publishing unmatched mirror correspondence. The
+  desktop Merge geometry switch remains disabled; tests cover private
+  redundant closed shell, full-surface clean verification, budget and
+  symmetry refusal, and opt-in ordinary asynchronous input.
+  **V17d2 remains:** classification-authorized mirrored surgery and
+  crossing normalization with complete mirror-ID creation/retirement
+  staging, final residual collision checks, repeat-contact/hysteresis and
+  real multi-Step symmetrical merger acceptance before UI activation.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
