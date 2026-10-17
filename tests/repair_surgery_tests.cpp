@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "mesher/versioned_sculpt.hpp"
 #include "../src/repair_surgery_detail.hpp"
 #include "../src/repair_plane_internal.hpp"
 #include "mesher/mesh_partitioning.hpp"
@@ -1100,6 +1101,90 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testActualCollisionSculptCandidateNeverLeaksPartialGeometry() {
+    Mesh m;
+    cube(m,{-0.55,0,0},.9);
+    cube(m,{0.55,0,0},.9);
+    SculptCollisionSettings mode;
+    mode.enabled=true;
+    VersionedSculptBrush brush(m,.0001,{}, {},{},false,256,{},mode);
+    const auto before=brush.snapshot();
+    require(!before->triangleIntersections(
+                brush.originalOrder()->vertexIds,{}).empty(),
+            "Sculpt fixture begins with genuine intersecting disjoint surfaces");
+    Mesh dummy;
+    const std::array<BrushArea,1> area{{{{0,0,0},5,.3}}};
+    brush.stamp(dummy,area);
+    require(brush.completedStamps()==1&&brush.collisionCheckedStamps()==1,
+            "Worker policy actually inspects changed collision geometry");
+    require(brush.rejectedStamps()+brush.collisionRepairedStamps()==1,
+            "Detected candidate either passes fully classified surgery or refuses");
+    if(brush.rejectedStamps()) {
+        require(brush.snapshot()==before&&
+                brush.publishedRevisions()==0&&
+                brush.historyStatistics().undoDepth==0&&
+                brush.lastDirtyPartitions().empty(),
+                "Unrepairable actual contact refuses without any published delta");
+    }else {
+        require(brush.snapshot()!=before&&
+                brush.publishedRevisions()==1&&
+                brush.historyStatistics().undoDepth==1,
+                "Approved classified surgery atomically publishes one final Step");
+        std::vector<FaceId> all;
+        brush.snapshot()->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& p) {
+                for(const auto& f:p.faces)all.push_back(f.id);
+            });
+        require(brush.snapshot()->triangleIntersections({},all).empty(),
+                "Actual accepted repair has no remaining contact anywhere in fixture");
+    }
+    require(before->retiredFaceCount()==0,
+            "Old retained snapshot still has all original face IDs");
+}
+void testCompleteSculptCandidateClassifiedRepairGate() {
+    Mesh mesh;
+    cube(mesh,{},3);
+    cube(mesh,{},.5);
+    auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto sourceRoot=original->pickingRootIdentity();
+    const auto seed=imported.flatIndex.faceIds[12];
+    SculptCollisionSettings selected;
+    selected.enabled=true;
+    // An ordinary collision-free stamp needs no other geometry preparation.
+    const ProposedSculptStep noDirty{original,original,{},{}};
+    const auto clean=evaluateSculptCollisionCandidate(noDirty,false,selected);
+    require(clean.safe()&&!clean.repair&&
+            clean.plan.status==RepairPlanStatus::NoChanges,
+            "No-contact private candidate keeps its original immutable root");
+    const auto approved=evaluateSculptCollisionCandidate(
+        noDirty,false,selected,{seed});
+    require(approved.safe()&&approved.plan.ready()&&approved.repair&&
+            approved.repair->retiredFaces.size()==12&&
+            approved.repair->retiredVertices.size()==8&&
+            approved.repair->insertedFaces.empty(),
+            "V17d1 runs V13-V16 classified redundant-shell repair privately");
+    require(approved.repair->index!=original&&
+            approved.repair->index->triangleIntersections(
+                {},imported.flatIndex.faceIds).empty()&&
+            original->pickingRootIdentity()==sourceRoot&&
+            original->retiredFaceCount()==0,
+            "Fully verified private replacement never modifies held source root");
+    const auto symmetric=evaluateSculptCollisionCandidate(
+        noDirty,true,selected,{seed});
+    require(!symmetric.safe()&&
+            symmetric.plan.ready()&&!symmetric.repair,
+            "A symmetric classified cut must refuse until mirror-ID deltas are staged");
+    selected.surgery.planning.collisionLimits.maxSeedFaces=0;
+    const auto bounded=evaluateSculptCollisionCandidate(
+        {original,original,
+         std::span<const VertexId>(imported.flatIndex.vertexIds.data(),1),{}},
+        false,selected);
+    require(!bounded.safe()&&
+            bounded.plan.status==RepairPlanStatus::BudgetExceeded&&
+            !bounded.repair&&original->retiredFaceCount()==0,
+            "Strict finite BVH work-budget exhaustion refuses whole private Step");
+}
 void testExplicitClassifiedRepairPolicyAndNoChanges() {
     Mesh m;
     cube(m,{},3);
@@ -1499,6 +1584,8 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
+        testCompleteSculptCandidateClassifiedRepairGate();
         testExplicitClassifiedRepairPolicyAndNoChanges();
         std::cout<<"Surgery fixture: sequential stale overlapping repair plans"<<std::endl;
         testSequentialOverlappingHistoryAndStaleCuts();

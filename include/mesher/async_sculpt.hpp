@@ -32,6 +32,8 @@ public:
     struct Status {
         std::size_t completedStamps=0;
         std::size_t rejectedStamps=0;
+        std::size_t collisionCheckedStamps=0;
+        std::size_t collisionRepairedStamps=0;
         std::string lastRejection;
         std::size_t totalQueuedSteps=0;
         std::size_t pendingSteps=0;
@@ -55,11 +57,13 @@ public:
                       double timeSpeed, CurvatureSettings curvature,
                       CollapseSettings collapse, RefineSettings refine,
                       bool symmetric,
-                      SculptStepValidator validator={});
+                      SculptStepValidator validator={},
+                      SculptCollisionSettings collision={});
     AsyncSculptWorker(DurableCheckpoint recovered,double step,double strength,
                      double timeSpeed,CurvatureSettings curvature,
                      CollapseSettings collapse,RefineSettings refine,
-                     SculptStepValidator validator={});
+                     SculptStepValidator validator={},
+                     SculptCollisionSettings collision={});
 
     ~AsyncSculptWorker();
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;

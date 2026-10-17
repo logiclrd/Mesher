@@ -10,10 +10,11 @@ namespace mesher {
 AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
                                      double timeSpeed,CurvatureSettings curvature,
                                      CollapseSettings collapse,RefineSettings refine,
-                                     bool symmetric,SculptStepValidator validator)
+                                     bool symmetric,SculptStepValidator validator,
+                                     SculptCollisionSettings collision)
     :brush_(std::make_unique<VersionedSculptBrush>(
          initial,strength,curvature,collapse,refine,symmetric,256,
-         std::move(validator))),
+         std::move(validator),std::move(collision))),
      stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
         if(!std::isfinite(t)||t<=0)
             throw std::invalid_argument("Sculpt time speed must be positive");
@@ -23,10 +24,10 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
 AsyncSculptWorker::AsyncSculptWorker(
     DurableCheckpoint recovered,double step,double strength,double timeSpeed,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
-    SculptStepValidator validator)
+    SculptStepValidator validator,SculptCollisionSettings collision)
     :brush_(std::make_unique<VersionedSculptBrush>(
          recovered,strength,curvature,collapse,refine,256,
-         std::move(validator))),
+         std::move(validator),std::move(collision))),
      stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
         if(!std::isfinite(t)||t<=0)
             throw std::invalid_argument("Sculpt time speed must be positive");
@@ -99,6 +100,8 @@ void AsyncSculptWorker::refreshStatus() {
     Status s;
     s.completedStamps=brush_->completedStamps();
     s.rejectedStamps=brush_->rejectedStamps();
+    s.collisionCheckedStamps=brush_->collisionCheckedStamps();
+    s.collisionRepairedStamps=brush_->collisionRepairedStamps();
     s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
     s.pendingSteps=stroke_.pendingSamples();

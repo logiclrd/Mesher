@@ -37,6 +37,98 @@ std::vector<std::pair<VertexId,VertexId>> makeMirrors(
 }
 }
 
+// V17d1: deliberately separate read-only classification and private surgery
+// from the final published Step. The live viewport never enables this yet.
+SculptCollisionEvaluation evaluateSculptCollisionCandidate(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptCollisionSettings& settings,
+    const std::vector<FaceId>& isolatedComponentSeeds) {
+    if(!proposed.before||!proposed.candidate)
+        throw std::invalid_argument("Classified collision evaluation needs complete roots");
+    SculptCollisionEvaluation outcome;
+    if(!settings.enabled)return outcome;
+    // These finite limits apply even if the caller uses default V13 offline
+    // settings with unlimited budgets. Lower caller limits remain respected.
+    auto surgery=settings.surgery;
+    auto& plan=surgery.planning;
+    using Limits=RegionTopologyIndex::CollisionQueryLimits;
+    const Limits hard{2048,131072,16384,131072,65536,2048};
+    const auto tighten=[&](Limits& l) {
+        l.maxSeedFaces=std::min(l.maxSeedFaces,hard.maxSeedFaces);
+        l.maxBoxTests=std::min(l.maxBoxTests,hard.maxBoxTests);
+        l.maxPartitionTests=std::min(l.maxPartitionTests,hard.maxPartitionTests);
+        l.maxCandidateTriangles=std::min(l.maxCandidateTriangles,hard.maxCandidateTriangles);
+        l.maxNarrowPhaseTests=std::min(l.maxNarrowPhaseTests,hard.maxNarrowPhaseTests);
+        l.maxReportedContacts=std::min(l.maxReportedContacts,hard.maxReportedContacts);
+    };
+    tighten(plan.collisionLimits);
+    tighten(surgery.residualCollisionLimits);
+    plan.allowReferenceWindingFallback=false;
+    // Explicitly preserve sampled exposed/reversed-boundary features.
+    // The legacy all-face reverse check is incompatible with buried removal.
+    surgery.requireReverseSurfaceFidelity=false;
+    surgery.requireExposedFragmentFidelity=false;
+    const std::vector<VertexId> vertices(
+        proposed.changedVertices.begin(),proposed.changedVertices.end());
+    const std::vector<FaceId> faces(
+        proposed.changedFaces.begin(),proposed.changedFaces.end());
+    if(symmetric) {
+        // V16's mirrored surgeon is private but its new/retired vertex pairs
+        // are not yet journaled in the live brush. In V17d1, classify, but
+        // NEVER publish an unpaired mirrored scar.
+        outcome.plan=planApproximateExcision(
+            *proposed.candidate,vertices,faces,isolatedComponentSeeds,plan);
+        if(outcome.plan.status==RepairPlanStatus::NoChanges&&
+           outcome.plan.intersections==0)return outcome;
+        outcome.refusal="Symmetric collision repair needs atomic mirrored ID deltas";
+        if(!outcome.plan.reason.empty())
+            outcome.refusal+=": "+outcome.plan.reason;
+        return outcome;
+    }
+    auto classified=applyClassifiedExcisionRepair(
+        proposed.candidate,vertices,faces,isolatedComponentSeeds,
+        ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,surgery);
+    outcome.plan=classified.plan;
+    if(outcome.plan.status==RepairPlanStatus::NoChanges&&
+       outcome.plan.intersections==0)return outcome;
+    if(!classified.surgery) {
+        outcome.refusal="Classified collision repair refused: "+
+            (outcome.plan.reason.empty()?
+             std::string("ambiguous or unsupported surface"):outcome.plan.reason);
+        return outcome;
+    }
+    // A healed scar is NOT evidence that the entire changed stamp is clean.
+    // Re-query every surviving moved/rewritten face and every added face
+    // against the COMPLETE healed candidate before granting publication.
+    std::vector<VertexId> finalVertices=vertices;
+    finalVertices.insert(finalVertices.end(),
+        classified.surgery->insertedVertices.begin(),
+        classified.surgery->insertedVertices.end());
+    finalVertices.insert(finalVertices.end(),
+        classified.surgery->retiredVertices.begin(),
+        classified.surgery->retiredVertices.end());
+    std::vector<FaceId> finalFaces=faces;
+    finalFaces.insert(finalFaces.end(),
+        classified.surgery->insertedFaces.begin(),
+        classified.surgery->insertedFaces.end());
+    finalFaces.insert(finalFaces.end(),
+        classified.surgery->retiredFaces.begin(),
+        classified.surgery->retiredFaces.end());
+    for(const auto& contour:classified.plan.contours)
+        finalFaces.insert(finalFaces.end(),
+            contour.survivingFaces.begin(),contour.survivingFaces.end());
+    RegionTopologyIndex::CollisionStatistics measured;
+    const auto residual=classified.surgery->index->triangleIntersections(
+        finalVertices,finalFaces,&measured,surgery.residualCollisionLimits);
+    outcome.finalNarrowPhaseTests=measured.narrowPhaseTests;
+    if(!residual.empty()) {
+        outcome.refusal="Entire repaired Step retains a collision or ambiguous contact";
+        return outcome;
+    }
+    outcome.repair=std::move(classified.surgery);
+    return outcome;
+}
+
 Mesh flattenRevisionForViewport(
     const RegionTopologyIndex& index,const FlatMeshIndex& originalOrder,
     ViewportFlattenStatistics* statistics) {
@@ -106,16 +198,18 @@ Mesh flattenRevisionForViewport(
 VersionedSculptBrush::VersionedSculptBrush(
     const Mesh& initial,double strength,CurvatureSettings curvature,
     CollapseSettings collapse,RefineSettings refine,bool symmetric,
-    std::size_t partitionCapacity,SculptStepValidator validator)
+    std::size_t partitionCapacity,SculptStepValidator validator,
+    SculptCollisionSettings collision)
     :VersionedSculptBrush(partitionFlatMesh(initial,partitionCapacity),
                           initial.vertices.size(),strength,curvature,collapse,
-                          refine,symmetric,partitionCapacity,std::move(validator)) {}
+                          refine,symmetric,partitionCapacity,std::move(validator),
+                          std::move(collision)) {}
 
 VersionedSculptBrush::VersionedSculptBrush(
     PartitionedMeshImport import,std::size_t initialCount,double strength,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
     bool symmetric,std::size_t partitionCapacity,
-    SculptStepValidator validator)
+    SculptStepValidator validator,SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>(
          std::move(import.flatIndex))),
      published_(RegionTopologyIndex::build(std::move(import.revision))),
@@ -129,7 +223,8 @@ VersionedSculptBrush::VersionedSculptBrush(
      partitionCapacity_(partitionCapacity),
      initialVertexCount_(initialCount),
      vertices_(initialCount),faces_(flatOrder_->faceIds.size()),
-     validator_(std::move(validator)) {
+     validator_(std::move(validator)),collision_(std::move(collision)),
+     symmetric_(symmetric) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -138,7 +233,8 @@ VersionedSculptBrush::VersionedSculptBrush(
 VersionedSculptBrush::VersionedSculptBrush(
     DurableCheckpoint recovered,double strength,CurvatureSettings curvature,
     CollapseSettings collapse,RefineSettings refine,
-    std::size_t partitionCapacity,SculptStepValidator validator)
+    std::size_t partitionCapacity,SculptStepValidator validator,
+    SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>()),
      published_(recovered.index),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
@@ -156,7 +252,8 @@ VersionedSculptBrush::VersionedSculptBrush(
                          elementCount(*recovered.index,true)),
      vertices_(elementCount(*recovered.index,true)),
      faces_(elementCount(*recovered.index,false)),
-     validator_(std::move(validator)) {
+     validator_(std::move(validator)),collision_(std::move(collision)),
+     symmetric_(!recovered.mirrorPairs.empty()) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -179,7 +276,7 @@ void VersionedSculptBrush::stamp(
     const auto afterRefine=Clock::now();
     const auto collapsed=collapser_.apply(refined.index,inflated.baseline);
     const auto afterCollapse=Clock::now();
-    const auto updated=collapsed.index;
+    std::shared_ptr<const RegionTopologyIndex> updated=collapsed.index;
 
     // Identify every face-owner partition whose triangles, flat normals or
     // canonical edge lines may have changed, using only old/new local halos.
@@ -197,11 +294,51 @@ void VersionedSculptBrush::stamp(
         collapsed.removedFaces.begin(),collapsed.removedFaces.end());
     changedFaces.insert(changedFaces.end(),
         collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    // A selected collision policy first classifies the FULL post-remesh
+    // proposal. When supported, it may supply a privately repaired root.
+    // The V17c validator below observes that final root and expanded dirty
+    // set, never a partly repaired intermediate revision.
+    std::string collisionRefusal;
+    std::optional<RepairSurgeryResult> collisionRepair;
+    if(collision_.enabled&&updated!=old) {
+        ++collisionChecked_;
+        SculptCollisionEvaluation judged;
+        try {
+            judged=evaluateSculptCollisionCandidate(
+                {old,updated,std::span<const VertexId>(changedVertices),
+                 std::span<const FaceId>(changedFaces)},symmetric_,collision_);
+        }catch(const std::length_error& error) {
+            collisionRefusal=error.what();
+        }catch(const std::logic_error& error) {
+            collisionRefusal=error.what();
+        }
+        if(collisionRefusal.empty())collisionRefusal=judged.refusal;
+        if(collisionRefusal.empty()&&judged.repair) {
+            collisionRepair=std::move(judged.repair);
+            updated=collisionRepair->index;
+            changedVertices.insert(changedVertices.end(),
+                collisionRepair->insertedVertices.begin(),
+                collisionRepair->insertedVertices.end());
+            changedVertices.insert(changedVertices.end(),
+                collisionRepair->retiredVertices.begin(),
+                collisionRepair->retiredVertices.end());
+            changedFaces.insert(changedFaces.end(),
+                collisionRepair->insertedFaces.begin(),
+                collisionRepair->insertedFaces.end());
+            changedFaces.insert(changedFaces.end(),
+                collisionRepair->retiredFaces.begin(),
+                collisionRepair->retiredFaces.end());
+            for(const auto& contour:judged.plan.contours)
+                changedFaces.insert(changedFaces.end(),
+                    contour.survivingFaces.begin(),
+                    contour.survivingFaces.end());
+        }
+    }
     // The decision examines the complete unpublished post-refine/collapse
     // Step and its exact dirty face/vertex set. Classification budget and
     // geometric refusals raised by this opt-in callback are recoverable.
-    std::string rejection;
-    if(validator_&&updated!=old) {
+    std::string rejection=std::move(collisionRefusal);
+    if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
                 std::span<const VertexId>(changedVertices),
@@ -252,6 +389,13 @@ void VersionedSculptBrush::stamp(
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
     faces_-=collapsed.removedFaces.size();
+    if(collisionRepair) {
+        vertices_+=collisionRepair->insertedVertices.size();
+        vertices_-=collisionRepair->retiredVertices.size();
+        faces_+=collisionRepair->insertedFaces.size();
+        faces_-=collisionRepair->retiredFaces.size();
+        ++collisionRepaired_;
+    }
     modifiedPartitions_+=inflated.commitStatistics.modifiedPartitions+
                          refined.modifiedPartitions+collapsed.modifiedPartitions;
     copiedDirectoryNodes_+=inflated.commitStatistics.copiedDirectoryNodes+
@@ -259,13 +403,20 @@ void VersionedSculptBrush::stamp(
                             collapsed.copiedDirectoryNodes;
     clonedPartitionBytes_+=inflated.commitStatistics.clonedPartitionBytes+
                            refined.clonedPartitionBytes+collapsed.clonedPartitionBytes;
+    if(collisionRepair) {
+        modifiedPartitions_+=collisionRepair->commit.statistics.modifiedPartitions;
+        copiedDirectoryNodes_+=collisionRepair->commit.statistics.copiedDirectoryNodes;
+        clonedPartitionBytes_+=collisionRepair->commit.statistics.clonedPartitionBytes;
+    }
     // One COW root per actual geometry-changing Step, within both a
     // fixed entry count and copied-payload budget. Mirror changes are stored
     // only as incremental transitions, never a full per-stamp map copy.
     history_.append(updated,lastDirtyPartitions_,
                     refined.insertedMirrorPairs,collapsed.removedMirrorPairs,
                     inflated.commitStatistics.clonedPartitionBytes+
-                    refined.clonedPartitionBytes+collapsed.clonedPartitionBytes,
+                    refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
+                    (collisionRepair?
+                     collisionRepair->commit.statistics.clonedPartitionBytes:0),
                     vertices_,faces_);
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
