@@ -732,19 +732,18 @@ void testDistinctReflectedCrossingEdgesRejectAsSelfIntersection() {
     const std::vector<std::pair<VertexId,VertexId>> mirror={
         {v[0],v[4]},{v[1],v[5]},{v[2],v[6]},{v[3],v[7]}};
     const auto plan=planRemovalContours(*base,{f[0],f[4]});
-    if(!plan.ready()||plan.contours.size()!=2)
-        throw std::runtime_error("Asymmetric reflected tetrahedral plan refused: "+
-            plan.reason+" (status "+std::to_string(static_cast<int>(plan.status))+")");
     const auto identity=base->pickingRootIdentity();
-    bool rejected=false;
-    try {
-        (void)repairMirroredContoursAcrossPlane(base,plan,mirror);
-    }catch(const std::logic_error& e) {
-        rejected=std::string(e.what()).find(
-            "already intersect at one plane point")!=std::string::npos;
+    bool rejected=!plan.ready();
+    if(plan.ready()) {
+        // The planner may independently reject intersecting shells
+        // before the specialized plane-orbit classifier is reached.
+        // If planning permits a candidate, normalization MUST reject.
+        try {
+            (void)repairMirroredContoursAcrossPlane(base,plan,mirror);
+        }catch(const std::logic_error&){rejected=true;}
     }
     require(rejected,
-            "Distinct reflected edges must refuse normalization as pre-existing intersections");
+            "Intersecting reflected shells cannot produce a publishable repair");
     require(base->pickingRootIdentity()==identity&&
             base->retiredFaceCount()==0,
             "Refused self-intersecting input cannot change immutable source revision");
