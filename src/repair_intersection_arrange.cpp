@@ -155,6 +155,7 @@ bool arrangeFace(
         return p;
     };
     std::set<std::pair<std::size_t,std::size_t>> graph;
+    std::set<std::size_t> boundaryPoints;
     const auto addEdge=[&](std::size_t a,std::size_t b) {
         if(a==b||arrangementEdges>=limits.maxArrangementEdges)
             return false;
@@ -177,6 +178,7 @@ bool arrangeFace(
             for(const auto& [_,point]:found)boundary.push_back(point);
         }
         boundary.push_back(corners[(side+1)%3]);
+        boundaryPoints.insert(boundary.begin(),boundary.end());
         for(std::size_t i=1;i<boundary.size();++i)
             if(!addEdge(boundary[i-1],boundary[i]))return false;
     }
@@ -263,8 +265,57 @@ bool arrangeFace(
             if(!addEdge(ordered[j-1],ordered[j]))return false;
     }
     if(graph.empty())return false;
+    // A section may stop inside this face because the intersection
+    // continues across the OTHER sheet's source edge. Those endpoints
+    // are true constrained vertices but require ordinary (unconstrained)
+    // scaffold edges for a complete triangulation of this face.
+    // Connect degree-one interior vertices to a visible perimeter node,
+    // never crossing or overlapping any existing constraint.
+    std::map<std::size_t,std::size_t> degree;
+    for(const auto& [a,b]:graph) {++degree[a];++degree[b];}
+    const auto visible=[&](std::size_t from,std::size_t to) {
+        const auto p=locate(from),q=locate(to);
+        const auto r=subtract(q,p);
+        for(const auto& [a,b]:graph) {
+            if(a==from||b==from||a==to||b==to)continue;
+            const auto x=locate(a),y=locate(b);
+            const auto segment=subtract(y,x),xp=subtract(x,p);
+            const auto denominator=cross2(r,segment);
+            const auto scaleProduct=std::hypot(r.x,r.y)*
+                                     std::hypot(segment.x,segment.y);
+            if(!(scaleProduct>0))return false;
+            if(std::abs(denominator)<=1e-12*scaleProduct) {
+                if(std::abs(cross2(xp,r))<=tolerance*
+                   std::hypot(r.x,r.y)) {
+                    // Another graph node lies on this proposed scaffold,
+                    // so connecting directly would introduce a T-junction.
+                    return false;
+                }
+                continue;
+            }
+            const auto t=cross2(xp,segment)/denominator;
+            const auto u=cross2(xp,r)/denominator;
+            if(t>=-1e-10&&t<=1+1e-10&&
+               u>=-1e-10&&u<=1+1e-10)return false;
+        }
+        return true;
+    };
+    for(const auto& [node,count]:degree) {
+        if(count!=1||boundaryPoints.contains(node))continue;
+        std::optional<std::size_t> target;
+        double smallest=std::numeric_limits<double>::infinity();
+        for(const auto candidate:boundaryPoints) {
+            const auto p=locate(node),q=locate(candidate);
+            const auto distance=std::hypot(p.x-q.x,p.y-q.y);
+            if(distance<=tolerance||distance>=smallest||
+               !visible(node,candidate))continue;
+            target=candidate;
+            smallest=distance;
+        }
+        if(!target||!addEdge(node,*target))return false;
+    }
     std::map<std::size_t,std::vector<std::size_t>> outgoing;
-    for(const auto [a,b]:graph) {
+    for(const auto& [a,b]:graph) {
         outgoing[a].push_back(b);
         outgoing[b].push_back(a);
     }
@@ -320,9 +371,7 @@ ConformingCutPlan buildMultiSectionCutPlan(
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
     const ConformingCutLimits& limits,
     const std::unordered_map<VertexId,VertexId>* mirrors) {
-    ConformingCutPlan failed;
-    failed.status=IntersectionSectionStatus::UnsupportedContact;
-    const auto reject=[&](const char* reason) {
+      const auto reject=[&](const char* reason) {
         ConformingCutPlan refusal;
         refusal.status=IntersectionSectionStatus::UnsupportedContact;
         refusal.refusal=reason;
