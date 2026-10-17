@@ -10,16 +10,16 @@
 
 namespace mesher {
 namespace {
-using Triangle=std::array<VertexId,3>;
+using CutTriangle=std::array<VertexId,3>;
 using LocalTriangle=std::array<std::size_t,3>;
 
-bool cyclic(Triangle a,Triangle b) {
+bool cyclic(CutTriangle a,CutTriangle b) {
     for(unsigned shift=0;shift<3;++shift)
         if(a[0]==b[shift]&&a[1]==b[(shift+1)%3]&&
            a[2]==b[(shift+2)%3])return true;
     return false;
 }
-std::array<VertexId,3> ordered(Triangle t) {
+std::array<VertexId,3> ordered(CutTriangle t) {
     std::sort(t.begin(),t.end());
     return t;
 }
@@ -58,7 +58,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
         throw std::logic_error("Mirrored conforming candidate refused: "+plan.refusal);
 
     std::map<FaceId,std::size_t> faceById;
-    std::map<Triangle,std::size_t> faceByCorners;
+    std::map<CutTriangle,std::size_t> faceByCorners;
     std::map<VertexId,std::size_t> originalPoint;
     std::set<VertexId> seeds;
     for(std::size_t i=0;i<plan.faces.size();++i) {
@@ -115,7 +115,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
                 throw std::logic_error("Missing original mirrored corner in cut graph");
             partner[i]=twin->second;
         }
-    for(const auto [a,b]:plan.mirroredCutPoints) {
+    for(const auto& [a,b]:plan.mirroredCutPoints) {
         if(a>=plan.points.size()||b>=plan.points.size()||a==b||
            plan.points[a].existingVertex||plan.points[b].existingVertex||
            partner[a]!=plan.points.size()||partner[b]!=plan.points.size())
@@ -132,7 +132,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     std::vector<std::size_t> facePartner(plan.faces.size(),plan.faces.size());
     for(std::size_t i=0;i<plan.faces.size();++i) {
         const auto original=baseline->face(plan.faces[i].sourceFace).vertices;
-        const Triangle reflected{
+        const CutTriangle reflected{
             mirrorOf(original[0]),mirrorOf(original[2]),mirrorOf(original[1])};
         const auto found=faceByCorners.find(ordered(reflected));
         if(found==faceByCorners.end()||found->second==i||
@@ -213,7 +213,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
         output.insertedVertices.push_back(second);
         output.mirroredVertices.emplace_back(first,second);
     }
-    const auto transformed=[&](LocalTriangle tri)->Triangle {
+    const auto transformed=[&](LocalTriangle tri)->CutTriangle {
         for(const auto i:tri)
             if(i>=assigned.size()||assigned[i]==0)
                 throw std::logic_error("Reflected cut child has unassigned vertex");
