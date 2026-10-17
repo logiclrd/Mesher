@@ -317,4 +317,42 @@ ExactCutSurgeryAttempt attemptPrivateExactCutSurgery(
     const ExactCutSurgerySettings& settings={},
     const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
 
+
+// V17e2b2d2: A proven contact-edge seam join is a different operation
+// from V15 cap/zipper closure. All geometric section vertices are paired
+// only by c2-certified original contact provenance, never nearest-neighbor
+// global coincidence. It retires only c3-authorized child faces and
+// redundant counterpart seam VertexIds in one UNPUBLISHED RegionEdit.
+// No live publication or history mutation occurs, even on success.
+struct ExactCutJoinLimits {
+    CutRemovalSettings removal{};
+    std::size_t maxBoundaryEdges=8192;
+    std::size_t maxSeamPairs=8192;
+    std::size_t maxTraceTests=262144; // bounded original-contact x boundary probes
+    std::size_t maxRewrittenFaces=8192;
+    std::size_t maxCandidateFaces=16384;
+    CollisionQueryLimits residualCollisionLimits{
+        16384,131072,16384,131072,65536,4096};
+    std::size_t partitionCapacity=256;
+};
+struct ExactCutJoinResult {
+    bool complete{};
+    std::string refusal;
+    std::shared_ptr<const RegionTopologyIndex> index;
+    std::optional<RevisionCommit> commit;
+    std::vector<FaceId> retiredFaces;
+    std::vector<VertexId> retiredVertices;
+    std::vector<FaceId> rewrittenFaces;
+    std::vector<std::pair<VertexId,VertexId>> weldedPairs; // retired -> retained
+    std::size_t checkedBoundaryEdges{},checkedContacts{};
+};
+// If mirrors are supplied, enforce exact reflected unions of complete
+// stable-ID vertex orbits and paired child face retirement. The join
+// still uses ONE RegionEdit for BOTH reflected halves (no self-plane seams
+// yet); unsupported mirror configurations refuse the ENTIRE result.
+ExactCutJoinResult joinCertifiedCutSections(
+    const ConformingCutCandidate& cut,
+    const ExactCutJoinLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
+
 } // namespace mesher

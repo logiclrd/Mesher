@@ -1923,6 +1923,61 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2d2: Provenance-only join of c3 cut-surface boundary edges
+
+The original V16 cap/zipper was correctly rejecting the closed-tetra
+Boolean because it cannot construct an edge-quality-bounded *strip*
+between the two coincident, independent cut sheets. The true union
+requires NO inserted strip: after the complete c2/c1/c3 cut, remove
+only the certified Buried/Outside REAL child faces and identify
+boundary edge chains on the two remaining original source surfaces.
+
+`joinCertifiedCutSections` recomputes full c3 authorization from the
+immutable conforming cut root, then enumerates EVERY directed boundary
+edge separating a nominated removed child from a surviving child. Each
+boundary edge must belong to ONE certified original V13 contact section.
+For EACH original transverse pair, both source faces must trace an
+entire continuous chain of such child edges along the common finite
+section interval, with matching subdivisions, opposite survivor
+winding and exactly identical endpoint COORDINATES. The two sides
+retain different stable VertexIds until explicit match. A missing,
+repeated, partially traced, differently subdivided or geometrically
+displaced edge refuses the entire operation. No unrelated co-located
+points or spatial nearest-neighbor search can become a seam weld.
+
+Correspondence classes are resolved to stable canonical permanent
+VertexIds. In mirrored operations the user-supplied original involution
+and the cut's newly inserted vertex-orbit journal together constrain
+the choice of representatives on BOTH halves: reflection must commute
+with the weld classes. Any self-reflected X=0 orbit or unmatched paired
+stable ID is currently unsupported. Every retained incident face
+referencing a redundant vertex is rewritten, and only c3-authorized
+removed child faces and now-unused VertexIds are retired, in ONE
+unpublished RegionEdit. All original and protected FaceIds otherwise
+survive. Retiring a would-be canonical seam vertex still used by newly
+rewired opposite-sheet faces is forbidden. RegionEdit validates the
+entire rewritten surface's edge/fan topology, and the join then audits
+all remaining original changed children and new rewired survivors
+against the WHOLE final private revision for residual contacts.
+The position of EACH protected Exposed/ReversedBoundary triangle
+corner must remain EXACTLY unchanged. No added cap or zipper triangles
+are needed, so newly introduced surface-distance error is zero on
+those protected triangles.
+
+The initial positive regressions are two genuinely overlapping,
+closed tetrahedra (nine certified original contact pairs) whose
+component count must change **2 -> 1**, plus two independent,
+X-reflected copies that must change **4 -> 2** and preserve the
+involution. Refusals cover incomplete original section journals,
+budget exhaustion and missing historic mirror orbits. All results
+stay private: there is no original-root Step CAS, undo/redo entry,
+renderer/picker publication, checkpoint or desktop Merge geometry UI.
+The supported correctness claim is restricted to the finite-tolerance
+transverse V13 contact domain and exactly matching edge subdivisions.
+Multi-curve crossing/T-junction generalization, stricter global
+fidelity auditing, combined original-root Step journals and
+repeat-sculpt desktop acceptance are still required.
+
 ## V17e2b2d1: Strict private V16 handoff and final cut-halo audit
 
 The first implementation step after V17e2b2c3 is intentionally a
