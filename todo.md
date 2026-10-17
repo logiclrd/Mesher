@@ -705,6 +705,18 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   worker or dropping queued input, stage mirror/auxiliary state until
   final publication, and check the full changed candidate for residual
   collisions beyond just the newly constructed scar.
+- [x] **V17a — Fail-closed, no-full-mesh winding fallback for prospective live callers.**
+  Add an explicit opt-out from V14's exceptional O(all-faces) solid-angle
+  reference fallback, while keeping all established callers backward-
+  compatible by default. Propagate the policy through fragment and
+  closed-component classification, V15 classified planning, and V16
+  exposed-feature provenance. Unresolved ray evidence becomes Ambiguous,
+  not a deletion authorization; report fallback refusals in query stats.
+  Regression includes deterministic grazing rays, ordinary sphere
+  classification, redundant-shell planning and guarded cap provenance.
+  This bounds ONE exceptional CPU path only. V17 still needs bounded
+  collision enumeration, per-Step rejection/rollback and symmetric
+  classified integration before any live activation.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

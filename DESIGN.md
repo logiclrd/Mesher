@@ -1923,6 +1923,31 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17a: Optional fail-closed avoidance of whole-revision winding fallback
+
+The V14 positive-winding point query ordinarily tries up to three accelerated
+independent rays, requiring two agreeing reliable ray counts. Previously, if
+the rays remained inconclusive, it could invoke the expensive independent
+O(all faces) solid-angle reference. V17a exposes a **caller-selected**
+`allowReferenceFallback=false` option: that exceptional traversal is
+suppressed and the query returns `reliable=false`. Statistics distinguish
+`referenceFallbacks` (executed scans) from `referenceFallbackRefusals`
+(strict-mode refusals). Normal ray classification still works with the same
+positive-winding semantics; existing callers default to the old behavior.
+
+The same switch propagates to `classifyFaceFragments`,
+`classifyClosedComponent`, V15 `RepairPlanSettings::allowReferenceWindingFallback`,
+and V16 sampled exposed-feature provenance. An uncertain fragment or closed
+component may not authorize a private deletion. Tests use rays grazing three
+explicit triangle boundaries to exercise the actual fallback refusal, plus
+ordinary sphere, redundant-bubble and exposed-cap cases.
+
+**Scope limit:** This is a first V17 prerequisite, not live Merge geometry.
+It does not yet bound pathological accelerated BVH/ray traversal, V13
+collision candidate enumeration, all optional provenance work, or worker
+wall-clock time. V17 must select strict mode, provide the other budgets,
+and integrate fully staged repair/rejection at the Step publication boundary.
+
 ## V16 Final Acceptance Review — qualified private foundation
 
 The completed V16a–V16d2b fixtures and cross-platform CI support

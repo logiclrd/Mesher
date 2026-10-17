@@ -178,6 +178,12 @@ void testBubbleWithoutZipper() {
           "Fully redundant bubble planned for deletion");
     check(plan.contours.empty()&&plan.pairs.empty()&&plan.boundaryEdges==0,
           "Entire internal closed shell needs no seam");
+    RepairPlanSettings liveLimits;
+    liveLimits.allowReferenceWindingFallback=false;
+    const auto strictlyBounded=planApproximateExcision(
+        *index,{},{},{id},liveLimits);
+    check(strictlyBounded.ready()&&strictlyBounded.removedFaces==plan.removedFaces,
+          "Classified redundant bubble requires no global winding fallback");
     check(index->retiredFaceCount()==0,"Read-only plan does not retire faces");
     RepairPlanSettings tight;
     tight.maxRemovedFaces=3;
@@ -238,6 +244,12 @@ void testCollisionAwarePlanner() {
         {importedSphere.flatIndex.vertexIds.front()},{});
     check(noHit.status==RepairPlanStatus::NoChanges,
           "Ordinary valid local brush neighborhood needs no repair");
+    RepairPlanSettings noGlobal;
+    noGlobal.allowReferenceWindingFallback=false;
+    const auto limitedNoHit=planApproximateExcision(*clean,
+        {importedSphere.flatIndex.vertexIds.front()},{},{},noGlobal);
+    check(limitedNoHit.status==RepairPlanStatus::NoChanges,
+          "Strict winding policy does not reject a collision-free Step");
 }
 } // namespace
 int main() {

@@ -282,7 +282,8 @@ RemovalSurfaceProvenance collectRemovalProvenance(
     const RegionTopologyIndex& baseline,
     const std::vector<FaceId>& removed,
     unsigned depth,std::size_t maxFragments,
-    std::vector<Vec3>* featurePoints) {
+    std::vector<Vec3>* featurePoints,
+    bool allowReferenceFallback) {
     if(depth>4||maxFragments==0)
         throw std::invalid_argument("Invalid provenance depth or fragment budget");
     RemovalSurfaceProvenance summary;
@@ -290,7 +291,8 @@ RemovalSurfaceProvenance collectRemovalProvenance(
         // Each face is classified against the ORIGINAL, complete winding
         // revision, never the excised/capped candidate (which would make
         // the evidence circular).
-        const auto fragments=baseline.classifyFaceFragments(id,depth);
+        const auto fragments=baseline.classifyFaceFragments(
+            id,depth,allowReferenceFallback);
         if(fragments.size()>maxFragments-summary.totalFragments())
             throw std::length_error("Removal provenance fragment budget exhausted");
         ++summary.sampledFaces;
@@ -383,7 +385,8 @@ void validateSurgeryGeometry(
     if(settings.requireExposedFragmentFidelity) {
         out.removalProvenance=collectRemovalProvenance(
             baseline,plan.removedFaces,settings.planning.sampleDepth,
-            settings.maxProvenanceFragments,&exposedPoints);
+            settings.maxProvenanceFragments,&exposedPoints,
+            settings.planning.allowReferenceWindingFallback);
         if(out.removalProvenance.ambiguousFragments)
             throw std::logic_error(
                 "Exposed surface fidelity has ambiguous winding fragments");
@@ -482,9 +485,11 @@ RemovalSurfaceProvenance inspectRemovalSurfaceProvenance(
     const RegionTopologyIndex& baseline,
     const std::vector<FaceId>& removed,
     unsigned sampleDepth,
-    std::size_t maxFragments) {
+    std::size_t maxFragments,
+    bool allowReferenceFallback) {
     return collectRemovalProvenance(
-        baseline,removed,sampleDepth,maxFragments,nullptr);
+        baseline,removed,sampleDepth,maxFragments,nullptr,
+        allowReferenceFallback);
 }
 
 RepairSurgeryResult applyRepairSurgery(

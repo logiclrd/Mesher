@@ -198,7 +198,8 @@ RepairPlan planApproximateExcision(const RegionTopologyIndex& index,
     // only when V14 identifies the WHOLE closed component as redundant.
     for(const auto seed:componentSeeds) {
         const auto component=index.classifyClosedComponent(
-            seed,settings.maxRemovedFaces);
+            seed,settings.maxRemovedFaces,
+            settings.allowReferenceWindingFallback);
         if(!component.complete)
             return failure(std::move(summary),Status::BudgetExceeded,
                            "Closed-component traversal exceeded budget");
@@ -227,7 +228,8 @@ RepairPlan planApproximateExcision(const RegionTopologyIndex& index,
                            "Classification face budget exceeded");
         const auto id=pending.front();pending.pop();
         ++summary.classifiedFaces;
-        const auto samples=index.classifyFaceFragments(id,settings.sampleDepth);
+        const auto samples=index.classifyFaceFragments(
+            id,settings.sampleDepth,settings.allowReferenceWindingFallback);
         std::size_t hidden=0,exposed=0,ambiguous=0;
         for(const auto& sample:samples) {
             if(sample.kind==Kind::Buried||sample.kind==Kind::Outside)
