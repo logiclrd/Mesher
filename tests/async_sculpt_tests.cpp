@@ -327,6 +327,38 @@ void testWorkerHistoryAndRecoveredCheckpoint() {
     std::error_code ec;
     std::filesystem::remove(file,ec);
 }
+void testReversibleMirrorDeltaJournals() {
+    const std::vector<std::pair<VertexId,VertexId>> base{{1,2},{3,3}};
+    VersionedLocalRefiner refiner(6,{},base,1);
+    VersionedDirectionalCollapser collapser(6,{},base,1);
+    const auto expectedRefiner=refiner.mirrors();
+    const auto expectedCollapse=collapser.mirrors();
+    refiner.beginStep();
+    collapser.beginStep();
+    // One Step can add a new midpoint pair then retire an old pair.
+    refiner.addMirrorPair(4,5);
+    collapser.addMirrorPair(4,5);
+    refiner.removeMirrorPair(1,2);
+    collapser.removeMirrorPair(1,2);
+    require(refiner.mirrors().size()==3&&collapser.mirrors().size()==3,
+            "Both journals stage only the changed symmetric correspondences");
+    collapser.rollbackStep();
+    refiner.rollbackStep();
+    require(refiner.mirrors()==expectedRefiner&&
+            collapser.mirrors()==expectedCollapse,
+            "Rollback reverses mirror retirement and addition in reverse order");
+    refiner.beginStep();
+    collapser.beginStep();
+    refiner.addMirrorPair(4,5);
+    collapser.addMirrorPair(4,5);
+    collapser.commitStep();
+    refiner.commitStep();
+    require(refiner.mirrors().contains(4)&&
+            collapser.mirrors().contains(5)&&
+            refiner.mirrors().at(4)==5&&
+            collapser.mirrors().at(5)==4,
+            "Committed Step retains inserted mirror pairs for future stamps");
+}
 void testRejectedSymmetricStepRollsBackMirrorsAndHistory() {
     SphereOptions options;
     options.vertexCount=500;
@@ -493,6 +525,7 @@ int main() {
         testCoalescedRootsAndCompatibilityBridge();
         testViewportAdapterAfterStableIdSplit();
         testWorkerHistoryAndRecoveredCheckpoint();
+        testReversibleMirrorDeltaJournals();
         testRejectedSymmetricStepRollsBackMirrorsAndHistory();
         testWorkerRejectsOneStepAndDrainsRemainingInput();
         testVersionedWorkerWithRemeshingEnabled();
