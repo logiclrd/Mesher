@@ -1125,7 +1125,8 @@ void testCompleteSculptCandidateClassifiedRepairGate() {
             approved.repair->insertedFaces.empty(),
             "V17d1 runs V13-V16 classified redundant-shell repair privately");
     require(approved.repair->index!=original&&
-            approved.repair->index->triangleIntersections({},{}).empty()&&
+            approved.repair->index->triangleIntersections(
+                {},imported.flatIndex.faceIds).empty()&&
             original->pickingRootIdentity()==sourceRoot&&
             original->retiredFaceCount()==0,
             "Fully verified private replacement never modifies held source root");
