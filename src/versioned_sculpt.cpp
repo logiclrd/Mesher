@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -401,13 +402,15 @@ void VersionedSculptBrush::stamp(
     // set, never a partly repaired intermediate revision.
     std::string collisionRefusal;
     std::optional<RepairSurgeryResult> collisionRepair;
+    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
     if(collision_.enabled&&updated!=old) {
         ++collisionChecked_;
         SculptCollisionEvaluation judged;
         try {
             judged=evaluateSculptCollisionCandidate(
                 {old,updated,std::span<const VertexId>(changedVertices),
-                 std::span<const FaceId>(changedFaces)},symmetric_,collision_);
+                 std::span<const FaceId>(changedFaces)},symmetric_,collision_,{},
+                symmetric_?&collapser_.mirrors():nullptr);
         }catch(const std::length_error& error) {
             collisionRefusal=error.what();
         }catch(const std::logic_error& error) {
@@ -415,6 +418,19 @@ void VersionedSculptBrush::stamp(
         }
         if(collisionRefusal.empty())collisionRefusal=judged.refusal;
         if(collisionRefusal.empty()&&judged.repair) {
+            // All changes to both speculative mirror maps are journaled.
+            // Refusal by the subsequent V17c validator reverses them with
+            // no full-map copy and no changes to Inflate or the repository.
+            repairedAddedMirrors=std::move(judged.insertedMirrors);
+            repairedRemovedMirrors=std::move(judged.retiredMirrors);
+            for(const auto& [a,b]:repairedRemovedMirrors) {
+                collapser_.removeMirrorPair(a,b);
+                refiner_.removeMirrorPair(a,b);
+            }
+            for(const auto& [a,b]:repairedAddedMirrors) {
+                collapser_.addMirrorPair(a,b);
+                refiner_.addMirrorPair(a,b);
+            }
             collisionRepair=std::move(judged.repair);
             updated=collisionRepair->index;
             changedVertices.insert(changedVertices.end(),
@@ -486,6 +502,10 @@ void VersionedSculptBrush::stamp(
         inflate_.removeMirrorPair(pair.first,pair.second);
         refiner_.removeMirrorPair(pair.first,pair.second);
     }
+    for(const auto& [a,b]:repairedRemovedMirrors)
+        inflate_.removeMirrorPair(a,b);
+    for(const auto& [a,b]:repairedAddedMirrors)
+        inflate_.addMirrorPair(a,b);
     vertices_+=refined.insertedVertices.size();
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
@@ -512,8 +532,14 @@ void VersionedSculptBrush::stamp(
     // One COW root per actual geometry-changing Step, within both a
     // fixed entry count and copied-payload budget. Mirror changes are stored
     // only as incremental transitions, never a full per-stamp map copy.
+    auto addedMirrors=refined.insertedMirrorPairs;
+    auto removedMirrors=collapsed.removedMirrorPairs;
+    addedMirrors.insert(addedMirrors.end(),repairedAddedMirrors.begin(),
+                        repairedAddedMirrors.end());
+    removedMirrors.insert(removedMirrors.end(),repairedRemovedMirrors.begin(),
+                          repairedRemovedMirrors.end());
     history_.append(updated,lastDirtyPartitions_,
-                    refined.insertedMirrorPairs,collapsed.removedMirrorPairs,
+                    std::move(addedMirrors),std::move(removedMirrors),
                     inflated.commitStatistics.clonedPartitionBytes+
                     refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
                     (collisionRepair?
