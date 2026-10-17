@@ -958,15 +958,32 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   symmetric three-tetrahedra triple-contact arrangements, including real
   interior crossing and T-junction, original immutable roots and refusal.
   **No permanent VertexId/FaceId allocation, published Step or Boolean union.**
-- [ ] **V17e2b2b3b — One private paired mirrored RegionEdit materialization.**
-  Extend permanent staging to complete mirrored multi-section arrangements:
-  corresponding persistent new VertexIds and child FaceIds, exact mirror
-  journal deltas and source face retention, strong old-root immutability
-  and a single unpublished manifold-valid revision. Fail closed for
-  unsupported plane seam fans and distinct crossing reflection orbits.
-  Later fragments still require positive-winding occupancy classification,
-  selective removal, verified closure and final collision/fidelity audit;
-  do not enable desktop Merge geometry or check off V17 parent.
+- [x] **V17e2b2b3b — One private paired mirrored RegionEdit materialization.**
+  Materialize certified reflected single- and multiple-section cut plans
+  in ONE unpublished symmetric RegionEdit, rechecking current immutable
+  baseline geometry, local original point/face provenance, reciprocal
+  mirrored source-face winding, every original/new point and contact
+  curve orbit. Call the explicit paired RegionEdit primitives to allocate
+  never-reused VertexIds and child FaceIds; retain each rewritten original
+  FaceId and return complete net new-vertex and changed-face mirrored
+  ID pairs. The canonical first side determines both child triangulations,
+  preventing mismatched diagonals; original read roots stay pointer-stable.
+  New X=0 cut/seam orbits and invariant source faces continue to refuse;
+  no intermediate history, mirror-map or dirty-root state is published.
+  Real reflected closed three-tetrahedron crossing and T-junction
+  regressions exercise the private revised manifold, exact reflected
+  face corners, unmerged sheet identities, original-root stability and
+  missing orbit/partition/matching-budget rollback. The ordinary
+  nonmirrored behavior is unchanged. **Subdivision is NOT union.**
+- [ ] **V17e2b2c — Exact subdivided-fragment positive-winding classification.**
+  Classify the exposed/buried status of each REAL child triangle on both
+  sides using positive signed winding w>0 and strict local predicates,
+  not whole-original-face sample fractions or parity. Preserve legitimate
+  cavity interfaces, reject ambiguous near-surface fragments, and
+  propagate only explicit selection/removal authorization to V15.
+  Then V16 contour closure, complete residual collision and fidelity
+  auditing and one original-root V17c Step CAS must be built and proven.
+  No desktop Merge geometry UI until repeated successful physical unions.
 
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
