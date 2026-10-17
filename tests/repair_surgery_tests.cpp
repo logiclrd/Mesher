@@ -1318,8 +1318,25 @@ void testFoldedDeepMultiShellCollisionMatrix() {
     for(const double shift:{-.7,0.0,.7}) {
         Mesh mesh;
         cube(mesh,{-1.25,0,0},1);
-        cube(mesh,{.35,shift,.2},1);
-        cube(mesh,{.05,-.35,shift},.8);
+        const Vec3 middle{.35,shift,.2};
+        cube(mesh,middle,1);
+        const Vec3 last{.05,-.35,shift};
+        cube(mesh,last,.8);
+        // Rotate the second closed solid and shear the third. Both are
+        // orientation-preserving affine transforms, so face topology
+        // remains valid but the overlap cuts are now strongly oblique.
+        const double angle=.37+shift*.2;
+        const double sn=std::sin(angle),cs=std::cos(angle);
+        for(unsigned i=8;i<16;++i) {
+            const auto p=mesh.vertices[i]-middle;
+            mesh.vertices[i]=middle+Vec3{
+                cs*p.x-sn*p.y,sn*p.x+cs*p.y,p.z};
+        }
+        for(unsigned i=16;i<24;++i) {
+            const auto p=mesh.vertices[i]-last;
+            mesh.vertices[i]=last+Vec3{
+                p.x+.25*p.z,p.y+.2*p.x,p.z};
+        }
         const auto imported=partitionFlatMesh(mesh,1);
         const auto baseline=RegionTopologyIndex::build(imported.revision);
         const auto root=baseline->pickingRootIdentity();
