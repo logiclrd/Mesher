@@ -1257,6 +1257,67 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift() {
+    Mesh mesh;
+    cube(mesh,{},1);
+    const auto imported=partitionFlatMesh(mesh,1);
+    auto root=RegionTopologyIndex::build(imported.revision);
+    const std::vector<FaceId> protectedFaces{
+        imported.flatIndex.faceIds[2],imported.flatIndex.faceIds[3]};
+    const auto witnesses=sampleSurfaceWitnesses(*root,protectedFaces);
+    SculptCollisionSettings selected;
+    selected.enabled=true;
+    selected.anchoredSurface=SculptAnchoredSurfaceGuard{
+        witnesses,protectedFaces,2.0,1e-9,256};
+    const auto pristine=evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected);
+    require(pristine.safe()&&pristine.anchoredSurfaceAudit&&
+            pristine.anchoredSurfaceAudit->maximumDistanceInEdges<1e-12,
+            "Initial reference has zero deviation at original exposed patch");
+
+    const auto f=root->face(protectedFaces.front()).vertices;
+    const auto center=root->vertex(f[0]).position;
+    const std::array<BrushArea,1> area{{{center,.7,1}}};
+    VersionedInflateBrush moved(.35,{});
+    const auto displaced=moved.stamp(root,area,1);
+    require(displaced.index!=root&&displaced.moved>0,
+            "Anchored guard regression applies an actual changed brush vertex");
+
+    auto guarded=evaluateSculptCollisionCandidate(
+        {root,displaced.index,displaced.baseline.movedVertices,
+         displaced.baseline.affectedFaces},false,selected);
+    require(!guarded.safe()&&!guarded.repair&&
+            guarded.anchoredSurfaceAudit&&
+            guarded.anchoredSurfaceAudit->maximumDistanceInEdges>1e-9&&
+            guarded.refusal.find("Cumulative anchored")!=std::string::npos,
+            "Small individually lawful deformation refuses because original patch eroded");
+
+    DurableCheckpoint recovered;
+    recovered.index=root;
+    recovered.initialVertexCount=imported.flatIndex.vertexIds.size();
+    VersionedSculptBrush brush(recovered,.35,{}, {},{},1,{},selected);
+    Mesh dummy;
+    brush.stamp(dummy,area);
+    require(brush.rejectedStamps()==1&&brush.snapshot()==root&&
+            brush.publishedRevisions()==0&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.lastDirtyPartitions().empty(),
+            "Original witness refusal consumes a Step without any geometry/history delta");
+
+    selected.anchoredSurface->maxDistanceTests=witnesses.size()*
+                                                protectedFaces.size()-1;
+    bool exhausted=false;
+    try {(void)evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected);}
+    catch(const std::length_error&) {exhausted=true;}
+    require(exhausted,"Anchored witness audit refuses work over its exact budget");
+    selected.anchoredSurface->maxDistanceTests=witnesses.size()*
+                                                protectedFaces.size();
+    require(evaluateSculptCollisionCandidate(
+        {root,root,{},{}},false,selected).safe(),
+        "Exact witness distance-test budget accepts the unchanged original surface");
+}
+
 void testContactEpisodeHysteresisNeverCachesApproval() {
     SculptContactTracker tracker(3);
     tracker.observe(true);
@@ -1349,6 +1410,8 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
     SculptCollisionSettings policy;
     policy.enabled=true;
     policy.quietChecksToEndContact=3;
+    policy.anchoredSurface=SculptAnchoredSurfaceGuard{
+        witnesses,exterior,2.0,1e-8,16384};
     VersionedSculptBrush brush(starting,.48,{}, {},{},1,{},policy);
     Mesh dummy;
     std::vector<std::shared_ptr<const RegionTopologyIndex>> held{
@@ -1902,6 +1965,7 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift();
         testContactEpisodeHysteresisNeverCachesApproval();
         testRepeatedRealSymmetricTowerContactAndAnchoredSurface();
         testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
