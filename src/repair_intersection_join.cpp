@@ -210,9 +210,9 @@ ExactCutJoinResult joinCertifiedCutSections(
                !exact(end,index.vertex(sectionB[1]).position))
                 return refused("Independent source section endpoints differ exactly");
             auto first=trace(index,boundary,pair.first,start,end,
-                             traceTests,limits.maxSeamPairs*limits.maxBoundaryEdges);
+                             traceTests,limits.maxTraceTests);
             auto second=trace(index,boundary,pair.second,start,end,
-                              traceTests,limits.maxSeamPairs*limits.maxBoundaryEdges);
+                              traceTests,limits.maxTraceTests);
             if(first.size()!=second.size())
                 return refused("Independently subdivided source section edge counts differ");
             for(std::size_t i=0;i<first.size();++i) {
