@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/triangle_collision.hpp"
+#include "mesher/region_edit.hpp"
 
 #include <array>
 #include <cstddef>
