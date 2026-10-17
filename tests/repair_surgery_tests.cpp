@@ -1231,6 +1231,130 @@ void testSequentialOverlappingHistoryAndStaleCuts() {
         require(history[i]->retiredFaceCount()==i*2,
                 "All held historical snapshots remain individually readable");
 }
+void testThirtyTwoRepeatedSamePatchCapsNoAccumulatedErosion() {
+    // Replacing the SAME exterior patch repeatedly can pass one-step
+    // proximity tests yet silently accumulate erosion. Anchor witness
+    // points in the FIRST snapshot and compare all later revisions to
+    // that original surface, not to the immediately preceding repair.
+    Mesh m;
+    cube(m,{},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto initial=RegionTopologyIndex::build(imported.revision);
+    const std::vector<FaceId> originalCap{
+        imported.flatIndex.faceIds[2],imported.flatIndex.faceIds[3]};
+    const auto originalWitnesses=sampleSurfaceWitnesses(*initial,originalCap);
+    require(originalWitnesses.size()==14,
+            "Two original triangles supply fourteen anchored geometric samples");
+    bool refused=false;
+    try {(void)sampleSurfaceWitnesses(*initial,originalCap,13);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Witness gathering enforces a hard sampling budget");
+
+    IndexedMeshRepository repository(initial);
+    auto current=initial;
+    auto selected=originalCap;
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> history{initial};
+    for(unsigned step=0;step<32;++step) {
+        const auto plan=planRemovalContours(*current,selected);
+        require(plan.ready()&&plan.cappedContours.size()==1&&
+                plan.contours.size()==1,
+                "Repeated replacement of the same patch still plans one cap");
+        const auto oldRoot=current->pickingRootIdentity();
+        const auto fixed=applyRepairSurgery(current,plan);
+        require(fixed.capFaces==2&&fixed.zipperFaces==0&&
+                fixed.insertedFaces.size()==2,
+                "Each repeated cap creates a new oriented two-triangle disk");
+        const auto measured=auditSurfaceWitnesses(
+            *fixed.index,originalWitnesses,fixed.insertedFaces,2);
+        require(measured.witnessCount==14&&measured.candidateFaces==2&&
+                measured.distanceTests==28&&
+                measured.maximumDistanceInEdges<1e-10&&
+                measured.meanDistanceInEdges<1e-10&&
+                measured.rmsDistanceInEdges<1e-10,
+                "Original exterior cap witnesses never accumulate geometric erosion");
+        if(step==0) {
+            bool overBudget=false;
+            try {(void)auditSurfaceWitnesses(
+                *fixed.index,originalWitnesses,fixed.insertedFaces,2,27);}
+            catch(const std::length_error&){overBudget=true;}
+            require(overBudget,"Distance-audit work limit refuses an over-budget query");
+            bool stale=false;
+            try {(void)auditSurfaceWitnesses(
+                *fixed.index,originalWitnesses,originalCap,2);}
+            catch(const std::exception&){stale=true;}
+            require(stale,
+                "Audit never silently reads retired initial cap FaceIds");
+            const std::vector<FaceId> opposite{
+                imported.flatIndex.faceIds[0],imported.flatIndex.faceIds[1]};
+            const auto lost=auditSurfaceWitnesses(
+                *fixed.index,originalWitnesses,opposite,2);
+            require(lost.maximumDistanceInEdges>.9&&
+                    lost.rmsDistanceInEdges>.9,
+                    "Wrong-surface witness audit detects substantial apparent erosion");
+        }
+        require(repository.snapshot()==current&&
+                current->pickingRootIdentity()==oldRoot,
+                "Replacement remains private until successful CAS publication");
+        require(repository.publishIfCurrent(current,fixed.index),
+                "Each patch replacement publishes as its own atomic revision");
+        current=fixed.index;
+        selected=fixed.insertedFaces;
+        history.push_back(current);
+        require(current->retiredFaceCount()==2*(step+1)&&
+                euler(*current)==2,
+                "Thirty-two overlapping repairs never change genus or reuse retired faces");
+    }
+    for(unsigned i=0;i<history.size();++i)
+        require(history[i]->retiredFaceCount()==2*i,
+                "All thirty-three historical snapshots keep their own tombstones");
+}
+void testFoldedDeepMultiShellCollisionMatrix() {
+    // Rotated/offset intersecting volumes intentionally exceed what
+    // triangle-only approximate excision can always safely reconstruct.
+    // Their classification must refuse ambiguous/budget cases, and
+    // any successfully constructed private scar must pass post-state
+    // collision validation without changing the published root.
+    bool sawIntersections=false;
+    for(const double shift:{-.7,0.0,.7}) {
+        Mesh mesh;
+        cube(mesh,{-1.25,0,0},1);
+        cube(mesh,{.35,shift,.2},1);
+        cube(mesh,{.05,-.35,shift},.8);
+        const auto imported=partitionFlatMesh(mesh,1);
+        const auto baseline=RegionTopologyIndex::build(imported.revision);
+        const auto root=baseline->pickingRootIdentity();
+        RepairSurgerySettings limits;
+        limits.planning.sampleDepth=2;
+        limits.planning.maxClassifiedFaces=128;
+        limits.planning.maxRemovedFaces=64;
+        const auto plan=planApproximateExcision(
+            *baseline,imported.flatIndex.vertexIds,{},{},limits.planning);
+        sawIntersections|=plan.intersections>0;
+        if(plan.ready()) {
+            try {
+                const auto result=applyClassifiedExcisionRepair(
+                    baseline,imported.flatIndex.vertexIds,{},{},
+                    ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,
+                    limits);
+                if(result.surgery) {
+                    require(result.surgery->verifiedLocalFaces>0&&
+                            result.surgery->index->triangleIntersections(
+                                {},result.surgery->insertedFaces).empty(),
+                            "Accepted folded candidate has validated local geometry");
+                }
+            }catch(const std::length_error&) {
+                // A bounded workload is a valid fail-closed outcome.
+            }catch(const std::logic_error&) {
+                // Complex near-overlap can require unsupported retopology.
+            }
+        }
+        require(baseline->retiredFaceCount()==0&&
+                baseline->pickingRootIdentity()==root,
+                "Deep multicomponent collisions never alter a retained source root");
+    }
+    require(sawIntersections,
+            "Folded collision stress actually creates intersecting triangles");
+}
 void testGeometricValidationBudgets() {
     Mesh m;
     cube(m,{-1.1,0,0},1);
@@ -1351,6 +1475,10 @@ int main() {
         testSequentialOverlappingHistoryAndStaleCuts();
         std::cout<<"Surgery fixture: grazing and intersecting classified candidates"<<std::endl;
         testNearTangentAndFoldedClassificationStress();
+        std::cout<<"Surgery fixture: 32 overlapping repairs and original-surface erosion"<<std::endl;
+        testThirtyTwoRepeatedSamePatchCapsNoAccumulatedErosion();
+        std::cout<<"Surgery fixture: deep multicomponent folded collision matrix"<<std::endl;
+        testFoldedDeepMultiShellCollisionMatrix();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
