@@ -682,7 +682,7 @@ RepairSurgeryResult applyMirroredRepairSurgery(
         points.reserve(contour.vertexIds.size());
         for(const auto id:contour.vertexIds)
             points.push_back(pos.at(id));
-        const auto report=detail::inspectPlaneContour(
+        const auto report=detail::inspectPlaneContactTopology(
             points,medianEdge(*baseline,contour));
         if(report.crossingEdges)
             throw std::logic_error(
@@ -693,9 +693,13 @@ RepairSurgeryResult applyMirroredRepairSurgery(
         if(report.nearlyOnPlaneVertices)
             throw std::logic_error(
                 "Mirrored boundary is nearly on X=0 without exact seam identity");
-        if(report.seamVertices!=0&&report.seamVertices!=2)
+        if(report.tangentVertices)
             throw std::logic_error(
-                "Mirrored boundary requires exactly two X=0 contacts or none");
+                "Tangential mirror-plane contour vertex has no regular cap seam");
+        if(report.totalTransverseContacts()!=0&&
+           report.totalTransverseContacts()!=2)
+            throw std::logic_error(
+                "Self-reflected disk cap must have exactly two transverse X=0 contacts");
     }
     // Refine the ORIGINAL contour edges in mirrored pairs, including
     // their adjacent retained faces, before triangulating either closure.

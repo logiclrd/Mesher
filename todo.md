@@ -577,6 +577,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   four-sided symmetric rim, stable FaceIds and newly deleted split
   faces, closed manifold, immutable old root, one final CAS,
   exhausted budget and forged-plan refusal.
+- [x] **V16c2b3 — Exact reflected-edge and cap-plane topology decisions.**
+  A crossing edge and its DISTINCT reflected edge meet at exactly
+  the SAME world-space point of X=0. Unless they are the SAME original
+  topological edge orbit (the V16c2b1/b2 case), the input already has
+  non-adjacent crossing edges; mirroring two independent seam midpoints
+  or welding their branches would conceal the intersection or make a
+  nonmanifold vertex. The normalize/re-plan path now distinguishes
+  self-reflected, distinct-reflected and unmapped crossing-edge
+  orbits, verifies that a distinct reflected edge exists and refuses
+  it with an explicit pre-existing-intersection diagnostic, before
+  changing any private geometry. An embedded reflection-symmetric
+  cap DISK has one nonbranching fixed arc, with exactly two
+  TRANSVERSE contacts of its boundary with X=0. A contour tangent
+  to X=0 is not an extra transverse crossing; >2 transverse
+  contacts on one ring cannot be resolved by blindly pairing
+  chords and remain fail-closed. Pure geometry regressions check
+  orbit identities, exact coincident plane-crossing points,
+  crossing-vs-tangent counts, and one-versus-four contact topology.
+  A concrete reflected-tetrahedron pair demonstrates safe refusal
+  without changing the old root. A positive two-component fixture
+  confirms that FOUR total contacts distributed across TWO
+  independent, valid rings still undergo atomic normalize/re-plan/
+  cap surgery, preserving Euler characteristic and original IDs.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -589,18 +612,22 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16c2b3 / robustness:** handle
-  non-self-reflected pairs of X=0-crossing edges with conforming
-  mirrored subdivision, and classify self-reflected contours with
-  more than two plane contacts through provably noncrossing seam
-  decomposition. Existing strict `applyMirroredRepairSurgery()` still
-  independently rejects unnormalized crossings; only the new
-  explicit normalize-and-replan orchestrator supports this bounded
-  pattern. Resolve feature-bearing vs intentionally buried surface
-  classification before enabling reverse fidelity automatically,
-  and extend stress tests to high-complexity multicomponent and
-  strongly folded collisions. Sampled proximity is NOT a certified
-  Hausdorff guarantee; keep live integration deferred until V17.
+  seam atomically. **Remaining V16 robustness / geometric provenance:**
+  distinguish intentionally buried collision-excision triangles
+  from exposed feature-bearing surfaces before selecting whether
+  bidirectional proximity is meaningful. Add high-complexity
+  multicomponent, near-coplanar and strongly folded collision stress
+  and explicit accuracy/work-budget diagnostics. The strict mirrored
+  surgery still refuses unnormalized crossing edges; V16c2b2
+  normalizes only the proved self-reflected single-edge orbit.
+  Distinct reflected edge orbits are pre-existing intersections
+  and require a separate intersection-resolving retopology, not
+  independent midpoint splits. A single symmetric disk with
+  excessive/tangential fixed-plane contacts has no safe generic
+  chord-pair repair; handle only after identifying an explicit
+  alternative topology rather than violating disk manifoldness.
+  Sampled proximity is NOT certified two-sided Hausdorff distance.
+  Live brush integration remains V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

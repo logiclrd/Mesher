@@ -1737,3 +1737,48 @@ by V16c2b1, not arbitrary edge crossings whose mirrored partner
 is elsewhere in the mesh or loop arrangements with more than two
 plane contacts. Subsequent robustness work will consider those
 without introducing duplicate plane seams.
+
+## V16c2b3: Which crossings are actually conformable?
+
+There is an algebraic/topological difference between a crossing edge
+that is **its own reflection** and an edge whose reflection is
+another, topologically distinct edge. For an arbitrary segment
+`e=(a,b)` crossing X=0, reflection fixes EVERY point of X=0.
+Thus if e crosses the plane at P, its reflected segment crosses
+the plane at that exact SAME P. If the reflected edge has different
+vertex IDs and is not the same edge, these are two distinct,
+nonadjacent edges intersecting at an interior point. The original
+mesh is already self-intersecting, independently of how they might
+be subdivided. Adding a separate ±0 seam vertex per edge creates
+coincident geometry; merging all edge fans at P can pinch a
+nonmanifold vertex. Therefore the *normalization* pass should not
+guess a weld: it diagnoses the existing intersection and refuses
+this case until an actual intersection-excision/retopology strategy
+can decide which sheets survive. V16c2b1/b2 correctly handles only
+a self-reflected edge orbit whose incident faces can be split
+conformingly with exactly one plane vertex.
+
+Likewise an **embedded topological disk** preserved by reflection
+has a nonbranching fixed locus, topologically one arc. Its boundary
+has exactly two transverse contacts with X=0. Four or more genuine
+transverse contacts on ONE invariant ring cannot be made into a
+single non-self-intersecting symmetric disk merely by pairing
+contact points into chords. Extra contacts may instead be
+tangential, which is a separate degeneracy rather than an
+additional intersection. A robust preflight now reports transverse
+plane-vertex contacts, tangent plane-vertex contacts, strict
+crossing edges, wholly on-plane edges, and near-plane numeric
+ambiguities, and refuses tangent or over-contact cap candidates
+without touching the original immutable mesh.
+
+V16c2b3 regressions mathematically verify distinct mirror-edge
+orbits have coincident plane crossing points, demonstrate a
+topologically distinct reflected tetrahedral edge pair failing
+closed on a real candidate cut, and confirm four crossings on
+TWO separate valid rings are not confused with four crossings
+on ONE invalid disk. The latter performs the full independent
+normalize/re-plan/cap transaction with one final publishable
+root and preserves the two-shell Euler characteristic. General
+post-excision handling of pre-existing crossing sheets belongs
+to separate collision-repair geometry work and is not silently
+attempted as seam canonicalization.

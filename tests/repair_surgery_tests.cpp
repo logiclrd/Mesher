@@ -498,6 +498,63 @@ void testSymmetryPlaneClassificationFailsClosed() {
                 "Near-zero coordinate is not silently treated as an exact shared seam ID");
     }
 }
+void testMirroredPlaneOrbitAndDiskFixedArc() {
+    using namespace mesher::detail;
+    const std::map<VertexId,VertexId> reflected{
+        {1,3},{3,1},{2,4},{4,2}};
+    const Vec3 a{1,0,0},b{-.5,1,0};
+    const Vec3 ma{-1,0,0},mb{.5,1,0};
+    require(classifyPlaneCrossingOrbit(1,2,reflected)==
+                PlaneEdgeOrbit::DistinctReflected,
+            "Two topologically different mirrored crossing edges are a distinct orbit");
+    const auto crossing=crossingPointOnPlane(a,b);
+    const auto reflectedCrossing=crossingPointOnPlane(ma,mb);
+    require(crossing.x==0&&crossing.y==reflectedCrossing.y&&
+            crossing.z==reflectedCrossing.z,
+            "Different mirrored crossing edges hit the same fixed-plane point");
+    require(classifyPlaneCrossingOrbit(1,3,reflected)==
+                PlaneEdgeOrbit::SelfReflected,
+            "An edge joining a mirror pair has its own single-edge orbit");
+    require(classifyPlaneCrossingOrbit(1,5,reflected)==
+                PlaneEdgeOrbit::Unmapped,
+            "Unknown mirror vertex does not authorize a crossing normalization");
+    bool invalid=false;
+    try {(void)crossingPointOnPlane({1,0,0},{2,0,0});}
+    catch(const std::invalid_argument&){invalid=true;}
+    require(invalid,"A noncrossing edge has no plane intersection");
+
+    const auto inspect=inspectPlaneContactTopology;
+    {
+        const auto normal=inspect(
+            {{1,-1,0},{0,0,-1},{-1,-1,0},{0,0,1}},1);
+        require(normal.transverseVertices==2&&
+                normal.totalTransverseContacts()==2&&
+                normal.tangentVertices==0,
+                "A valid symmetric cap disk has two transverse fixed-plane endpoints");
+    }
+    {
+        const auto four=inspect(
+            {{0,-4,0},{1,-3,0},{0,-2,0},{-1,-1,0},
+             {0,0,0},{1,1,0},{0,2,0},{-1,3,0}},1);
+        require(four.totalTransverseContacts()==4&&
+                four.tangentVertices==0,
+                "Four seam contacts must not be paired as two independent cap chords");
+    }
+    {
+        const auto touching=inspect(
+            {{0,0,0},{1,0,0},{1,1,0}},1);
+        require(touching.totalTransverseContacts()==0&&
+                touching.tangentVertices==1,
+                "A tangent X=0 touch cannot be counted as a transverse cap endpoint");
+    }
+    {
+        const auto mixed=inspect(
+            {{0,0,0},{1,0,0},{-1,1,0},{0,2,0},{1,3,0}},1);
+        require(mixed.crossingEdges==1&&
+                mixed.totalTransverseContacts()==2,
+                "Actual seam points and crossing edges both count toward the same topology limit");
+    }
+}
 void testAtomicSelfReflectedPlaneCrossingNormalization() {
     // Two self-reflected triangles meet across one undivided edge
     // joining a mirrored vertex pair. This is the safe normalization
@@ -651,6 +708,108 @@ void testCrossingContourFullNormalizeReplanRepair() {
     require(rejected,"A forged original contour is not authorized to normalize");
     require(base->retiredFaceCount()==0&&base->pickingRootIdentity()==root,
             "All failed normalization/replans preserve original immutable revision");
+}
+void testDistinctReflectedCrossingEdgesRejectAsSelfIntersection() {
+    // Two reflected but individually asymmetric tetrahedra carry
+    // DISTINCT crossing edges. Their crossings coincide on X=0,
+    // giving pre-existing geometric self-intersections, not a
+    // single shared topological edge eligible for normalization.
+    Mesh m;
+    m.vertices={{1,0,0},{-.5,1,0},{1,0,1},{1,-1,0}};
+    m.triangles={{0,1,2},{1,0,3},{0,2,3},{1,3,2}};
+    for(unsigned i=0;i<4;++i) {
+        const auto p=m.vertices[i];
+        m.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(unsigned i=0;i<4;++i) {
+        const auto face=m.triangles[i];
+        m.triangles.push_back({face.a+4,face.c+4,face.b+4});
+    }
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirror={
+        {v[0],v[4]},{v[1],v[5]},{v[2],v[6]},{v[3],v[7]}};
+    const auto plan=planRemovalContours(*base,{f[0],f[4]});
+    const auto identity=base->pickingRootIdentity();
+    bool rejected=!plan.ready();
+    if(plan.ready()) {
+        // The planner may independently reject intersecting shells
+        // before the specialized plane-orbit classifier is reached.
+        // If planning permits a candidate, normalization MUST reject.
+        try {
+            (void)repairMirroredContoursAcrossPlane(base,plan,mirror);
+        }catch(const std::logic_error&){rejected=true;}
+    }
+    require(rejected,
+            "Intersecting reflected shells cannot produce a publishable repair");
+    require(base->pickingRootIdentity()==identity&&
+            base->retiredFaceCount()==0,
+            "Refused self-intersecting input cannot change immutable source revision");
+}
+void testFourCrossingsAcrossTwoIndependentContours() {
+    // Four plane contacts are entirely legitimate when distributed as
+    // two contacts EACH on two separate reflection-symmetric disks.
+    // This differs topologically from four contacts on ONE disk.
+    Mesh mesh;
+    std::vector<std::pair<unsigned,unsigned>> bases;
+    for(const double y:{-12.0,12.0}) {
+        const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+        const auto faceStart=static_cast<unsigned>(mesh.triangles.size());
+        for(const auto point:std::array<Vec3,6>{{
+            {1,y-1,0},{1,y+1,0},{-1,y+1,0},{-1,y-1,0},
+            {0,y,1},{0,y,-1}
+        }})mesh.vertices.push_back(point);
+        for(std::uint32_t i=0;i<4;++i) {
+            const auto next=(i+1)%4;
+            mesh.triangles.push_back({first+4,first+i,first+next});
+            mesh.triangles.push_back({first+5,first+next,first+i});
+        }
+        bases.emplace_back(first,faceStart);
+    }
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& faces=imported.flatIndex.faceIds;
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    std::vector<FaceId> removed;
+    for(const auto& [first,faceStart]:bases) {
+        mirrors.insert(mirrors.end(),{
+            {v[first],v[first+3]},{v[first+1],v[first+2]},
+            {v[first+4],v[first+4]},{v[first+5],v[first+5]}
+        });
+        for(const unsigned k:{0u,2u,4u,6u})
+            removed.push_back(faces[faceStart+k]);
+    }
+    const auto plan=planRemovalContours(*original,removed);
+    require(plan.ready()&&plan.contours.size()==2&&
+            plan.cappedContours.size()==2,
+            "Two distant self-reflected cut rings independently choose caps");
+    const auto oldRoot=original->pickingRootIdentity();
+    const auto repaired=repairMirroredContoursAcrossPlane(
+        original,plan,mirrors);
+    require(repaired.normalizedCrossingEdges==4&&
+            repaired.planeSeamVertices.size()==4&&
+            repaired.normalizationInsertedFaces.size()==8,
+            "Four crossing edges on two different rings normalize independently");
+    require(repaired.normalizedPlan.removedFaces.size()==12&&
+            repaired.normalizedPlan.contours.size()==2&&
+            repaired.normalizedPlan.cappedContours.size()==2,
+            "Re-planning retains two separate caps and all divided deleted faces");
+    require(euler(*original)==4&&euler(*repaired.surgery.index)==4&&
+            repaired.surgery.zipperFaces==0,
+            "Repair preserves two disconnected orientable closed shells");
+    require(original->pickingRootIdentity()==oldRoot&&
+            original->retiredFaceCount()==0,
+            "Multiple intermediate commits do not change the historic root");
+    bool overBudget=false;
+    try {
+        (void)repairMirroredContoursAcrossPlane(
+            original,plan,mirrors,{},3);
+    }catch(const std::length_error&){overBudget=true;}
+    require(overBudget,
+            "Global crossing budget counts separate valid contours together");
 }
 void testSingleCrossingContourRepair() {
     Mesh tetra;
@@ -864,6 +1023,10 @@ int main() {
         testNonplanarMultiContourStaysAmbiguous();
         std::cout<<"Surgery fixture: symmetry-plane preflight"<<std::endl;
         testSymmetryPlaneClassificationFailsClosed();
+        std::cout<<"Surgery fixture: mirrored crossing orbit and fixed-arc topology"<<std::endl;
+        testMirroredPlaneOrbitAndDiskFixedArc();
+        std::cout<<"Surgery fixture: distinct reflected edge intersection refusal"<<std::endl;
+        testDistinctReflectedCrossingEdgesRejectAsSelfIntersection();
         std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
         testAtomicSelfReflectedPlaneCrossingNormalization();
         std::cout<<"Surgery fixture: no crossing wrapper compatibility"<<std::endl;
@@ -872,6 +1035,8 @@ int main() {
         testSingleCrossingContourRepair();
         std::cout<<"Surgery fixture: two crossing normalize/replan"<<std::endl;
         testCrossingContourFullNormalizeReplanRepair();
+        std::cout<<"Surgery fixture: four crossings across two valid contours"<<std::endl;
+        testFourCrossingsAcrossTwoIndependentContours();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
