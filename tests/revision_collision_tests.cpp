@@ -1100,7 +1100,9 @@ void testMirroredCompleteContactCoverage() {
     supportedContours.contours.maximumIsoperimetricRatio=20.0;
     supportedContours.contours.maximumSingleCapIsoperimetricRatio=20.0;
     supportedContours.contours.maximumPerimeterRatio=20.0;
-    supportedContours.contours.maximumGapInEdges=20.0;
+    // Keep geometrically distant reflected components OUT of the same
+    // preliminary V15 zipper candidate window.
+    supportedContours.contours.maximumGapInEdges=2.5;
     supportedContours.contours.minimumNormalAlignment=0;
     const auto mirroredProposal=planExactCutRemoval(cut,supportedContours);
     std::cout<<"[exact-removal-mirror-probe] status="
