@@ -95,4 +95,27 @@ PlaneCrossingNormalization normalizeSelfMirroredPlaneEdge(
     std::size_t partitionCapacity=256);
 
 
+// V16c2b2: normalize every supported crossing of the ORIGINAL removal
+// contours, then RE-PLAN the expanded removal set against the resulting
+// private immutable revision and apply its cap/zipper surgery. The only
+// publication step is an optional caller CAS against the ORIGINAL snapshot:
+// neither intermediate revision is ever independently published.
+struct MirroredCrossingRepair {
+    RepairSurgeryResult surgery;          // final revision, never published here
+    RepairPlan normalizedPlan;            // refers to the normalized revision
+    std::vector<VertexId> planeSeamVertices;
+    std::vector<FaceId> normalizationInsertedFaces;
+    std::size_t normalizedCrossingEdges{};
+    // Summation over every private normalization plus the last surgery;
+    // counts transactions' work, not unique modified partitions.
+    RevisionCommitStatistics accumulatedStatistics{};
+};
+MirroredCrossingRepair repairMirroredContoursAcrossPlane(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const RepairPlan& originalPlan,
+    const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
+    const RepairSurgerySettings& settings={},
+    std::size_t maximumCrossings=16);
+
+
 } // namespace mesher
