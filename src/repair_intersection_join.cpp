@@ -218,6 +218,9 @@ ExactCutJoinResult joinCertifiedCutSections(
                 const auto& a=first[i],&b=second[i];
                 if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing)
                     return refused("Unmatched subdivision or aligned winding along joined section");
+                if(boundary[a.boundaryIndex].accounted||
+                   boundary[b.boundaryIndex].accounted)
+                    return refused("A seam boundary edge belongs to multiple contact sections");
                 boundary[a.boundaryIndex].accounted=true;
                 boundary[b.boundaryIndex].accounted=true;
                 const auto equalAt=[&](VertexId v,VertexId w) {
@@ -385,12 +388,19 @@ ExactCutJoinResult joinCertifiedCutSections(
             limits.residualCollisionLimits);
         if(!collisions.empty())
             return refused("Joined private seam has residual nonadjacent intersections");
-        for(const auto face:nomination.protectedChildren)
+        for(const auto face:nomination.protectedChildren) {
             if(!final->maybeFace(face))
                 return refused("Private seam retired an exposed or legitimate cavity child");
-        // Exact coordinates are unchanged by stable-ID substitutions:
-        // protected triangles are not moved, so forward/reverse fidelity
-        // holds for this no-new-triangle seam join.
+            const auto old=index.face(face).vertices,
+                       now=final->face(face).vertices;
+            for(unsigned k=0;k<3;++k)
+                if(!exact(index.vertex(old[k]).position,
+                          final->vertex(now[k]).position))
+                    return refused("A protected exposed/cavity face changed geometric position");
+        }
+        // There are no added triangles and every surviving source child
+        // retains all three original corner positions EXACTLY; both
+        // directions of exposed/cavity feature fidelity are therefore zero.
         ExactCutJoinResult result;
         result.complete=true;
         result.index=std::move(final);
