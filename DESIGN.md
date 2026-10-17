@@ -1923,6 +1923,55 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17d2: Atomic mirror correspondence for classified surgery
+
+The V17d1 CPU-only opt-in now also supports classification-approved
+symmetric excisions where V16's private mirrored cap/zipper (and its
+qualified shared-plane crossing normalization) succeeds. The V15 plan
+must arise from the **same complete post-Inflate/refine/collapse candidate**
+being examined for the original Step. No caller-provided low-level contour
+plan alone can authorize deletion. Strict positive-winding classification,
+finite BVH queries and exposed-surface fragment checks remain mandatory.
+All seam-normalization revisions remain private and are folded into the
+final single original-root publication. Their intermediate dead IDs do
+not inflate net vertex/face counts; cumulative COW partition statistics
+still include their actual work.
+
+The V17c post-collapse live mirror map describes the candidate's living
+IDs. Only when the V15 classifier finds a Ready plan is that map converted
+to V16's canonical mirror-pair vector. For each new final vertex in the
+scar and shared X=0 seam, V17d2 demands a unique vertex at the **exact**
+reflected coordinates. Vertices on X=0 map to themselves; off-plane ones
+must have their distinct reciprocal twin. New vertex IDs cannot already
+exist in the original candidate. For each retired vertex, V17d2 requires
+its mapped partner to be retired as well, with reciprocal mapping; a
+partly retired orbit refuses the Step. Only these touched pairs are
+staged in refiner/collapser reversible delta journals. On a V17c veto or
+repair/verification refusal, the original root, the live Inflate map,
+checkpoint, history cursor and dirty partition set stay unchanged. On
+success, the new/retired pairs join the ordinary refine/collapse pair
+deltas in the same history transition and Inflate update. History
+normalizes transient pairs created and retired within one Step.
+
+The entire changed candidate including normalization survivors is checked
+against the complete repaired revision with finite V13 budgets before
+publication. Success still produces ONE repository CAS, ONE history entry
+and one coalescible renderer delta. Tests include a mirrored redundant
+component excision on a real symmetric stamp, prior validator refusal,
+subsequent acceptance, undo/redo, durable binary checkpoint roundtrip,
+exact X=0 seam mirror pairs, and incomplete-orbit refusal.
+
+**Scope and limits:** This is not yet an assurance that arbitrary
+intersection geometry is repairable or that multiple live symmetric
+towers can be merged through V15's approximate triangle-only classifier.
+Explicit isolated-component seeds are supported for CPU callers that
+already know them; the worker does NOT search disconnected components
+mesh-wide by default, nor activate any UI setting. Repeated physical
+contact tests, sampled witness erosion policy, contact hysteresis,
+aggregate per-Step budgets and strengthened post-CAS failure atomicity
+remain V17 work. Unsupported reflection topologies and ambiguous
+classifications must remain fail closed.
+
 ## V17d1: Classified candidate repair at the single-Step publication boundary
 
 Opt-in CPU clients can enable `SculptCollisionSettings::enabled` for the
