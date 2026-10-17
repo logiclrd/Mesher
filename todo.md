@@ -600,6 +600,30 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   confirms that FOUR total contacts distributed across TWO
   independent, valid rings still undergo atomic normalize/re-plan/
   cap surgery, preserving Euler characteristic and original IDs.
+- [x] **V16d1 — Sampled surface provenance and bounded exposed-feature reverse fidelity.**
+  Reuse the V14 original-revision fragment classifier to count
+  `Exposed`, `ReversedBoundary`, `Buried`, `Outside` and `Ambiguous`
+  patches of each proposed removed face. Expose a read-only
+  `inspectRemovalSurfaceProvenance()` with bounded total fragment
+  work; the counts describe SAMPLES, not certified geometric
+  partitions or trustworthy permission to delete a face.
+  Add an explicit `requireExposedFragmentFidelity` option distinct
+  from the earlier all-faces `requireReverseSurfaceFidelity` mode:
+  sample ORIGINAL barycentric patch centroids from exposed and reversed
+  boundary samples only, verify distance to repaired+surviving local
+  triangles at original local mesh scale, and allow buried/outside
+  fragments to disappear. Any ambiguous fragment refuses privately;
+  mutually exclusive modes refuse contradictory policy. Hard bounds
+  apply to classification samples and total nearest-triangle
+  evaluations; return sample counts, geometric distance and actual
+  work. The default mode remains unchanged and opt-in; no implicit
+  assumption that all `planRemovalContours` deletion requests have
+  sound winding provenance. Tests compare a precisely reconstructed
+  exposed cube cap against a redundant fully buried inner shell,
+  cover invalid policy/work limits and preserved historical roots.
+  Stress eight independent near-coplanar cube cap repairs within
+  a single private operation; check contour pairing, manifold Euler
+  characteristic, V13 residual collisions and bounded refusal.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -612,22 +636,18 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16 robustness / geometric provenance:**
-  distinguish intentionally buried collision-excision triangles
-  from exposed feature-bearing surfaces before selecting whether
-  bidirectional proximity is meaningful. Add high-complexity
-  multicomponent, near-coplanar and strongly folded collision stress
-  and explicit accuracy/work-budget diagnostics. The strict mirrored
-  surgery still refuses unnormalized crossing edges; V16c2b2
-  normalizes only the proved self-reflected single-edge orbit.
-  Distinct reflected edge orbits are pre-existing intersections
-  and require a separate intersection-resolving retopology, not
-  independent midpoint splits. A single symmetric disk with
-  excessive/tangential fixed-plane contacts has no safe generic
-  chord-pair repair; handle only after identifying an explicit
-  alternative topology rather than violating disk manifoldness.
-  Sampled proximity is NOT certified two-sided Hausdorff distance.
-  Live brush integration remains V17.
+  seam atomically. **Remaining V16d2 robustness:** cover mixed
+  exposed/buried face fragments, strongly folded and near-tangent
+  multi-component collision/excision candidates, repeated overlapping
+  cuts and longer stress sequences. Decide a safe *explicit* caller
+  policy for invoking the exposed-fragment fidelity path on
+  classification-aware V15 plans; a read-only low-level removal plan
+  never proves its own deletion is justified. Strengthen bounded
+  accuracy/error diagnostics without mistaking sampled proximity
+  for certified two-sided Hausdorff fidelity. Independent mirrored
+  crossing edges remain pre-existing intersections and require true
+  intersection-aware retopology rather than welded seam IDs.
+  The live brush remains V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

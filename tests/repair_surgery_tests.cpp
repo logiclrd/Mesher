@@ -195,6 +195,14 @@ void testZipperJoinsSeparatedSolids() {
     const auto repaired=applyRepairSurgery(baseline,plan);
     require(repaired.zipperFaces>=8&&repaired.capFaces==0,
             "Zipper closes two entire oriented rings");
+    RepairSurgerySettings preserveExposed;
+    preserveExposed.requireExposedFragmentFidelity=true;
+    preserveExposed.maximumReverseDeviationInEdges=.01;
+    bool exposedLossRejected=false;
+    try {(void)applyRepairSurgery(baseline,plan,preserveExposed);}
+    catch(const std::logic_error&){exposedLossRejected=true;}
+    require(exposedLossRejected,
+            "Explicit exterior-detail preservation prevents a zipper from erasing exposed cap centers");
     RepairSurgerySettings reverse;
     reverse.requireReverseSurfaceFidelity=true;
     reverse.maximumReverseDeviationInEdges=.01;
@@ -935,6 +943,119 @@ void testRepeatedMirroredSurgeryKeepsHistory() {
             euler(*second.index)==4,
             "Two sequential mirrored mergers each reduce Euler characteristic by two");
 }
+void testSampledExcisionProvenanceAndSelectiveReverseFidelity() {
+    Mesh m;
+    cube(m,{},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<FaceId> cap{f[2],f[3]};
+    const auto exposed=inspectRemovalSurfaceProvenance(*original,cap);
+    require(exposed.sampledFaces==2&&exposed.featureFragments()>0&&
+            exposed.totalFragments()==32&&
+            exposed.ambiguousFragments==0,
+            "V14 records explicit sampled exposed occupancy at a cube surface");
+    auto plan=planRemovalContours(*original,cap);
+    require(plan.ready()&&plan.cappedContours.size()==1,
+            "Exposed original cube cap remains eligible for replacement");
+    RepairSurgerySettings guarded;
+    guarded.requireExposedFragmentFidelity=true;
+    guarded.maximumReverseDeviationInEdges=.01;
+    const auto replacement=applyRepairSurgery(original,plan,guarded);
+    require(replacement.removalProvenance.exposedFragments==
+                exposed.exposedFragments&&
+            replacement.checkedReverseFragments==exposed.featureFragments()&&
+            replacement.reverseDistanceTests>0&&
+            replacement.maximumReverseDeviationInEdges<1e-10,
+            "Exposed-fragment reverse sampling preserves exactly replaced cap detail");
+
+    guarded.maxProvenanceFragments=1;
+    bool refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Provenance sample budget rejects rather than truncating classification");
+    guarded.maxProvenanceFragments=2048;
+    guarded.maxReverseDistanceTests=1;
+    refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Reverse nearest-face work budget fails closed");
+    guarded.maxReverseDistanceTests=131072;
+    guarded.requireReverseSurfaceFidelity=true;
+    refused=false;
+    try {(void)applyRepairSurgery(original,plan,guarded);}
+    catch(const std::invalid_argument&){refused=true;}
+    require(refused,
+            "Two incompatible reverse-fidelity policies cannot be silently combined");
+    require(original->retiredFaceCount()==0,
+            "All sampled classification and failure paths leave old root unchanged");
+}
+void testEightIndependentNearCoplanarCapRepairs() {
+    // A broad edit neighborhood should not turn lawful coplanar scar
+    // contacts into phantom intersections, nor should it accidentally
+    // zipper distant components. All eight caps remain one PRIVATE step.
+    Mesh m;
+    for(unsigned i=0;i<8;++i)
+        cube(m,{0,static_cast<double>(i)*8,0},1);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    std::vector<FaceId> removed;
+    for(unsigned i=0;i<8;++i) {
+        removed.push_back(imported.flatIndex.faceIds[12*i+2]);
+        removed.push_back(imported.flatIndex.faceIds[12*i+3]);
+    }
+    const auto plan=planRemovalContours(*base,removed);
+    require(plan.ready()&&plan.contours.size()==8&&
+            plan.cappedContours.size()==8&&plan.pairs.empty(),
+            "Distant near-coplanar cap regions never acquire false zipper partners");
+    const auto oldRoot=base->pickingRootIdentity();
+    const auto fixed=applyRepairSurgery(base,plan);
+    require(fixed.capFaces==16&&fixed.zipperFaces==0&&
+            fixed.retiredFaces.size()==16&&euler(*fixed.index)==16,
+            "Eight independent caps preserve eight closed genus-zero components");
+    require(fixed.verifiedLocalFaces>=fixed.capFaces&&
+            fixed.index->triangleIntersections(
+                {},fixed.insertedFaces).empty(),
+            "Complete local BVH verification accepts valid coplanar scar contacts");
+    require(base->retiredFaceCount()==0&&
+            base->pickingRootIdentity()==oldRoot,
+            "Large multi-component surgery never mutates old reader roots");
+    RepairSurgerySettings bounded;
+    bounded.maxResidualFaces=8;
+    bool rejected=false;
+    try {(void)applyRepairSurgery(base,plan,bounded);}
+    catch(const std::length_error&){rejected=true;}
+    require(rejected,
+            "Broad multi-component residual checks refuse over-budget work privately");
+}
+void testRedundantBuriedShellCanDisappearWithoutReversePenalty() {
+    Mesh m;
+    cube(m,{},3);
+    cube(m,{},.5);
+    const auto imported=partitionFlatMesh(m,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& ids=imported.flatIndex.faceIds;
+    const std::vector<FaceId> inner(ids.begin()+12,ids.end());
+    const auto provenance=inspectRemovalSurfaceProvenance(*original,inner);
+    require(provenance.sampledFaces==12&&provenance.buriedFragments>0&&
+            provenance.featureFragments()==0&&provenance.ambiguousFragments==0,
+            "Nested redundant inner shell is positively wound on BOTH sides");
+    const auto plan=planRemovalContours(*original,inner);
+    require(plan.ready()&&plan.contours.empty(),
+            "Entire buried inner shell requires no cap or zipper");
+    RepairSurgerySettings settings;
+    settings.requireExposedFragmentFidelity=true;
+    settings.maximumReverseDeviationInEdges=.001;
+    const auto repair=applyRepairSurgery(original,plan,settings);
+    require(repair.insertedFaces.empty()&&
+            repair.retiredFaces.size()==12&&
+            repair.removalProvenance.buriedFragments==provenance.buriedFragments&&
+            repair.checkedReverseFragments==0&&
+            euler(*repair.index)==2,
+            "Buried shell disappears without an impossible reverse detail constraint");
+    require(original->retiredFaceCount()==0,
+            "Buried shell removal keeps original nested index immutable");
+}
 void testGeometricValidationBudgets() {
     Mesh m;
     cube(m,{-1.1,0,0},1);
@@ -1041,6 +1162,12 @@ int main() {
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
         testMirroredWholeComponentRetirement();
+        std::cout<<"Surgery fixture: exposed V14 feature fidelity"<<std::endl;
+        testSampledExcisionProvenanceAndSelectiveReverseFidelity();
+        std::cout<<"Surgery fixture: buried shell removal provenance"<<std::endl;
+        testRedundantBuriedShellCanDisappearWithoutReversePenalty();
+        std::cout<<"Surgery fixture: eight independent near-coplanar caps"<<std::endl;
+        testEightIndependentNearCoplanarCapRepairs();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
