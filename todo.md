@@ -975,6 +975,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   face corners, unmerged sheet identities, original-root stability and
   missing orbit/partition/matching-budget rollback. The ordinary
   nonmirrored behavior is unchanged. **Subdivision is NOT union.**
+- [ ] **V17e2b2c1 — Real child FaceId two-sided winding assessment (read-only).**
+  Preserve exact original FaceId provenance for every retained/inserted child
+  in nonmirrored and symmetric private cut commits. Evaluate each ACTUAL
+  child triangle with four interior barycentric witnesses at two physical
+  local-edge-constrained offsets on either side, using strict accelerated
+  winding: inside iff signed w>0, require unit oriented winding jumps and
+  equal answers across witnesses/scales. Verify child winding, original
+  surface geometry and area conservation first; ambiguous/unreliable
+  witnesses discard the whole labeled result with NO deletion permission.
+  Bound queries in aggregate and BVH boxes/partitions/triangle visits/rays
+  INSIDE each ray query; forbid full-mesh reference fallback. Regress
+  exposed, doubly occupied redundant shell, legitimate cavity boundary,
+  negative signed winding outside and real mirrored/unmirrored cut candidates,
+  work exhaustion and missing/forged original provenance.
+  **Finite interior probes are NOT a continuous occupancy certificate.**
+- [ ] **V17e2b2c2 — Complete local contact-curve coverage certificate.**
+  Prove every affected child triangle's OPEN INTERIOR is free of otherwise
+  unmodeled surface intersections, with explicit support for all true
+  contact edge segments and local edge-neighbor conformance. Only after
+  that certificate can a uniform reliable winding class authorize removal
+  of exact child FaceIds. Reject incomplete contact batches, uncertain
+  tangencies, close/coplanar sheets, odd seams, and uncertain cavities
+  instead of extrapolating from finite interior samples.
 - [ ] **V17e2b2c — Exact subdivided-fragment positive-winding classification.**
   Classify the exposed/buried status of each REAL child triangle on both
   sides using positive signed winding w>0 and strict local predicates,
