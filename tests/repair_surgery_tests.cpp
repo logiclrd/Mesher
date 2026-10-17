@@ -1257,6 +1257,166 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testContactEpisodeHysteresisNeverCachesApproval() {
+    SculptContactTracker tracker(3);
+    tracker.observe(true);
+    tracker.observe(true);
+    tracker.observe(std::nullopt);
+    tracker.observe(false);
+    tracker.observe(true); // One clean interval does not reset an episode.
+    auto report=tracker.statistics();
+    require(report.active&&report.episodes==1&&report.contactChecks==3&&
+            report.uncertainChecks==1&&report.quietRun==0&&
+            report.longestContactRun==2,
+            "Repeated contact and indeterminate checks remain in one episode");
+    tracker.observe(false);
+    tracker.observe(std::nullopt);
+    tracker.observe(false);
+    require(tracker.statistics().active&&
+            tracker.statistics().quietRun==2,
+            "Uncertain BVH/classification result cannot certify contact separation");
+    tracker.observe(false);
+    require(!tracker.statistics().active&&
+            tracker.statistics().episodes==1,
+            "Three conclusive clean samples terminate one diagnostic episode");
+    tracker.observe(true);
+    report=tracker.statistics();
+    require(report.active&&report.episodes==2&&report.contactChecks==4&&
+            report.cleanChecks==4,
+            "New contact after separation starts a new diagnostic episode");
+    bool invalid=false;
+    try {(void)SculptContactTracker(0);}
+    catch(const std::invalid_argument&) {invalid=true;}
+    require(invalid,"Contact hysteresis cannot accept a zero-quiet threshold");
+}
+
+void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
+    // Two independent symmetric pairs, each starting with a small physical
+    // gap. Their near faces are pushed toward X=0 by exactly reflected
+    // Inflate areas; no preselected removal contour or fabricated repair.
+    Mesh mesh;
+    std::array<std::size_t,2> vertexStarts{},faceStarts{};
+    for(unsigned t=0;t<2;++t) {
+        const double y=t==0?-4.0:4.0;
+        vertexStarts[t]=mesh.vertices.size();
+        faceStarts[t]=mesh.triangles.size();
+        cube(mesh,{-1.1,y,0},1);
+        for(unsigned i=0;i<8;++i) {
+            const auto p=mesh.vertices[vertexStarts[t]+i];
+            mesh.vertices.push_back({-p.x,p.y,p.z});
+        }
+        for(unsigned i=0;i<12;++i) {
+            const auto f=mesh.triangles[faceStarts[t]+i];
+            mesh.triangles.push_back({
+                f.a+8,f.c+8,f.b+8
+            });
+        }
+    }
+    auto imported=partitionFlatMesh(mesh,1);
+    DurableCheckpoint starting;
+    starting.index=RegionTopologyIndex::build(imported.revision);
+    starting.initialVertexCount=imported.flatIndex.vertexIds.size();
+    for(const auto first:vertexStarts)
+        for(std::size_t i=0;i<8;++i)
+            starting.mirrorPairs.emplace_back(
+                imported.flatIndex.vertexIds[first+i],
+                imported.flatIndex.vertexIds[first+i+8]);
+
+    // Anchor the *far* exposed walls before sculpting, at the original
+    // physical coordinates rather than the previous intermediate Step.
+    std::vector<FaceId> exterior;
+    for(const auto first:faceStarts)
+        for(const unsigned off:{8u,9u,20u,21u})
+            exterior.push_back(imported.flatIndex.faceIds[first+off]);
+    const auto witnesses=sampleSurfaceWitnesses(*starting.index,exterior);
+    require(witnesses.size()==56,
+            "Eight initial exterior triangles produce fixed original witnesses");
+
+    const auto zones=[&](unsigned tower) {
+        const auto y=tower==0?-4.0:4.0;
+        return std::array<BrushArea,2>{{
+            {{-.2,y,0},2.1,.8},{{.2,y,0},2.1,.8}
+        }};
+    };
+    // Confirm that the stimulus really CREATES a triangle intersection;
+    // otherwise a sequence of innocuous no-contact stamps proves nothing.
+    VersionedInflateBrush trial(.48,{},starting.mirrorPairs);
+    const auto near=trial.stamp(starting.index,zones(0),1);
+    require(!near.index->triangleIntersections(
+                near.baseline.movedVertices,near.baseline.affectedFaces).empty(),
+            "Mirrored two-tower stroke actually moves opposing walls into contact");
+
+    SculptCollisionSettings policy;
+    policy.enabled=true;
+    policy.quietChecksToEndContact=3;
+    VersionedSculptBrush brush(starting,.48,{}, {},{},1,{},policy);
+    Mesh dummy;
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> held{
+        brush.snapshot()};
+    std::size_t accepted=0,refused=0;
+    for(unsigned step=0;step<16;++step) {
+        const auto before=brush.snapshot();
+        const auto root=before->pickingRootIdentity();
+        const auto pairs=brush.checkpoint().mirrorPairs;
+        const auto history=brush.historyStatistics();
+        brush.stamp(dummy,zones(step%4<2?0:1));
+        require(brush.completedStamps()==step+1&&
+                brush.collisionCheckedStamps()==step+1,
+                "Every proposed repeat-contact Step is checked, never silently cached");
+        const auto current=brush.snapshot();
+        if(current==before) {
+            ++refused;
+            require(brush.rejectedStamps()==refused&&
+                    brush.historyStatistics().undoDepth==history.undoDepth&&
+                    brush.checkpoint().mirrorPairs==pairs&&
+                    brush.lastDirtyPartitions().empty(),
+                    "Refused contact preserves original mirror graph, history and renderer");
+        }else {
+            ++accepted;
+            require(brush.historyStatistics().undoDepth==history.undoDepth+1&&
+                    !brush.lastDirtyPartitions().empty(),
+                    "Accepted Step publishes one complete immutable revision");
+            std::vector<FaceId> currentFaces;
+            current->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& p) {
+                    for(const auto& face:p.faces)currentFaces.push_back(face.id);
+                });
+            require(current->triangleIntersections({},currentFaces).empty(),
+                    "Every published symmetric contact Step remains globally collision-free");
+        }
+        require(before->pickingRootIdentity()==root&&
+                before->retiredFaceCount()<=current->retiredFaceCount(),
+                "All held prior contact roots remain readable and tombstones monotonic");
+        // This external acceptance audit is intentionally exhaustive for
+        // these small synthetic towers, not a claimed O(1) live path.
+        std::vector<FaceId> allFaces;
+        current->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& p) {
+                for(const auto& face:p.faces)allFaces.push_back(face.id);
+            });
+        const auto audit=auditSurfaceWitnesses(
+            *current,witnesses,allFaces,2.0,16384);
+        require(audit.maximumDistanceInEdges<1e-8&&
+                audit.rmsDistanceInEdges<1e-8,
+                "Fixed outer-wall witnesses detect no cumulative erosion across contact Steps");
+        held.push_back(current);
+    }
+    require(accepted+refused==16&&
+            brush.collisionRepairedStamps()<=accepted&&
+            brush.publishedRevisions()==accepted&&
+            brush.historyStatistics().undoDepth==accepted,
+            "Physical repeated-contact run accounts for every complete Step and commit");
+    require(brush.contactStatistics().contactChecks+
+            brush.contactStatistics().cleanChecks+
+            brush.contactStatistics().uncertainChecks==16,
+            "Hysteresis observes all assessments even when classification refuses");
+    require(refused>0||brush.collisionRepairedStamps()>0,
+            "Physical contact demands either classified merger or conservative refusal");
+    for(const auto& version:held)
+        require(version->pickingRootIdentity()!=nullptr,
+                "Held immutable reader roots survive all repeated contact attempts");
+}
+
 void testActualCollisionSculptCandidateNeverLeaksPartialGeometry() {
     Mesh m;
     cube(m,{-0.55,0,0},.9);
@@ -1742,6 +1902,8 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        testContactEpisodeHysteresisNeverCachesApproval();
+        testRepeatedRealSymmetricTowerContactAndAnchoredSurface();
         testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
         testCompleteSculptCandidateClassifiedRepairGate();
         testExplicitClassifiedRepairPolicyAndNoChanges();

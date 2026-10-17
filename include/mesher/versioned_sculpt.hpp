@@ -52,6 +52,30 @@ struct SculptCollisionSettings {
     // No global component sweep is inferred from a brush stamp. Retired
     // seeds are ignored on later stamps; empty by default in the UI.
     std::vector<FaceId> isolatedComponentSeeds{};
+    // Diagnostic hysteresis only: never disables a collision query or
+    // authorizes a previously rejected candidate. Quiet *conclusive*
+    // assessments close an episode; ambiguous/budget queries do not.
+    std::size_t quietChecksToEndContact=3;
+};
+// Hysteresis groups a run of contact attempts for diagnostics. It does
+// NOT cache geometry decisions or skip expensive V13/V14 verification.
+struct SculptContactStatistics {
+    std::size_t episodes{},contactChecks{},cleanChecks{},uncertainChecks{};
+    std::size_t quietRun{},contactRun{},longestContactRun{};
+    bool active{};
+};
+class SculptContactTracker {
+public:
+    explicit SculptContactTracker(std::size_t quietChecks=3);
+    // nullopt means classification could not establish clean/contact;
+    // unknown does not terminate an active episode.
+    void observe(std::optional<bool> contact) noexcept;
+    const SculptContactStatistics& statistics() const noexcept {
+        return stats_;
+    }
+private:
+    std::size_t quietChecks_;
+    SculptContactStatistics stats_{};
 };
 struct SculptCollisionEvaluation {
     RepairPlan plan{};
@@ -115,6 +139,9 @@ public:
     std::size_t rejectedStamps() const noexcept {return rejected_;}
     std::size_t collisionCheckedStamps() const noexcept {return collisionChecked_;}
     std::size_t collisionRepairedStamps() const noexcept {return collisionRepaired_;}
+    SculptContactStatistics contactStatistics() const noexcept {
+        return contact_.statistics();
+    }
     const std::string& lastRejection() const noexcept {return lastRejection_;}
     StampTimings lastTimings() const noexcept {return timings_;}
     const StampDetails& lastDetails() const noexcept {return details_;}
@@ -148,6 +175,7 @@ private:
     SculptCollisionSettings collision_{};
     bool symmetric_=false;
     std::size_t collisionChecked_{},collisionRepaired_{};
+    SculptContactTracker contact_{};
     std::string lastRejection_;
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
     std::size_t clonedPartitionBytes_{};

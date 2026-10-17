@@ -792,6 +792,30 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   hysteresis policies, aggregate work budgets, stronger post-CAS exception
   atomicity and desktop on/off control. V16's supported surgery fixture
   alone does not prove arbitrary overlapping shells can classify as repairable.
+- [x] **V17e1 — Physical repeat-contact acceptance and anchored witness harness.**
+  Exercise real symmetric two-tower strokes, not hand-selected excision
+  plans: verify the pre-classification Inflate proposal actually creates
+  triangle contact, then drive sixteen complete Steps alternating towers.
+  Every Step must be V13/V14-classified (never cached), publish one fully
+  collision-free immutable root or reject without history/mirror/dirty
+  changes, and retain all held old picking roots. Anchor 56 exposed outer-
+  wall witnesses in the ORIGINAL revision and audit their absolute geometric
+  distance to every subsequent full revision (maxDistanceTests bounded in
+  the test) rather than to the immediately preceding snapshot. Retain the
+  previous 32-repeat same-patch exposed-cap test as the scar drift control.
+  Add a read-only diagnostic contact episode tracker to the brush and
+  worker status: repeated contacts share one episode until three *proven*
+  clean checks, and inconclusive/budgeted assessments never reset it.
+  This tracker MUST NOT skip any geometry checks, authorize deletion, or
+  change brush decisions. CI also covers deterministic contact/quiet/
+  uncertain episode sequences and clean async status counters.
+  **Acceptance limit:** Refusal is a correct result for an unsupported
+  intersecting multi-tower shape; this test does not prove that V15 can
+  actually reconstruct and publish every physically contacting tower.
+  Persistent live original-surface erosion policies (excluding intentional
+  deformation), collision hysteresis affecting geometric *decisions*,
+  aggregate work budgets and demonstrated successful multi-tower unions
+  remain the next V17 acceptance work. UI Merge geometry remains off.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

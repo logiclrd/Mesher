@@ -41,6 +41,37 @@ std::vector<std::pair<VertexId,VertexId>> makeMirrors(
 }
 }
 
+SculptContactTracker::SculptContactTracker(std::size_t quietChecks)
+    :quietChecks_(quietChecks) {
+    if(quietChecks_==0)
+        throw std::invalid_argument("Contact episode quiet-check count must be positive");
+}
+void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
+    if(!contact) {
+        ++stats_.uncertainChecks;
+        return; // Exhaustion or ambiguity can NEVER certify a clean interval.
+    }
+    if(*contact) {
+        ++stats_.contactChecks;
+        if(!stats_.active) {
+            stats_.active=true;
+            ++stats_.episodes;
+            stats_.contactRun=0;
+        }
+        stats_.quietRun=0;
+        ++stats_.contactRun;
+        stats_.longestContactRun=std::max(stats_.longestContactRun,
+                                         stats_.contactRun);
+        return;
+    }
+    ++stats_.cleanChecks;
+    stats_.contactRun=0;
+    if(stats_.active&&++stats_.quietRun>=quietChecks_) {
+        stats_.active=false;
+        stats_.quietRun=0;
+    }
+}
+
 // V17d2: every new and retired vertex from a mirrored private repair
 // receives a canonical involutive mirror pair. Only the small set of
 // surgery-touched IDs is examined for delta derivation. Existing pairs are
@@ -326,7 +357,7 @@ VersionedSculptBrush::VersionedSculptBrush(
      initialVertexCount_(initialCount),
      vertices_(initialCount),faces_(flatOrder_->faceIds.size()),
      validator_(std::move(validator)),collision_(std::move(collision)),
-     symmetric_(symmetric) {
+     symmetric_(symmetric),contact_(collision_.quietChecksToEndContact) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -355,7 +386,8 @@ VersionedSculptBrush::VersionedSculptBrush(
      vertices_(elementCount(*recovered.index,true)),
      faces_(elementCount(*recovered.index,false)),
      validator_(std::move(validator)),collision_(std::move(collision)),
-     symmetric_(!recovered.mirrorPairs.empty()) {
+     symmetric_(!recovered.mirrorPairs.empty()),
+     contact_(collision_.quietChecksToEndContact) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -419,6 +451,14 @@ void VersionedSculptBrush::stamp(
         }catch(const std::logic_error& error) {
             collisionRefusal=error.what();
         }
+        // A failed or ambiguous classifier cannot establish a clean interval.
+        // Hysteresis is diagnostic: the full V13-V16 decision still runs on
+        // EVERY proposed Step; no previous refusal/approval is reused.
+        const bool conclusive=collisionRefusal.empty()&&
+            (judged.plan.status==RepairPlanStatus::NoChanges||
+             judged.plan.status==RepairPlanStatus::Ready);
+        contact_.observe(conclusive?
+            std::optional<bool>(judged.plan.intersections>0):std::nullopt);
         if(collisionRefusal.empty())collisionRefusal=judged.refusal;
         if(collisionRefusal.empty()&&judged.repair) {
             // All changes to both speculative mirror maps are journaled.
