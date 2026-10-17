@@ -709,6 +709,45 @@ void testCrossingContourFullNormalizeReplanRepair() {
     require(base->retiredFaceCount()==0&&base->pickingRootIdentity()==root,
             "All failed normalization/replans preserve original immutable revision");
 }
+void testDistinctReflectedCrossingEdgesRejectAsSelfIntersection() {
+    // Two reflected but individually asymmetric tetrahedra carry
+    // DISTINCT crossing edges. Their crossings coincide on X=0,
+    // giving pre-existing geometric self-intersections, not a
+    // single shared topological edge eligible for normalization.
+    Mesh m;
+    m.vertices={{1,0,0},{-.5,1,0},{1,0,1},{1,-1,0}};
+    m.triangles={{0,1,2},{1,0,3},{0,2,3},{1,3,2}};
+    for(unsigned i=0;i<4;++i) {
+        const auto p=m.vertices[i];
+        m.vertices.push_back({-p.x,p.y,p.z});
+    }
+    for(unsigned i=0;i<4;++i) {
+        const auto face=m.triangles[i];
+        m.triangles.push_back({face.a+4,face.c+4,face.b+4});
+    }
+    const auto imported=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& f=imported.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirror={
+        {v[0],v[4]},{v[1],v[5]},{v[2],v[6]},{v[3],v[7]}};
+    const auto plan=planRemovalContours(*base,{f[0],f[4]});
+    require(plan.ready()&&plan.contours.size()==2,
+            "Asymmetric reflected tetrahedral triangles generate two valid cut contours");
+    const auto identity=base->pickingRootIdentity();
+    bool rejected=false;
+    try {
+        (void)repairMirroredContoursAcrossPlane(base,plan,mirror);
+    }catch(const std::logic_error& e) {
+        rejected=std::string(e.what()).find(
+            "already intersect at one plane point")!=std::string::npos;
+    }
+    require(rejected,
+            "Distinct reflected edges must refuse normalization as pre-existing intersections");
+    require(base->pickingRootIdentity()==identity&&
+            base->retiredFaceCount()==0,
+            "Refused self-intersecting input cannot change immutable source revision");
+}
 void testFourCrossingsAcrossTwoIndependentContours() {
     // Four plane contacts are entirely legitimate when distributed as
     // two contacts EACH on two separate reflection-symmetric disks.
@@ -986,6 +1025,8 @@ int main() {
         testSymmetryPlaneClassificationFailsClosed();
         std::cout<<"Surgery fixture: mirrored crossing orbit and fixed-arc topology"<<std::endl;
         testMirroredPlaneOrbitAndDiskFixedArc();
+        std::cout<<"Surgery fixture: distinct reflected edge intersection refusal"<<std::endl;
+        testDistinctReflectedCrossingEdgesRejectAsSelfIntersection();
         std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
         testAtomicSelfReflectedPlaneCrossingNormalization();
         std::cout<<"Surgery fixture: no crossing wrapper compatibility"<<std::endl;
