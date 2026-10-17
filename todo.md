@@ -873,10 +873,12 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   multi-section faces, ambiguous/nontopological intersections, extra
   cuts on an already sectional source, nonmanifold edges and any
   exhausted per-query contacts/faces/new points/triangles budget WITHOUT
-  returning partially usable reconstruction. Optional exact reflected
-  cut-map pairing uses original reflected edge/face provenance rather
-  than coincident coordinates alone; incomplete/ambiguous reflected
-  partners refuse. Regression exercises shared-edge neighbor propagation,
+  returning partially usable reconstruction. Optional reflected cut-map pairing uses original reflected edge/face
+  provenance rather than coincident coordinates alone; a strict local
+  floating-point discrepancy bound permits canonicalization to EXACT
+  reflected coordinates, followed by source edge/plane and every-face
+  winding/area revalidation. Incomplete/ambiguous reflected partners
+  refuse. Regression exercises shared-edge neighbor propagation,
   identical point IDs across adjacent faces, distinct IDs across
   intersecting shells, strict winding and area, hard budget ceilings
   and ordinary/missing reflected pairs. The result is a read-only plan:
