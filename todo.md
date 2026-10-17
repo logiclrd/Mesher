@@ -861,6 +861,35 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   occupancy classification and V15 removal, private V16 closure, residual
   collision and witness validation, real repeated successful unions.
   The interactive Merge geometry switch remains off.
+- [x] **V17e2b2a — Complete private shared-edge conformance graph for transverse sections.**
+  Consume bounded, already-discovered V13 intersection pairs via V17e2b1.
+  Assign one **ephemeral** point to every original mesh-edge cut and reuse
+  it on ALL originally incident surviving faces; subdivide neighboring
+  triangles even when they were not collision participants. Each
+  intersecting sheet retains a distinct point at the two shared geometric
+  intersection endpoints until V14/V15 can authorize a weld/removal.
+  Every affected face has explicitly indexed oriented triangles, checked
+  for positive area and original area conservation. Refuse inconsistent
+  multi-section faces, ambiguous/nontopological intersections, extra
+  cuts on an already sectional source, nonmanifold edges and any
+  exhausted per-query contacts/faces/new points/triangles budget WITHOUT
+  returning partially usable reconstruction. Optional reflected cut-map pairing uses original reflected edge/face
+  provenance rather than coincident coordinates alone; a strict local
+  floating-point discrepancy bound permits canonicalization to EXACT
+  reflected coordinates, followed by source edge/plane and every-face
+  winding/area revalidation. Incomplete/ambiguous reflected partners
+  refuse. Regression exercises shared-edge neighbor propagation,
+  identical point IDs across adjacent faces, distinct IDs across
+  intersecting shells, strict winding and area, hard budget ceilings
+  and ordinary/missing reflected pairs. The result is a read-only plan:
+  no VertexId allocation, RegionEdit, V14 fragment classification or
+  live Merge control yet.
+  **Next V17e2b2b:** stage generated VertexIds and all affected faces in
+  ONE private RegionEdit; handle multiple contact sections per triangle
+  via a bounded polygon-arrangement graph; derive exact intersection
+  fragment classification and certified excision then V16 closure,
+  mirrored correspondence, residual collision and preserved-witness
+  checks. Demonstrate actual repeated successful tower unions before UI.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

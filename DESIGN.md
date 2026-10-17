@@ -1923,6 +1923,47 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2a: Shared-edge conforming private patch graph
+
+The read-only `buildConformingCutPlan` takes **bounded V13 collision
+pairs** and V17e2b1's transverse sections. Each cut point on an existing
+mesh edge is keyed to that original immutable `Edge{minId,maxId}`
+plus its geometric fraction, with strict agreement for repeated
+registrations. Its one ephemeral node index is reused in EVERY original
+face incident to that edge; all such neighboring survivors join the
+affected-face set, even if they never participated in collision discovery.
+Faces are independently subdivided using the directed arclength order
+of their boundary cuts, and every resulting triangle must have positive
+original winding and conserve its original face's signed area. The
+two independent intersecting shell surfaces, however, keep **separate**
+node identities at coincident 3D points; the plan records the paired
+curve endpoints as correspondence, not premature topology welds.
+
+Optional strict reflection pairing derives mirror identities from the
+*original edge or original owning face*, rather than treating any two
+coincident points across the intersecting sheets as one. Reflected cut points must match within a strict bound derived from the
+original local edge lengths and floating-coordinate roundoff; accepted
+pairs are canonicalized to **exact** reflected positions. The resulting
+points must still lie on their original source edge/face planes and all
+triangulated patches must preserve original winding/area. Ambiguous or
+missing reciprocal partners refuse the entire plan. Hard limits apply
+to discovered pairs, affected original faces, newly generated points,
+and total generated triangles. Unsupported/ambiguous contact, repeated
+independent curve sections involving one source face, more than two
+incident faces on a cut edge, or a new cut crossing an already
+subdivided source face cannot silently be accepted. Either a complete
+read-only result is produced or a refusal with **no partial topology**.
+This is intentionally O(local involved faces), not a global mesh scan.
+
+This milestone does NOT allocate persistent VertexIds or FaceIds and
+does NOT perform a `RegionEdit`, publish a revision, classify new
+V14 fragments, authorize V15 deletion or reconstruct the V16 scar.
+V17e2b2b must handle multiple crossing curves per face with a
+bounded polygonal arrangement, stage one conforming COW transaction
+with fully checked geometry and mirrored ID deltas, classify each
+exact fragment, perform closed private repair and prove repeated
+physical tower unions. The live Merge geometry control remains off.
+
 ## V17e2b1: Read-only intersection sections before conforming topology
 
 A newly separate, bounded CPU geometry primitive
