@@ -106,15 +106,16 @@ Mesh flattenRevisionForViewport(
 VersionedSculptBrush::VersionedSculptBrush(
     const Mesh& initial,double strength,CurvatureSettings curvature,
     CollapseSettings collapse,RefineSettings refine,bool symmetric,
-    std::size_t partitionCapacity)
+    std::size_t partitionCapacity,SculptStepValidator validator)
     :VersionedSculptBrush(partitionFlatMesh(initial,partitionCapacity),
                           initial.vertices.size(),strength,curvature,collapse,
-                          refine,symmetric,partitionCapacity) {}
+                          refine,symmetric,partitionCapacity,std::move(validator)) {}
 
 VersionedSculptBrush::VersionedSculptBrush(
     PartitionedMeshImport import,std::size_t initialCount,double strength,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
-    bool symmetric,std::size_t partitionCapacity)
+    bool symmetric,std::size_t partitionCapacity,
+    SculptStepValidator validator)
     :flatOrder_(std::make_shared<const FlatMeshIndex>(
          std::move(import.flatIndex))),
      published_(RegionTopologyIndex::build(std::move(import.revision))),
@@ -127,7 +128,8 @@ VersionedSculptBrush::VersionedSculptBrush(
                 makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
      partitionCapacity_(partitionCapacity),
      initialVertexCount_(initialCount),
-     vertices_(initialCount),faces_(flatOrder_->faceIds.size()) {
+     vertices_(initialCount),faces_(flatOrder_->faceIds.size()),
+     validator_(std::move(validator)) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -136,7 +138,7 @@ VersionedSculptBrush::VersionedSculptBrush(
 VersionedSculptBrush::VersionedSculptBrush(
     DurableCheckpoint recovered,double strength,CurvatureSettings curvature,
     CollapseSettings collapse,RefineSettings refine,
-    std::size_t partitionCapacity)
+    std::size_t partitionCapacity,SculptStepValidator validator)
     :flatOrder_(std::make_shared<const FlatMeshIndex>()),
      published_(recovered.index),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
@@ -153,7 +155,8 @@ VersionedSculptBrush::VersionedSculptBrush(
      initialVertexCount_(recovered.initialVertexCount?recovered.initialVertexCount:
                          elementCount(*recovered.index,true)),
      vertices_(elementCount(*recovered.index,true)),
-     faces_(elementCount(*recovered.index,false)) {
+     faces_(elementCount(*recovered.index,false)),
+     validator_(std::move(validator)) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
     details_.vertices=vertices_;
     details_.triangles=faces_;
@@ -165,6 +168,10 @@ void VersionedSculptBrush::stamp(
     const auto start=Clock::now();
     const auto inflated=inflate_.stamp(old,areas,partitionCapacity_);
     const auto afterInflate=Clock::now();
+    refiner_.beginStep();
+    try {collapser_.beginStep();}
+    catch(...) {refiner_.rollbackStep();throw;}
+    try {
     const auto refined=refiner_.apply(inflated.index,inflated.baseline);
     // Collapse must see V6's newly inserted stable mirror IDs immediately.
     for(const auto& pair:refined.insertedMirrorPairs)
@@ -190,6 +197,37 @@ void VersionedSculptBrush::stamp(
         collapsed.removedFaces.begin(),collapsed.removedFaces.end());
     changedFaces.insert(changedFaces.end(),
         collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    // The decision examines the complete unpublished post-refine/collapse
+    // Step and its exact dirty face/vertex set. Classification budget and
+    // geometric refusals raised by this opt-in callback are recoverable.
+    std::string rejection;
+    if(validator_&&updated!=old) {
+        try {
+            rejection=validator_({old,updated,
+                std::span<const VertexId>(changedVertices),
+                std::span<const FaceId>(changedFaces)});
+        }catch(const std::length_error& error) {
+            rejection=error.what();
+        }catch(const std::logic_error& error) {
+            rejection=error.what();
+        }
+    }
+    if(!rejection.empty()) {
+        collapser_.rollbackStep();
+        refiner_.rollbackStep();
+        lastDirtyPartitions_.clear();
+        lastRejection_=std::move(rejection);
+        ++rejected_;
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.influenced=inflated.candidates;
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
+                  seconds(afterRefine,afterCollapse),0};
+        ++completed_;
+        return;
+    }
     lastDirtyPartitions_=updated==old?std::vector<PartitionId>{}:
         dirtyRenderPartitions(*old,*updated,changedVertices,changedFaces);
 
@@ -241,6 +279,13 @@ void VersionedSculptBrush::stamp(
     timings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
               seconds(afterRefine,afterCollapse),0};
     ++completed_;
+    collapser_.commitStep();
+    refiner_.commitStep();
+    }catch(...) {
+        collapser_.rollbackStep();
+        refiner_.rollbackStep();
+        throw;
+    }
 }
 
 bool VersionedSculptBrush::undo() {

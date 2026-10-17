@@ -10,9 +10,10 @@ namespace mesher {
 AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
                                      double timeSpeed,CurvatureSettings curvature,
                                      CollapseSettings collapse,RefineSettings refine,
-                                     bool symmetric)
+                                     bool symmetric,SculptStepValidator validator)
     :brush_(std::make_unique<VersionedSculptBrush>(
-         initial,strength,curvature,collapse,refine,symmetric)),
+         initial,strength,curvature,collapse,refine,symmetric,256,
+         std::move(validator))),
      stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
         if(!std::isfinite(t)||t<=0)
             throw std::invalid_argument("Sculpt time speed must be positive");
@@ -21,9 +22,11 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
      worker_([this](std::stop_token token){run(token);}) {}
 AsyncSculptWorker::AsyncSculptWorker(
     DurableCheckpoint recovered,double step,double strength,double timeSpeed,
-    CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine)
+    CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
+    SculptStepValidator validator)
     :brush_(std::make_unique<VersionedSculptBrush>(
-         recovered,strength,curvature,collapse,refine)),
+         recovered,strength,curvature,collapse,refine,256,
+         std::move(validator))),
      stroke_(samplingOnlyMesh_,*brush_,step),timeSpeed_([](double t) {
         if(!std::isfinite(t)||t<=0)
             throw std::invalid_argument("Sculpt time speed must be positive");
@@ -95,6 +98,8 @@ std::optional<AsyncSculptWorker::Snapshot> AsyncSculptWorker::takeSnapshot() {
 void AsyncSculptWorker::refreshStatus() {
     Status s;
     s.completedStamps=brush_->completedStamps();
+    s.rejectedStamps=brush_->rejectedStamps();
+    s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
     s.pendingSteps=stroke_.pendingSamples();
     s.pendingSegments=stroke_.pendingSegments();

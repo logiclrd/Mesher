@@ -732,6 +732,22 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   snapshot safety. Per-query limits are not total stroke time/RSS bounds:
   winding-ray BVH work, repeated component queries, worker rollback and
   symmetry-aware live classification remain V17 work.
+- [x] **V17c — Recoverable prepublication Step refusal and mirror-delta rollback.**
+  Add an optional validator of the full private post-Inflate/refine/collapse
+  Step and exact changed vertices/faces; accept by default. A nonempty
+  refusal reason, bounded-work exception, or explicitly invalid geometry
+  from the validator rejects only that Step: the 4D sampler consumes the
+  original input and moves on, but no geometry root, undo entry, render
+  dirty delta, checkpoint mirror map, or partition-copy counter advances.
+  Refiner/collapser journal only touched mirror pairs and reverse changes
+  on rejection, without copying the whole correspondence map per Step.
+  Worker status exposes rejected-Step count and last diagnostic; unrelated
+  unexpected exceptions continue to report fatal errors instead of being
+  silently ignored. Regress symmetric splitting followed by veto/accept,
+  exact undo/redo/identity restoration, and a worker that rejects the first
+  two input samples yet drains and publishes later Steps. No live merge
+  policy or new UI setting is activated here. Full commit-stage failure
+  atomicity and collision/feature validators remain subsequent V17 work.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

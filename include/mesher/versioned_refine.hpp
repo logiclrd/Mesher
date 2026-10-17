@@ -40,6 +40,11 @@ public:
     // Apply the V7 collapse result's retired mirror pairs before the next stamp.
     void removeMirrorPair(VertexId first,VertexId second);
     void addMirrorPair(VertexId first,VertexId second);
+    // A Step journals only changed mirror pairs, not the O(all vertices)
+    // correspondence map. Rejecting a proposed Step replays inverses.
+    void beginStep();
+    void commitStep() noexcept;
+    void rollbackStep();
     double maximumEdge() const noexcept { return maximumEdge_; }
     const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
         return mirrors_;
@@ -50,6 +55,9 @@ private:
     double maximumEdge_{};
     std::size_t partitionCapacity_{};
     std::unordered_map<VertexId,VertexId> mirrors_;
+    struct MirrorChange {bool added;VertexId first,second;};
+    std::vector<MirrorChange> pendingMirrors_;
+    bool stepOpen_=false;
 };
 
 } // namespace mesher

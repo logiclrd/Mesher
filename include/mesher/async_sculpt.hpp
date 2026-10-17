@@ -12,6 +12,7 @@
 #include <exception>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 
 namespace mesher {
@@ -30,6 +31,8 @@ public:
     };
     struct Status {
         std::size_t completedStamps=0;
+        std::size_t rejectedStamps=0;
+        std::string lastRejection;
         std::size_t totalQueuedSteps=0;
         std::size_t pendingSteps=0;
         std::size_t pendingSegments=0;
@@ -51,10 +54,12 @@ public:
     AsyncSculptWorker(Mesh initial, double step, double strength,
                       double timeSpeed, CurvatureSettings curvature,
                       CollapseSettings collapse, RefineSettings refine,
-                      bool symmetric);
+                      bool symmetric,
+                      SculptStepValidator validator={});
     AsyncSculptWorker(DurableCheckpoint recovered,double step,double strength,
                      double timeSpeed,CurvatureSettings curvature,
-                     CollapseSettings collapse,RefineSettings refine);
+                     CollapseSettings collapse,RefineSettings refine,
+                     SculptStepValidator validator={});
 
     ~AsyncSculptWorker();
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;

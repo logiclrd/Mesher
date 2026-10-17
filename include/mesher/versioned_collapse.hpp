@@ -46,6 +46,9 @@ public:
     // Refinement may introduce a new mirrored midpoint before collapse.
     void addMirrorPair(VertexId first,VertexId second);
     void removeMirrorPair(VertexId first,VertexId second);
+    void beginStep();
+    void commitStep() noexcept;
+    void rollbackStep();
     double minimumEdge() const noexcept {return minimumEdge_;}
     const std::unordered_map<VertexId,VertexId>& mirrors() const noexcept {
         return mirrors_;
@@ -57,6 +60,9 @@ private:
     CollapseSettings settings_;
     std::size_t partitionCapacity_{};
     std::unordered_map<VertexId,VertexId> mirrors_;
+    struct MirrorChange {bool added;VertexId first,second;};
+    std::vector<MirrorChange> pendingMirrors_;
+    bool stepOpen_=false;
 };
 
 } // namespace mesher

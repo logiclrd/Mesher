@@ -1923,6 +1923,41 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17c: Reversible speculative Step with recoverable refusal
+
+The live V8 worker still samples the exact 4D stroke. V17c adds an **opt-in**
+`SculptStepValidator` invoked on one complete private post-Inflate,
+post-refine, post-collapse `ProposedSculptStep` containing the original
+published revision, proposed candidate and the exact changed vertex/face
+IDs. Returning an empty reason accepts; returning a message refuses. A
+validator's `std::length_error` (work budget) or `std::logic_error`
+(unsupported geometry) is converted to a recoverable refusal. Other
+unexpected failures remain fatal and are never classified as safe geometry.
+
+Refiner and collapser preserve the V5-V12 **O(touched pairs)** mirror cost:
+each Step records only mirror additions/deletions in a reversible journal.
+Rejected candidates replay inverse mirror operations in reverse order;
+private COW revision roots are discarded with no published root exchange,
+undo entry, renderer dirty delta, checkpoint change, or accepted-work
+accounting. The rejected Step is nevertheless counted as *consumed* by the
+unchanged sampler so later queued samples retain their precise 4D phase.
+The worker reports `rejectedStamps` and `lastRejection`. A worker may
+publish a same-root status mailbox notification with an empty dirty set;
+that is not a mesh-repository CAS. An accepted Step still publishes at most
+one final index root and updates its ordinary history/dirty bookkeeping.
+
+Regression includes an actual symmetric local split that is refused, then
+replayed and accepted with exact checkpoint mirror-map preservation and
+undo/redo; also a worker whose initial two samples refuse (one diagnostic,
+one thrown work limit), but whose later samples drain and commit normally.
+
+**Limits for future V17 milestones:** the validator has not yet been wired
+to V13/V14/V15/V16 collision repair, original-witness tolerance or symmetry-
+classified excision, and the default worker continues unmodified geometry
+behavior. Prepublication rejection is transactional; abnormal failures
+*after* acceptance (e.g. an unexpected history/CAS error) still need a
+stronger prepare/commit protocol if they are to be treated as recoverable.
+
 ## V17b: Bounded collision discovery without partial-safe results
 
 V13 `RegionTopologyIndex::triangleIntersections` now accepts an optional
