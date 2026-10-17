@@ -312,8 +312,10 @@ bool arrangeFace(
         for(const auto candidate:boundaryPoints) {
             const auto p=locate(node),q=locate(candidate);
             const auto distance=std::hypot(p.x-q.x,p.y-q.y);
+            const auto key=std::make_pair(std::min(node,candidate),
+                                          std::max(node,candidate));
             if(distance<=tolerance||distance>=smallest||
-               !visible(node,candidate))continue;
+               graph.contains(key)||!visible(node,candidate))continue;
             target=candidate;
             smallest=distance;
         }
