@@ -330,6 +330,12 @@ void testMirroredCandidateRetirementAndLiveRollback() {
             delta.repair->retiredFaces.size()==24&&
             delta.retiredMirrors.size()==8&&delta.insertedMirrors.empty(),
             "Classified reflected interior shells retire complete mirror orbits");
+    auto incompleteRetirement=delta;
+    incompleteRetirement.repair->retiredVertices.pop_back();
+    bool orphanRejected=false;
+    try {deriveMirroredRepairDeltas(incompleteRetirement,*initial,initialMap);}
+    catch(const std::logic_error&) {orphanRejected=true;}
+    require(orphanRejected,"Deleting only one end of a mirrored vertex pair is refused");
     require(initial->retiredFaceCount()==0&&
             initial->pickingRootIdentity()==originalRoot,
             "Symmetric classified evaluation preserves original index identity");
@@ -414,11 +420,12 @@ void testNewMirroredSeamPairsAndMissingOrbits() {
         require(a==b&&staged.repair->index->vertex(a).position.x==0,
                 "Every inserted seam correspondence is exact self-reflection");
     auto incomplete=staged;
-    incomplete.repair->insertedVertices.pop_back();
+    incomplete.repair->insertedVertices.push_back(
+        fixture.import.flatIndex.vertexIds.front());
     bool refused=false;
     try {deriveMirroredRepairDeltas(incomplete,*candidate,pairs);}
     catch(const std::logic_error&) {refused=true;}
-    require(refused,"Missing a seam mirror orbit rejects the private candidate");
+    require(refused,"Surgery may not claim a pre-existing ID as a new mirror orbit");
 }
 void testMirroredZipperUsesOnePlaneSeam() {
     const auto test=reflectedCubes(1.1);
