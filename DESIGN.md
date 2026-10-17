@@ -1966,6 +1966,15 @@ edits therefore cannot leak partially into the published model. Passing
 this gate alone is not a full historical Step: final stable-ID mirror
 journals, independent seam welding where cap/zipper alone is insufficient,
 and original-root one-CAS publication remain separate required work.
+The current complete interpenetrating closed-tetrahedron acceptance
+fixture exercises the real failure boundary: c3 selects exact buried
+child FaceIds, but V16 cannot produce an edge-length/quality-bounded
+zipper strip between the independent cut-sheet contours. This is an
+EXPECTED and correctly fail-closed refusal, not a Boolean union.
+V17e2b2d2 must build an explicit contact-provenance-bound seam join,
+matching genuine opposing source-sheet cut edges, rather than relax
+V16 triangle-quality criteria or cap the wrong contours.
+
 The general V17e2b2d and desktop Merge geometry milestone remain open.
 
 ## V17e2b2c3: Cavity-safe exact-child removal planning (private)
