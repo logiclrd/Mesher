@@ -139,10 +139,14 @@ bool arrangeFace(
     std::size_t& arrangementEdges,
     std::size_t& totalTriangles,
     const ConformingCutLimits& limits,
-    std::vector<Tri>& result) {
+    std::vector<Tri>& result,std::string& diagnostic) {
+    const auto refuse=[&](int location) {
+        diagnostic="arrangement stage line "+std::to_string(location);
+        return false;
+    };
     const auto source=index.face(faceId).vertices;
     const auto frameData=frame(index,faceId);
-    if(!frameData)return false;
+    if(!frameData)return refuse(__LINE__);
     const auto f=*frameData;
     const auto tolerance=1e-10*f.scale;
     const auto areaTolerance=1e-12*f.scale*f.scale;
@@ -157,11 +161,11 @@ bool arrangeFace(
     std::set<std::pair<std::size_t,std::size_t>> graph;
     std::set<std::size_t> boundaryPoints;
     const auto addEdge=[&](std::size_t a,std::size_t b) {
-        if(a==b)return false;
+        if(a==b)return refuse(__LINE__);
         if(arrangementEdges>=limits.maxArrangementEdges)
             throw std::length_error("Planar arrangement graph-edge budget");
         if(a>b)std::swap(a,b);
-        if(!graph.insert({a,b}).second)return false;
+        if(!graph.insert({a,b}).second)return refuse(__LINE__);
         ++arrangementEdges;
         return true;
     };
@@ -181,7 +185,7 @@ bool arrangeFace(
         boundary.push_back(corners[(side+1)%3]);
         boundaryPoints.insert(boundary.begin(),boundary.end());
         for(std::size_t i=1;i<boundary.size();++i)
-            if(!addEdge(boundary[i-1],boundary[i]))return false;
+            if(!addEdge(boundary[i-1],boundary[i]))return refuse(__LINE__);
     }
     struct Mark {double t{};std::size_t id{};};
     std::vector<std::vector<Mark>> segmentMarks;
@@ -211,28 +215,28 @@ bool arrangeFace(
             const auto qp=subtract(q,p);
             const auto scaleProduct=std::hypot(r.x,r.y)*
                                      std::hypot(s.x,s.y);
-            if(scaleProduct==0)return false;
+            if(scaleProduct==0)return refuse(__LINE__);
             if(std::abs(denominator)<=1e-12*scaleProduct) {
                 // Near-parallel lines can share a long collinear portion;
                 // no unverified overlapping constraints may be retained.
                 if(std::abs(cross2(qp,r))<=tolerance*
-                   std::hypot(r.x,r.y))return false;
+                   std::hypot(r.x,r.y))return refuse(__LINE__);
                 continue;
             }
             const double t=cross2(qp,s)/denominator;
             const double u=cross2(qp,r)/denominator;
             if(t< -1e-10||t>1+1e-10||
                u< -1e-10||u>1+1e-10)continue;
-            if(t<0||t>1||u<0||u>1)return false; // grazing uncertainty
+            if(t<0||t>1||u<0||u>1)return refuse(__LINE__); // grazing uncertainty
             const auto intersection=Point2{p.x+t*r.x,p.y+t*r.y};
             std::optional<std::size_t> id;
             if(t<=1e-10)id=a.a;
             else if(t>=1-1e-10)id=a.b;
             if(u<=1e-10) {
-                if(id&&*id!=b.a)return false;
+                if(id&&*id!=b.a)return refuse(__LINE__);
                 id=b.a;
             }else if(u>=1-1e-10) {
-                if(id&&*id!=b.b)return false;
+                if(id&&*id!=b.b)return refuse(__LINE__);
                 id=b.b;
             }
             if(!id)id=existingAt(intersection);
@@ -259,13 +263,13 @@ bool arrangeFace(
             if(!ordered.empty()&&
                std::hypot(locate(ordered.back()).x-locate(mark.id).x,
                           locate(ordered.back()).y-locate(mark.id).y)
-               <=tolerance)return false;
+               <=tolerance)return refuse(__LINE__);
             ordered.push_back(mark.id);
         }
         for(std::size_t j=1;j<ordered.size();++j)
-            if(!addEdge(ordered[j-1],ordered[j]))return false;
+            if(!addEdge(ordered[j-1],ordered[j]))return refuse(__LINE__);
     }
-    if(graph.empty())return false;
+    if(graph.empty())return refuse(__LINE__);
     // A section may stop inside this face because the intersection
     // continues across the OTHER sheet's source edge. Those endpoints
     // are true constrained vertices but require ordinary (unconstrained)
@@ -284,20 +288,20 @@ bool arrangeFace(
             const auto denominator=cross2(r,segment);
             const auto scaleProduct=std::hypot(r.x,r.y)*
                                      std::hypot(segment.x,segment.y);
-            if(!(scaleProduct>0))return false;
+            if(!(scaleProduct>0))return refuse(__LINE__);
             if(std::abs(denominator)<=1e-12*scaleProduct) {
                 if(std::abs(cross2(xp,r))<=tolerance*
                    std::hypot(r.x,r.y)) {
                     // Another graph node lies on this proposed scaffold,
                     // so connecting directly would introduce a T-junction.
-                    return false;
+                    return refuse(__LINE__);
                 }
                 continue;
             }
             const auto t=cross2(xp,segment)/denominator;
             const auto u=cross2(xp,r)/denominator;
             if(t>=-1e-10&&t<=1+1e-10&&
-               u>=-1e-10&&u<=1+1e-10)return false;
+               u>=-1e-10&&u<=1+1e-10)return refuse(__LINE__);
         }
         return true;
     };
@@ -313,7 +317,7 @@ bool arrangeFace(
             target=candidate;
             smallest=distance;
         }
-        if(!target||!addEdge(node,*target))return false;
+        if(!target||!addEdge(node,*target))return refuse(__LINE__);
     }
     std::map<std::size_t,std::vector<std::size_t>> outgoing;
     for(const auto& [a,b]:graph) {
@@ -338,11 +342,11 @@ bool arrangeFace(
             std::size_t u=start,v=neighbor;
             bool closed=false;
             for(std::size_t steps=0;steps<=graph.size()*2;++steps) {
-                if(!visited.insert({u,v}).second)return false;
+                if(!visited.insert({u,v}).second)return refuse(__LINE__);
                 polygon.push_back(u);
                 const auto& at=outgoing.at(v);
                 const auto reverse=std::find(at.begin(),at.end(),u);
-                if(reverse==at.end())return false;
+                if(reverse==at.end())return refuse(__LINE__);
                 const auto index=static_cast<std::size_t>(reverse-at.begin());
                 const auto w=at[(index+at.size()-1)%at.size()];
                 u=v;v=w;
@@ -350,17 +354,17 @@ bool arrangeFace(
                     closed=true;break;
                 }
             }
-            if(!closed||polygon.size()<3)return false;
+            if(!closed||polygon.size()<3)return refuse(__LINE__);
             std::set<std::size_t> unique(polygon.begin(),polygon.end());
-            if(unique.size()!=polygon.size())return false;
+            if(unique.size()!=polygon.size())return refuse(__LINE__);
             const auto signedArea=area2(polygon,positions);
             if(signedArea< -areaTolerance)continue; // unbounded exterior
-            if(signedArea<=areaTolerance)return false;
+            if(signedArea<=areaTolerance)return refuse(__LINE__);
             ++foundPositive;
             const auto allowed=limits.maxTriangles-totalTriangles;
             const auto before=result.size();
             if(!earClip(polygon,positions,areaTolerance,result,
-                        before+allowed))return false;
+                        before+allowed))return refuse(__LINE__);
             totalTriangles+=result.size()-before;
     }
     return foundPositive>0&&positiveArea(index,faceId,result,points);
@@ -510,10 +514,14 @@ ConformingCutPlan buildMultiSectionCutPlan(
         std::array<std::size_t,3> corners{};
         for(unsigned j=0;j<3;++j)corners[j]=original(ids[j]);
         std::vector<Tri> triangles;
+        std::string diagnostic;
         if(!arrangeFace(index,face,corners,cuts,perFace[face],
                         result.points,newlyCreated,arrangementTests,
-                        arrangementEdges,totalTriangles,limits,triangles))
-            return reject("Planar arrangement is non-simple, degenerate or overlapping");
+                        arrangementEdges,totalTriangles,limits,triangles,diagnostic)) {
+            const auto reason="Planar arrangement on face "+
+                std::to_string(face)+": "+diagnostic;
+            return reject(reason.c_str());
+        }
         result.faces.push_back({face,std::move(triangles)});
     }
     result.status=IntersectionSectionStatus::TransverseSegment;
