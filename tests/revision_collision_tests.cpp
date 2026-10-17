@@ -758,6 +758,8 @@ void testPrivateConformingRevisionCommitsAtomically() {
                  <<" reason="<<joined.refusal
                  <<" boundaries="<<joined.checkedBoundaryEdges
                  <<" welds="<<joined.weldedPairs.size()<<'\n';
+        if(!joined.complete)
+            throw std::runtime_error("Real positive cut-seam join refused: "+joined.refusal);
         if(joined.complete) {
             check(joined.commit&&joined.index&&
                   joined.commit->revision.get()==&joined.index->revision()&&
