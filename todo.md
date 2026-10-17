@@ -990,14 +990,38 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   negative signed winding outside and real mirrored/unmirrored cut candidates,
   work exhaustion and missing/forged original provenance.
   **Finite interior probes are NOT a continuous occupancy certificate.**
-- [ ] **V17e2b2c2 — Complete local contact-curve coverage certificate.**
-  Prove every affected child triangle's OPEN INTERIOR is free of otherwise
-  unmodeled surface intersections, with explicit support for all true
-  contact edge segments and local edge-neighbor conformance. Only after
-  that certificate can a uniform reliable winding class authorize removal
-  of exact child FaceIds. Reject incomplete contact batches, uncertain
-  tangencies, close/coplanar sheets, odd seams, and uncertain cavities
-  instead of extrapolating from finite interior samples.
+- [x] **V17e2b2c2 — Complete local contact-curve coverage certificate.**
+  Persist the exact original V13 contact list beside each private
+  RegionEdit's original/child FaceId journal. INDEPENDENTLY rediscover
+  every original collision involving every changed source face using
+  strict bounded V13 collision queries, demanding identical complete
+  nonambiguous face-pair sets. Reconstruct each original transverse
+  line section, match both distinct persistent sheet endpoints, and
+  establish CONTINUOUS segment coverage by real child face EDGES on
+  BOTH sheets, including split crossing/T-junction chains. Check real
+  child planar containment, positive original orientation and full
+  source-area conservation, plus nonoverlapping sibling subtriangles.
+  Reject any uncut overlap of a child's OPEN interior with the opposing
+  ORIGINAL face's FINITE true section (not its infinite supporting plane).
+  Budget original collision search, edge tracing and child predicates.
+  Unlisted/stale/ambiguous contacts, failed section traces, area holes,
+  overlaps, near-degenerate and unsupported contact geometries refuse
+  atomically: NO usable partial certificate, NO deletion or publication.
+  Closed two-tetra full-contact positive regression and incomplete or
+  forged lists, endpoints, work limits and historical root preservation.
+  This establishes COMPLETE local contact-curve coverage only WITHIN the
+  supported finite-tolerance transverse V13 domain, not universally
+  exact predicates or authorization to delete cavity interfaces.
+- [ ] **V17e2b2c3 — Combine certified exact-child occupancy and removal policy.**
+  Require a c2 contact-complete certificate AND c1 reliable positive
+  winding across every true child, with matching unchanged root/IDs.
+  Explicitly nominate buried or outside children for a private V15
+  excision according to union/cavity policy; never delete legitimate
+  exposed or reversed cavity interfaces merely because winding is
+  nonzero. Stage complete mirrored orbits, resulting contour boundaries,
+  and fail-closed removal sets. No topology changes accepted until
+  V16 closes and validates the WHOLE candidate and V17 publishes one
+  complete historical Step.
 - [ ] **V17e2b2c — Exact subdivided-fragment positive-winding classification.**
   Classify the exposed/buried status of each REAL child triangle on both
   sides using positive signed winding w>0 and strict local predicates,
