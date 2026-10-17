@@ -50,22 +50,53 @@ bool sameEnds(const std::array<Vec3,2>& a,
 // cannot intersect that plane, hence cannot cross that entire other face.
 // The entire original-source contact curve must additionally be traced
 // along child EDGES to prove the cut was actually installed.
-bool noInteriorPlaneCrossing(const Points& child,const Points& opposing,
-                             double epsilon) {
+bool noInteriorContactCrossing(const Points& child,const Points& opposing,
+                               Vec3 sectionStart,Vec3 sectionEnd,
+                               double epsilon) {
     const auto normal=cross(opposing[1]-opposing[0],
                             opposing[2]-opposing[0]);
     const double norm=length(normal);
-    if(!(norm>0)||!std::isfinite(norm))return false;
+    const auto span=sectionEnd-sectionStart;
+    const double spanLength=length(span);
+    if(!(norm>0)||!std::isfinite(norm)||!(spanLength>4*epsilon))
+        return false;
+    const auto direction=span/spanLength;
+    std::array<double,3> distance{};
     unsigned positive=0,negative=0,onPlane=0;
-    for(const auto vertex:child) {
-        if(!finite(vertex))return false;
-        const auto distance=dot(vertex-opposing[0],normal)/norm;
-        if(!std::isfinite(distance))return false;
-        if(distance>epsilon)++positive;
-        else if(distance< -epsilon)++negative;
+    for(unsigned i=0;i<3;++i) {
+        if(!finite(child[i]))return false;
+        distance[i]=dot(child[i]-opposing[0],normal)/norm;
+        if(!std::isfinite(distance[i]))return false;
+        if(distance[i]>epsilon)++positive;
+        else if(distance[i]< -epsilon)++negative;
         else ++onPlane;
     }
-    return !(positive&&negative)&&onPlane!=3;
+    if(onPlane==3)return false; // unsupported coplanar original children
+    if(!positive||!negative)return true;
+
+    // A triangle may cross the OTHER face's infinite plane OUTSIDE
+    // the FINITE true original face/face intersection. Intersect the
+    // child's edges with that plane, project its entire clipped interval
+    // onto the known finite V13 section and refuse ONLY when that
+    // interval overlaps the section's open interior with positive extent.
+    std::vector<double> lineParameters;
+    for(unsigned i=0;i<3;++i) {
+        const auto j=(i+1)%3;
+        if(std::abs(distance[i])<=epsilon)
+            lineParameters.push_back(dot(child[i]-sectionStart,direction));
+        if((distance[i]>epsilon&&distance[j]< -epsilon)||
+           (distance[i]< -epsilon&&distance[j]>epsilon)) {
+            const auto fraction=distance[i]/(distance[i]-distance[j]);
+            const auto p=child[i]+(child[j]-child[i])*fraction;
+            if(!finite(p))return false;
+            lineParameters.push_back(dot(p-sectionStart,direction));
+        }
+    }
+    if(lineParameters.size()<2)return false; // ill-conditioned clip
+    const auto [lo,hi]=std::minmax_element(
+        lineParameters.begin(),lineParameters.end());
+    if(!std::isfinite(*lo)||!std::isfinite(*hi))return false;
+    return !(std::min(*hi,spanLength)-std::max(*lo,0.0)>epsilon);
 }
 
 // Extract the exact straight-line interval from the collection of REAL
@@ -259,17 +290,17 @@ CutCoverageCertificate certifyConformingCutCoverage(
             if(out.childPairTests>=limits.maxChildPairTests)
                 throw std::length_error("Cut coverage child-plane tests exhausted");
             ++out.childPairTests;
-            if(!noInteriorPlaneCrossing(facePoints(*cut.index,child),
-                                        originalB,epsilon))
-                return reject("A child open interior still crosses its opposing face plane");
+            if(!noInteriorContactCrossing(facePoints(*cut.index,child),
+                                       originalB,positionedA[0],positionedA[1],epsilon))
+                return reject("A child open interior still crosses a finite original contact");
         }
         for(const auto child:children.at(contact.second)) {
             if(out.childPairTests>=limits.maxChildPairTests)
                 throw std::length_error("Cut coverage child-plane tests exhausted");
             ++out.childPairTests;
-            if(!noInteriorPlaneCrossing(facePoints(*cut.index,child),
-                                        originalA,epsilon))
-                return reject("A reflected/second child still crosses its opposing face plane");
+            if(!noInteriorContactCrossing(facePoints(*cut.index,child),
+                                       originalA,positionedB[0],positionedB[1],epsilon))
+                return reject("A reflected/second child still crosses a finite original contact");
         }
         ++out.checkedContacts;
     }
