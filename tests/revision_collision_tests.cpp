@@ -791,6 +791,14 @@ void testCrossingMultipleSectionsPerOriginalTriangle() {
         baseline,contacts,limits);}
     catch(const std::length_error&) {edgesExceeded=true;}
     check(edgesExceeded,"Bounded arrangement graph edges refuse over-budget work");
+    limits={};
+    limits.maxArrangementPredicates=0;
+    bool predicatesExceeded=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,limits);}
+    catch(const std::length_error&) {predicatesExceeded=true;}
+    check(predicatesExceeded,
+          "Zero visibility/ear predicate budget refuses before an incomplete revision");
 
     const auto malformed=std::vector<RegionTopologyIndex::CollisionPair>{
         contacts[0],contacts[0]};
