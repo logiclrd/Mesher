@@ -481,6 +481,34 @@ void testWorkerRejectsOneStepAndDrainsRemainingInput() {
     require(last&&last->index&&last->index!=firstRoot,
             "After two refusals later Step still publishes a valid indexed revision");
 }
+void testOptInCollisionAssessmentOnCleanAsyncStrokes() {
+    SphereOptions options;
+    options.vertexCount=500;
+    options.relaxationIterations=6;
+    const auto initial=generateSphere(options);
+    SculptCollisionSettings collision;
+    collision.enabled=true;
+    AsyncSculptWorker worker(initial,.025,.006,.2,{}, {},{},false,
+                            {},collision);
+    const auto first=worker.initialRevision();
+    worker.begin({-.25,-.65,.7},.35);
+    worker.update({-.26,-.66,.69},.1);
+    worker.end({-.27,-.67,.68},.2);
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(15);
+    while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto state=worker.status();
+    require(worker.canBegin()&&state.pendingSteps==0&&
+            state.collisionCheckedStamps>0&&
+            state.collisionRepairedStamps==0&&
+            state.rejectedStamps==0&&
+            state.publishedRevisions==state.history.undoDepth,
+            "Opt-in complete-candidate collision policy preserves clean worker commits");
+    auto last=worker.takeSnapshot();
+    require(last&&last->index&&last->index!=first,
+            "Clean collision-checked Steps still publish immutable index snapshots");
+}
 void testVersionedWorkerWithRemeshingEnabled() {
     SphereOptions options;
     options.vertexCount=500;
@@ -534,6 +562,7 @@ int main() {
         testReversibleMirrorDeltaJournals();
         testRejectedSymmetricStepRollsBackMirrorsAndHistory();
         testWorkerRejectsOneStepAndDrainsRemainingInput();
+        testOptInCollisionAssessmentOnCleanAsyncStrokes();
         testVersionedWorkerWithRemeshingEnabled();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
