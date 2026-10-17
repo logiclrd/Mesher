@@ -962,7 +962,8 @@ void testMirroredMultipleSectionsReadOnly() {
             check(i<plan.points.size(),
                   "Every original and generated arrangement point is explicitly paired");
         for(const auto& part:plan.faces) {
-            if(part.sourceFace>=faces[12])continue;
+            if(std::find(faces.begin(),faces.begin()+12,
+                         part.sourceFace)==faces.begin()+12)continue;
             auto reflectedVertices=index->face(part.sourceFace).vertices;
             for(auto& id:reflectedVertices)id=reflection.at(id);
             std::sort(reflectedVertices.begin(),reflectedVertices.end());
