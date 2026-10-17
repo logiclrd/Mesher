@@ -1956,7 +1956,11 @@ must agree, and deletions must form complete mirror orbits. A partial
 mirror journal or asymmetric occupancy refuses the entire proposal.
 The result reports all protected children, the selected exact child
 FaceIds and their reflected pairs only AFTER every classification and
-topology test succeeds.
+topology test succeeds. It also derives a consistent original/new
+VertexId mirror mapping from corresponding child corners, pairs the
+directed V15 removal contour loops under reversed reflection, and
+checks that cap and zipper choices are orbit-compatible; an unmatched
+self-reflected contour still fails closed at this stage.
 
 V15's `planRemovalContours` is used on those EXACT FaceIds to establish
 legal retained-face boundary loops and a private cap/zipper closure
@@ -1964,7 +1968,17 @@ candidate. A non-Ready contour plan or unsupported geometry is an atomic
 refusal and cannot leak a partial deletion set. The output is NOT a
 V16 surgery, has not retired any face, does not apply any mirror journal,
 and does not modify a renderer, checkpoint, undo stack, worker, or
-published root. V16 must still perform whole-candidate private surgery,
+published root. Closed two-tetrahedron full-contact regression exercises genuine
+protected AND removed exact-child FaceIds (16 selected and 27
+protected on the original nonmirrored fixture) and the reflected
+fixture exercises complete paired face/contour journals. The default
+V15 quick area/planarity prefilter may refuse heavily warped loops;
+positive tests explicitly supply finite, less restrictive preliminary
+V15 shape/gap bounds without bypassing contour topology checks or
+altering the production defaults. Unsupported or asymmetric choices
+still refuse before reaching V16.
+
+V16 must still perform whole-candidate private surgery,
 close contours, preserve exposed original features, verify all residual
 intersections and fidelity, and V17 must stage one final original-root
 CAS. No desktop Merge geometry control is enabled.
