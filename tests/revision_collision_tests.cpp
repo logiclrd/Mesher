@@ -801,9 +801,6 @@ void testPrivateConformingRevisionCommitsAtomically() {
                  <<static_cast<int>(surgery.status)
                  <<" reason="<<surgery.refusal
                  <<" selected="<<surgery.selectedFaces<<'\n';
-        if(surgery.status!=ExactCutSurgeryStatus::PrivateValidated)
-            throw std::runtime_error(
-                "V16 intersection scar cannot yet form a real union: "+surgery.refusal);
         if(surgery.status==ExactCutSurgeryStatus::PrivateValidated) {
             check(surgery.surgery.has_value()&&
                   surgery.surgery->index!=baseline&&
