@@ -732,8 +732,9 @@ void testDistinctReflectedCrossingEdgesRejectAsSelfIntersection() {
     const std::vector<std::pair<VertexId,VertexId>> mirror={
         {v[0],v[4]},{v[1],v[5]},{v[2],v[6]},{v[3],v[7]}};
     const auto plan=planRemovalContours(*base,{f[0],f[4]});
-    require(plan.ready()&&plan.contours.size()==2,
-            "Asymmetric reflected tetrahedral triangles generate two valid cut contours");
+    if(!plan.ready()||plan.contours.size()!=2)
+        throw std::runtime_error("Asymmetric reflected tetrahedral plan refused: "+
+            plan.reason+" (status "+std::to_string(static_cast<int>(plan.status))+")");
     const auto identity=base->pickingRootIdentity();
     bool rejected=false;
     try {
