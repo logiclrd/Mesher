@@ -1053,7 +1053,11 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   revision with a tiny original-edge-relative tolerance. Refusals,
   invalid mirror maps, unsupported contours, stale revisions, budgets,
   residual contacts, and protected-surface loss return NO surgery root,
-  never a half-approved V15 removal journal. No Step CAS/history,
+  never a half-approved V15 removal journal. The complete real
+  closed-tetrahedron union fixture currently refuses the older V16
+  closure with "No edge-length/quality-bounded zipper strip"; do NOT
+  relax triangle-quality constraints or claim a successful Boolean.
+  No Step CAS/history,
   renderer, picking or UI changes. Actual unjoined transverse seams
   require the next independent proven surgery milestone.
 - [ ] **V17e2b2d2 — Join real cut section seams, then exact-child removal.**
