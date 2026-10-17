@@ -741,10 +741,11 @@ void testPrivateConformingRevisionCommitsAtomically() {
                  <<" removed="<<nomination.proposedRemoval.size()
                  <<" protected="<<nomination.protectedChildren.size()
                  <<'\n';
-        check(nomination.status==CutRemovalStatus::Ready||
-              nomination.status==CutRemovalStatus::NoChanges||
-              nomination.status==CutRemovalStatus::Refused,
-              "Nomination API returns only explicit read-only states");
+        if(!nomination.ready())
+            throw std::runtime_error(
+                "Full-contact exact-child nomination refused: "+
+                nomination.refusal+" (status="+
+                std::to_string(static_cast<int>(nomination.status))+")");
         if(nomination.ready()) {
             check(nomination.contourPlan.ready()&&
                   nomination.contourPlan.removedFaces==
@@ -1083,6 +1084,11 @@ void testMirroredCompleteContactCoverage() {
              <<" removed="<<mirroredProposal.proposedRemoval.size()
              <<" mirrorPairs="<<mirroredProposal.mirroredRemoval.size()
              <<'\n';
+    if(!mirroredProposal.ready())
+        throw std::runtime_error(
+            "Full mirrored exact-child nomination refused: "+
+            mirroredProposal.refusal+" (status="+
+            std::to_string(static_cast<int>(mirroredProposal.status))+")");
     if(mirroredProposal.ready()) {
         check(mirroredProposal.mirroredRemoval.size()*2==
                   mirroredProposal.proposedRemoval.size()&&
