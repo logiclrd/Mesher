@@ -1138,6 +1138,58 @@ void testExplicitClassifiedRepairPolicyAndNoChanges() {
     require(rejected,
             "Classified wrapper rejects two conflicting ways of setting feature policy");
 }
+void testNearTangentAndFoldedClassificationStress() {
+    // Three two-shell configurations: a known volumetric overlap, an
+    // almost grazing near-coplanar contact and an exact tangent plane.
+    // Neither a winding-ambiguity refusal nor a validated private
+    // surgery may change the original renderer/picker's immutable root.
+    bool sawActualIntersection=false;
+    for(const unsigned variant:{0u,1u,2u}) {
+        Mesh mesh;
+        Vec3 a{-0.55,-0.1,-0.2},b{0.55,0.15,0.2};
+        double half=.9;
+        if(variant==1) {
+            half=1;
+            a={-1,0,0};
+            b={1-1e-7,.03,.07};
+        }else if(variant==2) {
+            half=1;
+            a={-1,0,0};
+            b={1,0,0};
+        }
+        cube(mesh,a,half);
+        cube(mesh,b,half);
+        const auto imported=partitionFlatMesh(mesh,1);
+        const auto initial=RegionTopologyIndex::build(imported.revision);
+        const auto root=initial->pickingRootIdentity();
+        RepairSurgerySettings settings;
+        settings.planning.sampleDepth=1;
+        settings.planning.maxClassifiedFaces=64;
+        const auto plan=planApproximateExcision(
+            *initial,imported.flatIndex.vertexIds,{},{},settings.planning);
+        if(plan.intersections>0)sawActualIntersection=true;
+        if(plan.ready()) {
+            try {
+                const auto repaired=applyClassifiedExcisionRepair(
+                    initial,imported.flatIndex.vertexIds,{},{},
+                    ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,
+                    settings);
+                if(repaired.surgery)
+                    require(repaired.surgery->index->triangleIntersections(
+                            {},repaired.surgery->insertedFaces).empty(),
+                            "Accepted near-contact surgery has no residual scar intersections");
+            }catch(const std::exception&) {
+                // Budget, uncertain winding or candidate geometry may
+                // legitimately refuse this difficult near-contact edit.
+            }
+        }
+        require(initial->pickingRootIdentity()==root&&
+                initial->retiredFaceCount()==0,
+                "Near-tangent or folded contact never mutates an original snapshot");
+    }
+    require(sawActualIntersection,
+            "Stress fixture exercises actual overlapping triangles, not only harmless gaps");
+}
 void testSequentialOverlappingHistoryAndStaleCuts() {
     Mesh m;
     for(unsigned i=0;i<5;++i)
@@ -1294,6 +1346,8 @@ int main() {
         testExplicitClassifiedRepairPolicyAndNoChanges();
         std::cout<<"Surgery fixture: sequential stale overlapping repair plans"<<std::endl;
         testSequentialOverlappingHistoryAndStaleCuts();
+        std::cout<<"Surgery fixture: grazing and intersecting classified candidates"<<std::endl;
+        testNearTangentAndFoldedClassificationStress();
         std::cout<<"Surgery fixture: local geometric bounds"<<std::endl;
         testGeometricValidationBudgets();
         std::cout<<"Surgery fixture: repeated mirrored edits"<<std::endl;
