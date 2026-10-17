@@ -8,7 +8,10 @@
 #include "mesher/durable_checkpoint.hpp"
 
 #include <chrono>
+#include <functional>
 #include <memory>
+#include <span>
+#include <string>
 
 namespace mesher {
 
@@ -25,6 +28,18 @@ Mesh flattenRevisionForViewport(const RegionTopologyIndex& index,
                                 const FlatMeshIndex& originalOrder,
                                 ViewportFlattenStatistics* statistics=nullptr);
 
+// A candidate validator runs only on the worker thread, after all
+// Inflate/refine/collapse edits, but before publishing the original-root CAS.
+// Empty reason accepts; a nonempty reason rejects the ENTIRE Step.
+// The spans are borrowed for this synchronous call only.
+struct ProposedSculptStep {
+    std::shared_ptr<const RegionTopologyIndex> before;
+    std::shared_ptr<const RegionTopologyIndex> candidate;
+    std::span<const VertexId> changedVertices;
+    std::span<const FaceId> changedFaces;
+};
+using SculptStepValidator=std::function<std::string(const ProposedSculptStep&)>;
+
 // The BrushStroke owns sampling and queue semantics; this brush owns *all*
 // editable geometry and uses a dummy Mesh solely to satisfy BrushStroke's
 // existing callback signature. Each stamp publishes one immutable index/root
@@ -34,11 +49,13 @@ public:
     VersionedSculptBrush(const Mesh& initial,double strength,
                          CurvatureSettings curvature,CollapseSettings collapse,
                          RefineSettings refine,bool symmetric,
-                         std::size_t partitionCapacity=256);
+                         std::size_t partitionCapacity=256,
+                         SculptStepValidator validator={});
     VersionedSculptBrush(DurableCheckpoint restored,double strength,
                          CurvatureSettings curvature,CollapseSettings collapse,
                          RefineSettings refine,
-                         std::size_t partitionCapacity=256);
+                         std::size_t partitionCapacity=256,
+                         SculptStepValidator validator={});
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
@@ -54,6 +71,8 @@ public:
         return flatOrder_;
     }
     std::size_t completedStamps() const noexcept {return completed_;}
+    std::size_t rejectedStamps() const noexcept {return rejected_;}
+    const std::string& lastRejection() const noexcept {return lastRejection_;}
     StampTimings lastTimings() const noexcept {return timings_;}
     const StampDetails& lastDetails() const noexcept {return details_;}
     std::size_t publishedRevisions() const noexcept {return publishedRevisions_;}
@@ -68,7 +87,8 @@ private:
     VersionedSculptBrush(PartitionedMeshImport import,std::size_t initialCount,
                          double strength,CurvatureSettings curvature,
                          CollapseSettings collapse,RefineSettings refine,
-                         bool symmetric,std::size_t partitionCapacity);
+                         bool symmetric,std::size_t partitionCapacity,
+                         SculptStepValidator validator);
     std::shared_ptr<const FlatMeshIndex> flatOrder_;
     IndexedMeshRepository published_;
     RevisionRetirementQueue historyRetirement_{64};
@@ -79,7 +99,9 @@ private:
     std::size_t partitionCapacity_;
     std::size_t initialVertexCount_{};
     std::size_t vertices_{},faces_{};
-    std::size_t completed_{},publishedRevisions_{};
+    std::size_t completed_{},publishedRevisions_{},rejected_{};
+    SculptStepValidator validator_;
+    std::string lastRejection_;
     std::size_t modifiedPartitions_{},copiedDirectoryNodes_{};
     std::size_t clonedPartitionBytes_{};
     StampTimings timings_{};
