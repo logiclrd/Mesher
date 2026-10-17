@@ -120,7 +120,7 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     RegionTopologyIndex::CollisionStatistics measured;
     const auto residual=classified.surgery->index->triangleIntersections(
         finalVertices,finalFaces,&measured,surgery.residualCollisionLimits);
-    outcome.finalVerifiedContacts=measured.narrowPhaseTests;
+    outcome.finalNarrowPhaseTests=measured.narrowPhaseTests;
     if(!residual.empty()) {
         outcome.refusal="Entire repaired Step retains a collision or ambiguous contact";
         return outcome;
