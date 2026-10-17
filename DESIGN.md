@@ -1941,9 +1941,12 @@ curve endpoints as correspondence, not premature topology welds.
 
 Optional strict reflection pairing derives mirror identities from the
 *original edge or original owning face*, rather than treating any two
-coincident points across the intersecting sheets as one. Reflected
-coordinates must match exactly and all pairs be unambiguous and
-reciprocal; incompleteness refuses the entire plan. Hard limits apply
+coincident points across the intersecting sheets as one. Reflected cut points must match within a strict bound derived from the
+original local edge lengths and floating-coordinate roundoff; accepted
+pairs are canonicalized to **exact** reflected positions. The resulting
+points must still lie on their original source edge/face planes and all
+triangulated patches must preserve original winding/area. Ambiguous or
+missing reciprocal partners refuse the entire plan. Hard limits apply
 to discovered pairs, affected original faces, newly generated points,
 and total generated triangles. Unsupported/ambiguous contact, repeated
 independent curve sections involving one source face, more than two
