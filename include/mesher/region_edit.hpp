@@ -89,6 +89,10 @@ public:
     const MeshRevision& revision() const noexcept {return *revision_;}
     const Vertex& vertex(VertexId id) const {return vertices_.at(id);}
     const Face& face(FaceId id) const {return faces_.at(id);}
+    // Read-only presence query for COW revisions and net surgery deltas.
+    std::shared_ptr<const Face> maybeFace(FaceId id) const {
+        return faces_.find(id);
+    }
     std::shared_ptr<const Vertex> maybeVertex(VertexId id) const {
         return vertices_.find(id);
     }
