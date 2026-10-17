@@ -127,13 +127,20 @@ struct ConformingCutCandidate {
     std::vector<VertexId> insertedVertices;
     std::vector<FaceId> insertedFaces;
     std::vector<FaceId> rewrittenFaces;
+    // V17e2b2b3b: complete NET inserted-vertex and rewritten/inserted
+    // face mirror orbits, ready for a future original-root Step journal.
+    // Empty for the nonmirrored path; no published map is mutated here.
+    std::vector<std::pair<VertexId,VertexId>> mirroredVertices;
+    std::vector<std::pair<FaceId,FaceId>> mirroredFaces;
     std::vector<std::array<VertexId,2>> sectionFirst;
     std::vector<std::array<VertexId,2>> sectionSecond;
 };
 // Always REBUILDS the cut plan from the current immutable revision and
 // exact caller-supplied V13 contact pairs; never trusts an arbitrary
-// precomputed point/face graph. For now symmetric RegionEdit construction
-// needs a separate paired-face staging protocol and is explicitly refused.
+// precomputed point/face graph. For an explicit mirror map, the V17e2b2b3b
+// branch stages unique new vertex and child-face orbits in ONE private
+// paired RegionEdit. New X=0 cuts and invariant source faces still refuse;
+// the returned root is NOT a Boolean union or live accepted sculpt Step.
 // An unsupported or ambiguous multiple-section arrangement still refuses
 // without returning partial topology. Failure leaves old roots untouched.
 ConformingCutCandidate materializeTransverseCutCandidate(
