@@ -46,7 +46,7 @@ std::vector<std::pair<VertexId,VertexId>> makeMirrors(
 // surgery-touched IDs is examined for delta derivation. Existing pairs are
 // checked by V16 when the surgeon is called; the caller supplies the
 // collapser's already staged post-refinement/post-collapse map.
-void deriveMirroredDeltas(
+void deriveMirroredRepairDeltas(
     SculptCollisionEvaluation& outcome,
     const RegionTopologyIndex& candidate,
     const std::unordered_map<VertexId,VertexId>& oldMirrors) {
@@ -184,7 +184,7 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
         retain(normalized.insertedFaces,netFaceAdded);
         retain(normalized.retiredFaces,netFaceRemoved);
         outcome.repair=std::move(normalized);
-        deriveMirroredDeltas(outcome,*proposed.candidate,*vertexMirrors);
+        deriveMirroredRepairDeltas(outcome,*proposed.candidate,*vertexMirrors);
     }else {
         auto classified=applyClassifiedExcisionRepair(
             proposed.candidate,vertices,faces,isolatedComponentSeeds,
@@ -407,9 +407,12 @@ void VersionedSculptBrush::stamp(
         ++collisionChecked_;
         SculptCollisionEvaluation judged;
         try {
+            std::vector<FaceId> seeds;
+            for(const auto id:collision_.isolatedComponentSeeds)
+                if(updated->maybeFace(id))seeds.push_back(id);
             judged=evaluateSculptCollisionCandidate(
                 {old,updated,std::span<const VertexId>(changedVertices),
-                 std::span<const FaceId>(changedFaces)},symmetric_,collision_,{},
+                 std::span<const FaceId>(changedFaces)},symmetric_,collision_,seeds,
                 symmetric_?&collapser_.mirrors():nullptr);
         }catch(const std::length_error& error) {
             collisionRefusal=error.what();
