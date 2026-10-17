@@ -1944,10 +1944,14 @@ the entire original intersection segment must be covered, without
 missing intervals, by collinear edges of the ACTUAL child FaceIds.
 A curve broken at a crossing or interior T-junction is naturally accepted
 as a chain of multiple edges; an uncut diagonal through the open
-interior does not count. In addition, no child of the originating face
-may have vertices on both strict sides of the other source triangle's
-supporting plane: every child's open interior therefore stays away
-from that plane within the supported numerical tolerance. Geometry
+interior does not count. To distinguish true open-interior interference
+from harmless crossings of an opposing face's infinite supporting
+plane OUTSIDE the actual triangle, the verifier clips the child's
+intersection with that plane to the FINITE original transverse
+contact interval. A positive-length overlap in the open interior
+refuses, whereas an intersection beyond the opposing face does not.
+Within the supported finite-tolerance predicate domain, this excludes
+a remaining unmodeled child-interior contact. Geometry
 is checked independently: children must remain oriented, coplanar,
 inside the source boundary and sum to the original signed area; child
 triangles of the same source must not overlap each other. RegionEdit
