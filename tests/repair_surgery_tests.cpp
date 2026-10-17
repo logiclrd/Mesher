@@ -1329,8 +1329,8 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
         for(const unsigned off:{8u,9u,20u,21u})
             exterior.push_back(imported.flatIndex.faceIds[first+off]);
     const auto witnesses=sampleSurfaceWitnesses(*starting.index,exterior);
-    require(witnesses.size()==28,
-            "Four initial exterior triangles produce fixed original witnesses");
+    require(witnesses.size()==56,
+            "Eight initial exterior triangles produce fixed original witnesses");
 
     const auto zones=[&](unsigned tower) {
         const auto y=tower==0?-4.0:4.0;
