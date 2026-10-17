@@ -28,24 +28,20 @@ bool exactlyMirrors(Vec3 a,Vec3 b) {
            std::isfinite(b.x)&&std::isfinite(b.y)&&std::isfinite(b.z)&&
            a.x==-b.x&&a.y==b.y&&a.z==b.z;
 }
-bool reverseReflectedTriangles(
-    const RegionTopologyIndex& index,FaceId first,FaceId second) {
-    const auto a=index.face(first).vertices,b=index.face(second).vertices;
-    for(unsigned shift=0;shift<3;++shift) {
-        bool matches=true;
-        for(unsigned i=0;i<3;++i) {
-            const auto p=index.vertex(a[i]).position;
-            const auto q=index.vertex(b[(shift+3-i)%3]).position;
-            if(!exactlyMirrors(p,q)) {
-                matches=false;
-                break;
-            }
-        }
-        if(matches)return true;
-    }
-    return false;
+struct VerifiedMirrors {
+    std::map<FaceId,FaceId> faces;
+    std::map<VertexId,VertexId> vertices;
+};
+void addPairedVertex(std::map<VertexId,VertexId>& partners,
+                     VertexId a,VertexId b) {
+    const auto aFound=partners.find(a),bFound=partners.find(b);
+    if(a==b||(aFound!=partners.end()&&aFound->second!=b)||
+       (bFound!=partners.end()&&bFound->second!=a))
+        throw std::logic_error("Conflicting child-contour vertex mirror mapping");
+    partners[a]=b;
+    partners[b]=a;
 }
-std::map<FaceId,FaceId> verifiedMirrorFaces(
+VerifiedMirrors verifiedMirrorFaces(
     const ConformingCutCandidate& cut,
     const std::set<FaceId>& children,
     std::size_t maxPairs) {
@@ -53,16 +49,33 @@ std::map<FaceId,FaceId> verifiedMirrorFaces(
         throw std::length_error("Paired cut face budget exhausted");
     if(cut.mirroredFaces.size()*2!=children.size())
         throw std::logic_error("Mirrored cut face journal omits a child orbit");
-    std::map<FaceId,FaceId> partners;
+    VerifiedMirrors partners;
     for(const auto& [a,b]:cut.mirroredFaces) {
         if(a==b||!children.contains(a)||!children.contains(b)||
-           !partners.emplace(a,b).second||
-           !partners.emplace(b,a).second)
+           !partners.faces.emplace(a,b).second||
+           !partners.faces.emplace(b,a).second)
             throw std::logic_error("Invalid or duplicated mirrored child FaceId");
-        if(!reverseReflectedTriangles(*cut.index,a,b))
+        const auto first=cut.index->face(a).vertices;
+        const auto second=cut.index->face(b).vertices;
+        bool matched=false;
+        for(unsigned shift=0;shift<3;++shift) {
+            bool same=true;
+            for(unsigned i=0;i<3;++i)
+                if(!exactlyMirrors(
+                    cut.index->vertex(first[i]).position,
+                    cut.index->vertex(second[(shift+3-i)%3]).position))
+                    same=false;
+            if(!same)continue;
+            for(unsigned i=0;i<3;++i)
+                addPairedVertex(partners.vertices,first[i],
+                    second[(shift+3-i)%3]);
+            matched=true;
+            break;
+        }
+        if(!matched)
             throw std::logic_error("Mirrored children have inconsistent exact winding");
     }
-    if(partners.size()!=children.size())
+    if(partners.faces.size()!=children.size())
         throw std::logic_error("Incomplete mirrored child pairing");
     std::set<VertexId> inserted(
         cut.insertedVertices.begin(),cut.insertedVertices.end());
@@ -76,10 +89,66 @@ std::map<FaceId,FaceId> verifiedMirrorFaces(
            !cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
            cut.originalIndex->maybeVertex(a)||cut.originalIndex->maybeVertex(b)||
            !exactlyMirrors(cut.index->vertex(a).position,
-                           cut.index->vertex(b).position))
+                           cut.index->vertex(b).position)||
+           !partners.vertices.contains(a)||partners.vertices.at(a)!=b)
             throw std::logic_error("Invalid mirrored permanent cut vertex orbits");
     }
     return partners;
+}
+bool reflectedContour(const RepairContour& a,const RepairContour& b,
+                      const std::map<VertexId,VertexId>& mirrors) {
+    const auto n=a.vertexIds.size();
+    if(n<3||b.vertexIds.size()!=n)return false;
+    for(std::size_t shift=0;shift<n;++shift) {
+        bool match=true;
+        for(std::size_t i=0;i<n;++i) {
+            const auto found=mirrors.find(a.vertexIds[i]);
+            if(found==mirrors.end()||
+               found->second!=b.vertexIds[(shift+n-i)%n]) {
+                match=false;
+                break;
+            }
+        }
+        if(match)return true;
+    }
+    return false;
+}
+bool stageMirroredContours(CutRemovalProposal& plan,
+                           const std::map<VertexId,VertexId>& vertexMirrors) {
+    const auto& contours=plan.contourPlan.contours;
+    std::vector<std::size_t> partner(contours.size(),contours.size());
+    for(std::size_t i=0;i<contours.size();++i) {
+        if(partner[i]!=contours.size())continue;
+        for(std::size_t j=i+1;j<contours.size();++j) {
+            if(partner[j]!=contours.size()||
+               !reflectedContour(contours[i],contours[j],vertexMirrors))
+                continue;
+            partner[i]=j;partner[j]=i;
+            plan.mirroredContours.emplace_back(i,j);
+            break;
+        }
+        if(partner[i]==contours.size())return false;
+    }
+    // V15 may select independent caps, or zipper contour pairs. A
+    // mirrored repair must make symmetrical choices, not merely stage
+    // mirrored face and contour IDs with mismatched surgery operations.
+    std::set<std::size_t> capped(
+        plan.contourPlan.cappedContours.begin(),
+        plan.contourPlan.cappedContours.end());
+    for(const auto i:capped)
+        if(i>=partner.size()||!capped.contains(partner[i]))return false;
+    std::set<std::pair<std::size_t,std::size_t>> zipped;
+    for(const auto& p:plan.contourPlan.pairs) {
+        if(p.first>=partner.size()||p.second>=partner.size()||
+           p.first==p.second)return false;
+        zipped.emplace(std::min(p.first,p.second),
+                       std::max(p.first,p.second));
+    }
+    for(const auto& [a,b]:zipped)
+        if(!zipped.contains({std::min(partner[a],partner[b]),
+                            std::max(partner[a],partner[b])}))
+            return false;
+    return true;
 }
 } // namespace
 
@@ -115,7 +184,7 @@ CutRemovalProposal planExactCutRemoval(
 
         const bool mirrored=!cut.mirroredFaces.empty()||
                             !cut.mirroredVertices.empty();
-        std::map<FaceId,FaceId> mirrors;
+        VerifiedMirrors mirrors;
         if(mirrored)
             mirrors=verifiedMirrorFaces(cut,children,
                                        settings.coverage.maxChildren);
@@ -172,11 +241,11 @@ CutRemovalProposal planExactCutRemoval(
             throw std::length_error("Exact-child removal budget exhausted");
 
         if(mirrored) {
-            for(const auto& [a,b]:mirrors)
+            for(const auto& [a,b]:mirrors.faces)
                 if(classes.at(a)!=classes.at(b))
                     return refused("Mirrored child classifications disagree");
             for(const auto id:proposed.proposedRemoval) {
-                const auto mate=mirrors.at(id);
+                const auto mate=mirrors.faces.at(id);
                 if(!std::binary_search(proposed.proposedRemoval.begin(),
                                        proposed.proposedRemoval.end(),mate))
                     return refused("Removed children must form full mirror orbits");
@@ -202,6 +271,8 @@ CutRemovalProposal planExactCutRemoval(
            proposed.contourPlan.removedFaces!=proposed.proposedRemoval)
             return refused("V15 exact-child contour refusal: "+
                            proposed.contourPlan.reason);
+        if(mirrored&&!stageMirroredContours(proposed,mirrors.vertices))
+            return refused("V15 mirrored contour/closure choices do not form full reflected orbits");
         proposed.status=Status::Ready;
         return proposed;
     }catch(const std::length_error& e) {
