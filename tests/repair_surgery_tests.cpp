@@ -709,6 +709,69 @@ void testCrossingContourFullNormalizeReplanRepair() {
     require(base->retiredFaceCount()==0&&base->pickingRootIdentity()==root,
             "All failed normalization/replans preserve original immutable revision");
 }
+void testFourCrossingsAcrossTwoIndependentContours() {
+    // Four plane contacts are entirely legitimate when distributed as
+    // two contacts EACH on two separate reflection-symmetric disks.
+    // This differs topologically from four contacts on ONE disk.
+    Mesh mesh;
+    std::vector<std::pair<unsigned,unsigned>> bases;
+    for(const double y:{-12.0,12.0}) {
+        const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+        const auto faceStart=static_cast<unsigned>(mesh.triangles.size());
+        for(const auto point:std::array<Vec3,6>{{
+            {1,y-1,0},{1,y+1,0},{-1,y+1,0},{-1,y-1,0},
+            {0,y,1},{0,y,-1}
+        }})mesh.vertices.push_back(point);
+        for(std::uint32_t i=0;i<4;++i) {
+            const auto next=(i+1)%4;
+            mesh.triangles.push_back({first+4,first+i,first+next});
+            mesh.triangles.push_back({first+5,first+next,first+i});
+        }
+        bases.emplace_back(first,faceStart);
+    }
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto& v=imported.flatIndex.vertexIds;
+    const auto& faces=imported.flatIndex.faceIds;
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    std::vector<FaceId> removed;
+    for(const auto [first,faceStart]:bases) {
+        mirrors.insert(mirrors.end(),{
+            {v[first],v[first+3]},{v[first+1],v[first+2]},
+            {v[first+4],v[first+4]},{v[first+5],v[first+5]}
+        });
+        for(const unsigned k:{0u,2u,4u,6u})
+            removed.push_back(faces[faceStart+k]);
+    }
+    const auto plan=planRemovalContours(*original,removed);
+    require(plan.ready()&&plan.contours.size()==2&&
+            plan.cappedContours.size()==2,
+            "Two distant self-reflected cut rings independently choose caps");
+    const auto oldRoot=original->pickingRootIdentity();
+    const auto repaired=repairMirroredContoursAcrossPlane(
+        original,plan,mirrors);
+    require(repaired.normalizedCrossingEdges==4&&
+            repaired.planeSeamVertices.size()==4&&
+            repaired.normalizationInsertedFaces.size()==8,
+            "Four crossing edges on two different rings normalize independently");
+    require(repaired.normalizedPlan.removedFaces.size()==12&&
+            repaired.normalizedPlan.contours.size()==2&&
+            repaired.normalizedPlan.cappedContours.size()==2,
+            "Re-planning retains two separate caps and all divided deleted faces");
+    require(euler(*original)==4&&euler(*repaired.surgery.index)==4&&
+            repaired.surgery.zipperFaces==0,
+            "Repair preserves two disconnected orientable closed shells");
+    require(original->pickingRootIdentity()==oldRoot&&
+            original->retiredFaceCount()==0,
+            "Multiple intermediate commits do not change the historic root");
+    bool overBudget=false;
+    try {
+        (void)repairMirroredContoursAcrossPlane(
+            original,plan,mirrors,{},3);
+    }catch(const std::length_error&){overBudget=true;}
+    require(overBudget,
+            "Global crossing budget counts separate valid contours together");
+}
 void testSingleCrossingContourRepair() {
     Mesh tetra;
     tetra.vertices={{1,0,0},{-1,0,0},{0,1,0},{0,0,1}};
@@ -931,6 +994,8 @@ int main() {
         testSingleCrossingContourRepair();
         std::cout<<"Surgery fixture: two crossing normalize/replan"<<std::endl;
         testCrossingContourFullNormalizeReplanRepair();
+        std::cout<<"Surgery fixture: four crossings across two valid contours"<<std::endl;
+        testFourCrossingsAcrossTwoIndependentContours();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
