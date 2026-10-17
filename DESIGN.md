@@ -1688,3 +1688,52 @@ contours until V16c2b2 can transform their removal-face plan onto a
 normalized immutable revision, including accounting for newly
 created triangles and contour edges. A single local primitive
 should never be mistaken for generic arbitrary plane crossing support.
+
+## V16c2b2: Normalize, re-plan, then repair — one atomic publication
+
+A mirrored excision contour may initially cross X=0 through a whole
+edge joining an exact mirrored vertex pair, with NO X=0 vertex on
+that edge. V16c2b1 can now split such an edge *only when its two
+incident triangles are individually self-reflected*. This changes
+the retained-face boundary and, critically, can split a DELETED
+triangle into two different stable FaceIds. It is incorrect to use
+the old removal set or the old contour after such a split.
+
+`repairMirroredContoursAcrossPlane(original,originalPlan,mirrorPairs)`
+is the conservative private integration. It checks the source plan
+against the exact original immutable index, scans each contour for
+crossing edges, and accepts only exact reflected endpoints and
+bounded per-contour plane contact counts. The original crossing
+edge must be incident to one deleted and one retained face.
+Each qualifying edge is normalized into a private revision, with
+one self-mirrored seam midpoint. Whenever the preserved half of
+a split triangle was marked for removal, the new reflected half is
+inserted into the removal set as well. Midpoints extend the mirror
+involution and the normalization work counts against the repair
+vertex/face budgets.
+
+After ALL crossings are conformed, the operation computes a new
+V15.1 plan against the fully normalized index. It checks that all
+original ordered ring vertices remain an ordered cyclic subsequence
+of their new rings, that the number of rings is unchanged, and
+that the cap/zipper choices and pairings agree under the remapping.
+An ambiguous or different choice fails closed. The existing V16b
+mirrored surgeon then executes the new plan, including normal
+manifold, orientation, BVH collision and local drift verification.
+
+Several PRIVATE immutable intermediate roots exist, but none is
+published or inserted into user history. The result contains only
+the FINAL repair revision as the publish candidate, plus precise
+normalization provenance, the new cut plan and aggregate work
+statistics. A caller must publish it with
+`publishIfCurrent(original,finalIndex)`, never against the last
+temporary normalization index. This creates ONE history Step while
+preserving all old renderer/picker snapshots.
+
+This deliberately does NOT relax the original fail-closed
+`applyMirroredRepairSurgery()` entry point. The new orchestration
+supports exactly the self-reflected crossing-edge pattern proven
+by V16c2b1, not arbitrary edge crossings whose mirrored partner
+is elsewhere in the mesh or loop arrangements with more than two
+plane contacts. Subsequent robustness work will consider those
+without introducing duplicate plane seams.

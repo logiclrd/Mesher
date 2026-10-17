@@ -554,6 +554,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   one seam ID, a closed four-triangle fan, Euler invariance, existing
   FaceIds, immutable old snapshots and atomic compare-and-swap
   publication. No live or autonomous recovery behavior was enabled.
+- [x] **V16c2b2 — Private crossing normalization, re-planning and closure.**
+  `repairMirroredContoursAcrossPlane(original,originalPlan,mirrors,...)`
+  validates the ORIGINAL immutable plan and mirror involution, detects
+  exactly mirrored X=0 crossings of its directed removal boundaries,
+  and, within explicit work limits, applies the V16c2b1 conforming
+  two-face normalizer to EACH eligible boundary-crossing edge. It
+  advances through unpublished immutable revisions, extends the
+  excision set whenever a split original deleted face gains a new
+  reflected half FaceId, and inserts one self-mirrored ID per crossing
+  into the mirror map. It re-runs V15.1 closure planning on the fully
+  normalized revision and checks original contour order, cap/zipper
+  topology and partnering are preserved. Only then does it use the
+  validated mirrored cap/zipper surgery against that new plan.
+  All intermediate revisions remain private: the caller may publish
+  ONLY the final index with `publishIfCurrent(original,index)`,
+  producing one atomic user Step rather than one Step per split.
+  Budgets include normalization vertex/face work; unsupported
+  nonmirror crossing edges, more than two combined seam contacts,
+  ambiguous re-plans and asymmetric excision fail closed.
+  Regression fixtures: one-crossing triangular rim and two-crossing
+  four-sided symmetric rim, stable FaceIds and newly deleted split
+  faces, closed manifold, immutable old root, one final CAS,
+  exhausted budget and forged-plan refusal.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -566,19 +589,18 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16c2b2:** integrate the isolated
-  conforming self-reflected edge normalizer into multi-edge contour
-  pre-normalization and re-plan the cut against its UPDATED immutable
-  revision, including new face IDs and preservation of untouched old
-  ring vertices. Currently `applyMirroredRepairSurgery()` still
-  refuses a crossing boundary; the new primitive does NOT silently
-  enable unsupported automatic normalization. Extend to multi-contact
-  self-reflected contours only with proven noncrossing seam pairing,
-  and distinguish buried/red material from feature-bearing surfaces
-  before automatically enabling reverse fidelity. High-complexity
-  multi-ring collisions and certified geometric bounds remain open.
-  Sampled proximity is NOT a continuous bidirectional Hausdorff
-  proof. Keep fail-closed live behavior through V17.
+  seam atomically. **Remaining V16c2b3 / robustness:** handle
+  non-self-reflected pairs of X=0-crossing edges with conforming
+  mirrored subdivision, and classify self-reflected contours with
+  more than two plane contacts through provably noncrossing seam
+  decomposition. Existing strict `applyMirroredRepairSurgery()` still
+  independently rejects unnormalized crossings; only the new
+  explicit normalize-and-replan orchestrator supports this bounded
+  pattern. Resolve feature-bearing vs intentionally buried surface
+  classification before enabling reverse fidelity automatically,
+  and extend stress tests to high-complexity multicomponent and
+  strongly folded collisions. Sampled proximity is NOT a certified
+  Hausdorff guarantee; keep live integration deferred until V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

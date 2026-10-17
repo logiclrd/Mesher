@@ -379,3 +379,34 @@ eligible crossing edges and RE-PLAN the removal set after the
 new face IDs and contour topology change. More than two seam
 contacts additionally requires noncrossing decomposition; it
 cannot be inferred from evenness of the number of contacts alone.
+
+## V16c2b2: Conforming crossing contours without intermediate publication
+
+A single original cut ring can cross the X=0 symmetry plane through
+edges joining exactly mirrored vertices. The V16c2b2 orchestration
+pre-normalizes those edges with the V16c2b1 self-reflected
+two-face split. Every crossing creates one exact X=0 vertex shared
+by both incident faces; the original face ID is retained for one
+half and its new reflected partner gets a new ID.
+
+Important: if the original removed face crosses such an edge, BOTH
+of its normalized halves need to be removed. The new system carries
+forward all original removed FaceIds and adds those new IDs. It
+then re-runs cap/zipper closure selection on the normalized
+immutable revision and refuses changes to original loop order,
+pairing or intended topology. Final triangulation and post-state
+collision tests remain the same as the prior mirrored private
+surgeon. Each intermediate root is unpublished; the final index
+is published, if requested, by ONE optimistic CAS against the
+ORIGINAL source index.
+
+Safety bounds: each original loop must have zero or two total
+exact seam-contact/crossing locations; the crossing edge must
+join exact reflection partners and separate one retained from
+one removed triangle; its two incident triangles must themselves
+be reflected onto themselves. Nonconforming cases, budgets or
+ambiguously re-planned contours refuse the whole private operation.
+The old low-level mirrored-surgery API still fails closed without
+such pre-normalization. Generic crossing edge pairs and
+self-reflected contours with more than two contacts remain open
+rather than being automatically snapped to the seam.

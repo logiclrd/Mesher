@@ -551,6 +551,132 @@ void testAtomicSelfReflectedPlaneCrossingNormalization() {
             original->retiredFaceCount()==0,
             "All failed normalizations leave original index immutable");
 }
+void testNormalizeAndReplanNoCrossingCompatibility() {
+    const auto fixture=reflectedCubes(3.0);
+    const auto base=RegionTopologyIndex::build(fixture.import.revision);
+    const auto& f=fixture.import.flatIndex.faceIds;
+    const auto& mirrors=fixture.mirrors;
+    const auto plan=planRemovalContours(
+        *base,{f[10],f[11],f[22],f[23]});
+    require(plan.ready()&&plan.cappedContours.size()==2,
+            "Two separated reflected square openings prefer caps");
+    const auto wrapped=repairMirroredContoursAcrossPlane(
+        base,plan,mirrors);
+    require(wrapped.normalizedCrossingEdges==0&&
+            wrapped.planeSeamVertices.empty()&&
+            wrapped.normalizationInsertedFaces.empty()&&
+            wrapped.surgery.capFaces==4,
+            "Without a crossing, the wrapper delegates unchanged mirrored surgery");
+    require(wrapped.accumulatedStatistics.modifiedPartitions==
+                wrapped.surgery.commit.statistics.modifiedPartitions&&
+            euler(*wrapped.surgery.index)==4,
+            "Ordinary mirrored cap produces no hidden normalization transactions");
+}
+void testCrossingContourFullNormalizeReplanRepair() {
+    // Four-equator-vertex bipyramid: top four triangles are removed.
+    // Its cut contour has TWO X=0 crossings and NO seam vertex.
+    // Each crossing is shared by one removed and one retained
+    // self-mirrored triangle, and they must be normalized together
+    // before independently capping the now conforming six-edge rim.
+    Mesh m;
+    m.vertices={{1,-1,0},{1,1,0},{-1,1,0},{-1,-1,0},
+                {0,0,1},{0,0,-1}};
+    for(std::uint32_t i=0;i<4;++i) {
+        const auto next=(i+1)%4;
+        m.triangles.push_back({4,i,next});
+        m.triangles.push_back({5,next,i});
+    }
+    const auto imp=partitionFlatMesh(m,1);
+    const auto base=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const auto& faces=imp.flatIndex.faceIds;
+    const std::vector<std::pair<VertexId,VertexId>> mirrors={
+        {v[0],v[3]},{v[1],v[2]},{v[4],v[4]},{v[5],v[5]}};
+    const std::vector<FaceId> removal={
+        faces[0],faces[2],faces[4],faces[6]};
+    const auto proposed=planRemovalContours(*base,removal);
+    require(proposed.ready()&&proposed.contours.size()==1&&
+            proposed.cappedContours.size()==1,
+            "Two plane-crossings initially form one valid disconnected-from-plane rim");
+    const auto root=base->pickingRootIdentity();
+    IndexedMeshRepository repository(base);
+    const auto result=repairMirroredContoursAcrossPlane(
+        base,proposed,mirrors);
+    require(result.normalizedCrossingEdges==2&&
+            result.planeSeamVertices.size()==2&&
+            result.normalizationInsertedFaces.size()==4,
+            "Both self-reflected boundary edges acquire one X=0 seam midpoint");
+    for(const auto id:result.planeSeamVertices) {
+        const auto& seam=result.surgery.index->vertex(id);
+        require(seam.position.x==0&&seam.incidentFaces.size()>=3,
+                "Each seam vertex is a unique shared ID with an intact one-ring");
+    }
+    require(result.normalizedPlan.ready()&&
+            result.normalizedPlan.removedFaces.size()==6&&
+            result.normalizedPlan.contours.size()==1&&
+            result.normalizedPlan.contours.front().vertexIds.size()==6,
+            "Replanning expands removed face IDs and preserves all original ordered contour vertices");
+    require(result.surgery.capFaces>0&&
+            result.surgery.zipperFaces==0&&
+            euler(*result.surgery.index)==2,
+            "Two-crossing private repair closes a valid genus-zero surface");
+    for(const auto id:removal)
+        require(result.surgery.index->retiredFace(id),
+                "Original deleted FaceIds remain stable tombstones");
+    require(base->retiredFaceCount()==0&&base->pickingRootIdentity()==root,
+            "Multi-step normalizations never mutate original renderer/picker root");
+    require(repository.snapshot()==base,
+            "No intermediate normalization revision is published");
+    require(result.surgery.commit.revision!=nullptr&&
+            repository.publishIfCurrent(base,result.surgery.index),
+            "All normalization and closure changes publish with ONE original-root CAS");
+    require(!repository.publishIfCurrent(base,result.surgery.index),
+            "A stale root cannot overwrite the completed repair");
+    require(result.accumulatedStatistics.modifiedPartitions>=
+                result.surgery.commit.statistics.modifiedPartitions,
+            "Accumulated work accounts for both normalization commits");
+    bool rejected=false;
+    try {
+        (void)repairMirroredContoursAcrossPlane(
+            base,proposed,mirrors,{},1);
+    }catch(const std::length_error&){rejected=true;}
+    require(rejected,"An insufficient plane crossing budget rejects the entire operation");
+    auto forged=proposed;
+    forged.contours.front().vertexIds.front()=
+        forged.contours.front().vertexIds[1];
+    rejected=false;
+    try {
+        (void)repairMirroredContoursAcrossPlane(base,forged,mirrors);
+    }catch(const std::logic_error&){rejected=true;}
+    require(rejected,"A forged original contour is not authorized to normalize");
+    require(base->retiredFaceCount()==0&&base->pickingRootIdentity()==root,
+            "All failed normalization/replans preserve original immutable revision");
+}
+void testSingleCrossingContourRepair() {
+    Mesh tetra;
+    tetra.vertices={{1,0,0},{-1,0,0},{0,1,0},{0,0,1}};
+    tetra.triangles={{0,1,2},{1,0,3},{0,2,3},{1,3,2}};
+    const auto imp=partitionFlatMesh(tetra,1);
+    const auto initial=RegionTopologyIndex::build(imp.revision);
+    const auto& v=imp.flatIndex.vertexIds;
+    const std::vector<std::pair<VertexId,VertexId>> mapping={
+        {v[0],v[1]},{v[2],v[2]},{v[3],v[3]}};
+    const auto old=imp.flatIndex.faceIds.front();
+    const auto plan=planRemovalContours(*initial,{old});
+    require(plan.ready()&&plan.cappedContours.size()==1,
+            "Single-crossing triangular rim can be proposed for a cap");
+    const auto fixed=repairMirroredContoursAcrossPlane(
+        initial,plan,mapping);
+    require(fixed.normalizedCrossingEdges==1&&
+            fixed.planeSeamVertices.size()==1&&
+            fixed.normalizedPlan.removedFaces.size()==2,
+            "One crossing edge produces exactly one seam vertex and one extra removed face");
+    require(fixed.surgery.index->retiredFace(old)&&
+            euler(*fixed.surgery.index)==2,
+            "One-crossing cap yields a stable closed manifold");
+    require(initial->retiredFaceCount()==0,
+            "Initial removal FaceId is never retired on the original snapshot");
+}
 void testSelfMirroredCapAcrossExistingSeam() {
     for(const double bend:{0.0,.04}) {
     Mesh oct;
@@ -740,6 +866,12 @@ int main() {
         testSymmetryPlaneClassificationFailsClosed();
         std::cout<<"Surgery fixture: self-reflected plane edge normalization"<<std::endl;
         testAtomicSelfReflectedPlaneCrossingNormalization();
+        std::cout<<"Surgery fixture: no crossing wrapper compatibility"<<std::endl;
+        testNormalizeAndReplanNoCrossingCompatibility();
+        std::cout<<"Surgery fixture: single crossing normalize/replan"<<std::endl;
+        testSingleCrossingContourRepair();
+        std::cout<<"Surgery fixture: two crossing normalize/replan"<<std::endl;
+        testCrossingContourFullNormalizeReplanRepair();
         std::cout<<"Surgery fixture: self-mirrored cap"<<std::endl;
         testSelfMirroredCapAcrossExistingSeam();
         std::cout<<"Surgery fixture: reflected shell retirement"<<std::endl;
