@@ -1875,3 +1875,50 @@ multi-shell matrix exercises bounded classification attempts,
 safe failure and unchanged old renderer/picker roots. This
 wrapper presently targets NON-SYMMETRIC repair only; V17 must
 define the caller's symmetry-aware worker policy separately.
+
+## V16d2b: Cumulative erosion must use an ORIGINAL reference, not a moving one
+
+A succession of individually valid mesh edits can gradually erode
+the same feature: bounding scar displacement against the IMMEDIATELY
+PREVIOUS revision is insufficient to bound cumulative displacement
+against the original surface. Add `sampleSurfaceWitnesses` to capture
+seven world-coordinate points per original triangle (three vertices,
+three edge midpoints, triangle centroid), and a separate read-only
+`auditSurfaceWitnesses` measuring all those ORIGINAL points against
+an explicitly nominated set of LIVE final candidate triangles.
+The audit returns sample count, unique candidate face count,
+distance-evaluation count, maximum, arithmetic-mean and RMS of
+closest-point distance, each normalized by an explicit ORIGINAL
+local edge length; it uses geometric point-to-triangle distances,
+not index-based vertex correspondence. Witnesses can outlive any
+number of tombstoned original FaceIds. Audit budgets explicitly
+bound both sample acquisition and candidate face comparisons,
+and missing/retired faces refuse instead of silently following IDs.
+
+This is an INSTRUMENT and test oracle. It does not implicitly
+reject ordinary surgery: a caller must select which original
+features should persist, and whether drift on them is permitted.
+This cannot simply use all deleted triangles, because buried
+material SHOULD disappear. The witness metric is discrete and
+one-sided (original samples -> designated current surface). It
+does not certify the Hausdorff distance between continuous
+surfaces, identify new wrinkles between samples, or replace the
+V16 local intersection and topology checks.
+
+The 32-step overlap fixture repeatedly replaces the SAME planar
+cube patch with two oriented triangles while holding all 33
+immutable revisions. Each step retires two FaceIds, creates two
+new face IDs, preserves a closed sphere topology and publishes
+with one optimistic CAS. All steps are measured against witness
+coordinates captured BEFORE step one. No sampled erosion can
+accumulate undetected; an intentionally wrong opposite-face
+target yields a large positive distance signal. A deliberately
+insufficient distance-work budget and a stale retired-face target
+must refuse. A three-body offset overlap matrix exercises V13/V14
+collision classification and the explicit V16d2a classified
+fidelity policy: ambiguous folded/near-contact candidates may
+refuse, but no private operation may mutate its source root.
+
+This does NOT turn the geometry machinery on in the interactive
+sculpt worker; that and repeat-contact user-facing policies
+remain V17.
