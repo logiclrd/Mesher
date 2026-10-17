@@ -790,6 +790,51 @@ void testPrivateConformingRevisionCommitsAtomically() {
               rejected.proposedRemoval.empty()&&
               rejected.protectedChildren.empty(),
               "Incomplete original contact graph refuses without partial face nomination");
+        // V17e2b2d1 never turns V15's Ready into live publication. It
+        // performs the existing V16 closure and all final audits PRIVATELY,
+        // refusing unsupported independent-sheet seam topology.
+        ExactCutSurgerySettings gated;
+        gated.removal=supportedContours;
+        gated.surgery.planning=supportedContours.contours;
+        const auto surgery=attemptPrivateExactCutSurgery(whole,gated);
+        std::cout<<"[exact-surgery-probe] status="
+                 <<static_cast<int>(surgery.status)
+                 <<" reason="<<surgery.refusal
+                 <<" selected="<<surgery.selectedFaces<<'\n';
+        if(surgery.status==ExactCutSurgeryStatus::PrivateValidated) {
+            check(surgery.surgery.has_value()&&
+                  surgery.surgery->index!=baseline&&
+                  surgery.surgery->index!=whole.index&&
+                  surgery.checkedFinalContacts==0&&
+                  surgery.selectedFaces==nomination.proposedRemoval.size()&&
+                  surgery.protectedFaces==nomination.protectedChildren.size(),
+                  "Private final repair preserves original and subdivided readers");
+        }else
+            check(surgery.status==ExactCutSurgeryStatus::Refused&&
+                  !surgery.surgery&&
+                  !surgery.refusal.empty(),
+                  "Unsupported V16 seam repair refuses with NO private root");
+        auto counterfeit=whole;
+        counterfeit.sourceContacts.pop_back();
+        counterfeit.sectionFirst.pop_back();
+        counterfeit.sectionSecond.pop_back();
+        auto mismatchedPlanning=gated;
+        mismatchedPlanning.surgery.planning.maximumGapInEdges+=.25;
+        const auto inconsistent=attemptPrivateExactCutSurgery(
+            whole,mismatchedPlanning);
+        check(inconsistent.status==ExactCutSurgeryStatus::Refused&&
+              !inconsistent.surgery,
+              "V16 cannot re-plan surgery with different V15 contour thresholds");
+        const auto staleSurgery=attemptPrivateExactCutSurgery(
+            counterfeit,gated);
+        check(staleSurgery.status==ExactCutSurgeryStatus::Refused&&
+              !staleSurgery.surgery,
+              "Missing original contact cannot bypass c3 through V16 adapter");
+        gated.maxFinalCollisionFaces=0;
+        const auto invalidBudget=attemptPrivateExactCutSurgery(whole,gated);
+        check(invalidBudget.status==ExactCutSurgeryStatus::Refused&&
+              !invalidBudget.surgery,
+              "Invalid final query budget cannot expose an intermediate root");
         CutRemovalSettings tight;
         tight.coverage.originalCollisionLimits.maxSeedFaces=0;
         const auto limited=planExactCutRemoval(whole,tight);
@@ -1133,6 +1178,35 @@ void testMirroredCompleteContactCoverage() {
         check(mirroredProposal.proposedRemoval.empty()||
               mirroredProposal.status==CutRemovalStatus::NoChanges,
               "Unaccepted mirrored removal cannot expose partial face retirements");
+    ExactCutSurgerySettings gated;
+    gated.removal=supportedContours;
+    gated.surgery.planning=supportedContours.contours;
+    const auto missingMirrors=attemptPrivateExactCutSurgery(cut,gated);
+    check(missingMirrors.status==ExactCutSurgeryStatus::Refused&&
+          !missingMirrors.surgery,
+          "Reflected V16 must have explicit historical mirror-map provenance");
+    const auto mirroredSurgery=attemptPrivateExactCutSurgery(
+        cut,gated,&mirrors);
+    std::cout<<"[exact-surgery-mirror-probe] status="
+             <<static_cast<int>(mirroredSurgery.status)
+             <<" reason="<<mirroredSurgery.refusal
+             <<" selected="<<mirroredSurgery.selectedFaces<<'\n';
+    if(mirroredSurgery.status==ExactCutSurgeryStatus::PrivateValidated)
+        check(mirroredSurgery.surgery.has_value()&&
+              mirroredSurgery.checkedFinalContacts==0,
+              "Reflected V16 returns only full-candidate collision-free root");
+    else
+        check(mirroredSurgery.status==ExactCutSurgeryStatus::Refused&&
+              !mirroredSurgery.surgery&&
+              !mirroredSurgery.refusal.empty(),
+              "Unsupported reflected scar/seam topology refuses all publication");
+    auto damagedOriginalMirrors=mirrors;
+    damagedOriginalMirrors.erase(imported.flatIndex.vertexIds.front());
+    const auto badMap=attemptPrivateExactCutSurgery(
+        cut,gated,&damagedOriginalMirrors);
+    check(badMap.status==ExactCutSurgeryStatus::Refused&&
+          !badMap.surgery,
+          "Noninvolutive historical mirror mapping cannot reach RegionEdit");
     auto incompleteMirror=cut;
     incompleteMirror.mirroredFaces.pop_back();
     const auto badOrbit=planExactCutRemoval(incompleteMirror);

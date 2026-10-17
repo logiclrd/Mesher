@@ -1923,6 +1923,60 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2d1: Strict private V16 handoff and final cut-halo audit
+
+The first implementation step after V17e2b2c3 is intentionally a
+**fail-closed private surgery adapter**, not an assumption that older V16
+cap/zipper strategies automatically produce a Boolean union of intersecting
+shells. `attemptPrivateExactCutSurgery` RECOMPUTES the complete original
+V13 contact/child-edge coverage and all real-child positive-winding
+occupancy from the same immutable V17e2b2b private cut revision, producing
+a fresh c3 Ready list of exactly which stable FaceIds V16 may retire.
+The V15 contour-scoring settings supplied at authorization must agree with
+the V16 settings under which V16 independently reconstructs and checks
+the same plan; callers cannot authorize one topology under loose settings
+and apply it under different settings.
+
+For symmetry, an explicit, complete original pre-cut VertexId reflection
+involution is REQUIRED. The cut transaction's newly allocated mirrored
+VertexIds are appended by stable ID (never by nearest/coincident position),
+and every map entry must be reciprocal with exactly reflected coordinates.
+The old source mesh, read-only cut mesh, any private surgery mesh, and the
+eventual live model remain different immutable revision roots. No
+`IndexedMeshRepository::publishIfCurrent`, history write, mirror-map
+publication, renderer invalidation, or worker action occurs.
+
+The existing `applyRepairSurgery` / `applyMirroredRepairSurgery` receives
+the exact c3-authorized FaceId removal plan. Its own RegionEdit validates
+face retirement, manifold fans, closure topology, local residual collisions
+and scar fidelity. Upon private success, the adapter performs one MORE
+bounded collision sweep over EVERY surviving child of every original
+changed source face plus EVERY newly generated V16 face, all against the
+complete final private revision. It samples seven positions (corners,
+edge midpoints and centroid) from EACH c3-protected Exposed or
+ReversedBoundary child and checks reverse distance to the final local
+triangles under an explicit tiny original-edge-relative tolerance. The
+deliberately Buried/Outside faces are excluded from reverse fidelity:
+their intentional removal must not be treated as detail loss.
+
+ANY uncertain contour, invalid original mirror map, budget exhaustion,
+unclosed or unsupported V16 topology, residual collision or exposed/cavity
+fidelity error returns a refusal with **no surgery root**. The two private
+edits therefore cannot leak partially into the published model. Passing
+this gate alone is not a full historical Step: final stable-ID mirror
+journals, independent seam welding where cap/zipper alone is insufficient,
+and original-root one-CAS publication remain separate required work.
+The current complete interpenetrating closed-tetrahedron acceptance
+fixture exercises the real failure boundary: c3 selects exact buried
+child FaceIds, but V16 cannot produce an edge-length/quality-bounded
+zipper strip between the independent cut-sheet contours. This is an
+EXPECTED and correctly fail-closed refusal, not a Boolean union.
+V17e2b2d2 must build an explicit contact-provenance-bound seam join,
+matching genuine opposing source-sheet cut edges, rather than relax
+V16 triangle-quality criteria or cap the wrong contours.
+
+The general V17e2b2d and desktop Merge geometry milestone remain open.
+
 ## V17e2b2c3: Cavity-safe exact-child removal planning (private)
 
 `planExactCutRemoval` is the **read-only** bridge between V17e2b2c1

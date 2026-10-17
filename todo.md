@@ -1037,6 +1037,41 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   directional contour consistency, missing contacts/mirrors and hard
   work-budget refusal. This only NOMINATES surfaces on ONE unpublished
   candidate: no face retirement, seam weld, V16 surgery, history or CAS.
+- [x] **V17e2b2d1 — Strict unpublished V16 surgery acceptance adapter.**
+  Always reconstruct c2 complete original-section coverage and c1
+  strict real-child positive winding, then derive c3 sorted exact-child
+  deletion FaceIds tied to the SAME immutable candidate. V16 must
+  independently re-plan those exact faces using MATCHING V15 settings.
+  For mirrored cuts require the full original stable-ID involution and
+  explicit new reflected cut VertexId pairs; never weld independent
+  sheets merely because coordinates coincide. Call the existing
+  private V16 surgery, with whole contour/manifold/residual-collision
+  and forward scar constraints, then make an ADDITIONAL bounded
+  contact query over EVERY surviving changed original-cut child and
+  new V16 face. Separately reverse-audit 7 geometric witnesses per
+  c3 Exposed/ReversedBoundary child against the completed private
+  revision with a tiny original-edge-relative tolerance. Refusals,
+  invalid mirror maps, unsupported contours, stale revisions, budgets,
+  residual contacts, and protected-surface loss return NO surgery root,
+  never a half-approved V15 removal journal. The complete real
+  closed-tetrahedron union fixture currently refuses the older V16
+  closure with "No edge-length/quality-bounded zipper strip"; do NOT
+  relax triangle-quality constraints or claim a successful Boolean.
+  No Step CAS/history,
+  renderer, picking or UI changes. Actual unjoined transverse seams
+  require the next independent proven surgery milestone.
+- [ ] **V17e2b2d2 — Join real cut section seams, then exact-child removal.**
+  For c3-approved closed-shell unions, build a bounded PRIVATE local
+  arrangement that pairs independent per-sheet cut-curve vertices,
+  correctly wires opposite oriented surviving boundary edges, removes
+  only c3-authorized buried/outside fragments, and produces ONE
+  manifold-validated closure without spurious caps. Do not merge
+  geometric coincidences from unrelated curves or separate sheets:
+  every weld must follow explicit V13 section provenance and preserve
+  mirrored orbits. Re-evaluate c3, carry stable ID retire/add pair
+  journals, verify protected boundary fidelity and all final residual
+  collisions against the whole cut halo. Unsupported crossings,
+  complex X=0 seam fans or nonconforming curve chains must refuse.
 - [ ] **V17e2b2d — Private exact-child excision and validated closure.**
   Consume only a V17e2b2c3 Ready nomination tied to one exact candidate
   revision; redo and validate the full private V16 surgery, mirrored
