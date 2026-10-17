@@ -1,5 +1,6 @@
 #include "mesher/repair_surgery.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
