@@ -714,17 +714,28 @@ void testPrivateConformingRevisionCommitsAtomically() {
     const auto missingEnd=certifyConformingCutCoverage(wrongEndpoint);
     check(!missingEnd.complete&&missingEnd.coveredContacts.empty(),
           "Missing section endpoint cannot create a valid edge trace");
-    // Probe full original contacts to exercise the positive certificate
-    // whenever this geometry is supported by the bounded arranger.
-    try {
-        const auto whole=materializeTransverseCutCandidate(baseline,all);
+    // Exercise the full ORIGINAL contact graph, not the selected subset.
+    // This is the positive case only if V17's bounded arranger supports
+    // the complete transverse graph for this closed two-tetra fixture.
+    {
+        ConformingCutCandidate whole;
+        try {whole=materializeTransverseCutCandidate(baseline,all);}
+        catch(const std::logic_error& error) {
+            throw std::runtime_error(
+                std::string("Complete cut fixture unsupported: ")+error.what()+
+                " (original pairs="+std::to_string(all.size())+")");
+        }
         const auto checked=certifyConformingCutCoverage(whole);
-        std::cout<<"[coverage-probe] originalPairs="<<all.size()
-                 <<" certificate="<<checked.complete
-                 <<" refusal="<<checked.refusal<<'\n';
-    }catch(const std::logic_error& error) {
-        std::cout<<"[coverage-probe] full arrangement unsupported: "
-                 <<error.what()<<'\n';
+        if(!checked.complete)
+            throw std::runtime_error(
+                "Complete cut fixture coverage refused: "+checked.refusal+
+                " (original pairs="+std::to_string(all.size())+")");
+        check(checked.checkedContacts==all.size()&&
+              checked.coveredContacts.size()==all.size()&&
+              checked.checkedChildren==whole.childSources.size(),
+              "All true original contacts have actual source-paired child edge traces");
+        check(baseline->pickingRootIdentity()==sourceRoot,
+              "Complete full-contact coverage preserves the immutable original root");
     }
 
     // A forged source FaceId cannot influence deletion through classification.
