@@ -87,6 +87,8 @@ VersionedDirectionalCollapser::VersionedDirectionalCollapser(
 void VersionedDirectionalCollapser::addMirrorPair(
     VertexId first,VertexId second) {
     if(mirrors_.empty())return; // asymmetric worker has no mirror map
+    const bool novel=!mirrors_.contains(first);
+    if(stepOpen_&&novel)pendingMirrors_.push_back({true,first,second});
     addMirror(mirrors_,first,second);
 }
 
@@ -96,8 +98,26 @@ void VersionedDirectionalCollapser::removeMirrorPair(
     if(a==mirrors_.end()||b==mirrors_.end()||
        a->second!=second||b->second!=first)
         throw std::invalid_argument("Cannot remove nonexistent collapse mirror pair");
+    if(stepOpen_)pendingMirrors_.push_back({false,first,second});
     mirrors_.erase(first);
     if(second!=first)mirrors_.erase(second);
+}
+void VersionedDirectionalCollapser::beginStep() {
+    if(stepOpen_)throw std::logic_error("Collapse Step already open");
+    pendingMirrors_.clear();
+    stepOpen_=true;
+}
+void VersionedDirectionalCollapser::commitStep() noexcept {
+    pendingMirrors_.clear();
+    stepOpen_=false;
+}
+void VersionedDirectionalCollapser::rollbackStep() {
+    stepOpen_=false;
+    for(auto it=pendingMirrors_.rbegin();it!=pendingMirrors_.rend();++it) {
+        if(it->added)removeMirrorPair(it->first,it->second);
+        else addMirrorPair(it->first,it->second);
+    }
+    pendingMirrors_.clear();
 }
 
 bool VersionedDirectionalCollapser::attempt(
@@ -201,8 +221,7 @@ bool VersionedDirectionalCollapser::attempt(
             // The previous geometry root preserves retired IDs. This map
             // describes *only* living pairs, without broken dangling links.
             result.removedMirrorPairs.push_back({b,mb});
-            mirrors_.erase(b);
-            if(paired&&mb!=b)mirrors_.erase(mb);
+            removeMirrorPair(b,mb);
             if(ma==a)mirrors_[a]=a;
             else {
                 mirrors_[a]=ma;
