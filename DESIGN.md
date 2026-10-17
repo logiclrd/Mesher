@@ -1923,6 +1923,44 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2b1: Transactional conforming cut materialization, no union
+
+`materializeTransverseCutCandidate` builds the V17e2b2a bounded
+graph fresh from the current immutable index and caller-specified V13
+contact pairs. It never accepts a caller-forged plan. Given supported
+closed orientable input, it stages every affected original source face
+AND its shared-edge neighbors within one private `RegionEdit`, creates
+new globally unique VertexIds for the graph's new points, replaces the
+first triangle of each changed original FaceId in place, and appends
+remaining oriented child triangles with brand-new FaceIds. The
+intersection endpoints retain distinct per-sheet VertexIds even where
+their 3D positions coincide. The candidate reports the original IDs,
+the new IDs, paired section endpoints and the single immutable new
+mesh/index root. No repository publication, undo entry or render upload
+occurs here; existing reader pointers and all old partition/index
+objects remain valid.
+
+`RegionEdit::commit` performs its existing full local orientable
+two-manifold edge/fan checks before creating the new COW revision.
+Uncertifiable, open, nonmanifold, ambiguous or over-budget cases throw
+without exposing partially materialized revisions. A closed pair of
+transversely intersecting tetrahedra is tested, including actual V13
+intersection detection, one private commit, source-ID preservation,
+separate contact-sheet vertex identities and refusal/rollback.
+**Residual collisions are intentionally present:** this step merely
+conforms tessellations. It does not remove a single fragment and cannot
+serve as a valid live sculpt merge by itself.
+
+Mirrored materialization is explicitly rejected until a complete
+paired-face RegionEdit journal can allocate/replace each reflected
+original/child face and propagate its mirror IDs alongside the single
+Step history. Multiple independent crossing curves within one face
+remain rejected by the V17e2b2a planner and require a bounded 2D face
+arrangement in V17e2b2b2. Thereafter the exact fragments need
+V14 positive-winding classification, V15 authorized excision, V16
+closure and all final collision/feature-fidelity gates before any
+publication. The desktop Merge geometry control stays disabled.
+
 ## V17e2b2a: Shared-edge conforming private patch graph
 
 The read-only `buildConformingCutPlan` takes **bounded V13 collision
