@@ -459,17 +459,19 @@ void testConformingSharedEdgeGraphAndBudgets() {
     const auto& bface=index->face(fixture.faces[1]).vertices;
     const auto& bside=segment.firstFace==fixture.faces[1]?
                       segment.firstSide:segment.secondSide;
-    auto edgePoint=bside[0];
-    auto incidentEdge=result.points[edgePoint].boundaryEdge;
-    if(!incidentEdge) {
-        edgePoint=bside[1];
-        incidentEdge=result.points[edgePoint].boundaryEdge;
+    std::optional<std::size_t> sharedPoint;
+    for(const auto id:bside) {
+        const auto edge=result.points[id].boundaryEdge;
+        if(edge&&index->edgeSides(*edge).size()==2) {
+            sharedPoint=id;
+            break;
+        }
     }
-    check(incidentEdge.has_value(),
-          "At least one B intersection endpoint lies on a shared source edge");
-    const auto incident=index->edgeSides(*incidentEdge);
-    check(incident.size()==2,
-          "The shared cut edge belongs to exactly two original incident faces");
+    check(sharedPoint.has_value(),
+          "One B intersection endpoint must split a real two-face source edge");
+    const auto edgePoint=*sharedPoint;
+    const auto incidentEdge=*result.points[edgePoint].boundaryEdge;
+    const auto incident=index->edgeSides(incidentEdge);
     const auto findFace=[&](FaceId id)->const ConformingCutFace& {
         const auto it=std::find_if(result.faces.begin(),result.faces.end(),
             [&](const auto& face){return face.sourceFace==id;});
