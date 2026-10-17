@@ -1092,8 +1092,10 @@ void testMirroredCompleteContactCoverage() {
     if(mirroredProposal.ready()) {
         check(mirroredProposal.mirroredRemoval.size()*2==
                   mirroredProposal.proposedRemoval.size()&&
-              mirroredProposal.contourPlan.ready(),
-              "Mirror child FaceId removals form full orbits and valid V15 contours");
+              mirroredProposal.contourPlan.ready()&&
+              mirroredProposal.mirroredContours.size()*2==
+                  mirroredProposal.contourPlan.contours.size(),
+              "Mirror FaceIds, contour loops and V15 repair choices form complete orbits");
     }else
         check(mirroredProposal.proposedRemoval.empty()||
               mirroredProposal.status==CutRemovalStatus::NoChanges,
