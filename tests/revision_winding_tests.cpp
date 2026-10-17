@@ -1,5 +1,6 @@
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
+#include "mesher/repair_intersection.hpp"
 
 #include <algorithm>
 #include <array>
@@ -53,6 +54,83 @@ void checkWinding(const RegionTopologyIndex& index,Vec3 p,int expected) {
     check(stats.raysTested>=2,
           "Independent ray directions are used for classification");
 }
+
+void testActualFaceTwoSidedOccupancyAndWorkBounds() {
+    using Kind=RegionTopologyIndex::FragmentKind;
+    // A one-face identity rewrite supplies a genuine private RevisionCommit
+    // for the read-only true-triangle classifier. The resulting geometry
+    // is identical; no forged topology or actual deletion is authorized.
+    const auto checkFace=[&](const Mesh& mesh,std::size_t faceOffset,
+                              Kind expected,int minus,int plus) {
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto baseline=RegionTopologyIndex::build(imported.revision);
+        const auto originalRoot=baseline->pickingRootIdentity();
+        const auto source=imported.flatIndex.faceIds.at(faceOffset);
+        const auto corners=baseline->face(source).vertices;
+        RegionEdit edit(baseline,{corners[0],corners[1],corners[2]},{},256);
+        edit.replaceFace(source,corners);
+        ConformingCutCandidate candidate;
+        candidate.originalIndex=baseline;
+        candidate.commit=edit.commit();
+        candidate.index=edit.updatedIndex();
+        candidate.rewrittenFaces={source};
+        candidate.childSources={{source,source}};
+        const auto answer=assessConformingCutFragments(candidate);
+        if(!answer.complete)
+            throw std::runtime_error("True child occupancy refused: "+answer.refusal);
+        check(answer.fragments.size()==1&&
+              answer.fragments[0].child==source&&
+              answer.fragments[0].original==source&&
+              answer.fragments[0].kind==expected&&
+              answer.fragments[0].negativeWinding==minus&&
+              answer.fragments[0].positiveWinding==plus,
+              "A whole real FaceId uses strictly positive two-sided winding");
+        check(answer.windingQueries==16&&
+              answer.windingWork.raysTested>=32&&
+              answer.windingWork.referenceFallbacks==0,
+              "Interior multi-witness check is accelerated, bounded and strict");
+        check(baseline->pickingRootIdentity()==originalRoot&&
+              baseline->retiredFaceCount()==0,
+              "Read-only classification preserves old immutable topology roots");
+        CutFragmentLimits limits;
+        limits.maxWindingQueries=0;
+        bool queryCapped=false;
+        try {(void)assessConformingCutFragments(candidate,limits);}
+        catch(const std::length_error&) {queryCapped=true;}
+        check(queryCapped,"Zero aggregate query budget refuses before running rays");
+        limits={};
+        limits.maxWindingBoxTests=0;
+        bool boxesCapped=false;
+        try {(void)assessConformingCutFragments(candidate,limits);}
+        catch(const std::length_error&) {boxesCapped=true;}
+        check(boxesCapped,"Winding BVH directory work is bounded INSIDE the query");
+        limits={};
+        limits.maxWindingTriangleTests=0;
+        bool trianglesCapped=false;
+        try {(void)assessConformingCutFragments(candidate,limits);}
+        catch(const std::length_error&) {trianglesCapped=true;}
+        check(trianglesCapped,"Winding proximity/ray triangle visits have hard limits");
+        limits={};
+        limits.maxWindingRays=0;
+        bool raysCapped=false;
+        try {(void)assessConformingCutFragments(candidate,limits);}
+        catch(const std::length_error&) {raysCapped=true;}
+        check(raysCapped,"Winding ray count has an internal hard work ceiling");
+        candidate.childSources.clear();
+        const auto incomplete=assessConformingCutFragments(candidate);
+        check(!incomplete.complete&&incomplete.fragments.empty(),
+              "No partial child labels escape when provenance is missing");
+    };
+    Mesh exterior;tetra(exterior,{},1);
+    checkFace(exterior,0,Kind::Exposed,1,0);
+    Mesh nested;tetra(nested,{},3);tetra(nested,{},.3);
+    checkFace(nested,4,Kind::Buried,2,1);
+    Mesh cavity;tetra(cavity,{},3);tetra(cavity,{},.3,true);
+    checkFace(cavity,4,Kind::Exposed,1,0);
+    Mesh reversed;tetra(reversed,{},.3,true);
+    checkFace(reversed,0,Kind::Outside,0,-1);
+}
+
 void testPositiveNegativeAndOverlap() {
     Mesh one;
     tetra(one,{},1);
@@ -249,6 +327,7 @@ void testAcceleratedQueriesPrune() {
 }
 int main() {
     try {
+        testActualFaceTwoSidedOccupancyAndWorkBounds();
         testPositiveNegativeAndOverlap();
         testMixedSurfaceFragments();
         testEnclosedComponents();
