@@ -289,9 +289,14 @@ std::string pairMirroredMultiSectionPlan(
                 partner[t[0]],partner[t[2]],partner[t[1]]});
         plan.faces[j].triangles=std::move(mirrorTriangles);
     }
-    for(const auto& face:plan.faces)
+    std::size_t triangles=0;
+    for(const auto& face:plan.faces) {
+        if(face.triangles.size()>limits.maxTriangles-triangles)
+            throw std::length_error("Mirrored child triangle budget exhausted");
+        triangles+=face.triangles.size();
         if(!areaPreserved(index,face,plan.points))
             return "Reflected arrangement changes source triangle winding/area";
+    }
     return {};
 }
 } // namespace mesher
