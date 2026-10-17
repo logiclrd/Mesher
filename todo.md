@@ -624,6 +624,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   Stress eight independent near-coplanar cube cap repairs within
   a single private operation; check contour pairing, manifold Euler
   characteristic, V13 residual collisions and bounded refusal.
+- [x] **V16d2a — Explicit classification-aware repair policy and mixed/long-history stress.**
+  Introduce `applyClassifiedExcisionRepair()`: the non-symmetric,
+  private wrapper calls V13/V14/V15 `planApproximateExcision` on the
+  CURRENT immutable candidate, never trusts a caller's low-level
+  `planRemovalContours` deletion set, and requires the caller to
+  specify `ClassifiedFeaturePolicy::{TopologyOnly,
+  PreserveSampledExposedFeatures}`. The preservation variant sets
+  V16d1's optional exposed/reversed-fragment proximity guard, not
+  an automatic two-sided Hausdorff constraint. Return the original
+  planner's NoChanges/Ambiguous/Budget status with NO new revision if
+  not Ready; even a Ready candidate must complete normal transactional
+  topology, collision and surface-drift validation. No publication.
+  Conflicting manual fidelity flags are explicitly rejected; mirrored
+  workers still require a separate proven symmetric caller path.
+  Regression from V14 overlapping cubes identifies ONE original
+  triangle with both exposed and buried fragments and checks per-face
+  fragment-work limits. Classification-aware nested-shell tests
+  distinguish no-op vs explicitly redundant component excision and
+  verify both selectable fidelity policies. Additional stress runs
+  five sequential cap repairs while keeping all historic immutable
+  revisions alive, rejects stale original FaceIds at each step, and
+  exercises near-coplanar/tangent/intersecting multi-shell proposals.
+  Full cross-platform CPU/benchmark CI required before merge.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -636,18 +659,18 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16d2 robustness:** cover mixed
-  exposed/buried face fragments, strongly folded and near-tangent
-  multi-component collision/excision candidates, repeated overlapping
-  cuts and longer stress sequences. Decide a safe *explicit* caller
-  policy for invoking the exposed-fragment fidelity path on
-  classification-aware V15 plans; a read-only low-level removal plan
-  never proves its own deletion is justified. Strengthen bounded
-  accuracy/error diagnostics without mistaking sampled proximity
-  for certified two-sided Hausdorff fidelity. Independent mirrored
-  crossing edges remain pre-existing intersections and require true
-  intersection-aware retopology rather than welded seam IDs.
-  The live brush remains V17.
+  seam atomically. **Remaining V16d2b robustness:** extend deeply
+  interpenetrating/highly folded multi-component excision, local
+  erosion/feature tests over long sculpt-like revision sequences,
+  and further bounded error diagnostics. The new explicit
+  classification-aware caller wrapper is non-mirrored; its chosen
+  policy does not grant a low-level removal plan authority to
+  delete arbitrary geometry. The mirrored worker needs a separately
+  justified symmetry-preserving caller choice in V17. Sampled
+  new-to-old and selected old-to-new distances do not certify
+  a continuous two-sided Hausdorff bound. Distinct mirrored
+  crossing edges remain pre-existing intersections needing genuine
+  intersection-aware retopology. Live brush activation remains V17.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

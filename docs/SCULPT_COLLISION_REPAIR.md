@@ -473,3 +473,31 @@ are regression fixtures for these opposite policies. Eight
 widely separated cube caps exercise a combined private
 near-coplanar multi-component edit, collision validation and
 bounded-work refusal. No live worker is wired in V16d1.
+
+## V16d2a: Policy decision belongs to the classified caller
+
+The V15 low-level removal-contour planner is intentionally usable
+with an arbitrary nominated face set, for tests and preflight.
+It is NOT authority to delete occupied exterior features.
+`applyClassifiedExcisionRepair` instead starts with current-revision
+dirty vertex/face IDs and optional isolated component seeds,
+runs V13 intersection + V14 winding + V15 approximate removal
+planning, then requires an explicit choice between TopologyOnly
+and PreserveSampledExposedFeatures. Ambiguous or no-op plans
+return without any private revision; a Ready proposal is still
+subject to all private V16 repair validation.
+
+The exposed-detail policy samples ONLY original Exposed and
+ReversedBoundary fragments, not buried patches. For mixed
+exposed/buried triangles, the report now has a direct regression
+using overlapping cubes from the V14 test suite. It remains a
+sampled constraint; whole-triangle approximate excision does
+not magically become exact cut-polygon reconstruction.
+
+Additional robustness: five successive independent cap
+repairs preserve all held historical roots, stable retired FaceIds,
+and genus; attempts to reuse an old removal plan fail. Near
+coplanar/tangent and ordinary overlapping shell candidates
+cannot mutate their original snapshots whether classification
+rejects or a private repair is validated. All work remains
+off the live sculpt worker until V17.
