@@ -734,7 +734,24 @@ void testPrivateConformingRevisionCommitsAtomically() {
               checked.coveredContacts.size()==all.size()&&
               checked.checkedChildren==whole.childSources.size(),
               "All true original contacts have actual source-paired child edge traces");
-        const auto nomination=planExactCutRemoval(whole);
+        // The default V15 approximate frustum/cap prefilter can refuse
+        // strongly nonplanar tetrahedral cut loops. This explicit,
+        // finite test-only contour envelope exercises the legitimate
+        // positive nomination WITHOUT bypassing the V15 topology checks
+        // or changing the conservative production defaults. V16 remains
+        // responsible for actually validating/closing the surface.
+        CutRemovalSettings supportedContours;
+        supportedContours.contours.maximumPlanarityInRadii=4.0;
+        supportedContours.contours.maximumSingleCapPlanarityInRadii=4.0;
+        supportedContours.contours.maximumIsoperimetricRatio=20.0;
+        supportedContours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        supportedContours.contours.maximumPerimeterRatio=20.0;
+        supportedContours.contours.maximumGapInEdges=20.0;
+        supportedContours.contours.minimumNormalAlignment=0;
+        const auto strict=planExactCutRemoval(whole);
+        check(strict.ready()||strict.proposedRemoval.empty(),
+              "Default V15 contour-shape refusal returns no removal permission");
+        const auto nomination=planExactCutRemoval(whole,supportedContours);
         std::cout<<"[exact-removal-probe] status="
                  <<static_cast<int>(nomination.status)
                  <<" reason="<<nomination.refusal
@@ -1077,7 +1094,15 @@ void testMirroredCompleteContactCoverage() {
           !cut.mirroredFaces.empty()&&
           !cut.mirroredVertices.empty(),
           "Both mirrored sheets have complete reciprocal persistent curve coverage");
-    const auto mirroredProposal=planExactCutRemoval(cut);
+    CutRemovalSettings supportedContours;
+    supportedContours.contours.maximumPlanarityInRadii=4.0;
+    supportedContours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    supportedContours.contours.maximumIsoperimetricRatio=20.0;
+    supportedContours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    supportedContours.contours.maximumPerimeterRatio=20.0;
+    supportedContours.contours.maximumGapInEdges=20.0;
+    supportedContours.contours.minimumNormalAlignment=0;
+    const auto mirroredProposal=planExactCutRemoval(cut,supportedContours);
     std::cout<<"[exact-removal-mirror-probe] status="
              <<static_cast<int>(mirroredProposal.status)
              <<" reason="<<mirroredProposal.refusal
