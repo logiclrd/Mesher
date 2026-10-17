@@ -256,6 +256,9 @@ struct CutRemovalProposal {
     std::vector<FaceId> proposedRemoval;
     std::vector<FaceId> protectedChildren;
     std::vector<std::pair<FaceId,FaceId>> mirroredRemoval;
+    // V15 contour-index pair orbits, each output once (i<partner).
+    // Self-paired seam contours remain unsupported in this first gate.
+    std::vector<std::pair<std::size_t,std::size_t>> mirroredContours;
     // V15 checks contour shape and closure options, but does not perform
     // surgery; its low-level readiness is NOT a publication authorization.
     RepairPlan contourPlan;
