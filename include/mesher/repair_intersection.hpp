@@ -328,6 +328,7 @@ struct ExactCutJoinLimits {
     CutRemovalSettings removal{};
     std::size_t maxBoundaryEdges=8192;
     std::size_t maxSeamPairs=8192;
+    std::size_t maxTraceTests=262144; // bounded original-contact x boundary probes
     std::size_t maxRewrittenFaces=8192;
     std::size_t maxCandidateFaces=16384;
     CollisionQueryLimits residualCollisionLimits{
