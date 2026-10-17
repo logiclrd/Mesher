@@ -5,6 +5,10 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace mesher {
@@ -55,5 +59,52 @@ IntersectionSectionBatch splitTransverseContactBatch(
     const RegionTopologyIndex& index,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
     std::size_t maxPairs=128);
+
+ 
+// V17e2b2a: a read-only, bounded plan for conforming EVERY original
+// incident face to the edge vertices created by V17e2b1. Plan indices
+// are ephemeral and are NOT VertexIds or FaceIds in a MeshRevision.
+// Two intersecting sheets retain DISTINCT cut vertices at their common
+// geometrical coordinates until classified removal authorizes welding.
+struct ConformingCutLimits {
+    std::size_t maxContacts=128;
+    std::size_t maxAffectedFaces=1024;
+    std::size_t maxNewPoints=4096;
+    std::size_t maxTriangles=8192;
+};
+struct ConformingCutPoint {
+    Vec3 position{};
+    std::optional<VertexId> existingVertex;
+    std::optional<RegionTopologyIndex::Edge> boundaryEdge;
+    FaceId owningFace{}; // meaningful for interior points only
+};
+struct ConformingCutFace {
+    FaceId sourceFace{};
+    std::vector<std::array<std::size_t,3>> triangles;
+};
+struct ConformingCutSegment {
+    FaceId firstFace{},secondFace{};
+    std::array<std::size_t,2> firstSide{},secondSide{};
+};
+struct ConformingCutPlan {
+    IntersectionSectionStatus status{IntersectionSectionStatus::Disjoint};
+    std::vector<ConformingCutPoint> points;
+    std::vector<ConformingCutFace> faces;
+    std::vector<ConformingCutSegment> segments;
+    std::vector<std::pair<std::size_t,std::size_t>> mirroredCutPoints;
+    std::string refusal;
+};
+// Each boundary edge cut is represented by ONE ephemeral point index in
+// BOTH original incident faces; an independent intersecting sheet retains
+// its own distinct point. Faces from outside the original collision pair
+// are added to the plan if their shared edge needs a conforming split.
+// Unsupported intersections, repeated multi-section source faces, absent
+// mirror companions and nonmanifold boundary edges refuse the whole plan.
+// Does not perform a RegionEdit, winding classification, or root CAS.
+ConformingCutPlan buildConformingCutPlan(
+    const RegionTopologyIndex& index,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const ConformingCutLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
 
 } // namespace mesher
