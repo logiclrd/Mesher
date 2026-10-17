@@ -123,6 +123,8 @@ void queryPartition(const Partition& part,const Bounds& bounds,
                     const RegionTopologyIndex::CollisionQueryLimits& limits) {
     if(stats.partitionsTested>=limits.maxPartitionTests)
         throw std::length_error("Collision partition-test budget exhausted");
+    if(stats.partitionsTested>=limits.maxPartitionTests)
+        throw std::length_error("Winding partition traversal budget exhausted");
     ++stats.partitionsTested;
     std::vector<std::int32_t> stack{0};
     while(!stack.empty()) {
@@ -168,12 +170,15 @@ void queryDirectory(
 // strictly interior positive ray hit contributes to the total.
 void crossingPartition(const Partition& part,Ray ray,
                       RegionTopologyIndex::WindingStatistics& stats,
-                      int& winding,bool& ambiguous) {
+                      int& winding,bool& ambiguous,
+                      const WindingQueryLimits& limits) {
     ++stats.partitionsTested;
     std::vector<std::int32_t> stack{0};
     while(!stack.empty()) {
         const auto id=stack.back();stack.pop_back();
         const auto& node=part.nodes[static_cast<std::size_t>(id)];
+        if(stats.boxesTested>=limits.maxBoxTests)
+            throw std::length_error("Winding BVH box budget exhausted");
         ++stats.boxesTested;
         if(!rayBounds(node.bounds,ray,
                       std::numeric_limits<double>::infinity()))continue;
@@ -186,6 +191,8 @@ void crossingPartition(const Partition& part,Ray ray,
             const auto& tri=part.triangles[i];
             if(!rayBounds(tri.bounds,ray,
                           std::numeric_limits<double>::infinity()))continue;
+            if(stats.trianglesTested>=limits.maxTriangleTests)
+                throw std::length_error("Winding triangle test budget exhausted");
             ++stats.trianglesTested;
             const auto& [a,b,c]=tri.vertices;
             const auto ab=b-a,ac=c-a;
@@ -219,15 +226,17 @@ void crossingPartition(const Partition& part,Ray ray,
 void crossingDirectory(
     const std::shared_ptr<const RevisionPickingIndex::Directory>& directory,
     Ray ray,RegionTopologyIndex::WindingStatistics& stats,
-    int& winding,bool& ambiguous) {
+    int& winding,bool& ambiguous,const WindingQueryLimits& limits) {
     if(!directory)return;
+    if(stats.boxesTested>=limits.maxBoxTests)
+        throw std::length_error("Winding directory box budget exhausted");
     ++stats.boxesTested;
     if(!rayBounds(directory->bounds,ray,
                   std::numeric_limits<double>::infinity()))return;
     if(directory->partition)
-        crossingPartition(*directory->partition,ray,stats,winding,ambiguous);
+        crossingPartition(*directory->partition,ray,stats,winding,ambiguous,limits);
     for(const auto& child:directory->children)
-        if(child)crossingDirectory(child,ray,stats,winding,ambiguous);
+        if(child)crossingDirectory(child,ray,stats,winding,ambiguous,limits);
 }
 void hitPartition(const Partition& part,Ray ray,double& best,
                   RegionTopologyIndex::PickStatistics& stats) {
@@ -354,11 +363,13 @@ void RevisionPickingIndex::forEachOverlappingTriangle(
 }
 int RevisionPickingIndex::signedRayCrossings(
     Ray ray,RegionTopologyIndex::WindingStatistics& stats,
-    bool& ambiguous) const {
+    bool& ambiguous,const WindingQueryLimits& limits) const {
     int winding=0;
     ambiguous=false;
+    if(stats.raysTested>=limits.maxRays)
+        throw std::length_error("Winding ray budget exhausted");
     ++stats.raysTested;
-    crossingDirectory(root_,ray,stats,winding,ambiguous);
+    crossingDirectory(root_,ray,stats,winding,ambiguous,limits);
     return winding;
 }
 std::optional<Vec3> RevisionPickingIndex::firstRayHit(
