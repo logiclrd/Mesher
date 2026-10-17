@@ -437,8 +437,8 @@ void testConformingSharedEdgeGraphAndBudgets() {
         fixture.import.flatIndex.vertexIds,{});
     auto found=std::find_if(all.begin(),all.end(),
         [&](const auto& pair) {
-            return pair.first==fixture.faces[0]&&
-                   pair.second==fixture.faces[1];
+            const auto ordered=std::minmax(fixture.faces[0],fixture.faces[1]);
+            return pair.first==ordered.first&&pair.second==ordered.second;
         });
     check(found!=all.end(),"V13 discovers original intersecting pair");
     const std::vector<RegionTopologyIndex::CollisionPair> pairs{*found};
@@ -457,10 +457,12 @@ void testConformingSharedEdgeGraphAndBudgets() {
               "Distinct contact-sheet vertices still have matching geometric section coordinates");
     }
     const auto& bface=index->face(fixture.faces[1]).vertices;
-    auto edgePoint=segment.secondSide[0];
+    const auto& bside=segment.firstFace==fixture.faces[1]?
+                      segment.firstSide:segment.secondSide;
+    auto edgePoint=bside[0];
     auto incidentEdge=result.points[edgePoint].boundaryEdge;
     if(!incidentEdge) {
-        edgePoint=segment.secondSide[1];
+        edgePoint=bside[1];
         incidentEdge=result.points[edgePoint].boundaryEdge;
     }
     check(incidentEdge.has_value(),
@@ -541,7 +543,10 @@ void testConformingReflectedCutGraph() {
                reflectedSecond=fixture.import.flatIndex.faceIds[4];
     const auto select=[&](FaceId a,FaceId b) {
         const auto it=std::find_if(all.begin(),all.end(),
-            [&](const auto& p){return p.first==a&&p.second==b;});
+            [&](const auto& p){
+                const auto ordered=std::minmax(a,b);
+                return p.first==ordered.first&&p.second==ordered.second;
+            });
         check(it!=all.end(),"Reflected triangle pair is a real V13 intersection");
         return *it;
     };
