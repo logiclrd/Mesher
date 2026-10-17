@@ -129,6 +129,22 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
         throw std::invalid_argument("Classified collision evaluation needs complete roots");
     SculptCollisionEvaluation outcome;
     if(!settings.enabled)return outcome;
+    const auto verifyAnchors=[&](
+        const std::shared_ptr<const RegionTopologyIndex>& evaluated) {
+        if(!settings.anchoredSurface)return;
+        const auto& guard=*settings.anchoredSurface;
+        if(!std::isfinite(guard.maximumDistanceInEdges)||
+           guard.maximumDistanceInEdges<0)
+            throw std::invalid_argument("Invalid anchored-surface tolerance");
+        outcome.anchoredSurfaceAudit=auditSurfaceWitnesses(
+            *evaluated,guard.originalWitnesses,guard.candidateFaces,
+            guard.originalEdgeLength,guard.maxDistanceTests);
+        if(outcome.anchoredSurfaceAudit->maximumDistanceInEdges>
+           guard.maximumDistanceInEdges) {
+            outcome.refusal="Cumulative anchored original-surface deviation exceeded limit";
+            outcome.repair.reset();
+        }
+    };
     // These finite limits apply even if the caller uses default V13 offline
     // settings with unlimited budgets. Lower caller limits remain respected.
     auto surgery=settings.surgery;
@@ -158,7 +174,10 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
         outcome.plan=planApproximateExcision(
             *proposed.candidate,vertices,faces,isolatedComponentSeeds,plan);
         if(outcome.plan.status==RepairPlanStatus::NoChanges&&
-           outcome.plan.intersections==0)return outcome;
+           outcome.plan.intersections==0) {
+            verifyAnchors(proposed.candidate);
+            return outcome;
+        }
         if(!outcome.plan.ready()) {
             outcome.refusal="Symmetric classified collision refused: "+
                 outcome.plan.reason;
@@ -222,7 +241,10 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
             ClassifiedFeaturePolicy::PreserveSampledExposedFeatures,surgery);
         outcome.plan=classified.plan;
         if(outcome.plan.status==RepairPlanStatus::NoChanges&&
-           outcome.plan.intersections==0)return outcome;
+           outcome.plan.intersections==0) {
+            verifyAnchors(proposed.candidate);
+            return outcome;
+        }
         if(!classified.surgery) {
             outcome.refusal="Classified collision repair refused: "+
                 (outcome.plan.reason.empty()?
@@ -257,8 +279,10 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     outcome.finalNarrowPhaseTests=measured.narrowPhaseTests;
     if(!residual.empty()) {
         outcome.refusal="Entire repaired Step retains a collision or ambiguous contact";
+        outcome.repair.reset();
         return outcome;
     }
+    verifyAnchors(outcome.repair->index);
     return outcome;
 }
 
