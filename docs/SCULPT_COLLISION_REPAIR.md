@@ -410,3 +410,33 @@ The old low-level mirrored-surgery API still fails closed without
 such pre-normalization. Generic crossing edge pairs and
 self-reflected contours with more than two contacts remain open
 rather than being automatically snapped to the seam.
+
+## V16c2b3: Distinct mirrored edge crossings are pre-existing intersections
+
+An edge crossing X=0 and its reflection share the exact world-space
+crossing point: the plane is fixed pointwise by reflection.
+If they are DISTINCT nonadjacent mesh edges, they are already
+geometrically crossing, not two valid seams awaiting independent
+subdivision. The pre-normalization classifier now reports this
+explicitly. It refuses to create duplicated, coincident X=0
+vertices or to weld two unrelated manifold fans at one point.
+Only the self-reflected edge-orbit normalization from V16c2b1/b2
+can be applied automatically. Existing crossing sheets need
+excision and explicit topology selection, which is a different
+problem from vertex/edge canonicalization.
+
+The boundary of a reflection-symmetric embedded disk has two
+transverse X=0 contacts, delimiting its single fixed seam arc.
+A vertex that merely touches X=0 and returns to the same side
+is tangential, not another transverse crossing. Four contacts
+on one contour cannot be blindly paired as two seams without
+risking crossing chords, pinches or changed topology. The
+plane-contact preflight now distinguishes those cases and
+refuses nontransverse or excessive contacts. Four crossings
+across TWO distinct independently capped contours remain
+valid and have a positive end-to-end regression.
+
+No intermediate geometry is published on refusal. The remaining
+V16 safety work concerns high-complexity collision/excision,
+feature-bearing surface classification and fidelity validation,
+not creating duplicate reflection-plane seams by normalization.
