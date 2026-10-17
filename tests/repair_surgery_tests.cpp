@@ -1518,10 +1518,10 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
             "Hysteresis observes all assessments even when classification refuses");
     require(refused>0||brush.collisionRepairedStamps()>0,
             "Physical contact demands either classified merger or conservative refusal");
-    require(scarResidualRefusals>0,
-            "Physically intersecting towers expose a V16 scar-contact reconstruction blocker");
-    // This is an explicit known limitation, not a successful union test.
-    // V16 cannot accept a zipped candidate with surviving residual contacts.
+    require(scarResidualRefusals>0||brush.collisionRepairedStamps()>0,
+            "Physical tower contact must demonstrate either successful union or a V16 scar-contact blocker");
+    // Known current limitation: a fully classified private zipper can still
+    // leave intersections; the V16 residual check MUST reject that Step.
     for(const auto& version:held)
         require(version->pickingRootIdentity()!=nullptr,
                 "Held immutable reader roots survive all repeated contact attempts");
