@@ -35,6 +35,29 @@ RemovalSurfaceProvenance inspectRemovalSurfaceProvenance(
     unsigned sampleDepth=2,
     std::size_t maxFragments=2048);
 
+// Cross-revision geometry sampling for detecting cumulative local drift.
+struct SurfaceWitnessAudit {
+    std::size_t witnessCount{};
+    std::size_t candidateFaces{};
+    std::size_t distanceTests{};
+    double maximumDistanceInEdges{};
+    double meanDistanceInEdges{};
+    double rmsDistanceInEdges{};
+};
+// Seven samples per original triangle: vertices, edge midpoints, center.
+std::vector<Vec3> sampleSurfaceWitnesses(
+    const RegionTopologyIndex& original,
+    const std::vector<FaceId>& faces,
+    std::size_t maxWitnesses=4096);
+// A bounded read-only closest-triangle audit. The reference edge length
+// comes from original geometry, independently of the brush radius.
+SurfaceWitnessAudit auditSurfaceWitnesses(
+    const RegionTopologyIndex& current,
+    const std::vector<Vec3>& witnesses,
+    const std::vector<FaceId>& candidateFaces,
+    double originalEdgeLength,
+    std::size_t maxDistanceTests=131072);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
