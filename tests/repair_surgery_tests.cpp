@@ -552,16 +552,10 @@ void testAtomicSelfReflectedPlaneCrossingNormalization() {
             "All failed normalizations leave original index immutable");
 }
 void testNormalizeAndReplanNoCrossingCompatibility() {
-    Mesh m;
-    cube(m,{-3,0,0},1);
-    cube(m,{3,0,0},1);
-    const auto imp=partitionFlatMesh(m,1);
-    const auto base=RegionTopologyIndex::build(imp.revision);
-    const auto& v=imp.flatIndex.vertexIds;
-    const auto& f=imp.flatIndex.faceIds;
-    std::vector<std::pair<VertexId,VertexId>> mirrors;
-    for(unsigned i=0;i<8;++i)
-        mirrors.emplace_back(v[i],v[i+8]);
+    const auto fixture=reflectedCubes(3.0);
+    const auto base=RegionTopologyIndex::build(fixture.import.revision);
+    const auto& f=fixture.import.flatIndex.faceIds;
+    const auto& mirrors=fixture.mirrors;
     const auto plan=planRemovalContours(
         *base,{f[10],f[11],f[20],f[21]});
     require(plan.ready()&&plan.cappedContours.size()==2,
