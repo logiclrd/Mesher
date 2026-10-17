@@ -1833,3 +1833,45 @@ budgeted fail-closed operation with no old-root changes.
 
 This is a sampled, per-patch proximity metric, not a certified
 Hausdorff envelope or automatic selection of what to delete.
+
+## V16d2a — An explicit classification-aware caller, not automatic inference
+
+V16d1 exposed a read-only provenance report and an opt-in selective
+reverse-fidelity policy. Its low-level `planRemovalContours` caller
+may nominate arbitrary faces; it never proves those faces are
+buried. Therefore the new `applyClassifiedExcisionRepair` takes
+the V13 dirty vertex/face IDs, optional closed component seeds
+and explicit `ClassifiedFeaturePolicy` directly. It re-runs
+`planApproximateExcision` against the ORIGINAL candidate immutable
+index before considering any topology mutation.
+
+The explicit `TopologyOnly` choice preserves the established
+V16 default; `PreserveSampledExposedFeatures` adds V16d1's
+selective sampled reverse-distance guard. NoChanges, Ambiguous
+and BudgetExceeded return the full failed/empty planner result
+and no private surgery index. A Ready plan still must pass all
+usual private transaction checks, including face/edge links,
+orientation, residual BVH intersections and surface displacement.
+Neither caller option publishes a worker revision or silently
+authorizes deletion based on raw low-level contours.
+
+Even when V14 classifies mixed original patches, V15's
+whole-triangle removal is only approximate. A single original
+triangle in an overlapping-cubes fixture includes BOTH exposed
+and buried subtriangle centroids. No global true/false
+feature-preservation flag can accurately express such geometry.
+Selected reverse samples preserve *witness points* for exposed
+fragments, not a continuous boundary curve or exact Hausdorff
+envelope, and no claim of guaranteed preservation follows.
+
+The per-face mixed witness is tested at V14 depth 3 (64 patches).
+A separate nested redundant shell test demonstrates an explicit
+classified deletion with both caller policy choices, while a
+no-change candidate creates no empty revision. Stress holds
+six immutable generations alive over five independent face-cap
+repairs, checks that stale retired IDs cannot be reused, and
+checks retained genus. A near-tangent/coplanar/intersecting
+multi-shell matrix exercises bounded classification attempts,
+safe failure and unchanged old renderer/picker roots. This
+wrapper presently targets NON-SYMMETRIC repair only; V17 must
+define the caller's symmetry-aware worker policy separately.
