@@ -82,6 +82,14 @@ std::array<VertexId,3> sortedFaceIds(
 }
 } // namespace
 
+// Multi-curve planar-arrangement path. Kept separate from the established
+// single-curve fast path; both build the same strict unpublished cut graph.
+ConformingCutPlan buildMultiSectionCutPlan(
+    const RegionTopologyIndex& index,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const ConformingCutLimits& limits,
+    const std::unordered_map<VertexId,VertexId>* mirrors);
+
 ConformingCutPlan buildConformingCutPlan(
     const RegionTopologyIndex& index,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
@@ -91,6 +99,15 @@ ConformingCutPlan buildConformingCutPlan(
         throw std::length_error("Conforming cut contact budget exhausted");
     ConformingCutPlan empty;
     if(contacts.empty())return empty;
+    std::set<FaceId> seenSections;
+    bool hasRepeatedSection=false;
+    for(const auto& contact:contacts) {
+        if(!seenSections.insert(contact.first).second||
+           !seenSections.insert(contact.second).second)
+            hasRepeatedSection=true;
+    }
+    if(hasRepeatedSection)
+        return buildMultiSectionCutPlan(index,contacts,limits,mirrors);
     const auto refusal=[&](const char* why) {
         ConformingCutPlan failed;
         failed.status=IntersectionSectionStatus::UnsupportedContact;
