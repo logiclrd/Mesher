@@ -136,6 +136,9 @@ struct ConformingCutCandidate {
     // Empty for the nonmirrored path; no published map is mutated here.
     std::vector<std::pair<VertexId,VertexId>> mirroredVertices;
     std::vector<std::pair<FaceId,FaceId>> mirroredFaces;
+    // Exact caller-supplied original contact order, retained so an
+    // independent certification pass can compare with ALL V13 local hits.
+    std::vector<RegionTopologyIndex::CollisionPair> sourceContacts;
     std::vector<std::array<VertexId,2>> sectionFirst;
     std::vector<std::array<VertexId,2>> sectionSecond;
 };
@@ -190,5 +193,35 @@ struct CutFragmentAssessment {
 // No faces are removed or nominated for V15 deletion by this API.
 CutFragmentAssessment assessConformingCutFragments(
     const ConformingCutCandidate& cut,const CutFragmentLimits& limits={});
+
+
+// V17e2b2c2: bounded, read-only certification that every V13 contact
+// involving a changed ORIGINAL face is declared, every declared transverse
+// section is traced by child edges on BOTH sheets, and no child of either
+// contact source crosses the other's supporting plane in its open interior.
+// The resulting certificate covers the supported finite-tolerance model;
+// no Boolean trimming, seam welding, history entry or deletion occurs.
+struct CutCoverageLimits {
+    CollisionQueryLimits originalCollisionLimits{
+        1024,131072,16384,131072,65536,2048};
+    std::size_t maxContacts=128;
+    std::size_t maxChildren=8192;
+    std::size_t maxChildPairTests=262144;
+    std::size_t maxEdgeTraceTests=262144;
+};
+struct CutCoverageCertificate {
+    bool complete{};
+    std::string refusal;
+    std::size_t checkedContacts{};
+    std::size_t checkedChildren{};
+    std::size_t childPairTests{};
+    std::size_t edgeTraceTests{};
+    RegionTopologyIndex::CollisionStatistics discoveryWork{};
+    // Exact source pairs exhaustively rediscovered from the ORIGINAL root.
+    // Empty upon ANY refusal; never a partial authorization to trim.
+    std::vector<RegionTopologyIndex::CollisionPair> coveredContacts;
+};
+CutCoverageCertificate certifyConformingCutCoverage(
+    const ConformingCutCandidate& cut,const CutCoverageLimits& limits={});
 
 } // namespace mesher
