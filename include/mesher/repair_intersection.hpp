@@ -74,6 +74,9 @@ struct ConformingCutLimits {
     // The multiple-curve face arrangement has quadratic intersection work.
     std::size_t maxArrangementPairTests=16384;
     std::size_t maxArrangementEdges=16384;
+    // Bounds scaffold visibility and ear-clipping predicates, separately
+    // from the section-pair intersection budget.
+    std::size_t maxArrangementPredicates=262144;
 };
 struct ConformingCutPoint {
     Vec3 position{};
