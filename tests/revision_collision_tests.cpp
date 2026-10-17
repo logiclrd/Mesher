@@ -872,6 +872,144 @@ void testSectionsMeetAtInteriorTjunction() {
           "T-arranged sections materialize as one complete unpublished manifold revision");
 }
 
+
+void testMirroredMultipleSectionsReadOnly() {
+    const auto exercise=[&](bool tJunction) {
+        Mesh mesh;
+        const std::array<Vec3,12> positions=tJunction
+            ?std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-1,.7,-1},{.7,.7,-1},{.7,.7,1},{.5,2.5,3}
+            }}
+            :std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-2,.7,-1},{3,.7,-1},{.5,.7,2},{.5,2.5,3}
+            }};
+        // Both groups consist of three independently closed tetrahedra.
+        // Offsetting the first group to X>0 leaves their genuine multi-
+        // section contact intact, and the other group is its exact mirror.
+        for(const auto p:positions)
+            mesh.vertices.push_back({5+p.x,p.y,p.z});
+        for(const auto p:positions)
+            mesh.vertices.push_back({-5-p.x,p.y,p.z});
+        for(unsigned half=0;half<2;++half)
+            for(unsigned solid=0;solid<3;++solid) {
+                const auto v=12u*half+4u*solid;
+                for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                    {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+                }}) {
+                    if(half==0)mesh.triangles.push_back({
+                        v+t[0],v+t[1],v+t[2]});
+                    else mesh.triangles.push_back({
+                        v+t[0],v+t[2],v+t[1]});
+                }
+            }
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto index=RegionTopologyIndex::build(imported.revision);
+        const auto oldRoot=index->pickingRootIdentity();
+        std::unordered_map<VertexId,VertexId> reflection;
+        for(std::size_t i=0;i<12;++i) {
+            const auto a=imported.flatIndex.vertexIds[i],
+                       b=imported.flatIndex.vertexIds[i+12];
+            reflection.emplace(a,b);
+            reflection.emplace(b,a);
+        }
+        const auto all=index->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto& faces=imported.flatIndex.faceIds;
+        const auto lookup=[&](FaceId a,FaceId b) {
+            const auto ordered=std::minmax(a,b);
+            const auto found=std::find_if(all.begin(),all.end(),
+                [&](const auto& pair) {
+                    return pair.first==ordered.first&&
+                           pair.second==ordered.second;
+                });
+            check(found!=all.end(),"Mirror fixture requires actual V13 transverse pairs");
+            return *found;
+        };
+        const std::vector<RegionTopologyIndex::CollisionPair> contacts{
+            lookup(faces[0],faces[4]),lookup(faces[0],faces[8]),
+            lookup(faces[12],faces[16]),lookup(faces[12],faces[20])};
+        const auto plan=buildConformingCutPlan(*index,contacts,{},&reflection);
+        if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+            throw std::runtime_error("Mirrored multi-section arrangement: "+plan.refusal);
+        check(plan.segments.size()==4&&plan.mirroredCutPoints.size()>6,
+              "Both reflected three-tetrahedron intersection graphs pair completely");
+        std::vector<std::size_t> pointOrbit(plan.points.size(),plan.points.size());
+        for(const auto& [a,b]:plan.mirroredCutPoints) {
+            check(a!=b&&pointOrbit[a]==plan.points.size()&&
+                  pointOrbit[b]==plan.points.size(),
+                  "Mirrored arrangement has distinct, unique cut-point orbits");
+            pointOrbit[a]=b;pointOrbit[b]=a;
+            const auto p=plan.points[a].position,q=plan.points[b].position;
+            check(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                  "Mirror reconciliation uses EXACT reflected cut coordinates");
+        }
+        for(std::size_t i=0;i<plan.points.size();++i)
+            if(plan.points[i].existingVertex) {
+                const auto counterpart=reflection.at(*plan.points[i].existingVertex);
+                const auto found=std::find_if(plan.points.begin(),plan.points.end(),
+                    [&](const auto& p) {
+                        return p.existingVertex&&*p.existingVertex==counterpart;
+                    });
+                check(found!=plan.points.end(),
+                      "Original point also has a mirrored orbit in the plan");
+                pointOrbit[i]=static_cast<std::size_t>(found-plan.points.begin());
+            }
+        for(const auto i:pointOrbit)
+            check(i<plan.points.size(),
+                  "Every original and generated arrangement point is explicitly paired");
+        for(const auto& part:plan.faces) {
+            if(part.sourceFace>=faces[12])continue;
+            auto reflectedVertices=index->face(part.sourceFace).vertices;
+            for(auto& id:reflectedVertices)id=reflection.at(id);
+            std::sort(reflectedVertices.begin(),reflectedVertices.end());
+            const auto mirror=std::find_if(plan.faces.begin(),plan.faces.end(),
+                [&](const auto& candidate) {
+                    auto corners=index->face(candidate.sourceFace).vertices;
+                    std::sort(corners.begin(),corners.end());
+                    return corners==reflectedVertices;
+                });
+            check(mirror!=plan.faces.end()&&
+                  part.triangles.size()==mirror->triangles.size(),
+                  "Each changed face has the same number of reflected child triangles");
+            for(std::size_t j=0;j<part.triangles.size();++j) {
+                const auto t=part.triangles[j],m=mirror->triangles[j];
+                check(m[0]==pointOrbit[t[0]]&&
+                      m[1]==pointOrbit[t[2]]&&
+                      m[2]==pointOrbit[t[1]],
+                      "Each reflected child triangle has exact paired topology and winding");
+            }
+        }
+        check(index->pickingRootIdentity()==oldRoot&&
+              index->retiredFaceCount()==0,
+              "Mirrored arrangements leave original revision and BVH pointer untouched");
+        auto missing=reflection;
+        missing.erase(imported.flatIndex.vertexIds[0]);
+        const auto refused=buildConformingCutPlan(*index,contacts,{},&missing);
+        check(refused.status==IntersectionSectionStatus::UnsupportedContact&&
+              refused.points.empty()&&refused.faces.empty(),
+              "Missing mirror vertex refuses the entire multiple-section cut graph");
+        auto partial=contacts;
+        partial.pop_back();
+        const auto unmatched=buildConformingCutPlan(*index,partial,{},&reflection);
+        check(unmatched.status==IntersectionSectionStatus::UnsupportedContact&&
+              unmatched.points.empty(),
+              "Missing reflected contact curve cannot leave a partial plan");
+        ConformingCutLimits budgets;
+        budgets.maxMirroredPairTests=0;
+        bool overBudget=false;
+        try {(void)buildConformingCutPlan(*index,contacts,budgets,&reflection);}
+        catch(const std::length_error&) {overBudget=true;}
+        check(overBudget&&index->pickingRootIdentity()==oldRoot,
+              "Mirrored pairing has a separate hard work ceiling and no published effects");
+    };
+    exercise(false); // proper crossing inside original face
+    exercise(true);  // interior T-junction
+}
+
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -904,6 +1042,7 @@ int main() {
         testPrivateConformingRevisionCommitsAtomically();
         testCrossingMultipleSectionsPerOriginalTriangle();
         testSectionsMeetAtInteriorTjunction();
+        testMirroredMultipleSectionsReadOnly();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
