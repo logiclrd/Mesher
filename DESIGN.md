@@ -1923,6 +1923,52 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2c3: Cavity-safe exact-child removal planning (private)
+
+`planExactCutRemoval` is the **read-only** bridge between V17e2b2c1
+two-sided positive-winding occupancy, V17e2b2c2 complete original-contact
+and real-child-edge coverage, and V15's contour-quality assessment. It
+RECOMPUTES both certificates from the SAME immutable private
+`ConformingCutCandidate`, verifying every stable child FaceId and exact
+original provenance; no external caller can inject precomputed winding
+labels or a stale certificate as deletion authority. Finite work ceilings
+remain active in BOTH prerequisite passes. Unsupported contact domains,
+ray ambiguities and budget exhaustion return an empty refusal, never a
+partial authorized deletion set.
+
+The sole currently supported policy is
+`PositiveWindingUnionPreserveCavities`. For each actual conforming
+child triangle, inside is strictly `w>0` on its oriented minus/plus
+sides. An oriented unit winding jump is required. `Exposed` (occupied
+minus, void plus) and `ReversedBoundary` (void minus, occupied plus)
+are **protected**, preserving genuine cavity interfaces even when the
+cavity itself has a negative inner shell orientation. Only `Buried`
+(occupied on BOTH sides) or `Outside` (void on BOTH sides) are
+nominated. Winding parity and whole-original-face hidden fractions have
+NO role. `Outside` includes fully negative-winding imaginary shells;
+it does NOT mean all inward-facing cavity triangles are disposable.
+
+An explicitly mirrored cut must have a COMPLETE pair of stable FaceIds
+for every changed child and a complete exact off-plane reflected pair
+for every inserted VertexId. Paired child triangles must have EXACT
+reflected positions and opposite cyclic winding; paired winding classes
+must agree, and deletions must form complete mirror orbits. A partial
+mirror journal or asymmetric occupancy refuses the entire proposal.
+The result reports all protected children, the selected exact child
+FaceIds and their reflected pairs only AFTER every classification and
+topology test succeeds.
+
+V15's `planRemovalContours` is used on those EXACT FaceIds to establish
+legal retained-face boundary loops and a private cap/zipper closure
+candidate. A non-Ready contour plan or unsupported geometry is an atomic
+refusal and cannot leak a partial deletion set. The output is NOT a
+V16 surgery, has not retired any face, does not apply any mirror journal,
+and does not modify a renderer, checkpoint, undo stack, worker, or
+published root. V16 must still perform whole-candidate private surgery,
+close contours, preserve exposed original features, verify all residual
+intersections and fidelity, and V17 must stage one final original-root
+CAS. No desktop Merge geometry control is enabled.
+
 ## V17e2b2c2: Independent finite-tolerance contact-coverage certificate
 
 `certifyConformingCutCoverage` accepts ONLY a complete unpublished
