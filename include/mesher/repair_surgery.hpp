@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace mesher {
@@ -152,6 +153,27 @@ MirroredCrossingRepair repairMirroredContoursAcrossPlane(
     const std::vector<std::pair<VertexId,VertexId>>& vertexMirrors,
     const RepairSurgerySettings& settings={},
     std::size_t maximumCrossings=16);
+
+
+// This is the CLASSIFICATION-AWARE entry point, unlike low-level
+// planRemovalContours(), which accepts ANY caller-proposed deletion.
+// Caller chooses a policy explicitly: no new behavior is inferred from
+// triangle winding, and no worker publication is performed here.
+enum class ClassifiedFeaturePolicy {
+    TopologyOnly,
+    PreserveSampledExposedFeatures
+};
+struct ClassifiedExcisionRepair {
+    RepairPlan plan; // includes NoChanges, ambiguous, or budget refusals
+    std::optional<RepairSurgeryResult> surgery; // only for a Ready plan
+};
+ClassifiedExcisionRepair applyClassifiedExcisionRepair(
+    std::shared_ptr<const RegionTopologyIndex> baseline,
+    const std::vector<VertexId>& changedVertices,
+    const std::vector<FaceId>& changedFaces,
+    const std::vector<FaceId>& componentSeeds,
+    ClassifiedFeaturePolicy policy,
+    const RepairSurgerySettings& settings={});
 
 
 } // namespace mesher
