@@ -503,6 +503,10 @@ void testOptInCollisionAssessmentOnCleanAsyncStrokes() {
             state.collisionCheckedStamps>0&&
             state.collisionRepairedStamps==0&&
             state.rejectedStamps==0&&
+            state.contact.episodes==0&&
+            state.contact.cleanChecks==state.collisionCheckedStamps&&
+            state.contact.contactChecks==0&&
+            state.contact.uncertainChecks==0&&
             state.publishedRevisions==state.history.undoDepth,
             "Opt-in complete-candidate collision policy preserves clean worker commits");
     auto last=worker.takeSnapshot();
