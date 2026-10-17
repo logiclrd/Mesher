@@ -975,7 +975,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   face corners, unmerged sheet identities, original-root stability and
   missing orbit/partition/matching-budget rollback. The ordinary
   nonmirrored behavior is unchanged. **Subdivision is NOT union.**
-- [ ] **V17e2b2c1 — Real child FaceId two-sided winding assessment (read-only).**
+- [x] **V17e2b2c1 — Real child FaceId two-sided winding assessment (read-only).**
   Preserve exact original FaceId provenance for every retained/inserted child
   in nonmirrored and symmetric private cut commits. Evaluate each ACTUAL
   child triangle with four interior barycentric witnesses at two physical
