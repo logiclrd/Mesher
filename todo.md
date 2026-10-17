@@ -647,6 +647,32 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   revisions alive, rejects stale original FaceIds at each step, and
   exercises near-coplanar/tangent/intersecting multi-shell proposals.
   Full cross-platform CPU/benchmark CI required before merge.
+- [x] **V16d2b — Original-surface witness audit and repeated deep-contact stress.**
+  Add read-only `sampleSurfaceWitnesses(original,faceIds,maxWitnesses)`:
+  seven world-space witness points per original triangle (vertices,
+  edge midpoints and centroid). Those points remain immutable even
+  after original FaceIds are retired in later revisions. Add
+  `auditSurfaceWitnesses(current,originalWitnesses,candidateFaceIds,
+  originalEdgeLength,maxDistanceTests)`: measure each early-revision
+  witness against its closest triangle on an EXPLICIT later surface
+  patch and report maximum, mean and RMS distances normalized by
+  original local edge length. Work is limited by a checked
+  witness-count x unique-candidate-face product; nonfinite data,
+  invalid scales, retired candidate FaceIds, and empty targets
+  fail closed. This is a DISCRETE cross-revision erosion witness,
+  never a continuous Hausdorff bound or an autonomous constraint
+  on sculpt-worker publication.
+  Regress thirty-two successive cap replacements of the SAME
+  exterior patch, each with a new set of stable FaceIds, checking
+  original-anchored zero drift, closed genus-zero topology,
+  old-root stability, atomic per-step publication, all held
+  33 historical immutable generations, and hard test budgets.
+  A wrong opposite-face audit deliberately produces a nonzero
+  erosion signal, detecting incorrect surface selection. Stress
+  several configurations of deeply intersecting offset shells
+  through V13/V14/V15 candidate planning; unsupported folded
+  topology refuses privately and accepted scars must pass
+  post-state collision verification.
 - [ ] **V16 — Transactional density-aware zipper/cap surgery.**
   Implement a RegionEdit-based private operation consuming a V15 plan:
   remove red/buried faces, generate either selected independently
@@ -659,18 +685,21 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   and avoid requiring a global minimum-radius regularizer. Verify
   cap/zipper topology for handle removal vs preserved handles,
   retire IDs/tombstones, and update mirrored pairs + single shared X=0
-  seam atomically. **Remaining V16d2b robustness:** extend deeply
-  interpenetrating/highly folded multi-component excision, local
-  erosion/feature tests over long sculpt-like revision sequences,
-  and further bounded error diagnostics. The new explicit
-  classification-aware caller wrapper is non-mirrored; its chosen
-  policy does not grant a low-level removal plan authority to
-  delete arbitrary geometry. The mirrored worker needs a separately
-  justified symmetry-preserving caller choice in V17. Sampled
-  new-to-old and selected old-to-new distances do not certify
-  a continuous two-sided Hausdorff bound. Distinct mirrored
-  crossing edges remain pre-existing intersections needing genuine
-  intersection-aware retopology. Live brush activation remains V17.
+  seam atomically. **Remaining V16 final acceptance / V17 boundary:**
+  define what collision repairs can be considered safe to activate
+  from a live stamp worker and what must remain explicit,
+  non-destructive refusals. Tested geometry currently covers
+  selected capped/zippered manifold repairs but not arbitrary
+  deeply folded multicomponent surface retopology. The new
+  original-revision witness audit detects sampled cumulative
+  erosion, not a guaranteed continuous two-sided Hausdorff
+  envelope. Live integration must choose a policy for ambiguous
+  winding, source-feature retention, overlapping strokes and
+  preserved symmetrical topology, account for all committed
+  partitions/IDs, and keep one compare-and-swap per input Step.
+  Distinct reflected crossing edges remain pre-existing
+  intersections, not independent seam midpoints. V17 owns
+  live brush integration and its repeated-contact tests.
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete

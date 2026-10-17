@@ -501,3 +501,33 @@ coplanar/tangent and ordinary overlapping shell candidates
 cannot mutate their original snapshots whether classification
 rejects or a private repair is validated. All work remains
 off the live sculpt worker until V17.
+
+## V16d2b: Audit cumulative local surface loss through held revisions
+
+To detect progressive erosion over many otherwise bounded surgery
+steps, the caller can preserve witness points in the FIRST snapshot
+and compare them to a chosen live patch after any number of edits.
+`sampleSurfaceWitnesses` acquires seven geometry samples for each
+original face; `auditSurfaceWitnesses` returns original-edge-length
+normalized maximum, mean and RMS distances to the nearest triangle
+in an explicitly nominated final face set. It counts actual
+point-triangle evaluations and rejects out-of-budget work or
+retired candidate IDs. The current mesh may have entirely new
+FaceIds; the witness coordinates are independent of topology
+identity and time.
+
+The regression replaces one square surface patch in a closed cube
+32 consecutive times, keeping every old revision readable. Every
+step requires manifoldness, valid orientation, zero cumulative
+sampled displacement against the INITIAL patch and one CAS
+publication. A deliberately incorrect target patch is also
+measured, to ensure the audit would observe real material loss.
+An additional offset three-solid overlap matrix exercises the
+collision planner, safe private rejection and immutable reader
+roots on difficult folded inputs.
+
+These measurements are discrete and must not be described as
+continuous surface fidelity certificates. The API is a
+read-only diagnostic, not automatically invoked by the worker.
+V17 must decide which exposed features to anchor and how
+excessive accumulated erosion should affect a live brush Step.
