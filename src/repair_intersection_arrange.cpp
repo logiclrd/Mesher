@@ -385,6 +385,12 @@ bool arrangeFace(
 }
 } // namespace
 
+// The second pass validates the COMPLETE arrangement's explicit face,
+// point and contact-section mirror orbits before exposing any cut plan.
+std::string pairMirroredMultiSectionPlan(
+    const RegionTopologyIndex&,ConformingCutPlan&,
+    const std::unordered_map<VertexId,VertexId>&,const ConformingCutLimits&);
+
 ConformingCutPlan buildMultiSectionCutPlan(
     const RegionTopologyIndex& index,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
@@ -396,8 +402,6 @@ ConformingCutPlan buildMultiSectionCutPlan(
         refusal.refusal=reason;
         return refusal;
     };
-    if(mirrors)
-        return reject("Multiple-section mirrored face staging remains unsupported");
     if(contacts.empty())return {};
     if(contacts.size()>limits.maxContacts)
         throw std::length_error("Multiple-section contact budget");
@@ -541,6 +545,10 @@ ConformingCutPlan buildMultiSectionCutPlan(
         result.faces.push_back({face,std::move(triangles)});
     }
     result.status=IntersectionSectionStatus::TransverseSegment;
+    if(mirrors) {
+        const auto error=pairMirroredMultiSectionPlan(index,result,*mirrors,limits);
+        if(!error.empty())return reject(error.c_str());
+    }
     return result;
 }
 } // namespace mesher
