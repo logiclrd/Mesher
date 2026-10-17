@@ -721,10 +721,10 @@ void testPrivateConformingRevisionCommitsAtomically() {
         const auto checked=certifyConformingCutCoverage(whole);
         std::cout<<"[coverage-probe] originalPairs="<<all.size()
                  <<" certificate="<<checked.complete
-                 <<" refusal="<<checked.refusal<<'\\n';
+                 <<" refusal="<<checked.refusal<<'\n';
     }catch(const std::logic_error& error) {
         std::cout<<"[coverage-probe] full arrangement unsupported: "
-                 <<error.what()<<'\\n';
+                 <<error.what()<<'\n';
     }
 
     // A forged source FaceId cannot influence deletion through classification.
