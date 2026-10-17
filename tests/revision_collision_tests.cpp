@@ -10,6 +10,7 @@
 #include <set>
 #include <stdexcept>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 using namespace mesher;
@@ -585,6 +586,116 @@ void testConformingReflectedCutGraph() {
           refused.points.empty()&&refused.faces.empty(),
           "Incomplete original reflection map refuses all candidate cut topology");
 }
+void testPrivateConformingRevisionCommitsAtomically() {
+    // Two fully CLOSED tetrahedra, unlike the deliberately open sheet
+    // fixtures used for the read-only graph. RegionEdit validates every
+    // affected vertex fan and opposing edge orientation at commit time.
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {0,0,0},{2,0,0},{0,2,0},
+        {.7,-.5,-1},{.7,1.7,1},{.7,.2,-1},
+        {.4,.4,-3},{3,.5,0}
+    }})mesh.vertices.push_back(p);
+    for(const auto tri:std::array<std::array<std::uint32_t,3>,8>{{
+        {0,1,2},{1,0,6},{2,1,6},{0,2,6},
+        {3,4,5},{4,3,7},{5,4,7},{3,5,7}
+    }})mesh.triangles.push_back({tri[0],tri[1],tri[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto baseline=RegionTopologyIndex::build(imported.revision);
+    const auto sourceRoot=baseline->pickingRootIdentity();
+    const auto counts=[&](const RegionTopologyIndex& index) {
+        std::pair<std::size_t,std::size_t> result{};
+        index.revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& partition) {
+                result.first+=partition.vertices.size();
+                result.second+=partition.faces.size();
+            });
+        return result;
+    };
+    const auto originalCounts=counts(*baseline);
+    check(originalCounts==std::make_pair(std::size_t{8},std::size_t{8}),
+          "Private candidate fixture has two closed four-face tetrahedra");
+    const auto all=baseline->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    const auto& ids=imported.flatIndex.faceIds;
+    const auto ordered=std::minmax(ids[0],ids[4]);
+    const auto pair=std::find_if(all.begin(),all.end(),
+        [&](const auto& p) {
+            return p.first==ordered.first&&p.second==ordered.second;
+        });
+    check(pair!=all.end(),
+          "Closed tetrahedra expose an actual transverse original triangle contact");
+    const std::vector<RegionTopologyIndex::CollisionPair> contacts{*pair};
+    const auto preflight=buildConformingCutPlan(*baseline,contacts);
+    check(preflight.status==IntersectionSectionStatus::TransverseSegment,
+          "V17e2b2a authorizes private cuts across closed tetrahedron surfaces");
+    const auto candidate=materializeTransverseCutCandidate(baseline,contacts);
+    check(candidate.index&&candidate.index!=baseline&&
+          candidate.commit.revision&&
+          candidate.commit.revision.get()==&candidate.index->revision()&&
+          candidate.sectionFirst.size()==1&&candidate.sectionSecond.size()==1,
+          "One RegionEdit creates exactly one unpublished immutable candidate");
+    check(candidate.rewrittenFaces.size()==preflight.faces.size()&&
+          candidate.insertedVertices.size()+
+              originalCounts.first==counts(*candidate.index).first&&
+          candidate.insertedFaces.size()+
+              originalCounts.second==counts(*candidate.index).second,
+          "Candidate tracks complete newly allocated vertex/face identities");
+    for(const auto face:candidate.rewrittenFaces) {
+        check(baseline->maybeFace(face)!=nullptr&&
+              candidate.index->maybeFace(face)!=nullptr,
+              "Original FaceId survives the private triangle subdivision");
+    }
+    for(const auto vertex:candidate.insertedVertices)
+        check(!baseline->maybeVertex(vertex)&&
+              candidate.index->maybeVertex(vertex)!=nullptr,
+              "Each inserted cut vertex has a unique identity only in new revision");
+    for(const auto face:candidate.insertedFaces)
+        check(!baseline->maybeFace(face)&&
+              candidate.index->maybeFace(face)!=nullptr,
+              "Extra child triangles exist only in private revised root");
+    for(unsigned end=0;end<2;++end) {
+        const auto a=candidate.sectionFirst[0][end],
+                   b=candidate.sectionSecond[0][end];
+        check(a!=b&&
+              length(candidate.index->vertex(a).position-
+                     candidate.index->vertex(b).position)<1e-9,
+              "Intersecting triangle sheets retain two distinct stable cut VertexIds");
+    }
+    check(counts(*baseline)==originalCounts&&
+          baseline->retiredFaceCount()==0&&
+          baseline->pickingRootIdentity()==sourceRoot,
+          "Private conforming RegionEdit leaves baseline renderer/picker roots intact");
+    // This is subdivision, NOT UNION. It must not be advertised as a
+    // collision-free final solid or published by any repository CAS.
+    check(!candidate.index->triangleIntersections(
+                candidate.insertedVertices,{}).empty(),
+          "Unclassified private intersection subdivisions still retain actual collisions");
+
+    bool budgetFailed=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,{},1);}
+    catch(const std::length_error&) {budgetFailed=true;}
+    check(budgetFailed&&counts(*baseline)==originalCounts,
+          "Insufficient writable partition capacity never leaks partial topology");
+    auto refused=contacts;
+    refused[0].ambiguous=true;
+    bool ambiguousFailed=false;
+    try {(void)materializeTransverseCutCandidate(baseline,refused);}
+    catch(const std::logic_error&) {ambiguousFailed=true;}
+    check(ambiguousFailed&&counts(*baseline)==originalCounts,
+          "Ambiguous input refuses private topology without changing published root");
+    const std::unordered_map<VertexId,VertexId> mirrored;
+    bool mirroredFailed=false;
+    try {(void)materializeTransverseCutCandidate(
+        baseline,contacts,{},256,&mirrored);}
+    catch(const std::logic_error&) {mirroredFailed=true;}
+    check(mirroredFailed,
+          "Mirrored persistent face publication refuses until matched-pair staging exists");
+    check(baseline->pickingRootIdentity()==sourceRoot,
+          "All failures preserve exact original picking index object graph");
+}
+
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -614,6 +725,7 @@ int main() {
         testTransverseIntersectionSectionsAndPatches();
         testConformingSharedEdgeGraphAndBudgets();
         testConformingReflectedCutGraph();
+        testPrivateConformingRevisionCommitsAtomically();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
