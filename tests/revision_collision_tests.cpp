@@ -987,6 +987,109 @@ void testMirroredMultipleSectionsReadOnly() {
         check(index->pickingRootIdentity()==oldRoot&&
               index->retiredFaceCount()==0,
               "Mirrored arrangements leave original revision and BVH pointer untouched");
+        // A complete paired RegionEdit makes new permanent IDs but returns
+        // only ONE unpublished revision; the old reader stays pointer-stable.
+        const auto cut=materializeTransverseCutCandidate(
+            index,contacts,{},256,&reflection);
+        check(cut.index&&cut.index!=index&&cut.commit.revision&&
+              cut.commit.revision.get()==&cut.index->revision()&&
+              cut.sectionFirst.size()==4&&cut.sectionSecond.size()==4,
+              "Mirrored intersection curves become one private RegionEdit candidate");
+        check(cut.rewrittenFaces.size()==plan.faces.size()&&
+              cut.mirroredVertices.size()*2==cut.insertedVertices.size()&&
+              cut.mirroredFaces.size()*2==
+                  cut.rewrittenFaces.size()+cut.insertedFaces.size()&&
+              !cut.insertedFaces.empty(),
+              "Stable face and vertex allocation provides full paired net journal deltas");
+        std::unordered_map<VertexId,VertexId> complete=reflection;
+        std::set<VertexId> newIds;
+        for(const auto& [a,b]:cut.mirroredVertices) {
+            const auto p=cut.index->vertex(a).position,
+                       q=cut.index->vertex(b).position;
+            check(a!=b&&newIds.insert(a).second&&newIds.insert(b).second&&
+                  !index->maybeVertex(a)&&!index->maybeVertex(b)&&
+                  p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                  "Each new cut point has a unique persistent reflected vertex ID");
+            check(complete.emplace(a,b).second&&complete.emplace(b,a).second,
+                  "New vertices extend only the staged local mirror correspondence");
+        }
+        std::set<FaceId> pairedFaces;
+        for(const auto& [a,b]:cut.mirroredFaces) {
+            check(a!=b&&pairedFaces.insert(a).second&&
+                  pairedFaces.insert(b).second&&
+                  cut.index->maybeFace(a)&&cut.index->maybeFace(b),
+                  "Every retained or new changed face has one permanent reflected FaceId");
+            const auto one=cut.index->face(a).vertices,
+                       two=cut.index->face(b).vertices;
+            const std::array<VertexId,3> expected{
+                complete.at(one[0]),complete.at(one[2]),complete.at(one[1])};
+            bool same=false;
+            for(unsigned shift=0;shift<3;++shift)
+                if(expected[0]==two[shift]&&
+                   expected[1]==two[(shift+1)%3]&&
+                   expected[2]==two[(shift+2)%3])same=true;
+            check(same,"Staged child faces have exactly reversed reflected winding");
+        }
+        for(const auto id:cut.rewrittenFaces)
+            check(index->maybeFace(id)&&cut.index->maybeFace(id),
+                  "Rewritten original face retains its permanent stable FaceId");
+        for(const auto id:cut.insertedFaces)
+            check(!index->maybeFace(id)&&cut.index->maybeFace(id),
+                  "Mirrored inserted child FaceIds exist only in candidate revision");
+        for(std::size_t k=0;k<cut.sectionFirst.size();++k)
+            for(unsigned endpoint=0;endpoint<2;++endpoint) {
+                const auto a=cut.sectionFirst[k][endpoint],
+                           b=cut.sectionSecond[k][endpoint];
+                check(a!=b&&
+                      length(cut.index->vertex(a).position-
+                             cut.index->vertex(b).position)<1e-8,
+                      "Distinct intersecting sheet identities survive permanent staging");
+            }
+        check(!cut.index->triangleIntersections(cut.insertedVertices,{}).empty(),
+              "A private symmetric subdivision is NOT yet a Boolean union");
+        check(index->pickingRootIdentity()==oldRoot&&
+              index->retiredFaceCount()==0,
+              "One mirrored commit preserves all original immutable reader objects");
+
+        // The same paired RegionEdit path also handles the traditional
+        // mirrored single-section conformance graph, not only arrangements.
+        const std::vector<RegionTopologyIndex::CollisionPair> single{
+            contacts[0],contacts[2]};
+        const auto singleCut=materializeTransverseCutCandidate(
+            index,single,{},256,&reflection);
+        check(singleCut.index&&singleCut.sectionFirst.size()==2&&
+              !singleCut.mirroredFaces.empty()&&
+              !singleCut.mirroredVertices.empty(),
+              "Mirrored single-section contact also materializes privately");
+        bool limited=false;
+        try {(void)materializeTransverseCutCandidate(
+            index,contacts,{},1,&reflection);}
+        catch(const std::length_error&) {limited=true;}
+        check(limited&&index->pickingRootIdentity()==oldRoot,
+              "Writable partition capacity refusal leaks no partial revision");
+        auto incomplete=reflection;
+        incomplete.erase(imported.flatIndex.vertexIds[0]);
+        bool missingPair=false;
+        try {(void)materializeTransverseCutCandidate(
+            index,contacts,{},256,&incomplete);}
+        catch(const std::logic_error&) {missingPair=true;}
+        check(missingPair&&index->pickingRootIdentity()==oldRoot,
+              "Missing mirrored original vertex refuses persistent staging");
+        auto partialContacts=contacts;
+        partialContacts.pop_back();
+        bool incompleteOrbit=false;
+        try {(void)materializeTransverseCutCandidate(
+            index,partialContacts,{},256,&reflection);}
+        catch(const std::logic_error&) {incompleteOrbit=true;}
+        check(incompleteOrbit,"Missing reflected section refuses the entire private edit");
+        ConformingCutLimits permanentLimits;
+        permanentLimits.maxMirroredPairTests=0;
+        bool capped=false;
+        try {(void)materializeTransverseCutCandidate(
+            index,contacts,permanentLimits,256,&reflection);}
+        catch(const std::length_error&) {capped=true;}
+        check(capped&&index->pickingRootIdentity()==oldRoot,
+              "Mirrored pairing limit refuses before permanent ID staging");
         auto missing=reflection;
         missing.erase(imported.flatIndex.vertexIds[0]);
         const auto refused=buildConformingCutPlan(*index,contacts,{},&missing);

@@ -9,6 +9,12 @@
 
 namespace mesher {
 
+ConformingCutCandidate materializeMirroredTransverseCutCandidate(
+    std::shared_ptr<const RegionTopologyIndex>,
+    const std::vector<RegionTopologyIndex::CollisionPair>&,
+    const ConformingCutLimits&,std::size_t,
+    const std::unordered_map<VertexId,VertexId>&);
+
 ConformingCutCandidate materializeTransverseCutCandidate(
     std::shared_ptr<const RegionTopologyIndex> baseline,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
@@ -19,8 +25,8 @@ ConformingCutCandidate materializeTransverseCutCandidate(
         throw std::invalid_argument(
             "Conforming revision needs a baseline, contacts and positive capacity");
     if(mirrors)
-        throw std::logic_error(
-            "Mirrored cut publication needs complete paired-face RegionEdit staging");
+        return materializeMirroredTransverseCutCandidate(
+            baseline,contacts,limits,partitionCapacity,*mirrors);
 
     // Never accept a caller-forged local tessellation as an authorization
     // to edit permanent IDs. The read-only planner re-checks V13 geometry,

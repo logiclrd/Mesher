@@ -1923,6 +1923,50 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2b3b: Persistent mirrored cut staging in one private RegionEdit
+
+The completed read-only mirrored V17e2b2b3a planar arrangement (or the
+older single-section reflected planner) is rebuilt against the exact
+immutable baseline by `materializeTransverseCutCandidate`. The mirrored
+path validates local original mirrored VertexId pairs with exact world
+reflection and involution, reflected source faces with opposite cyclic
+winding, complete mirrored endpoint and interior junction indices, and
+every reflected contact curve. The local RegionEdit receives ONLY touched
+original source-face corners and their reflected pairs, not a copy of
+every persistent mirror pair in the model. It rejects invariant original
+faces, new self-mirrored X=0 cut points and unmatched section/face orbits
+before beginning the persistent allocation.
+
+For each new pair of ephemeral cut points, appendMirroredVertices reserves
+TWO distinct permanent VertexIds; the two independent crossing sheets are
+NOT welded, even when their positions coincide. Each reflected original
+face pair retains its original FaceIds in replaceMirroredFaces, while
+appendMirroredFaces gives each additional canonical child and its
+reflected/reverse-winding counterpart distinct never-reused FaceIds.
+The canonical face's triangulation defines both sides, avoiding differences
+between independent triangulation scaffolds and ear diagonals. The return
+value includes all net inserted vertex/face IDs, all rewritten originals,
+and explicit mirrored pairs for both inserted vertices and changed faces.
+These are metadata for a FUTURE Step journal; no actual live mirror map,
+renderer dirty list, checkpoint, undo history or repository CAS is changed.
+
+One private RegionEdit::commit checks all changed edge incidences,
+vertex-fan manifoldness and reflected face/vertex cycles and creates a
+single immutable COW candidate root. Errors in pairing, source geometry,
+work or writable partition capacity throw, discard the complete private
+transaction and retain every old reader root. Stable IDs allocated in
+discarded attempts remain non-recyclable by the underlying allocator.
+Closed reflected three-tetrahedron crossing and T-junction fixtures and
+ordinary symmetric single-section conformance test paired materialization,
+exact positions/winding, stable originals, unpublished roots, residual
+intersection and refusal rollback. This is **NOT** a Boolean union: the
+subdivided shells still intersect. V17e2b2c must classify actual children
+by strictly positive signed winding on both sides before V15 can
+authorize fragment removal; V16 closure and full collision/fidelity
+auditing must then precede a single live Step publication. Unsupported
+X=0 cut/seam topology continues to fail closed and Merge geometry
+remains disabled.
+
 ## V17e2b2b3a: Explicit reflected planar-arrangement orbits (private)
 
 A completed V17e2b2b2 multiple-section graph may now be paired against
