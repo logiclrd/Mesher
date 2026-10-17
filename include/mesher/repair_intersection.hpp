@@ -199,7 +199,8 @@ CutFragmentAssessment assessConformingCutFragments(
 // V17e2b2c2: bounded, read-only certification that every V13 contact
 // involving a changed ORIGINAL face is declared, every declared transverse
 // section is traced by child edges on BOTH sheets, and no child of either
-// contact source crosses the other's supporting plane in its open interior.
+// contact source crosses the other source's FINITE transverse contact
+// interval through its open interior (the infinite plane alone is not enough).
 // The resulting certificate covers the supported finite-tolerance model;
 // no Boolean trimming, seam welding, history entry or deletion occurs.
 struct CutCoverageLimits {
