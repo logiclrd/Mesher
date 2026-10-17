@@ -383,12 +383,13 @@ ConformingFixture conformingFixture(bool mirrored=false) {
     const auto cut=splitTransverseTriangleContact(a,ai,b,bi);
     check(cut.status==IntersectionSectionStatus::TransverseSegment,
           "Shared-edge fixture starts with a real independent intersection");
-    unsigned zero=0;
+    unsigned zero=3;
     for(unsigned j=0;j<3;++j)
         if(cut.patches[1].endpointBarycentrics[0][j]==0) {
-            ++zero;
+            zero=j;
             break;
         }
+    check(zero<3,"B section endpoint lies on one definite original edge");
     Mesh mesh;
     for(const auto p:a)mesh.vertices.push_back(p);
     for(const auto p:b)mesh.vertices.push_back(p);
