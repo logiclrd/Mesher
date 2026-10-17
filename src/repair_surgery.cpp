@@ -278,6 +278,55 @@ double pointTriangleDistanceSquared(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
     const auto closest=a+ab*v+ac*w;
     return dot(p-closest,p-closest);
 }
+RemovalSurfaceProvenance collectRemovalProvenance(
+    const RegionTopologyIndex& baseline,
+    const std::vector<FaceId>& removed,
+    unsigned depth,std::size_t maxFragments,
+    std::vector<Vec3>* featurePoints) {
+    if(depth>4||maxFragments==0)
+        throw std::invalid_argument("Invalid provenance depth or fragment budget");
+    RemovalSurfaceProvenance summary;
+    for(const auto id:removed) {
+        // Each face is classified against the ORIGINAL, complete winding
+        // revision, never the excised/capped candidate (which would make
+        // the evidence circular).
+        const auto fragments=baseline.classifyFaceFragments(id,depth);
+        if(fragments.size()>maxFragments-summary.totalFragments())
+            throw std::length_error("Removal provenance fragment budget exhausted");
+        ++summary.sampledFaces;
+        for(const auto& fragment:fragments) {
+            switch(fragment.kind) {
+                case RegionTopologyIndex::FragmentKind::Exposed:
+                    ++summary.exposedFragments;break;
+                case RegionTopologyIndex::FragmentKind::ReversedBoundary:
+                    ++summary.reversedBoundaryFragments;break;
+                case RegionTopologyIndex::FragmentKind::Buried:
+                    ++summary.buriedFragments;break;
+                case RegionTopologyIndex::FragmentKind::Outside:
+                    ++summary.outsideFragments;break;
+                case RegionTopologyIndex::FragmentKind::Ambiguous:
+                    ++summary.ambiguousFragments;break;
+            }
+            const bool feature=
+                fragment.kind==RegionTopologyIndex::FragmentKind::Exposed||
+                fragment.kind==RegionTopologyIndex::FragmentKind::ReversedBoundary;
+            if(feature&&featurePoints) {
+                const auto& ids=baseline.face(id).vertices;
+                const auto a=baseline.vertex(ids[0]).position;
+                const auto b=baseline.vertex(ids[1]).position;
+                const auto d=baseline.vertex(ids[2]).position;
+                // One interior sample per V14 classified patch. Reusing
+                // original barycentric corners keeps the metric on the
+                // classified detail and avoids certifying hidden pieces.
+                std::array<double,3> bary{};
+                for(const auto& corner:fragment.corners)
+                    for(unsigned j=0;j<3;++j)bary[j]+=corner[j]/3;
+                featurePoints->push_back(a*bary[0]+b*bary[1]+d*bary[2]);
+            }
+        }
+    }
+    return summary;
+}
 void validateSurgeryGeometry(
     const RegionTopologyIndex& baseline,
     const RepairPlan& plan,
@@ -286,9 +335,14 @@ void validateSurgeryGeometry(
     RepairSurgeryResult& out) {
     if(!std::isfinite(settings.maximumSurfaceDeviationInEdges)||
        settings.maximumSurfaceDeviationInEdges<=0||
-       (settings.requireReverseSurfaceFidelity&&
+       ((settings.requireReverseSurfaceFidelity||
+         settings.requireExposedFragmentFidelity)&&
         (!std::isfinite(settings.maximumReverseDeviationInEdges)||
          settings.maximumReverseDeviationInEdges<=0))||
+       (settings.requireReverseSurfaceFidelity&&
+        settings.requireExposedFragmentFidelity)||
+       settings.maxProvenanceFragments==0||
+       settings.maxReverseDistanceTests==0||
        settings.maxResidualFaces==0)
         throw std::invalid_argument("Invalid residual collision/deviation budgets");
     if(!out.index)
@@ -325,10 +379,20 @@ void validateSurgeryGeometry(
             (contacts.front().ambiguous?" (ambiguous)":" (intersecting)"));
     }
 
-    if(out.insertedFaces.empty()) {
-        if(settings.requireReverseSurfaceFidelity)
+    std::vector<Vec3> exposedPoints;
+    if(settings.requireExposedFragmentFidelity) {
+        out.removalProvenance=collectRemovalProvenance(
+            baseline,plan.removedFaces,settings.planning.sampleDepth,
+            settings.maxProvenanceFragments,&exposedPoints);
+        if(out.removalProvenance.ambiguousFragments)
             throw std::logic_error(
-                "Reverse surface fidelity cannot retain a wholly discarded shell");
+                "Exposed surface fidelity has ambiguous winding fragments");
+    }
+    if(out.insertedFaces.empty()) {
+        if(settings.requireReverseSurfaceFidelity||
+           !exposedPoints.empty())
+            throw std::logic_error(
+                "Detail-preserving reverse fidelity cannot discard exposed surface");
         return;
     }
     double h=std::numeric_limits<double>::infinity();
@@ -365,11 +429,24 @@ void validateSurgeryGeometry(
                 throw std::logic_error("Repair exceeds local surface deviation budget");
         }
     }
-    if(settings.requireReverseSurfaceFidelity) {
-        // Reverse sample distance measures deleted feature-bearing surface
-        // to the constructed scar or retained neighborhood. It must only
-        // be used when preservation of the removed surface is the stated
-        // intent: intentionally buried red fragments should be discarded.
+    if(settings.requireReverseSurfaceFidelity||
+       settings.requireExposedFragmentFidelity) {
+        // The legacy opt-in checks ALL deleted triangles; the new opt-in
+        // checks only V14-positive-winding exposed/reversed fragments.
+        // Buried and Outside fragments are intentionally free to vanish.
+        std::vector<Vec3> points=std::move(exposedPoints);
+        if(settings.requireReverseSurfaceFidelity)
+            for(const auto& original:removedTriangles) {
+                const auto& a=original[0],&b=original[1],&d=original[2];
+                for(const auto p:std::array<Vec3,4>{a,b,d,(a+b+d)/3})
+                    points.push_back(p);
+            }
+        out.checkedReverseFragments=points.size();
+        // Bound the O(sampled fragments x local surviving/new triangles)
+        // workload; a huge mesh must not silently stall the worker.
+        if(!verify.empty()&&points.size()>
+           settings.maxReverseDistanceTests/verify.size())
+            throw std::length_error("Reverse surface distance test budget exhausted");
         std::vector<std::array<Vec3,3>> repairedTriangles;
         repairedTriangles.reserve(verify.size());
         for(const auto id:verify) {
@@ -379,27 +456,36 @@ void validateSurgeryGeometry(
                 out.index->vertex(face[1]).position,
                 out.index->vertex(face[2]).position});
         }
-        for(const auto& original:removedTriangles) {
-            const auto& a=original[0],&b=original[1],&d=original[2];
-            for(const auto p:std::array<Vec3,4>{a,b,d,(a+b+d)/3}) {
-                double closest=std::numeric_limits<double>::infinity();
-                for(const auto& current:repairedTriangles)
-                    closest=std::min(closest,pointTriangleDistanceSquared(
-                        p,current[0],current[1],current[2]));
-                if(!std::isfinite(closest))
-                    throw std::logic_error("Invalid reverse surface measurement");
-                out.maximumReverseDeviationInEdges=std::max(
-                    out.maximumReverseDeviationInEdges,
-                    std::sqrt(std::max(0.0,closest))/h);
-                if(out.maximumReverseDeviationInEdges>
-                   settings.maximumReverseDeviationInEdges)
-                    throw std::logic_error(
-                        "Repair exceeds reverse surface fidelity budget");
+        for(const auto p:points) {
+            double closest=std::numeric_limits<double>::infinity();
+            for(const auto& current:repairedTriangles) {
+                ++out.reverseDistanceTests;
+                closest=std::min(closest,pointTriangleDistanceSquared(
+                    p,current[0],current[1],current[2]));
             }
+            if(!std::isfinite(closest))
+                throw std::logic_error("Invalid reverse surface measurement");
+            out.maximumReverseDeviationInEdges=std::max(
+                out.maximumReverseDeviationInEdges,
+                std::sqrt(std::max(0.0,closest))/h);
+            if(out.maximumReverseDeviationInEdges>
+               settings.maximumReverseDeviationInEdges)
+                throw std::logic_error(
+                    "Repair exceeds reverse surface fidelity budget");
         }
     }
 }
+
 } // namespace
+
+RemovalSurfaceProvenance inspectRemovalSurfaceProvenance(
+    const RegionTopologyIndex& baseline,
+    const std::vector<FaceId>& removed,
+    unsigned sampleDepth,
+    std::size_t maxFragments) {
+    return collectRemovalProvenance(
+        baseline,removed,sampleDepth,maxFragments,nullptr);
+}
 
 RepairSurgeryResult applyRepairSurgery(
     std::shared_ptr<const RegionTopologyIndex> baseline,
