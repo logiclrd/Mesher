@@ -943,6 +943,31 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   complete subdivided arrangement, then V14 fragment occupancy and
   V15 authorized cuts, V16 verified contours/closure and repeated
   successful physical symmetric unions. Do not turn on Merge geometry.
+- [x] **V17e2b2b3a — Read-only mirrored multiple-section orbit preflight.**
+  Construct symmetric explicit reflected source-face/edge and new cut-point
+  orbits on BOTH intersecting independent closed sheets. Check involutive
+  original stable-ID mirrors, EXACT reflected source coordinates, reversed
+  original face winding, a unique reflected endpoint/interior junction for
+  each section point, corresponding full section curves and bounded
+  reciprocal matching. Snap tiny numerical differences to exact reflection
+  only with independent source-edge/face and area/winding revalidation.
+  Derive each reflected CHILD triangulation from its canonical partner
+  (including triangulation scaffolds), not independent diagonal choices.
+  Unmatched, duplicated, X=0 new self-orbit, invalid source topology
+  or exhausted matching budgets return NO usable plan. Tested on two
+  symmetric three-tetrahedra triple-contact arrangements, including real
+  interior crossing and T-junction, original immutable roots and refusal.
+  **No permanent VertexId/FaceId allocation, published Step or Boolean union.**
+- [ ] **V17e2b2b3b — One private paired mirrored RegionEdit materialization.**
+  Extend permanent staging to complete mirrored multi-section arrangements:
+  corresponding persistent new VertexIds and child FaceIds, exact mirror
+  journal deltas and source face retention, strong old-root immutability
+  and a single unpublished manifold-valid revision. Fail closed for
+  unsupported plane seam fans and distinct crossing reflection orbits.
+  Later fragments still require positive-winding occupancy classification,
+  selective removal, verified closure and final collision/fidelity audit;
+  do not enable desktop Merge geometry or check off V17 parent.
+
 - [ ] **V17 — Live opt-in 'Merge geometry' pipeline.**
   Wire post-state detection, positive-winding classification, excision
   and zipper into VersionedSculptBrush/AsyncSculptWorker as one complete
