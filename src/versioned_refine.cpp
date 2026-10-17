@@ -150,6 +150,8 @@ void VersionedLocalRefiner::addMirrorPair(VertexId first,VertexId second) {
        (a!=mirrors_.end()&&a->second!=second)||
        (b!=mirrors_.end()&&b->second!=first))
         throw std::invalid_argument("Conflicting refinement mirror pair");
+    if(stepOpen_&&a==mirrors_.end())
+        pendingMirrors_.push_back({true,first,second});
     mirrors_[first]=second;
     mirrors_[second]=first;
 }
@@ -158,8 +160,26 @@ void VersionedLocalRefiner::removeMirrorPair(VertexId first,VertexId second) {
     if(a==mirrors_.end()||b==mirrors_.end()||
        a->second!=second||b->second!=first)
         throw std::invalid_argument("Cannot retire a mismatched mirror pair");
+    if(stepOpen_)pendingMirrors_.push_back({false,first,second});
     mirrors_.erase(first);
     if(second!=first)mirrors_.erase(second);
+}
+void VersionedLocalRefiner::beginStep() {
+    if(stepOpen_)throw std::logic_error("Refinement Step already open");
+    pendingMirrors_.clear();
+    stepOpen_=true;
+}
+void VersionedLocalRefiner::commitStep() noexcept {
+    pendingMirrors_.clear();
+    stepOpen_=false;
+}
+void VersionedLocalRefiner::rollbackStep() {
+    stepOpen_=false;
+    for(auto it=pendingMirrors_.rbegin();it!=pendingMirrors_.rend();++it) {
+        if(it->added)removeMirrorPair(it->first,it->second);
+        else addMirrorPair(it->first,it->second);
+    }
+    pendingMirrors_.clear();
 }
 
 VersionedRefineResult VersionedLocalRefiner::apply(
@@ -251,8 +271,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             if(paired)for(const auto face:mirrorAdded)
                 result.changedFaces.push_back(face);
             if(symmetric) {
-                mirrors_.emplace(mid,other);
-                if(paired)mirrors_.emplace(other,mid);
+                addMirrorPair(mid,other);
                 result.insertedMirrorPairs.push_back({mid,other});
             }
             ++result.statistics.splitPairs;
