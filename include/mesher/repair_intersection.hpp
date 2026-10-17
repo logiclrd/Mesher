@@ -77,6 +77,8 @@ struct ConformingCutLimits {
     // Bounds scaffold visibility and ear-clipping predicates, separately
     // from the section-pair intersection budget.
     std::size_t maxArrangementPredicates=262144;
+    // One complete reciprocal mirror-point/section matching pass.
+    std::size_t maxMirroredPairTests=16384;
 };
 struct ConformingCutPoint {
     Vec3 position{};
@@ -97,6 +99,7 @@ struct ConformingCutPlan {
     std::vector<ConformingCutPoint> points;
     std::vector<ConformingCutFace> faces;
     std::vector<ConformingCutSegment> segments;
+    // Verified reflected point pairs (distinct sheets never coalesce).
     std::vector<std::pair<std::size_t,std::size_t>> mirroredCutPoints;
     std::string refusal;
 };
