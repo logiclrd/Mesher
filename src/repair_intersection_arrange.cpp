@@ -337,6 +337,7 @@ ConformingCutPlan buildMultiSectionCutPlan(
     std::map<VertexId,std::size_t> originals;
     std::map<Edge,std::vector<std::pair<double,std::size_t>>> cuts;
     std::map<FaceId,std::vector<SectionLine>> perFace;
+    std::map<FaceId,std::vector<std::size_t>> interiors;
     std::set<FaceId> affected;
     std::set<std::pair<FaceId,FaceId>> contactPairs;
     std::size_t newlyCreated=0,arrangementTests=0,
@@ -393,11 +394,15 @@ ConformingCutPlan buildMultiSectionCutPlan(
             group.emplace_back(t,id);
             return id;
         }
-        const auto scale=frame(index,face);
-        if(!scale)return std::nullopt;
-        for(const auto& [pointId,point]:result.points)
-            (void)pointId; // placeholder
-        return newPoint({p,std::nullopt,std::nullopt,face});
+        const auto local=frame(index,face);
+        if(!local)return std::nullopt;
+        const auto tolerance=1e-9*local->scale;
+        for(const auto id:interiors[face])
+            if(dist2(result.points[id].position,p)<=tolerance*tolerance)
+                return id;
+        const auto id=newPoint({p,std::nullopt,std::nullopt,face});
+        interiors[face].push_back(id);
+        return id;
     };
     for(const auto contact:contacts) {
         if(contact.ambiguous||contact.first==contact.second||
