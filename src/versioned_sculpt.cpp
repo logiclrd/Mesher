@@ -217,7 +217,7 @@ SculptCollisionEvaluation evaluateSculptCollisionCandidate(
     finalFaces.insert(finalFaces.end(),
         outcome.repair->retiredFaces.begin(),
         outcome.repair->retiredFaces.end());
-    for(const auto& contour:classified.plan.contours)
+    for(const auto& contour:outcome.plan.contours)
         finalFaces.insert(finalFaces.end(),
             contour.survivingFaces.begin(),contour.survivingFaces.end());
     RegionTopologyIndex::CollisionStatistics measured;
