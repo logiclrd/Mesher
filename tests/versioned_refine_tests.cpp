@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -503,6 +504,39 @@ void testLocalFlipAndRepeatedRevisions() {
               certified.living[0].second==std::vector<FaceId>{*untouched},
               "Real split/flip transaction preserves independent unaffected source owner");
         if(!changed.flipSources.empty()) {
+            // Reconstruct source identity from actual committed split
+            // journals, never from face geometry. When the refiner flips
+            // across two distinct ORIGINAL patch owners, protecting both
+            // must refuse the area reassignment without M21/M27 proof.
+            std::map<FaceId,FaceId> owner;
+            current->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& partition) {
+                    for(const auto& f:partition.faces)
+                        owner.emplace(f.id,f.id);
+                });
+            for(const auto& proof:changed.splitSources) {
+                check(owner.contains(proof.sourceFace),
+                      "New split child source exists before ownership transfer");
+                check(owner.emplace(proof.appendedFace,
+                                   owner.at(proof.sourceFace)).second,
+                      "New split child ID is never allocated twice");
+            }
+            for(const auto& proof:changed.flipSources) {
+                check(owner.contains(proof.faces[0])&&
+                      owner.contains(proof.faces[1]),
+                      "Real flip faces have explicit first-original provenance");
+                const auto a=owner.at(proof.faces[0]);
+                const auto b=owner.at(proof.faces[1]);
+                if(a==b)continue; // joint certified source ownership
+                const auto origin=captureOriginalSourceAnchors(current,{a,b},14);
+                bool mixedRefusal=false;
+                try {(void)advanceCertifiedRefineLineage(
+                    beginSourceSplitLineage(origin),changed,4096,4096);}
+                catch(const std::logic_error&){mixedRefusal=true;}
+                check(mixedRefusal,
+                      "Real cross-original flip must refuse protected area transfer");
+                break;
+            }
             auto forged=changed;
             forged.flipSources.front().faces[1]=
                 forged.flipSources.front().faces[0];
