@@ -3605,3 +3605,18 @@ record, checkpoint, renderer dirty update or desktop toggle is
 enabled. M09 owns exact source-root net journals and all three
 worker mirror maps, undo/redo and durable persistence; M10
 further records the overall supported/refused geometry envelope.
+
+**M08 verification follow-up, October 18:** The complete
+M06 three-original-contact X=0 2→1 private source-paired union,
+full final connected oriented edge/vertex-link and nonadjacent
+collision audit, original reader/tombstone identity, damaged
+historical X=0 mirror map/section/budget refusals, and the additional
+M03 source-certified unchanged-original survey/join mode all passed
+GCC, Clang and MSVC 23-suite CPU/benchmark CI at code head
+fefa92665501dd007849a6fa80a4e0c7b7940361
+(Actions run 39138641095). This establishes the independently
+complete M08 private geometric acceptance only; M09 remains the
+first acceptance for composing intermediate COW revisions into
+a SINGLE ORIGINAL-root publication, with net fixed-point mirror
+journal, three-controller worker, one undo/redo and durable checkpoint.
+No automatic/live Merge geometry has been activated.
