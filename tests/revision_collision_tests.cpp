@@ -3824,30 +3824,30 @@ void testSourceCertifiedCoincidentVertexIdentity() {
         for(const auto center:std::array<Vec3,4>{{
             {1,1,1},{-1,-1,1},{-1,1,-1},{1,-1,-1}
         }})addTetrahedron(four,center,1);
-        const auto imported=partitionFlatMesh(four,256);
-        const auto original=RegionTopologyIndex::build(imported.revision);
-        const auto oldRoot=original->pickingRootIdentity();
+        const auto fourImport=partitionFlatMesh(four,256);
+        const auto fourRoot=RegionTopologyIndex::build(fourImport.revision);
+        const auto oldRoot=fourRoot->pickingRootIdentity();
         const std::array<unsigned,4> localCorners{{0,1,2,3}};
         std::set<VertexId> separate;
         for(unsigned shell=0;shell<4;++shell) {
-            const auto id=imported.flatIndex.vertexIds[4*shell+localCorners[shell]];
+            const auto id=fourImport.flatIndex.vertexIds[4*shell+localCorners[shell]];
             check(separate.insert(id).second&&
-                  original->vertex(id).position.x==0&&
-                  original->vertex(id).position.y==0&&
-                  original->vertex(id).position.z==0,
+                  fourRoot->vertex(id).position.x==0&&
+                  fourRoot->vertex(id).position.y==0&&
+                  fourRoot->vertex(id).position.z==0,
                   "Four independently source-owned stable IDs occupy the exact same 3D point");
         }
-        check(connectedClosedSurfaceComponents(*original)==4&&
-              original->pickingRootIdentity()==oldRoot,
+        check(connectedClosedSurfaceComponents(*fourRoot)==4&&
+              fourRoot->pickingRootIdentity()==oldRoot,
               "Independent four-sheet point contact must retain four closed components");
-        auditClosedVertexLinks(*original);
-        const auto contacts=original->triangleIntersections(
-            imported.flatIndex.vertexIds,{});
-        const auto invalid=prepareExactCutStep(original,contacts);
+        auditClosedVertexLinks(*fourRoot);
+        const auto fourContacts=fourRoot->triangleIntersections(
+            fourImport.flatIndex.vertexIds,{});
+        const auto invalid=prepareExactCutStep(fourRoot,fourContacts);
         check(!invalid.complete&&!invalid.expected&&!invalid.final&&
               !invalid.commit.revision&&invalid.addedMirrors.empty()&&
               invalid.dirtyPartitions.empty()&&
-              original->retiredFaceCount()==0,
+              fourRoot->retiredFaceCount()==0,
               "An incompatible four-fan contact cannot authorize shared VertexId or Boolean history");
     }
     // A near-miss is not an exact source point. Move the would-be
@@ -3857,27 +3857,27 @@ void testSourceCertifiedCoincidentVertexIdentity() {
         Mesh near;
         addTetrahedron(near,{0,0,0},1);
         addTetrahedron(near,{2+1e-7,2+1e-7,0},1);
-        const auto imported=partitionFlatMesh(near,256);
-        const auto original=RegionTopologyIndex::build(imported.revision);
-        const auto a=imported.flatIndex.vertexIds[1],
-                   b=imported.flatIndex.vertexIds[4];
-        const auto pa=original->vertex(a).position,
-                   pb=original->vertex(b).position;
+        const auto nearImport=partitionFlatMesh(near,256);
+        const auto nearRoot=RegionTopologyIndex::build(nearImport.revision);
+        const auto a=nearImport.flatIndex.vertexIds[1],
+                   b=nearImport.flatIndex.vertexIds[4];
+        const auto pa=nearRoot->vertex(a).position,
+                   pb=nearRoot->vertex(b).position;
         check(a!=b&&pa.x!=pb.x&&pa.y!=pb.y&&
               std::abs(pa.x-pb.x)<1e-6&&
-              connectedClosedSurfaceComponents(*original)==2,
+              connectedClosedSurfaceComponents(*nearRoot)==2,
               "Near-but-not-equal XYZ never implies shared source identity");
-        auditClosedVertexLinks(*original);
-        const auto before=original->pickingRootIdentity();
-        const auto contacts=original->triangleIntersections(
-            imported.flatIndex.vertexIds,{});
-        check(contacts.empty(),
-              "True near-miss cannot manufacture an original V13 transverse contact");
-        const auto result=prepareExactCutStep(original,contacts);
+        auditClosedVertexLinks(*nearRoot);
+        const auto before=nearRoot->pickingRootIdentity();
+        const auto nearContacts=nearRoot->triangleIntersections(
+            nearImport.flatIndex.vertexIds,{});
+        check(nearContacts.empty(),
+              "True near-miss cannot manufacture an nearRoot V13 transverse contact");
+        const auto result=prepareExactCutStep(nearRoot,nearContacts);
         check(!result.complete&&!result.final&&!result.expected&&
               !result.commit.revision&&result.addedVertices.empty()&&
               result.addedMirrors.empty()&&
-              original->pickingRootIdentity()==before,
+              nearRoot->pickingRootIdentity()==before,
               "Near-point pseudo-weld must refuse without coordinate snapping or ID history");
     }
 }
