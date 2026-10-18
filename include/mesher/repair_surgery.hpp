@@ -94,6 +94,30 @@ SurfaceWitnessAudit auditOriginalSourceAnchors(
     const RegionTopologyIndex& candidate,
     std::size_t maxDistanceTests=131072);
 
+// M24: persistent first-original protected FaceId -> living FaceIds,
+// advanced ONLY by exact committed local split records. This limited
+// positive domain does not yet accept source-area transfer in flips,
+// deleted patches under collapse, or exact Boolean child c3/d2 retirement.
+struct VersionedRefineResult;
+struct SourceSplitLineage {
+    std::shared_ptr<const RegionTopologyIndex> original,terminal;
+    std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
+    std::size_t verifiedFaceSplits{};
+};
+SourceSplitLineage beginSourceSplitLineage(
+    const OriginalSourceSurfaceAnchors& anchors);
+// Rechecks EVERY emitted parent/child against original immutable pre/post
+// roots and the exact oriented midpoint subdivision. A real stamp may
+// move existing vertices before splitting, but must name the precise
+// previous terminal root through the LocalStampBaseline. No history or
+// publication mutation. Refuses stale/forged, incomplete, flip-bearing
+// or over-budget evidence, not just errors involving protected faces.
+SourceSplitLineage advanceCertifiedSplitLineage(
+    const SourceSplitLineage& prior,
+    const VersionedRefineResult& refined,
+    std::size_t maxFaceEvidence=1024,
+    std::size_t maxLivingDescendants=4096);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
