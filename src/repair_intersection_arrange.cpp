@@ -834,6 +834,19 @@ ConformingCutPlan buildMultiSectionCutPlan(
     if(mirrors) {
         const auto error=pairMirroredMultiSectionPlan(index,result,*mirrors,limits);
         if(!error.empty())return reject(error.c_str());
+        // Mirrored-plan normalization is a separate strict second pass.
+        // It must not silently invalidate one physical point recorded
+        // for THREE original source sheets in this M01 plan.
+        for(const auto& junction:result.junctions)
+            for(const auto id:junction.facePoints) {
+                if(id>=result.points.size())return reject(
+                    "Reflected canonical source junction lost a point");
+                const auto p=result.points[id].position;
+                if(p.x!=junction.position.x||p.y!=junction.position.y||
+                   p.z!=junction.position.z)
+                    return reject(
+                        "Reflected section normalization changed a canonical source junction");
+            }
     }
     return result;
 }
