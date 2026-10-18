@@ -79,6 +79,9 @@ struct ConformingCutLimits {
     // Bounds scaffold visibility and ear-clipping predicates, separately
     // from the section-pair intersection budget.
     std::size_t maxArrangementPredicates=262144;
+    // Bounded original-face contact-triple enumeration and source
+    // plane/finite-section certification before any junction is staged.
+    std::size_t maxJunctionCandidates=16384;
     // One complete reciprocal mirror-point/section matching pass.
     std::size_t maxMirroredPairTests=16384;
 };
@@ -96,11 +99,21 @@ struct ConformingCutSegment {
     FaceId firstFace{},secondFace{};
     std::array<std::size_t,2> firstSide{},secondSide{};
 };
+// One physical point jointly proven on THREE original source triangles
+// and their THREE finite V13 section pairs. The three point indices remain
+// topologically separate (different sheet IDs) until later c3/d2 authority.
+// A plan never exposes a partly filled junction.
+struct ConformingCutJunction {
+    std::array<FaceId,3> sourceFaces{};
+    Vec3 position{};
+    std::array<std::size_t,3> facePoints{};
+};
 struct ConformingCutPlan {
     IntersectionSectionStatus status{IntersectionSectionStatus::Disjoint};
     std::vector<ConformingCutPoint> points;
     std::vector<ConformingCutFace> faces;
     std::vector<ConformingCutSegment> segments;
+    std::vector<ConformingCutJunction> junctions;
     // Verified reflected point pairs (distinct sheets never coalesce).
     std::vector<std::pair<std::size_t,std::size_t>> mirroredCutPoints;
     std::string refusal;

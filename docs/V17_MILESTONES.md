@@ -48,6 +48,27 @@ Dependencies are **test prerequisites**, not permission to make an unbounded com
 
 ## V17-M01 — Canonical three-sheet junction provenance
 
+**Implementation/acceptance:** Complete on the private, strictly transverse
+source-proven domain. `buildMultiSectionCutPlan` now enumerates face triples
+only if ALL THREE original V13 source-pair sections exist and meet at a
+finite common point. It derives one coordinate directly from those source
+planes, retains a different point index for each independently owned
+source face, and rechecks the three original-face fans and exact physical
+coordinates. A hard `maxJunctionCandidates` bound and existing arrangement
+predicate/quality checks preserve atomic refusal. Source contacts are
+materialized in a deterministic FaceId-pair order, then the caller's
+original section-journal order is restored. The complete generic
+12-contact and orthogonal 16-contact fixtures pass canonical provenance,
+reversed discovery order, independent c1/c2 and c3 classification, and
+work-budget regressions without introducing preclassification welds.
+The generic fixture also happens to pass current d2/d3 3→1 join checks;
+this **does not** satisfy M04's separate requirement that BOTH full
+12/16-contact fixtures publish valid three-body unions, nor M02's
+unequal-density seam-matching acceptance. Finite section endpoint
+grazes, ambiguous/near-parallel original pairs and unsupported old
+21-contact full graphs remain fail-closed. M01 adds no worker/UI action.
+
+
 **Objective.** For a fully transverse original three-face/three-plane contact network, calculate a *single reproducible physical junction coordinate* and propagate it through the affected source-face edge/interior point provenance while retaining **distinct VertexIds for independently intersecting solids until authorized welding**. Resolve the two existing triple fixtures (12 and 16 complete original V13 pairs) in which c1/c2/c3 already pass, but d2 refuses independently computed endpoint coordinates.
 
 **Acceptance.** Every declared triple junction is explicitly associated with all participating original FaceIds and finite V13 sections; each source patch preserves original face plane/edge location, area, orientation and conforming incident-fan topology within existing strict numerical predicates; all sheets derive exactly identical physical junction coordinates without searching for unrelated coincident vertices. The resulting private cut passes independent original-contact rediscovery and bounded c1/c2, including missing/ambiguous/near-parallel/grazing and work-exhaustion negatives. Deliver reproducible positive original point-orbit tests on both the generic and orthogonal cases. **Not** required to weld or publish a three-body union in M01.

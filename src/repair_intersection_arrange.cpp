@@ -16,7 +16,7 @@ namespace {
 using Edge=RegionTopologyIndex::Edge;
 using Tri=std::array<std::size_t,3>;
 struct Point2 {double x{},y{};};
-struct SectionLine {std::size_t a{},b{};};
+struct SectionLine {std::size_t a{},b{};FaceId partner{};};
 struct Frame {
     Vec3 origin{},u{},v{};
     double scale{};
@@ -141,6 +141,8 @@ bool arrangeFace(
     const std::map<Edge,std::vector<std::pair<double,std::size_t>>>& cuts,
     const std::vector<SectionLine>& sourceSections,
     std::vector<ConformingCutPoint>& points,
+    std::vector<ConformingCutJunction>& junctions,
+    const std::map<std::array<FaceId,3>,std::size_t>& junctionIndex,
     std::size_t& newlyCreated,
     std::size_t& arrangementTests,
     std::size_t& arrangementEdges,
@@ -237,6 +239,20 @@ bool arrangeFace(
                u< -1e-10||u>1+1e-10)continue;
             if(t<0||t>1||u<0||u>1)return refuse(__LINE__); // grazing uncertainty
             const auto intersection=Point2{p.x+t*r.x,p.y+t*r.y};
+            // Only the THREE independently verified original contact
+            // pairs can grant a canonical cross-sheet junction. This is
+            // NOT a global coordinate-hash/nearest-vertex merge.
+            std::array<FaceId,3> faces{faceId,a.partner,b.partner};
+            std::sort(faces.begin(),faces.end());
+            const auto foundJunction=junctionIndex.find(faces);
+            const bool canonical=foundJunction!=junctionIndex.end();
+            const auto point3=canonical?
+                junctions[foundJunction->second].position:Vec3{};
+            const auto canonical2=canonical?to2(f,point3):intersection;
+            if(canonical&&
+               std::hypot(intersection.x-canonical2.x,
+                          intersection.y-canonical2.y)>1e-9*f.scale)
+                return refuse(__LINE__);
             std::optional<std::size_t> id;
             if(t<=1e-10)id=a.a;
             else if(t>=1-1e-10)id=a.b;
@@ -251,13 +267,33 @@ bool arrangeFace(
             if(!id) {
                 if(newlyCreated>=limits.maxNewPoints)
                     throw std::length_error("Planar arrangement new-point budget");
-                const auto point=points.at(a.a).position+
+                const auto point=canonical?point3:
+                    points.at(a.a).position+
                     (points.at(a.b).position-points.at(a.a).position)*t;
                 id=points.size();
                 points.push_back({point,std::nullopt,std::nullopt,faceId});
                 ++newlyCreated;
             }
-            positions[*id]=intersection;
+            if(canonical) {
+                const auto& previous=points.at(*id);
+                if((previous.existingVertex||previous.boundaryEdge) &&
+                   (previous.position.x!=point3.x||
+                    previous.position.y!=point3.y||
+                    previous.position.z!=point3.z))
+                    return refuse(__LINE__); // original/edge point is immutable
+                if(previous.owningFace&&previous.owningFace!=faceId)
+                    return refuse(__LINE__); // unrelated face-local node
+                points[*id].position=point3;
+                auto& junction=junctions[foundJunction->second];
+                const auto at=std::find(faces.begin(),faces.end(),faceId);
+                if(at==faces.end())return refuse(__LINE__);
+                const auto slot=static_cast<std::size_t>(at-faces.begin());
+                if(junction.facePoints[slot]!=
+                       std::numeric_limits<std::size_t>::max()&&
+                   junction.facePoints[slot]!=*id)return refuse(__LINE__);
+                junction.facePoints[slot]=*id;
+            }
+            positions[*id]=canonical?canonical2:intersection;
             segmentMarks[i].push_back({t,*id});
             segmentMarks[j].push_back({u,*id});
     }
@@ -573,7 +609,17 @@ ConformingCutPlan buildMultiSectionCutPlan(
         interiors[face].push_back(id);
         return id;
     };
-    for(const auto contact:contacts) {
+    // Insertion-order-dependent near-equal endpoint reuse is not a
+    // stable source geometry model. Build this private graph in a fixed
+    // FaceId-pair order, then restore the caller's original contact order
+    // for the materializer/c2 sourceContacts/sectionFirst journals.
+    auto orderedContacts=contacts;
+    std::sort(orderedContacts.begin(),orderedContacts.end(),
+        [](const auto& a,const auto& b) {
+            if(a.first!=b.first)return a.first<b.first;
+            return a.second<b.second;
+        });
+    for(const auto contact:orderedContacts) {
         if(contact.ambiguous||contact.first==contact.second||
            !index.maybeFace(contact.first)||!index.maybeFace(contact.second))
             return reject("Invalid or ambiguous multi-section contact");
@@ -607,13 +653,118 @@ ConformingCutPlan buildMultiSectionCutPlan(
             }
             if(ends[0]==ends[1])
                 return reject("Degenerate multi-section curve");
-            perFace[face].push_back({ends[0],ends[1]});
+            perFace[face].push_back({ends[0],ends[1],
+                side?contact.first:contact.second});
             if(side)match.secondSide=ends;
             else match.firstSide=ends;
             for(const auto id:corners)(void)original(id);
         }
         result.segments.push_back(match);
     }
+    // The same complete V13 graph may arrive in any contact order.
+    // Give each original source face a fixed section-pair traversal:
+    // swapping i/j changes roundoff around endpoint parameters and can
+    // otherwise turn one legitimate junction into a spurious graze.
+    // Original source-contact and section journals keep THEIR caller
+    // order; only the face-local arrangement traversal is canonical.
+    for(auto& [face,sectionsOnFace]:perFace) {
+        (void)face;
+        std::sort(sectionsOnFace.begin(),sectionsOnFace.end(),
+            [](const SectionLine& a,const SectionLine& b) {
+                return a.partner<b.partner;
+            });
+    }
+    // V17-M01: enumerate only triples CLOSED by all three genuine
+    // original V13 contact pairs. Compute one canonical point from their
+    // original planes, never from separate face-local 2D intersections.
+    // A three-plane point outside ANY finite source section is NOT a
+    // junction, even if the infinite supporting planes intersect.
+    std::map<std::pair<FaceId,FaceId>,std::array<Vec3,2>> sections;
+    for(std::size_t k=0;k<result.segments.size();++k) {
+        const auto& segment=result.segments[k];
+        const auto pair=std::minmax(segment.firstFace,segment.secondFace);
+        sections[{pair.first,pair.second}]={
+            result.points[segment.firstSide[0]].position,
+            result.points[segment.firstSide[1]].position};
+    }
+    std::map<std::array<FaceId,3>,std::size_t> junctionIndex;
+    std::size_t testedTriples=0;
+    const auto finite=[](Vec3 p) {
+        return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
+    };
+    const auto sourcePlane=[&](FaceId face) {
+        const auto ids=index.face(face).vertices;
+        const auto a=index.vertex(ids[0]).position;
+        const auto b=index.vertex(ids[1]).position;
+        const auto c=index.vertex(ids[2]).position;
+        const auto n=cross(b-a,c-a);
+        const auto magnitude=length(n);
+        if(!(magnitude>0)||!std::isfinite(magnitude))
+            throw std::logic_error("Degenerate original triple-junction face");
+        return std::make_pair(a,n/magnitude);
+    };
+    for(const auto& [face,local]:perFace)
+        for(std::size_t i=0;i<local.size();++i)
+            for(std::size_t j=i+1;j<local.size();++j) {
+                if(++testedTriples>limits.maxJunctionCandidates)
+                    throw std::length_error("V17 canonical junction candidate budget");
+                const auto a=local[i].partner,b=local[j].partner;
+                if(a==b)continue;
+                const auto pair=std::minmax(a,b);
+                if(!sections.contains({pair.first,pair.second}))continue;
+                std::array<FaceId,3> triple{face,a,b};
+                std::sort(triple.begin(),triple.end());
+                if(junctionIndex.contains(triple))continue;
+                const auto p0=sourcePlane(triple[0]),
+                           p1=sourcePlane(triple[1]),
+                           p2=sourcePlane(triple[2]);
+                const auto normal0=p0.second,normal1=p1.second,
+                           normal2=p2.second;
+                const auto n12=cross(normal1,normal2);
+                const double determinant=dot(normal0,n12);
+                // Unstable triple planes cannot create a *certified*
+                // junction. They may still be independent nonjunction
+                // sections, and the later arrangement remains fail-closed.
+                if(!std::isfinite(determinant)||
+                   std::abs(determinant)<=1e-9)continue;
+                const auto point=(n12*dot(normal0,p0.first)+
+                     cross(normal2,normal0)*dot(normal1,p1.first)+
+                     cross(normal0,normal1)*dot(normal2,p2.first))/
+                     determinant;
+                if(!finite(point))return reject("Nonfinite triple-plane junction");
+                // Compare with the THREE actual *finite* original V13
+                // sections, not just their infinite supporting lines.
+                bool onAll=true,nearEnd=false;
+                for(const auto& pairFaces:std::array<std::pair<FaceId,FaceId>,3>{{
+                    {triple[0],triple[1]},
+                    {triple[0],triple[2]},
+                    {triple[1],triple[2]}}}) {
+                    const auto segment=sections.at(pairFaces);
+                    const auto d=segment[1]-segment[0];
+                    const auto d2=dot(d,d);
+                    if(!(d2>0)||!std::isfinite(d2))
+                        return reject("Degenerate original triple junction section");
+                    const auto t=dot(point-segment[0],d)/d2;
+                    const auto scale=std::sqrt(d2);
+                    const auto residual=length(point-(segment[0]+d*t));
+                    if(!std::isfinite(t)||!std::isfinite(residual)||
+                       t< -1e-9||t>1+1e-9||
+                       residual>1e-9*scale) {
+                        onAll=false;break;
+                    }
+                    if(t<=1e-9||t>=1-1e-9)nearEnd=true;
+                }
+                if(!onAll)continue;
+                if(nearEnd)
+                    return reject("Triple junction grazes a finite section endpoint");
+                // The original face corners, planes, complete finite
+                // contacts and distinct cut sheet points are retained.
+                // M02, not M01, owns exact seam-edge reconciliation.
+                const auto invalid=std::numeric_limits<std::size_t>::max();
+                junctionIndex.emplace(triple,result.junctions.size());
+                result.junctions.push_back({triple,point,
+                                           {invalid,invalid,invalid}});
+            }
     for(auto& [key,group]:cuts) {
         std::sort(group.begin(),group.end());
         for(std::size_t j=1;j<group.size();++j)
@@ -631,7 +782,8 @@ ConformingCutPlan buildMultiSectionCutPlan(
         std::vector<Tri> triangles;
         std::string diagnostic;
         if(!arrangeFace(index,face,corners,cuts,perFace[face],
-                        result.points,newlyCreated,arrangementTests,
+                        result.points,result.junctions,junctionIndex,
+                        newlyCreated,arrangementTests,
                         arrangementEdges,arrangementPredicates,
                         totalTriangles,limits,triangles,diagnostic)) {
             const auto reason="Planar arrangement on face "+
@@ -640,10 +792,61 @@ ConformingCutPlan buildMultiSectionCutPlan(
         }
         result.faces.push_back({face,std::move(triangles)});
     }
+    // Every declared three-source junction must be present on all
+    // three separately represented cut sheets, at exactly the common
+    // canonical coordinate, and remain in its own original face fan.
+    for(const auto& junction:result.junctions)
+        for(std::size_t j=0;j<3;++j) {
+            const auto id=junction.facePoints[j];
+            if(id>=result.points.size()||
+               result.points[id].owningFace!=junction.sourceFaces[j])
+                return reject("Missing canonical junction on original source face");
+            const auto p=result.points[id].position;
+            if(p.x!=junction.position.x||p.y!=junction.position.y||
+               p.z!=junction.position.z)
+                return reject("Canonical junction was not shared exactly");
+            const auto found=std::find_if(result.faces.begin(),result.faces.end(),
+                [&](const ConformingCutFace& f){
+                    return f.sourceFace==junction.sourceFaces[j];});
+            if(found==result.faces.end())return reject("Junction source face missing");
+            unsigned incident=0;
+            for(const auto tri:found->triangles)
+                if(std::find(tri.begin(),tri.end(),id)!=tri.end())
+                    ++incident;
+            if(incident<3)return reject("Canonical junction has incomplete cut fan");
+        }
+    // Restore exactly the source pair ordering supplied by the caller.
+    // Downstream permanent sectionFirst/sectionSecond arrays are indexed
+    // against sourceContacts in that original order.
+    std::map<std::pair<FaceId,FaceId>,ConformingCutSegment> byPair;
+    for(const auto& segment:result.segments)
+        if(!byPair.emplace(std::make_pair(segment.firstFace,
+                                         segment.secondFace),segment).second)
+            return reject("Duplicated source section before journal reordering");
+    result.segments.clear();
+    for(const auto& contact:contacts) {
+        const auto found=byPair.find({contact.first,contact.second});
+        if(found==byPair.end())
+            return reject("Source contact lost during canonical ordering");
+        result.segments.push_back(found->second);
+    }
     result.status=IntersectionSectionStatus::TransverseSegment;
     if(mirrors) {
         const auto error=pairMirroredMultiSectionPlan(index,result,*mirrors,limits);
         if(!error.empty())return reject(error.c_str());
+        // Mirrored-plan normalization is a separate strict second pass.
+        // It must not silently invalidate one physical point recorded
+        // for THREE original source sheets in this M01 plan.
+        for(const auto& junction:result.junctions)
+            for(const auto id:junction.facePoints) {
+                if(id>=result.points.size())return reject(
+                    "Reflected canonical source junction lost a point");
+                const auto p=result.points[id].position;
+                if(p.x!=junction.position.x||p.y!=junction.position.y||
+                   p.z!=junction.position.z)
+                    return reject(
+                        "Reflected section normalization changed a canonical source junction");
+            }
     }
     return result;
 }

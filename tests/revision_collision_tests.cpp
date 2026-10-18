@@ -1505,6 +1505,100 @@ void testFullThreeBodyContactAdmission() {
 // generic full-solid arrangement separates all vertices/edges and tests
 // three pairwise overlapping closed tetrahedra. A/B and A/C each make
 // four transverse sections on A's original top triangle; B/C also meet.
+void assertCanonicalTripleJunctions(
+    const RegionTopologyIndex& root,
+    const std::vector<RegionTopologyIndex::CollisionPair>& complete,
+    const char* fixture) {
+    const auto plan=buildConformingCutPlan(root,complete);
+    if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+        throw std::runtime_error(
+            std::string(fixture)+" canonical junction cut refused: "+plan.refusal);
+    check(!plan.junctions.empty(),
+          "Every actual triple-contact fixture has a source-proven junction");
+    std::map<std::array<FaceId,3>,Vec3> positions;
+    std::set<std::size_t> used;
+    for(const auto& junction:plan.junctions) {
+        check(std::is_sorted(junction.sourceFaces.begin(),
+                             junction.sourceFaces.end())&&
+              junction.sourceFaces[0]!=junction.sourceFaces[1]&&
+              junction.sourceFaces[1]!=junction.sourceFaces[2],
+              "Canonical junction has three distinct sorted original face identities");
+        check(positions.emplace(junction.sourceFaces,junction.position).second,
+              "A three-face source orbit has one physical point");
+        for(std::size_t side=0;side<3;++side) {
+            const auto id=junction.facePoints[side];
+            check(id<plan.points.size()&&used.insert(id).second&&
+                  !plan.points[id].existingVertex&&
+                  !plan.points[id].boundaryEdge&&
+                  plan.points[id].owningFace==junction.sourceFaces[side],
+                  "Every independently intersecting sheet retains one distinct face-local node");
+            const auto p=plan.points[id].position;
+            check(p.x==junction.position.x&&p.y==junction.position.y&&
+                  p.z==junction.position.z,
+                  "All three independently owned junction points have exactly equal coordinates");
+            const auto f=root.face(junction.sourceFaces[side]).vertices;
+            const auto a=root.vertex(f[0]).position,
+                       b=root.vertex(f[1]).position,
+                       c=root.vertex(f[2]).position;
+            const auto n=cross(b-a,c-a);
+            const auto scale=std::max({length(b-a),length(c-a),length(c-b)});
+            check(length(n)>0&&
+                  std::abs(dot(junction.position-a,n))/length(n)<
+                    1e-9*scale,
+                  "Canonical source-proven point remains on each original supporting plane");
+            const auto face=std::find_if(plan.faces.begin(),plan.faces.end(),
+                [&](const ConformingCutFace& part){
+                    return part.sourceFace==junction.sourceFaces[side];});
+            check(face!=plan.faces.end(),"Canonical source face has complete cut children");
+            unsigned incident=0;
+            for(const auto tri:face->triangles)
+                if(std::find(tri.begin(),tri.end(),id)!=tri.end())
+                    ++incident;
+            check(incident>=3,"Canonical interior junction has a complete oriented fan");
+        }
+        const auto pairs=std::array<std::pair<FaceId,FaceId>,3>{{
+            {junction.sourceFaces[0],junction.sourceFaces[1]},
+            {junction.sourceFaces[0],junction.sourceFaces[2]},
+            {junction.sourceFaces[1],junction.sourceFaces[2]}}};
+        for(const auto& [a,b]:pairs)
+            check(std::any_of(plan.segments.begin(),plan.segments.end(),
+               [&](const ConformingCutSegment& segment) {
+                   return (segment.firstFace==a&&segment.secondFace==b)||
+                          (segment.firstFace==b&&segment.secondFace==a);
+               }),"Canonical triple point has all three finite V13 source pairs");
+    }
+    // The original V13 pair order cannot change source-plane identity
+    // or the physical position of any junction.
+    auto reversed=complete;
+    std::reverse(reversed.begin(),reversed.end());
+    const auto again=buildConformingCutPlan(root,reversed);
+    if(again.status!=IntersectionSectionStatus::TransverseSegment||
+       again.junctions.size()!=plan.junctions.size())
+        throw std::runtime_error(
+            std::string(fixture)+" reverse contact order refused/differed: "+
+            again.refusal+" triples="+std::to_string(again.junctions.size())+
+            " expected="+std::to_string(plan.junctions.size()));
+    for(const auto& junction:again.junctions) {
+        const auto found=positions.find(junction.sourceFaces);
+        check(found!=positions.end()&&
+              found->second.x==junction.position.x&&
+              found->second.y==junction.position.y&&
+              found->second.z==junction.position.z,
+              "The three original source planes define one reproducible coordinate");
+    }
+    ConformingCutLimits tiny;
+    tiny.maxJunctionCandidates=0;
+    bool exhausted=false;
+    try {
+        const auto invalid=buildConformingCutPlan(root,complete,tiny);
+        exhausted=invalid.status!=IntersectionSectionStatus::TransverseSegment;
+    }catch(const std::length_error&) {exhausted=true;}
+    check(exhausted,
+          "Triple-junction enumeration exhausts its hard preflight budget before exposing a plan");
+    std::cout<<"[canonical-junction] fixture="<<fixture
+             <<" triples="<<plan.junctions.size()<<'\n';
+}
+
 void testGenericCompleteThreeBodyTransverseGraph() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,12>{{
@@ -1544,6 +1638,7 @@ void testGenericCompleteThreeBodyTransverseGraph() {
                      <<" ambiguous="<<pair.ambiguous<<'\n';
     }
     check(all.size()==12,"Generic triple fixture has exactly twelve original transverse contacts");
+    assertCanonicalTripleJunctions(*root,all,"generic-12");
     CutRemovalSettings contours;
     contours.contours.maximumPlanarityInRadii=4.0;
     contours.contours.maximumSingleCapPlanarityInRadii=4.0;
@@ -1635,6 +1730,7 @@ void testOrthogonalTripleJunctionProbe() {
              <<" unsupported="<<unsupported<<'\n';
     check(all.size()==16&&unsupported==0,
           "Orthogonal dyadic triple junction requires sixteen strictly transverse original contacts");
+    assertCanonicalTripleJunctions(*root,all,"orthogonal-16");
     CutRemovalSettings contours;
     contours.contours.maximumPlanarityInRadii=4.0;
     contours.contours.maximumSingleCapPlanarityInRadii=4.0;
