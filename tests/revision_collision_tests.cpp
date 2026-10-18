@@ -2378,6 +2378,112 @@ void testReflectedThreeBodyCompleteOriginalContacts() {
     }
 }
 
+void testReflectedUncutBurialCavityOrbits() {
+    Mesh mesh;
+    // Duplicate the M03 one-above/three-below closed tetra contact and
+    // independent reversed cavity into TWO exact off-plane reflected
+    // three-body components, without any invariant X=0 seam point.
+    const std::array<Vec3,12> positions{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.4,.4,-.25},{.4,.6,-.25},{.6,.4,-.25},{.5,.5,.25},
+        {.12,.12,-1.1},{.12,.22,-1.1},
+        {.22,.12,-1.1},{.15,.15,-.9}
+    }};
+    for(const auto p:positions)mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(const auto p:positions)mesh.vertices.push_back({-p.x-5,p.y,p.z});
+    for(unsigned half=0;half<2;++half)
+        for(unsigned solid=0;solid<3;++solid)
+            for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }}) {
+                const unsigned start=half*12+solid*4;
+                const bool reverse=(half!=0) != (solid==2);
+                mesh.triangles.push_back({
+                    start+tri[0],
+                    start+tri[reverse?2:1],
+                    start+tri[reverse?1:2]});
+            }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::unordered_map<VertexId,VertexId> mirrors;
+    for(std::size_t k=0;k<12;++k) {
+        const auto a=imported.flatIndex.vertexIds[k],
+                   b=imported.flatIndex.vertexIds[k+12];
+        mirrors.emplace(a,b);mirrors.emplace(b,a);
+    }
+    const auto contacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(contacts.size()==6,
+          "Two mirrored one-above-three-below protrusions yield six complete original transverse V13 source pairs");
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=.1;
+    contours.contours.minimumNormalAlignment=0;
+    const auto cut=materializeTransverseCutCandidate(
+        root,contacts,{},256,&mirrors);
+    const auto uncut=planUncutFaceRetirement(cut,contours,{},&mirrors);
+    if(!uncut.ready())
+        throw std::runtime_error("Reflected uncut originals refused: "+
+                                 uncut.refusal);
+    check(uncut.authorizedUncut.size()==2&&
+          uncut.mirroredAuthorizedUncut.size()==1&&
+          !uncut.mirroredProtectedUncut.empty(),
+          "Two source-proven wholly buried uncut originals form ONE paired retirement orbit");
+    const auto baseRight=imported.flatIndex.faceIds[4],
+               baseLeft=imported.flatIndex.faceIds[16];
+    check(std::binary_search(uncut.authorizedUncut.begin(),
+                             uncut.authorizedUncut.end(),baseRight)&&
+          std::binary_search(uncut.authorizedUncut.begin(),
+                             uncut.authorizedUncut.end(),baseLeft),
+          "Both mirror counterparts of the untouched buried original base are authorized");
+    ExactCutStepLimits limits;
+    limits.requireMirrors=true;
+    limits.join.removal=contours;
+    const auto full=prepareExactCutStep(root,contacts,limits,&mirrors);
+    std::cout<<"[mirrored-uncut-m05] complete="<<full.complete
+             <<" reason="<<full.refusal<<'\n';
+    if(!full.complete)
+        throw std::runtime_error(
+            "Both buried uncut mirrored originals must close atomically: "+
+            full.refusal);
+    check(!full.final->maybeFace(baseRight)&&
+          !full.final->maybeFace(baseLeft)&&
+          std::binary_search(full.retiredFaces.begin(),
+                             full.retiredFaces.end(),baseRight)&&
+          std::binary_search(full.retiredFaces.begin(),
+                             full.retiredFaces.end(),baseLeft),
+          "Both original reflected buried FaceIds enter ONE net retirement journal");
+    for(const auto i:{8u,9u,10u,11u,20u,21u,22u,23u}) {
+        const auto cavity=imported.flatIndex.faceIds[i];
+        check(full.final->maybeFace(cavity)&&root->maybeFace(cavity),
+              "Reflected independently enclosed reversed cavity faces remain permanent");
+    }
+    verifyMirroredOriginalRootStep(root,mirrors,full,"uncut-cavity-orbits",4);
+
+    auto incomplete=contacts;
+    incomplete.pop_back();
+    const auto absent=prepareExactCutStep(root,incomplete,limits,&mirrors);
+    check(!absent.complete&&!absent.expected&&!absent.final&&
+          !absent.commit.revision&&absent.addedMirrors.empty(),
+          "One missing reflected original V13 pair refuses BOTH halves");
+    auto exhausted=limits;
+    exhausted.uncut.maxOriginalFaces=0;
+    const auto budget=prepareExactCutStep(root,contacts,exhausted,&mirrors);
+    check(!budget.complete&&!budget.final&&!budget.expected&&
+          budget.addedMirrors.empty()&&budget.retiredFaces.empty(),
+          "Reflected uncut original component budget refuses whole original-root Step");
+    auto broken=mirrors;
+    broken.erase(imported.flatIndex.vertexIds[0]);
+    const auto badMap=prepareExactCutStep(root,contacts,limits,&broken);
+    check(!badMap.complete&&!badMap.final&&!badMap.expected&&
+          badMap.addedMirrors.empty()&&badMap.retiredFaces.empty(),
+          "Missing original mirror involution refuses paired classified face retirement");
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -2878,6 +2984,7 @@ int main() {
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
         testReflectedThreeBodyCompleteOriginalContacts();
+        testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
