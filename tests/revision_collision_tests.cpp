@@ -1500,6 +1500,95 @@ void testFullThreeBodyContactAdmission() {
     exercise(true);
 }
 
+// Unlike the historic three-tetrahedron crossing/T fixtures (which have
+// grazing or otherwise unsupported original triangle pairs), this dyadic,
+// generic full-solid arrangement separates all vertices/edges and tests
+// three pairwise overlapping closed tetrahedra. A/B and A/C each make
+// four transverse sections on A's original top triangle; B/C also meet.
+void testGenericCompleteThreeBodyTransverseGraph() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.375,.375,.25},{.625,.375,.25},
+        {.625,.625,-.25},{.375,.25,-.25},
+        {.21875,.15625,.34375},{.46875,.125,.34375},
+        {.53125,.40625,-.1875},{.28125,.09375,-.125}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto start=solid*4;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            start+t[0],start+t[1],start+t[2]});
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    const auto originalRoot=root->pickingRootIdentity();
+    const auto all=root->triangleIntersections(imported.flatIndex.vertexIds,{});
+    std::cout<<"[generic-triple] original-pairs="<<all.size()<<'\n';
+    for(const auto& pair:all) {
+        const auto a=root->face(pair.first).vertices,
+                   b=root->face(pair.second).vertices;
+        const auto positions=[&](std::array<VertexId,3> ids) {
+            return std::array<Vec3,3>{{
+                root->vertex(ids[0]).position,
+                root->vertex(ids[1]).position,
+                root->vertex(ids[2]).position
+            }};
+        };
+        const auto section=splitTransverseTriangleContact(
+            positions(a),a,positions(b),b);
+        if(section.status!=IntersectionSectionStatus::TransverseSegment)
+            std::cout<<"[generic-triple] unsupported original pair "
+                     <<pair.first<<" / "<<pair.second
+                     <<" ambiguous="<<pair.ambiguous<<'\n';
+    }
+    if(all.empty())throw std::runtime_error("Generic triple has no original contacts");
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=0.1;
+    contours.contours.minimumNormalAlignment=0;
+    try {
+        const auto cut=materializeTransverseCutCandidate(root,all);
+        const auto coverage=certifyConformingCutCoverage(cut);
+        const auto occupancy=assessConformingCutFragments(cut);
+        const auto proposal=planExactCutRemoval(cut,contours);
+        ExactCutJoinLimits joinLimits;
+        joinLimits.removal=contours;
+        const auto joined=joinCertifiedCutSections(cut,joinLimits);
+        std::cout<<"[generic-triple] cut=1 coverage="<<coverage.complete
+                 <<" coverage-refusal="<<coverage.refusal
+                 <<" occupancy="<<occupancy.complete
+                 <<" occupancy-refusal="<<occupancy.refusal
+                 <<" removal="<<proposal.ready()
+                 <<" removal-refusal="<<proposal.refusal
+                 <<" joined="<<joined.complete
+                 <<" joined-refusal="<<joined.refusal<<'\n';
+    }catch(const std::exception& error) {
+        std::cout<<"[generic-triple] cut-refusal="<<error.what()<<'\n';
+    }
+    ExactCutStepLimits limits;
+    limits.join.removal=contours;
+    const auto final=prepareExactCutStep(root,all,limits);
+    std::cout<<"[generic-triple] final="<<final.complete
+             <<" final-refusal="<<final.refusal<<'\n';
+    if(final.complete)
+        check(final.expected==root&&final.final&&
+              connectedClosedSurfaceComponents(*final.final)==1,
+              "A fully validated generic three-body union must be connected");
+    else
+        check(!final.expected&&!final.final&&!final.commit.revision&&
+              final.addedFaces.empty()&&final.retiredFaces.empty(),
+              "Unsupported generic triple intersections remain entirely private");
+    check(root->pickingRootIdentity()==originalRoot&&
+          connectedClosedSurfaceComponents(*root)==3,
+          "Triple-contact attempts never alter historical immutable pointers");
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -1995,6 +2084,7 @@ int main() {
         testSectionsMeetAtInteriorTjunction();
         testSeparateCompleteSectionsOnOneOriginalFace();
         testFullThreeBodyContactAdmission();
+        testGenericCompleteThreeBodyTransverseGraph();
         throw std::runtime_error("Temporary three-body full-contact diagnostic exit");
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
