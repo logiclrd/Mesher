@@ -401,7 +401,7 @@ void testM21RealNonMirroredIntentAndProtectedOuterFaces() {
         before,before,intent,1e-9,exactWork,128);}
     catch(const std::logic_error&){refused=true;}
     check(refused,"M21 declaration cannot authorize an uncertified sibling or original root");
-    const auto other=declareOriginalPatchIntent(after,affected,nullptr,8);
+    const auto other=declareOriginalPatchIntent(after,affected,nullptr,128);
     refused=false;
     try {(void)evaluateOriginalPatchIntent(
         before,after,other,1e-9,exactWork,128);}
