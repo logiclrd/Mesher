@@ -13,7 +13,27 @@
 #include <vector>
 
 namespace mesher {
+// Deliberately not defined in the public header: an external client may
+// copy a certified lifetime but cannot manufacture fresh accepted owner,
+// root, retired patch or cumulative-work evidence.
+struct LifetimeSourceCertificate {
+    std::shared_ptr<const RegionTopologyIndex> original,terminal;
+    std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
+    std::vector<FaceId> retired;
+    std::size_t verifiedFaceSplits{},acceptedTransitions{},sourceFaceEvidence{};
+};
 namespace {
+void seal(OriginalPatchLifetime& lifetime) {
+    auto proof=std::make_shared<LifetimeSourceCertificate>();
+    proof->original=lifetime.anchors.original;
+    proof->terminal=lifetime.lineage.terminal;
+    proof->living=lifetime.lineage.living;
+    proof->retired=lifetime.certifiedRetiredOriginals;
+    proof->verifiedFaceSplits=lifetime.lineage.verifiedFaceSplits;
+    proof->acceptedTransitions=lifetime.acceptedTransitions;
+    proof->sourceFaceEvidence=lifetime.sourceFaceEvidence;
+    lifetime.certificate=std::move(proof);
+}
 bool same(Vec3 a,Vec3 b) {
     return a.x==b.x&&a.y==b.y&&a.z==b.z;
 }
@@ -24,9 +44,16 @@ bool same(Vec3 a,Vec3 b) {
 SourceSplitLineage verifyLifetime(
     const OriginalPatchLifetime& lifetime,
     std::size_t maxLivingDescendants) {
-    if(!lifetime.verifiedOwnership||
-       *lifetime.verifiedOwnership!=lifetime.lineage.living)
-        throw std::logic_error("Uncertified substituted or coincident source FaceId owners");
+    const auto proof=lifetime.certificate;
+    if(!proof||proof->original!=lifetime.anchors.original||
+       proof->original!=lifetime.lineage.original||
+       proof->terminal!=lifetime.lineage.terminal||
+       proof->living!=lifetime.lineage.living||
+       proof->retired!=lifetime.certifiedRetiredOriginals||
+       proof->verifiedFaceSplits!=lifetime.lineage.verifiedFaceSplits||
+       proof->acceptedTransitions!=lifetime.acceptedTransitions||
+       proof->sourceFaceEvidence!=lifetime.sourceFaceEvidence)
+        throw std::logic_error("Uncertified substituted lifetime owner, root, retirement or work counter");
     if(!lifetime.anchors.original||!lifetime.lineage.original||
        !lifetime.lineage.terminal||
        lifetime.anchors.original!=lifetime.lineage.original||
@@ -127,9 +154,6 @@ OriginalPatchLifetime applyVerified(
     if(!accepted.empty())throw std::logic_error("Stage invented foreign source owners");
     next.lineage.terminal=stage.terminal;
     next.lineage.verifiedFaceSplits=stage.verifiedFaceSplits;
-    next.verifiedOwnership=std::make_shared<
-        const std::vector<std::pair<FaceId,std::vector<FaceId>>>>(
-            next.lineage.living);
     next.sourceFaceEvidence+=additionalEvidence;
     if(next.acceptedTransitions==std::numeric_limits<std::size_t>::max())
         throw std::length_error("Lifetime accepted source transition count overflow");
@@ -138,6 +162,7 @@ OriginalPatchLifetime applyVerified(
         next.certifiedRetiredOriginals.end(),newRetired.begin(),newRetired.end());
     std::sort(next.certifiedRetiredOriginals.begin(),
               next.certifiedRetiredOriginals.end());
+    seal(next);
     (void)verifyLifetime(next,maxLivingDescendants);
     return next;
 }
@@ -168,9 +193,7 @@ OriginalPatchLifetime beginOriginalPatchLifetime(
     OriginalPatchLifetime state;
     state.anchors=anchors;
     state.lineage=beginSourceSplitLineage(anchors);
-    state.verifiedOwnership=std::make_shared<
-        const std::vector<std::pair<FaceId,std::vector<FaceId>>>>(
-            state.lineage.living);
+    seal(state);
     (void)verifyLifetime(state,16384);
     return state;
 }
