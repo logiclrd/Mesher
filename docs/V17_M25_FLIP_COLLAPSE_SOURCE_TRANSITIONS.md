@@ -78,3 +78,21 @@ ownership, V17-M27 composes these histories and bounded original
 witness distances, and M20 integrates those independent proofs.
 No universal import topology, global proximity welding, two-sided
 Hausdorff certificate or post-CAS robustness claim is made here.
+
+## Cross-platform acceptance checkpoint
+
+[GitHub Actions #39163332789](https://github.com/logiclrd/Mesher/actions/runs/39163332789)
+passed the complete substantive M25 C++/test implementation on
+GCC, Clang and Windows MSVC with warnings-as-errors, 23/23 CPU
+CTest suites and platform-applicable 100K generation and brush
+benchmarks. The earlier refiner/collapser and M11 real physical
+union regressions remain green. A documentation-only PR-head
+CI check is still required before merging PR #69.
+
+The protected same-original 2→2 flip branch is conditional on
+both faces' **independently proven same original owner** and strict
+area conservation. A cross-original boundary is not granted
+an arbitrary joint patch just to avoid refusal. M26/M27/M20
+retain all remaining original-first-lifetime Boolean descendant
+and fidelity integration, and M21/M22 own live protected-feature
+intent and prepublication enforcement.
