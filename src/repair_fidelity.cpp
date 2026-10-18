@@ -1,5 +1,6 @@
 #include "mesher/repair_surgery.hpp"
 #include "mesher/versioned_refine.hpp"
+#include "mesher/versioned_collapse.hpp"
 
 #include <algorithm>
 #include <array>
@@ -415,6 +416,363 @@ SourceSplitLineage advanceCertifiedSplitLineage(
     updated.terminal=refined.index;
     updated.verifiedFaceSplits+=refined.splitSources.size();
     return updated;
+}
+
+
+namespace {
+// A pair of oriented triangles must have precisely the same directed
+// exterior boundary after replacing its internal diagonal. This is an ID
+// proof, not a proximity-based lookup or a tolerance-laden inferred weld.
+using SignedEdges=std::map<std::pair<VertexId,VertexId>,int>;
+SignedEdges orientedBoundary(
+    const std::array<std::array<VertexId,3>,2>& triangles) {
+    SignedEdges boundary;
+    for(const auto& t:triangles)
+        for(unsigned k=0;k<3;++k) {
+            const auto a=t[k],b=t[(k+1)%3];
+            if(!a||!b||a==b)
+                throw std::logic_error("Invalid oriented flip triangle");
+            const auto pair=std::minmax(a,b);
+            const std::pair<VertexId,VertexId> key{pair.first,pair.second};
+            boundary[key]+=a<b?1:-1;
+        }
+    for(auto it=boundary.begin();it!=boundary.end();) {
+        if(it->second==0)it=boundary.erase(it);
+        else {
+            if(std::abs(it->second)!=1)
+                throw std::logic_error("Invalid oriented flip boundary");
+            ++it;
+        }
+    }
+    if(boundary.size()!=4)
+        throw std::logic_error("A source flip needs a four-edge quad boundary");
+    return boundary;
+}
+std::set<VertexId> quadVertices(
+    const std::array<std::array<VertexId,3>,2>& triangles) {
+    std::set<VertexId> ids;
+    for(const auto& tri:triangles)
+        ids.insert(tri.begin(),tri.end());
+    if(ids.size()!=4)
+        throw std::logic_error("Flip loses its four unique permanent vertices");
+    return ids;
+}
+double triangleArea(const RegionTopologyIndex& index,
+                    const std::array<VertexId,3>& t) {
+    const auto a=index.vertex(t[0]).position;
+    const auto b=index.vertex(t[1]).position;
+    const auto c=index.vertex(t[2]).position;
+    return length(cross(b-a,c-a))*.5;
+}
+std::set<FaceId> protectedIds(const SourceSplitLineage& lineage) {
+    std::set<FaceId> protectedFaces;
+    for(const auto& [_,faces]:lineage.living)
+        for(const auto face:faces)
+            if(!protectedFaces.insert(face).second)
+                throw std::logic_error("Protected FaceId belongs to two sources");
+    return protectedFaces;
+}
+void exactProtectedFaces(const SourceSplitLineage& previous,
+                         const RegionTopologyIndex& candidate) {
+    for(const auto& [_,faces]:previous.living)
+        for(const auto id:faces) {
+            const auto old=previous.terminal->maybeFace(id);
+            const auto next=candidate.maybeFace(id);
+            if(!old||!next||old->vertices!=next->vertices)
+                throw std::logic_error("Protected source incidence changed without intent");
+            for(const auto vertex:old->vertices) {
+                const auto a=previous.terminal->vertex(vertex).position;
+                const auto b=candidate.vertex(vertex).position;
+                if(a.x!=b.x||a.y!=b.y||a.z!=b.z)
+                    throw std::logic_error("Protected original surface moved without intended displacement");
+            }
+        }
+}
+}
+
+SourceSplitLineage advanceCertifiedRefineLineage(
+    const SourceSplitLineage& prior,const VersionedRefineResult& refined,
+    std::size_t maxFaceEvidence,std::size_t maxLivingDescendants) {
+    if(refined.flipSources.empty())
+        return advanceCertifiedSplitLineage(
+            prior,refined,maxFaceEvidence,maxLivingDescendants);
+    if(!refined.statistics.flipPairs||!refined.index||
+       !refined.sourceIndex||!refined.stampOriginal||
+       refined.flipSources.size()>maxFaceEvidence||
+       refined.splitSources.size()>maxFaceEvidence-refined.flipSources.size())
+        throw std::length_error("Invalid or exhausted source-flip proof budget");
+    // Replay M24 split evidence only through its real last split root.
+    auto split=refined;
+    split.flipSources.clear();
+    split.statistics.flipPairs=0;
+    split.index=refined.splitSources.empty()?
+        refined.sourceIndex:refined.splitSources.back().after;
+    split.changedFaces.clear();
+    for(const auto& record:split.splitSources) {
+        split.changedFaces.push_back(record.sourceFace);
+        split.changedFaces.push_back(record.appendedFace);
+    }
+    std::sort(split.changedFaces.begin(),split.changedFaces.end());
+    split.changedFaces.erase(
+        std::unique(split.changedFaces.begin(),split.changedFaces.end()),
+        split.changedFaces.end());
+    auto advanced=advanceCertifiedSplitLineage(
+        prior,split,maxFaceEvidence,maxLivingDescendants);
+    auto current=advanced.terminal;
+    auto owns=std::map<FaceId,FaceId>{};
+    for(const auto& [origin,faces]:advanced.living)
+        for(const auto id:faces)
+            if(!owns.emplace(id,origin).second)
+                throw std::logic_error("Ambiguous protected source face owner");
+    std::set<FaceId> changed(split.changedFaces.begin(),
+                             split.changedFaces.end());
+    std::size_t transactions=0;
+    for(std::size_t i=0;i<refined.flipSources.size();) {
+        const auto& first=refined.flipSources[i];
+        if(first.before!=current||!first.after||first.after==current)
+            throw std::logic_error("Source flip has stale immutable roots");
+        const auto after=first.after;
+        const std::size_t start=i;
+        while(i<refined.flipSources.size()&&
+              refined.flipSources[i].before==current&&
+              refined.flipSources[i].after==after)
+            ++i;
+        if(i-start>2||(!refined.sourceSplitsSymmetric&&i-start!=1))
+            throw std::logic_error("Incomplete reflected flip transaction");
+        std::set<FaceId> pairedIds;
+        std::set<VertexId> pairedVertices;
+        for(std::size_t j=start;j<i;++j) {
+            const auto& proof=refined.flipSources[j];
+            if(proof.faces[0]==proof.faces[1]||
+               !pairedIds.insert(proof.faces[0]).second||
+               !pairedIds.insert(proof.faces[1]).second)
+                throw std::logic_error("Duplicate or overlapping source flip faces");
+            const auto priorA=current->maybeFace(proof.faces[0]);
+            const auto priorB=current->maybeFace(proof.faces[1]);
+            const auto nextA=after->maybeFace(proof.faces[0]);
+            const auto nextB=after->maybeFace(proof.faces[1]);
+            if(!priorA||!priorB||!nextA||!nextB||
+               priorA->vertices!=proof.oldTriangles[0]||
+               priorB->vertices!=proof.oldTriangles[1]||
+               nextA->vertices!=proof.newTriangles[0]||
+               nextB->vertices!=proof.newTriangles[1])
+                throw std::logic_error("Flip source before/after journal was forged");
+            const auto oldVertices=quadVertices(proof.oldTriangles);
+            if(oldVertices!=quadVertices(proof.newTriangles)||
+               orientedBoundary(proof.oldTriangles)!=
+                   orientedBoundary(proof.newTriangles)||
+               proof.oldTriangles==proof.newTriangles)
+                throw std::logic_error("Flip changes source quad boundary or no diagonal");
+            for(const auto id:oldVertices) {
+                pairedVertices.insert(id);
+                const auto beforePos=current->vertex(id).position;
+                const auto afterPos=after->vertex(id).position;
+                if(beforePos.x!=afterPos.x||
+                   beforePos.y!=afterPos.y||
+                   beforePos.z!=afterPos.z)
+                    throw std::logic_error("Flip moved a permanent source vertex");
+            }
+            const auto a=owns.find(proof.faces[0]);
+            const auto b=owns.find(proof.faces[1]);
+            if((a==owns.end())!=(b==owns.end())||
+               (a!=owns.end()&&a->second!=b->second))
+                throw std::logic_error("Ambiguous protected source area transfer across flip");
+            if(a!=owns.end()) {
+                const double oldArea=triangleArea(*current,proof.oldTriangles[0])+
+                                     triangleArea(*current,proof.oldTriangles[1]);
+                const double newArea=triangleArea(*after,proof.newTriangles[0])+
+                                     triangleArea(*after,proof.newTriangles[1]);
+                if(!(oldArea>0)||!std::isfinite(oldArea)||
+                   !std::isfinite(newArea)||
+                   std::abs(newArea-oldArea)>1e-8*oldArea)
+                    throw std::logic_error("Protected original patch area changed in flip");
+            }
+            changed.insert(proof.faces.begin(),proof.faces.end());
+            if(refined.sourceSplitsSymmetric) {
+                if(proof.mirrors.empty())
+                    throw std::logic_error("Protected flip lacks explicit mirror source");
+                std::map<VertexId,VertexId> mirror;
+                for(const auto& [u,v]:proof.mirrors)
+                    if(!mirror.emplace(u,v).second)
+                        throw std::logic_error("Duplicate mirror source vertex");
+                for(const auto& [u,v]:mirror) {
+                    if(!mirror.contains(v)||mirror.at(v)!=u||
+                       !current->maybeVertex(u)||!current->maybeVertex(v))
+                        throw std::logic_error("Flip mirror source is not reciprocal");
+                    const auto p=current->vertex(u).position;
+                    const auto q=current->vertex(v).position;
+                    if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+                       ((u==v)!=(p.x==0)))
+                        throw std::logic_error("Flip mirror XYZ disagrees with stable IDs");
+                }
+                for(const auto u:oldVertices)
+                    if(!mirror.contains(u))
+                        throw std::logic_error("Flip source mirror map omitted corner");
+            }else if(!proof.mirrors.empty())
+                throw std::logic_error("Asymmetric flip invented mirror correspondence");
+        }
+        ++transactions;
+        current=after;
+    }
+    if(current!=refined.index||
+       transactions!=refined.statistics.flipPairs)
+        throw std::logic_error("Incomplete final source flip root chain");
+    std::set<FaceId> reported(
+        refined.changedFaces.begin(),refined.changedFaces.end());
+    if(reported!=changed||
+       reported.size()!=refined.changedFaces.size())
+        throw std::logic_error("Source flip face journal does not cover all changes");
+    // No foreign patch may have stolen the same permanent FaceId.
+    if(protectedIds(advanced).size()>maxLivingDescendants)
+        throw std::length_error("Flip protected face budget exhausted");
+    advanced.terminal=current;
+    return advanced;
+}
+
+SourceSplitLineage advanceCertifiedCollapseLineage(
+    const SourceSplitLineage& prior,const VersionedCollapseResult& collapsed,
+    std::size_t maxFaceEvidence,std::size_t maxLivingDescendants) {
+    if(!prior.terminal||!prior.original||!collapsed.stampOriginal||
+       !collapsed.sourceIndex||!collapsed.index||
+       prior.terminal!=collapsed.stampOriginal)
+        throw std::invalid_argument("Stale or missing source-collapse original root");
+    if(!maxFaceEvidence||!maxLivingDescendants)
+        throw std::invalid_argument("Collapse proof budgets must be positive");
+    if(protectedIds(prior).size()>maxLivingDescendants)
+        throw std::length_error("Protected face count exceeds collapse audit cap");
+    exactProtectedFaces(prior,*collapsed.sourceIndex);
+    if(collapsed.collapseSources.empty()) {
+        if(collapsed.statistics.accepted||
+           !collapsed.removedVertices.empty()||
+           !collapsed.removedFaces.empty()||
+           !collapsed.rewrittenFaces.empty()||
+           !collapsed.removedMirrorPairs.empty()||
+           collapsed.sourceIndex!=collapsed.index)
+            throw std::logic_error("Unjournaled collapse or topology rewrite");
+        auto unchanged=prior;
+        unchanged.terminal=collapsed.index;
+        return unchanged;
+    }
+    if(collapsed.collapseSources.size()>maxFaceEvidence)
+        throw std::length_error("Collapse transaction work cap exceeded");
+    std::size_t sourceWork=0;
+    std::set<VertexId> retiredVertices;
+    std::set<FaceId> retiredFaces,rewrittenFaces;
+    std::set<std::pair<VertexId,VertexId>> lostMirrors;
+    auto current=collapsed.sourceIndex;
+    const auto protectedSet=protectedIds(prior);
+    for(const auto& event:collapsed.collapseSources) {
+        if(event.before!=current||!event.after||event.after==current||
+           !event.survivor||!event.retired||
+           event.survivor==event.retired||
+           !current->maybeVertex(event.survivor)||
+           !current->maybeVertex(event.retired)||
+           event.after->maybeVertex(event.retired))
+            throw std::logic_error("Forged or stale committed collapse root/edge");
+        std::set<FaceId> touched;
+        for(const auto id:{event.survivor,event.retired})
+            for(const auto face:current->vertex(id).incidentFaces)
+                touched.insert(face);
+        if(event.paired) {
+            if(!event.symmetric||
+               event.mirrorSurvivor==event.survivor||
+               event.mirrorRetired==event.retired||
+               !current->maybeVertex(event.mirrorSurvivor)||
+               !current->maybeVertex(event.mirrorRetired)||
+               event.after->maybeVertex(event.mirrorRetired))
+                throw std::logic_error("Broken paired reflected collapse IDs");
+            for(const auto id:{event.mirrorSurvivor,event.mirrorRetired})
+                for(const auto face:current->vertex(id).incidentFaces)
+                    touched.insert(face);
+        }else if(event.symmetric&&
+                 (event.mirrorSurvivor!=event.survivor||
+                  event.mirrorRetired!=event.retired))
+            throw std::logic_error("Unproven self-reflected collapse pair");
+        const std::size_t faceWork=touched.size();
+        if(faceWork>maxFaceEvidence-sourceWork)
+            throw std::length_error("Collapse source-face work budget exhausted");
+        sourceWork+=faceWork;
+        std::set<FaceId> expectedRetired,expectedRewritten;
+        for(const auto face:touched) {
+            if(protectedSet.contains(face))
+                throw std::logic_error("Collapse touches protected exposed/cavity surface without intent");
+            const auto parent=current->face(face).vertices;
+            auto next=parent;
+            for(auto& v:next) {
+                if(v==event.retired)v=event.survivor;
+                else if(event.paired&&v==event.mirrorRetired)
+                    v=event.mirrorSurvivor;
+            }
+            const bool deleted=next[0]==next[1]||
+                next[1]==next[2]||next[0]==next[2];
+            const auto live=event.after->maybeFace(face);
+            if(deleted) {
+                if(live||!event.after->retiredFace(face))
+                    throw std::logic_error("Collapse missing certified retired source face");
+                expectedRetired.insert(face);
+            }else if(!live||live->vertices!=next)
+                throw std::logic_error("Collapse changed source incidence without proof");
+            else if(next!=parent)
+                expectedRewritten.insert(face);
+        }
+        const std::set<FaceId> documentedRetired(
+            event.retiredFaces.begin(),event.retiredFaces.end());
+        const std::set<FaceId> documentedRewritten(
+            event.rewrittenFaces.begin(),event.rewrittenFaces.end());
+        if(documentedRetired!=expectedRetired||
+           documentedRewritten!=expectedRewritten||
+           documentedRetired.size()!=event.retiredFaces.size()||
+           documentedRewritten.size()!=event.rewrittenFaces.size())
+            throw std::logic_error("Collapse lost a source FaceId rewrite/retirement");
+        retiredFaces.insert(expectedRetired.begin(),expectedRetired.end());
+        rewrittenFaces.insert(expectedRewritten.begin(),expectedRewritten.end());
+        if(!retiredVertices.insert(event.retired).second||
+           !event.after->retiredVertex(event.retired))
+            throw std::logic_error("Missing or duplicate collapsed source vertex tombstone");
+        if(event.paired) {
+            if(!retiredVertices.insert(event.mirrorRetired).second||
+               !event.after->retiredVertex(event.mirrorRetired))
+                throw std::logic_error("Missing reflected collapsed vertex tombstone");
+        }
+        if(event.symmetric) {
+            const auto checkReflection=[&](const RegionTopologyIndex& index,
+                                           VertexId a,VertexId b) {
+                const auto p=index.vertex(a).position;
+                const auto q=index.vertex(b).position;
+                return p.x==-q.x&&p.y==q.y&&p.z==q.z&&
+                       ((a==b)==(p.x==0));
+            };
+            if(!checkReflection(*current,event.survivor,event.mirrorSurvivor)||
+               !checkReflection(*current,event.retired,event.mirrorRetired)||
+               !checkReflection(*event.after,event.survivor,event.mirrorSurvivor))
+                throw std::logic_error("Collapse mirror source lost explicit reflection");
+            lostMirrors.emplace(
+                std::min(event.retired,event.mirrorRetired),
+                std::max(event.retired,event.mirrorRetired));
+        }
+        current=event.after;
+    }
+    const std::set<VertexId> removed(
+        collapsed.removedVertices.begin(),collapsed.removedVertices.end());
+    const std::set<FaceId> removedFaces(
+        collapsed.removedFaces.begin(),collapsed.removedFaces.end());
+    const std::set<FaceId> changedFaces(
+        collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    const std::set<std::pair<VertexId,VertexId>> mirrored(
+        collapsed.removedMirrorPairs.begin(),collapsed.removedMirrorPairs.end());
+    if(current!=collapsed.index||
+       collapsed.statistics.accepted!=collapsed.collapseSources.size()||
+       retiredVertices!=removed||retiredFaces!=removedFaces||
+       rewrittenFaces!=changedFaces||lostMirrors!=mirrored||
+       retiredVertices.size()!=collapsed.removedVertices.size()||
+       retiredFaces.size()!=collapsed.removedFaces.size()||
+       rewrittenFaces.size()!=collapsed.rewrittenFaces.size()||
+       mirrored.size()!=collapsed.removedMirrorPairs.size())
+        throw std::logic_error("Collapse final source journals are incomplete or forged");
+    exactProtectedFaces(prior,*current);
+    auto result=prior;
+    result.terminal=current;
+    return result;
 }
 
 } // namespace mesher
