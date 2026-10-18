@@ -4296,3 +4296,50 @@ The first original source root and all intermediate roots remain
 COW reader-stable, with bounded evidence work. M27 will measure
 fixed-original lifetime feature fidelity on these descendants; M21
 owns deliberate intent and M22 activates live terminal acceptance.
+
+## October 18, 2026 — M27 fixed-original source patch lifetime and witness accounting
+
+M24, M25 and M26 independently proved source ownership across real
+committed local splits, flips/protected-safe collapses and c1/c2/c3/
+M03/d2 exact union children. The missing M27 lifetime contract was
+**not** another approximate closest-triangle matcher. A first-nominated
+FaceId retains its ORIGINAL first-root seven XYZ witness points,
+per-original minimum edge scale and permanent source identity
+through every accepted COW Step. A source with no surviving faces
+is legal only with already certified c3/M03 Buried/Outside retirement,
+never because the desired original protected geometry is absent.
+
+M27's private read-only lifetime object keeps an opaque immutable
+certificate (held by shared const ownership) of first and terminal
+root pointer identities, first source FaceId → living descendant
+FaceIds, wholly retired original sources, cumulative stage
+evidence work and accepted transitions. This prevents a caller
+from modifying a lineage or resetting the cumulative work cap
+to slip an otherwise forged or coincident foreign source into the
+protected set. Each advance reuses M24/M25/M26 validators rather
+than trusting an invented union, and old readers remain COW-stable.
+
+The seven finite first-original witnesses of a source are compared
+ONLY with that source's certified descendants; each is normalized
+by that original source's minimum edge, never brush radius or a
+later refined edge. Preflight requires exactly seven distance
+tests times the complete living descendant count, with equality
+accepting and one-under refusing before partial sampling. A
+separate **shared cumulative source-proof cap across all Steps**
+prevents previous evidence from being discarded. Fully
+Buried/Outside retirees are reported explicitly, never counted as
+zero-deviation preserved original surfaces. This bounded, one-sided
+diagnostic is not continuous two-sided Hausdorff, not intended
+sculpt-scope permission and not active pre-CAS authorization.
+
+Acceptance on GCC/Clang/MSVC in PR #71 includes two actual
+published COW split Steps showing cumulative original-reference
+drift, real safe flip/collapse, true source-exact unions, M03
+burial and reversed cavities, reflected and X=0 fixed-point
+orbits, and two independent exactly coincident closed shells
+whose source ownership never aliases. Forged original anchor,
+stale root, switched child owners, manipulated work/history
+counters, missing retirement authority and all one-under
+stage/distance budgets refuse. The original M20 final integration
+remains separate; existing M21–M23 and original M12 scopes remain
+unchanged, with desktop Merge geometry default-off.

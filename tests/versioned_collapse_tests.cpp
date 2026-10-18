@@ -188,6 +188,27 @@ void testM25ConservativeProtectedCollapseProof() {
     for(const auto id:{event.survivor,event.retired})
         for(const auto face:event.before->vertex(id).incidentFaces)
             actualTouched.insert(face);
+    const auto m27Before=beginOriginalPatchLifetime(anchors);
+    const auto m27After=advanceOriginalPatchLifetime(
+        m27Before,collapsed,actualTouched.size(),8);
+    const auto m27Audit=auditOriginalPatchLifetime(
+        m27After,original,56,8);
+    check(m27After.anchors.original==original&&
+          m27After.lineage.terminal==collapsed.index&&
+          m27After.sourceFaceEvidence==actualTouched.size()&&
+          m27After.acceptedTransitions==1&&
+          m27Audit.total.distanceTests==56&&
+          m27Audit.total.maximumDistanceInEdges<1e-12,
+          "M27 real certified collapse preserves unchanged distant first-original patch");
+    refused=false;
+    try {(void)advanceOriginalPatchLifetime(
+        m27Before,collapsed,actualTouched.size()-1,8);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 real collapse exact source-halo work cap refuses one below");
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(m27After,original,55,8);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 real collapse seven-witness distance budget refuses one below");
     refused=false;
     try {(void)advanceCertifiedCollapseLineage(
         lineage,collapsed,actualTouched.size()-1,8);}

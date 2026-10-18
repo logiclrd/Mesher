@@ -1040,3 +1040,41 @@ across successive accepted Steps; M21 later defines deliberate
 protected-feature movement/exception. This stage does not claim
 continuous two-sided Hausdorff, universal imported mesh support,
 deletion of unclassified cavities, or new desktop controls.
+
+## October 18, 2026 — M27 accepted; M20 integrated acceptance next
+
+M27 has been completed as the already-planned final independently
+verifiable source-provenance peer, following M24–M26. The
+comprehensive implementation/acceptance is in
+`docs/V17_M27_ORIGINAL_PATCH_LIFETIME.md` and PR #71. One FIRST
+root binds seven original witnesses and original local edge scale
+to each nominated permanent source FaceId throughout successive
+actual published CAS revisions. M24 split, M25 flip/protected-safe
+collapse and M26 complete c1/c2/c3/M03/d2 transition evidence
+advance its certified living FaceIds, with certified wholly
+Buried/Outside original retirements explicitly distinguished
+from missing protected Exposed/ReversedBoundary features.
+
+The read-only lifetime state has an opaque immutable certificate of
+first/terminal root identities, source owners, certified retirements,
+cumulative **cross-Step** evidence cost and accepted transition
+count. Finite source-local original witness auditing preflights
+`7 * total live descendants` complete comparisons, exact budget
+accepted and one below refused. Legitimate actual COW remesh,
+real safe flip/collapse, true exact union, mirrored and on-plane
+fixed identities, original reversed cavities, and independent
+coincident closed sheets have positive acceptance. Forged
+original witnesses, foreign source IDs, stale reference, spoofed
+work history or missing classification and one-under caps refuse.
+
+Substantive run
+[39167334610](https://github.com/logiclrd/Mesher/actions/runs/39167334610)
+passed warnings-as-errors GCC, Clang and MSVC, 23/23 CPU suites and
+applicable benchmarks. Original V17-M20 integration remains
+**unchecked**; it should review the combined M24–M27 guarantees,
+not replan those passed peers. Original M21/M22/M23/M12, M13–M15,
+V18/V19 objectives, publication/worker/history responsibilities,
+and the desktop default-off gate all remain unchanged. M27 is a
+finite one-sided evidence mechanism and does NOT certify a
+continuous Hausdorff bound or authorize a cumulative active CAS
+decision.

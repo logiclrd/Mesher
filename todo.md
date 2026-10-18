@@ -1204,7 +1204,7 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   suites and applicable benchmarks green on substantive head.
   M27 owns cumulative original-witness/Step composition, so
   M20 and original M12 remain OPEN; UI default unchanged.
-- [ ] **V17-M27 — Lifetime patch composition and bounded witness audit.**
+- [x] **V17-M27 — Lifetime patch composition and bounded witness audit.**
   Compose accepted M24–M26 stage records across prior published Steps
   from ONE immutable first nominated original root, preserving root
   continuity, stable FaceIds, reflected/cavity identity, source-local
@@ -1213,6 +1213,25 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   seven-point original-to-live-patch audit. Refuse stale captures,
   missing/ambiguous ownership, falsely substituted coincident triangles,
   truncated work and incomplete protected faces.
+  **Accepted in PR #71, substantive Actions #39167334610:** read-only
+  first-original immutable source anchors and opaque verified lifetime
+  roots/FaceId owners/c3-M03 retired originals/evidence counters;
+  M24 split, M25 flip and protected-safe collapse, and M26 c1/c2/c3/
+  M03/d2 transitions advance without rebasing original seven-point
+  witnesses or shortest-edge normalization. Cumulative per-stage
+  source-face evidence cap and complete preflight 7 * live descendant
+  distance cap accept equality, refuse one below. Actual published
+  two-generation split roots show increasing first-original drift;
+  real accepted flip/collapse protect distant original detail; real
+  exact joins, reversed cavities, mirrored M03 retirements and X=0
+  fixed-point orbits preserve source ID ownership. True independent
+  coincident closed sheets never substitute by XYZ; forged/stale
+  roots, ownership swaps, altered first witnesses, missing retirement
+  authority and counter resets refuse. All GCC/Clang/MSVC warnings-
+  as-errors 23 CTest suites and applicable benchmark jobs green.
+  This is finite one-sided evidence, NOT an active fidelity threshold,
+  M21 intent policy, M22 CAS decision or continuous Hausdorff proof.
+  Original M20 and M12 integration remain OPEN.
 - [ ] **V17-M20 integration (existing checkbox above).**
   Only close M20 after M24–M27 jointly prove the unchanged original
   M20 acceptance. This line is NOT a second M20 checkbox; M21 decides

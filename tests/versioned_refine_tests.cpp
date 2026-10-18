@@ -227,6 +227,118 @@ void testM24CertifiedSourceSplitsAndRefusals() {
           "Original-source ownership composes through two real split generations");
 }
 
+void testM27OriginalLifetimeRepeatedRealRemesh() {
+    const auto imported=partitionFlatMesh(octahedron(),1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto rootIdentity=original->pickingRootIdentity();
+    const auto v=imported.flatIndex.vertexIds[0];
+    const auto originals=original->vertex(v).incidentFaces;
+    const auto anchors=captureOriginalSourceAnchors(
+        original,originals,originals.size()*7);
+    const auto initial=beginOriginalPatchLifetime(anchors);
+    const auto pristine=auditOriginalPatchLifetime(
+        initial,original,7*originals.size(),originals.size());
+    check(pristine.total.maximumDistanceInEdges<1e-12&&
+          pristine.total.distanceTests==7*originals.size()&&
+          pristine.livingOriginals==originals.size(),
+          "M27 first-original source witness zero and exact budget before real edits");
+    RefineSettings options;
+    options.enabled=true;
+    options.maximumEdgeRatio=.25;
+    options.maximumSplitPairsPerStamp=1;
+    options.optimizeFlips=false;
+    VersionedLocalRefiner refine(6,options,{},1);
+    RegionEdit first(original,{v},{},1);
+    first.moveVertex(v,{1.25,0,0});
+    (void)first.commit();
+    const auto firstResult=refine.apply(
+        first.updatedIndex(),LocalStampBaseline{original,{v},originals});
+    check(firstResult.statistics.splitPairs==1&&
+          firstResult.splitSources.size()==2,
+          "M27 first real COW stamp adds actual source-bound descendants");
+    const auto once=advanceOriginalPatchLifetime(
+        initial,firstResult,4,8);
+    const auto firstAudit=auditOriginalPatchLifetime(once,original,42,8);
+    check(once.sourceFaceEvidence==2&&once.acceptedTransitions==1&&
+          firstAudit.total.distanceTests==42&&
+          firstAudit.total.maximumDistanceInEdges>1e-9&&
+          firstAudit.total.witnessCount==originals.size()*7,
+          "M27 first real stamp measures fixed original witnesses on source-only children");
+    RegionEdit second(firstResult.index,{v},{},1);
+    second.moveVertex(v,{1.5,0,0});
+    (void)second.commit();
+    const auto secondResult=refine.apply(
+        second.updatedIndex(),LocalStampBaseline{
+            firstResult.index,{v},firstResult.index->vertex(v).incidentFaces});
+    check(secondResult.statistics.splitPairs==1&&
+          secondResult.splitSources.size()==2,
+          "M27 second real stamp has separately committed source evidence");
+    bool refused=false;
+    try {(void)advanceOriginalPatchLifetime(once,secondResult,3,8);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 one-under CUMULATIVE face budget refuses second accepted edit");
+    const auto twice=advanceOriginalPatchLifetime(once,secondResult,4,8);
+    IndexedMeshRepository publications(original);
+    check(publications.publishIfCurrent(original,firstResult.index)&&
+          publications.publishIfCurrent(firstResult.index,secondResult.index)&&
+          publications.snapshot()==secondResult.index&&
+          !publications.publishIfCurrent(original,firstResult.index),
+          "M27 two real validated revision roots publish as distinct CAS Steps; stale replay refuses");
+    const auto secondAudit=auditOriginalPatchLifetime(twice,original,56,8);
+    check(twice.anchors.original==original&&
+          twice.lineage.original==original&&
+          twice.lineage.terminal==secondResult.index&&
+          twice.sourceFaceEvidence==4&&twice.acceptedTransitions==2&&
+          twice.lineage.verifiedFaceSplits==4&&
+          secondAudit.total.distanceTests==56&&
+          secondAudit.total.witnessCount==originals.size()*7&&
+          secondAudit.total.maximumDistanceInEdges>
+              firstAudit.total.maximumDistanceInEdges,
+          "M27 two real publishable roots show cumulative drift against SAME original patch");
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(twice,original,55,8);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 exact 56 distance tests accept; one below refuses whole audit");
+    refused=false;
+    try {(void)advanceOriginalPatchLifetime(twice,secondResult,6,8);}
+    catch(const std::invalid_argument&){refused=true;}
+    check(refused,"M27 cannot replay a stale pre-stamp original root");
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(twice,twice.lineage.terminal,56,8);}
+    catch(const std::invalid_argument&){refused=true;}
+    check(refused,"M27 caller cannot re-anchor cumulative distances to newest stamp");
+    auto fraudulent=twice;
+    fraudulent.anchors.faces.front().witnesses[0].x+=1;
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(fraudulent,original,56,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 original witness spoof cannot hide repeated protected erosion");
+    fraudulent=twice;
+    fraudulent.sourceFaceEvidence=0;
+    refused=false;
+    try {(void)advanceOriginalPatchLifetime(
+        fraudulent,secondResult,4,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 opaque proof prevents reset of cumulative original-source work cap");
+    fraudulent=twice;
+    fraudulent.acceptedTransitions=0;
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(fraudulent,original,56,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 opaque proof prevents rewriting accepted Step history");
+    fraudulent=twice;
+    std::swap(fraudulent.lineage.living[0].second,
+              fraudulent.lineage.living[1].second);
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(fraudulent,original,56,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 even coincident source FaceIds cannot swap protected ownership");
+    check(original->pickingRootIdentity()==rootIdentity&&
+          original->vertex(v).position.x==1&&
+          original->retiredFaceCount()==0,
+          "M27 all accepted and refused witness audits preserve original readers");
+}
+
 void testM24SelfMirroredPlaneSourceMidpoint() {
     auto imported=partitionFlatMesh(octahedron(),1);
     const auto& ids=imported.flatIndex.vertexIds;
@@ -313,6 +425,30 @@ void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
     check(firstSheet==10&&secondSheet==8&&
           original->retiredFaceCount()==0,
           "Only the actually subdivided source sheet gains two descendants");
+    // Identical XYZ is deliberately NOT a reason to share a lifetime
+    // protected source patch. Two coincident closed original octahedra
+    // retain independent FaceIds and independent nearest-child audits.
+    const auto lifetime=advanceOriginalPatchLifetime(
+        beginOriginalPatchLifetime(anchor),split,2,18);
+    const auto evidence=auditOriginalPatchLifetime(
+        lifetime,original,126,18);
+    check(evidence.total.distanceTests==126&&
+          evidence.perOriginal.size()==16&&
+          evidence.total.candidateFaces==18&&
+          evidence.perOriginal[8].livingDescendants==1&&
+          evidence.perOriginal[8].sampled.maximumDistanceInEdges<1e-12,
+          "M27 one physical coincident sheet is unchanged and owned only by its actual first-source IDs");
+    bool refused=false;
+    try {(void)auditOriginalPatchLifetime(lifetime,original,125,18);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 exact coincident independent sheet witness cost refuses one below");
+    auto swapped=lifetime;
+    std::swap(swapped.lineage.living[0].second,
+              swapped.lineage.living[8].second);
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(swapped,original,126,18);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 unrelated coincident original faces cannot steal each other's permanent IDs");
 }
 void testM24MirroredSplitSourceOwnership() {
     auto imported=partitionFlatMesh(octahedron(),1);
@@ -503,6 +639,16 @@ void testLocalFlipAndRepeatedRevisions() {
               certified.living.size()==1&&
               certified.living[0].second==std::vector<FaceId>{*untouched},
               "Real split/flip transaction preserves independent unaffected source owner");
+        const auto m27FirstRoot=beginOriginalPatchLifetime(anchors);
+        const auto m27FinalRoot=advanceOriginalPatchLifetime(
+            m27FirstRoot,changed,4096,4096);
+        const auto m27Distance=auditOriginalPatchLifetime(
+            m27FinalRoot,current,7,4096);
+        check(m27FinalRoot.lineage.terminal==changed.index&&
+              m27FinalRoot.lineage.original==current&&
+              m27Distance.total.distanceTests==7&&
+              m27Distance.total.maximumDistanceInEdges<1e-12,
+              "M27 genuine committed 2-to-2 source flip retains unrelated immutable first original patch");
         if(!changed.flipSources.empty()) {
             // Reconstruct source identity from actual committed split
             // journals, never from face geometry. When the refiner flips
@@ -578,6 +724,7 @@ int main() {
             catch(...){std::cerr<<"Failed V6 scenario: "<<name<<std::endl;throw;}
         };
         scenario("M24 source split lineage",testM24CertifiedSourceSplitsAndRefusals);
+        scenario("M27 first-original repeated remesh lifetime",testM27OriginalLifetimeRepeatedRealRemesh);
         scenario("M24 mirrored split lineage",testM24MirroredSplitSourceOwnership);
         scenario("M24 X=0 singleton source split",testM24SelfMirroredPlaneSourceMidpoint);
         scenario("M24 coincident independent sources",testM24CoincidentSheetsKeepIndependentPermanentSourceIDs);
