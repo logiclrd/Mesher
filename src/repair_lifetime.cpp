@@ -419,10 +419,21 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     // The collapser stores the *stamp's* original for its LocalBaseline;
     // M25 requires its ACTUAL source root. Both identities are verified
     // above before re-expressing that source as the prior stage terminal.
-    auto sourceCollapse=collapsed;
-    sourceCollapse.stampOriginal=refined.index;
-    stage=advanceOriginalPatchLifetime(
-        stage,sourceCollapse,maxCumulativeFaceEvidence,maxLivingDescendants);
+    if(collapsed.collapseSources.empty()) {
+        if(collapsed.index!=refined.index||
+           collapsed.statistics.accepted||
+           !collapsed.removedVertices.empty()||
+           !collapsed.removedFaces.empty()||
+           !collapsed.rewrittenFaces.empty()||
+           !collapsed.removedMirrorPairs.empty())
+            throw std::logic_error("Unjournaled topology mutation in zero-collapse physical stage");
+    }else {
+        auto sourceCollapse=collapsed;
+        sourceCollapse.stampOriginal=refined.index;
+        stage=advanceOriginalPatchLifetime(
+            stage,sourceCollapse,maxCumulativeFaceEvidence,
+            maxLivingDescendants);
+    }
     if(exact)stage=advanceOriginalPatchLifetime(
         stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
         maxLivingDescendants);
