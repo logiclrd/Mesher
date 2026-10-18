@@ -1315,6 +1315,82 @@ void testSectionsMeetAtInteriorTjunction() {
 // with two hand-selected contacts. Never infer union readiness from the
 // selected-face subdivision alone: the complete graph may contain triple
 // intersections or topology which the current seam matcher must refuse.
+// Two small independent outward protrusions cut separate, complete
+// section loops in the SAME original triangle. Unlike a triple point,
+// every V13 section is singly owned, so this is the first bounded d4
+// multi-section full-union candidate.
+void testSeparateCompleteSectionsOnOneOriginalFace() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.5,.5,.25},{.25,.25,-.25},{.75,.25,-.25},{.25,.75,-.25},
+        {1.25,.25,.25},{1,.125,-.25},{1.5,.125,-.25},{1.25,.5,-.25}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto base=4u*solid;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            base+t[0],base+t[1],base+t[2]});
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    const auto oldPicking=root->pickingRootIdentity();
+    check(connectedClosedSurfaceComponents(*root)==3,
+          "Three independent closed solids precede multiple-section union");
+    const auto contacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    std::cout<<"[separate-sections] original-contact-count="
+             <<contacts.size()<<'\n';
+    check(contacts.size()==6,
+          "Two disjoint protrusions each form three finite original top-face sections");
+    const auto top=imported.flatIndex.faceIds[0];
+    for(const auto& pair:contacts)
+        check(!pair.ambiguous&&(pair.first==top||pair.second==top),
+              "Every full original contact is transverse on the common source face");
+    const auto plan=buildConformingCutPlan(*root,contacts);
+    if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+        throw std::runtime_error(
+            "Separate complete sections cannot be arranged: "+plan.refusal);
+    check(plan.segments.size()==contacts.size(),
+          "No incomplete original contact is omitted from separate loop arrangements");
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=20.0;
+    contours.contours.minimumNormalAlignment=0;
+    ExactCutStepLimits limits;
+    limits.join.removal=contours;
+    const auto step=prepareExactCutStep(root,contacts,limits);
+    std::cout<<"[separate-sections] accepted="<<step.complete
+             <<" refusal="<<step.refusal<<'\n';
+    if(!step.complete)
+        throw std::runtime_error(
+            "Disjoint multi-section closed union refused: "+step.refusal);
+    check(step.expected==root&&step.final&&
+          step.commit.revision.get()==&step.final->revision()&&
+          connectedClosedSurfaceComponents(*step.final)==1&&
+          !step.retiredFaces.empty()&&step.checkedProtectedFaces>0,
+          "Two separate protrusions form one genuine manifold on one private Step");
+    const auto partial=std::vector<RegionTopologyIndex::CollisionPair>(
+        contacts.begin(),contacts.end()-1);
+    const auto missing=prepareExactCutStep(root,partial,limits);
+    check(!missing.complete&&!missing.final&&!missing.commit.revision,
+          "Omitting one finite section cannot produce a partially welded Step");
+    auto cap=limits;
+    cap.join.maxTraceTests=1;
+    const auto refused=prepareExactCutStep(root,contacts,cap);
+    check(!refused.complete&&!refused.final&&!refused.commit.revision,
+          "Multi-section tracing respects a hard work cap and refuses atomically");
+    check(root->pickingRootIdentity()==oldPicking&&
+          root->retiredFaceCount()==0&&
+          connectedClosedSurfaceComponents(*root)==3,
+          "Private multiple-seam joins never alter the original immutable root");
+}
+
 void testFullThreeBodyContactAdmission() {
     const auto exercise=[](bool tJunction) {
         Mesh mesh;
@@ -1910,6 +1986,7 @@ int main() {
         testPrivateConformingRevisionCommitsAtomically();
         testCrossingMultipleSectionsPerOriginalTriangle();
         testSectionsMeetAtInteriorTjunction();
+        testSeparateCompleteSectionsOnOneOriginalFace();
         testFullThreeBodyContactAdmission();
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
