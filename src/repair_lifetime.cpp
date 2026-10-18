@@ -21,6 +21,7 @@ struct LifetimeSourceCertificate {
     // Exact preceding certified lifetime. A sibling/independently
     // reanchored candidate is NOT a successor of an intent declaration.
     std::shared_ptr<const LifetimeSourceCertificate> parent;
+    bool reflectedStep{};
     std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
     std::vector<FaceId> retired;
     std::size_t verifiedFaceSplits{},acceptedTransitions{},sourceFaceEvidence{};
@@ -33,9 +34,11 @@ struct OriginalPatchIntentCertificate {
 };
 namespace {
 void seal(OriginalPatchLifetime& lifetime,
-          std::shared_ptr<const LifetimeSourceCertificate> parent={}) {
+          std::shared_ptr<const LifetimeSourceCertificate> parent={},
+          bool reflectedStep=false) {
     auto proof=std::make_shared<LifetimeSourceCertificate>();
     proof->parent=std::move(parent);
+    proof->reflectedStep=reflectedStep;
     proof->original=lifetime.anchors.original;
     proof->terminal=lifetime.lineage.terminal;
     proof->living=lifetime.lineage.living;
@@ -133,7 +136,8 @@ OriginalPatchLifetime applyVerified(
     const std::vector<FaceId>& newRetired,
     std::size_t additionalEvidence,
     std::size_t maxCumulativeFaceEvidence,
-    std::size_t maxLivingDescendants) {
+    std::size_t maxLivingDescendants,
+    bool reflectedStep) {
     ensureBudget(earlier.sourceFaceEvidence,additionalEvidence,
                  maxCumulativeFaceEvidence);
     if(stage.original!=earlier.anchors.original||!stage.terminal)
@@ -173,7 +177,7 @@ OriginalPatchLifetime applyVerified(
         next.certifiedRetiredOriginals.end(),newRetired.begin(),newRetired.end());
     std::sort(next.certifiedRetiredOriginals.begin(),
               next.certifiedRetiredOriginals.end());
-    seal(next,earlier.certificate);
+    seal(next,earlier.certificate,reflectedStep);
     (void)verifyLifetime(next,maxLivingDescendants);
     return next;
 }
@@ -224,7 +228,7 @@ OriginalPatchLifetime advanceOriginalPatchLifetime(
         active,refined,maxCumulativeFaceEvidence-previous.sourceFaceEvidence,
         maxLivingDescendants);
     return applyVerified(previous,stage,{},cost,maxCumulativeFaceEvidence,
-                         maxLivingDescendants);
+                         maxLivingDescendants,refined.sourceSplitsSymmetric);
 }
 
 OriginalPatchLifetime advanceOriginalPatchLifetime(
@@ -240,8 +244,11 @@ OriginalPatchLifetime advanceOriginalPatchLifetime(
     const auto cost=collapseFaceWork(collapsed,remaining);
     const auto stage=advanceCertifiedCollapseLineage(
         active,collapsed,remaining,maxLivingDescendants);
+    bool reflected=false;
+    for(const auto& event:collapsed.collapseSources)
+        reflected=reflected||event.symmetric;
     return applyVerified(previous,stage,{},cost,maxCumulativeFaceEvidence,
-                         maxLivingDescendants);
+                         maxLivingDescendants,reflected);
 }
 
 OriginalPatchLifetime advanceOriginalPatchLifetime(
@@ -257,10 +264,15 @@ OriginalPatchLifetime advanceOriginalPatchLifetime(
     const auto remaining=maxCumulativeFaceEvidence-previous.sourceFaceEvidence;
     const auto certified=advanceCertifiedExactCutLineage(
         active,step,originalMirrors,remaining,maxLivingDescendants);
+    const bool reflected=step.sourceEvidence&&
+        (!step.sourceEvidence->prepared.mirroredFaces.empty()||
+         !step.sourceEvidence->prepared.mirroredVertices.empty()||
+         !step.sourceEvidence->prepared.mirroredSeamVertices.empty());
     return applyVerified(previous,certified.survivors,
                          certified.certifiedRetiredOrigins,
                          certified.checkedFaceEvidence,
-                         maxCumulativeFaceEvidence,maxLivingDescendants);
+                         maxCumulativeFaceEvidence,maxLivingDescendants,
+                         reflected);
 }
 
 OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
@@ -413,6 +425,7 @@ OriginalPatchIntentDecision evaluateOriginalPatchIntent(
        intent.certificate->predecessor!=before.certificate||
        !after.certificate||
        after.certificate->parent!=before.certificate||
+       (after.certificate->reflectedStep&&!intent.certificate->mirrored)||
        before.anchors.original!=after.anchors.original||
        before.anchors.faces.size()!=after.anchors.faces.size()||
        after.acceptedTransitions!=before.acceptedTransitions+1)
