@@ -151,7 +151,7 @@ std::string pairMirroredMultiSectionPlan(
         return std::max({length(a-b),length(b-c),length(c-a)});
     };
     for(std::size_t i=0;i<plan.points.size();++i) {
-        const auto& p=plan.points[i];
+        auto& p=plan.points[i];
         if(p.existingVertex) {
             if(!index.maybeVertex(*p.existingVertex)||
                !existing.emplace(*p.existingVertex,i).second||
@@ -213,8 +213,34 @@ std::string pairMirroredMultiSectionPlan(
         }
         if(!match)return "Unpaired reflected arrangement junction or endpoint";
         if(*match==i) {
-            if(p.position.x!=0||counterpart!=provenance(p))
-                return "Ambiguous reflected source point is not exactly on X=0";
+            if(counterpart!=provenance(p))
+                return "Ambiguous reflected source point has non-self provenance";
+            // On a genuine reflected source orbit, a whole-original
+            // mirrored edge or invariant face already fixes the physical
+            // seam at X=0. Double arithmetic in the independent V13
+            // section solver may yield |x|~1e-16 rather than bitwise
+            // zero. Correct ONLY this source-proven plane coordinate;
+            // never merge two different point IDs or move Y/Z/corners.
+            const auto scale=localScale(p);
+            const auto epsilon=std::max(
+                1e-12*scale,
+                128*std::numeric_limits<double>::epsilon()*
+                    std::max({std::abs(p.position.x),
+                              std::abs(p.position.y),
+                              std::abs(p.position.z),scale}));
+            bool fixedSource=false;
+            if(p.boundaryEdge) {
+                const auto a=mirrorOf(p.boundaryEdge->a);
+                const auto b=mirrorOf(p.boundaryEdge->b);
+                fixedSource=a&&b&&canonical(*a,*b)==*p.boundaryEdge;
+            }else {
+                const auto source=faceById.find(p.owningFace);
+                fixedSource=source!=faceById.end()&&
+                    faceMirror[source->second]==source->second;
+            }
+            if(!fixedSource||std::abs(p.position.x)>epsilon)
+                return "New self-mirrored section point is not source-proven on X=0";
+            p.position.x=0;
             plan.mirroredSeamCutPoints.push_back(i);
         }
         partner[i]=*match;
