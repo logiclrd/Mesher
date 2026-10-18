@@ -21,7 +21,8 @@ struct LifetimeSourceCertificate {
     std::shared_ptr<const RegionTopologyIndex> original,terminal;
     // Exact preceding certified lifetime. A sibling/independently
     // reanchored candidate is NOT a successor of an intent declaration.
-    std::shared_ptr<const LifetimeSourceCertificate> parent;
+    // Do not pin every historical COW root after undo history evicts it.
+    std::weak_ptr<const LifetimeSourceCertificate> parent;
     bool reflectedStep{};
     std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
     std::vector<FaceId> retired;
@@ -448,11 +449,38 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     complete.acceptedTransitions=before.acceptedTransitions+1;
     bool reflected=false;
     for(auto cursor=complete.certificate;
-        cursor&&cursor!=before.certificate;cursor=cursor->parent)
+        cursor&&cursor!=before.certificate;cursor=cursor->parent.lock())
         reflected=reflected||cursor->reflectedStep;
     seal(complete,before.certificate,reflected);
     (void)verifyLifetime(complete,maxLivingDescendants);
     return complete;
+}
+
+void verifyOriginalPatchPublicationRoot(
+    const OriginalPatchLifetime& lifetime,
+    const std::shared_ptr<const RegionTopologyIndex>& expected,
+    std::size_t maxLivingDescendants) {
+    if(!expected||lifetime.lineage.terminal!=expected)
+        throw std::logic_error("Publication source certificate is not for the exact current root");
+    (void)verifyLifetime(lifetime,maxLivingDescendants);
+}
+void verifyOriginalPatchPublicationTransition(
+    const OriginalPatchLifetime& previous,
+    const OriginalPatchLifetime& next,
+    const std::shared_ptr<const RegionTopologyIndex>& before,
+    const std::shared_ptr<const RegionTopologyIndex>& terminal,
+    std::size_t maxLivingDescendants) {
+    verifyOriginalPatchPublicationRoot(previous,before,maxLivingDescendants);
+    verifyOriginalPatchPublicationRoot(next,terminal,maxLivingDescendants);
+    if(next.certificate->parent.lock()!=previous.certificate||
+       next.anchors.original!=previous.anchors.original||
+       next.acceptedTransitions!=previous.acceptedTransitions+1||
+       next.sourceFaceEvidence<previous.sourceFaceEvidence||
+       next.lineage.original!=previous.lineage.original||
+       next.lineage.terminal==previous.lineage.terminal)
+        throw std::logic_error("Proposed original-source history is not the exact certified successor");
+    if(next.anchors.faces.size()!=previous.anchors.faces.size())
+        throw std::logic_error("Proposed original-source history changed protected source set");
 }
 
 OriginalPatchIntentDeclaration declareOriginalPatchIntent(
@@ -545,7 +573,7 @@ OriginalPatchIntentDecision evaluateOriginalPatchIntent(
     if(!intent.certificate||
        intent.certificate->predecessor!=before.certificate||
        !after.certificate||
-       after.certificate->parent!=before.certificate||
+       after.certificate->parent.lock()!=before.certificate||
        (after.certificate->reflectedStep&&!intent.certificate->mirrored)||
        before.anchors.original!=after.anchors.original||
        before.anchors.faces.size()!=after.anchors.faces.size()||
