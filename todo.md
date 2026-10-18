@@ -1151,13 +1151,13 @@ and V18/V19 objectives remain unchanged. Refusal alone is not a positive weld.
   caching weld approval or skipping each original V13/c1/c2/c3/d2/final
   collision/anchor audit. Test real physical FIFO contact/clean/refusal/
   recontact and preserve M11 genuine sixteen unions.
-- [ ] **V17-M12 final — Integrated original M12 acceptance.**
-  Close the unchanged original M12 checkbox only after M19–M23 pass
-  together for same-patch repeated real physical unions, deliberate
-  sculpt deformation, cumulative exposed and reversed-cavity fidelity,
-  symmetric protected outer walls, budget and recovery. No universal
-  imported-mesh or continuous two-sided Hausdorff claim; desktop M15
-  remains default disabled.
+**Final M12 integration (the ORIGINAL unchecked M12 checkbox above):**
+  Close that existing checkbox only after M19–M23 pass together for
+  same-patch repeated real physical unions, deliberate sculpt deformation,
+  cumulative exposed and reversed-cavity fidelity, symmetric protected
+  outer walls, budgets and recovery. Do NOT create a second M12 checkbox.
+  No universal imported-mesh or continuous two-sided Hausdorff claim;
+  desktop M15 remains default disabled.
 
 - [ ] **V18 — Opt-in 'Merge geometry: Off' collision constraints.**
   On the same post-state triangle neighborhood, constrain normal
