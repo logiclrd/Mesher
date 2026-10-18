@@ -91,7 +91,12 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
 // V17d1: opt-in private classified collision evaluation. The desktop
 // Merge geometry UI remains disabled, with current sculpt default unchanged.
 struct SculptCollisionSettings {
-    bool enabled=false;
+    bool enabled=false; // V16 approximate classifier; independent policy
+    // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
+    // never enables this before M15. No V16 scar surgery in exact mode.
+    bool physicalExact=false;
+    SculptSourceContactLimits physicalSourceLimits{};
+    ExactCutStepLimits physicalExactLimits{};
     RepairSurgerySettings surgery{};
     // Explicit newly isolated closed-component seeds supplied by a caller.
     // No global component sweep is inferred from a brush stamp. Retired
