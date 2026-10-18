@@ -313,6 +313,10 @@ struct UncutFaceRetirementProposal {
     // original and private cut indices, with no original V13 contacts.
     std::vector<FaceId> authorizedUncut;
     std::vector<FaceId> protectedUncut;
+    // Reciprocal explicitly witnessed, off-plane original FaceId orbits;
+    // never populate on partial or refused retirement.
+    std::vector<std::pair<FaceId,FaceId>> mirroredAuthorizedUncut;
+    std::vector<std::pair<FaceId,FaceId>> mirroredProtectedUncut;
     // Complete, sorted union of c1/c2/c3-authorized CHILD FaceIds and
     // independently certified untouched original FaceIds.
     std::vector<FaceId> combinedRemoval;
@@ -327,7 +331,8 @@ struct UncutFaceRetirementProposal {
 UncutFaceRetirementProposal planUncutFaceRetirement(
     const ConformingCutCandidate& cut,
     const CutRemovalSettings& settings={},
-    const UncutFaceRetirementLimits& limits={});
+    const UncutFaceRetirementLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
 
 
 
