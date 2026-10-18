@@ -1718,6 +1718,11 @@ void testWhollyBuriedUncutOriginalFace() {
     contours.contours.maximumPerimeterRatio=20.0;
     contours.contours.maximumGapInEdges=.1;
     contours.contours.minimumNormalAlignment=0;
+    const auto oldChildOnly=planExactCutRemoval(cut,contours);
+    check(std::find(oldChildOnly.proposedRemoval.begin(),
+                    oldChildOnly.proposedRemoval.end(),sourceBase)==
+                    oldChildOnly.proposedRemoval.end(),
+          "The original c3 child-only planner never nominated an uncut original FaceId");
     const auto plan=planUncutFaceRetirement(cut,contours);
     if(!plan.ready())
         throw std::runtime_error(
