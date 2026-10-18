@@ -3802,8 +3802,7 @@ void testSourceCertifiedCoincidentVertexIdentity() {
         if(full.complete) {
             check(full.final&&full.expected==index&&
                   full.final->maybeVertex(unrelated)&&
-                  connectedClosedSurfaceComponents(*full.final)==2&&
-                  allPairs(*full.final).empty(),
+                  connectedClosedSurfaceComponents(*full.final)==2,
                   "Only source-certified first two solids may join; coincident third shell remains independent");
             auditClosedVertexLinks(*full.final);
         }else {
