@@ -1,5 +1,7 @@
 # Mesher design principles (future milestones)
 
+> **Planning authority for ongoing V17:** [flat V17-M01–M12 milestone plan](docs/V17_MILESTONES.md) (rebaseline after PR #50); [original nested V17 tasks, verbatim](docs/V17_LEGACY_TASK_TREE.md). The sections below remain an unmodified chronological technical record, not active recursively numbered TODOs.
+
 The current milestone includes a generated manifold, Vulkan viewport,
 and a CPU Inflate-brush stroke engine. This document distinguishes implemented
 brush behaviour from future geometry-editing capabilities.
