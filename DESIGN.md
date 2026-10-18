@@ -3011,3 +3011,67 @@ flat acceptance milestones.
 
 No desktop toggle, automatic worker merge, new cap/zipper or
 approximate protected-surface movement is introduced by M01.
+
+## V17-M02 — Private certified unequal-seam subdivision and matching
+
+A 3D intersection section's independently projected normalized
+`double` arc-distance parameter is NOT an identity for welded geometry.
+Two original-source paired vertices can have exactly equal XYZ but
+slightly different projected arc parameters. The unchanged strict d2
+join now uses source-contact provenance and **exact XYZ comparisons**
+on BOTH interval ends, with mandatory opposite oriented survivors
+and unique source section ownership; it does not introduce a tolerance-
+based nearest-neighbor weld. Scalar parameters remain useful ONLY for
+bounded ordering and potential interval-overlap preflight.
+
+An additional explicit-only private
+`reconcileCertifiedSeamSubdivisions` accepts a complete
+`ConformingCutCandidate` already authorized by c1/c2/c3 against the
+same immutable original cut. Its c3-directed boundary set is constructed
+from surviving true child edges, retaining their original source FaceIds.
+For every full original V13 section, it traces BOTH sheets, tests every
+open survivor subinterval and refuses unilateral coverage; the gaps
+buried inside a THIRD solid legitimately remain absent from BOTH
+sheets. For every actual missing subdivision vertex, the exact physical
+coordinate is borrowed ONLY from an already-real OPPOSITE sheet seam
+vertex on the same source FaceId pair's finite section. A local
+projection certifies the point lies strictly inside the relevant
+source-child edge; near-but-nonexact endpoints, duplicates, ambiguous
+source ownership and off-edge positions refuse atomically. Global
+position matching is NEVER used.
+
+All affected existing incident faces are privately split as one
+conforming RegionEdit. New stable VertexId/FaceId allocations and
+original FaceId provenance are journaled, with finite work,
+new-vertex and new-face caps. Every existing source corner stays
+unchanged. Original child orientation and total oriented area are
+revalidated before committing the extra private COW root; c1 signed
+winding/c2 full original V13 child-edge coverage/c3 cavity-safe removal
+are RECOMPUTED on every new child FaceId. Finally each full contact's
+surviving section intervals must have equal subdivision counts,
+exact XYZ endpoints, opposite direction, no duplicate ownership and
+NO unattributed survivor boundary edge. Any failed gate returns no
+refined root or journal and leaves the baseline, pre-refinement
+candidate, renderer and history untouched. New mirrored split orbits
+fail closed until V17-M05.
+
+A targeted regression deliberately subdivides one existing, fully
+certified seam edge on ONE sheet of the generic 12-contact three-tetra
+private conforming cut; the old direct d2 join correctly refuses its
+asymmetry. The adapter inserts the required extra seam vertex in
+the opposing sheet, splits both faces incident to that source edge,
+reaudits the complete source graph and c1/c2/c3, and permits the
+existing d2 unmodified geometry logic to close a genuine 3→1 manifold.
+No-op exact matching, missing original contacts, insertion work cap,
+mirrored missing orbit, old immutable roots, and exact final
+provenance correspondence are tested.
+
+The public `prepareExactCutStep` still consumes its existing
+original-root conforming edit plus exact join. A newly refined cut's
+additional intermediate COW commit is **PRIVATE only** here; it is
+not yet composed into d3's one original-root history/dirty/tombstone
+Step. V17-M04 owns that integration and full orthogonal three-body
+positive union gate. M05/M06 own mirrored/fixed-plane extensions.
+No automatic Merge geometry, V18 Off displacement constraint, V15
+quality relaxation or approximate protected source position
+changes are introduced.
