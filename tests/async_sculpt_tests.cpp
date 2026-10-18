@@ -1094,10 +1094,28 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
         source.mirrorPairs.emplace_back(
             imported.flatIndex.vertexIds[i],
             imported.flatIndex.vertexIds[n+i]);
-    VersionedSculptBrush symmetric(source,.0005,{},{},{},256,{},config());
+    std::size_t validationCount=0;
+    SculptStepValidator deliberateRefusal=[&](const ProposedSculptStep& candidate) {
+        require(candidate.before&&candidate.candidate&&
+                candidate.before!=candidate.candidate,
+                "M18 validator sees only the OLD and FULL terminal Boolean root");
+        return ++validationCount==1?
+            std::string("M18 deliberately refused after speculative exact mirror staging"):
+            std::string{};
+    };
+    VersionedSculptBrush symmetric(source,.0005,{},{},{},256,
+                                   deliberateRefusal,config());
     const auto mirroredInitial=symmetric.snapshot();
     const std::array<BrushArea,2> both{{
         {{4,0,0},.5,.9},{{-4,0,0},.5,.9}}};
+    symmetric.stamp(dummy,both);
+    require(symmetric.snapshot()==mirroredInitial&&
+            symmetric.rejectedStamps()==1&&
+            symmetric.historyStatistics().undoDepth==0&&
+            symmetric.publishedRevisions()==0&&
+            symmetric.lastDirtyPartitions().empty()&&
+            !symmetric.lastRejection().empty(),
+            "M18 speculative exact source join rejection must leave original root/history");
     symmetric.stamp(dummy,both);
     if(symmetric.completedUnions()!=1)
         throw std::runtime_error(
