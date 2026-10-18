@@ -102,7 +102,7 @@ std::map<VertexId,VertexId> mirrorMap(
     const std::unordered_map<VertexId,VertexId>& original) {
     std::map<VertexId,VertexId> result;
     const auto add=[&](VertexId a,VertexId b,bool old) {
-        if(a==b||!cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
+        if(!cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
            !reflected(cut.index->vertex(a).position,
                       cut.index->vertex(b).position)||
            (old&&(!cut.originalIndex->maybeVertex(a)||
@@ -119,9 +119,24 @@ std::map<VertexId,VertexId> mirrorMap(
             throw std::logic_error("Historical mirror mapping is not reciprocal");
         add(a,b,true);
     }
-    for(const auto& [a,b]:cut.mirroredVertices)add(a,b,false);
-    if(cut.insertedVertices.size()!=cut.mirroredVertices.size()*2)
+    for(const auto& [a,b]:cut.mirroredVertices) {
+        if(a==b)throw std::logic_error("Off-plane new cut orbit is self paired");
+        add(a,b,false);
+    }
+    for(const auto id:cut.mirroredSeamVertices) {
+        if(cut.index->vertex(id).position.x!=0)
+            throw std::logic_error("New source-fixed vertex is not exactly on X=0");
+        add(id,id,false);
+    }
+    const std::set<VertexId> inserted(cut.insertedVertices.begin(),
+                                      cut.insertedVertices.end());
+    if(inserted.size()!=cut.insertedVertices.size()||
+       inserted.size()!=cut.mirroredVertices.size()*2+
+                         cut.mirroredSeamVertices.size())
         throw std::logic_error("Mirror cut does not account for every new vertex orbit");
+    for(const auto id:inserted)
+        if(!result.contains(id))
+            throw std::logic_error("Unmapped inserted source-cut vertex orbit");
     return result;
 }
 } // namespace
@@ -145,7 +160,8 @@ ExactCutJoinResult joinCertifiedCutSections(
             return refused("Seam join needs c3 Ready exact child selection: "+
                            nomination.refusal);
         const bool mirrored=!cut.mirroredFaces.empty()||
-                            !cut.mirroredVertices.empty();
+                            !cut.mirroredVertices.empty()||
+                            !cut.mirroredSeamVertices.empty();
         if(mirrored!=(originalMirrors!=nullptr))
             return refused("Mirrored seam join needs explicit original vertex mirror involution");
         const auto mirrors=mirrored?mirrorMap(cut,*originalMirrors):
@@ -319,12 +335,56 @@ ExactCutJoinResult joinCertifiedCutSections(
                 if(!mirrors.contains(first))
                     return refused("Weld source has no explicit mirror orbit");
                 const auto mirroredLeader=root(mirrors.at(first));
-                if(leader==mirroredLeader||!classes.contains(mirroredLeader))
-                    return refused("Self-reflected/unpaired seam equivalence class unsupported");
+                if(leader==mirroredLeader) {
+                    // A self-reflected BOOLEAN weld needs source proof for
+                    // EVERY sheet-local ID in this class. An ordinary
+                    // off-plane pair cannot be folded into one ID merely
+                    // because its two members happen to meet on X=0.
+                    for(const auto v:members) {
+                        if(!mirrors.contains(v)||mirrors.at(v)!=v||
+                           index.vertex(v).position.x!=0)
+                            return refused("Nonfixed vertex in a self-reflected seam class");
+                        const bool newFixed=std::find(
+                            cut.mirroredSeamVertices.begin(),
+                            cut.mirroredSeamVertices.end(),v)!=
+                            cut.mirroredSeamVertices.end();
+                        if(newFixed) {
+                            if(cut.originalIndex->maybeVertex(v))
+                                return refused("Source-fixed new seam ID was historical");
+                        }else {
+                            if(!cut.originalIndex->maybeVertex(v)||
+                               !originalMirrors->contains(v)||
+                               originalMirrors->at(v)!=v)
+                                return refused("Historical self-seam ID has no source orbit");
+                            bool originalCorner=false;
+                            for(const auto& [child,source]:cut.childSources) {
+                                const auto& current=index.face(child).vertices;
+                                const auto& past=cut.originalIndex->face(source).vertices;
+                                if(std::find(current.begin(),current.end(),v)!=current.end()&&
+                                   std::find(past.begin(),past.end(),v)!=past.end()) {
+                                    originalCorner=true;
+                                    break;
+                                }
+                            }
+                            if(!originalCorner)
+                                return refused("Historical fixed seam ID lacks source corner");
+                        }
+                    }
+                    for(const auto v:members)representative[v]=first;
+                    completed.insert(leader);
+                    continue;
+                }
+                if(!classes.contains(mirroredLeader))
+                    return refused("Unpaired reflected seam equivalence class");
                 const auto& other=classes.at(mirroredLeader);
+                if(members.size()!=other.size())
+                    return refused("Reflected seam classes have different cardinality");
                 for(const auto v:members)
                     if(!mirrors.contains(v)||!other.contains(mirrors.at(v)))
                         return refused("A seam class is not closed under vertex reflection");
+                // Off-plane classes remain distinct and reciprocal.
+                if(first==mirrors.at(first)||mirrors.at(first)==first)
+                    return refused("Fixed source seam class paired to an off-plane class");
                 const auto mate=mirrors.at(first);
                 for(const auto v:members)representative[v]=first;
                 for(const auto v:other)representative[v]=mate;
