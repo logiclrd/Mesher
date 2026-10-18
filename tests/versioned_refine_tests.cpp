@@ -363,26 +363,29 @@ void testM21RealNonMirroredIntentAndProtectedOuterFaces() {
         edit.updatedIndex(),LocalStampBaseline{first,{v},affected});
     check(changed.statistics.splitPairs==1&&changed.splitSources.size()==2,
           "M21 real deliberately displaced surface is source-certified through a local split");
-    const auto after=advanceOriginalPatchLifetime(before,changed,2,10);
+    const auto after=advanceOriginalPatchLifetime(before,changed,2,128);
+    std::size_t exactWork=0;
+    for(const auto& [_,living]:after.lineage.living)
+        exactWork+=7*living.size();
     const auto accepted=evaluateOriginalPatchIntent(
-        before,after,intent,1e-9,70,10);
+        before,after,intent,1e-9,exactWork,128);
     check(accepted.intendedOriginals==4&&
           accepted.protectedOriginals==4&&
           accepted.protectedWitnesses==28&&
-          accepted.totalDistanceTests==70&&
+          accepted.totalDistanceTests==exactWork&&
           accepted.certifiedRetiredOriginals==0&&
           accepted.maximumProtectedDeviationInEdges<1e-9,
           "M21 actual caller-designated sculpt moves only intended sources, preserving untouched exterior");
     bool refused=false;
     try {(void)evaluateOriginalPatchIntent(
-        before,after,intent,1e-9,69,10);}
+        before,after,intent,1e-9,exactWork-1,128);}
     catch(const std::length_error&){refused=true;}
     check(refused,"M21 complete original patch work cap refuses one below even with scoped intent");
     std::vector<FaceId> partial(affected.begin()+1,affected.end());
     const auto incomplete=declareOriginalPatchIntent(before,partial,nullptr,8);
     refused=false;
     try {(void)evaluateOriginalPatchIntent(
-        before,after,incomplete,1e-9,70,10);}
+        before,after,incomplete,1e-9,exactWork,128);}
     catch(const std::logic_error&){refused=true;}
     check(refused,"M21 missing deliberately displaced source ID cannot be inferred by brush proximity");
     refused=false;
@@ -395,13 +398,13 @@ void testM21RealNonMirroredIntentAndProtectedOuterFaces() {
     check(refused,"M21 invented foreign original FaceId cannot gain exemption");
     refused=false;
     try {(void)evaluateOriginalPatchIntent(
-        before,before,intent,1e-9,70,10);}
+        before,before,intent,1e-9,exactWork,128);}
     catch(const std::logic_error&){refused=true;}
     check(refused,"M21 declaration cannot authorize an uncertified sibling or original root");
     const auto other=declareOriginalPatchIntent(after,affected,nullptr,8);
     refused=false;
     try {(void)evaluateOriginalPatchIntent(
-        before,after,other,1e-9,70,10);}
+        before,after,other,1e-9,exactWork,128);}
     catch(const std::logic_error&){refused=true;}
     check(refused,"M21 stale declaration cannot be rebound to a newer source root");
     check(first->retiredFaceCount()==0&&first->vertex(v).position.x==1,
