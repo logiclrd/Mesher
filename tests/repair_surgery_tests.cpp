@@ -1733,10 +1733,48 @@ void testCompletePostSculptOriginalContactDiscovery() {
     require(induced,
             "At least one actual physically induced gap crossing must have complete finite V13 source evidence");
 
-    const auto clean=assessPostSculptOriginalContacts(
+    // A test with a root but no selected changedFaces must never
+    // silently truncate the full source graph.
+    const auto completeWithoutDirty=assessPostSculptOriginalContacts(
         {before,before,{},{}},false);
-    require(clean.ready()&&clean.originalCandidate==before,
-            "Existing crossing geometry remains a complete source graph even without a dirty subset");
+    require(completeWithoutDirty.ready()&&
+            completeWithoutDirty.originalCandidate==before&&
+            completeWithoutDirty.contacts.size()==3,
+            "Empty dirty spans do not erase the complete original V13 source graph");
+
+    // A point-only contact is never a finite section. If the V13
+    // collision query reports it, this stage refuses; otherwise the
+    // read-only result may be clean but may NOT license a weld.
+    {
+        Mesh vertexTangent;
+        cube(vertexTangent,{-1,-1,-1},1);
+        cube(vertexTangent,{1,1,1},1);
+        const auto importedTouch=partitionFlatMesh(vertexTangent,256);
+        const auto touchRoot=RegionTopologyIndex::build(importedTouch.revision);
+        const auto touch=assessPostSculptOriginalContacts(
+            {touchRoot,touchRoot,{},{}},false);
+        require(!touch.ready()&&touch.contacts.empty()&&
+                (touch.status==SculptSourceContactStatus::Clean||
+                 (!touch.originalCandidate&&!touch.refusal.empty())),
+                "A vertex-only tangent cannot be certified as a finite source-paired Boolean seam");
+    }
+    // Exact coplanar overlap has no independently oriented finite
+    // two-sheet interval, even though all source FaceIds exist.
+    {
+        Mesh coplanar;
+        cube(coplanar,{0,0,0},1);
+        cube(coplanar,{0,0,0},1);
+        const auto importedCoplanar=partitionFlatMesh(coplanar,256);
+        const auto planeRoot=RegionTopologyIndex::build(importedCoplanar.revision);
+        auto limits=SculptSourceContactLimits{};
+        limits.query.maxReportedContacts=1024;
+        const auto decision=assessPostSculptOriginalContacts(
+            {planeRoot,planeRoot,{},{}},false,limits);
+        require(decision.status==SculptSourceContactStatus::Refused&&
+                decision.contacts.empty()&&!decision.originalCandidate&&
+                !decision.refusal.empty(),
+                "Coplanar coincident shells cannot create false finite V13 original-source certificates");
+    }
 }
 void testActualCollisionSculptCandidateNeverLeaksPartialGeometry() {
     Mesh m;
