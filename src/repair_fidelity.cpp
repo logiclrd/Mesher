@@ -758,8 +758,9 @@ SourceSplitLineage advanceCertifiedCollapseLineage(
         collapsed.removedFaces.begin(),collapsed.removedFaces.end());
     const std::set<FaceId> changedFaces(
         collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
-    const std::set<std::pair<VertexId,VertexId>> mirrored(
-        collapsed.removedMirrorPairs.begin(),collapsed.removedMirrorPairs.end());
+    std::set<std::pair<VertexId,VertexId>> mirrored;
+    for(const auto& [a,b]:collapsed.removedMirrorPairs)
+        mirrored.emplace(std::min(a,b),std::max(a,b));
     if(current!=collapsed.index||
        collapsed.statistics.accepted!=collapsed.collapseSources.size()||
        retiredVertices!=removed||retiredFaces!=removedFaces||
