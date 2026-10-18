@@ -4470,3 +4470,46 @@ rejection and later valid FIFO draining. Original M22 remains OPEN
 until combined M28–M30 acceptance; M23/M12, unrelated milestones,
 the current PR-only CI cancellation and disabled desktop Merge
 geometry remain unchanged.
+
+## October 18, 2026 — V17-M29 authenticated bounded lifetime history
+
+The preplanned independent M29 gate under unchanged original M22
+is accepted in PR #75. `RevisionHistory` now optionally retains
+source-authenticated FIRST-original M27 lifetimes alongside each
+immutable published COW root, verifying the actual direct parent
+certificate, root, original source owner/witness graph and cumulative
+work before altering undo/redo history. Rejected missing/forged/stale
+or sibling lifetime candidates do not discard a redo branch. Undo
+and redo restore the exact matched original proof. Opaque
+predecessor certificates are now WEAK links: the active lifetime
+holds its first ORIGINAL and current terminal source roots, but
+evicted intermediate roots can truly retire without being pinned
+by every newer certificate. M28 tracks reflected proof flags
+while the private stage roots are still authentic and alive.
+
+The existing checkpoint V12 binary remains supported. A protected
+source-backed checkpoint writes V13 with a checksummed requirement
+marker. The M27 opaque certificate may travel in a trusted in-memory
+checkpoint, but **is not fabricated during binary read-back**;
+a terminal-root-only file cannot prove its own prior M24/M25/M26
+ancestry or original witness geometry. A protected physicalExact
+recovered session without separately authenticated first-original
+source evidence therefore **refuses before worker startup**.
+This is deliberately fail-closed recovery, not evidence that
+protected binary editing can resume from an unauthenticated file.
+A future positive disk-resume transcript must be independently
+verified and cannot reset the original baseline.
+
+Acceptance tests exercise real sequential COW source Steps,
+cumulative original-source work, rejected stale/forged/missing
+history, undo/redo, branch replacement, bounded eviction,
+legacy V12 and protected V13 checkpoint recovery, read-only
+original history, and trusted in-memory handoff. Substantive
+GCC/Clang/MSVC Actions #39176592637 passed all 23 CPU suites and
+applicable benchmarks. See
+`docs/V17_M29_AUTHENTICATED_LIFETIME_HISTORY.md`.
+
+M30 still owns the active pre-CAS worker, mirrored collision,
+FIFO, final original witness and atomic refusal integration.
+The original M22, M23 and M12 remain open; desktop physicalExact
+remains default-off and the PR-only CI concurrency policy remains.
