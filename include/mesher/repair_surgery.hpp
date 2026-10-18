@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace mesher {
@@ -140,6 +141,33 @@ SourceSplitLineage advanceCertifiedCollapseLineage(
     const VersionedCollapseResult& collapsed,
     std::size_t maxFaceEvidence=1024,
     std::size_t maxLivingDescendants=4096);
+
+// V17-M26: source-exact Boolean cut/union survivor disposition.
+// The one first-original root and permanent original FaceId ownership
+// stay fixed. A fully c3/M03-certified Buried/Outside original may have
+// NO live descendants; this explicitly recorded retirement is distinct
+// from a missing exposed or ReversedBoundary cavity feature.
+struct ExactCutStep;
+struct SourceExactCutLineage {
+    SourceSplitLineage survivors;
+    std::vector<FaceId> certifiedRetiredOrigins;
+    std::size_t classifiedChildren{},protectedChildren{},retiredChildren{};
+    std::size_t certifiedUncutRetirements{};
+    std::size_t checkedFaceEvidence{};
+};
+// Read-only: independently recompute c1/c2/c3 and M03 with the ORIGINAL
+// limits/mirror involution against the step's immutable PRIVATE cut root;
+// match complete typed child decision and final d2 journals. A missing
+// protected child, unrelated coincident source, stale root, forged c3
+// classification, mirror mismatch or one-under evidence limit refuses.
+// M27 owns cumulative witness comparison across these survivors, and
+// M21 owns any intended sculpt source exemptions.
+SourceExactCutLineage advanceCertifiedExactCutLineage(
+    const SourceSplitLineage& prior,
+    const ExactCutStep& step,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
+    std::size_t maxFaceEvidence=16384,
+    std::size_t maxLivingDescendants=16384);
 
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
