@@ -3142,6 +3142,23 @@ void testMirroredCompleteContactCoverage() {
           !cut.mirroredFaces.empty()&&
           !cut.mirroredVertices.empty(),
           "Both mirrored sheets have complete reciprocal persistent curve coverage");
+    // M16: both off-plane reflected source sheets carry separate exact
+    // matching XYZ even before c3; no coordinate equality authorizes
+    // an independent-sheet ID merge at the private cut stage.
+    std::size_t matchedSourceEndpoints=0;
+    for(std::size_t i=0;i<cut.sectionFirst.size();++i)
+        for(unsigned end=0;end<2;++end) {
+            const auto a=cut.sectionFirst[i][end],
+                       b=cut.sectionSecond[i][end];
+            const auto pa=cut.index->vertex(a).position,
+                       pb=cut.index->vertex(b).position;
+            check(a!=b&&pa.x==pb.x&&pa.y==pb.y&&pa.z==pb.z&&
+                  pa.x!=0,
+                  "Reflected off-plane finite source contacts preserve independent cut IDs");
+            ++matchedSourceEndpoints;
+        }
+    check(matchedSourceEndpoints==originalContacts.size()*2,
+          "Every original mirrored V13 endpoint is checked for private ID separation");
     CutRemovalSettings supportedContours;
     supportedContours.contours.maximumPlanarityInRadii=4.0;
     supportedContours.contours.maximumSingleCapPlanarityInRadii=4.0;
@@ -3174,6 +3191,22 @@ void testMirroredCompleteContactCoverage() {
               !joined.weldedPairs.empty()&&
               root->pickingRootIdentity()==historical,
               "Both mirrored closed intersections join in ONE unpublished stable-ID RegionEdit");
+        auditClosedVertexLinks(*joined.index);
+        check(allPairs(*joined.index).empty(),
+              "Both certified reflected off-plane joins have no unremoved intersections");
+        std::size_t mergedEndpoints=0;
+        for(std::size_t i=0;i<cut.sectionFirst.size();++i)
+            for(unsigned end=0;end<2;++end) {
+                const auto a=cut.sectionFirst[i][end],
+                           b=cut.sectionSecond[i][end];
+                const bool liveA=joined.index->maybeVertex(a)!=nullptr,
+                           liveB=joined.index->maybeVertex(b)!=nullptr;
+                if(liveA!=liveB)++mergedEndpoints;
+                check(!(liveA&&liveB),
+                      "Complete reflected source-certified terminal seam cannot retain coincident duplicate IDs");
+            }
+        check(mergedEndpoints>0,
+              "Off-plane reflected source seam must physically weld authorized independent IDs");
     }else
         check(!joined.commit&&!joined.index&&
               joined.retiredFaces.empty()&&joined.weldedPairs.empty(),
