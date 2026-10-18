@@ -651,6 +651,19 @@ ConformingCutPlan buildMultiSectionCutPlan(
         }
         result.segments.push_back(match);
     }
+    // The same complete V13 graph may arrive in any contact order.
+    // Give each original source face a fixed section-pair traversal:
+    // swapping i/j changes roundoff around endpoint parameters and can
+    // otherwise turn one legitimate junction into a spurious graze.
+    // Original source-contact and section journals keep THEIR caller
+    // order; only the face-local arrangement traversal is canonical.
+    for(auto& [face,sectionsOnFace]:perFace) {
+        (void)face;
+        std::sort(sectionsOnFace.begin(),sectionsOnFace.end(),
+            [](const SectionLine& a,const SectionLine& b) {
+                return a.partner<b.partner;
+            });
+    }
     // V17-M01: enumerate only triples CLOSED by all three genuine
     // original V13 contact pairs. Compute one canonical point from their
     // original planes, never from separate face-local 2D intersections.
