@@ -72,6 +72,102 @@ void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
     }
 }
 
+SculptSourceContactAssessment assessPostSculptOriginalContacts(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptSourceContactLimits& limits,
+    const std::unordered_map<VertexId,VertexId>* mirrors) {
+    SculptSourceContactAssessment result;
+    const auto refuse=[&](std::string reason) {
+        result.refusal=std::move(reason);
+        result.contacts.clear();
+        result.originalCandidate.reset();
+        result.status=SculptSourceContactStatus::Refused;
+        return result;
+    };
+    if(!proposed.before||!proposed.candidate)
+        return refuse("Post-sculpt V13 discovery requires two immutable index roots");
+    std::vector<VertexId> vertices;
+    std::size_t faces=0;
+    bool bounded=true;
+    proposed.candidate->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            if(!bounded)return;
+            if(part.vertices.size()>limits.maxVertices-vertices.size()||
+               part.faces.size()>limits.maxFaces-faces) {
+                bounded=false;
+                return;
+            }
+            faces+=part.faces.size();
+            for(const auto& v:part.vertices)
+                vertices.push_back(v.id);
+        });
+    if(!bounded)
+        return refuse("Post-sculpt complete original V13 root exceeds live vertex/face budget");
+    // Mirror correspondence is an EXTRA invariant, never a license to weld
+    // two independent coincident IDs. Validate the entire post-remesh
+    // involution before returning ANY source contacts.
+    if(symmetric) {
+        if(!mirrors||mirrors->size()!=vertices.size())
+            return refuse("Post-sculpt complete original mirror map is absent or incomplete");
+        for(const auto id:vertices) {
+            const auto it=mirrors->find(id);
+            if(it==mirrors->end()||
+               !mirrors->contains(it->second)||
+               mirrors->at(it->second)!=id||
+               !proposed.candidate->maybeVertex(it->second))
+                return refuse("Post-sculpt original mirror source ID is not reciprocal");
+            const auto p=proposed.candidate->vertex(id).position;
+            const auto q=proposed.candidate->vertex(it->second).position;
+            if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+               ((id==it->second)!=(p.x==0)))
+                return refuse("Post-sculpt original mirror source orbit is not exact XYZ");
+        }
+    }
+    try {
+        // A changed-face-only search is not the full ORIGINAL contact
+        // graph. Every live face becomes a seed through its vertices;
+        // the BVH still performs bounded local pair tests, not a global
+        // O(F^2) triangle loop.
+        auto all=proposed.candidate->triangleIntersections(
+            vertices,{},&result.work,limits.query);
+        result.discoveredPairs=all.size();
+        if(all.empty()) {
+            result.originalCandidate=proposed.candidate;
+            result.status=SculptSourceContactStatus::Clean;
+            return result;
+        }
+        if(all.size()>limits.maxSectionTests)
+            return refuse("Post-sculpt original transverse section work budget exhausted");
+        for(const auto& pair:all) {
+            if(pair.ambiguous)
+                return refuse("Post-sculpt original V13 face pair is ambiguous");
+            const auto a=proposed.candidate->face(pair.first).vertices;
+            const auto b=proposed.candidate->face(pair.second).vertices;
+            const auto points=[&](const std::array<VertexId,3>& ids) {
+                return std::array<Vec3,3>{{
+                    proposed.candidate->vertex(ids[0]).position,
+                    proposed.candidate->vertex(ids[1]).position,
+                    proposed.candidate->vertex(ids[2]).position
+                }};
+            };
+            if(splitTransverseTriangleContact(
+                   points(a),a,points(b),b).status!=
+               IntersectionSectionStatus::TransverseSegment)
+                return refuse("Post-sculpt original V13 pair has no supported finite transverse section");
+        }
+        result.contacts=std::move(all);
+        result.originalCandidate=proposed.candidate;
+        result.status=SculptSourceContactStatus::CompleteTransverse;
+    }catch(const std::length_error& error) {
+        return refuse(std::string("Post-sculpt bounded original V13 discovery: ")+
+                      error.what());
+    }catch(const std::logic_error& error) {
+        return refuse(std::string("Post-sculpt original V13 provenance refusal: ")+
+                      error.what());
+    }
+    return result;
+}
+
 // V17d2: every new and retired vertex from a mirrored private repair
 // receives a canonical involutive mirror pair. Only the small set of
 // surgery-touched IDs is examined for delta derivation. Existing pairs are
