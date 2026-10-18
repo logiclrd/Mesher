@@ -18,13 +18,24 @@ namespace mesher {
 // root, retired patch or cumulative-work evidence.
 struct LifetimeSourceCertificate {
     std::shared_ptr<const RegionTopologyIndex> original,terminal;
+    // Exact preceding certified lifetime. A sibling/independently
+    // reanchored candidate is NOT a successor of an intent declaration.
+    std::shared_ptr<const LifetimeSourceCertificate> parent;
     std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
     std::vector<FaceId> retired;
     std::size_t verifiedFaceSplits{},acceptedTransitions{},sourceFaceEvidence{};
 };
+// The caller cannot fabricate this in the public header.
+struct OriginalPatchIntentCertificate {
+    std::shared_ptr<const LifetimeSourceCertificate> predecessor;
+    std::vector<FaceId> sources;
+    bool mirrored{};
+};
 namespace {
-void seal(OriginalPatchLifetime& lifetime) {
+void seal(OriginalPatchLifetime& lifetime,
+          std::shared_ptr<const LifetimeSourceCertificate> parent={}) {
     auto proof=std::make_shared<LifetimeSourceCertificate>();
+    proof->parent=std::move(parent);
     proof->original=lifetime.anchors.original;
     proof->terminal=lifetime.lineage.terminal;
     proof->living=lifetime.lineage.living;
@@ -162,7 +173,7 @@ OriginalPatchLifetime applyVerified(
         next.certifiedRetiredOriginals.end(),newRetired.begin(),newRetired.end());
     std::sort(next.certifiedRetiredOriginals.begin(),
               next.certifiedRetiredOriginals.end());
-    seal(next);
+    seal(next,earlier.certificate);
     (void)verifyLifetime(next,maxLivingDescendants);
     return next;
 }
@@ -308,6 +319,138 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
        !std::isfinite(result.total.rmsDistanceInEdges))
         throw std::logic_error("Nonfinite original source lifetime distance aggregate");
     return result;
+}
+
+
+OriginalPatchIntentDeclaration declareOriginalPatchIntent(
+    const OriginalPatchLifetime& before,
+    const std::vector<FaceId>& intendedSources,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors,
+    std::size_t maxSourceFaces) {
+    // The proof root and EVERY anchor are checked before accepting an
+    // explicitly named first-original source. A world-space brush radius
+    // or a coincident candidate triangle is never accepted as intent.
+    (void)verifyLifetime(before,maxSourceFaces);
+    if(!maxSourceFaces||before.anchors.faces.size()>maxSourceFaces||
+       intendedSources.size()>maxSourceFaces)
+        throw std::length_error("Original intent source nomination exceeds cap");
+    std::set<FaceId> available,active;
+    for(const auto& [first,living]:before.lineage.living) {
+        available.insert(first);
+        if(!living.empty())active.insert(first);
+    }
+    std::set<FaceId> requested;
+    for(const auto id:intendedSources)
+        if(!id||!active.contains(id)||!requested.insert(id).second)
+            throw std::logic_error("Intent is not a unique live first-original protected FaceId");
+    if(originalMirrors) {
+        // Every nominated original triangle must have its complete
+        // reciprocal original VertexId orbit and an actual opposite
+        // winding reflected FaceId; XYZ proximity cannot prove pairing.
+        const auto& index=*before.anchors.original;
+        std::map<FaceId,FaceId> partners;
+        for(const auto& anchor:before.anchors.faces) {
+            std::array<VertexId,3> reflected{};
+            for(unsigned j=0;j<3;++j) {
+                const auto id=anchor.originalVertices[j];
+                const auto it=originalMirrors->find(id);
+                if(it==originalMirrors->end()||
+                   !originalMirrors->contains(it->second)||
+                   originalMirrors->at(it->second)!=id)
+                    throw std::logic_error("Original reflected intent lacks reciprocal permanent VertexId");
+                const auto p=index.vertex(id).position;
+                const auto q=index.vertex(it->second).position;
+                if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+                   ((id==it->second)!=(p.x==0)))
+                    throw std::logic_error("Reflected source vertex identity disagrees with X=0 involution");
+                reflected[j]=it->second;
+            }
+            // Reflection reverses orientation. Only cyclic rotation
+            // of the reversed source triple is allowed, not arbitrary
+            // face matching or an independent coincident sheet.
+            const std::array<VertexId,3> reversed{
+                reflected[0],reflected[2],reflected[1]};
+            FaceId partner=0;
+            for(const auto& other:before.anchors.faces) {
+                for(unsigned shift=0;shift<3;++shift)
+                    if(other.originalVertices[shift]==reversed[0]&&
+                       other.originalVertices[(shift+1)%3]==reversed[1]&&
+                       other.originalVertices[(shift+2)%3]==reversed[2]) {
+                        if(partner&&partner!=other.face)
+                            throw std::logic_error("Ambiguous mirrored original FaceId owner");
+                        partner=other.face;
+                    }
+            }
+            if(!partner||!partners.emplace(anchor.face,partner).second)
+                throw std::logic_error("Missing opposite-winding first-original reflected FaceId");
+        }
+        for(const auto& [face,partner]:partners) {
+            if(!partners.contains(partner)||partners.at(partner)!=face||
+               (requested.contains(face)!=requested.contains(partner)))
+                throw std::logic_error("Caller original intent is not closed under source-proven reflection");
+        }
+    }
+    auto proof=std::make_shared<OriginalPatchIntentCertificate>();
+    proof->predecessor=before.certificate;
+    proof->sources.assign(requested.begin(),requested.end());
+    proof->mirrored=originalMirrors!=nullptr;
+    return {std::move(proof)};
+}
+
+OriginalPatchIntentDecision evaluateOriginalPatchIntent(
+    const OriginalPatchLifetime& before,
+    const OriginalPatchLifetime& after,
+    const OriginalPatchIntentDeclaration& intent,
+    double maxProtectedDeviationInEdges,
+    std::size_t maxDistanceTests,
+    std::size_t maxLivingDescendants) {
+    if(!std::isfinite(maxProtectedDeviationInEdges)||
+       maxProtectedDeviationInEdges<0)
+        throw std::invalid_argument("Invalid original-edge protected fidelity threshold");
+    (void)verifyLifetime(before,maxLivingDescendants);
+    (void)verifyLifetime(after,maxLivingDescendants);
+    if(!intent.certificate||
+       intent.certificate->predecessor!=before.certificate||
+       !after.certificate||
+       after.certificate->parent!=before.certificate||
+       before.anchors.original!=after.anchors.original||
+       before.anchors.faces.size()!=after.anchors.faces.size()||
+       after.acceptedTransitions!=before.acceptedTransitions+1)
+        throw std::logic_error("Intent is stale or candidate lacks the EXACT certified source predecessor");
+    for(std::size_t i=0;i<before.anchors.faces.size();++i)
+        if(before.anchors.faces[i].face!=after.anchors.faces[i].face)
+            throw std::logic_error("Original source intent was rebased to unrelated FaceIds");
+    std::set<FaceId> scoped(intent.certificate->sources.begin(),
+                            intent.certificate->sources.end());
+    if(scoped.size()!=intent.certificate->sources.size())
+        throw std::logic_error("Duplicate intent source certificate");
+    const auto audit=auditOriginalPatchLifetime(
+        after,before.anchors.original,maxDistanceTests,maxLivingDescendants);
+    OriginalPatchIntentDecision decision;
+    decision.intendedOriginals=scoped.size();
+    decision.certifiedRetiredOriginals=audit.certifiedRetiredOriginals.size();
+    decision.totalDistanceTests=audit.total.distanceTests;
+    std::set<FaceId> previouslyActive;
+    for(const auto& [id,faces]:before.lineage.living)
+        if(!faces.empty())previouslyActive.insert(id);
+    for(const auto id:scoped)
+        if(!previouslyActive.contains(id))
+            throw std::logic_error("Original intent named retired or foreign source FaceId");
+    for(const auto& witness:audit.perOriginal) {
+        if(scoped.contains(witness.original))continue;
+        ++decision.protectedOriginals;
+        decision.protectedWitnesses+=witness.sampled.witnessCount;
+        decision.maximumProtectedDeviationInEdges=std::max(
+            decision.maximumProtectedDeviationInEdges,
+            witness.sampled.maximumDistanceInEdges);
+        if(witness.sampled.maximumDistanceInEdges>
+           maxProtectedDeviationInEdges)
+            throw std::logic_error("Unintended exposed/reversed-cavity first-original surface drift");
+    }
+    // A disappearing source (whether scoped or protected) is NEVER
+    // exempted on intent alone: verifyLifetime and M26's source-sealed
+    // c3/M03 retired-original certificate are always mandatory.
+    return decision;
 }
 
 } // namespace mesher
