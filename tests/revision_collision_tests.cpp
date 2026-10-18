@@ -1666,6 +1666,108 @@ ConformingCutCandidate splitSingleCertifiedBoundaryForTest(
     return result;
 }
 
+void testWhollyBuriedUncutOriginalFace() {
+    Mesh mesh;
+    // A large closed tetra is pierced by the three sloping sides of B.
+    // All three B base vertices are BELOW A's top plane and B's apex is
+    // above it. B's own base triangle is fully inside A, but receives
+    // ZERO original finite V13 sections and therefore NO cut children.
+    for(const auto p:std::array<Vec3,8>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.4,.4,-.25},{.4,.6,-.25},{.6,.4,-.25},{.5,.5,.25}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<2;++solid) {
+        const auto start=4u*solid;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            start+t[0],start+t[1],start+t[2]});
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto rootIdentity=original->pickingRootIdentity();
+    const auto contacts=original->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(contacts.size()==3,
+          "One-above/three-below tetra has exactly three original transverse contacts");
+    const auto sourceBase=imported.flatIndex.faceIds[4];
+    for(const auto c:contacts)
+        check(!c.ambiguous&&c.first!=sourceBase&&c.second!=sourceBase,
+              "Fully buried original B base has no finite V13 intersection section");
+    const auto cut=materializeTransverseCutCandidate(original,contacts);
+    check(certifyConformingCutCoverage(cut).complete&&
+          assessConformingCutFragments(cut).complete,
+          "Uncut-face positive fixture has complete original cut coverage and c1 children");
+    check(cut.index->face(sourceBase).vertices==
+          original->face(sourceBase).vertices,
+          "Uncut buried B base retains the same old FaceId and vertex identities");
+    for(const auto& [child,source]:cut.childSources)
+        check(source!=sourceBase,
+              "Original buried B base has NO fake child provenance");
+
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=.1;
+    contours.contours.minimumNormalAlignment=0;
+    const auto plan=planUncutFaceRetirement(cut,contours);
+    if(!plan.ready())
+        throw std::runtime_error(
+            "Wholly buried unchanged original refusal: "+plan.refusal);
+    check(std::find(plan.authorizedUncut.begin(),plan.authorizedUncut.end(),
+              sourceBase)!=plan.authorizedUncut.end(),
+          "Previously uncut buried original face is independently authorized");
+    check(std::find(plan.combinedRemoval.begin(),plan.combinedRemoval.end(),
+              sourceBase)!=plan.combinedRemoval.end()&&
+          plan.contourPlan.ready()&&
+          plan.contourPlan.removedFaces==plan.combinedRemoval,
+          "Complete c1/c2 plus uncut FaceIds have one newly checked combined contour");
+    for(unsigned f=1;f<4;++f) {
+        const auto outer=imported.flatIndex.faceIds[f];
+        check(std::find(plan.protectedUncut.begin(),plan.protectedUncut.end(),
+                  outer)!=plan.protectedUncut.end(),
+              "Original exposed A side must be protected, never silently retired");
+    }
+    check(original->pickingRootIdentity()==rootIdentity&&
+          original->retiredFaceCount()==0&&
+          original->maybeFace(sourceBase)&&cut.index->maybeFace(sourceBase),
+          "M03 is read-only for BOTH original and unpublished private roots");
+
+    auto incomplete=cut;
+    incomplete.sourceContacts.pop_back();
+    incomplete.sectionFirst.pop_back();
+    incomplete.sectionSecond.pop_back();
+    const auto missing=planUncutFaceRetirement(incomplete,contours);
+    check(!missing.ready()&&missing.authorizedUncut.empty()&&
+          missing.combinedRemoval.empty(),
+          "Incomplete original V13 pairs cannot authorize a buried unchanged face");
+    UncutFaceRetirementLimits hard;
+    hard.maxOriginalFaces=0;
+    const auto bounded=planUncutFaceRetirement(cut,contours,hard);
+    check(bounded.status==CutRemovalStatus::BudgetExceeded&&
+          bounded.authorizedUncut.empty()&&bounded.combinedRemoval.empty(),
+          "Uncut region component budget fails atomically");
+    hard={};
+    hard.maxWindingQueries=0;
+    const auto noWinding=planUncutFaceRetirement(cut,contours,hard);
+    check(noWinding.status==CutRemovalStatus::BudgetExceeded&&
+          noWinding.authorizedUncut.empty()&&
+          noWinding.combinedRemoval.empty(),
+          "Uncut component cannot decide burial without bounded winding evidence");
+    hard={};
+    hard.maxCollisionNarrowPhaseTests=0;
+    const auto noDiscovery=planUncutFaceRetirement(cut,contours,hard);
+    check(!noDiscovery.ready()&&noDiscovery.authorizedUncut.empty(),
+          "Uncut original V13 discovery exhaustion never becomes accepted deletion");
+    std::cout<<"[uncut-burial] source="<<sourceBase
+             <<" uncut-approved="<<plan.authorizedUncut.size()
+             <<" uncut-protected="<<plan.protectedUncut.size()
+             <<" total-removed="<<plan.combinedRemoval.size()<<'\n';
+}
+
 void testGenericCompleteThreeBodyTransverseGraph() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,12>{{
@@ -2385,6 +2487,7 @@ int main() {
         testSectionsMeetAtInteriorTjunction();
         testSeparateCompleteSectionsOnOneOriginalFace();
         testFullThreeBodyContactAdmission();
+        testWhollyBuriedUncutOriginalFace();
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
