@@ -172,8 +172,10 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
             // EVERY original coordinate are immutable. A changed old
             // face must pass through c1/c2 child provenance instead.
             const auto original=cut.originalIndex->face(face).vertices;
-            if(cut.index->face(face).vertices!=original)
-                return refuse("Uncut face has changed original topology");
+            if(cut.index->face(face).vertices!=original||
+               cut.index->face(face).owner!=
+                   cut.originalIndex->face(face).owner)
+                return refuse("Uncut face has changed original topology or ownership");
             const auto tri=triangle(*cut.originalIndex,face);
             for(unsigned j=0;j<3;++j)
                 if(!cut.index->maybeVertex(original[j])||
@@ -183,8 +185,6 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
             const auto norm=length(normal);
             const auto shortest=std::min({length(tri[1]-tri[0]),
                 length(tri[2]-tri[1]),length(tri[0]-tri[2])});
-            if(!(norm>0)&&finite(normal))
-                return refuse("Degenerate original uncut triangle");
             if(!(norm>0)||!(shortest>0)||!finite(normal))
                 return refuse("Unreliable original uncut face normal/scale");
 
