@@ -2941,7 +2941,7 @@ void testX0InvariantExactCutProbe() {
     std::vector<std::pair<VertexId,VertexId>> checkpointPairs;
     for(const auto& [a,b]:mirror)
         if(a<=b&&net.final->maybeVertex(a)) {
-            check(net.final->maybeVertex(b),
+            check(net.final->maybeVertex(b)!=nullptr,
                   "Old X=0 original mirror orbit retires in full");
             checkpointPairs.emplace_back(a,b);
         }
