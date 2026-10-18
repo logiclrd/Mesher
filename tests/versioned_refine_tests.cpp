@@ -278,6 +278,12 @@ void testM27OriginalLifetimeRepeatedRealRemesh() {
     catch(const std::length_error&){refused=true;}
     check(refused,"M27 one-under CUMULATIVE face budget refuses second accepted edit");
     const auto twice=advanceOriginalPatchLifetime(once,secondResult,4,8);
+    IndexedMeshRepository publications(original);
+    check(publications.publishIfCurrent(original,firstResult.index)&&
+          publications.publishIfCurrent(firstResult.index,secondResult.index)&&
+          publications.snapshot()==secondResult.index&&
+          !publications.publishIfCurrent(original,firstResult.index),
+          "M27 two real validated revision roots publish as distinct CAS Steps; stale replay refuses");
     const auto secondAudit=auditOriginalPatchLifetime(twice,original,56,8);
     check(twice.anchors.original==original&&
           twice.lineage.original==original&&
