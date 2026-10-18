@@ -413,9 +413,13 @@ struct ExactCutJoinResult {
     std::size_t checkedBoundaryEdges{},checkedContacts{};
 };
 // If mirrors are supplied, enforce exact reflected unions of complete
-// stable-ID vertex orbits and paired child face retirement. The join
-// still uses ONE RegionEdit for BOTH reflected halves (no self-plane seams
-// yet); unsupported mirror configurations refuse the ENTIRE result.
+// stable-ID vertex orbits and singleton/paired child face retirement.
+// An X=0 seam equivalence class can be self-mirrored only when EVERY
+// source-local ID is independently proven fixed by original provenance;
+// off-plane classes retain two distinct reciprocal representatives.
+// One unpublished RegionEdit validates full oriented edge/vertex fans
+// and final residual collisions. No original-root Step/history is
+// authorized by this private join; that is V17-M09.
 ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits={},
