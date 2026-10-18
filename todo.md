@@ -1138,7 +1138,7 @@ conditions. Record the ENTIRE planned sequence before any M24 code:
 These are independent flat V17 peer IDs, not M20a descendants.
 M13–M15, V18/V19 and accepted M01–M19 remain untouched.
 
-- [ ] **V17-M24 — Bounded, runtime-certified local split ancestry.**
+- [x] **V17-M24 — Bounded, runtime-certified local split ancestry.**
   Emit immutable before/after per-face proof records ONLY after actual
   accepted RegionEdit split commits, including real reflected pairs and
   self-mirrored X=0 midpoints. Consume these to trace original protected
@@ -1149,6 +1149,13 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   missing/reordered/forged records, unproven flips or other ancestry,
   never derive ownership by nearby XYZ. No physicalExact policy or
   GUI authorization.
+  **Accepted:** PR #68 real two-generation splits, mirrored and X=0
+  fixed midpoint orbits, two separately valid coincident closed sheets,
+  exact opposite permanent-edge incidence, complete staged FaceId and
+  midpoint journals, root continuity, exact/one-below budget and
+  stale/forged/missing/cross-source/mirror refusals. Substantive head
+  Actions #39161099327 passed GCC/Clang/MSVC and 23 CPU suites.
+  M25–M27 and the original M20 checkbox remain OPEN.
 - [ ] **V17-M25 — Safe flip and collapse source-transition proofs.**
   Extend lineage beyond M24's split-only positive domain with bounded
   committed flip/collapse records. A flip that transfers area between
