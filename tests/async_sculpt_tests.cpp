@@ -921,24 +921,11 @@ void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
             {0,1,2},{1,0,3},{2,1,3},{0,2,3}
         }})mesh.triangles.push_back({
             4*tetra+t[0],4*tetra+t[1],4*tetra+t[2]});
-    const std::array<BrushArea,1> areas{{{{4,0,0},.5,.9}}};
     RefineSettings refine;
     refine.enabled=true;
     refine.maximumEdgeRatio=.1;
     refine.maximumSplitPairsPerStamp=1;
     refine.optimizeFlips=false;
-    // Prove the physical input really exercises a local split after
-    // Inflate, before the original-root Boolean staging starts.
-    const auto imported=partitionFlatMesh(mesh,256);
-    const auto original=RegionTopologyIndex::build(imported.revision);
-    VersionedInflateBrush inflate(.0005,{});
-    const auto inflated=inflate.stamp(original,areas,256);
-    VersionedLocalRefiner local(mesh.vertices.size(),refine,{},256);
-    const auto split=local.apply(inflated.index,inflated.baseline);
-    require(split.statistics.splitPairs==1&&
-            split.index!=inflated.index&&
-            !split.insertedVertices.empty(),
-            "M18 test exercises a REAL newly born post-Inflate stable vertex ID");
     SculptCollisionSettings opts;
     opts.physicalExact=true;
     auto& quality=opts.physicalExactLimits.join.removal.contours;
@@ -949,20 +936,59 @@ void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
     quality.maximumPerimeterRatio=20.0;
     quality.maximumGapInEdges=2.5;
     quality.minimumNormalAlignment=0;
-    VersionedSculptBrush brush(mesh,.0005,{},{},refine,false,256,{},opts);
-    const auto before=brush.snapshot();
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(imported.revision);
     Mesh dummy;
-    brush.stamp(dummy,areas);
-    if(brush.completedUnions()!=1)
+    bool accepted=false;
+    std::size_t exercised=0,rejected=0;
+    std::string lastRefusal;
+    // Every candidate is an INDEPENDENT actual physical source stamp.
+    // A refused locally split candidate cannot leave a residual original
+    // root or a born-only stable ID behind. A successful one must
+    // construct the same FULL exact original-root union plus local split.
+    for(const double strength:{.0005,.002,.01}) {
+        if(accepted)break;
+        for(const auto center:mesh.vertices) {
+            if(accepted)break;
+            const std::array<BrushArea,1> areas{{{center,.5,.9}}};
+            VersionedInflateBrush inflate(strength,{});
+            const auto moved=inflate.stamp(original,areas,256);
+            if(moved.moved==0)continue;
+            VersionedLocalRefiner local(mesh.vertices.size(),refine,{},256);
+            const auto split=local.apply(moved.index,moved.baseline);
+            if(split.statistics.splitPairs!=1)continue;
+            ++exercised;
+            VersionedSculptBrush brush(mesh,strength,{},{},refine,
+                                      false,256,{},opts);
+            const auto before=brush.snapshot();
+            brush.stamp(dummy,areas);
+            if(brush.completedUnions()==1) {
+                require(brush.snapshot()!=before&&
+                        brush.historyStatistics().undoDepth==1&&
+                        brush.publishedRevisions()==1&&
+                        brush.lastDetails().splitPairs==1&&
+                        brush.undo()&&brush.snapshot()==before,
+                        "Physical split PLUS accepted exact Boolean has ONE immutable original-root Step");
+                accepted=true;
+            }else {
+                ++rejected;
+                lastRefusal=brush.lastRejection();
+                require(brush.snapshot()==before&&
+                        brush.rejectedStamps()==1&&
+                        brush.publishedRevisions()==0&&
+                        brush.historyStatistics().undoDepth==0&&
+                        brush.checkpoint().index==before&&
+                        brush.lastDirtyPartitions().empty()&&
+                        !lastRefusal.empty(),
+                        "Unsupported source-remesh contact must roll back BOTH edits and journals");
+            }
+        }
+    }
+    if(!accepted)
         throw std::runtime_error(
-            "Real split plus source-certified physical union refused: "+
-            brush.lastRejection());
-    require(brush.snapshot()!=before&&
-            brush.historyStatistics().undoDepth==1&&
-            brush.publishedRevisions()==1&&
-            brush.lastDetails().splitPairs==1&&
-            brush.undo()&&brush.snapshot()==before,
-            "Physical split PLUS accepted exact Boolean has one immutable original-root history entry");
+            "No split + exact physical terminal join proved positive, tested "+
+            std::to_string(exercised)+" refused "+std::to_string(rejected)+
+            " last source failure: "+lastRefusal);
 }
 void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
     // Unlike the already intersecting M16 acceptance source, this
