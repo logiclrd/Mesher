@@ -232,7 +232,18 @@ ExactCutJoinResult joinCertifiedCutSections(
                     std::to_string(second.size()));
             for(std::size_t i=0;i<first.size();++i) {
                 const auto& a=first[i],&b=second[i];
-                if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing) {
+                // Projection coordinates use independent floating-point
+                // dot products, so exactly coincident 3D section vertices
+                // can yield slightly different scalar parameters. The
+                // stable FaceId/V13 source pairing authorizes comparison,
+                // but ONLY exact 3D endpoint equality authorizes welding.
+                const auto aLow=a.increasing?a.from:a.to;
+                const auto aHigh=a.increasing?a.to:a.from;
+                const auto bLow=b.increasing?b.from:b.to;
+                const auto bHigh=b.increasing?b.to:b.from;
+                if(a.increasing==b.increasing||
+                   !exact(index.vertex(aLow).position,index.vertex(bLow).position)||
+                   !exact(index.vertex(aHigh).position,index.vertex(bHigh).position)) {
                     // Preserve full double precision in diagnostics:
                     // decimal-rounded interval labels can look identical
                     // even when the strict protected-corner match fails.
