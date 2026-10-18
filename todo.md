@@ -1232,17 +1232,43 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   This is finite one-sided evidence, NOT an active fidelity threshold,
   M21 intent policy, M22 CAS decision or continuous Hausdorff proof.
   Original M20 and M12 integration remain OPEN.
-- [ ] **V17-M20 integration (existing checkbox above).**
-  Only close M20 after M24–M27 jointly prove the unchanged original
-  M20 acceptance. This line is NOT a second M20 checkbox; M21 decides
-  deliberate sculpt scope and M22 activates the pre-CAS policy.
+**V17-M20 integration — accepted after M24–M27.** The original
+M20 checkbox below is the ONLY completion checkbox; this sentence
+continues documenting its previously required joint-acceptance gate.
+M21 still decides deliberate sculpt scope and M22 activates
+the pre-CAS policy. PR #72 independently validates a real M26
+c1/c2/c3/M03/d2 exact union FOLLOWED by M24 local split on the same
+published terminal root, crossing two original-root CAS revisions
+with the SAME first-original FaceIds and seven-point witness scale.
+The same immutable lifetime preserves signed-winding buried/uncut
+retirement, complete surviving patch ownership and cumulative
+source/distance test caps. Missing/alien ownership, stale CAS,
+one-under caps, forgery and coincident independent sheets refuse.
+Substantive Actions #39168754914 passed GCC/Clang/MSVC with 23
+CPU CTest suites and applicable benchmarks; only final review
+documentation follows before the merge.
 
-- [ ] **V17-M20 — Source-certified remesh patch descendants.**
+- [x] **V17-M20 — Source-certified remesh patch descendants.**
   Preserve original FaceId ownership through split/flip/collapse,
   rewritten/retired source faces and d2 exact-cut descendants, including
   stable IDs, reflected orbits, X=0 self IDs and independent coincident
   surfaces. Bounded descendant audit positives and missing/ambiguous/
   foreign ancestry fail-closed tests. No arbitrary nearest-face matching.
+  **Integrated acceptance in PR #72:** all flat M24–M27 peers
+  independently completed; source-oriented local splits, protected-safe
+  face transfer and collapse refusals, true c3/M03 classified exact
+  d2 children and cavity preservation, mirrored/X=0 source orbits,
+  coincident independent permanent IDs, and opaque lifelong first-root
+  ownership all compose without a proximity-based fallback. A
+  genuinely committed exact union followed by genuine local remesh
+  publishes as two CAS Steps on the SAME original-root lineage;
+  the protected source count, certified Buried/Outside tombstones
+  and finite seven-witness per-original patch metrics survive.
+  Every independent prior missing/ambiguous/forged/reflected/one-below
+  refusal stays green in 23 full CPU test suites on three compilers.
+  This closes ONLY the original M20 *source provenance* objective.
+  M21 intentional feature exemptions, M22 active terminal pre-CAS
+  policy, M23 clean episodes and original M12 remain OPEN.
 - [ ] **V17-M21 — Explicit intentional feature scope and cavity policy.**
   A caller-designated intended brush displacement protects unaffected
   exposed/reversed-cavity surfaces and exempts only source-proven intended

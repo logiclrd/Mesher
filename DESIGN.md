@@ -4343,3 +4343,43 @@ counters, missing retirement authority and all one-under
 stage/distance budgets refuse. The original M20 final integration
 remains separate; existing M21–M23 and original M12 scopes remain
 unchanged, with desktop Merge geometry default-off.
+
+## October 18, 2026 — V17-M20 original source-provenance integration acceptance
+
+The full flat peer sequence M24–M27 is complete, and the unchanged
+**original M20 source-certified remesh patch descendants** milestone
+is accepted with PR #72. Detailed original-objective coverage,
+positive/refusal matrix and remaining supported-domain boundaries
+are preserved in `docs/V17_M20_INTEGRATED_SOURCE_ACCEPTANCE.md`.
+
+The previous separately green stage tests established committed
+source-oriented local splits, strictly same-original or unprotected
+2→2 flips, full original source collapse retirement/tombstone proofs
+and conservative protected-deformation refusal, exact source-owned
+c1/c2/c3/M03/d2 surviving children and legitimate wholly buried
+originals, reflected/X=0 fixed orbits and unrelated identical-XYZ
+sheets. M27 sealed the original-root permanent FaceIds, per-original
+seven witnesses/edge scales, living child graph, signed-winding
+retirement authority and accumulated source-evidence cost.
+
+M20's new combined test goes beyond these disjoint positives:
+one actual connected accepted original-root exact union is followed
+by a genuine committed local edge split **on its terminal root**.
+ONE lifetime still references the same first-original FaceIds before
+either Step; it preserves previously certified buried original
+retirements while assigning new split children only via committed
+source IDs. Both publish as distinct atomic successful repository
+CAS revisions, while a stale CAS, forged source assignment, missing
+evidence and one-under cumulative face/distance work cap refuse.
+Original picking readers remain COW stable. The substantive M20
+CI run #39168754914 is green on GCC/Clang/MSVC, all 23 CPU suites
+and applicable benchmarks.
+
+This is the completion of original M20 *source provenance*, not
+an approval of deliberate protected surface destruction or an active
+quality guard. M21 still owns explicit intended sculpt displacement
+and cavity policy, M22 full final pre-CAS cumulative fidelity
+acceptance/atomic rollback, M23 episode semantics, and M12 the
+remaining integrated fidelity acceptance. M13–M16, V18/V19, the
+source-local finite one-sided nature of the seven-witness test,
+and desktop default-disabled Merge geometry remain unchanged.
