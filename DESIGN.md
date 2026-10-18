@@ -4166,3 +4166,36 @@ atomicity, or M15 desktop opt-in Vulkan acceptance.
 The live desktop switch still defaults OFF. The test
 recipe and limits are in
 docs/V17_M11_REPEATED_PHYSICAL_UNIONS.md.
+
+## October 18, 2026 — V17-M12 flat provenance rebaseline, M19 fixed-source anchor
+
+The accepted M11 sixteen physical exact unions are unchanged and the
+desktop Merge geometry remains default-off. Examination of the old
+SculptAnchoredSurfaceGuard and three-clean episode tracker shows
+that static candidate FaceIds cannot prove lifetime preservation
+after split/flip/collapse/d2 joins. Seven samples nearest to arbitrary
+candidate triangles can falsely accept a different coincident source
+sheet, while a previous-revision baseline can mask cumulative drift.
+Intention cannot be inferred from the final distance or from reflection
+symmetry alone. M12 is too broad to accept as one implementation.
+Before source changes, the entire flat execution M19, M20, M21, M22,
+M23 and unchanged M12 integration was recorded in todo.md and the
+milestone document, retaining all original M12/M13–M15 objectives.
+
+M19 introduces a narrow but sound read-only original-source contract:
+the immutable first root is held by shared ownership, and a nominated
+FaceId retains its ORIGINAL three ordered VertexIds, seven original
+witnesses, and the minimum ORIGINAL edge length. An unchanged
+FaceId with rewritten vertices is NOT the same proven patch;
+neither are arbitrary triangles at coincident XYZ. Candidate comparison
+requires exact original identity and incidence, failing closed for
+retired/remeshed sources until M20's lineage. Exact finite cost is
+seven source-local point-to-triangle tests per nominated source face,
+with no partial audit at cap exhaustion. Cross-face nearest-neighbor
+substitution is prohibited. The samples still constitute only finite,
+one-sided distance evidence, NOT c1/c2/c3 positive winding,
+cavity/deletion permission, complete collision proof, or a continuous
+two-sided Hausdorff estimate. The tests use real Inflate motion,
+unchanged original root/picker, spoofed face ownership and one-under
+budget refusals. M19 never publishes geometry, turns on physicalExact,
+or claims the later active/hysteresis policy is complete.
