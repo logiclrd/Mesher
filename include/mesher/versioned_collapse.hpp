@@ -11,8 +11,20 @@
 
 namespace mesher {
 
+// One true committed local edge-collapse transaction. Its complete
+// source-face retirement/rewrite set is captured only AFTER RegionEdit
+// accepts both mirrored sides and their permanent ID changes.
+struct CollapseSourceEvidence {
+    std::shared_ptr<const RegionTopologyIndex> before,after;
+    VertexId survivor{},retired{},mirrorSurvivor{},mirrorRetired{};
+    bool symmetric{},paired{};
+    std::vector<FaceId> retiredFaces,rewrittenFaces;
+};
+
 struct VersionedCollapseResult {
     std::shared_ptr<const RegionTopologyIndex> index;
+    std::shared_ptr<const RegionTopologyIndex> stampOriginal,sourceIndex;
+    std::vector<CollapseSourceEvidence> collapseSources;
     CollapseStatistics statistics{};
     std::vector<VertexId> removedVertices;
     std::vector<FaceId> removedFaces;
