@@ -412,6 +412,30 @@ void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
     check(firstSheet==10&&secondSheet==8&&
           original->retiredFaceCount()==0,
           "Only the actually subdivided source sheet gains two descendants");
+    // Identical XYZ is deliberately NOT a reason to share a lifetime
+    // protected source patch. Two coincident closed original octahedra
+    // retain independent FaceIds and independent nearest-child audits.
+    const auto lifetime=advanceOriginalPatchLifetime(
+        beginOriginalPatchLifetime(anchor),split,2,18);
+    const auto evidence=auditOriginalPatchLifetime(
+        lifetime,original,126,18);
+    check(evidence.total.distanceTests==126&&
+          evidence.perOriginal.size()==16&&
+          evidence.total.candidateFaces==18&&
+          evidence.perOriginal[8].livingDescendants==1&&
+          evidence.perOriginal[8].sampled.maximumDistanceInEdges<1e-12,
+          "M27 one physical coincident sheet is unchanged and owned only by its actual first-source IDs");
+    bool refused=false;
+    try {(void)auditOriginalPatchLifetime(lifetime,original,125,18);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M27 exact coincident independent sheet witness cost refuses one below");
+    auto swapped=lifetime;
+    std::swap(swapped.lineage.living[0].second,
+              swapped.lineage.living[8].second);
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(swapped,original,126,18);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 unrelated coincident original faces cannot steal each other's permanent IDs");
 }
 void testM24MirroredSplitSourceOwnership() {
     auto imported=partitionFlatMesh(octahedron(),1);
