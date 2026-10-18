@@ -2528,6 +2528,50 @@ void testReflectedUncutBurialCavityOrbits() {
           "Missing original mirror involution refuses paired classified face retirement");
 }
 
+void testX0InvariantExactCutProbe() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.1,-.65}
+    }})mesh.vertices.push_back(p);
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})
+            mesh.triangles.push_back({tetra*4+t[0],
+                                      tetra*4+t[1],tetra*4+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::unordered_map<VertexId,VertexId> mirror;
+    for(unsigned tetra=0;tetra<2;++tetra) {
+        const auto start=tetra*4u;
+        const auto left=imported.flatIndex.vertexIds[start],
+                   right=imported.flatIndex.vertexIds[start+1],
+                   axisC=imported.flatIndex.vertexIds[start+2],
+                   axisD=imported.flatIndex.vertexIds[start+3];
+        mirror[left]=right;mirror[right]=left;
+        mirror[axisC]=axisC;mirror[axisD]=axisD;
+    }
+    const auto contacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    std::cout<<"[x0-m06] original-pairs="<<contacts.size()<<'\n';
+    for(const auto& c:contacts)
+        std::cout<<"[x0-m06] pair="<<c.first<<","<<c.second
+                 <<" ambiguous="<<c.ambiguous<<'\n';
+    auto contours=CutRemovalSettings{};
+    contours.contours.maximumPlanarityInRadii=4;
+    contours.contours.maximumSingleCapPlanarityInRadii=4;
+    contours.contours.maximumIsoperimetricRatio=20;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20;
+    contours.contours.maximumPerimeterRatio=20;
+    contours.contours.maximumGapInEdges=.1;
+    contours.contours.minimumNormalAlignment=0;
+    ExactCutStepLimits limits;
+    limits.requireMirrors=true;
+    limits.join.removal=contours;
+    const auto step=prepareExactCutStep(root,contacts,limits,&mirror);
+    std::cout<<"[x0-m06] ready="<<step.complete<<" reason="<<step.refusal<<'\n';
+}
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -3027,6 +3071,7 @@ int main() {
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
+        testX0InvariantExactCutProbe();
         testReflectedThreeBodyCompleteOriginalContacts();
         testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();
