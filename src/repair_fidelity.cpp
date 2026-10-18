@@ -180,8 +180,8 @@ SurfaceWitnessAudit auditOriginalSourceAnchors(
         // descendants; this conservative gate refuses them until then.
         if(!unique.insert(anchor.face).second)
             throw std::invalid_argument("Duplicate source patch anchor");
-        const auto* source=anchors.original->maybeFace(anchor.face);
-        const auto* living=candidate.maybeFace(anchor.face);
+        const auto source=anchors.original->maybeFace(anchor.face);
+        const auto living=candidate.maybeFace(anchor.face);
         if(!source||source->vertices!=anchor.originalVertices||
            !living||living->vertices!=anchor.originalVertices)
             throw std::logic_error("Protected original patch ancestry is missing or rewritten");
