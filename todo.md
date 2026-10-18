@@ -1178,13 +1178,32 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   certified joint source partition remains unsupported/refused; no
   automatic ownership transfer or M21 intentional deformation.
   M26, M27, M20 and original M12 remain OPEN.
-- [ ] **V17-M26 — Source-exact c1/c2/c3/d2 child correspondence.**
+- [x] **V17-M26 — Source-exact c1/c2/c3/d2 child correspondence.**
   Bridge original FaceId → source-proven conforming-cut childSources
   through M02 subdivisions and surviving final d2 seam into a bounded
   terminal descendant record, honoring c3 protected Exposed and true
   ReversedBoundary versus Buried/Outside allowed retirement. No
   source-free cap/zipper matches, unrelated coincident-ID aliases,
   missing mirror/self-orbits or forged child source.
+  **Accepted in PR #70, substantive Actions #39165079674:**
+  ONLY a fully validated original-root Step captures immutable private
+  source-owned conforming child ancestry, signed-winding typed
+  Exposed/ReversedBoundary vs Buried/Outside, separately M03-certified
+  original uncut retire/protect sets, and exact d2 source seam welds.
+  A bounded READ-ONLY consumer independently reruns complete
+  c1/c2/c3/M03 against the original source and finite cut limits,
+  maps all first-source FaceIds to uniquely proven live terminal
+  descendants, records entirely Buried/Outside origins separately,
+  and verifies protected final XYZ, retired/added net journals,
+  reflected face pairs and actual X=0 singleton fixed orbits.
+  Genuine closed disjoint multi-section, three-body cavity/M03,
+  mirrored uncut burial, and X=0 exact Step positives passed;
+  forged/wrong classifications, missing child/paired source orbits,
+  stale original, missing old involution and one-under evidence
+  budget refuse. Full GCC/Clang/MSVC warnings-as-errors, 23 CTest
+  suites and applicable benchmarks green on substantive head.
+  M27 owns cumulative original-witness/Step composition, so
+  M20 and original M12 remain OPEN; UI default unchanged.
 - [ ] **V17-M27 — Lifetime patch composition and bounded witness audit.**
   Compose accepted M24–M26 stage records across prior published Steps
   from ONE immutable first nominated original root, preserving root
