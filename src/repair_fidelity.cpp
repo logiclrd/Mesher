@@ -285,8 +285,9 @@ SourceSplitLineage advanceCertifiedSplitLineage(
               refined.splitSources[i].after==next)
             ++i;
         const auto count=i-start;
-        if(count!=2&&count!=4)
-            throw std::logic_error("Committed split is missing an incident source face");
+        if((count!=2&&count!=4)||
+           (!refined.sourceSplitsSymmetric&&count!=2))
+            throw std::logic_error("Committed split has missing or extra incident source faces");
         std::set<FaceId> groupSources,groupChildren;
         std::map<VertexId,std::size_t> midpointUse;
         // Each midpoint must subdivide ONE undirected permanent-ID edge,
