@@ -3508,3 +3508,100 @@ checks on Linux GCC, Linux Clang and Windows MSVC at code commit
 (Actions run 39135929681). M07's private c3 certificate is accepted;
 M08 PRIVATE d2 terminal X=0 disk weld and M09 original-root one-Step
 worker/history checkpoint remain explicitly OPEN. No live toggle.
+
+
+## V17-M08 — Source-proven X=0 private exact Boolean seam join
+
+**October 18, 2026; accepted scope and design boundary.** M07
+established positive c1/c2/c3 removal authority for the full
+three-original-contact reflected two-tetra cut; it did not merge
+the surfaces. The older d2 join had two distinct assumptions
+that excluded legitimate invariant cases: (1) the combined original
+plus new cut VertexId involution forbade every a==b mirror mapping,
+and counted all insertions as two-ID pairs; and (2) the reflected
+union representative selector rejected every class whose reflection
+returned to its own source-proven seam equivalence root.
+
+The d2 `mirrorMap` now retains genuine self IDs from the HISTORICAL
+original involution and from `mirroredSeamVertices` (the M06
+source-fixed new-ID journal). An inserted pair must still contain
+two distinct off-plane IDs. Every recorded new ID must be accounted
+for exactly once (one self ID or two paired IDs) and every original
+entry must remain reciprocal with exactly reflected XYZ. Historic
+fixed corners on X=0 do not become independent new points.
+
+**Exact original-source weld decisions.** A candidate seam edge
+must still be on an actual original V13 face-pair section, between
+real c3-surviving children of those specific source FaceIds.
+Both source-owned surviving intervals must have the SAME exact
+3D endpoints and opposite orientation; no coordinate hash,
+nearest-neighbor or approximate colocation can grant a weld.
+A union-find class maps to itself under reflection ONLY when
+EVERY contributing sheet-local stable VertexId maps to itself,
+is EXACTLY on X=0, and has independently verified provenance:
+either the newly inserted M06 fixed-cut journal or a historic
+X=0 original source corner that actually survives on the
+corresponding child and has its own self mirror map entry.
+A class containing any genuinely paired ID is never folded into
+one fixed vertex. Non-invariant classes are required to form two
+reciprocal classes of equal cardinality; each retains its
+different physical representative ID.
+
+**Private retirement/manifold closure.** c3 deletion authority,
+M03 optional complete unchanged-original authorization and
+all protected/reversed cavity classifications are recomputed;
+a user-supplied low-level contour or provisional cut does not
+confer authority. The same single unpublished RegionEdit
+removes authorized buried source children, substitutes only
+source-paired seam IDs, retires actual orphan stable IDs and
+validates its local links. The completed immutable private root
+must have closed oriented opposite edge incidences, one connected
+incident fan for every vertex and exactly one connected surface
+component in the true three-contact two-tetra positive. An
+independent test traverses *every* terminal FaceId, checks
+oriented edge incidence and each vertex's connected disk link,
+and performs a whole-final non-adjacent intersection audit,
+not merely the newly edited boundary. All original protected
+corner physical positions remain exact; the original revision,
+picking root and readers remain unchanged.
+
+**Uncut originals.** M03's reflected untouched-original survey
+also had the earlier off-plane-only assumption, rejecting all
+source-proven original fixed VertexIds and invariant FaceIds.
+That independent survey now accepts original reciprocal or
+self-reflected vertices only with exact X=0/XYZ proof. It
+allows an invariant original FaceId only if the reverse reflected
+cycle is identical to itself with precisely ONE fixed original
+corner and two exchanged off-plane corners; duplicate physical
+faces and invalid plane-only degenerate rings remain refused.
+Its protected and authorized whole-original FaceId journals
+count true singleton orbits as one and off-plane paired orbits
+as two. The private join offers the independently classified
+uncut M03 survey path in addition to child-only c3 removal.
+This finishes original-source-side geometric acceptance that
+would otherwise silently block M09's `includeAuthorizedUncutOriginals`
+join path.
+
+**Positive/negative regression and limits.** The exact M06
+two-closed-tetra complete THREE original V13 pair fixture is
+passed through a real private 2→1 cut/c3/d2 union. Test the
+full current indexed mesh for ONE connected closed edge and
+vertex manifold; complete nonadjacent contact absence;
+physical mirror orbits for all surviving known IDs, genuine
+self-fixed X=0 vertices, original XYZ fidelity, retired
+FaceId/VertexId tombstones, and old-root pointer immutability.
+Also request the independent M03 source survey and prove the
+same private manifold union still closes. Missing original
+contact, corrupt historical fixed mirror mapping, too-small
+seam work and the previous M06 grazing fixture must produce
+NO final revision, history journal, approved partial retirement
+or guessed source ID. The production V13 and V15 predicates
+are untouched; synthetic tetra tests use the existing
+test-only quality limits. Off-plane M05 unions remain controls.
+
+**Not M08:** This is an immutable, private final cut+join revision,
+not a one-original-root composed Step. No worker CAS, history
+record, checkpoint, renderer dirty update or desktop toggle is
+enabled. M09 owns exact source-root net journals and all three
+worker mirror maps, undo/redo and durable persistence; M10
+further records the overall supported/refused geometry envelope.
