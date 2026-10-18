@@ -1060,6 +1060,44 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
             journal.index->retiredFaceIds()==terminal->retiredFaceIds(),
             "M18 physical final checkpoint retains ONLY original-root final result");
 
+    // The identical policy also travels through the actual asynchronous
+    // 4D input queue, not through an explicit contact/union command.
+    AsyncSculptWorker queued(initial,.025,.0005,.2,{},{},{},false,
+                             {},config());
+    const auto queuedOriginal=queued.initialRevision();
+    queued.begin({4,0,0},.5);
+    queued.end({4,0,0},0);
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+    while(!queued.canBegin()&&std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto state=queued.status();
+    if(state.completedUnions!=1)
+        throw std::runtime_error(
+            "M18 real queued physical sculpt input refused: "+state.lastRejection);
+    require(queued.canBegin()&&state.completedStamps==1&&
+            state.publishedRevisions==1&&state.history.undoDepth==1&&
+            state.collisionRepairedStamps==1,
+            "M18 physically queued stroke completes one union/CAS/history, no Merge command");
+    const auto queuedFinal=queued.takeSnapshot();
+    require(queuedFinal&&queuedFinal->index!=queuedOriginal&&
+            !queuedFinal->dirtyPartitions.empty()&&
+            queuedFinal->index->retiredFaceCount()>0,
+            "M18 renderer mailbox sees only full terminal original-root physical Boolean");
+    queued.undo();
+    while(queued.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    require(queued.status().history.redoDepth==1,
+            "M18 queued physical union has one undo/redo transition");
+    queued.redo();
+    while(queued.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    require(queued.status().history.redoDepth==0&&
+            queued.status().history.undoDepth==1,
+            "M18 worker redo restores single terminal Boolean history entry");
+
     // A deliberately exhausted source query refuses before any private
     // conformance root or history is exposed. A later identical valid
     // physical stamp must work with the original immutable root.
