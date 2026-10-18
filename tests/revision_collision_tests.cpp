@@ -1402,7 +1402,17 @@ void testMirroredCompleteContactCoverage() {
               "Only surviving reflected child faces enter the composed face journal");
     std::vector<std::pair<VertexId,VertexId>> checkpointMirrors;
     for(const auto& [a,b]:mirrors)
-        if(a<b)checkpointMirrors.emplace_back(a,b);
+        if(a<b) {
+            const bool aliveA=net.final->maybeVertex(a)!=nullptr,
+                       aliveB=net.final->maybeVertex(b)!=nullptr;
+            check(aliveA==aliveB,
+                  "Every retired ORIGINAL mirror vertex has a retired reflected partner");
+            if(aliveA)checkpointMirrors.emplace_back(a,b);
+            else check(std::binary_search(
+                net.removedMirrors.begin(),net.removedMirrors.end(),
+                std::pair<VertexId,VertexId>{a,b}),
+                "Retired historical mirror pair must appear in NET removed delta");
+        }
     checkpointMirrors.insert(checkpointMirrors.end(),
                              net.addedMirrors.begin(),net.addedMirrors.end());
     std::sort(checkpointMirrors.begin(),checkpointMirrors.end());
