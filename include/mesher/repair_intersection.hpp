@@ -288,6 +288,48 @@ struct CutRemovalProposal {
 CutRemovalProposal planExactCutRemoval(
     const ConformingCutCandidate& cut,const CutRemovalSettings& settings={});
 
+// V17-M03: independently authorize whole ORIGINAL faces which were never
+// cut, but form a complete, bounded connected no-contact patch adjoining
+// an actual c2-certified original contact source. No caller-supplied V15
+// Ready contour or precomputed winding labels can authorize these IDs.
+// This READ-ONLY proposal does NOT modify any COW revision or publish.
+struct UncutFaceRetirementLimits {
+    std::size_t maxOriginalFaces=512;
+    std::size_t maxAdjacencyTests=8192;
+    std::size_t maxWindingQueries=8192;
+    std::size_t maxWindingBoxTests=1048576;
+    std::size_t maxWindingPartitionTests=131072;
+    std::size_t maxWindingTriangleTests=262144;
+    std::size_t maxWindingRays=24576;
+    std::size_t maxCollisionBoxTests=131072;
+    std::size_t maxCollisionPartitionTests=16384;
+    std::size_t maxCollisionCandidateTriangles=131072;
+    std::size_t maxCollisionNarrowPhaseTests=65536;
+};
+struct UncutFaceRetirementProposal {
+    CutRemovalStatus status{CutRemovalStatus::Refused};
+    std::string refusal;
+    // Every ID in authorizedUncut must exist UNCHANGED in both the
+    // original and private cut indices, with no original V13 contacts.
+    std::vector<FaceId> authorizedUncut;
+    std::vector<FaceId> protectedUncut;
+    // Complete, sorted union of c1/c2/c3-authorized CHILD FaceIds and
+    // independently certified untouched original FaceIds.
+    std::vector<FaceId> combinedRemoval;
+    std::vector<FaceId> protectedChildren;
+    RepairPlan contourPlan;
+    std::size_t checkedOriginalFaces{},checkedOriginalContacts{};
+    std::size_t windingQueries{};
+    RegionTopologyIndex::WindingStatistics windingWork{};
+    RegionTopologyIndex::CollisionStatistics discoveryWork{};
+    bool ready() const noexcept {return status==CutRemovalStatus::Ready;}
+};
+UncutFaceRetirementProposal planUncutFaceRetirement(
+    const ConformingCutCandidate& cut,
+    const CutRemovalSettings& settings={},
+    const UncutFaceRetirementLimits& limits={});
+
+
 
 // V17e2b2d1: strictly private handoff to existing V16 geometry surgery.
 // Even a V15 Ready nomination is NEVER considered a Boolean union until
