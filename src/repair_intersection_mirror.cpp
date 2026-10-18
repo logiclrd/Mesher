@@ -116,7 +116,7 @@ std::string pairMirroredMultiSectionPlan(
             // A genuinely invariant triangular source has exactly ONE
             // self-paired old point and TWO distinct reciprocal off-plane
             // vertices. Faces entirely in the mirror plane are excluded.
-            const auto original=index.face(id).vertices;
+            const auto original=index.face(plan.faces[i].sourceFace).vertices;
             std::size_t fixed=0;
             for(const auto vertex:original) {
                 const auto other=mirrorOf(vertex);
