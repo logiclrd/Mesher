@@ -910,6 +910,126 @@ void testWorkerMirroredThreeBodyOneHistoryStep() {
     std::filesystem::remove(filename,ec);
 }
 
+void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})mesh.vertices.push_back(p);
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})
+            mesh.triangles.push_back({
+                tetra*4+t[0],tetra*4+t[1],tetra*4+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::vector<std::pair<VertexId,VertexId>> originalPairs;
+    for(unsigned tetra=0;tetra<2;++tetra) {
+        const auto base=tetra*4u;
+        const auto a=imported.flatIndex.vertexIds[base],
+                   b=imported.flatIndex.vertexIds[base+1],
+                   c=imported.flatIndex.vertexIds[base+2],
+                   d=imported.flatIndex.vertexIds[base+3];
+        originalPairs.emplace_back(a,b);
+        originalPairs.emplace_back(c,c);
+        originalPairs.emplace_back(d,d);
+    }
+    AsyncSculptWorker worker({root,originalPairs,8},
+                             .025,.006,.2,{},{},{});
+    const auto contacts=fullOriginalContacts(*root);
+    require(contacts.size()==3,
+            "X=0 worker requires the exact complete THREE-source-contact input");
+    auto limits=supportedUnionLimits(true);
+    limits.join.removal.contours.maximumGapInEdges=2.5;
+    const auto firstContacts=contacts;
+    auto partial=firstContacts;
+    partial.pop_back();
+    worker.mergeExactContacts(root,partial,limits);
+    waitForUnion(worker,1);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().completedUnions==0&&
+            worker.status().history.undoDepth==0&&
+            !worker.takeSnapshot(),
+            "Incomplete X=0 original pair refuses without a cut root or partial history");
+    worker.mergeExactContacts(root,contacts,limits);
+    waitForUnion(worker,2);
+    if(worker.status().completedUnions!=1)
+        throw std::runtime_error(
+            "Queued source-certified X=0 original-root Step refused: "+
+            worker.status().lastRejection);
+    require(worker.status().publishedRevisions==1&&
+            worker.status().history.undoDepth==1&&
+            worker.status().completedStamps==0,
+            "One accepted X=0 union input publishes exactly one original-root Step");
+    const auto accepted=worker.takeSnapshot();
+    require(accepted&&accepted->index&&accepted->index!=root&&
+            !accepted->dirtyPartitions.empty()&&
+            root->retiredFaceCount()==0&&
+            accepted->index->retiredFaceCount()>0,
+            "Renderer obtains final X=0 joined root only, preserving old picking readers");
+    const auto final=accepted->index;
+    const auto mirrors=worker.brushCheckpoint().mirrorPairs;
+    std::size_t fixed=0,paired=0;
+    for(const auto& [a,b]:mirrors) {
+        require(final->maybeVertex(a)&&final->maybeVertex(b),
+                "All three X=0 worker controller mirror maps retain only live IDs");
+        const auto p=final->vertex(a).position,
+                   q=final->vertex(b).position;
+        require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                "X=0 worker mirror map must remain exact after original CAS");
+        if(a==b){++fixed;require(p.x==0,
+                "One worker self-mirror entry represents one permanent X=0 ID");}
+        else ++paired;
+    }
+    require(fixed>0&&paired>0&&mirrors.size()>originalPairs.size(),
+            "Worker accepted newly added SINGLETON and reciprocal mirror orbits");
+    worker.mergeExactContacts(root,contacts,limits);
+    waitForUnion(worker,3);
+    require(worker.status().rejectedUnions==2&&
+            worker.status().history.undoDepth==1&&
+            !worker.takeSnapshot(),
+            "Stale queued X=0 Step never publishes a second union or mirror delta");
+    worker.undo();
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+    while(worker.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto undone=worker.takeSnapshot();
+    require(undone&&undone->index==root&&
+            worker.brushCheckpoint().mirrorPairs==originalPairs,
+            "One worker undo restores SAME original root and all 8 historical mirror IDs");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto redone=worker.takeSnapshot();
+    require(redone&&redone->index==final&&
+            worker.brushCheckpoint().mirrorPairs==mirrors,
+            "One worker redo restores exact terminal root and singleton/pair mirror map");
+    const auto filename=std::filesystem::temp_directory_path()/
+        "mesher-worker-v17-m09-x0-invariant-join.mshr";
+    try {
+        worker.saveCheckpoint(filename);
+        const auto stop=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "X=0 terminal original-root Step is durably checkpointed");
+        const auto loaded=readCheckpoint(filename);
+        require(loaded.index&&loaded.mirrorPairs==mirrors&&
+                loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
+                loaded.index->retiredVertexIds()==final->retiredVertexIds(),
+                "X=0 recovered file preserves fixed/paired live mirrors and tombstones");
+    }catch(...){
+        std::error_code ec;std::filesystem::remove(filename,ec);
+        throw;
+    }
+    std::error_code ec;std::filesystem::remove(filename,ec);
+}
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
     const auto imported=partitionFlatMesh(mesh,256);
@@ -989,6 +1109,7 @@ int main() {
         testWorkerMultipleCompleteSectionsOneHistoryStep();
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
         testWorkerMirroredThreeBodyOneHistoryStep();
+        testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
