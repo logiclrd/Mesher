@@ -4336,7 +4336,7 @@ Acceptance on GCC/Clang/MSVC in PR #71 includes two actual
 published COW split Steps showing cumulative original-reference
 drift, real safe flip/collapse, true source-exact unions, M03
 burial and reversed cavities, reflected and X=0 fixed-point
-orphans, and two independent exactly coincident closed shells
+orbits, and two independent exactly coincident closed shells
 whose source ownership never aliases. Forged original anchor,
 stale root, switched child owners, manipulated work/history
 counters, missing retirement authority and all one-under
