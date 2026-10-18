@@ -1257,6 +1257,143 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
              <<strength<<" and complete original-root history\n";
 }
 
+void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
+    const auto source=makeM11Towers(16,.15);
+    const auto restored=checkpointM11Source(source);
+    const auto first=restored.index;
+    const auto strength=chooseM11TowerStrength();
+    std::size_t validationCount=0;
+    SculptStepValidator rejectFifth=[&](const ProposedSculptStep& step) {
+        require(step.before&&step.candidate&&step.before!=step.candidate,
+                "M11 queued worker validates only immutable original and full candidate roots");
+        if(++validationCount==5)
+            return std::string("M11 deliberately invalid terminal stamp: recoverable refusal");
+        return std::string{};
+    };
+    AsyncSculptWorker worker(restored,.025,strength,.2,{},{},{},
+                             rejectFifth,m11PhysicalExactSettings());
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> roots{first};
+    const auto waitForDrain=[&] {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<stop) {
+            (void)worker.status();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto current=worker.status();
+        require(worker.canBegin()&&current.pendingSteps==0&&
+                current.pendingSegments==0,
+                "M11 4D worker consumes each queued input exactly once before next stroke");
+        return current;
+    };
+    const auto stampAt=[&](Vec3 center,double radius) {
+        worker.begin(center,radius);
+        worker.end(center,0);
+        return waitForDrain();
+    };
+    for(std::size_t i=0;i<16;++i) {
+        const auto center=source.input[i][0].center;
+        // An explicit, physically no-contact 4D stroke in the middle
+        // must drain without producing a new root or a synthetic union.
+        if(i==4) {
+            const auto before=roots.back();
+            const auto noContact=stampAt({5,-14,10000},6);
+            require(noContact.completedUnions==4&&
+                    noContact.publishedRevisions==4&&
+                    noContact.history.undoDepth==4&&
+                    noContact.rejectedStamps==0&&
+                    !worker.takeSnapshot()&&
+                    validationCount==4,
+                    "M11 no-contact queued input neither publishes nor consumes a success");
+            // Next real positive candidate is VALID geometrically, but
+            // the caller vetoes its terminal Step after exact staging.
+            // This checks the entire speculative map/history rollback.
+            const auto refused=stampAt(center,6);
+            require(refused.rejectedStamps==1&&
+                    refused.completedUnions==4&&
+                    refused.publishedRevisions==4&&
+                    refused.history.undoDepth==4&&
+                    !worker.takeSnapshot()&&
+                    validationCount==5&&
+                    !refused.lastRejection.empty(),
+                    "M11 post-Boolean refused input preserves queued root and full original history");
+            require(worker.initialRevision()!=nullptr&&
+                    before->pickingRootIdentity()!=nullptr,
+                    "Rejected physical Step preserves held immutable BVH readers");
+        }
+        const auto current=stampAt(center,6);
+        if(current.completedUnions!=i+1)
+            throw std::runtime_error(
+                "M11 queued alternate tower "+std::to_string(i)+
+                " failed physical source union: "+current.lastRejection);
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index&&snapshot->index!=roots.back()&&
+                !snapshot->dirtyPartitions.empty()&&
+                current.publishedRevisions==i+1&&
+                current.history.undoDepth==i+1&&
+                current.completedStamps==i+1+(i>=4?2:0)&&
+                current.rejectedStamps==(i>=4?1u:0u),
+                "Each M11 real 4D physical input produces exactly one final snapshot and history entry");
+        require(roots.back()->pickingRootIdentity()!=nullptr&&
+                snapshot->index->retiredFaceCount()>
+                    roots.back()->retiredFaceCount(),
+                "M11 queued physical terminal source union preserves prior picker roots");
+        roots.push_back(snapshot->index);
+    }
+    const auto checkpointFile=std::filesystem::temp_directory_path()/
+        "mesher-v17-m11-16-real-physical-tower-unions.mshr";
+    try {
+        worker.saveCheckpoint(checkpointFile);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "M11 4D queued final root has a durable complete checkpoint");
+        const auto checkpoint=readCheckpoint(checkpointFile);
+        require(checkpoint.index&&
+                checkpoint.index->retiredFaceIds()==
+                    roots.back()->retiredFaceIds()&&
+                checkpoint.mirrorPairs.size()>restored.mirrorPairs.size(),
+                "M11 final durable recovery contains all net mirrored terminal source identities");
+        for(const auto [a,b]:checkpoint.mirrorPairs) {
+            require(checkpoint.index->maybeVertex(a)&&
+                    checkpoint.index->maybeVertex(b),
+                    "No retired or transient speculative ID leaks into M11 durable mirror checkpoint");
+        }
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(checkpointFile,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(checkpointFile,ec);
+    for(std::size_t n=16;n>0;--n) {
+        worker.undo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.status().history.redoDepth!=17-n&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.undoDepth==n-1,
+                "M11 each real FIFO physical union is independently undoable");
+    }
+    for(std::size_t n=1;n<=16;++n) {
+        worker.redo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.status().history.undoDepth!=n&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n],
+                "M11 4D FIFO redo restores exact immutable terminal root identity");
+    }
+}
+
 void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     const auto config=[] {
         SculptCollisionSettings c;
@@ -1718,6 +1855,7 @@ int main() {
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
+        testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testExactPhysicalRemeshIsOneSpeculativeTransaction();
         testPhysicallyCreatedContactCanPassExactSourcePlanner();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
