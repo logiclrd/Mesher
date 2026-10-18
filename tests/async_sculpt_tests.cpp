@@ -1247,12 +1247,17 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     VersionedSculptBrush symmetric(source,.0005,{},{},{},256,
                                    deliberateRefusal,config());
     const auto mirroredInitial=symmetric.snapshot();
+    auto expectedOriginalPairs=source.mirrorPairs;
+    for(auto& [a,b]:expectedOriginalPairs)
+        if(b<a)std::swap(a,b);
+    std::sort(expectedOriginalPairs.begin(),expectedOriginalPairs.end());
     const std::array<BrushArea,2> both{{
         {{4,0,0},.5,.9},{{-4,0,0},.5,.9}}};
     symmetric.stamp(dummy,both);
     require(symmetric.snapshot()==mirroredInitial&&
             symmetric.rejectedStamps()==1&&
             symmetric.historyStatistics().undoDepth==0&&
+            symmetric.checkpoint().mirrorPairs==expectedOriginalPairs&&
             symmetric.publishedRevisions()==0&&
             symmetric.lastDirtyPartitions().empty()&&
             !symmetric.lastRejection().empty(),
@@ -1275,10 +1280,6 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
         require(pa.x==-pb.x&&pa.y==pb.y&&pa.z==pb.z,
                 "Physical reflected exact union retains source-correct 3D mirrors");
     }
-    auto expectedOriginalPairs=source.mirrorPairs;
-    for(auto& [a,b]:expectedOriginalPairs)
-        if(b<a)std::swap(a,b);
-    std::sort(expectedOriginalPairs.begin(),expectedOriginalPairs.end());
     require(symmetric.undo()&&symmetric.snapshot()==mirroredInitial&&
             symmetric.checkpoint().mirrorPairs==expectedOriginalPairs&&
             symmetric.redo()&&symmetric.snapshot()==final,
