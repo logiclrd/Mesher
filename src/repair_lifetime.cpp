@@ -417,6 +417,7 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     // proves each actually committed split/flip by root/FaceId journals.
     auto stage=advanceOriginalPatchLifetime(
         before,refined,maxCumulativeFaceEvidence,maxLivingDescendants);
+    bool reflected=stage.certificate->reflectedStep;
     // The collapser stores the *stamp's* original for its LocalBaseline;
     // M25 requires its ACTUAL source root. Both identities are verified
     // above before re-expressing that source as the prior stage terminal.
@@ -434,10 +435,14 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
         stage=advanceOriginalPatchLifetime(
             stage,sourceCollapse,maxCumulativeFaceEvidence,
             maxLivingDescendants);
+        reflected=reflected||stage.certificate->reflectedStep;
     }
-    if(exact)stage=advanceOriginalPatchLifetime(
-        stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
-        maxLivingDescendants);
+    if(exact) {
+        stage=advanceOriginalPatchLifetime(
+            stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
+            maxLivingDescendants);
+        reflected=reflected||stage.certificate->reflectedStep;
+    }
     if(stage.lineage.terminal!=(exact?exact->final:collapsed.index))
         throw std::logic_error("Physical final terminal root differs from complete certified private stages");
     // Consolidate all verified *private* stage certificates into ONE
@@ -447,10 +452,8 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     if(before.acceptedTransitions==std::numeric_limits<std::size_t>::max())
         throw std::length_error("External original lifetime Step count overflow");
     complete.acceptedTransitions=before.acceptedTransitions+1;
-    bool reflected=false;
-    for(auto cursor=complete.certificate;
-        cursor&&cursor!=before.certificate;cursor=cursor->parent.lock())
-        reflected=reflected||cursor->reflectedStep;
+    // Per-stage flags are captured during verification: weak history
+    // predecessors may expire immediately and must not be traversed.
     seal(complete,before.certificate,reflected);
     (void)verifyLifetime(complete,maxLivingDescendants);
     return complete;
