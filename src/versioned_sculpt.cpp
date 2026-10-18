@@ -495,7 +495,8 @@ VersionedSculptBrush::VersionedSculptBrush(
      published_(recovered.index),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
               elementCount(*recovered.index,true),
-              elementCount(*recovered.index,false)),
+              elementCount(*recovered.index,false),
+              recovered.verifiedOriginalFidelity),
      inflate_(strength,curvature,recovered.mirrorPairs),
      refiner_(recovered.initialVertexCount?recovered.initialVertexCount:
               elementCount(*recovered.index,true),refine,
@@ -510,8 +511,14 @@ VersionedSculptBrush::VersionedSculptBrush(
      faces_(elementCount(*recovered.index,false)),
      validator_(std::move(validator)),collision_(std::move(collision)),
      symmetric_(!recovered.mirrorPairs.empty()),
-     contact_(collision_.quietChecksToEndContact) {
+     contact_(collision_.quietChecksToEndContact),
+     originalFidelityRequired_(recovered.originalFidelityRequired||
+         static_cast<bool>(recovered.verifiedOriginalFidelity)) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
+    if(originalFidelityRequired_&&collision_.physicalExact&&
+       !recovered.verifiedOriginalFidelity)
+        throw std::logic_error(
+            "Recovered physicalExact root lacks authenticated FIRST-original source ancestry");
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
@@ -1097,6 +1104,9 @@ DurableCheckpoint VersionedSculptBrush::checkpoint() const {
     DurableCheckpoint snapshot;
     snapshot.index=published_.snapshot();
     snapshot.initialVertexCount=initialVertexCount_;
+    snapshot.verifiedOriginalFidelity=history_.currentFidelity();
+    snapshot.originalFidelityRequired=originalFidelityRequired_||
+        static_cast<bool>(snapshot.verifiedOriginalFidelity);
     for(const auto& [a,b]:inflate_.mirrors())
         if(a<=b)snapshot.mirrorPairs.push_back({a,b});
     std::sort(snapshot.mirrorPairs.begin(),snapshot.mirrorPairs.end());
