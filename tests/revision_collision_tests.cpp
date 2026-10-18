@@ -1543,7 +1543,7 @@ void testGenericCompleteThreeBodyTransverseGraph() {
                      <<pair.first<<" / "<<pair.second
                      <<" ambiguous="<<pair.ambiguous<<'\n';
     }
-    if(all.empty())throw std::runtime_error("Generic triple has no original contacts");
+    check(all.size()==12,"Generic triple fixture has exactly twelve original transverse contacts");
     CutRemovalSettings contours;
     contours.contours.maximumPlanarityInRadii=4.0;
     contours.contours.maximumSingleCapPlanarityInRadii=4.0;
@@ -1557,9 +1557,16 @@ void testGenericCompleteThreeBodyTransverseGraph() {
         const auto coverage=certifyConformingCutCoverage(cut);
         const auto occupancy=assessConformingCutFragments(cut);
         const auto proposal=planExactCutRemoval(cut,contours);
+        check(coverage.complete&&occupancy.complete&&proposal.ready()&&
+              coverage.checkedContacts==all.size()&&
+              occupancy.fragments.size()==cut.childSources.size(),
+              "All generic triple junction original contacts have full c2/c1/c3 certified private children");
         ExactCutJoinLimits joinLimits;
         joinLimits.removal=contours;
         const auto joined=joinCertifiedCutSections(cut,joinLimits);
+        check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
+              !joined.commit&&joined.weldedPairs.empty()),
+              "Unmatched triple seam subintervals must not expose a partial joined root");
         std::cout<<"[generic-triple] cut=1 coverage="<<coverage.complete
                  <<" coverage-refusal="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
@@ -1569,7 +1576,8 @@ void testGenericCompleteThreeBodyTransverseGraph() {
                  <<" joined="<<joined.complete
                  <<" joined-refusal="<<joined.refusal<<'\n';
     }catch(const std::exception& error) {
-        std::cout<<"[generic-triple] cut-refusal="<<error.what()<<'\n';
+        throw std::runtime_error(
+            std::string("Certified generic three-solid cut was rejected: ")+error.what());
     }
     ExactCutStepLimits limits;
     limits.join.removal=contours;
@@ -1625,6 +1633,8 @@ void testOrthogonalTripleJunctionProbe() {
     }
     std::cout<<"[orthogonal-triple] pairs="<<all.size()
              <<" unsupported="<<unsupported<<'\n';
+    check(all.size()==16&&unsupported==0,
+          "Orthogonal dyadic triple junction requires sixteen strictly transverse original contacts");
     CutRemovalSettings contours;
     contours.contours.maximumPlanarityInRadii=4.0;
     contours.contours.maximumSingleCapPlanarityInRadii=4.0;
@@ -1638,9 +1648,15 @@ void testOrthogonalTripleJunctionProbe() {
         const auto coverage=certifyConformingCutCoverage(cut);
         const auto occupancy=assessConformingCutFragments(cut);
         const auto removal=planExactCutRemoval(cut,contours);
+        check(coverage.complete&&occupancy.complete&&removal.ready()&&
+              coverage.checkedContacts==all.size(),
+              "Orthogonal triple-junction graph has complete private coverage, winding and c3 authorization");
         ExactCutJoinLimits limits;
         limits.removal=contours;
         const auto joined=joinCertifiedCutSections(cut,limits);
+        check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
+              !joined.commit&&joined.weldedPairs.empty()),
+              "Orthogonal junction mismatch refuses without a publishable seam or journal");
         std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
                  <<" reason="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
@@ -1650,7 +1666,8 @@ void testOrthogonalTripleJunctionProbe() {
                  <<" join="<<joined.complete
                  <<" reason="<<joined.refusal<<'\n';
     }catch(const std::exception& e) {
-        std::cout<<"[orthogonal-triple] cut-refusal="<<e.what()<<'\n';
+        throw std::runtime_error(
+            std::string("Orthogonal triple-junction cut was rejected: ")+e.what());
     }
 }
 
@@ -2151,7 +2168,6 @@ int main() {
         testFullThreeBodyContactAdmission();
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
-        throw std::runtime_error("Temporary three-body full-contact diagnostic exit");
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
