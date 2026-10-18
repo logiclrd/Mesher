@@ -213,6 +213,60 @@ threshold envelope and do **not** change production defaults.
 
 ## V17-M05 — Explicit mirrored multi-section union, away from X=0
 
+**Implementation/acceptance:** Complete for two reflected
+closed-three-tetrahedron groups with FULL generic 24- and orthogonal
+32-contact original V13 graphs and distinct off-plane source/child
+vertex orbits. The mirrored V13 arrangement treats exact repeated
+source-point IDs as one shared endpoint rather than recomputing
+numerically unstable double projections; a truly near-but-distinct
+endpoint remains an unsupported ambiguity. M01 source triple
+junctions, full c2/c1/c3 occupancy, strict d2 exact opposite seam
+joins, V15 contour limits and M04 original-root net journals remain
+mandatory. The final closed geometry is two disconnected, oriented,
+edge/vertex-manifold three-body unions, with a global no-extra-
+intersection test over EVERY surviving FaceId.
+
+M03 original unchanged-face classification now supports only
+explicitly provided, strictly off-X=0 reciprocal original mirror
+maps. It proves each uncut original face partner from its THREE
+mirrored original VertexIds, REVERSED winding and exactly reflected
+positions, including independently Exposed/ReversedBoundary
+protected faces. It refuses a nonreciprocal/missing source pair,
+wrong source-face partner or missing opposite occupancy. M04 d2
+joins the paired authorized uncut FaceIds and checks that protected
+untouched faces remain unchanged even for a NoChanges removal.
+A second positive closed geometry has two independently mirrored
+1-above/3-below buried original tetra bases and two separately
+inverted enclosed cavity shells. Exactly the two buried original
+base FaceIds retire as one reciprocal orbit, while BOTH reversed
+cavity components stay protected. New paired cut VertexIds/FaceIds,
+face winding and mirror journal invariants remain strict.
+
+CI regressions verify terminal mirror closure for EVERY original
+and newly inserted live vertex and FaceId, one original-root CAS,
+stale CAS refusal, one undo/redo history transition, exact net
+mirror/retirement journal and durable checkpoint reloading. A queued
+asynchronous worker 24-contact test verifies all three existing
+mirror-map controllers remain synchronized through a successful
+union, rejected stale command, undo/redo and checkpoint recovery.
+Full-pair omissions, incomplete/noninvolutive or reciprocal-but-
+geometrically-wrong mirror maps, dropped mirrored child FaceId
+orbits, asymmetric original occupancy, zero pairing work, too-tight
+terminal net-ID cap and uncut source-connected patch work limits
+fail with NO published or partially consumable final root.
+
+**Domain boundary retained:** Nonproven additional mirrored
+unequal-density subdivision splits are still refused rather than
+forging new partner IDs; M07 will record this in the geometric
+supported/refused matrix. M06 owns self-paired invariant X=0
+source faces and seam vertices. M08 owns physical automatic
+sculpt-triggered union, M09–M11 remaining global policy and
+publication fault testing, M12 the default-off UI opt-in. This
+milestone does NOT relax any original V13/V15 geometry threshold,
+introduce global nearest-coordinate welding or enable live Merge
+geometry.
+
+
 **Objective.** Apply accepted multi-section/crossing/three-body union geometry on **both distinct reflected halves** in one coherent operation. Respect the already implemented reciprocal historical mirror map, new paired point/FaceId orbits, reverse winding, reflected triangulation and explicit removed/surviving mirror journals; never merge independent source sheets because of shared world coordinates.
 
 **Acceptance.** Positive closed-shell reflected multi-section fixture(s), including proper crossing/T contact graphs under complete V13 evidence, yield exact reciprocal reflected final coordinates and a single original-root immutable Step; undo/redo, stale CAS, checkpoint reload, and all three synchronized worker mirror maps preserve both halves. Missing/noninvolutive map, wrong source-face partner, unpaired generated vertex/face, mismatched occupancy, asymmetric removal or budget overrun return no root or partial mirror delta. Existing two-pair mirrored union stays green. Self-paired X=0 cases remain **explicitly unsupported until M06**.
