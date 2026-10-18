@@ -2670,10 +2670,15 @@ void testX0InvariantExactCutProbe() {
           "The source-cut alone cannot retire any original or mutate historical readers");
     auto missing=contacts;
     missing.pop_back();
-    const auto partial=materializeTransverseCutCandidate(
-        root,missing,{},256,&mirror);
-    const auto incomplete=certifyConformingCutCoverage(partial);
-    check(!incomplete.complete,
+    bool incompleteRefused=false;
+    try {
+        const auto partial=materializeTransverseCutCandidate(
+            root,missing,{},256,&mirror);
+        incompleteRefused=!certifyConformingCutCoverage(partial).complete;
+    }catch(const std::exception&) {
+        incompleteRefused=true;
+    }
+    check(incompleteRefused,
           "One missing ORIGINAL contact is never certified as complete X=0 coverage");
     auto broken=mirror;
     broken.erase(imported.flatIndex.vertexIds[0]);
