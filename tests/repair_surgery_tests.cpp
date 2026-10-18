@@ -1707,6 +1707,12 @@ void testCompletePostSculptOriginalContactDiscovery() {
         require(gapRoot->triangleIntersections(
                     allVertices(*gapRoot),{}).empty(),
                 "Physical M17 candidate begins with two independent closed solids and a gap");
+        const auto cleanGap=assessPostSculptOriginalContacts(
+            {gapRoot,gapRoot,{},{}},false);
+        require(cleanGap.status==SculptSourceContactStatus::Clean&&
+                cleanGap.originalCandidate==gapRoot&&
+                cleanGap.contacts.empty()&&cleanGap.refusal.empty(),
+                "A complete clean candidate returns no false finite source seams");
         for(const double strength:{.35,.55,.8,1.0,1.3}) {
             const std::array<BrushArea,1> area{{{{0,0,0},6,.95}}};
             VersionedInflateBrush moving(strength,{});
