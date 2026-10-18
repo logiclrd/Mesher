@@ -2739,6 +2739,81 @@ void testX0InvariantExactCutProbe() {
     check(ringOrbits.size()==decision.contourPlan.contours.size()&&
           selfRings>0,
           "Every c3 contour has an orbit including the real self-reflected X=0 ring");
+    // M08 must produce a real PRIVATE joined closed surface from these
+    // SAME source-certified X=0 cut children. c3 Ready alone is not union.
+    ExactCutJoinLimits joinLimits;
+    joinLimits.removal=contours;
+    const auto joined=joinCertifiedCutSections(cut,joinLimits,&mirror);
+    std::cout<<"[x0-m08] joined="<<joined.complete
+             <<" reason="<<joined.refusal
+             <<" boundaries="<<joined.checkedBoundaryEdges
+             <<" welds="<<joined.weldedPairs.size()<<'\n';
+    if(!joined.complete)
+        throw std::runtime_error("M08 original-paired X=0 weld refused: "+
+                                 joined.refusal);
+    check(joined.index&&joined.commit&&joined.commit->revision&&
+          joined.commit->revision.get()==&joined.index->revision()&&
+          joined.index!=cut.index&&joined.index!=root&&
+          joined.checkedContacts==contacts.size()&&
+          joined.checkedBoundaryEdges>0&&!joined.weldedPairs.empty(),
+          "M08 private d2 weld commits exactly one unpublished valid revision");
+    check(connectedClosedSurfaceComponents(*root)==2&&
+          connectedClosedSurfaceComponents(*cut.index)==2&&
+          connectedClosedSurfaceComponents(*joined.index)==1&&
+          allPairs(*joined.index).empty(),
+          "Real X=0 private Boolean converts two intersecting closed tetrahedra into ONE collision-free closed connected union");
+    std::set<VertexId> retired(joined.retiredVertices.begin(),
+                               joined.retiredVertices.end());
+    std::size_t keptFixed=0;
+    for(const auto& [id,mate]:partners) {
+        const auto live=joined.index->maybeVertex(id)!=nullptr;
+        const auto opposite=joined.index->maybeVertex(mate)!=nullptr;
+        check(live==opposite,
+              "Every source-certified old/new fixed or paired orbit retires together");
+        if(!live)continue;
+        const auto a=joined.index->vertex(id).position,
+                   bpos=joined.index->vertex(mate).position;
+        check(a.x==-bpos.x&&a.y==bpos.y&&a.z==bpos.z,
+              "All final live source-proven mirror vertices remain physically exact");
+        if(mate==id) {
+            check(a.x==0,"A welded self orbit has one exact X=0 stable ID");
+            ++keptFixed;
+        }
+    }
+    check(keptFixed>0&&joined.index->retiredFaceCount()>0&&
+          joined.index->retiredVertexCount()>0&&
+          root->pickingRootIdentity()==previousIdentity&&
+          root->retiredFaceCount()==0,
+          "M08 actually retires hidden children and seam duplicate IDs without publishing history");
+    for(const auto& [id,other]:mirror) {
+        (void)other;
+        if(!joined.index->maybeVertex(id))continue;
+        const auto a=root->vertex(id).position,
+                   bpos=joined.index->vertex(id).position;
+        check(a.x==bpos.x&&a.y==bpos.y&&a.z==bpos.z,
+              "Every surviving historical original corner keeps EXACT XYZ");
+    }
+    auto partialJoin=cut;
+    partialJoin.sourceContacts.pop_back();
+    const auto missingJoin=joinCertifiedCutSections(
+        partialJoin,joinLimits,&mirror);
+    check(!missingJoin.complete&&!missingJoin.index&&
+          !missingJoin.commit&&!missingJoin.weldedPairs.size(),
+          "Missing original V13 section cannot produce a private X=0 union");
+    auto impossible=mirror;
+    impossible[imported.flatIndex.vertexIds[2]]=
+        imported.flatIndex.vertexIds[0];
+    const auto forgedJoin=joinCertifiedCutSections(
+        cut,joinLimits,&impossible);
+    check(!forgedJoin.complete&&!forgedJoin.index&&!forgedJoin.commit,
+          "False original X=0 self-orbit mapping cannot weld or publish");
+    auto limitedJoin=joinLimits;
+    limitedJoin.maxSeamPairs=0;
+    const auto exhaustedJoin=joinCertifiedCutSections(
+        cut,limitedJoin,&mirror);
+    check(!exhaustedJoin.complete&&!exhaustedJoin.index&&
+          !exhaustedJoin.commit&&exhaustedJoin.retiredFaces.empty(),
+          "Exhausted X=0 seam work has no consumable retirement or final root");
     auto wrongChild=cut;
     if(!wrongChild.mirroredFaces.empty()) {
         wrongChild.mirroredFaces.front().second=
