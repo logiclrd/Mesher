@@ -958,3 +958,45 @@ No M19-only conservative refusal can count as finished M12. The physical
 exact mode and desktop merge geometry UI both retain default-off
 behavior until M15. Existing M11 sixteen positive union and M16
 coincident-ID safety coverage remain prerequisites.
+
+## October 18 M20 complete flat execution rebaseline (before M24 code)
+
+M20 as originally recorded remains unchanged and unchecked. Runtime
+refinement splitting is not source-equivalent to edge flipping, protected
+face collapse, or exact c3/d2 survivor classification. One global
+XYZ-nearest matcher cannot safely repair these gaps. The whole sequence
+is deliberately recorded *before implementation*:
+**M24 runtime split proof → M25 flip/collapse proof → M26
+source-exact cut/join child proof → M27 across-Step original patch
+composition → existing M20 final acceptance**, then M21/M22/M23
+and the original M12 integration. New IDs are flat peers, not nested
+subtasks. Existing V17-M13–M15, V18/V19 obligations are unchanged.
+
+- **M24 positive:** accepted local RegionEdit split of two adjacent
+  original source faces, including reflected and on-plane fixed mirror
+  orbits, produces verified before/after commit record and source-to-live
+  repeated split descendants, retaining stable ID and local COW roots.
+  **Refusal:** stale chain, missing/forged face/vertex proofs, incompatible
+  flip/collapse, alias from another coincident source, and one-under cap.
+- **M25 positive:** certified 2→2 flip patch area transfer and
+  directional collapse with explicit source ownership, mirrored where
+  proven. **Refusal:** mixed/incomplete source patch, protected deleted
+  fragment without M21 intention, broken or unmatched reflected pair.
+- **M26 positive:** existing certified ConformingCutCandidate::childSources
+  and full original V13/c1/c2/c3/M03/d2 final survivor decisions produce
+  exact living child source ownership including X=0 singleton orbit.
+  **Refusal:** absent child, forged original, unsupported seam, missing
+  cavity/exposed proof, accidental coincident unrelated fans.
+- **M27 positive:** bounded composition from immutable first-root
+  protected patch through multiple published Steps, seven first-original
+  samples and original local-edge units to final live descendants.
+  **Refusal:** stale capture, dropped source, incomparable topological
+  patch, budget below exact work and coordinate-only assignment.
+- **M20 completion:** all above independently green, with original
+  accepted M20 objective still intact; active intended-feature and
+  physical terminal decision remain separate M21/M22 gates.
+
+M24 itself is a **read-only provenance consumer** of actual
+runtime-emitted split records. It must not switch on Merge geometry,
+publish a private candidate, change a V13 predicate, or claim
+continuous two-sided Hausdorff fidelity.
