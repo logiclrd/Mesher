@@ -1392,6 +1392,7 @@ void testMirroredCompleteContactCoverage() {
               "Unsupported mirrored seam geometry safely refuses whole revision");
     ExactCutStepLimits stepLimits;
     stepLimits.join=joinLimits;
+    stepLimits.requireMirrors=true;
     const auto net=prepareExactCutStep(root,originalContacts,stepLimits,&mirrors);
     if(!net.complete)
         throw std::runtime_error("Mirrored original-root union Step refused: "+net.refusal);
