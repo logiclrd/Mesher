@@ -235,6 +235,28 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
     std::size_t maxDistanceTests=131072,
     std::size_t maxLivingDescendants=16384);
 
+// V17-M28: complete ORIGINAL-root physical stamp source transition.
+// All input revisions are actual privately committed Inflate/refine/
+// collapse/c1-c3-M03-d2 roots in order, but exactly ONE externally
+// certified successor belongs to the single eventual published Step.
+// This never publishes; M30 must run the M21 decision BEFORE worker CAS.
+// Only one successful M28 result is usable; any incomplete stage refuses.
+struct VersionedInflateStamp;
+struct VersionedRefineResult;
+struct VersionedCollapseResult;
+struct ExactCutStep;
+OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
+    const OriginalPatchLifetime& before,
+    const VersionedInflateStamp& inflated,
+    const VersionedRefineResult& refined,
+    const VersionedCollapseResult& collapsed,
+    const ExactCutStep* exact=nullptr,
+    const std::unordered_map<VertexId,VertexId>* sourceMirrors=nullptr,
+    std::size_t maxCumulativeFaceEvidence=16384,
+    std::size_t maxLivingDescendants=16384,
+    std::size_t maxInflateVertices=16384,
+    std::size_t maxInflateFaces=32768);
+
 // V17-M21: caller-declared, FIRST-original FaceId sculpt intent.
 // Only this explicit selection can exempt a source's geometric witness
 // deviation; no proximity/brush distance guesses at evaluation time.
