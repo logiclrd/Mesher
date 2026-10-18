@@ -1118,3 +1118,48 @@ acceptance/atomic rollback, M23 episode semantics, and M12 the
 remaining integrated fidelity acceptance. M13–M16, V18/V19, the
 source-local finite one-sided nature of the seven-witness test,
 and desktop default-disabled Merge geometry remain unchanged.
+
+## October 18, 2026 — M21 explicit original-source intentional feature scope
+
+The original M20 source-provenance integration is already accepted,
+but *source ownership* alone did not distinguish requested sculpt
+deformation from accidental destruction of nearby exposed or reversed
+cavity surfaces. M21 now requires the caller to nominate the intended
+**FIRST-original permanent FaceIds** BEFORE an edit. No geometric
+proximity matcher, candidate-distance threshold, or coincident
+triangle can infer intent. The returned private opaque declaration
+binds the authentic pre-edit M27 lifetime certificate; M27 accepted
+successors now seal the exact predecessor certificate and whether
+the stage was actually reflected. The M21 reader accepts only a
+DIRECT independently proven M24/M25/M26 successor, with the original
+first-root anchors and immutable source ownership intact. Forged
+counter resets, sibling branches and reanchoring do not inherit
+the preceding declaration.
+
+A reflected edit requires the original reciprocal permanent
+VertexId involution and source-proven opposite-winding FaceId
+partners (including legitimate X=0 singletons); intended FaceIds
+must be closed under this reflection. A reflected successor refuses
+an asymmetric intent declaration or incomplete partner proof.
+A complete M27 7×living-descendant audit is always performed and
+preflight bounded, **including the intentionally moved patch**;
+only afterward are the explicitly selected original-source witnesses
+exempted from the *geometric drift limit*. Unselected original
+Exposed/ReversedBoundary outer and cavity walls must retain
+original-edge-normalized first-original fidelity. A hidden entire
+source may retire ONLY through the independently completed c3/M03
+signed-winding Buried/Outside source proof, not by scoped intent.
+The decision reports protected samples, authenticated buried
+retirement and maximum protected original deviation without
+publishing any mesh.
+
+Cross-platform acceptance in PR #73 checks real asymmetric and
+reflected X=0 local sculpt/split, real asymmetric and mirrored c3/M03
+burial with preserved independent reversed cavities, two wholly
+coincident original closed shells with nonaliased source scope,
+and stale/forged/incomplete/one-below-budget refusals. No active
+terminal worker gate or new desktop behavior is added. M22 must
+consume this authenticated scope before original-root CAS and
+prove cumulative first-original threshold refusal; M23 and
+original M12 remain separate. The sampled one-sided fidelity
+limit and default-disabled Merge geometry option are unchanged.
