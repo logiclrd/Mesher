@@ -52,6 +52,8 @@ ExactCutStep prepareExactCutStep(
     const ExactCutStepLimits& limits,
     const std::unordered_map<VertexId,VertexId>* originalMirrors) {
     try {
+        if(limits.requireMirrors&&!originalMirrors)
+            return reject("Symmetric Step requires the original explicit mirror involution");
         if(!original||contacts.empty()||!limits.partitionCapacity||
            !limits.maxNetChangedIds||!limits.maxDirtyPartitions||
            !limits.maxFinalCollisionFaces)
