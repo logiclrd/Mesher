@@ -33,6 +33,9 @@ their ordered face vertex incidence. Each claimed split validates:
   the source's directed edge subdivision; the new midpoint is the
   source edge arithmetic midpoint, with only the established bounded
   source-proven X-only fixed-plane normalization.
+  Both original triangles must use the SAME permanent edge endpoints
+  in opposite directions; merely identical world-space midpoints do
+  not merge the provenance of independent coincident edges.
 - Per-event root continuity and exact final-result journal
   agreement for split count, changed faces and inserted vertices.
 - In symmetric mode, actual reciprocal new midpoint orbits,
