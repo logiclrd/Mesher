@@ -2155,6 +2155,38 @@ void testWhollyBuriedUncutOriginalFace() {
               m27Buried.certifiedRetiredOriginals&&
           m27BuriedAudit.total.distanceTests>0,
           "M27 original-witness comparison reports certified burial without pretending preservation");
+    // M21: the REAL c3/M03 authorized burial is not mistaken for
+    // unintended feature loss. Independently enclosed reversed-cavity
+    // originals remain protected with exact seven-witness geometry.
+    std::vector<FaceId> m21ProtectedSources{sourceBase};
+    for(unsigned i=8;i<12;++i)
+        m21ProtectedSources.push_back(imported.flatIndex.faceIds[i]);
+    const auto m21Anchors=captureOriginalSourceAnchors(
+        original,m21ProtectedSources,m21ProtectedSources.size()*7);
+    const auto m21Before=beginOriginalPatchLifetime(m21Anchors);
+    const auto m21CavityIntent=declareOriginalPatchIntent(m21Before,{});
+    const auto m21After=advanceOriginalPatchLifetime(
+        m21Before,full,nullptr,8192,8192);
+    const auto m21Safe=evaluateOriginalPatchIntent(
+        m21Before,m21After,m21CavityIntent,1e-9,28,8192);
+    check(m21Safe.intendedOriginals==0&&
+          m21Safe.certifiedRetiredOriginals==1&&
+          m21Safe.protectedOriginals==4&&
+          m21Safe.protectedWitnesses==28&&
+          m21Safe.maximumProtectedDeviationInEdges<1e-9,
+          "M21 complete signed-winding burial is exempt by c3/M03 only, all reversed cavity walls remain protected");
+    bool m21Refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        m21Before,m21After,m21CavityIntent,1e-9,27,8192);}
+    catch(const std::length_error&){m21Refused=true;}
+    check(m21Refused,"M21 complete cavity witness evaluation refuses one-under finite work");
+    auto m21Forged=m21After;
+    m21Forged.certifiedRetiredOriginals.clear();
+    m21Refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        m21Before,m21Forged,m21CavityIntent,1e-9,28,8192);}
+    catch(const std::logic_error&){m21Refused=true;}
+    check(m21Refused,"M21 missing genuine M03 retirement authority refuses instead of guessing brush intent");
     for(unsigned i=8;i<12;++i) {
         const auto cavity=imported.flatIndex.faceIds[i];
         const auto it=std::find_if(certified.survivors.living.begin(),
@@ -2851,6 +2883,28 @@ void testReflectedUncutBurialCavityOrbits() {
           m27PairedAudit.livingOriginals>0&&
           m27PairedAudit.certifiedRetiredOriginals.size()>=2,
           "M27 first-original mirrored outer/cavity witnesses remain source-local");
+    // M21: both genuinely buried reflected original bases need NO
+    // caller-invented displacement intent, while separate reversed
+    // cavity surfaces on both sides remain preserved, source-paired.
+    std::vector<FaceId> m21MirroredFeatures{baseRight,baseLeft};
+    for(const auto i:{8u,9u,10u,11u,20u,21u,22u,23u})
+        m21MirroredFeatures.push_back(imported.flatIndex.faceIds[i]);
+    const auto m21MirroredAnchors=captureOriginalSourceAnchors(
+        root,m21MirroredFeatures,m21MirroredFeatures.size()*7);
+    const auto m21MirroredBefore=beginOriginalPatchLifetime(m21MirroredAnchors);
+    const auto m21MirroredIntent=declareOriginalPatchIntent(
+        m21MirroredBefore,{},&mirrors,10);
+    const auto m21MirroredAfter=advanceOriginalPatchLifetime(
+        m21MirroredBefore,full,&mirrors,16384,16384);
+    const auto m21MirroredDecision=evaluateOriginalPatchIntent(
+        m21MirroredBefore,m21MirroredAfter,m21MirroredIntent,
+        1e-9,56,16384);
+    check(m21MirroredDecision.intendedOriginals==0&&
+          m21MirroredDecision.certifiedRetiredOriginals==2&&
+          m21MirroredDecision.protectedOriginals==8&&
+          m21MirroredDecision.protectedWitnesses==56&&
+          m21MirroredDecision.maximumProtectedDeviationInEdges<1e-9,
+          "M21 paired M03 Buried originals retire legally while both protected reversed-cavity sides survive");
     bool noMirror=false;
     try {(void)advanceCertifiedExactCutLineage(
         reflectedLineage,full,nullptr,16384,16384);}
