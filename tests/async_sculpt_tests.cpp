@@ -1453,6 +1453,154 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
     }
 }
 
+void testM28FullPrivatePhysicalStampLifetime() {
+    // Two independently complete *private* source chains; the worker's
+    // final original-root CAS is simulated only AFTER M21's decision.
+    Mesh shape={{{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                 {0,0,1},{0,0,-1}},
+                {{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                 {5,1,0},{5,2,1},{5,3,2},{5,0,3}}};
+    const auto indexed=partitionFlatMesh(shape,256);
+    const auto original=RegionTopologyIndex::build(indexed.revision);
+    const auto firstRoot=original->pickingRootIdentity();
+    const auto before=beginOriginalPatchLifetime(
+        captureOriginalSourceAnchors(original,indexed.flatIndex.faceIds,56));
+    VersionedInflateBrush inflate(.035,{});
+    VersionedLocalRefiner refine(6,{},{},256);
+    VersionedDirectionalCollapser collapse(6,{},{},256);
+    const std::array<BrushArea,1> patch{{{{1,0,0},.8,.9}}};
+    const auto firstInflate=inflate.stamp(original,patch,256);
+    require(firstInflate.moved>0,
+            "M28 first real Inflate stamp moves permanent source vertices");
+    const auto firstRefine=refine.apply(
+        firstInflate.index,firstInflate.baseline);
+    const auto firstCollapse=collapse.apply(
+        firstRefine.index,firstInflate.baseline);
+    const auto once=advanceCertifiedPhysicalStampLifetime(
+        before,firstInflate,firstRefine,firstCollapse,
+        nullptr,nullptr,128,128,6,8);
+    require(once.acceptedTransitions==1&&
+            once.anchors.original==original&&
+            once.lineage.terminal==firstCollapse.index,
+            "M28 full private Inflate/refine/collapse stages form ONE externally certified original Step");
+    const auto secondInflate=inflate.stamp(firstCollapse.index,patch,256);
+    const auto secondRefine=refine.apply(
+        secondInflate.index,secondInflate.baseline);
+    const auto secondCollapse=collapse.apply(
+        secondRefine.index,secondInflate.baseline);
+    const auto twice=advanceCertifiedPhysicalStampLifetime(
+        once,secondInflate,secondRefine,secondCollapse,
+        nullptr,nullptr,128,128,6,8);
+    require(twice.acceptedTransitions==2&&
+            twice.anchors.original==original&&
+            twice.lineage.terminal==secondCollapse.index,
+            "M28 second real private stamp retains FIRST original references and one external successor");
+    const auto firstDistance=auditOriginalPatchLifetime(once,original,56,128);
+    const auto secondDistance=auditOriginalPatchLifetime(twice,original,56,128);
+    require(secondDistance.total.maximumDistanceInEdges>
+                firstDistance.total.maximumDistanceInEdges+1e-6,
+            "M28 second stamp accumulates measured protected erosion against FIRST root");
+    const double tolerance=(firstDistance.total.maximumDistanceInEdges+
+                            secondDistance.total.maximumDistanceInEdges)*.5;
+    const auto firstIntent=declareOriginalPatchIntent(before,{});
+    const auto secondIntent=declareOriginalPatchIntent(once,{});
+    const auto accepted=evaluateOriginalPatchIntent(
+        before,once,firstIntent,tolerance,56,128);
+    require(accepted.protectedOriginals==8&&
+            accepted.totalDistanceTests==56,
+            "M28 complete first physical displacement is below explicit cumulative policy limit");
+    IndexedMeshRepository repository(original);
+    require(repository.publishIfCurrent(original,once.lineage.terminal),
+            "M28 first verified candidate is eligible for atomic CAS");
+    bool refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        once,twice,secondIntent,tolerance,56,128);}
+    catch(const std::logic_error&){refused=true;}
+    require(refused&&repository.snapshot()==once.lineage.terminal&&
+            original->pickingRootIdentity()==firstRoot,
+            "M28 second cumulative erosion refuses before private candidate can touch published root");
+    refused=false;
+    try {(void)advanceCertifiedPhysicalStampLifetime(
+        once,secondInflate,secondRefine,secondCollapse,
+        nullptr,nullptr,128,128,5,8);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"M28 complete Inflate vertex evidence bound accepts six, refuses five");
+    auto forged=secondInflate;
+    forged.baseline.movedVertices.clear();
+    refused=false;
+    try {(void)advanceCertifiedPhysicalStampLifetime(
+        once,forged,secondRefine,secondCollapse,
+        nullptr,nullptr,128,128,6,8);}
+    catch(const std::logic_error&){refused=true;}
+    require(refused,"M28 unjournaled actual stamp displacement refuses");
+
+    // Genuine source-complete c1/c2/c3/M03/d2 union following an Inflate
+    // stamp, with NO intermediate stage masquerading as a published root.
+    Mesh tetra;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})tetra.vertices.push_back({p.x+5,p.y,p.z});
+    for(unsigned body=0;body<2;++body)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})tetra.triangles.push_back({
+            4*body+t[0],4*body+t[1],4*body+t[2]});
+    const auto supplied=partitionFlatMesh(tetra,256);
+    const auto source=RegionTopologyIndex::build(supplied.revision);
+    const auto sourceBefore=beginOriginalPatchLifetime(
+        captureOriginalSourceAnchors(source,supplied.flatIndex.faceIds,56));
+    const std::array<BrushArea,1> touching{{{{4,0,0},.5,.9}}};
+    VersionedInflateBrush physicalInflate(.0005,{});
+    const auto moved=physicalInflate.stamp(source,touching,256);
+    VersionedLocalRefiner physicalRefine(8,{},{},256);
+    const auto refined=physicalRefine.apply(moved.index,moved.baseline);
+    VersionedDirectionalCollapser physicalCollapse(8,{},{},256);
+    const auto collapsed=physicalCollapse.apply(refined.index,moved.baseline);
+    const auto contacts=assessPostSculptOriginalContacts(
+        {source,collapsed.index,moved.baseline.movedVertices,
+         moved.baseline.affectedFaces},false);
+    require(contacts.ready(),
+            "M28 genuine post-physical original V13 contacts are completely certified");
+    ExactCutStepLimits quality;
+    auto& c=quality.join.removal.contours;
+    c.maximumPlanarityInRadii=4.0;
+    c.maximumSingleCapPlanarityInRadii=4.0;
+    c.maximumIsoperimetricRatio=20.0;
+    c.maximumSingleCapIsoperimetricRatio=20.0;
+    c.maximumPerimeterRatio=20.0;
+    c.maximumGapInEdges=2.5;
+    c.minimumNormalAlignment=0;
+    const auto exact=prepareExactCutStep(
+        collapsed.index,contacts.contacts,quality);
+    require(exact.complete,"M28 genuine physically generated exact terminal source join accepted");
+    const auto joined=advanceCertifiedPhysicalStampLifetime(
+        sourceBefore,moved,refined,collapsed,&exact,
+        nullptr,8192,8192,8,8);
+    require(joined.acceptedTransitions==1&&
+            joined.lineage.original==source&&
+            joined.lineage.terminal==exact.final&&
+            !joined.certifiedRetiredOriginals.empty(),
+            "M28 real Inflate/refine/collapse/c3-M03-d2 cascade exposes ONE sealed original successor");
+    const auto allow=declareOriginalPatchIntent(
+        sourceBefore,supplied.flatIndex.faceIds);
+    std::size_t comparisons=0;
+    for(const auto& [_,faces]:joined.lineage.living)
+        comparisons+=7*faces.size();
+    const auto verified=evaluateOriginalPatchIntent(
+        sourceBefore,joined,allow,0,comparisons,8192);
+    require(verified.totalDistanceTests==comparisons&&
+            verified.certifiedRetiredOriginals==
+                joined.certifiedRetiredOriginals.size(),
+            "M28 physical union composes exact source retirement with original intent");
+    refused=false;
+    try {(void)advanceCertifiedPhysicalStampLifetime(
+        sourceBefore,moved,refined,collapsed,&exact,
+        nullptr,joined.sourceFaceEvidence-1,8192,8,8);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"M28 real exact union source evidence one-under limit refuses");
+}
+
 void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     const auto config=[] {
         SculptCollisionSettings c;
@@ -1912,6 +2060,7 @@ int main() {
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
+        testM28FullPrivatePhysicalStampLifetime();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
