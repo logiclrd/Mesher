@@ -4227,3 +4227,42 @@ rather than returning an incomplete lineage. Edge flips, collapsed
 original faces and c3/d2 Boolean children require M25/M26 before
 M20 can be complete. This cannot turn on physicalExact policy or
 desktop Merge geometry and asserts no unsupported fidelity guarantee.
+
+## October 18, 2026 — V17-M25 protected flip/collapse source-transition proof
+
+M24 established permanent-ID source ownership through true local split
+commits, but intentionally refused flip/collapse. M25 extends the
+same *read-only* source-lineage acceptance for actual committed
+2→2 diagonal flips and collapsed edges without modifying sculpt
+publication, checkpoint or UI paths. Runtime journals bind one
+immutable pre/post root per accepted RegionEdit, its exact affected
+permanent FaceIds/VertexIds and, for reflection, explicit source
+vertex involutions. The independent verifier first checks M24's
+actual split chain, then checks every flip's oriented four-edge
+boundary and changed diagonal using permanent IDs, not XYZ nearest
+neighbours. It requires full mirror-reflected oriented face fans
+where symmetry was requested.
+
+A protected flip requires both faces to descend from ONE certified
+original protected FaceId, with conserved source-patch triangle area.
+A flip crossing distinct protected source owners cannot reassign
+either source's original material merely because the geometry is
+valid; it refuses without a separately proven joint-source partition
+certificate. This is a **conservative supported-domain bound**, not
+a claim that no lawful cross-original flip exists. Accepted
+unprotected physical flips preserve distant fixed-reference
+features. Collapse is stricter until M21 deliberate-intent evidence
+exists: its complete changed original source halo, midpoint/seam
+geometry, stable tombstones and reflected endpoints are certified
+from the committed roots, but any untouched-original protected
+exterior/reversed-cavity patch involved in the collapse or moved
+by its survivor refuses. A supported unprotected local/mirrored
+collapse positively advances unchanged protected features and
+retains prior reader roots. Finite evidence/living-face budgets
+refuse atomically without converting uncertainty into permission.
+
+M26 still owns V13/c1/c2/c3/d2 exact-child protected survivor
+correspondence, M27 owns across-accepted-Step source patch/fidelity
+composition and original M20/M12 remain open. M25 is no physicalExact
+or Vulkan product activation, general area-sharing solver, or
+continuous two-sided Hausdorff guarantee.
