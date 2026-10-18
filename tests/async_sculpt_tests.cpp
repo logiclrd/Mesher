@@ -1150,7 +1150,7 @@ SculptCollisionSettings m11PhysicalExactSettings() {
     result.physicalSourceLimits.maxSectionTests=128;
     return result;
 }
-void testM11SixteenAlternatingPhysicalTowerUnions() {
+double chooseM11TowerStrength() {
     // Find a single supported physical strength from the same source
     // topology, without hardcoding manually fabricated intersection pairs.
     // The chosen strength is fixed for the entire sixteen-input run.
@@ -1174,6 +1174,12 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
         throw std::runtime_error(
             "M11 no supported single symmetric clean-to-contact tower union: "+last);
 
+    return strength;
+}
+void testM11SixteenAlternatingPhysicalTowerUnions() {
+    constexpr double halfGap=.15;
+    const double strength=chooseM11TowerStrength();
+    Mesh dummy;
     const auto source=makeM11Towers(16,halfGap);
     const auto starting=checkpointM11Source(source);
     const auto original=starting.index;
