@@ -415,7 +415,8 @@ ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
-    bool includeAuthorizedUncutOriginals=false);
+    bool includeAuthorizedUncutOriginals=false,
+    const UncutFaceRetirementLimits& uncutLimits={});
 
 // V17-M02: Reconcile DIFFERENT exact source-section edge subdivisions
 // between two independently staged cut sheets. This is a private COW
@@ -439,7 +440,8 @@ struct ExactSeamRefinementResult {
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
     const ExactSeamRefinementLimits& limits={},
-    bool includeAuthorizedUncutOriginals=false);
+    bool includeAuthorizedUncutOriginals=false,
+    const UncutFaceRetirementLimits& uncutLimits={});
 
 
 // V17e2b2d3: Stage the entire subdivision + certified seam join as

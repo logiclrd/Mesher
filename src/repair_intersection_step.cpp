@@ -79,7 +79,7 @@ ExactCutStep prepareExactCutStep(
             auto refineLimits=limits.refinement;
             refineLimits.join=limits.join;
             const auto alignment=reconcileCertifiedSeamSubdivisions(
-                cut,refineLimits,true);
+                cut,refineLimits,true,limits.uncut);
             if(!alignment.complete||!alignment.refined)
                 return reject("Original-root Step exact seam refinement refused: "+
                               alignment.refusal);
@@ -87,7 +87,7 @@ ExactCutStep prepareExactCutStep(
             additionallyRefined=prepared.index!=cut.index;
         }
         const auto joined=joinCertifiedCutSections(
-            prepared,limits.join,originalMirrors,true);
+            prepared,limits.join,originalMirrors,true,limits.uncut);
         if(!joined.complete||!joined.index||!joined.commit||
            !joined.commit->revision||
            joined.commit->revision.get()!=&joined.index->revision())
