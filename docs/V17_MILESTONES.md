@@ -818,6 +818,48 @@ undo/redo and durable checkpoint. Still default off.
 
 ## V17-M11 — Repeated real sculpt-driven union Steps
 
+**Independent bounded acceptance.** Sixteen independent clean
+source regions are geometrically distributed across TWO alternate
+symmetric tetrahedral towers, eight height-separated regions each.
+All source shells start closed and V13-nonintersecting. Unlike the
+old V16 sixteen-attempt scar fixture, EVERY ONE of the sixteen
+normal-driven stamps must trigger a real supported finite source
+join in BOTH reflected halves. The M17 complete source graph
+and M18 exact physical c1/c2/c3/M03/d2 pipeline accept one
+closed and independently collision-free terminal root per input.
+Each Step retires genuine source FaceIds and produces ONE
+original-root CAS, one new undo history entry, real net
+reciprocal mirrors and old-to-final renderer dirty owners.
+Sixteen original-root pointers and their held old picker/BVH
+readers are audited; undo then redo traverses all sixteen
+roots exactly. The actual async worker repeats all sixteen
+real 4D begin/end inputs, including one clean no-op and one
+post-terminal-validator refusal rolled back before the same
+valid input is accepted. All input counts and pending queue
+segments drain; snapshots carry either one fully joined
+terminal root or an unchanged clean/refused root. A distinct
+multi-region wide physical burst exceeds a bounded V13
+section-work cap and refuses entirely, after which a later
+valid single-region input on the same worker passes. A
+durable queued checkpoint has correct final live only
+mirrored IDs/tombstones; all sixteen queued undo/redo
+operations restore exact roots.
+
+The previous V16 thirty-two same-patch cap/witness test
+and old-root tests stay intact as independent scope
+controls, not false claims of 32 physical Boolean
+joins. M18's positive physical split-plus-exact-union and
+the worker's earlier split/flip/collapse tests remain
+valid. The bounded acceptance and its exclusions are
+documented in
+[V17_M11_REPEATED_PHYSICAL_UNIONS.md](V17_M11_REPEATED_PHYSICAL_UNIONS.md).
+It does not establish unlimited welding of one already
+joined surface, arbitrary intersection arrangements or
+desktop on-mode behavior. M12 next; M13–M15 and V18/V19
+unchanged. Final GCC/Clang/MSVC warnings-as-errors,
+all 23 CPU suites, benchmarks and independent merged
+main CI remain release gates.
+
 **Objective.** Replace the explicit-only V17e2b2d3b test command as the sole demonstrated success path with a narrowly supported, genuinely collision-triggered post-Inflate/refine/collapse union decision. Preserve 4D input sampler order, independently moving sheets, local split/flip/collapse, symmetry and the unchanged default off behavior.
 
 **Acceptance.** The actual symmetric two-tower physical fixture performs repeated **successful** classified union Steps over at least the established sixteen alternating-tower inputs, not merely safe rejection; every accepted Step is complete and globally checked in the relevant changed halo. Mix no-contact and unsupported collisions; reject failing Steps recoverably, consume every input exactly once, and continue to later good stamps. Match CPU private roots, async worker snapshots and original readers; one CAS/undo/redo/dirty owner delta per accepted Step, no in-between cut root. Retain 32-repeat same-patch and old-root controls. No desktop toggle yet.

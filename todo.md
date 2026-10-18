@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M11–M15 and V17 as a whole remain open. M17 and M18 have independently passed their source-certification and first physical-transaction acceptance gates; original M11 is NEXT, retaining all sixteen repeated real symmetric union requirements.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
+**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M12–M15 and V17 as a whole remain open. M17 source certification, M18 first physical exact transaction and M11 bounded sixteen repeated symmetric physical unions have independently passed their acceptance scopes. M12 is NEXT; no desktop Merge geometry UI is enabled.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -1061,8 +1061,44 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   M11's sixteen successful alternating physical symmetric
   Steps, M12 anchored policy, M13 aggregated work, M14
   post-CAS faults or M15 desktop acceptance.
-- [ ] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**
+- [x] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**
   After M10/M16's supported-domain and coincidence gates, real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
+  **Accepted bounded M11:** SIXTEEN independent REAL normal-driven
+  original-contact Boolean joins on ONE persistent two-tower
+  symmetric source history, not sixteen refusal-only stamps,
+  explicit Merge commands or selected pre-existing contacts.
+  Initially all 64 component tetrahedra are individually closed
+  and the complete root has ZERO V13 intersections. Eight physical
+  paired contact regions per tower are spaced in height and
+  genuinely alternated. Every stamp moves one separate region;
+  M17 discovers both complete source FaceId contact halves and
+  M18 welds both into final oriented closed topology through ONE
+  captured-original CAS. Every accepted Step is individually
+  verified as globally collision-free with real FaceId retirement,
+  net reciprocal mirror identity, nonempty old-to-final renderer
+  dirty owners, one real history entry and stable prior picking
+  root. All sixteen accepted original-root revisions undo and
+  redo in order without exposing private conformance/cut/join.
+  A separate SAME persistent asynchronous 4D worker drains
+  sixteen queued physical begin/end pairs, with an interleaved
+  physically clean no-op, injected post-exact validation refusal
+  followed by a successful identical stamp, and exact FIFO
+  completed/rejected/published accounting. Its final journal
+  durably checkpoints only living reciprocal orbits, then
+  undo/redo restores every terminal root. A BROAD real symmetric
+  multi-region physical stamp exceeding a strict complete
+  V13 source-section budget refuses ALL affected changes;
+  an ordinary later single-region stamp on that SAME worker
+  still completes a positive symmetric union. The original
+  separate thirty-two same-patch repair/anchored-witness and
+  old-root controls are preserved unchanged; they are NOT
+  misreported as 32 successive Boolean joins. V16 remeshing
+  and M18 physically split-plus-union positive coverage remain
+  independently green. This proves a bounded repeated
+  source-certified geometry domain, NOT arbitrary recursive
+  merging of one already joined patch, universal N-way
+  topology or live desktop activation.
+  See docs/V17_M11_REPEATED_PHYSICAL_UNIONS.md.
 - [ ] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**
   Cumulative geometry acceptance versus the first reference, intentional deformation exceptions, cavity protection, proven episode reset and stable repeated-contact decisions.
 - [ ] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
