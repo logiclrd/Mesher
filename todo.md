@@ -1108,6 +1108,57 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 
+**M12 flat execution rebaseline — October 18, 2026.** The original M12
+objective/checkbox remains intact and OPEN. Its original-source provenance,
+intended deformation, cumulative terminal acceptance and conclusive clean
+episodes are separate independently complete gates. Sequence:
+**M19 → M20 → M21 → M22 → M23 → M12 integrated acceptance**, before
+M13–M15. All are flat peer IDs, no recursively nested tasks. Existing M13–M15
+and V18/V19 objectives remain unchanged. Refusal alone is not a positive weld.
+
+- [ ] **V17-M19 — Fixed-original ID-bound surface anchor.**
+  Capture an immutable original FaceId reference and its seven per-face
+  witnesses and original edge scale. A bounded, read-only check accepts
+  only the same living FaceId with identical original vertex incidence,
+  so coincident unrelated sheets can never be substituted. Test actual
+  geometric motion, source disappearance/rewrite, malformed source, and
+  exact vs one-below-distance-work limits. Refuse unproven remeshing until
+  M20. No physicalExact activation or publication in M19.
+- [ ] **V17-M20 — Source-certified remesh patch descendants.**
+  Preserve original FaceId ownership through split/flip/collapse,
+  rewritten/retired source faces and d2 exact-cut descendants, including
+  stable IDs, reflected orbits, X=0 self IDs and independent coincident
+  surfaces. Bounded descendant audit positives and missing/ambiguous/
+  foreign ancestry fail-closed tests. No arbitrary nearest-face matching.
+- [ ] **V17-M21 — Explicit intentional feature scope and cavity policy.**
+  A caller-designated intended brush displacement protects unaffected
+  exposed/reversed-cavity surfaces and exempts only source-proven intended
+  features. The decision honors complete signed-winding c1/c2/c3/M03
+  Buried/Outside retirements. Prove nonmirrored/mirrored legitimate
+  intent, preserved outer and cavity walls, and refusal for forged or
+  ambiguous scope, without guessing intent from candidate distances.
+- [ ] **V17-M22 — Active cumulative final physicalExact preservation.**
+  Validate terminal post-remesh/post-d2 root before original-root CAS
+  against first original-source witnesses and descendants in local
+  edge units under shared finite audit cap. Prove accepted deliberate
+  physical exact union, first permissible drift and atomic refusal of
+  cumulative second erosion with unchanged previous pointer, histories,
+  mirror map, dirty owners and FIFO; refuse one-under cap/stale root.
+- [ ] **V17-M23 — Conclusive contact-episode decisions.**
+  Three consecutive fully classified Clean checks end an episode;
+  Contact starts/extends it; uncertain, refusal and budget exhaustion
+  cannot invent Clean. Episode state informs policy/diagnostics without
+  caching weld approval or skipping each original V13/c1/c2/c3/d2/final
+  collision/anchor audit. Test real physical FIFO contact/clean/refusal/
+  recontact and preserve M11 genuine sixteen unions.
+- [ ] **V17-M12 final — Integrated original M12 acceptance.**
+  Close the unchanged original M12 checkbox only after M19–M23 pass
+  together for same-patch repeated real physical unions, deliberate
+  sculpt deformation, cumulative exposed and reversed-cavity fidelity,
+  symmetric protected outer walls, budget and recovery. No universal
+  imported-mesh or continuous two-sided Hausdorff claim; desktop M15
+  remains default disabled.
+
 - [ ] **V18 — Opt-in 'Merge geometry: Off' collision constraints.**
   On the same post-state triangle neighborhood, constrain normal
   displacement to prevent new non-adjacent crossings and maintain a
