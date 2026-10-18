@@ -357,6 +357,26 @@ No retirement, seam weld or history is part of M06.
 
 ## V17-M07 — Invariant-plane c3 mirror/contour certification
 
+**Implementation/acceptance:** Accepted on the exact independently
+certified M06 three-original-contact X=0 source fixture. The c3 mirrored
+certificate uses one canonical FaceId entry per distinct pair or real
+singleton; source-owned fixed VertexIds require a genuine prior original
+corner/fan or the exact newly inserted M06 seam journal. New paired and
+singleton orbit cardinalities are checked against ALL inserted IDs. Each
+child/source face pair is verified against the exact reversed reflected
+original face and child triangle cyclic winding. Removed FaceId orbits
+can be (a,a); contour rings can likewise have a single self-reflected
+index, but their true cyclic source-owned reflection must be unique and
+carry exactly two fixed boundary anchors. V15 cap/zipper choices still
+need matching reflection orbits without relaxed runtime thresholds.
+M06's positive fixture passes independent full c1/c2/c3 Ready, complete
+new mirror classification and old-root immutability. Tampered singleton
+FaceId mapping, omitted seam ID, contact omission, nontransverse/grazing
+original and exhausted classifier/contour work refuse. Linux GCC,
+Linux Clang and Windows MSVC 23-suite test/benchmark acceptance was green
+on code head 9b4a0a6. **No original-root Step, d2 physical weld, history
+or automatic merge is claimed; M08/M09 own those positive gates.**
+
 **Objective.** Consume M06's TRUE complete three-contact X=0
 source-conforming private cut; certify c1 occupancy, complete c2
 finite two-sheet coverage, verified singleton as well as reciprocal
