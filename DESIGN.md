@@ -3756,3 +3756,76 @@ is scheduled after M10 and before M11 and M15; previous milestone
 IDs, historical accepted work, and the broader V19 stress program
 are unchanged. This document records a PLAN, not evidence that
 arbitrary coincident imported geometry is supported.
+
+
+## V17-M10 — Complete original-contact supported/refused domain
+
+**October 18, 2026; explicit distinction between *safe refusal* and
+*positive support*.** An old V17 proof gap was to demonstrate that
+a local triangular arrangement of TWO selected noncoplanar sections
+was conforming, and then treat that as evidence a closed THREE-shell
+Boolean input could work. The historical three-tetra crossed-sections
+and interior T-junction meshes each expose **21** genuine original
+V13 source pairs. Their selected two curves cut correctly, but
+the COMPLETE twenty-one includes nineteen additional nontransverse/
+grazing original face pairs. V13 source conformance MUST refuse
+rather than skipping those nineteen or fabricating a final original-
+root Step. Added a deterministic full-21-source test for BOTH historical
+meshes and REVERSED input order, requiring no candidate expected/
+final/commit, no net VertexId/FaceId/mirror/history/dirty journal,
+unchanged source pointer identity, no tombstones, and all THREE old
+connected closed surfaces unchanged.
+
+**Other explicit source-driven boundaries.** An isolated exact
+vertex touch between two tetrahedra does NOT manufacture a finite
+two-sheet transverse section or permit identity merging. Two
+independent fully coincident, coplanar tetrahedral shells do not
+have unique source-oriented transverse seam intervals and must
+refuse. A completely nested tetra without surface intersections
+cannot use c3/M03 to silently retire an unrelated closed shell:
+the original V13 contact set is empty and an explicit Step must
+refuse. These are separate cases from M16's wider coincident-
+vertex identity acceptance, whose documentation is now merged
+as PR #61; M16 stays an independently COMPLETABLE peer after
+M10 and before M11, never a change to the old M01–M15 IDs.
+
+**V16 adversarial lineage.** The exact original-root Stage reuses
+the actual V16 two-cube volumetric, 1e-7 near-coplanar and exact
+plane-tangent examples, plus a rotated and affine-sheared three-
+cube multi-shell group. The full V13 query, never a selected
+face subset, drives `prepareExactCutStep`. For such numerically
+awkward fixtures, no accepted result is legitimate unless the
+terminal root demonstrably contains exactly ONE connected,
+closed oriented and vertex-link-manifold union with NO residual
+nonadjacent collisions. Otherwise, the only allowed result is
+a complete refusal with stage reason and NO partial net Step
+or mutation of the original picker/renderer root. This bounded
+validation does not claim every rotated or near-coplanar Boolean
+configuration is positive; broader imported pathological cases
+remain V19.
+
+**Classification matrix and work checks.** The authoritative
+case-by-case supported, refused and unsupported contract is
+[docs/V17_M10_SUPPORTED_DOMAIN.md](docs/V17_M10_SUPPORTED_DOMAIN.md).
+Its positive controls remain unchanged complete M04 generic
+TWELVE and orthogonal SIXTEEN section three-tetra unions,
+M05 off-plane reflected TWENTY-FOUR/THIRTY-TWO section unions,
+M08/M09 complete THREE-contact X=0 fixed-point two-tetra union,
+the M03 wholly buried original base with protected reversed
+cavity, and M02 genuinely unequal finite seam density reconciled
+by source evidence. Those controls are actual connected/manifold
+positive terminal unions, NOT examples of successful refusal.
+Independent hard caps on original-root net stable-ID work,
+source-section d2 trace predicates and the FINAL changed-halo
+collision audit now explicitly refuse otherwise positive geometry
+when complete verification is impossible; the original reader,
+history, net mirror and retirement journals remain unavailable.
+Original corner coordinates, c1 positive signed-winding occupancy,
+protected cavity/outer faces and existing V15 production quality
+thresholds remain mandatory.
+
+**Workflow gate.** These are bounded test fixtures and honest
+supported-domain diagnostics, not automatic physical input
+triggering. M16's source-proven equivalence gate is next after
+M10, before M11's physical alternating-tower sequence; M12–M15,
+V18 and V19 keep their established objectives.
