@@ -616,6 +616,14 @@ V13 FaceId contact, forging a child owning FaceId, or
 exhausting the seam matching budget likewise yields no
 publishable root/commit or mirror/dirty delta.
 
+**Verification gate:** The runtime pipeline is unchanged; this
+milestone adds a strict integrated positive/refusal test contract
+to the already accepted source-owned conformance, c3 occupancy,
+d2 interval weld and original-root worker. Review and merge only
+after GCC/Clang/MSVC warnings-as-errors, 23 CPU suites, and
+applicable benchmarks pass on the exact final head. A refused
+tangent or incomplete input is NOT a positive union.
+
 The independent terminal audit tests closed opposite-wound
 edge incidence, ONE connected vertex link per live stable
 ID, physical full-final collision freedom for certified
