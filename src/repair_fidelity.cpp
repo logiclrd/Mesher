@@ -373,9 +373,9 @@ SourceSplitLineage advanceCertifiedSplitLineage(
            ((a==b)!=(p.x==0)))
             throw std::logic_error("Split midpoint mirror orbit is not exact");
     }
-    if(!refined.insertedMirrorPairs.empty()&&
-       mirrorRecorded!=seenMidpoints)
-        throw std::logic_error("Reflected split provenance omits a midpoint orbit");
+    if((refined.sourceSplitsSymmetric&&mirrorRecorded!=seenMidpoints)||
+       (!refined.sourceSplitsSymmetric&&!refined.insertedMirrorPairs.empty()))
+        throw std::logic_error("Split provenance missing or invented declared mirror orbits");
     tracked.clear();
     std::size_t livingCount=0;
     for(auto& [source,faces]:updated.living) {
