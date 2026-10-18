@@ -670,19 +670,14 @@ bool VersionedSculptBrush::mergeExactContacts(
     for(const auto& [a,b]:result.removedMirrors) {
         if(!living.contains(a)||!living.contains(b)||
            living.at(a)!=b||living.at(b)!=a||
-           !removed.insert(a).second||
-           (b!=a&&!removed.insert(b).second)||
-           (a==b&&(!old->maybeVertex(a)||
-                   old->vertex(a).position.x!=0)))
+           !removed.insert(a).second||!removed.insert(b).second)
             return reject("Stale or duplicated original mirror retirement");
     }
     std::set<VertexId> inserted;
     for(const auto& [a,b]:result.addedMirrors) {
-        if(!a||!b||living.contains(a)||living.contains(b)||
-           !inserted.insert(a).second||
-           (b!=a&&!inserted.insert(b).second)||
-           !result.final->maybeVertex(a)||!result.final->maybeVertex(b)||
-           (a==b&&result.final->vertex(a).position.x!=0))
+        if(!a||!b||a==b||living.contains(a)||living.contains(b)||
+           !inserted.insert(a).second||!inserted.insert(b).second||
+           !result.final->maybeVertex(a)||!result.final->maybeVertex(b))
             return reject("New reflected vertex conflicts with current mirror maps");
     }
     if(!symmetric_&&(!result.addedMirrors.empty()||

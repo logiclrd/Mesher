@@ -308,10 +308,9 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
                     const auto p=cut.originalIndex->vertex(v).position,
                                q=cut.originalIndex->vertex(it->second).position;
                     if(q.x!=-p.x||q.y!=p.y||q.z!=p.z||
-                       ((v==it->second)!=(p.x==0))||
-                       ((v!=it->second)&&(p.x==0||q.x==0)))
+                       v==it->second||p.x==0||q.x==0)
                         throw std::logic_error(
-                            "Unchanged original mirror vertex is not an exact fixed/off-plane orbit");
+                            "Invariant/incorrect original mirror point needs M06");
                     mapped[j]=it->second;
                 }
                 std::array<VertexId,3> identity=mapped;
@@ -339,16 +338,9 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
                         "Original uncut mirror face does not reverse winding");
                     found=partnerFace;
                 }
-                if(!found)
+                if(!found||*found==face)
                     throw std::logic_error(
-                        "Uncut original face has no exact reflected source");
-                if(*found==face) {
-                    std::size_t fixed=0;
-                    for(const auto id:tri)fixed+=originalMirrors->at(id)==id;
-                    if(fixed!=1)
-                        throw std::logic_error(
-                            "Uncut invariant original face lacks a valid shared-plane fan");
-                }
+                        "Uncut original mirror face partner absent or invariant");
                 return *found;
             };
             for(const auto face:processed) {
@@ -372,11 +364,9 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
                     if(!included.contains(match))
                         throw std::logic_error(
                             "Mirrored original uncut occupancy classification differs");
-                    if(face<=match)pairsOut.emplace_back(face,match);
+                    if(face<match)pairsOut.emplace_back(face,match);
                 }
-                std::size_t represented=0;
-                for(const auto& [a,b]:pairsOut)represented+=a==b?1:2;
-                if(represented!=included.size())
+                if(pairsOut.size()*2!=included.size())
                     throw std::logic_error(
                         "Unpaired original unchanged-face classification");
             };

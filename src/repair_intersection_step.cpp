@@ -246,7 +246,7 @@ ExactCutStep prepareExactCutStep(
             std::set<std::pair<VertexId,VertexId>> visited;
             for(const auto id:composed.retiredVertices) {
                 const auto it=originalMirrors->find(id);
-                if(it==originalMirrors->end()||
+                if(it==originalMirrors->end()||it->second==id||
                    !originalMirrors->contains(it->second)||
                    originalMirrors->at(it->second)!=id)
                     return reject("Retired historical vertex lacks its exact reciprocal mirror");
@@ -273,15 +273,6 @@ ExactCutStep prepareExactCutStep(
                     composed.addedMirrors.push_back(ordered(a,b));
                 }
             }
-            for(const auto id:prepared.mirroredSeamVertices) {
-                if(!cutAddedVertices.contains(id)||original->maybeVertex(id))
-                    return reject("New symmetry-plane stable vertex is not an actual new ID");
-                if(final.maybeVertex(id)) {
-                    if(final.vertex(id).position.x!=0)
-                        return reject("Final fixed-point vertex moved off X=0");
-                    composed.addedMirrors.emplace_back(id,id);
-                }
-            }
             for(const auto& [a,b]:prepared.mirroredFaces) {
                 const bool liveA=final.maybeFace(a)!=nullptr,
                            liveB=final.maybeFace(b)!=nullptr;
@@ -294,9 +285,7 @@ ExactCutStep prepareExactCutStep(
                         std::min(a,b),std::max(a,b));
                 }
             }
-        }else if(!prepared.mirroredVertices.empty()||
-                 !prepared.mirroredSeamVertices.empty()||
-                 !prepared.mirroredFaces.empty())
+        }else if(!prepared.mirroredVertices.empty()||!prepared.mirroredFaces.empty())
             return reject("Nonmirrored Step unexpectedly allocated reflected orbits");
 
         // There is no whole-mesh traversal on this hot path. All partition
