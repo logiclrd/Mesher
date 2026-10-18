@@ -1599,6 +1599,73 @@ void assertCanonicalTripleJunctions(
              <<" triples="<<plan.junctions.size()<<'\n';
 }
 
+// Construct a deliberately unevenly subdivided, still closed private
+// cut source shell. The extra boundary midpoint is a REAL child-edge
+// vertex on only one V13 sheet, introduced without editing the original
+// solid or relying on a caller-forged section correspondence.
+ConformingCutCandidate splitSingleCertifiedBoundaryForTest(
+    const ConformingCutCandidate& cut,const CutRemovalSettings& contours) {
+    const auto decision=planExactCutRemoval(cut,contours);
+    check(decision.ready(),"Unequal-density fixture needs original c3 authorization");
+    const std::set<FaceId> deleted(decision.proposedRemoval.begin(),
+                                   decision.proposedRemoval.end());
+    std::map<FaceId,FaceId> source;
+    for(const auto& [id,origin]:cut.childSources)source[id]=origin;
+    FaceId first{},second{};
+    RegionTopologyIndex::Edge selected{};
+    for(const auto removed:deleted) {
+        const auto tri=cut.index->face(removed).vertices;
+        for(unsigned j=0;j<3&&!first;++j) {
+            const auto a=tri[j],b=tri[(j+1)%3];
+            const RegionTopologyIndex::Edge edge{
+                std::min(a,b),std::max(a,b)};
+            const auto sides=cut.index->maybeEdgeSides(edge);
+            if(!sides||sides->size()!=2)continue;
+            for(const auto& side:*sides)
+                if(!deleted.contains(side.face)&&source.contains(side.face)) {
+                    first=removed;second=side.face;selected=edge;break;
+                }
+        }
+        if(first)break;
+    }
+    check(first&&second,"Unequal-density fixture needs source-owned paired triangles");
+    const auto p=cut.index->vertex(selected.a).position,
+               q=cut.index->vertex(selected.b).position;
+    const auto middle=(p+q)*0.5;
+    std::set<VertexId> seeds;
+    for(const auto face:{first,second}) {
+        const auto tri=cut.index->face(face).vertices;
+        seeds.insert(tri.begin(),tri.end());
+    }
+    RegionEdit edit(cut.index,{seeds.begin(),seeds.end()}, {},256);
+    auto result=cut;
+    const auto id=edit.appendLocalVertex(cut.index->vertex(selected.a).owner,middle);
+    result.insertedVertices.push_back(id);
+    for(const auto face:{first,second}) {
+        const auto tri=cut.index->face(face).vertices;
+        bool found=false;
+        for(unsigned j=0;j<3;++j) {
+            if(std::min(tri[j],tri[(j+1)%3])!=selected.a||
+               std::max(tri[j],tri[(j+1)%3])!=selected.b)continue;
+            const auto from=tri[j],to=tri[(j+1)%3],
+                       opposite=tri[(j+2)%3];
+            edit.replaceFace(face,{from,id,opposite});
+            const auto child=edit.appendLocalFace(
+                cut.index->face(face).owner,{id,to,opposite});
+            result.insertedFaces.push_back(child);
+            result.childSources.emplace_back(child,source.at(face));
+            found=true;break;
+        }
+        check(found,"Unequal-density fixture must split both source-edge incident faces");
+    }
+    result.commit=edit.commit();
+    result.index=edit.updatedIndex();
+    check(result.index&&
+          result.index->pickingRootIdentity()!=cut.index->pickingRootIdentity(),
+          "Asymmetric private test cut is a new immutable picking root");
+    return result;
+}
+
 void testGenericCompleteThreeBodyTransverseGraph() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,12>{{
@@ -1662,6 +1729,50 @@ void testGenericCompleteThreeBodyTransverseGraph() {
         check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
               !joined.commit&&joined.weldedPairs.empty()),
               "Unmatched triple seam subintervals must not expose a partial joined root");
+        // Exact same ORIGINAL V13 graph but unequal PRIVATE child
+        // subdivision: one sheet is split at a source-proven half-edge
+        // position while its opposite sheet has no such vertex.
+        const auto uneven=splitSingleCertifiedBoundaryForTest(cut,contours);
+        const auto unsupported=joinCertifiedCutSections(uneven,joinLimits);
+        check(!unsupported.complete&&!unsupported.index&&!unsupported.commit,
+              "Raw mismatched physical seam density must never accidentally weld");
+        ExactSeamRefinementLimits refineLimits;
+        refineLimits.join=joinLimits;
+        const auto aligned=reconcileCertifiedSeamSubdivisions(uneven,refineLimits);
+        if(!aligned.complete)
+            throw std::runtime_error(
+                "Source-proven unequal seam density did not reconcile: "+
+                aligned.refusal);
+        check(aligned.refined&&aligned.insertedVertices>=1&&
+              aligned.insertedFaces>=2&&aligned.matchedIntervals>0,
+              "Unequal physical section chains are conservatively split in both incident fans");
+        const auto coverage2=certifyConformingCutCoverage(*aligned.refined);
+        const auto removal2=planExactCutRemoval(*aligned.refined,contours);
+        check(coverage2.complete&&removal2.ready(),
+              "Every new source-child FaceId is independently c1/c2/c3 certified");
+        const auto accepted=joinCertifiedCutSections(*aligned.refined,joinLimits);
+        check(accepted.complete&&accepted.index&&
+              connectedClosedSurfaceComponents(*accepted.index)==1,
+              "Reconciled provenance-only section endpoints produce an exact 3-to-1 union");
+        auto zero=refineLimits;
+        zero.maxNewVertices=0;
+        const auto exhausted=reconcileCertifiedSeamSubdivisions(uneven,zero);
+        check(!exhausted.complete&&!exhausted.refined,
+              "Refinement vertex budget failure cannot return a partial private root");
+        auto forged=uneven;
+        forged.sourceContacts.pop_back();
+        forged.sectionFirst.pop_back();
+        forged.sectionSecond.pop_back();
+        const auto incomplete=reconcileCertifiedSeamSubdivisions(forged,refineLimits);
+        check(!incomplete.complete&&!incomplete.refined,
+              "Incomplete original source-contact graphs cannot authorize seam refinement");
+        auto unpaired=uneven;
+        unpaired.mirroredFaces.emplace_back(cut.childSources.front().first,
+                                           cut.childSources.back().first);
+        const auto mirrorRefusal=
+            reconcileCertifiedSeamSubdivisions(unpaired,refineLimits);
+        check(!mirrorRefusal.complete&&!mirrorRefusal.refined,
+              "Mirrored new seam split orbits remain fail-closed until M05");
         std::cout<<"[generic-triple] cut=1 coverage="<<coverage.complete
                  <<" coverage-refusal="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
