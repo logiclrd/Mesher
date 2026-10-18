@@ -169,6 +169,66 @@ SourceExactCutLineage advanceCertifiedExactCutLineage(
     std::size_t maxFaceEvidence=16384,
     std::size_t maxLivingDescendants=16384);
 
+// V17-M27: a PRIVATE, read-only lifetime source patch view. The
+// first ORIGINAL anchors never advance: only current terminal and
+// source-owned living FaceIds change, after M24/M25/M26 verification.
+// Completely buried/outside source retirement must be explicitly
+// certified by M26, never inferred from zero geometric proximity.
+// No policy threshold / CAS / UI authorization is implemented here.
+struct OriginalPatchLifetime {
+    OriginalSourceSurfaceAnchors anchors;
+    SourceSplitLineage lineage;
+    std::vector<FaceId> certifiedRetiredOriginals;
+    std::size_t acceptedTransitions{};
+    std::size_t sourceFaceEvidence{}; // cumulative finite verification work
+};
+struct OriginalPatchWitness {
+    FaceId original{};
+    SurfaceWitnessAudit sampled;
+    std::size_t livingDescendants{};
+};
+struct OriginalPatchLifetimeAudit {
+    SurfaceWitnessAudit total;
+    std::vector<OriginalPatchWitness> perOriginal;
+    std::vector<FaceId> certifiedRetiredOriginals;
+    std::size_t livingOriginals{};
+    std::size_t originalSources{};
+};
+OriginalPatchLifetime beginOriginalPatchLifetime(
+    const OriginalSourceSurfaceAnchors& anchors);
+// maxCumulativeFaceEvidence is a SHARED cap across all accepted stages,
+// not a fresh per-Step cap. maxLivingDescendants bounds one complete
+// candidate; exact equality accepts, one below refuses. No mutation on
+// failure, including a stage whose COW root was accepted independently.
+OriginalPatchLifetime advanceOriginalPatchLifetime(
+    const OriginalPatchLifetime& previous,
+    const VersionedRefineResult& refined,
+    std::size_t maxCumulativeFaceEvidence=16384,
+    std::size_t maxLivingDescendants=16384);
+OriginalPatchLifetime advanceOriginalPatchLifetime(
+    const OriginalPatchLifetime& previous,
+    const VersionedCollapseResult& collapsed,
+    std::size_t maxCumulativeFaceEvidence=16384,
+    std::size_t maxLivingDescendants=16384);
+OriginalPatchLifetime advanceOriginalPatchLifetime(
+    const OriginalPatchLifetime& previous,
+    const ExactCutStep& step,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
+    std::size_t maxCumulativeFaceEvidence=16384,
+    std::size_t maxLivingDescendants=16384);
+// Exactly SEVEN immutable first-original witnesses per surviving
+// first-original source, each compared ONLY against its certified live
+// permanent-ID descendants (not other coincident surfaces). Distances
+// are normalized per ORIGINAL shortest edge. Retired, fully certified
+// Buried/Outside sources are reported separately, never silently
+// discarded or counted as geometry-preserved. This is finite ONE-SIDED
+// sampled evidence, NOT a continuous two-sided Hausdorff bound.
+OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
+    const OriginalPatchLifetime& lifetime,
+    const std::shared_ptr<const RegionTopologyIndex>& expectedOriginal,
+    std::size_t maxDistanceTests=131072,
+    std::size_t maxLivingDescendants=16384);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
