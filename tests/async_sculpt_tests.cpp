@@ -910,6 +910,90 @@ void testWorkerMirroredThreeBodyOneHistoryStep() {
     std::filesystem::remove(filename,ec);
 }
 
+void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
+    // Unlike the already intersecting M16 acceptance source, this
+    // stimulus begins with TWO disjoint closed solids. The only way to
+    // see source contacts is to apply a real normal-driven Inflate stamp.
+    auto opts=SculptCollisionSettings{};
+    opts.physicalExact=true;
+    auto& quality=opts.physicalExactLimits.join.removal.contours;
+    quality.maximumPlanarityInRadii=4.0;
+    quality.maximumSingleCapPlanarityInRadii=4.0;
+    quality.maximumIsoperimetricRatio=20.0;
+    quality.maximumSingleCapIsoperimetricRatio=20.0;
+    quality.maximumPerimeterRatio=20.0;
+    quality.maximumGapInEdges=2.5;
+    quality.minimumNormalAlignment=0;
+    bool found=false;
+    std::string last;
+    for(const double halfGap:{.15,.25,.35}) {
+        if(found)break;
+        Mesh gap;
+        const auto tetra=[&](Vec3 center) {
+            const auto offset=static_cast<std::uint32_t>(gap.vertices.size());
+            for(const auto p:std::array<Vec3,4>{{
+                {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}}})
+                gap.vertices.push_back(center+p);
+            for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{0,2,3},{0,3,1},{1,3,2}}})
+                gap.triangles.push_back({
+                    offset+t[0],offset+t[1],offset+t[2]});
+        };
+        tetra({-1-halfGap,0,0});
+        tetra({1+halfGap,.19,-.11});
+        const auto imported=partitionFlatMesh(gap,256);
+        const auto root=RegionTopologyIndex::build(imported.revision);
+        std::vector<VertexId> ids;
+        root->revision().forEachPartition([&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices)ids.push_back(vertex.id);
+        });
+        require(root->triangleIntersections(ids,{}).empty(),
+                "Before M18 physical stimulus the source shells are disjoint");
+        for(const double strength:{.35,.55,.8,1.0,1.3}) {
+            const std::array<BrushArea,1> areas{{{{0,0,0},6,.95}}};
+            VersionedInflateBrush trial(strength,{});
+            const auto physicallyMoved=trial.stamp(root,areas,256);
+            const auto observed=assessPostSculptOriginalContacts(
+                {root,physicallyMoved.index,
+                 physicallyMoved.baseline.movedVertices,
+                 physicallyMoved.baseline.affectedFaces},false);
+            if(!observed.ready()) {
+                last=observed.refusal.empty()?
+                    "no finite original source pair":observed.refusal;
+                continue;
+            }
+            const auto valid=prepareExactCutStep(
+                observed.originalCandidate,observed.contacts,
+                opts.physicalExactLimits);
+            if(!valid.complete) {
+                last=valid.refusal;
+                continue;
+            }
+            VersionedSculptBrush real(gap,strength,{},{},{},false,256,{},opts);
+            const auto original=real.snapshot();
+            Mesh dummy;
+            real.stamp(dummy,areas);
+            if(real.completedUnions()!=1) {
+                last=real.lastRejection();
+                continue;
+            }
+            require(real.snapshot()!=original&&
+                    real.publishedRevisions()==1&&
+                    real.historyStatistics().undoDepth==1&&
+                    real.checkpoint().index==real.snapshot()&&
+                    real.undo()&&real.snapshot()==original,
+                    "Clean-to-contact TRUE physical union publishes one original-root CAS/history");
+            found=true;
+            std::cout<<"[m18] genuinely induced source-exact contact half-gap="
+                     <<halfGap<<" strength="<<strength
+                     <<" pairCount="<<observed.contacts.size()<<'\n';
+            break;
+        }
+    }
+    if(!found)
+        throw std::runtime_error(
+            "No complete clean-to-contact candidate proved an EXACT Boolean: "+last);
+}
 void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     const auto config=[] {
         SculptCollisionSettings c;
@@ -1290,6 +1374,7 @@ int main() {
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
+        testPhysicallyCreatedContactCanPassExactSourcePlanner();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
