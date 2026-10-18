@@ -969,7 +969,27 @@ void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
             accepted->index->retiredFaceCount()>0,
             "Renderer obtains final X=0 joined root only, preserving old picking readers");
     const auto final=accepted->index;
-    const auto mirrors=worker.brushCheckpoint().mirrorPairs;
+    std::size_t saved=0;
+    const auto checkpoint=[&](const char* stage) {
+        const auto file=std::filesystem::temp_directory_path()/
+            (std::string("mesher_v17_m09_worker_")+stage+".mshr");
+        worker.saveCheckpoint(file);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        ++saved;
+        while(worker.checkpointStatistics().completed<saved&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==saved,
+                "Queued X=0 mirror snapshot finished its durable write");
+        auto loaded=readCheckpoint(file);
+        std::filesystem::remove(file);
+        return loaded;
+    };
+    const auto after=checkpoint("accepted");
+    require(after.index->retiredFaceIds()==final->retiredFaceIds(),
+            "Final worker checkpoint stores ONLY completed X=0 terminal root");
+    const auto mirrors=after.mirrorPairs;
     std::size_t fixed=0,paired=0;
     for(const auto& [a,b]:mirrors) {
         require(final->maybeVertex(a)&&final->maybeVertex(b),
@@ -998,7 +1018,7 @@ void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     const auto undone=worker.takeSnapshot();
     require(undone&&undone->index==root&&
-            worker.brushCheckpoint().mirrorPairs==originalPairs,
+            checkpoint("undone").mirrorPairs==originalPairs,
             "One worker undo restores SAME original root and all 8 historical mirror IDs");
     worker.redo();
     while(worker.status().history.redoDepth!=0&&
@@ -1006,29 +1026,13 @@ void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     const auto redone=worker.takeSnapshot();
     require(redone&&redone->index==final&&
-            worker.brushCheckpoint().mirrorPairs==mirrors,
+            checkpoint("redone").mirrorPairs==mirrors,
             "One worker redo restores exact terminal root and singleton/pair mirror map");
-    const auto filename=std::filesystem::temp_directory_path()/
-        "mesher-worker-v17-m09-x0-invariant-join.mshr";
-    try {
-        worker.saveCheckpoint(filename);
-        const auto stop=std::chrono::steady_clock::now()+
-                         std::chrono::seconds(20);
-        while(worker.checkpointStatistics().completed==0&&
-              std::chrono::steady_clock::now()<stop)
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        require(worker.checkpointStatistics().completed==1,
-                "X=0 terminal original-root Step is durably checkpointed");
-        const auto loaded=readCheckpoint(filename);
-        require(loaded.index&&loaded.mirrorPairs==mirrors&&
-                loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
-                loaded.index->retiredVertexIds()==final->retiredVertexIds(),
-                "X=0 recovered file preserves fixed/paired live mirrors and tombstones");
-    }catch(...){
-        std::error_code ec;std::filesystem::remove(filename,ec);
-        throw;
-    }
-    std::error_code ec;std::filesystem::remove(filename,ec);
+    const auto loaded=checkpoint("terminal");
+    require(loaded.index&&loaded.mirrorPairs==mirrors&&
+            loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
+            loaded.index->retiredVertexIds()==final->retiredVertexIds(),
+            "X=0 durable reload has exact live fixed/paired orbits and tombstones");
 }
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
