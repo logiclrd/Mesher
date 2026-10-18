@@ -211,7 +211,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     for(std::size_t i=0;i<plan.points.size();++i)
         if(plan.points[i].existingVertex)assigned[i]=*plan.points[i].existingVertex;
     for(std::size_t i=0;i<plan.points.size();++i) {
-        if(plan.points[i].existingVertex||i>partner[i])continue;
+        if(plan.points[i].existingVertex||i>=partner[i])continue;
         const auto j=partner[i];
         if(plan.points[i].position.x==0||plan.points[j].position.x==0) {
             const auto describe=[&](std::size_t id) {
