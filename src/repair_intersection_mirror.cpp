@@ -313,8 +313,14 @@ std::string pairMirroredMultiSectionPlan(
             if(match)return "Ambiguous reflected contact-curve orbit";
             match=j;
         }
-        if(!match||!matchedSegments.insert(*match).second)
-            return "Missing or duplicate reflected contact-curve orbit";
+        if(!match)
+            return "No reflected section for original contact "+std::to_string(i)+
+                " reflected source pair "+std::to_string(first)+"/"+
+                std::to_string(second);
+        if(!matchedSegments.insert(*match).second)
+            return "Duplicate reflected section destination "+
+                std::to_string(*match)+" from original contact "+
+                std::to_string(i);
     }
 
     // The same original V13 sections and the source-proven X=0 axis
