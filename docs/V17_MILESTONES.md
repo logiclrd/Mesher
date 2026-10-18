@@ -728,6 +728,72 @@ remain unmodified.
 
 ## V17-M18 — First fully physical exact Boolean original-root Step
 
+**M18 bounded implementation and acceptance (October 18, 2026).**
+A separately opt-in, default-disabled **physicalExact**
+collision policy in `VersionedSculptBrush::stamp` consumes
+M17's complete ORIGINAL-V13 source-contact certificate on
+the actual unpublished final post-remesh root. It never
+uses V16 approximate scar surgery. For certified finite
+contact it stages M09 exact original-source cut/c1/c2/c3/
+M03/d2 before the existing stamp's SINGLE captured pre-
+stamp original-root CAS. Both the physical moved/remeshed
+root and the source-conforming cut and terminal join
+remain PRIVATE until the one final closed manifold is
+validated. Dirty owners are determined old-to-final,
+including every moved, locally inserted/collapsed and
+Boolean-added/retired/rewritten ID; a single history
+transition receives all copied COW payload costs and
+net live counts. The three mirror controllers stage the
+post-refinement and post-Boolean state before CAS.
+Only the difference between old historical Inflate
+orbits and final live reciprocal/fixed orbits is
+checkpointed, so born-and-retired intermediate IDs do
+not leak into undo; unchanged original IDs retain
+their same mirror partners. Refusal rolls back the
+candidate local edit and all staged map changes,
+history and renderer dirty state. Later physical
+input remains admissible. Post-CAS unexpected faults
+still belong to M14's strict atomicity program.
+
+**Actual positive tests:** a physically deformed,
+supported complete 3-contact off-X=0 two-tetra
+source welds as ONE real exact 2→1 union; a different
+pair of initially DISJOINT closed tetrahedra is
+expanded by a genuine normal-driven stamp into a
+source-V13 finite contact and a successful exact
+original-root Boolean (not a nominal refusal).
+A further independently tested post-Inflate local
+edge SPLIT changes FaceIds and yields a supported
+source-certified physical terminal union; alternative
+ambiguous splits refuse with no history/dirty
+leak. The complete reflected two-area stamp produces
+real reciprocal mirrored unions, net map rollback
+for an injected terminal-validator refusal and a
+successful SECOND physical stamp using the SAME
+brush, with undo/redo and durable checkpoint.
+The async worker exercises one physical 4D queued
+stamp end-to-end, one final renderer mailbox update,
+one history undo/redo and durable checkpoint restore.
+Old immutable picking/BVH roots and stable IDs remain
+unchanged; strict full source and quality budget
+refusals never publish intermediate revisions.
+The bounded source/test acceptance and exclusions
+are [V17_M18_PHYSICAL_EXACT_STEP.md](V17_M18_PHYSICAL_EXACT_STEP.md).
+GCC, Clang and MSVC code-head compilation warnings-
+as-errors, 23 CPU suites and benchmarks passed at
+f8e5a20 (Actions 39153631172). Subsequent test
+strengthening/docs still require exact-head CI.
+
+**Not M18:** No automatic/desktop activation; the
+policy defaults OFF and is mutually exclusive with
+the old V16 approximate surgery setting. Arbitrary
+tangent/coplanar/N-way, imported pathological
+and multi-stamp interaction geometry remains
+unsupported. Original M11's 16 repeated successful
+alternating-tower physical unions and FIFO queue
+recovery remain COMPLETELY OPEN and NEXT. M12–M15
+and V18/V19 preserve their objectives.
+
 **Why independently complete:** A real complete V13 candidate
 contact graph is not yet a safe sculpt commit. The exact join
 recomputes c1/c2/c3 and closure on the candidate, while the

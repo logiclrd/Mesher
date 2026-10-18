@@ -479,6 +479,9 @@ VersionedSculptBrush::VersionedSculptBrush(
      validator_(std::move(validator)),collision_(std::move(collision)),
      symmetric_(symmetric),contact_(collision_.quietChecksToEndContact) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
+    if(collision_.enabled&&collision_.physicalExact)
+        throw std::invalid_argument(
+            "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
 }
@@ -509,6 +512,9 @@ VersionedSculptBrush::VersionedSculptBrush(
      symmetric_(!recovered.mirrorPairs.empty()),
      contact_(collision_.quietChecksToEndContact) {
     if(!partitionCapacity_)throw std::invalid_argument("Invalid partition capacity");
+    if(collision_.enabled&&collision_.physicalExact)
+        throw std::invalid_argument(
+            "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
 }
@@ -548,6 +554,115 @@ void VersionedSculptBrush::stamp(
         collapsed.removedFaces.begin(),collapsed.removedFaces.end());
     changedFaces.insert(changedFaces.end(),
         collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    // M18: a physical stamp may choose the STRICT exact Boolean path.
+    // Both the physical displacement/remesh and the certified cut/join
+    // remain private. A single original-root CAS occurs only below.
+    std::optional<ExactCutStep> physicalExactUnion;
+    std::vector<MirrorPair> physicalNetAdded,physicalNetRemoved;
+    std::string physicalRefusal;
+    if(collision_.physicalExact&&updated!=old) {
+        ++collisionChecked_;
+        try {
+            const auto discovered=assessPostSculptOriginalContacts(
+                {old,updated,changedVertices,changedFaces},symmetric_,
+                collision_.physicalSourceLimits,
+                symmetric_?&collapser_.mirrors():nullptr);
+            if(discovered.status==SculptSourceContactStatus::Refused) {
+                physicalRefusal="Physical exact source refusal: "+discovered.refusal;
+                contact_.observe(std::nullopt);
+            }else if(discovered.status==SculptSourceContactStatus::Clean) {
+                contact_.observe(false);
+            }else {
+                contact_.observe(true);
+                auto limits=collision_.physicalExactLimits;
+                limits.requireMirrors=symmetric_;
+                auto exact=prepareExactCutStep(
+                    discovered.originalCandidate,discovered.contacts,limits,
+                    symmetric_?&collapser_.mirrors():nullptr);
+                if(!exact.complete||!exact.final||
+                   exact.expected!=updated||!exact.commit.revision||
+                   exact.commit.revision.get()!=&exact.final->revision()) {
+                    physicalRefusal="Physical exact Boolean refused: "+exact.refusal;
+                }else {
+                    // The candidate may already contain new/refined or
+                    // collapsed historical mirror IDs. Bring BOTH staging
+                    // maps into candidate shape BEFORE applying the exact
+                    // cut/join's additional orbits.
+                    if(symmetric_) {
+                        for(const auto& [a,b]:collapsed.removedMirrorPairs)
+                            refiner_.removeMirrorPair(a,b);
+                        for(const auto& [a,b]:exact.removedMirrors) {
+                            refiner_.removeMirrorPair(a,b);
+                            collapser_.removeMirrorPair(a,b);
+                        }
+                        for(const auto& [a,b]:exact.addedMirrors) {
+                            refiner_.addMirrorPair(a,b);
+                            collapser_.addMirrorPair(a,b);
+                        }
+                        const auto& now=collapser_.mirrors();
+                        const auto& was=inflate_.mirrors();
+                        if(now!=refiner_.mirrors()||
+                           now.size()!=elementCount(*exact.final,true))
+                            throw std::logic_error(
+                                "Physical final mirrored source maps are incomplete or disagree");
+                        // Verify every live orbit and its exact reflected
+                        // XYZ, including a genuine (id,id) fixed point.
+                        for(const auto& [a,b]:now) {
+                            if(!now.contains(b)||now.at(b)!=a||
+                               !exact.final->maybeVertex(a)||
+                               !exact.final->maybeVertex(b))
+                                throw std::logic_error(
+                                    "Physical final mirror orbit is missing a live source ID");
+                            const auto p=exact.final->vertex(a).position,
+                                       q=exact.final->vertex(b).position;
+                            if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+                               ((a==b)!=(p.x==0)))
+                                throw std::logic_error(
+                                    "Physical final mirror source XYZ is not exactly reflected");
+                            // Historical original live IDs cannot silently
+                            // switch correspondences in this transaction.
+                            if(was.contains(a)&&was.at(a)!=b)
+                                throw std::logic_error(
+                                    "Physical union changed historical mirror correspondence");
+                            if(a<=b&&!was.contains(a))
+                                physicalNetAdded.emplace_back(a,b);
+                        }
+                        for(const auto& [a,b]:was) {
+                            if(a>b)continue;
+                            const bool liveA=exact.final->maybeVertex(a)!=nullptr,
+                                       liveB=exact.final->maybeVertex(b)!=nullptr;
+                            if(liveA!=liveB||
+                               (liveA&&(!now.contains(a)||now.at(a)!=b)))
+                                throw std::logic_error(
+                                    "Physical union retired only part of a historical mirror orbit");
+                            if(!liveA)physicalNetRemoved.emplace_back(a,b);
+                        }
+                        // All old live IDs must be present; all removed
+                        // historical IDs have one net retirement journal,
+                        // even if the proposed remesh already removed them.
+                        std::sort(physicalNetAdded.begin(),physicalNetAdded.end());
+                        std::sort(physicalNetRemoved.begin(),physicalNetRemoved.end());
+                    }
+                    changedVertices.insert(changedVertices.end(),
+                        exact.addedVertices.begin(),exact.addedVertices.end());
+                    changedVertices.insert(changedVertices.end(),
+                        exact.retiredVertices.begin(),exact.retiredVertices.end());
+                    changedFaces.insert(changedFaces.end(),
+                        exact.addedFaces.begin(),exact.addedFaces.end());
+                    changedFaces.insert(changedFaces.end(),
+                        exact.rewrittenFaces.begin(),exact.rewrittenFaces.end());
+                    changedFaces.insert(changedFaces.end(),
+                        exact.retiredFaces.begin(),exact.retiredFaces.end());
+                    updated=exact.final;
+                    physicalExactUnion=std::move(exact);
+                }
+            }
+        }catch(const std::length_error& error) {
+            physicalRefusal=std::string("Physical exact work budget: ")+error.what();
+        }catch(const std::logic_error& error) {
+            physicalRefusal=std::string("Physical exact source/map refusal: ")+error.what();
+        }
+    }
     // A selected collision policy first classifies the FULL post-remesh
     // proposal. When supported, it may supply a privately repaired root.
     // The V17c validator below observes that final root and expanded dirty
@@ -617,7 +732,8 @@ void VersionedSculptBrush::stamp(
     // The decision examines the complete unpublished post-refine/collapse
     // Step and its exact dirty face/vertex set. Classification budget and
     // geometric refusals raised by this opt-in callback are recoverable.
-    std::string rejection=std::move(collisionRefusal);
+    std::string rejection=physicalRefusal.empty()?
+        std::move(collisionRefusal):std::move(physicalRefusal);
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -635,6 +751,8 @@ void VersionedSculptBrush::stamp(
         lastDirtyPartitions_.clear();
         lastRejection_=std::move(rejection);
         ++rejected_;
+        if(collision_.physicalExact&&!physicalExactUnion&&updated!=old)
+            ++rejectedUnions_;
         details_={};
         details_.areas.assign(areas.begin(),areas.end());
         details_.influenced=inflated.candidates;
@@ -656,6 +774,15 @@ void VersionedSculptBrush::stamp(
             throw std::logic_error("Single writer lost indexed root");
         ++publishedRevisions_;
     }
+    // M18 publishes ONLY the final physical-to-exact mirror net. IDs
+    // inserted and then retired inside this ONE private Step never reach
+    // Inflate, persistent history or durable checkpoints.
+    if(physicalExactUnion) {
+        for(const auto& [a,b]:physicalNetRemoved)
+            inflate_.removeMirrorPair(a,b);
+        for(const auto& [a,b]:physicalNetAdded)
+            inflate_.addMirrorPair(a,b);
+    }else {
     // Mirror-ID changes are cheap local deltas, not a global map copy.
     for(const auto& pair:refined.insertedMirrorPairs) {
         inflate_.addMirrorPair(pair.first,pair.second);
@@ -669,10 +796,28 @@ void VersionedSculptBrush::stamp(
         inflate_.removeMirrorPair(a,b);
     for(const auto& [a,b]:repairedAddedMirrors)
         inflate_.addMirrorPair(a,b);
+    }
     vertices_+=refined.insertedVertices.size();
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
     faces_-=collapsed.removedFaces.size();
+    if(physicalExactUnion) {
+        const auto adjust=[](std::size_t count,std::ptrdiff_t delta) {
+            if(delta<0) {
+                const auto n=static_cast<std::size_t>(-(delta+1))+1;
+                if(count<n)throw std::logic_error("Physical union live ID count underflow");
+                return count-n;
+            }
+            if(static_cast<std::size_t>(delta)>
+               std::numeric_limits<std::size_t>::max()-count)
+                throw std::logic_error("Physical union live ID count overflow");
+            return count+static_cast<std::size_t>(delta);
+        };
+        vertices_=adjust(vertices_,physicalExactUnion->vertexCountDelta);
+        faces_=adjust(faces_,physicalExactUnion->faceCountDelta);
+        ++collisionRepaired_;
+        ++completedUnions_;
+    }
     if(collisionRepair) {
         vertices_+=collisionRepair->insertedVertices.size();
         vertices_-=collisionRepair->retiredVertices.size();
@@ -687,6 +832,11 @@ void VersionedSculptBrush::stamp(
                             collapsed.copiedDirectoryNodes;
     clonedPartitionBytes_+=inflated.commitStatistics.clonedPartitionBytes+
                            refined.clonedPartitionBytes+collapsed.clonedPartitionBytes;
+    if(physicalExactUnion) {
+        modifiedPartitions_+=physicalExactUnion->commit.statistics.modifiedPartitions;
+        copiedDirectoryNodes_+=physicalExactUnion->commit.statistics.copiedDirectoryNodes;
+        clonedPartitionBytes_+=physicalExactUnion->copiedPayloadBytes;
+    }
     if(collisionRepair) {
         modifiedPartitions_+=collisionRepair->commit.statistics.modifiedPartitions;
         copiedDirectoryNodes_+=collisionRepair->commit.statistics.copiedDirectoryNodes;
@@ -695,16 +845,21 @@ void VersionedSculptBrush::stamp(
     // One COW root per actual geometry-changing Step, within both a
     // fixed entry count and copied-payload budget. Mirror changes are stored
     // only as incremental transitions, never a full per-stamp map copy.
-    auto addedMirrors=refined.insertedMirrorPairs;
-    auto removedMirrors=collapsed.removedMirrorPairs;
+    auto addedMirrors=physicalExactUnion?
+        physicalNetAdded:refined.insertedMirrorPairs;
+    auto removedMirrors=physicalExactUnion?
+        physicalNetRemoved:collapsed.removedMirrorPairs;
+    if(!physicalExactUnion) {
     addedMirrors.insert(addedMirrors.end(),repairedAddedMirrors.begin(),
                         repairedAddedMirrors.end());
     removedMirrors.insert(removedMirrors.end(),repairedRemovedMirrors.begin(),
                           repairedRemovedMirrors.end());
+    }
     history_.append(updated,lastDirtyPartitions_,
                     std::move(addedMirrors),std::move(removedMirrors),
                     inflated.commitStatistics.clonedPartitionBytes+
                     refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
+                    (physicalExactUnion?physicalExactUnion->copiedPayloadBytes:0)+
                     (collisionRepair?
                      collisionRepair->commit.statistics.clonedPartitionBytes:0),
                     vertices_,faces_);
@@ -720,6 +875,7 @@ void VersionedSculptBrush::stamp(
     timings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
               seconds(afterRefine,afterCollapse),0};
     ++completed_;
+    lastRejection_.clear();
     collapser_.commitStep();
     refiner_.commitStep();
     }catch(...) {

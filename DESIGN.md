@@ -3996,3 +3996,109 @@ continuation. No desktop Merge geometry toggle or
 new runtime welding shortcut is enabled in M17.
 The bounded behavior and limitations are recorded in
 docs/V17_M17_PHYSICAL_CONTACT_DISCOVERY.md.
+
+
+## V17-M18 — One atomic physical sculpt source-certified Boolean Step
+
+**October 18, 2026; independent M18 boundary.** The already proven
+M17 source-contact evaluator is now consumed INSIDE a privately
+prepared actual Inflate/refine/collapse brush Step, rather than
+only as a read-only offline query or the separate explicit
+`mergeExactContacts` worker command. The specific opt-in flag
+`SculptCollisionSettings.physicalExact` defaults to FALSE;
+it is mutually exclusive with V16 `collision.enabled`, whose
+approximate contour repair is NOT a substitute for an exact V17
+Boolean. The live desktop UI still constructs the unchanged
+default policy and does not expose or enable Merge geometry.
+
+A physical Step begins with the immutable published ORIGINAL
+index, applies the actual normal-driven stamp and enabled
+local splitting/flipping/collapse, and classifies the complete
+post-remesh CANDIDATE source root with M17's finite V13
+original FaceId certificate. Clean input continues as an
+ordinary physical stamp; every unsupported, ambiguous,
+nontransverse, mirrored-source-broken or over-budget query
+returns a refused entire Step, without committing the
+remeshing candidate or partial changes. For fully certified
+transverse candidates, the original-contact graph and its
+own exact candidate-root pointer are passed unchanged to
+`prepareExactCutStep`. That API privately implements
+c1/c2/c3/M03 occupancy, cavity-safe retirement, source
+subdivision and d2 finite interval welding, independently
+proves the final closed oriented manifold, vertex links
+and residual collision halo, and returns a final immutable
+root. NONE of the initial Inflate, local remesh, cut or
+preclosure revisions are published separately.
+
+The original-root transaction is the BRUSH'S captured
+pre-stamp revision, not the Boolean planner's private
+post-remesh candidate `expected`. The exact join's
+candidate-to-terminal added, rewritten and retired source
+IDs extend the pre-union physical dirty set; renderer owner
+changes are computed once between initial and terminal
+immutable revisions. The speculative Refiner/Collapser
+mirror journals incorporate new refined IDs, collapsed
+historical IDs, the exact source-orbit retirements and
+real cut-generated additions before committing. Comparing
+the historical Inflate map to final live speculative
+orbits produces the ONE NET original-root history: every
+unchanged old VertexId retains the identical original
+mirror partner, all final IDs form complete exact reflected
+reciprocal or X=0 self orbits, and newly allocated IDs
+that are themselves retired before final publication
+never appear in undo/checkpoint as live additions.
+No global coordinate-equivalence welding or full mirror
+map copy is used to select representative IDs.
+
+The existing stamp's single `publishIfCurrent(old,final)`
+publishes only the complete immutable topology after all
+M17, V17 Boolean, source-pair, mirror, dirty owner and
+caller validator gates pass. Inflate gets its net mirror
+deltas AFTER this one CAS; ONE history entry records net
+mirrors, copied payload bytes and actual terminal vertex/
+face counts. The same root and owner journal feeds the
+asynchronous worker's unchanged FIFO 4D stroke and
+renderer mailbox. Refusal before CAS rolls back both
+speculative remesh controller maps, leaving original
+picker/BVH, Inflate and history/dirty checkpoint unchanged,
+so the next physical stamp remains usable. Exceptions
+after a successful CAS are separately M14's explicit
+fault-atomicity program, NEVER a recoverable refusal.
+
+The small bounded acceptance fixtures use an M16
+off-X=0 complete three-original-contact two-tetra
+transverse source with real `VersionedInflateBrush`
+movement; its exact c1/c2/c3/d2 private source union
+physically welds to a closed collision-free 2→1 mesh
+through one original-root Step, with undo/redo and a
+durable immutable checkpoint. A separate true
+**pre-contact clean** pair of disjoint tetrahedra is
+physically inflated through the finite source-contact
+boundary; only a real M17-positive and true exact final
+weld counts as success, not a declined unsupported
+stamp. A real post-Inflate local edge split alters
+the candidate's original FaceIds; individually bounded
+alternate moved edges demonstrate a genuinely accepted
+source-certified split-plus-union transaction while
+every unsupported split must roll back atomically.
+The reflected two-half physical case checks net
+reciprocal mirror maps and durable historical restore,
+including a deliberately refused terminal validator
+Step followed by a valid physical input on the SAME
+brush. The async 4D worker test checks a genuine
+input-triggered original-root CAS/dirty snapshot, one
+history undo/redo and durable checkpoint, without
+using the explicit merge command.
+
+These acceptance domains do NOT imply all arbitrary
+post-refine/collapse arrangements, tangent/coplanar
+surfaces or 3+/4-way junctions become supported.
+Source-proven coincident IDs continue to follow M16.
+M12 owns anchored cumulative exposed witnesses and
+contact hysteresis, M13 aggregated work telemetry,
+M14 fault-injected post-CAS atomicity, M15 the opt-in
+desktop switch. **Original M11** remains the independent
+sixteen real alternating symmetric physical unions
+and FIFO cleanup acceptance after this first physical
+positive. The precise tests and limitations are
+catalogued in docs/V17_M18_PHYSICAL_EXACT_STEP.md.
