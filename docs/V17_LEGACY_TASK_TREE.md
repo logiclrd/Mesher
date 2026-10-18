@@ -5,7 +5,6 @@ This document preserves the entire original `todo.md` V17 task block exactly as 
 **Historical record only.** New work is governed by [V17 flat milestones](V17_MILESTONES.md); do not add children to the identifiers below. V18/V19 remain in `todo.md` and were not moved here.
 
 ---
-
 - [x] **V17a — Fail-closed, no-full-mesh winding fallback for prospective live callers.**
   Add an explicit opt-out from V14's exceptional O(all-faces) solid-angle
   reference fallback, while keeping all established callers backward-
