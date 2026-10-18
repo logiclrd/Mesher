@@ -235,6 +235,15 @@ bool arrangeFace(
                    std::hypot(r.x,r.y))return refuse(__LINE__);
                 continue;
             }
+            // These ORIGINAL V13 sections already meet at exactly
+            // ONE shared point index. Their endpoint is already a
+            // conforming arrangement vertex; recomputing t/u may yield
+            // 1+epsilon under a reflected coordinate chart. Two
+            // nonparallel straight segments sharing an actual source-
+            // proven endpoint cannot intersect elsewhere. Never extend
+            // this exemption to distinct near-coincident point IDs.
+            if(a.a==b.a||a.a==b.b||a.b==b.a||a.b==b.b)
+                continue;
             const double t=cross2(qp,s)/denominator;
             const double u=cross2(qp,r)/denominator;
             if(t< -1e-10||t>1+1e-10||
