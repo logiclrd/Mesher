@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <set>
@@ -232,7 +233,18 @@ ExactCutJoinResult joinCertifiedCutSections(
                     std::to_string(second.size()));
             for(std::size_t i=0;i<first.size();++i) {
                 const auto& a=first[i],&b=second[i];
-                if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing) {
+                // Projection coordinates use independent floating-point
+                // dot products, so exactly coincident 3D section vertices
+                // can yield slightly different scalar parameters. The
+                // stable FaceId/V13 source pairing authorizes comparison,
+                // but ONLY exact 3D endpoint equality authorizes welding.
+                const auto aLow=a.increasing?a.from:a.to;
+                const auto aHigh=a.increasing?a.to:a.from;
+                const auto bLow=b.increasing?b.from:b.to;
+                const auto bHigh=b.increasing?b.to:b.from;
+                if(a.increasing==b.increasing||
+                   !exact(index.vertex(aLow).position,index.vertex(bLow).position)||
+                   !exact(index.vertex(aHigh).position,index.vertex(bHigh).position)) {
                     // Preserve full double precision in diagnostics:
                     // decimal-rounded interval labels can look identical
                     // even when the strict protected-corner match fails.
@@ -441,6 +453,321 @@ ExactCutJoinResult joinCertifiedCutSections(
         return result;
     }catch(const std::exception& error) {
         return refused(error.what());
+    }
+}
+
+
+ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
+    const ConformingCutCandidate& cut,
+    const ExactSeamRefinementLimits& limits) {
+    ExactSeamRefinementResult out;
+    const auto require=[](bool good,const char* reason) {
+        if(!good)throw std::logic_error(reason);
+    };
+    try {
+        require(cut.index&&cut.originalIndex&&cut.commit.revision&&
+            cut.commit.revision.get()==&cut.index->revision()&&
+            !cut.sourceContacts.empty(),
+            "Seam refinement requires a complete private conforming cut");
+        const auto& index=*cut.index;
+        const auto originalNomination=planExactCutRemoval(cut,limits.join.removal);
+        require(originalNomination.ready()&&
+                !originalNomination.proposedRemoval.empty(),
+                "Seam refinement needs complete c1/c2/c3 removal authorization");
+        const std::set<FaceId> deleted(
+            originalNomination.proposedRemoval.begin(),
+            originalNomination.proposedRemoval.end());
+        std::map<FaceId,FaceId> sources;
+        for(const auto& [child,original]:cut.childSources)
+            require(sources.emplace(child,original).second,
+                    "Seam refinement has duplicate child provenance");
+        const auto gather=[&](const RegionTopologyIndex& root,
+                              const std::set<FaceId>& removed,
+                              const std::map<FaceId,FaceId>& origin) {
+            std::vector<Boundary> found;
+            std::set<Edge> seen;
+            for(const auto face:removed) {
+                const auto tri=root.face(face).vertices;
+                for(unsigned j=0;j<3;++j) {
+                    const auto e=key(tri[j],tri[(j+1)%3]);
+                    const auto sides=root.maybeEdgeSides(e);
+                    require(sides&&sides->size()==2,
+                            "Refinement removal has nonmanifold boundary");
+                    FaceId retained{};
+                    for(const auto& side:*sides)
+                        if(!removed.contains(side.face))retained=side.face;
+                    if(!retained)continue;
+                    require(seen.insert(e).second&&origin.contains(retained),
+                            "Refinement boundary escaped source child provenance");
+                    const auto vertices=root.face(retained).vertices;
+                    bool directed=false;
+                    for(unsigned k=0;k<3;++k)
+                        if(key(vertices[k],vertices[(k+1)%3])==e) {
+                            found.push_back({vertices[k],vertices[(k+1)%3],
+                                retained,origin.at(retained),false});
+                            directed=true;break;
+                        }
+                    require(directed,"Refinement survivor edge has no direction");
+                    if(found.size()>limits.join.maxBoundaryEdges)
+                        throw std::length_error("Seam refinement boundary budget");
+                }
+            }
+            return found;
+        };
+        auto boundary=gather(index,deleted,sources);
+        require(!boundary.empty(),"Seam refinement has no c3 survivor boundary");
+        std::map<Edge,std::vector<Vec3>> splits;
+        std::size_t candidates=0,traceTests=0;
+        const auto inspect=[](const RegionTopologyIndex& root,Vec3 position,
+                              const Arc& arc,Vec3 begin,Vec3 end) {
+            if(exact(position,root.vertex(arc.from).position)||
+               exact(position,root.vertex(arc.to).position))
+                return false;
+            const auto span=end-begin;
+            const auto magnitude=length(span);
+            const auto direction=span/magnitude;
+            const auto t=dot(position-begin,direction);
+            const auto epsilon=std::max(1e-10*magnitude,1e-12);
+            if(t<arc.lo-epsilon||t>arc.hi+epsilon)return false;
+            if(t<=arc.lo+epsilon||t>=arc.hi-epsilon)
+                throw std::logic_error(
+                    "Near-equal but nonexact seam endpoint cannot be reconciled");
+            return true;
+        };
+        for(std::size_t k=0;k<cut.sourceContacts.size();++k) {
+            const auto pair=cut.sourceContacts[k];
+            const auto sa=cut.sectionFirst.at(k),sb=cut.sectionSecond.at(k);
+            const auto begin=index.vertex(sa[0]).position,
+                       end=index.vertex(sa[1]).position;
+            require(exact(begin,index.vertex(sb[0]).position)&&
+                    exact(end,index.vertex(sb[1]).position),
+                    "Original source-paired section endpoints are not exact");
+            auto a=trace(index,boundary,pair.first,begin,end,
+                         traceTests,limits.join.maxTraceTests);
+            auto b=trace(index,boundary,pair.second,begin,end,
+                         traceTests,limits.join.maxTraceTests);
+            const auto len=length(end-begin);
+            const auto epsilon=std::max(1e-10*len,1e-12);
+            std::vector<double> stops;
+            for(const auto& arcs:{a,b})
+                for(const auto& arc:arcs) {
+                    stops.push_back(arc.lo);
+                    stops.push_back(arc.hi);
+                }
+            std::sort(stops.begin(),stops.end());
+            stops.erase(std::unique(stops.begin(),stops.end(),
+                [epsilon](double x,double y){return std::abs(x-y)<=epsilon;}),
+                stops.end());
+            // Gaps inside the THIRD solid are allowed, but both sheets
+            // MUST expose the same open intervals. A unilateral interval
+            // cannot be repaired by adding faces or a nearby weld.
+            for(std::size_t n=1;n<stops.size();++n) {
+                if(++candidates>limits.maxCandidateTests)
+                    throw std::length_error("Seam interval sweep budget");
+                if(stops[n]-stops[n-1]<=2*epsilon)continue;
+                const double at=stops[n-1]+(stops[n]-stops[n-1])/2;
+                const auto covered=[at](const std::vector<Arc>& arcs) {
+                    return std::any_of(arcs.begin(),arcs.end(),
+                        [at](const Arc& arc){
+                            return arc.lo<at&&at<arc.hi;
+                        });
+                };
+                require(covered(a)==covered(b),
+                        "Surviving contact interval is present on only one sheet");
+            }
+            const auto collect=[&](const std::vector<Arc>& own,
+                                   const std::vector<Arc>& opposite) {
+                for(const auto& arc:own)
+                    for(const auto& other:opposite)
+                        for(const auto vertex:{other.from,other.to}) {
+                            if(++candidates>limits.maxCandidateTests)
+                                throw std::length_error("Seam split predicate budget");
+                            const auto p=index.vertex(vertex).position;
+                            if(!inspect(index,p,arc,begin,end))continue;
+                            auto& group=splits[key(arc.from,arc.to)];
+                            if(std::none_of(group.begin(),group.end(),
+                                [&](Vec3 old){return exact(old,p);}))
+                                group.push_back(p);
+                        }
+            };
+            collect(a,b);
+            collect(b,a);
+        }
+        if(!splits.empty()) {
+            require(cut.mirroredFaces.empty()&&cut.mirroredVertices.empty(),
+                "New mirrored seam refinements require V17-M05 orbit staging");
+        }
+        ConformingCutCandidate refined=cut;
+        if(!splits.empty()) {
+            std::set<VertexId> seeds;
+            std::map<FaceId,std::vector<std::array<VertexId,3>>> faces;
+            std::map<FaceId,FaceId> sourceOf=sources;
+            for(const auto& [edge,group]:splits) {
+                require(!group.empty(),"Refinement lost candidate split points");
+                const auto sides=index.maybeEdgeSides(edge);
+                require(sides&&sides->size()==2,
+                        "Refinement edge has no two incident source children");
+                for(const auto side:*sides) {
+                    require(sources.contains(side.face),
+                            "Refinement edge crosses unrelated unproven source face");
+                    const auto tri=index.face(side.face).vertices;
+                    seeds.insert(tri.begin(),tri.end());
+                    faces.try_emplace(side.face,
+                        std::vector<std::array<VertexId,3>>{tri});
+                }
+            }
+            require(!seeds.empty(),"No local refinement source vertices");
+            RegionEdit edit(cut.index,{seeds.begin(),seeds.end()}, {},
+                            limits.join.partitionCapacity);
+            std::map<VertexId,Vec3> addedPositions;
+            for(const auto& [edge,group]:splits) {
+                const auto a=index.vertex(edge.a).position,
+                           b=index.vertex(edge.b).position;
+                const auto vector=b-a;
+                const auto length2=dot(vector,vector);
+                require(length2>0,"Zero-length seam split edge");
+                std::vector<std::pair<double,Vec3>> ordered;
+                for(const auto p:group) {
+                    const auto t=dot(p-a,vector)/length2;
+                    const auto projected=a+vector*t;
+                    require(t>1e-9&&t<1-1e-9&&
+                        length(p-projected)<=1e-9*std::sqrt(length2),
+                        "Source-proven split is off the local seam edge");
+                    ordered.push_back({t,p});
+                }
+                std::sort(ordered.begin(),ordered.end(),
+                    [](const auto& x,const auto& y){return x.first<y.first;});
+                for(std::size_t n=1;n<ordered.size();++n)
+                    require(ordered[n].first-ordered[n-1].first>1e-9,
+                            "Conflicting near-duplicate section refinement points");
+                VertexId previous=edge.a;
+                for(const auto& [t,p]:ordered) {
+                    (void)t;
+                    if(refined.insertedVertices.size()-cut.insertedVertices.size()>=
+                       limits.maxNewVertices)
+                        throw std::length_error("Refinement new-vertex budget");
+                    const auto middle=edit.appendLocalVertex(
+                        index.vertex(edge.a).owner,p);
+                    refined.insertedVertices.push_back(middle);
+                    addedPositions.emplace(middle,p);
+                    for(const auto side:index.edgeSides(edge)) {
+                        auto& triangles=faces.at(side.face);
+                        bool found=false;
+                        for(std::size_t i=0;i<triangles.size()&&!found;++i) {
+                            const auto old=triangles[i];
+                            for(unsigned j=0;j<3;++j) {
+                                const auto from=old[j],to=old[(j+1)%3];
+                                if(key(from,to)!=key(previous,edge.b))continue;
+                                const auto opposite=old[(j+2)%3];
+                                triangles[i]={from,middle,opposite};
+                                triangles.push_back({middle,to,opposite});
+                                found=true;break;
+                            }
+                        }
+                        require(found,"Source-child seam fan was not conformingly split");
+                    }
+                    previous=middle;
+                }
+            }
+            const auto coordinate=[&](VertexId v) {
+                const auto it=addedPositions.find(v);
+                return it==addedPositions.end()?index.vertex(v).position:it->second;
+            };
+            for(const auto& [face,triangles]:faces) {
+                const auto original=index.face(face).vertices;
+                const auto a=coordinate(original[0]),b=coordinate(original[1]),
+                           c=coordinate(original[2]);
+                const auto normal=cross(b-a,c-a);
+                const auto oldArea=length(normal);
+                require(oldArea>0,"Refinement original child has no area");
+                double area=0;
+                for(const auto tri:triangles) {
+                    const auto p=coordinate(tri[0]),q=coordinate(tri[1]),
+                               r=coordinate(tri[2]);
+                    const auto oriented=dot(cross(q-p,r-p),normal)/oldArea;
+                    require(oriented>1e-12*oldArea&&std::isfinite(oriented),
+                            "Refined child has invalid source orientation or area");
+                    area+=oriented;
+                }
+                require(std::abs(area-oldArea)<=1e-8*oldArea,
+                        "Refinement loses original child triangle area");
+                edit.replaceFace(face,triangles.front());
+                for(std::size_t n=1;n<triangles.size();++n) {
+                    if(refined.insertedFaces.size()-cut.insertedFaces.size()>=
+                       limits.maxNewFaces)
+                        throw std::length_error("Refinement new-face budget");
+                    const auto child=edit.appendLocalFace(
+                        index.face(face).owner,triangles[n]);
+                    refined.insertedFaces.push_back(child);
+                    refined.childSources.emplace_back(child,sourceOf.at(face));
+                }
+            }
+            refined.commit=edit.commit();
+            refined.index=edit.updatedIndex();
+            require(refined.index&&refined.commit.revision.get()==
+                    &refined.index->revision(),"Missing refined COW root");
+        }
+        // Reapply ALL three original cut admissibility gates on the
+        // staged new root: split triangles have distinct FaceIds and
+        // must never inherit authorization solely from the parent.
+        const auto updated=planExactCutRemoval(refined,limits.join.removal);
+        require(updated.ready(),"Refined source children failed c1/c2/c3 authorization");
+        std::map<FaceId,FaceId> newSources;
+        for(const auto& [child,origin]:refined.childSources)
+            require(newSources.emplace(child,origin).second,
+                    "Refined source child journal duplicated a FaceId");
+        const std::set<FaceId> newDeleted(
+            updated.proposedRemoval.begin(),updated.proposedRemoval.end());
+        auto matched=gather(*refined.index,newDeleted,newSources);
+        std::size_t checks=0,matches=0;
+        for(std::size_t k=0;k<refined.sourceContacts.size();++k) {
+            const auto pair=refined.sourceContacts[k];
+            const auto first=refined.sectionFirst.at(k),
+                       second=refined.sectionSecond.at(k);
+            const auto a=refined.index->vertex(first[0]).position,
+                       b=refined.index->vertex(first[1]).position;
+            require(exact(a,refined.index->vertex(second[0]).position)&&
+                    exact(b,refined.index->vertex(second[1]).position),
+                    "Refined original V13 endpoint mismatch");
+            auto aa=trace(*refined.index,matched,pair.first,a,b,
+                          checks,limits.join.maxTraceTests);
+            auto bb=trace(*refined.index,matched,pair.second,a,b,
+                          checks,limits.join.maxTraceTests);
+            require(aa.size()==bb.size(),
+                    "Refined opposite source section chain lengths differ");
+            for(std::size_t j=0;j<aa.size();++j) {
+                const auto& x=aa[j],&y=bb[j];
+                const auto loX=x.increasing?x.from:x.to;
+                const auto hiX=x.increasing?x.to:x.from;
+                const auto loY=y.increasing?y.from:y.to;
+                const auto hiY=y.increasing?y.to:y.from;
+                require(x.increasing!=y.increasing&&
+                        exact(refined.index->vertex(loX).position,
+                              refined.index->vertex(loY).position)&&
+                        exact(refined.index->vertex(hiX).position,
+                              refined.index->vertex(hiY).position),
+                        "Refined seam endpoints are not exact opposite partners");
+                require(!matched[x.boundaryIndex].accounted&&
+                        !matched[y.boundaryIndex].accounted,
+                        "Refined seam is ambiguously owned by multiple contacts");
+                matched[x.boundaryIndex].accounted=true;
+                matched[y.boundaryIndex].accounted=true;
+                if(++matches>limits.join.maxSeamPairs)
+                    throw std::length_error("Refined seam match budget");
+            }
+        }
+        for(const auto& b:matched)
+            require(b.accounted,"Refinement left unmatched authorized source boundary");
+        out.complete=true;
+        out.insertedVertices=refined.insertedVertices.size()-
+                             cut.insertedVertices.size();
+        out.insertedFaces=refined.insertedFaces.size()-cut.insertedFaces.size();
+        out.matchedIntervals=matches;
+        out.refined.emplace(std::move(refined));
+        return out;
+    }catch(const std::exception& e) {
+        out.refusal=e.what();
+        return out; // zero leaked private cut roots or partial journals
     }
 }
 

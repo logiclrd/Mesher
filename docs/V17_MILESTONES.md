@@ -75,6 +75,39 @@ grazes, ambiguous/near-parallel original pairs and unsupported old
 
 ## V17-M02 — Exact seam-interval and unequal-density reconciliation
 
+**Implementation/acceptance:** Complete as an **independent private
+refinement-and-matching adapter** on the certified finite transverse
+original-section domain. The existing d2 join now compares exact
+source-paired 3D vertex endpoints rather than requiring bit-identical
+rounded scalar line projections; direction/face provenance remains
+mandatory. The new `reconcileCertifiedSeamSubdivisions` consumes a
+complete c1/c2/c3 authorized unpublished cut and sweeps the directed
+surviving intervals of each original V13 contact, treating third-body
+buried gaps as valid only if BOTH sheets agree. It inserts the other
+source sheet's EXACT known boundary vertex coordinate into the
+unmatched sheet's local edge, in a single unpublished RegionEdit that
+conformingly splits BOTH incident source children (and handles multiple
+points/edges). It preserves old vertices, validates positive triangle
+areas and the source-child area sum, re-runs full independent c1/c2/c3
+against all new child FaceIds and requires unique exact opposite
+endpoint match of every remaining authorized boundary edge. Hard
+predicate/vertex/face/tracing limits and mirror orbit preflight refuse
+without any usable revised root.
+
+Positive regression: introduce a REAL asymmetric child-edge split
+into the certified generic 12-contact three-body cut; the old d2 join
+strictly refuses, the adapter inserts at least one opposite-side
+point and both incident faces, c1/c2/c3 pass, and existing unchanged
+d2 can finally produce a connected 3→1 terminal private union.
+The unchanged cut takes a zero-edit path; incomplete V13 originals,
+zero insertion budget, unsupported mirrored new-split orbit and stale
+historic readers are negative controls. This milestone neither
+publishes nor changes the d3 original-root Step composer. Folding
+the adapter's EXTRA private COW edit into a **single original-root
+publication and net undo/tombstone journal** remains M04. New
+mirrored orbit staging remains M05 and X=0 is M06.
+
+
 **Objective.** Reconcile the complete original-contact **surviving** boundary graph across independent sheets when third-body burial removes parts of source sections, when proper crossings or T-junctions change segment subdivision, or when the two source surfaces have different local edge densities. The already supported simple-loop/full-length case remains valid. Preserve explicit original contact provenance; **never** infer weld partners by nearest coordinate.
 
 **Acceptance.** Pair each surviving oriented edge interval exactly once to a source-proven counterpart, with shared canonical section-point coordinates, compatible child subdivisions and strictly opposite survivor directions. Split/refine *only* the source-proven local faces and all adjacent shared-edge fans where required, in bounded private edits; no hanging vertices or changed exposed/cavity corner positions. Missing one-sided sections, duplicate/overlapping interval ownership, mismatched winding, forged contact identities, under-budget limits and intentionally nonexact coordinates refuse **before** exposing a weld. Include asymmetric-density, partially buried interval, crossing/T and mirrored-negative regressions. Deliver a passing **private seam matcher**, not the whole automatic worker feature.

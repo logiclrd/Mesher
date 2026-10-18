@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01 is complete in its private canonical-junction scope; M02–M12 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01 and M02 are complete in their independent private cut/join-preflight scopes; M03–M12 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -726,8 +726,29 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   deterministic source-pair construction. Unsupported graze, uncertain
   endpoint, nontransverse and near-parallel cases still refuse.
   NO automatic worker/desktop Merge geometry activation.
-- [ ] **V17-M02 — Exact surviving-seam interval matching across unequal subdivisions.**
-  Certified opposite-edge pairings despite buried gaps, crossing/T-junction subdivisions and mismatched source densities; no tolerance-based global welding or displaced protected corners. Private only.
+- [x] **V17-M02 — Exact surviving-seam interval matching across unequal subdivisions.**
+  Compare original V13 source-paired seam vertices by exact 3D coordinates,
+  not independently rounded scalar projections. An explicit
+  `reconcileCertifiedSeamSubdivisions` private preflight sweeps directed
+  c3 survivor intervals, accepts truly matched buried gaps, refuses
+  one-sided or overlapping ownership and stages additional split
+  vertices at precisely existing OPPOSITE-SHEET V13 boundary points
+  when the two sheets have unequal edge subdivision. It splits BOTH
+  incident triangles per affected source edge in one unpublished
+  RegionEdit, preserves every original VertexId position, verifies
+  oriented area/fans, independently redoes c1/c2/c3 on all new child
+  FaceIds, and then proves exact endpoint pairing, opposite direction,
+  unique original contact ownership and complete source boundary
+  coverage. Hard work/inserted vertex/face limits fail closed.
+  A full 12-contact THREE-shell fixture with deliberately unequal
+  REAL private child edge density is positive through refinement
+  and existing exact d2 seam join; no-op, missing original contacts,
+  mirrored-new-split refusal, hard budgets and historical roots are
+  checked. This is a self-contained PRIVATE adapter: M04 still owns
+  integrating the additional COW edit into ONE original-root net
+  Step/history journal; M05 owns mirrored NEW refinement orbits.
+  Production V15 thresholds, protected coordinates and desktop
+  Merge geometry remain unchanged.
 - [ ] **V17-M03 — Safe retirement of wholly buried, previously uncut original faces.**
   Homogeneous positive-winding/original-face classification with complete local contact checks; preserve cavity/exposed faces, retire only independently authorized material.
 - [ ] **V17-M04 — Full closed three-body Boolean union with one immutable terminal Step.**

@@ -368,6 +368,29 @@ ExactCutJoinResult joinCertifiedCutSections(
     const ExactCutJoinLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
 
+// V17-M02: Reconcile DIFFERENT exact source-section edge subdivisions
+// between two independently staged cut sheets. This is a private COW
+// preflight, not welding, history, worker input or publication.
+// Every split point is taken from a vertex on the OPPOSITE side of the
+// SAME original V13 contact section. All incident source-mesh faces are
+// split together, and c1/c2/c3 are revalidated on the refined root.
+// Mirrored NEW splits remain unsupported until V17-M05.
+struct ExactSeamRefinementLimits {
+    ExactCutJoinLimits join{};
+    std::size_t maxCandidateTests=262144;
+    std::size_t maxNewVertices=2048;
+    std::size_t maxNewFaces=4096;
+};
+struct ExactSeamRefinementResult {
+    bool complete{};
+    std::string refusal;
+    std::optional<ConformingCutCandidate> refined;
+    std::size_t insertedVertices{},insertedFaces{},matchedIntervals{};
+};
+ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
+    const ConformingCutCandidate& cut,
+    const ExactSeamRefinementLimits& limits={});
+
 
 // V17e2b2d3: Stage the entire subdivision + certified seam join as
 // ONE original-root Step. Two private RegionEdits are implementation
