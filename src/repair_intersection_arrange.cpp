@@ -374,9 +374,17 @@ bool arrangeFace(
                 if(!island.contains(next))stack.push_back(next);
         }
         if(island.size()<3)return refuse(__LINE__);
+        // Multiple real V13 sections may cross or meet within one face,
+        // forming a connected detached graph with degree-three/four
+        // junctions rather than a simple degree-two cycle. Treat it as a
+        // candidate bounded planar component, never as a new weld. A
+        // dangling, unconnected chain remains unsupported. The two
+        // scaffolds below must then produce only SIMPLE positive halfedge
+        // regions; repeated fan vertices, area overlap or failed ear
+        // clipping continue to refuse the entire arrangement.
         for(const auto node:island)
-            if(adjacent.at(node).size()!=2)
-                return refuse(__LINE__); // not a simple detached loop
+            if(adjacent.at(node).size()<2)
+                return refuse(__LINE__); // interior dangling section
 
         struct Connector {
             std::size_t from{},to{};
