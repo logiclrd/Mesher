@@ -1534,6 +1534,40 @@ void testM28FullPrivatePhysicalStampLifetime() {
     catch(const std::logic_error&){refused=true;}
     require(refused,"M28 unjournaled actual stamp displacement refuses");
 
+    // Real M24 source split in the SAME privately prepared physical
+    // stamp, not a synthetic standalone child ancestry record.
+    VersionedInflateBrush growing(.3,{});
+    const auto grown=growing.stamp(original,patch,256);
+    RefineSettings splitOptions;
+    splitOptions.enabled=true;
+    splitOptions.maximumEdgeRatio=.1;
+    splitOptions.maximumSplitPairsPerStamp=1;
+    splitOptions.optimizeFlips=false;
+    VersionedLocalRefiner splitRefiner(6,splitOptions,{},256);
+    const auto split=splitRefiner.apply(grown.index,grown.baseline);
+    require(split.statistics.splitPairs==1&&split.splitSources.size()==2,
+            "M28 actual physical Inflate moved an original edge enough to require one committed M24 split");
+    VersionedDirectionalCollapser noCollapse(6,{},{},256);
+    const auto collapsedSplit=noCollapse.apply(split.index,grown.baseline);
+    const auto splitLifetime=advanceCertifiedPhysicalStampLifetime(
+        before,grown,split,collapsedSplit,nullptr,nullptr,2,10,6,8);
+    const auto splitIntent=declareOriginalPatchIntent(
+        before,original->vertex(indexed.flatIndex.vertexIds[0]).incidentFaces);
+    const auto splitDecision=evaluateOriginalPatchIntent(
+        before,splitLifetime,splitIntent,1e-9,70,10);
+    require(splitLifetime.acceptedTransitions==1&&
+            splitLifetime.sourceFaceEvidence==2&&
+            splitLifetime.lineage.terminal==collapsedSplit.index&&
+            splitDecision.totalDistanceTests==70&&
+            splitDecision.protectedOriginals==4,
+            "M28 one external first-source successor spans actual Inflate and two-child M24 refinement");
+    refused=false;
+    try {(void)advanceCertifiedPhysicalStampLifetime(
+        before,grown,split,collapsedSplit,nullptr,nullptr,1,10,6,8);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,
+            "M28 one-under complete physical split journal refuses before publication");
+
     // Genuine source-complete c1/c2/c3/M03/d2 union following an Inflate
     // stamp, with NO intermediate stage masquerading as a published root.
     Mesh tetra;
