@@ -910,6 +910,147 @@ void testWorkerMirroredThreeBodyOneHistoryStep() {
     std::filesystem::remove(filename,ec);
 }
 
+void testFirstPhysicalExactBooleanOneOriginalRootStep() {
+    const auto config=[] {
+        SculptCollisionSettings c;
+        c.physicalExact=true; // deliberately never set by the desktop UI
+        auto& p=c.physicalExactLimits.join.removal.contours;
+        p.maximumPlanarityInRadii=4.0;
+        p.maximumSingleCapPlanarityInRadii=4.0;
+        p.maximumIsoperimetricRatio=20.0;
+        p.maximumSingleCapIsoperimetricRatio=20.0;
+        p.maximumPerimeterRatio=20.0;
+        p.maximumGapInEdges=2.5;
+        p.minimumNormalAlignment=0;
+        return c;
+    };
+    const auto geometry=[] {
+        Mesh mesh;
+        for(const auto p:std::array<Vec3,8>{{
+            {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+            {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+        }})mesh.vertices.push_back({p.x+5,p.y,p.z});
+        for(unsigned tetra=0;tetra<2;++tetra)
+            for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }})mesh.triangles.push_back({
+                4*tetra+t[0],4*tetra+t[1],4*tetra+t[2]});
+        return mesh;
+    };
+    const auto initial=geometry();
+    auto configExact=config();
+    Mesh dummy;
+    const std::array<BrushArea,1> stroke{{{{4,0,0},.5,.9}}};
+    VersionedSculptBrush physical(
+        initial,.0005,{},{},{},false,256,{},configExact);
+    const auto original=physical.snapshot();
+    const auto oldPicker=original->pickingRootIdentity();
+    physical.stamp(dummy,stroke);
+    if(physical.completedUnions()!=1)
+        throw std::runtime_error(
+            "Physically moved certified off-plane union did not publish: "+
+            physical.lastRejection());
+    require(physical.completedStamps()==1&&
+            physical.publishedRevisions()==1&&
+            physical.historyStatistics().undoDepth==1&&
+            physical.collisionRepairedStamps()==1&&
+            !physical.lastDirtyPartitions().empty()&&
+            physical.snapshot()!=original&&
+            original->pickingRootIdentity()==oldPicker&&
+            original->retiredFaceCount()==0,
+            "M18 first physically generated candidate publishes ONE exact original-root Step");
+    const auto terminal=physical.snapshot();
+    std::vector<VertexId> all;
+    terminal->revision().forEachPartition([&](PartitionId,const MeshPartition& p){
+        for(const auto& v:p.vertices)all.push_back(v.id);
+    });
+    require(terminal->triangleIntersections(all,{}).empty()&&
+            terminal->retiredFaceCount()>0,
+            "Real physically triggered source weld has tombstones and no residual V13 contacts");
+    require(physical.undo()&&physical.snapshot()==original&&
+            physical.historyStatistics().redoDepth==1&&
+            physical.redo()&&physical.snapshot()==terminal,
+            "M18 original-root physical union occupies exactly one undo/redo history transition");
+    const auto journal=physical.checkpoint();
+    require(journal.index==terminal&&journal.mirrorPairs.empty()&&
+            journal.index->retiredFaceIds()==terminal->retiredFaceIds(),
+            "M18 physical final checkpoint retains ONLY original-root final result");
+
+    // A deliberately exhausted source query refuses before any private
+    // conformance root or history is exposed. A later identical valid
+    // physical stamp must work with the original immutable root.
+    auto invalid=config();
+    invalid.physicalSourceLimits.maxSectionTests=1;
+    VersionedSculptBrush refused(initial,.0005,{},{},{},false,256,{},invalid);
+    const auto preserved=refused.snapshot();
+    refused.stamp(dummy,stroke);
+    require(refused.snapshot()==preserved&&
+            refused.rejectedStamps()==1&&
+            refused.historyStatistics().undoDepth==0&&
+            refused.lastDirtyPartitions().empty()&&
+            refused.checkpoint().index==preserved,
+            "M18 incomplete physical source work cannot publish an original-root Step");
+
+    // A real symmetric paired stamp is checked on BOTH reflected sheets.
+    Mesh reflected=initial;
+    const auto n=initial.vertices.size();
+    for(const auto p:initial.vertices)
+        reflected.vertices.push_back({-p.x,p.y,p.z});
+    const auto nf=initial.triangles.size();
+    for(std::size_t i=0;i<nf;++i) {
+        const auto t=initial.triangles[i];
+        const auto off=static_cast<std::uint32_t>(n);
+        reflected.triangles.push_back({t.a+off,t.c+off,t.b+off});
+    }
+    const auto imported=partitionFlatMesh(reflected,256);
+    DurableCheckpoint source;
+    source.index=RegionTopologyIndex::build(imported.revision);
+    source.initialVertexCount=reflected.vertices.size();
+    for(std::size_t i=0;i<n;++i)
+        source.mirrorPairs.emplace_back(
+            imported.flatIndex.vertexIds[i],
+            imported.flatIndex.vertexIds[n+i]);
+    VersionedSculptBrush symmetric(source,.0005,{},{},{},256,{},config());
+    const auto mirroredInitial=symmetric.snapshot();
+    const std::array<BrushArea,2> both{{
+        {{4,0,0},.5,.9},{{-4,0,0},.5,.9}}};
+    symmetric.stamp(dummy,both);
+    if(symmetric.completedUnions()!=1)
+        throw std::runtime_error(
+            "M18 real mirrored physical exact Step refused: "+
+            symmetric.lastRejection());
+    const auto final=symmetric.snapshot();
+    require(final!=mirroredInitial&&
+            symmetric.publishedRevisions()==1&&
+            symmetric.historyStatistics().undoDepth==1&&
+            symmetric.checkpoint().mirrorPairs.size()>source.mirrorPairs.size(),
+            "Physically stamped reflected union publishes one root with net new mirror orbits");
+    for(const auto& [a,b]:symmetric.checkpoint().mirrorPairs) {
+        require(final->maybeVertex(a)&&final->maybeVertex(b),
+                "Physical reflected checkpoint contains only live reciprocal mirror IDs");
+        const auto pa=final->vertex(a).position,pb=final->vertex(b).position;
+        require(pa.x==-pb.x&&pa.y==pb.y&&pa.z==pb.z,
+                "Physical reflected exact union retains source-correct 3D mirrors");
+    }
+    require(symmetric.undo()&&symmetric.snapshot()==mirroredInitial&&
+            symmetric.checkpoint().mirrorPairs==source.mirrorPairs&&
+            symmetric.redo()&&symmetric.snapshot()==final,
+            "Physical exact symmetric history reverses full original and terminal mirrors");
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-v17-m18-one-physical-exact-boolean.mshr";
+    try {
+        writeCheckpoint(file,symmetric.checkpoint());
+        const auto reloaded=readCheckpoint(file);
+        require(reloaded.index&&
+                reloaded.index->retiredFaceIds()==final->retiredFaceIds()&&
+                reloaded.mirrorPairs==symmetric.checkpoint().mirrorPairs,
+                "Physical exact Boolean survives one durable mirrored checkpoint read-back");
+    }catch(...){
+        std::error_code ec;std::filesystem::remove(file,ec);
+        throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+}
 void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,8>{{
@@ -1144,6 +1285,7 @@ int main() {
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
+        testFirstPhysicalExactBooleanOneOriginalRootStep();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
