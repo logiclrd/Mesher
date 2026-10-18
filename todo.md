@@ -710,10 +710,22 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **All remain open unless individually proven; V17 as a whole is still open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01 is complete in its private canonical-junction scope; M02–M12 and V17 as a whole remain open.**
 
-- [ ] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
-  Same exact 3D junction coordinate, distinct original sheet IDs and certified face/edge provenance; complete 12/16-contact crossing fixtures reach positive canonical-point certification. Private only.
+- [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
+  Construct original-ordered, finite-V13-verified three-plane points
+  from THREE distinct source-face IDs and THREE original pair segments.
+  Each source face gets its OWN cut point index but the exact SAME 3D
+  position, with nondegenerate oriented fan/area and c1/c2 verified.
+  Complete 12- and 16-contact closed-tetra fixtures now independently
+  pass canonical-point source orbit tests, order reversal and hard
+  triple-enumeration budget refusal. The 12-contact fixture can now
+  ALSO pass existing strict d2/d3 full union without changing the
+  joiner; that is additional observed coverage, not M04 completion.
+  Caller contact/section journal ordering is preserved after
+  deterministic source-pair construction. Unsupported graze, uncertain
+  endpoint, nontransverse and near-parallel cases still refuse.
+  NO automatic worker/desktop Merge geometry activation.
 - [ ] **V17-M02 — Exact surviving-seam interval matching across unequal subdivisions.**
   Certified opposite-edge pairings despite buried gaps, crossing/T-junction subdivisions and mismatched source densities; no tolerance-based global welding or displaced protected corners. Private only.
 - [ ] **V17-M03 — Safe retirement of wholly buried, previously uncut original faces.**

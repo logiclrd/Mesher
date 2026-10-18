@@ -2954,3 +2954,60 @@ acceptable substitute. The original-root/worker/UI status is exactly
 as before: no automatic sculpt Boolean, no UI Merge geometry, no
 claim of completed three-body crossing/T-junction union. V17e2b2d4
 and its V17 parent remain OPEN.
+
+## V17-M01 — Canonical three-plane source provenance (flat-milestone acceptance)
+
+The previously independent per-face 2D line intersection calculated
+numerically close, but not exactly identical, cut junction points on
+different intersecting source sheets. The final d2 provenance join
+must not silently snap *nearby* vertices. This M01 solution acts
+EARLIER on the unpublished original-source arrangement and uses exactly
+THREE distinct FaceIds with all THREE genuine V13 finite source
+contact sections. For every original face-pair triangle of contacts,
+compute the common source-plane point from the three original
+normalized plane normals using a bounded, non-near-singular 3×3
+intersection. Independently verify finite point-in-section membership
+on ALL three V13 segments, rejecting uncertain endpoint grazes.
+No arbitrary coordinate hash, unrelated sheets or projected near weld
+can authorize a canonical source junction.
+
+An explicit ConformingCutJunction in ConformingCutPlan retains the three
+original FaceIds, the one physical canonical position and THREE
+topologically separate ephemeral point indices. At each source face,
+the ordinary face-local crossing arrangement uses that common point
+only for the exact source FaceId triple, checks it against independently
+computed 2D line intersection, keeps originally existing/edge points
+immutable and verifies a complete locally oriented fan. All face
+area/orientation, multi-section planar triangulation, c1 bounded
+positive-winding and c2 continuous original-section coverage checks
+still apply to the materialized private candidate. Face/edge cases
+that cannot preserve provenance and quality refuse rather than moving
+original detail.
+
+For order-independent original-contact enumeration, the provisional
+graph is constructed in a stable FaceId-pair order; its returned
+ConformingCutSegment array is then restored to the caller's input
+order, which independently indexes original V13 sourceContacts and
+materialized sectionFirst/sectionSecond. The per-face source-section
+traversal is separately sorted by its original partner FaceId.
+The hard maxJunctionCandidates budget rejects before publishing any
+usable plan; the strict original-plane determinant and section
+predicates reject unsupported near-parallel and grazing configurations.
+
+The complete generic 12-contact and orthogonal 16-contact
+three-tetrahedron regressions exercise exact THREE-sheet coordinate
+identity, distinct provenance point indices, all three independent
+source pairs, source-plane containment, at least three incident cut
+children, reversed contact ordering and budget exhaustion. Both
+remain fully certified by c1/c2/c3 after private real FaceId/VertexId
+materialization. Notably the generic 12-contact three-body
+fixture now also satisfies unchanged d2 exact provenance seam joining
+and d3 3→1 closed-manifold Step acceptance. This is an opportunistic
+positive regression, NOT a statement that M02/M04 are done: the
+orthogonal full-three-body final union, unequal source subdivisions,
+fully buried uncut source faces, reflected multi-section/X=0 orbits
+and live sculpt-triggered repeated merging retain their separate
+flat acceptance milestones.
+
+No desktop toggle, automatic worker merge, new cap/zipper or
+approximate protected-surface movement is introduced by M01.
