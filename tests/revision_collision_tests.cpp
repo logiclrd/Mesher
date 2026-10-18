@@ -2555,9 +2555,24 @@ void testX0InvariantExactCutProbe() {
     const auto contacts=root->triangleIntersections(
         imported.flatIndex.vertexIds,{});
     std::cout<<"[x0-m06] original-pairs="<<contacts.size()<<'\n';
-    for(const auto& c:contacts)
+    for(const auto& c:contacts) {
+        const auto a=root->face(c.first).vertices,
+                   b=root->face(c.second).vertices;
+        std::array<Vec3,3> pa{},pb{};
+        for(unsigned i=0;i<3;++i) {
+            pa[i]=root->vertex(a[i]).position;
+            pb[i]=root->vertex(b[i]).position;
+        }
+        const auto section=splitTransverseTriangleContact(pa,a,pb,b);
         std::cout<<"[x0-m06] pair="<<c.first<<","<<c.second
-                 <<" ambiguous="<<c.ambiguous<<'\n';
+                 <<" ambiguous="<<c.ambiguous
+                 <<" section="<<static_cast<int>(section.status)
+                 <<" start=("<<section.endpoints[0].x<<","
+                 <<section.endpoints[0].y<<","<<section.endpoints[0].z<<")"
+                 <<" end=("<<section.endpoints[1].x<<","
+                 <<section.endpoints[1].y<<","<<section.endpoints[1].z<<")"
+                 <<'\n';
+    }
     auto contours=CutRemovalSettings{};
     contours.contours.maximumPlanarityInRadii=4;
     contours.contours.maximumSingleCapPlanarityInRadii=4;
