@@ -2571,6 +2571,10 @@ void testX0InvariantExactCutProbe() {
     limits.join.removal=contours;
     const auto step=prepareExactCutStep(root,contacts,limits,&mirror);
     std::cout<<"[x0-m06] ready="<<step.complete<<" reason="<<step.refusal<<'\n';
+    if(!step.complete)
+        throw std::runtime_error(
+            "X=0 invariant complete original-contact union: "+
+            step.refusal+" pairs="+std::to_string(contacts.size()));
 }
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
