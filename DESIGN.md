@@ -3932,3 +3932,67 @@ docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md. No global
 coordinate deduplication, auto Merge geometry switch or
 unsupported higher-sheet Boolean welding is enabled.
 M11 remains NEXT; M12–M15/V18/V19 are unchanged.
+
+
+## V17-M17 — Complete source contact certification on a PHYSICAL private sculpt candidate
+
+**October 18, 2026; independent post-M16 gate.** The V16
+`evaluateSculptCollisionCandidate` approximates contour scar
+excision, while the M01–M10/M16 *exact* Boolean path consumes a
+COMPLETE ORIGINAL V13 FaceId contact set. Those paths must not
+be conflated. A physical stamp's initial root, intermediate
+post-Inflate root and post-refine/collapse candidate have
+different persistent revision identities and potentially
+different FaceIds; a selected changed-face pair cannot
+certify that all neighboring original contacts were inspected.
+M17 introduces `assessPostSculptOriginalContacts` as a
+read-only bounded query on the ACTUAL supplied candidate root.
+It neither mutates nor publishes the candidate.
+
+The evaluator scans at most a declared 16384 live candidate
+vertices and 32768 faces, using the persistent indexed BVH
+and bounded per-query box, partition, narrow-phase and
+reported-pair work. Every canonical FaceId collision is
+independently checked for one strict finite original-source
+V13 transverse segment. The *entire* pair set belongs to
+the exact returned candidate root: `CompleteTransverse`
+has no unsupported member; `Clean` means no reported
+V13 contact, not a license to infer nested or tangent
+Boolean geometry; `Refused` carries a diagnostic but
+NO usable candidate pointer or partial pair list. Candidate
+work exhaustion, an unsupported point/coplanar/grazing
+source pair, or missing/reflected nonreciprocal mirror map
+refuse at source classification.
+
+The acceptance fixture uses real `VersionedInflateBrush`
+deformation on a known supported three-contact off-plane
+two-tetra geometry and its independently mirrored twin;
+the resulting three/six actual V13 FaceId graphs match
+a separate all-live original-source query. A second test
+begins with strictly disjoint closed tetrahedra and uses
+true simultaneous normal-driven Inflate to CREATE a
+transverse intersection; the pre-stamp state returns
+`Clean`, whereas the first certified post-stamp
+candidate returns a complete finite source graph.
+A subsequent genuine local edge split probes the
+rewritten source FaceIds, accepting a complete rechecked
+finite graph or refusing an unsupported remesh candidate
+without leaving stale pairs. Strict one-below limits,
+invalid mirror orbits, point-only contact and coincident
+coplanar shells are fail-closed controls; held original
+picking/BVH roots, permanent VertexIds/FaceIds and
+history/renderer state remain unchanged.
+
+**Boundary to M18:** This source certificate is only
+the FIRST prerequisite of a future one-original-root
+physical Boolean Step. M18 must build a private exact
+c1/c2/c3/M03/d2 union against the candidate root,
+then compose the candidate's Inflate/refine/collapse
+journal and final Boolean into one captured original
+CAS, mirror/controller history and renderer update.
+M11 then proves repeated sixteen alternating real
+symmetric physical unions with queue/refusal/clean
+continuation. No desktop Merge geometry toggle or
+new runtime welding shortcut is enabled in M17.
+The bounded behavior and limitations are recorded in
+docs/V17_M17_PHYSICAL_CONTACT_DISCOVERY.md.

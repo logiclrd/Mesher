@@ -57,6 +57,37 @@ struct SculptAnchoredSurfaceGuard {
     std::size_t maxDistanceTests=131072;
 };
 
+// M17: read-only complete ORIGINAL-FaceId V13 discovery on the ACTUAL
+// unpublished post-Inflate/refine/collapse candidate. This uses the
+// candidate as the source root, never the prior published brush root or
+// a selected dirty-face subset. No Boolean cut, welding, CAS or history.
+// Every result is either the complete strictly finite source-pair graph,
+// conclusively clean, or an empty refused certificate with diagnostics.
+enum class SculptSourceContactStatus {Clean,CompleteTransverse,Refused};
+struct SculptSourceContactLimits {
+    std::size_t maxVertices=16384;
+    std::size_t maxFaces=32768;
+    RegionTopologyIndex::CollisionQueryLimits query{
+        32768,524288,131072,262144,131072,128};
+    std::size_t maxSectionTests=128;
+};
+struct SculptSourceContactAssessment {
+    SculptSourceContactStatus status{SculptSourceContactStatus::Refused};
+    std::shared_ptr<const RegionTopologyIndex> originalCandidate;
+    // Populated only for fully certified transverse original V13 pairs.
+    std::vector<RegionTopologyIndex::CollisionPair> contacts;
+    RegionTopologyIndex::CollisionStatistics work{};
+    std::size_t discoveredPairs{};
+    std::string refusal;
+    bool ready() const noexcept {
+        return status==SculptSourceContactStatus::CompleteTransverse;
+    }
+};
+SculptSourceContactAssessment assessPostSculptOriginalContacts(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptSourceContactLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
+
 // V17d1: opt-in private classified collision evaluation. The desktop
 // Merge geometry UI remains disabled, with current sculpt default unchanged.
 struct SculptCollisionSettings {

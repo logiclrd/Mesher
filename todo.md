@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M11–M15 and V17 as a whole remain open.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
+**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M18, M11–M15 and V17 as a whole remain open. M17 is complete; M18 → M11 is the flat execution order preserving the original M11 objectives.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -993,6 +993,34 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   (Actions pull-request run 39144616634); the acceptance register is
   docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md. This does NOT
   enable sculpt-triggered merging or generic imported topology.
+- [x] **V17-M17 — Complete ORIGINAL-contact discovery for actual post-sculpt geometry.**
+  Independently classify the *real* post-Inflate/refine/collapse unpublished original-root candidate, not selected old pairs or V16 scar contours. Enumerate the entire bounded V13 source-contact graph including reciprocal reflected halves and new moved/rewritten faces, distinguish clean/contact/ambiguous/over-budget, retain exact FaceId and candidate-root provenance, and make complete discovered pairs usable by the existing V17 exact private planner. Positive real physical candidate must have certified transverse original contacts; tangency, missing mirrored pair, ambiguous and budget cases refuse/diagnose without mutation. Read-only stage: no publication or live switch.
+  **Accepted bounded M17 read-only certificate:** The complete post-
+  Inflate candidate root (not the previous published root or dirty
+  subset) is screened by strict finite V13 per-FaceId sections with
+  a bounded all-live-vertex indexed query. Exactly mirrored whole-
+  candidate orbits must be reciprocal and physically reflected.
+  No ambiguity, tangency, coplanar overlap, missing symmetry or
+  insufficient candidate/section/query work produces a partial
+  consumable contact set. A real off-X=0 three-source-contact
+  physically moved two-tetra geometry and its two reflected halves
+  pass as complete source certificates; their entire candidate FaceId
+  graphs equal independent all-live-face discovery. An actual
+  normal-driven stamp moves initially separated closed tetrahedra
+  INTO finite transverse contact; a subsequent real local edge
+  split is re-assessed from its new terminal FaceIds, never from
+  stale pre-remesh pairs. The original clean pre-stamp revision
+  independently returns Clean; point-only tangent, exactly
+  coincident coplanar closed shells and tight section/collision/
+  whole-source work limits cannot certify a finite seam.
+  Original picker, stable IDs, mirror journals, history and
+  renderer are unchanged. The normative scope and tests live in
+  docs/V17_M17_PHYSICAL_CONTACT_DISCOVERY.md.
+  This is NOT a committed Boolean sculpt union; M18 owns the
+  first true atomic physically triggered union, followed by the
+  unchanged sixteen-alternating-input M11 acceptance.
+- [ ] **V17-M18 — One physical collision-triggered exact Boolean union in a single sculpt Step.**
+  Consume M17's complete post-sculpt candidate V13 graph and V17's M04–M10/M16 full exact Step. Unlike V16 approximate surgery, accept only a true closed source-certified union; reconcile pre-union refine/collapse mirror deltas with exact final net IDs and correct ORIGINAL-root capture; stage complete renderer dirty/history/worker mirrors with ONE CAS, or roll back the entire stamp. Prove one actual physically induced positive asymmetric and reflected candidate (where supported), plus a refused invalid stimulus followed by a valid one, without enabling the desktop UI.
 - [ ] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**
   After M10/M16's supported-domain and coincidence gates, real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
 - [ ] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**
