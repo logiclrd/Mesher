@@ -2699,7 +2699,7 @@ void testX0InvariantExactCutProbe() {
              <<" reason="<<decision.refusal
              <<" removed="<<decision.proposedRemoval.size()
              <<" mirror-orbits="<<decision.mirroredRemoval.size()
-             <<" contours="<<decision.contourPlan.contours.size()<<'\\n';
+             <<" contours="<<decision.contourPlan.contours.size()<<'\n';
     if(!decision.ready())
         throw std::runtime_error(
             "M07 complete X=0 source c3 certificate refused: "+decision.refusal);
