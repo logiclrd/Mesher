@@ -1597,7 +1597,7 @@ void testOrthogonalTripleJunctionProbe() {
     for(const auto p:std::array<Vec3,12>{{
         {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
         {.5,.25,.5},{.5,.75,.5},{.5,.625,-.5},{.875,.375,-.25},
-        {.25,.5,.5},{.75,.5,.5},{.625,.5,-.5},{.75,.125,-.25}
+        {.25,.5,.625},{.75,.5,.625},{.625,.5,-.625},{.8125,.125,-.3125}
     }})mesh.vertices.push_back(p);
     for(unsigned solid=0;solid<3;++solid) {
         const auto start=solid*4;
