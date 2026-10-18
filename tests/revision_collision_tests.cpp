@@ -1013,7 +1013,7 @@ void testPrivateConformingRevisionCommitsAtomically() {
             std::swap(m27Forged.lineage.living[0].second,
                       m27Forged.lineage.living[1].second);
         else m27Forged.lineage.living.front().second.push_back(
-            prepared.final->face(imported.flatIndex.faceIds[0]).id);
+            imported.flatIndex.faceIds[0]);
         m27Refused=false;
         try {(void)auditOriginalPatchLifetime(
             m27Forged,baseline,m27Cost+7,8192);}
