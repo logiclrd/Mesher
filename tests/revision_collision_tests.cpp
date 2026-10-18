@@ -2166,6 +2166,368 @@ void testOrthogonalTripleJunctionProbe() {
     }
 }
 
+void verifyMirroredOriginalRootStep(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const std::unordered_map<VertexId,VertexId>& historical,
+    const ExactCutStep& step,
+    const std::string& fixture,
+    std::size_t expectedComponents) {
+    check(step.complete&&step.expected==original&&step.final&&
+          step.commit.revision.get()==&step.final->revision()&&
+          !step.dirtyPartitions.empty()&&
+          connectedClosedSurfaceComponents(*step.final)==expectedComponents&&
+          !step.addedMirrors.empty()&&
+          !step.survivingMirroredFaces.empty(),
+          "Reflected original-root Step must be one complete manifold net journal");
+    std::map<VertexId,VertexId> map;
+    std::vector<std::pair<VertexId,VertexId>> historyPairs;
+    for(const auto& [a,b]:historical) {
+        if(a>b)continue;
+        const bool liveA=step.final->maybeVertex(a)!=nullptr,
+                   liveB=step.final->maybeVertex(b)!=nullptr;
+        check(liveA==liveB,"Reflected old original vertex pair retires together");
+        if(liveA) {
+            map.emplace(a,b);map.emplace(b,a);
+            historyPairs.emplace_back(a,b);
+        }else
+            check(std::binary_search(step.removedMirrors.begin(),
+                                     step.removedMirrors.end(),
+                                     std::pair<VertexId,VertexId>{a,b}),
+                  "Retired original stable mirror pair appears in ONE net mirror delta");
+    }
+    for(const auto& [a,b]:step.addedMirrors) {
+        check(a!=b&&!historical.contains(a)&&!historical.contains(b)&&
+              !original->maybeVertex(a)&&!original->maybeVertex(b)&&
+              step.final->maybeVertex(a)&&step.final->maybeVertex(b),
+              "New paired VertexIds are both genuinely new live off-plane vertices");
+        check(map.emplace(a,b).second&&map.emplace(b,a).second,
+              "Each new stable reflected vertex has exactly one partner");
+        historyPairs.emplace_back(a,b);
+    }
+    std::sort(historyPairs.begin(),historyPairs.end());
+    std::set<FaceId> liveFaces;
+    std::map<std::array<VertexId,3>,FaceId> byCorners;
+    std::pair<std::size_t,std::size_t> finalCounts{};
+    step.final->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            finalCounts.first+=part.vertices.size();
+            for(const auto& v:part.vertices) {
+                const auto id=v.id;
+                check(map.contains(id)&&map.contains(map.at(id))&&
+                      map.at(map.at(id))==id&&
+                      map.at(id)!=id,
+                      "Both new and existing live mirror maps are exact involutions");
+                const auto p=step.final->vertex(id).position,
+                           q=step.final->vertex(map.at(id)).position;
+                check(p.x!=0&&q.x==-p.x&&q.y==p.y&&q.z==p.z,
+                      "Off-plane reflected vertex coordinates are exactly reciprocal");
+            }
+            for(const auto& face:part.faces) {
+                ++finalCounts.second;
+                liveFaces.insert(face.id);
+                auto ids=face.vertices;
+                std::sort(ids.begin(),ids.end());
+                check(byCorners.emplace(ids,face.id).second,
+                      "Final mirrored surface cannot contain duplicate coincident source faces");
+            }
+        });
+    for(const auto face:liveFaces) {
+        const auto tri=step.final->face(face).vertices;
+        std::array<VertexId,3> mapped{
+            map.at(tri[0]),map.at(tri[2]),map.at(tri[1])};
+        auto corners=mapped;
+        std::sort(corners.begin(),corners.end());
+        const auto it=byCorners.find(corners);
+        check(it!=byCorners.end()&&it->second!=face,
+              "Every terminal face has exactly one distinct reflected FaceId");
+        const auto partner=step.final->face(it->second).vertices;
+        bool reversed=false;
+        for(unsigned shift=0;shift<3;++shift)
+            if(partner[0]==mapped[shift]&&
+               partner[1]==mapped[(shift+1)%3]&&
+               partner[2]==mapped[(shift+2)%3])reversed=true;
+        check(reversed,"Reflected final face always has opposite winding");
+    }
+    std::pair<std::size_t,std::size_t> initialCounts{};
+    original->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            initialCounts.first+=part.vertices.size();
+            initialCounts.second+=part.faces.size();
+        });
+    check(static_cast<std::ptrdiff_t>(finalCounts.first)-
+              static_cast<std::ptrdiff_t>(initialCounts.first)==
+              step.vertexCountDelta&&
+          static_cast<std::ptrdiff_t>(finalCounts.second)-
+              static_cast<std::ptrdiff_t>(initialCounts.second)==
+              step.faceCountDelta,
+          "Mirrored net stable ID accounting matches original/terminal counts");
+    std::vector<FaceId> seeds(liveFaces.begin(),liveFaces.end());
+    check(step.final->triangleIntersections({},seeds).empty(),
+          "Both complete reflected unions have no final nonadjacent intersections");
+    IndexedMeshRepository published(original);
+    check(published.publishIfCurrent(step.expected,step.final)&&
+          !published.publishIfCurrent(step.expected,step.final),
+          "Both reflected halves publish in one original-root CAS, stale replay refuses");
+    RevisionHistory history(original,8,32*1024*1024,nullptr,
+                            initialCounts.first,initialCounts.second);
+    history.append(step.final,step.dirtyPartitions,
+                   step.addedMirrors,step.removedMirrors,
+                   step.copiedPayloadBytes,finalCounts.first,finalCounts.second);
+    check(history.statistics().undoDepth==1&&history.current()==step.final,
+          "Complete reflected contact graphs have one undo history Step");
+    const auto undo=history.undo();
+    check(undo.index==original&&undo.vertices==initialCounts.first&&
+          undo.faces==initialCounts.second&&
+          undo.removeMirrors==step.addedMirrors&&
+          undo.addMirrors==step.removedMirrors,
+          "One undo restores original geometry and exactly reverses net mirror deltas");
+    const auto redo=history.redo();
+    check(redo.index==step.final&&redo.vertices==finalCounts.first&&
+          redo.faces==finalCounts.second&&
+          redo.addMirrors==step.addedMirrors&&
+          redo.removeMirrors==step.removedMirrors,
+          "One redo restores both mirrored unions and net pair deltas");
+    const auto path=std::filesystem::temp_directory_path()/
+        ("mesher_v17_m05_"+fixture+".mshr");
+    writeCheckpoint(path,{step.final,historyPairs,initialCounts.first});
+    const auto loaded=readCheckpoint(path);
+    std::filesystem::remove(path);
+    check(loaded.index&&loaded.mirrorPairs==historyPairs&&
+          connectedClosedSurfaceComponents(*loaded.index)==expectedComponents&&
+          loaded.index->retiredFaceIds()==step.final->retiredFaceIds()&&
+          loaded.index->retiredVertexIds()==step.final->retiredVertexIds(),
+          "Reflected full-three-body history checkpoint restores both stable ID orbits");
+    std::cout<<"[mirrored-m05] fixture="<<fixture
+             <<" faces="<<finalCounts.second
+             <<" mirrored-new-pairs="<<step.addedMirrors.size()
+             <<" reflected-live-components="<<expectedComponents<<'\n';
+}
+
+void testReflectedThreeBodyCompleteOriginalContacts() {
+    for(const bool orthogonal:{false,true}) {
+        Mesh mesh;
+        const std::array<Vec3,12> generic{{
+            {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+            {.375,.375,.25},{.625,.375,.25},
+            {.625,.625,-.25},{.375,.25,-.25},
+            {.21875,.15625,.34375},{.46875,.125,.34375},
+            {.53125,.40625,-.1875},{.28125,.09375,-.125}
+        }};
+        const std::array<Vec3,12> rightAngle{{
+            {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+            {.5,.25,.5},{.5,.75,.5},{.5,.625,-.5},{.875,.375,-.25},
+            {.25,.5,.625},{.75,.5,.625},{.625,.5,-.625},{.8125,.125,-.3125}
+        }};
+        const auto positions=orthogonal?rightAngle:generic;
+        for(const auto p:positions)
+            mesh.vertices.push_back({p.x+5,p.y,p.z});
+        for(const auto p:positions)
+            mesh.vertices.push_back({-p.x-5,p.y,p.z});
+        for(unsigned half=0;half<2;++half)
+            for(unsigned solid=0;solid<3;++solid)
+                for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                    {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+                }}) {
+                    const auto start=half*12+solid*4;
+                    mesh.triangles.push_back({
+                        start+tri[0],
+                        start+tri[half?2:1],
+                        start+tri[half?1:2]});
+                }
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto identity=original->pickingRootIdentity();
+        std::unordered_map<VertexId,VertexId> mirrorMap;
+        for(std::size_t i=0;i<12;++i) {
+            const auto a=imported.flatIndex.vertexIds[i],
+                       b=imported.flatIndex.vertexIds[i+12];
+            mirrorMap.emplace(a,b);mirrorMap.emplace(b,a);
+        }
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto expectedPairs=orthogonal?32u:24u;
+        check(all.size()==expectedPairs,
+              "Complete reflected three-body graph doubles its genuine original V13 source contacts");
+        CutRemovalSettings contours;
+        contours.contours.maximumPlanarityInRadii=4.0;
+        contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+        contours.contours.maximumIsoperimetricRatio=20.0;
+        contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        contours.contours.maximumPerimeterRatio=20.0;
+        contours.contours.maximumGapInEdges=.1;
+        contours.contours.minimumNormalAlignment=0;
+        ExactCutStepLimits limits;
+        limits.join.removal=contours;
+        limits.requireMirrors=true;
+        const auto result=prepareExactCutStep(original,all,limits,&mirrorMap);
+        std::cout<<"[mirrored-m05] orthogonal="<<orthogonal
+                 <<" contacts="<<all.size()
+                 <<" complete="<<result.complete
+                 <<" refusal="<<result.refusal<<'\n';
+        if(!result.complete)
+            throw std::runtime_error(
+                "Complete reflected triple intersection failed: "+result.refusal);
+        check(result.expected==original&&result.final&&
+              connectedClosedSurfaceComponents(*result.final)==2,
+              "Two complete reflected three-body groups form two separate closed unions");
+        verifyMirroredOriginalRootStep(original,mirrorMap,result,
+                                      orthogonal?"orthogonal-32":"generic-24",2);
+        auto partial=all;
+        partial.pop_back();
+        const auto missing=prepareExactCutStep(original,partial,limits,&mirrorMap);
+        check(!missing.complete&&!missing.expected&&!missing.final&&
+              !missing.commit.revision&&missing.addedMirrors.empty(),
+              "Missing one of the mirrored original three-body V13 contact pairs refuses the whole source root");
+        auto omitted=mirrorMap;
+        omitted.erase(imported.flatIndex.vertexIds[0]);
+        const auto noMirror=prepareExactCutStep(original,all,limits,&omitted);
+        check(!noMirror.complete&&!noMirror.expected&&!noMirror.final&&
+              noMirror.addedMirrors.empty()&&noMirror.removedMirrors.empty(),
+              "Incomplete historical vertex involution refuses complete reflected source graph");
+        auto mispaired=mirrorMap;
+        const auto r0=imported.flatIndex.vertexIds[0],
+                   r1=imported.flatIndex.vertexIds[1],
+                   l0=imported.flatIndex.vertexIds[12],
+                   l1=imported.flatIndex.vertexIds[13];
+        mispaired[r0]=l1;mispaired[l1]=r0;
+        mispaired[r1]=l0;mispaired[l0]=r1;
+        const auto wrongFace=prepareExactCutStep(original,all,limits,&mispaired);
+        check(!wrongFace.complete&&!wrongFace.expected&&!wrongFace.final&&
+              wrongFace.addedMirrors.empty()&&wrongFace.retiredFaces.empty(),
+              "Reciprocal but geometrically WRONG source mirror-face mapping refuses both halves");
+        auto tight=limits;
+        tight.cut.maxMirroredPairTests=0;
+        const auto noPairWork=prepareExactCutStep(original,all,tight,&mirrorMap);
+        check(!noPairWork.complete&&!noPairWork.expected&&!noPairWork.final&&
+              noPairWork.addedMirrors.empty(),
+              "Reflected source point pairing work limit never leaks partial mirror IDs");
+        tight=limits;
+        tight.maxNetChangedIds=1;
+        const auto noNet=prepareExactCutStep(original,all,tight,&mirrorMap);
+        check(!noNet.complete&&!noNet.expected&&!noNet.final&&
+              !noNet.commit.revision&&!noNet.addedMirrors.size(),
+              "Reflected net stable-ID budget refuses without original-root history mutation");
+        const auto cut=materializeTransverseCutCandidate(
+            original,all,{},256,&mirrorMap);
+        auto mismatched=cut;
+        mismatched.mirroredFaces.pop_back();
+        const auto invalid=joinCertifiedCutSections(
+            mismatched,limits.join,&mirrorMap,true);
+        check(!invalid.complete&&!invalid.index&&!invalid.commit&&
+              invalid.weldedPairs.empty()&&invalid.retiredFaces.empty(),
+              "A missing reflected source FaceId cut orbit cannot authorize an asymmetric terminal weld");
+        check(original->pickingRootIdentity()==identity&&
+              connectedClosedSurfaceComponents(*original)==6,
+              "Mirrored three-body original readers remain unaffected");
+    }
+}
+
+void testReflectedUncutBurialCavityOrbits() {
+    Mesh mesh;
+    // Duplicate the M03 one-above/three-below closed tetra contact and
+    // independent reversed cavity into TWO exact off-plane reflected
+    // three-body components, without any invariant X=0 seam point.
+    const std::array<Vec3,12> positions{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.4,.4,-.25},{.4,.6,-.25},{.6,.4,-.25},{.5,.5,.25},
+        {.12,.12,-1.1},{.12,.22,-1.1},
+        {.22,.12,-1.1},{.15,.15,-.9}
+    }};
+    for(const auto p:positions)mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(const auto p:positions)mesh.vertices.push_back({-p.x-5,p.y,p.z});
+    for(unsigned half=0;half<2;++half)
+        for(unsigned solid=0;solid<3;++solid)
+            for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }}) {
+                const unsigned start=half*12+solid*4;
+                const bool reverse=(half!=0) != (solid==2);
+                mesh.triangles.push_back({
+                    start+tri[0],
+                    start+tri[reverse?2:1],
+                    start+tri[reverse?1:2]});
+            }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::unordered_map<VertexId,VertexId> mirrors;
+    for(std::size_t k=0;k<12;++k) {
+        const auto a=imported.flatIndex.vertexIds[k],
+                   b=imported.flatIndex.vertexIds[k+12];
+        mirrors.emplace(a,b);mirrors.emplace(b,a);
+    }
+    const auto contacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(contacts.size()==6,
+          "Two mirrored one-above-three-below protrusions yield six complete original transverse V13 source pairs");
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=.1;
+    contours.contours.minimumNormalAlignment=0;
+    const auto cut=materializeTransverseCutCandidate(
+        root,contacts,{},256,&mirrors);
+    const auto uncut=planUncutFaceRetirement(cut,contours,{},&mirrors);
+    if(!uncut.ready())
+        throw std::runtime_error("Reflected uncut originals refused: "+
+                                 uncut.refusal);
+    check(uncut.authorizedUncut.size()==2&&
+          uncut.mirroredAuthorizedUncut.size()==1&&
+          !uncut.mirroredProtectedUncut.empty(),
+          "Two source-proven wholly buried uncut originals form ONE paired retirement orbit");
+    const auto baseRight=imported.flatIndex.faceIds[4],
+               baseLeft=imported.flatIndex.faceIds[16];
+    check(std::binary_search(uncut.authorizedUncut.begin(),
+                             uncut.authorizedUncut.end(),baseRight)&&
+          std::binary_search(uncut.authorizedUncut.begin(),
+                             uncut.authorizedUncut.end(),baseLeft),
+          "Both mirror counterparts of the untouched buried original base are authorized");
+    ExactCutStepLimits limits;
+    limits.requireMirrors=true;
+    limits.join.removal=contours;
+    const auto full=prepareExactCutStep(root,contacts,limits,&mirrors);
+    std::cout<<"[mirrored-uncut-m05] complete="<<full.complete
+             <<" reason="<<full.refusal<<'\n';
+    if(!full.complete)
+        throw std::runtime_error(
+            "Both buried uncut mirrored originals must close atomically: "+
+            full.refusal);
+    check(!full.final->maybeFace(baseRight)&&
+          !full.final->maybeFace(baseLeft)&&
+          std::binary_search(full.retiredFaces.begin(),
+                             full.retiredFaces.end(),baseRight)&&
+          std::binary_search(full.retiredFaces.begin(),
+                             full.retiredFaces.end(),baseLeft),
+          "Both original reflected buried FaceIds enter ONE net retirement journal");
+    for(const auto i:{8u,9u,10u,11u,20u,21u,22u,23u}) {
+        const auto cavity=imported.flatIndex.faceIds[i];
+        check(full.final->maybeFace(cavity)&&root->maybeFace(cavity),
+              "Reflected independently enclosed reversed cavity faces remain permanent");
+    }
+    verifyMirroredOriginalRootStep(root,mirrors,full,"uncut-cavity-orbits",4);
+
+    auto incomplete=contacts;
+    incomplete.pop_back();
+    const auto absent=prepareExactCutStep(root,incomplete,limits,&mirrors);
+    check(!absent.complete&&!absent.expected&&!absent.final&&
+          !absent.commit.revision&&absent.addedMirrors.empty(),
+          "One missing reflected original V13 pair refuses BOTH halves");
+    auto exhausted=limits;
+    exhausted.uncut.maxOriginalFaces=0;
+    const auto budget=prepareExactCutStep(root,contacts,exhausted,&mirrors);
+    check(!budget.complete&&!budget.final&&!budget.expected&&
+          budget.addedMirrors.empty()&&budget.retiredFaces.empty(),
+          "Reflected uncut original component budget refuses whole original-root Step");
+    auto broken=mirrors;
+    broken.erase(imported.flatIndex.vertexIds[0]);
+    const auto badMap=prepareExactCutStep(root,contacts,limits,&broken);
+    check(!badMap.complete&&!badMap.final&&!badMap.expected&&
+          badMap.addedMirrors.empty()&&badMap.retiredFaces.empty(),
+          "Missing original mirror involution refuses paired classified face retirement");
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -2665,6 +3027,8 @@ int main() {
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
+        testReflectedThreeBodyCompleteOriginalContacts();
+        testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();

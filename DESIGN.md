@@ -3219,3 +3219,91 @@ aggregate resource caps (M10), injected post-CAS transaction
 failure protection (M11), or the default-off Merge geometry
 desktop switch (M12). Broader V19 imported and near-degenerate
 universality is not claimed.
+
+## V17-M05 — Complete off-plane mirrored three-solid Boolean acceptance
+
+A full six-closed-tetra fixture consists of two independent EXACT
+reflected three-tetra clusters centered away from X=0. The generic
+half contains 12 strictly transverse original V13 contact pairs,
+and the orthogonal half contains 16; their reflected copies give
+complete 24- and 32-pair original graphs. They are NOT hand-selected
+subsets of the historical 21-contact nontransverse fixtures. Both
+halves now independently pass original finite-section conformance,
+source-plane triple-junction construction, c1/c2/c3 signed-winding
+removal, and exact d2 seam pairing/closure. The terminal result is
+TWO distinct closed connected union surfaces, never a global
+coordinate-key weld of unrelated shells. New original cut points
+and source-owned FaceIds retain distinct IDs until proven physical
+weld, and each separately reflected point/face orbit is staged
+with opposite face winding.
+
+The mirrored arrangement previously refused an otherwise certified
+shared original endpoint when projected independent reflected 2D
+section lines yielded t=u=1.0000000000000002. A harmless shared
+endpoint is now recognized ONLY by an EXACT COMMON ORIGINAL CUT
+POINT INDEX before recomputing its interior segment intersection.
+Because two nonparallel straight original sections sharing their
+actual endpoint cannot intersect again, this introduces no
+approximate numerical weld. Parallel/coincident overlap remains
+the former explicit refusal and two numerically close DIFFERENT
+endpoint IDs still go through the unchanged strict near-graze test.
+
+M03's previously asymmetric uncut-face authorization now admits an
+explicit reciprocal historical mirror map, but only for distinct
+off-plane vertices/unchanged original FaceIds. EVERY original face
+in the complete source-adjacent untouched component must have ONE
+reciprocal source partner identified through its original stable
+VertexId triple. All three target vertex coordinates must reflect
+EXACTLY, with opposite cyclic face winding; mirrored whole-face
+positive-winding classification must agree for Buried/Outside
+authorized original faces as well as Exposed/ReversedBoundary
+protected original faces. Inconsistent or noninvolutive maps,
+invariant X=0 points and self-partnered original faces all refuse.
+Unlike approximate paired geometry, the exact original-face partner
+is derived without global nearest-position search. A real
+two-sided three-tetra mirrored fixture has two buried unchanged
+base FaceIds and two separate inward-oriented cavity shells;
+the two bases form ONE paired retirement orbit and BOTH cavity
+shells remain permanent and protected.
+
+The final d2 seam join now accepts those independently M03-
+AUTHORIZED mirror-off-plane original retirement orbits while
+preserving and rechecking untouched exposed/cavity original faces
+even when the M03 decision reports NoChanges. A missing pair
+or one-sided occupancy is refused before mutation. The terminal
+M04 one-root composer still compares ONLY the old published
+revision with the fully finished private joined revision, so net
+stable original VertexId/FaceId retirement, live new paired ID
+orbits, face rewrites, dirty partitions and tombstones occur in
+ONE immutable root CAS/one history/undo transaction.
+A tight original-face winding work cap, original V13 pair omission,
+mirrored V13 point-pair budget, net permanent ID cap, wrong
+historical VertexId involution/FaceId partner and dropped
+mirrored child FaceId orbit all return a refusal without a
+publishable terminal root or partial usable mirror delta.
+
+Two targeted private fixture regressions verify ALL live old/new
+mirrored vertex maps are involutive and positions EXACT, every
+terminal FaceId has one distinct reverse-winding reflected FaceId
+partner, the entire resulting mesh has no unexpected contacts,
+ONE original-root CAS, atomic stale CAS rejection, a single
+reversible history entry, and a durable checkpoint restoring both
+the final geometry and retired original/new mirror orbits.
+An explicit queued AsyncSculptWorker 24-contact test additionally
+verifies a successful full multisection mirrored worker Step,
+a rejected stale original request, one undo/redo returning both
+original/terminal roots, and checkpoint reload preserving only
+surviving exact reciprocal mirror pairs. The worker's three
+controllers (Inflate, Refine, Collapse) already stage/commit the
+same net delta; no new hidden mirror map is introduced.
+
+Self-paired X=0 seams and invariant source faces remain a
+separate V17-M06 obligation. Extra unequal-density paired
+M02 subdivisions needing NEW reflected COW split orbits remain
+fail-closed if not explicitly proven; this remains an explicit
+supported-domain boundary for M07, never a license to
+silently approximate or partially publish. Genuine automatic
+post-Inflate/refine/collapse Merge geometry is still off and
+belongs to M08/M12. Original V13/V15 thresholds, ring/zipper
+heuristics, protected geometry, V18 displacement constraint
+and broader V19 imported/large-model acceptance stay unchanged.

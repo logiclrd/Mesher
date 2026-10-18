@@ -130,7 +130,8 @@ ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits,
     const std::unordered_map<VertexId,VertexId>* originalMirrors,
-    bool includeAuthorizedUncutOriginals) {
+    bool includeAuthorizedUncutOriginals,
+    const UncutFaceRetirementLimits& uncutLimits) {
     try {
         if(!cut.index||!cut.originalIndex||!cut.commit.revision||
            cut.commit.revision.get()!=&cut.index->revision()||
@@ -154,14 +155,16 @@ ExactCutJoinResult joinCertifiedCutSections(
                                  nomination.proposedRemoval.end());
         std::vector<FaceId> extraUncut,protectedUncut;
         if(includeAuthorizedUncutOriginals) {
-            if(mirrored)return refused(
-                "Uncut original retirement mirror orbits require V17-M05");
             const auto uncut=planUncutFaceRetirement(
-                cut,limits.removal);
+                cut,limits.removal,uncutLimits,originalMirrors);
             if(uncut.status!=CutRemovalStatus::NoChanges&&
                !uncut.ready())
                 return refused("Independent uncut original authorization: "+
                                uncut.refusal);
+            // Even NoChanges may have surveyed protected Exposed or
+            // ReversedBoundary original faces. Their immutable identity
+            // and physical corners remain mandatory join invariants.
+            protectedUncut=uncut.protectedUncut;
             if(uncut.ready()) {
                 if(!std::includes(uncut.combinedRemoval.begin(),
                                   uncut.combinedRemoval.end(),
@@ -171,7 +174,6 @@ ExactCutJoinResult joinCertifiedCutSections(
                 deleted.insert(uncut.authorizedUncut.begin(),
                                uncut.authorizedUncut.end());
                 extraUncut=uncut.authorizedUncut;
-                protectedUncut=uncut.protectedUncut;
             }
         }
         std::map<FaceId,FaceId> sources;
@@ -494,7 +496,8 @@ ExactCutJoinResult joinCertifiedCutSections(
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
     const ExactSeamRefinementLimits& limits,
-    bool includeAuthorizedUncutOriginals) {
+    bool includeAuthorizedUncutOriginals,
+    const UncutFaceRetirementLimits& uncutLimits) {
     ExactSeamRefinementResult out;
     const auto require=[](bool good,const char* reason) {
         if(!good)throw std::logic_error(reason);
@@ -513,7 +516,8 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
             originalNomination.proposedRemoval.begin(),
             originalNomination.proposedRemoval.end());
         if(includeAuthorizedUncutOriginals) {
-            const auto uncut=planUncutFaceRetirement(cut,limits.join.removal);
+            const auto uncut=planUncutFaceRetirement(
+                cut,limits.join.removal,uncutLimits);
             require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
                     "Source-aligned seam needs independently certified uncut originals");
             deleted.insert(uncut.authorizedUncut.begin(),
@@ -762,7 +766,7 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
             updated.proposedRemoval.begin(),updated.proposedRemoval.end());
         if(includeAuthorizedUncutOriginals) {
             const auto uncut=planUncutFaceRetirement(
-                refined,limits.join.removal);
+                refined,limits.join.removal,uncutLimits);
             require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
                     "Refined seam lost original uncut-face authorization");
             newDeleted.insert(uncut.authorizedUncut.begin(),

@@ -7,6 +7,8 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -233,11 +235,28 @@ bool arrangeFace(
                    std::hypot(r.x,r.y))return refuse(__LINE__);
                 continue;
             }
+            // These ORIGINAL V13 sections already meet at exactly
+            // ONE shared point index. Their endpoint is already a
+            // conforming arrangement vertex; recomputing t/u may yield
+            // 1+epsilon under a reflected coordinate chart. Two
+            // nonparallel straight segments sharing an actual source-
+            // proven endpoint cannot intersect elsewhere. Never extend
+            // this exemption to distinct near-coincident point IDs.
+            if(a.a==b.a||a.a==b.b||a.b==b.a||a.b==b.b)
+                continue;
             const double t=cross2(qp,s)/denominator;
             const double u=cross2(qp,r)/denominator;
             if(t< -1e-10||t>1+1e-10||
                u< -1e-10||u>1+1e-10)continue;
-            if(t<0||t>1||u<0||u>1)return refuse(__LINE__); // grazing uncertainty
+            if(t<0||t>1||u<0||u>1) {
+                std::ostringstream why;
+                why<<std::setprecision(17)<<"source-face "<<faceId
+                   <<" section partner "<<a.partner<<" / "<<b.partner
+                   <<" uncertain endpoint t="<<t<<" u="<<u
+                   <<" segments a=("<<a.a<<","<<a.b<<") b=("<<b.a
+                   <<","<<b.b<<")";
+                throw std::logic_error(why.str());
+            }
             const auto intersection=Point2{p.x+t*r.x,p.y+t*r.y};
             // Only the THREE independently verified original contact
             // pairs can grant a canonical cross-sheet junction. This is

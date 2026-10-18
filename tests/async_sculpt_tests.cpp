@@ -804,6 +804,112 @@ void testWorkerMultipleCompleteSectionsOneHistoryStep() {
     }
     std::error_code ec;std::filesystem::remove(file,ec);
 }
+void testWorkerMirroredThreeBodyOneHistoryStep() {
+    Mesh mesh;
+    const std::array<Vec3,12> positions{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.375,.375,.25},{.625,.375,.25},
+        {.625,.625,-.25},{.375,.25,-.25},
+        {.21875,.15625,.34375},{.46875,.125,.34375},
+        {.53125,.40625,-.1875},{.28125,.09375,-.125}
+    }};
+    for(const auto p:positions)mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(const auto p:positions)mesh.vertices.push_back({-p.x-5,p.y,p.z});
+    for(unsigned side=0;side<2;++side)
+        for(unsigned solid=0;solid<3;++solid)
+            for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }}) {
+                const auto base=side*12+solid*4;
+                mesh.triangles.push_back({
+                    base+tri[0],base+tri[side?2:1],base+tri[side?1:2]});
+            }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    std::vector<std::pair<VertexId,VertexId>> pairs;
+    for(std::size_t k=0;k<12;++k)
+        pairs.emplace_back(imported.flatIndex.vertexIds[k],
+                           imported.flatIndex.vertexIds[k+12]);
+    AsyncSculptWorker worker({original,pairs,24},
+                             .025,.006,.2,{},{},{});
+    const auto contacts=fullOriginalContacts(*original);
+    require(contacts.size()==24,
+            "Mirrored worker triple fixture must pass ALL original V13 contacts");
+    auto limits=supportedUnionLimits(true);
+    limits.join.removal.contours.maximumGapInEdges=.1;
+    worker.mergeExactContacts(original,contacts,limits);
+    waitForUnion(worker,1);
+    const auto first=worker.status();
+    if(first.completedUnions!=1)
+        throw std::runtime_error(
+            "Worker mirrored 24-contact three-body Step refused: "+
+            first.lastRejection);
+    require(first.rejectedUnions==0&&first.completedStamps==0&&
+            first.publishedRevisions==1&&first.history.undoDepth==1,
+            "One worker input yields one paired three-body Boolean CAS and one history Step");
+    const auto complete=worker.takeSnapshot();
+    require(complete&&complete->index&&complete->index!=original&&
+            !complete->dirtyPartitions.empty(),
+            "Worker snapshot never contains unpublished mirrored cut or refinement roots");
+    worker.mergeExactContacts(original,contacts,limits);
+    waitForUnion(worker,2);
+    require(worker.status().completedUnions==1&&
+            worker.status().rejectedUnions==1&&
+            worker.status().history.undoDepth==1,
+            "A stale three-body worker CAS refuses without mutating either mirror controller");
+    worker.undo();
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+    while(worker.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto undone=worker.takeSnapshot();
+    require(undone&&undone->index==original&&
+            worker.status().history.redoDepth==1,
+            "One undo restores both original reflected sets with all old mirrored IDs");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto redone=worker.takeSnapshot();
+    require(redone&&redone->index==complete->index&&
+            worker.status().history.undoDepth==1,
+            "One redo restores both reflected three-solid welds and mirror-map journals");
+    const auto filename=std::filesystem::temp_directory_path()/
+        "mesher-worker-v17-m05-reflected-three-body.mshr";
+    try {
+        worker.saveCheckpoint(filename);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "One reflected three-body worker checkpoint is durable");
+        const auto recovered=readCheckpoint(filename);
+        require(recovered.index&&
+                recovered.index->retiredFaceIds()==redone->index->retiredFaceIds()&&
+                recovered.index->retiredVertexIds()==redone->index->retiredVertexIds()&&
+                recovered.mirrorPairs.size()>12,
+                "Paired three-body union checkpoint records exact surviving NEW mirror pairs");
+        for(const auto& [a,b]:recovered.mirrorPairs) {
+            require(a!=b&&recovered.index->maybeVertex(a)&&
+                    recovered.index->maybeVertex(b),
+                    "Checkpoint contains no retired or self-paired reflected vertex");
+            const auto p=recovered.index->vertex(a).position,
+                       q=recovered.index->vertex(b).position;
+            require(q.x==-p.x&&q.y==p.y&&q.z==p.z,
+                    "All three worker controller mirror-map deltas survived durable reload");
+        }
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(filename,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(filename,ec);
+}
+
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
     const auto imported=partitionFlatMesh(mesh,256);
@@ -882,6 +988,7 @@ int main() {
         testQueuedExactUnionOneStepHistoryAndRefusal();
         testWorkerMultipleCompleteSectionsOneHistoryStep();
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
+        testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {

@@ -43,15 +43,18 @@ UncutFaceRetirementProposal refuse(std::string reason,
 UncutFaceRetirementProposal planUncutFaceRetirement(
     const ConformingCutCandidate& cut,
     const CutRemovalSettings& settings,
-    const UncutFaceRetirementLimits& limits) {
+    const UncutFaceRetirementLimits& limits,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors) {
     if(settings.policy!=CutRemovalPolicy::PositiveWindingUnionPreserveCavities)
         return refuse("Uncut-face retirement requires positive-winding cavity-preserving union");
     if(!cut.originalIndex||!cut.index||!cut.commit.revision||
        cut.commit.revision.get()!=&cut.index->revision()||
        cut.originalIndex==cut.index)
         return refuse("Uncut-face retirement needs matching original and private roots");
-    if(!cut.mirroredFaces.empty()||!cut.mirroredVertices.empty())
-        return refuse("Uncut-face mirror journal requires V17-M05 original-orbit staging");
+    const bool mirrored=!cut.mirroredFaces.empty()||
+                        !cut.mirroredVertices.empty();
+    if(mirrored!=(originalMirrors!=nullptr))
+        return refuse("Reflected uncut retirement needs an explicit historical mirror map");
     try {
         // Neither a caller-nominated original FaceId nor a V15 Ready plan
         // grants any retirement right. Recompute the COMPLETE V13 c2
@@ -283,6 +286,92 @@ UncutFaceRetirementProposal planUncutFaceRetirement(
                 result.protectedUncut.push_back(face);
             ++result.checkedOriginalFaces;
             neighbors(face);
+        }
+        if(mirrored) {
+            // A complete off-plane orbit is REQUIRED even for protected
+            // original faces. Prove each partner by ORIGINAL reciprocal
+            // vertex identities, exact reflected XYZ and opposite winding.
+            // No spatial nearest-neighbor search or world-position weld.
+            std::map<FaceId,FaceId> partners;
+            const auto findPartner=[&](FaceId face) {
+                const auto tri=cut.originalIndex->face(face).vertices;
+                std::array<VertexId,3> mapped{};
+                for(unsigned j=0;j<3;++j) {
+                    const auto v=tri[j];
+                    const auto it=originalMirrors->find(v);
+                    if(it==originalMirrors->end()||
+                       !originalMirrors->contains(it->second)||
+                       originalMirrors->at(it->second)!=v||
+                       !cut.originalIndex->maybeVertex(it->second))
+                        throw std::logic_error(
+                            "Untouched source FaceId has missing/noninvolutive reflected vertex");
+                    const auto p=cut.originalIndex->vertex(v).position,
+                               q=cut.originalIndex->vertex(it->second).position;
+                    if(q.x!=-p.x||q.y!=p.y||q.z!=p.z||
+                       v==it->second||p.x==0||q.x==0)
+                        throw std::logic_error(
+                            "Invariant/incorrect original mirror point needs M06");
+                    mapped[j]=it->second;
+                }
+                std::array<VertexId,3> identity=mapped;
+                std::sort(identity.begin(),identity.end());
+                std::optional<FaceId> found;
+                for(const auto partnerFace:
+                        cut.originalIndex->vertex(mapped[0]).incidentFaces) {
+                    const auto other=cut.originalIndex->face(partnerFace).vertices;
+                    auto sorted=other;
+                    std::sort(sorted.begin(),sorted.end());
+                    if(sorted!=identity)continue;
+                    if(found)throw std::logic_error(
+                        "Multiple coincident reflected original source faces");
+                    // Reflection reverses orientation for closed outward
+                    // solids; the topological cyclic winding is reversed.
+                    const std::array<VertexId,3> backward{
+                        mapped[0],mapped[2],mapped[1]};
+                    bool valid=false;
+                    for(unsigned shift=0;shift<3;++shift)
+                        if(other[0]==backward[shift]&&
+                           other[1]==backward[(shift+1)%3]&&
+                           other[2]==backward[(shift+2)%3])
+                            valid=true;
+                    if(!valid)throw std::logic_error(
+                        "Original uncut mirror face does not reverse winding");
+                    found=partnerFace;
+                }
+                if(!found||*found==face)
+                    throw std::logic_error(
+                        "Uncut original mirror face partner absent or invariant");
+                return *found;
+            };
+            for(const auto face:processed) {
+                const auto counterpart=findPartner(face);
+                if(!processed.contains(counterpart))
+                    throw std::logic_error(
+                        "Reflected uncut original connected component incomplete");
+                partners.emplace(face,counterpart);
+            }
+            for(const auto& [face,counterpart]:partners)
+                if(!partners.contains(counterpart)||
+                   partners.at(counterpart)!=face)
+                    throw std::logic_error(
+                        "Uncut face correspondence is not reciprocal");
+            const auto pairs=[&](const std::vector<FaceId>& classified,
+                                 std::vector<std::pair<FaceId,FaceId>>& pairsOut) {
+                const std::set<FaceId> included(
+                    classified.begin(),classified.end());
+                for(const auto face:included) {
+                    const auto match=partners.at(face);
+                    if(!included.contains(match))
+                        throw std::logic_error(
+                            "Mirrored original uncut occupancy classification differs");
+                    if(face<match)pairsOut.emplace_back(face,match);
+                }
+                if(pairsOut.size()*2!=included.size())
+                    throw std::logic_error(
+                        "Unpaired original unchanged-face classification");
+            };
+            pairs(result.authorizedUncut,result.mirroredAuthorizedUncut);
+            pairs(result.protectedUncut,result.mirroredProtectedUncut);
         }
         std::sort(result.authorizedUncut.begin(),result.authorizedUncut.end());
         std::sort(result.protectedUncut.begin(),result.protectedUncut.end());

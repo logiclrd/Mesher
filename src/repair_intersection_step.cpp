@@ -70,15 +70,16 @@ ExactCutStep prepareExactCutStep(
             return reject("Original-root Step subdivided a mismatched baseline");
         // M02 and M03 remain private evidence stages. Neither intermediate
         // revision is exposed to the repository/history/render consumer.
-        // Mirrored new subdivision/uncut orbits remain M05-only; historical
-        // symmetric two-body Steps retain their supported direct path.
+        // Mirrored private source cuts retain strict reflected orbits.
+        // Any genuinely new unequal-density mirrored refinement remains
+        // fail-closed until its paired split journals can be certified.
         ConformingCutCandidate prepared=cut;
         bool additionallyRefined=false;
         if(!originalMirrors) {
             auto refineLimits=limits.refinement;
             refineLimits.join=limits.join;
             const auto alignment=reconcileCertifiedSeamSubdivisions(
-                cut,refineLimits,true);
+                cut,refineLimits,true,limits.uncut);
             if(!alignment.complete||!alignment.refined)
                 return reject("Original-root Step exact seam refinement refused: "+
                               alignment.refusal);
@@ -86,7 +87,7 @@ ExactCutStep prepareExactCutStep(
             additionallyRefined=prepared.index!=cut.index;
         }
         const auto joined=joinCertifiedCutSections(
-            prepared,limits.join,originalMirrors,!originalMirrors);
+            prepared,limits.join,originalMirrors,true,limits.uncut);
         if(!joined.complete||!joined.index||!joined.commit||
            !joined.commit->revision||
            joined.commit->revision.get()!=&joined.index->revision())

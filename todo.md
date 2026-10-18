@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M04 are complete in their bounded private acceptance/transaction scopes; M05–M12 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M05 are complete in their bounded private off-plane acceptance/transaction scopes; M06–M12 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -798,8 +798,39 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   refinement, X=0 fixed-plane seams and automatic sculpt integration
   remain gated by M05, M06 and M08 respectively. Default desktop
   Merge geometry remains disabled; no universal Boolean claim.
-- [ ] **V17-M05 — Off-plane mirrored multi-section Boolean acceptance.**
-  True crossing/T-junction reflected unions with exact original/new reciprocal stable-ID and face orbits, paired retirement, one Step, recovery and negative mirror-map tests.
+- [x] **V17-M05 — Off-plane mirrored multi-section Boolean acceptance.**
+  Complete 24-source-contact GENERIC and 32-contact ORTHOGONAL
+  reflected triple-tetrahedron groups pass genuine finite V13 contact
+  discovery and close both sides into exactly TWO disconnected,
+  oriented, edge/vertex-manifold terminal unions, in ONE original-root
+  private Step. The mirrored planar arrangement now recognizes real
+  source-shared endpoint POINT IDs rather than rejecting harmless
+  t=u=1+epsilon in a reflected projection; distinct near-coincident
+  endpoints STILL refuse. Each new or historic vertex has an exact
+  reciprocal off-plane mirror orbit, each surviving child FaceId has
+  exactly one reverse-winding reflected counterpart, and no unrelated
+  overlapping source sheets are welded by world-coordinate proximity.
+  M03 untouched-original authorization now requires a bounded
+  ORIGINAL reciprocal three-vertex FaceId map for BOTH removable and
+  protected faces; paired one-above/three-below buried bases retire
+  while both independently enclosed reversed cavities survive.
+  The original-root terminal join includes that same certified
+  paired untouched-source retirement and verifies protected original
+  faces even when no additional deletion is eligible. Hard M03
+  face-component budgets, missing original contact, missing or
+  noninvolutive/wrong mirror map, unpaired child source face orbit,
+  zero mirrored pair work and net-ID budget refuse with NO final
+  root, history or mirror journal. Tests re-audit ALL surviving final
+  faces for intersections, all NEW/HISTORICAL mirror point/face
+  involutions, one CAS/stale replay, one undo/redo transition and
+  checkpoint tombstones/orbits. A complete 24-contact mirrored
+  union is also exercised through the queued async worker,
+  checkpoint reload and synchronized three-controller mirror maps.
+  Support remains STRICTLY OFF X=0 (M06); optional unequal-density
+  mirrored NEW extra-refinement split staging that lacks proven
+  paired COW orbits remains fail-closed (M07 supported-domain
+  boundary), not silently replaced by nearest-point matching.
+  Automatic brush-triggered merging and the desktop toggle remain off.
 - [ ] **V17-M06 — Self-reflected X=0 cut/seam invariant topology.**
   One fixed-plane VertexId per invariant junction, valid incident fans and mirrored journals, accepted on-plane supported unions and strict ambiguous-plane refusal.
 - [ ] **V17-M07 — Full-contact geometric boundary and fail-closed acceptance matrix.**
