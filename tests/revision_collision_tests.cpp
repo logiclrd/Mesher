@@ -63,6 +63,58 @@ std::size_t connectedClosedSurfaceComponents(const RegionTopologyIndex& index) {
     return components;
 }
 
+
+void auditClosedVertexLinks(const RegionTopologyIndex& index) {
+    // Independent whole-surface test-only vertex-link audit. Two closed
+    // sheets sharing just ONE vertex may pass edge manifoldness while
+    // forming two disconnected vertex fans; do not mistake that for a
+    // valid Boolean manifold.
+    std::map<VertexId,std::set<FaceId>> incident;
+    index.revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces)
+                for(const auto v:face.vertices)
+                    incident[v].insert(face.id);
+        });
+    check(incident.size()<=16384,
+          "Vertex-link fixture exceeds finite independent audit budget");
+    const auto oriented=[&](FaceId id,VertexId a,VertexId b) {
+        const auto tri=index.face(id).vertices;
+        for(unsigned i=0;i<3;++i) {
+            if(tri[i]==a&&tri[(i+1)%3]==b)return 1;
+            if(tri[i]==b&&tri[(i+1)%3]==a)return -1;
+        }
+        return 0;
+    };
+    for(const auto& [v,faces]:incident) {
+        std::set<FaceId> visited;
+        std::vector<FaceId> pending{*faces.begin()};
+        visited.insert(*faces.begin());
+        while(!pending.empty()) {
+            const auto face=pending.back();pending.pop_back();
+            const auto tri=index.face(face).vertices;
+            for(const auto other:tri) {
+                if(other==v)continue;
+                const auto a=std::min(v,other),b=std::max(v,other);
+                const auto sides=index.edgeSides({a,b});
+                check(sides.size()==2,
+                      "Each vertex-link edge must have precisely two incident faces");
+                FaceId adjacent{};
+                for(const auto& side:sides)
+                    if(side.face!=face)adjacent=side.face;
+                check(adjacent&&faces.contains(adjacent)&&
+                      oriented(face,v,other)==-oriented(adjacent,v,other)&&
+                      oriented(face,v,other)!=0,
+                      "Vertex-link neighbors must be connected with opposite edge winding");
+                if(visited.insert(adjacent).second)
+                    pending.push_back(adjacent);
+            }
+        }
+        check(visited.size()==faces.size(),
+              "One stable vertex may have only ONE connected manifold link");
+    }
+}
+
 void testNarrowPhase() {
     const Points a{{{0,0,0},{1,0,0},{0,1,0}}};
     const Ids ai{1,2,3};
@@ -2762,6 +2814,7 @@ void testX0InvariantExactCutProbe() {
           connectedClosedSurfaceComponents(*joined.index)==1&&
           allPairs(*joined.index).empty(),
           "Real X=0 private Boolean converts two intersecting closed tetrahedra into ONE collision-free closed connected union");
+    auditClosedVertexLinks(*joined.index);
     std::size_t keptFixed=0;
     for(const auto& [id,mate]:partners) {
         const auto live=joined.index->maybeVertex(id)!=nullptr;
