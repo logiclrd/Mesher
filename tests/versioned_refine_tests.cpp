@@ -191,6 +191,20 @@ void testM24CertifiedSourceSplitsAndRefusals() {
     catch(const std::logic_error&){refused=true;}
     check(refused,"Forged source ownership never follows a coincident/nearby FaceId");
 
+    auto wrongEdge=split;
+    wrongEdge.splitSources.back().edgeA=
+        wrongEdge.splitSources.back().midpoint;
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,wrongEdge,2,6);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Split provenance cannot substitute a non-source permanent edge");
+    auto unprovedFlip=split;
+    unprovedFlip.statistics.flipPairs=1;
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,unprovedFlip,2,6);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Unproven edge-flip area transfer refuses split-only protected ancestry");
+
     refused=false;
     try {(void)advanceCertifiedSplitLineage(proven,split,2,8);}
     catch(const std::invalid_argument&){refused=true;}
@@ -211,6 +225,54 @@ void testM24CertifiedSourceSplitsAndRefusals() {
           "Original-source ownership composes through two real split generations");
 }
 
+void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
+    Mesh mesh=octahedron();
+    const Mesh another=octahedron();
+    const auto off=static_cast<std::uint32_t>(mesh.vertices.size());
+    mesh.vertices.insert(mesh.vertices.end(),another.vertices.begin(),
+                         another.vertices.end());
+    for(const auto triangle:another.triangles)
+        mesh.triangles.push_back({triangle.a+off,
+                                  triangle.b+off,triangle.c+off});
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto sources=imported.flatIndex.faceIds;
+    check(sources.size()==16&&
+          original->face(sources[0]).vertices!=
+          original->face(sources[8]).vertices,
+          "Coincident independent closed octahedra retain different permanent vertices");
+    std::vector<FaceId> selected(sources.begin(),sources.end());
+    const auto anchor=captureOriginalSourceAnchors(original,selected,112);
+    const auto lineage=beginSourceSplitLineage(anchor);
+    const auto moving=imported.flatIndex.vertexIds[0];
+    RegionEdit deformation(original,{moving},{},1);
+    deformation.moveVertex(moving,{1.25,0,0});
+    (void)deformation.commit();
+    const auto moved=deformation.updatedIndex();
+    const LocalStampBaseline baseline{
+        original,{moving},original->vertex(moving).incidentFaces};
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=1;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refine(mesh.vertices.size(),settings,{},1);
+    const auto split=refine.apply(moved,baseline);
+    check(split.statistics.splitPairs==1&&split.splitSources.size()==2,
+          "Genuine first-shell split keeps unrelated exactly coincident surface separate");
+    const auto tracked=advanceCertifiedSplitLineage(lineage,split,2,18);
+    std::size_t firstSheet=0,secondSheet=0;
+    for(const auto& [source,children]:tracked.living) {
+        if(std::find(sources.begin()+8,sources.end(),source)!=sources.end()) {
+            check(children.size()==1&&children.front()==source,
+                  "Coincident original source on second closed shell acquired no foreign split FaceId");
+            secondSheet+=children.size();
+        }else firstSheet+=children.size();
+    }
+    check(firstSheet==10&&secondSheet==8&&
+          original->retiredFaceCount()==0,
+          "Only the actually subdivided source sheet gains two descendants");
+}
 void testM24MirroredSplitSourceOwnership() {
     auto imported=partitionFlatMesh(octahedron(),1);
     const auto& ids=imported.flatIndex.vertexIds;
@@ -396,6 +458,7 @@ int main() {
         };
         scenario("M24 source split lineage",testM24CertifiedSourceSplitsAndRefusals);
         scenario("M24 mirrored split lineage",testM24MirroredSplitSourceOwnership);
+        scenario("M24 coincident independent sources",testM24CoincidentSheetsKeepIndependentPermanentSourceIDs);
         scenario("overflow split",testTransactionalSplitAndOverflow);
         scenario("mirrored split",testMirrorSplit);
         scenario("repeated split and flip",testLocalFlipAndRepeatedRevisions);
