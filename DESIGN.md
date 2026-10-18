@@ -3716,3 +3716,22 @@ unions, M14 owns unexpected post-CAS failure atomicity and
 M15 owns default-off desktop activation. There is no general
 claim for arbitrary tangential, coplanar or high-degree
 junction topology.
+
+**M09 verification follow-up, October 18:** The true complete three-
+original-V13-contact reflected two-tetra Step passed the one-original-
+root CAS, exact net fixed/paired mirror/tombstone and dirty owner
+journals, private 2→1 closed vertex-manifold, full collision
+checks and protected original geometry. The queued async worker
+demonstrated rejected incomplete original contact followed by
+successful X=0 final Step, stale original root rejection, ONE
+history undo/redo with restored singleton mirror maps and durable
+save/reload into a freshly constructed symmetric worker.
+One earlier regression compared original pairs in declaration
+order against canonical checkpoint pairs and was corrected in
+the TEST, without changing any runtime history semantics.
+Complete GCC/Clang/MSVC warnings-as-errors compilation, 23
+CPU suites, remesh benchmarks and Windows Quickhull at code
+commit 29fec5607d9fcc6da70a2c0722076a4197de79e2
+(Actions 39139919037) were successful. The code and docs now
+mark the independently tested original-root M09 gate accepted;
+M10–M15 and overall live V17 acceptance remain separate.
