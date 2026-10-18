@@ -102,7 +102,11 @@ std::map<VertexId,VertexId> mirrorMap(
     const std::unordered_map<VertexId,VertexId>& original) {
     std::map<VertexId,VertexId> result;
     const auto add=[&](VertexId a,VertexId b,bool old) {
-        if(a==b||!cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
+        if((a==b&&cut.index->maybeVertex(a)&&
+            cut.index->vertex(a).position.x!=0)||
+           (a!=b&&cut.index->maybeVertex(a)&&cut.index->maybeVertex(b)&&
+            cut.index->vertex(a).position.x==0)||
+           !cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
            !reflected(cut.index->vertex(a).position,
                       cut.index->vertex(b).position)||
            (old&&(!cut.originalIndex->maybeVertex(a)||
@@ -120,7 +124,9 @@ std::map<VertexId,VertexId> mirrorMap(
         add(a,b,true);
     }
     for(const auto& [a,b]:cut.mirroredVertices)add(a,b,false);
-    if(cut.insertedVertices.size()!=cut.mirroredVertices.size()*2)
+    for(const auto id:cut.mirroredSeamVertices)add(id,id,false);
+    if(cut.insertedVertices.size()!=cut.mirroredVertices.size()*2+
+       cut.mirroredSeamVertices.size())
         throw std::logic_error("Mirror cut does not account for every new vertex orbit");
     return result;
 }
@@ -319,8 +325,21 @@ ExactCutJoinResult joinCertifiedCutSections(
                 if(!mirrors.contains(first))
                     return refused("Weld source has no explicit mirror orbit");
                 const auto mirroredLeader=root(mirrors.at(first));
-                if(leader==mirroredLeader||!classes.contains(mirroredLeader))
-                    return refused("Self-reflected/unpaired seam equivalence class unsupported");
+                if(!classes.contains(mirroredLeader))
+                    return refused("Missing exact reflected seam equivalence class");
+                if(leader==mirroredLeader) {
+                    // A true self-reflected seam weld class is permitted
+                    // ONLY when ALL source-proven members already have
+                    // their own single, exact X=0 fixed-point identities.
+                    for(const auto v:members)
+                        if(!mirrors.contains(v)||mirrors.at(v)!=v||
+                           index.vertex(v).position.x!=0)
+                            return refused(
+                                "Mixed off-plane/self-plane seam class cannot be welded");
+                    for(const auto v:members)representative[v]=first;
+                    completed.insert(leader);
+                    continue;
+                }
                 const auto& other=classes.at(mirroredLeader);
                 for(const auto v:members)
                     if(!mirrors.contains(v)||!other.contains(mirrors.at(v)))
