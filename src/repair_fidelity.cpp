@@ -898,7 +898,7 @@ SourceExactCutLineage advanceCertifiedExactCutLineage(
         throw std::logic_error("Independent c1/c2/c3 source classification refused");
     const auto m03=planUncutFaceRetirement(
         cut,evidence.removalSettings,evidence.uncutLimits,originalMirrors);
-    if(!m03.ready())
+    if(!m03.ready()&&m03.status!=CutRemovalStatus::NoChanges)
         throw std::logic_error("Independent M03 source retirement classification refused");
     const auto sameIds=[](const std::vector<FaceId>& a,
                           const std::vector<FaceId>& b) {
