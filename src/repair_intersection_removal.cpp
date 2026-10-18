@@ -189,6 +189,21 @@ bool stageMirroredContours(CutRemovalProposal& plan,
     }
     for(std::size_t i=0;i<partner.size();++i) {
         if(partner[partner[i]]!=i)return false;
+        if(partner[i]==i) {
+            // The involution on a SIMPLE oriented closed ring must
+            // reverse cyclic order at precisely two source-owned fixed
+            // vertices. One fixed vertex plus a midpoint of an
+            // *unsplit* crossing edge is not a conforming X=0 rim.
+            std::set<VertexId> visited;
+            unsigned anchors=0;
+            for(const auto vertex:contours[i].vertexIds) {
+                const auto mate=vertexMirrors.find(vertex);
+                if(!visited.insert(vertex).second||
+                   mate==vertexMirrors.end())return false;
+                if(mate->second==vertex)++anchors;
+            }
+            if(anchors!=2)return false;
+        }
         if(i<=partner[i])
             plan.mirroredContours.emplace_back(i,partner[i]);
     }
