@@ -46,7 +46,7 @@ std::vector<Vec3> AsyncSculptWorker::centers(Vec3 point) const {
 void AsyncSculptWorker::enqueue(Command command) {
     {
         std::lock_guard guard(commandsMutex_);
-        commands_.push_back(command);
+        commands_.push_back(std::move(command));
     }
     ready_.notify_one();
 }
@@ -69,6 +69,22 @@ void AsyncSculptWorker::undo() {
 }
 void AsyncSculptWorker::redo() {
     if(!reserved_.load())enqueue({Kind::Redo});
+}
+void AsyncSculptWorker::mergeExactContacts(
+    std::shared_ptr<const RegionTopologyIndex> expected,
+    std::vector<RegionTopologyIndex::CollisionPair> contacts,
+    ExactCutStepLimits limits) {
+    if(!expected||contacts.empty())
+        throw std::invalid_argument(
+            "Worker union requires original snapshot and explicit contacts");
+    if(reserved_.load())
+        throw std::logic_error(
+            "Cannot enqueue union while a sculpt stroke is reserved");
+    Command command{Kind::Merge};
+    command.expected=std::move(expected);
+    command.contacts=std::move(contacts);
+    command.mergeLimits=std::move(limits);
+    enqueue(std::move(command));
 }
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
@@ -102,6 +118,8 @@ void AsyncSculptWorker::refreshStatus() {
     s.rejectedStamps=brush_->rejectedStamps();
     s.collisionCheckedStamps=brush_->collisionCheckedStamps();
     s.collisionRepairedStamps=brush_->collisionRepairedStamps();
+    s.completedUnions=brush_->completedUnions();
+    s.rejectedUnions=brush_->rejectedUnions();
     s.contact=brush_->contactStatistics();
     s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
@@ -221,6 +239,20 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     checkpoints_.request(command->checkpointPath,
                                          brush_->checkpoint());
                     break;
+                case Kind::Merge: {
+                    if(stroke_.active()||stroke_.pendingSamples()!=0)
+                        throw std::logic_error(
+                            "Serialized Boolean union reached an active stroke");
+                    const auto merged=brush_->mergeExactContacts(
+                        command->expected,command->contacts,command->mergeLimits);
+                    if(merged) {
+                        const auto& dirty=brush_->lastDirtyPartitions();
+                        unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                  dirty.begin(),dirty.end());
+                        changed=true;
+                    }
+                    break;
+                }
                 }
             }
             // Input capture is decoupled from processing. The worker pumps

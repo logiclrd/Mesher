@@ -1923,6 +1923,58 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2d3b: Explicit worker-serialized single-CAS union publication
+
+The single-writer background `AsyncSculptWorker` now exposes an
+**explicit-only** `mergeExactContacts(expected, contacts, limits)` command.
+It is NOT connected to an interactive menu, pointer gesture or stamp
+collision auto-discovery. The client supplies the full V13 original-contact
+graph and the exact immutable root used when that graph was captured.
+The command enters the existing FIFO and is refused during a reserved
+active stroke. If a queued stamp, undo, redo, or another successful
+transaction has replaced that root before execution, a stale expected
+pointer refuses the entire Boolean union instead of changing its
+meaning to fit newer geometry. A work-budget or validator refusal
+likewise returns no renderer snapshot, mirror deltas, undo entry or
+partly published mesh.
+
+The worker-owned `VersionedSculptBrush` calls the V17e2b2d3 complete
+private preparation. The final original-root Step (not its intermediate
+conforming-cut root) is offered once to the same V17c validator that
+receives ordinary stamps. On symmetric sessions the original complete
+reflected vertex involution is required; missing or inconsistent pairs
+cannot turn the operation into an asymmetric weld. Net pair retirements
+and additions are validated against ALL THREE existing sculpt mirror
+controllers. Refinement and collapse mirror maps stage those changes
+under reversible Step journals before one
+`IndexedMeshRepository::publishIfCurrent(expected,final)`. A
+pre-publication conflict or error rolls back both journals. Following
+a successful single-root CAS, Inflate mirror state is synchronized,
+the net partition/vertex/face statistics update, and ONE `RevisionHistory`
+transition is appended with net pair changes and conservative COW bytes.
+The existing single-writer queue prevents other sculpt operations,
+undo/redo, or checkpoint requests from observing a partially committed
+worker bookkeeping transition. Like the existing stamp path, a
+truly exceptional failure AFTER publication is fatal to the worker,
+not mislabeled as a recoverable geometry refusal.
+
+The renderer observes ONLY the fully validated terminal index/root
+together with the accumulated changed face-owner partition IDs through
+its pre-existing coalescing snapshot mailbox. Camera/GL/Vulkan work
+remains outside the worker. Existing `undo`/`redo` mirror-delta
+replay and `checkpoint` serialization are used without a separate
+Boolean-only history or file format. Telemetry has distinct
+`completedUnions` and `rejectedUnions` counters, so a failed or
+accepted explicit union does not inflate sculpt stamp counts. The
+CPU acceptance fixtures queue actual interpenetrating closed
+tetrahedra and their X-reflected partner pair, verify one final root,
+one undo/redo, mirrored checkpoint restoration, stale-root refusal,
+budget refusal followed by a successful command, and unchanged
+historical readers. No interactive Merge geometry setting has been
+enabled. Repeated sculpt/union acceptance, contact hysteresis,
+multi-curve arrangements and symmetry-plane seam junctions remain
+open under V17e2b2d4/V17.
+
 ## V17e2b2d3: One original-root private Step and net history/checkpoint journals
 
 `prepareExactCutStep` stages the V17e2b2b conforming cut followed by the

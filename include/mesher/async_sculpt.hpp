@@ -34,6 +34,8 @@ public:
         std::size_t rejectedStamps=0;
         std::size_t collisionCheckedStamps=0;
         std::size_t collisionRepairedStamps=0;
+        std::size_t completedUnions=0;
+        std::size_t rejectedUnions=0;
         SculptContactStatistics contact{};
         std::string lastRejection;
         std::size_t totalQueuedSteps=0;
@@ -76,6 +78,13 @@ public:
     void setRadius(double radius);
     void undo();
     void redo();
+    // Explicit worker-only opt-in. Contacts and their expected immutable
+    // root travel together; queued sculpt changes make this request stale
+    // rather than redirecting it to a different surface revision.
+    void mergeExactContacts(
+        std::shared_ptr<const RegionTopologyIndex> expected,
+        std::vector<RegionTopologyIndex::CollisionPair> contacts,
+        ExactCutStepLimits limits={});
     void saveCheckpoint(std::filesystem::path destination);
     CheckpointStatistics checkpointStatistics() const {
         return checkpoints_.statistics();
@@ -89,12 +98,15 @@ public:
     }
 
 private:
-    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint};
+    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint,Merge};
     struct Command {
         Kind kind;
         Vec3 point{};
         double elapsed=0,radius=0;
         std::filesystem::path checkpointPath{};
+        std::shared_ptr<const RegionTopologyIndex> expected{};
+        std::vector<RegionTopologyIndex::CollisionPair> contacts{};
+        ExactCutStepLimits mergeLimits{};
     };
     void enqueue(Command command);
     void run(std::stop_token token);

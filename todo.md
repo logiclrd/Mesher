@@ -1112,14 +1112,29 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   with exact mirror/tombstone state, and partial-contact/work-budget
   refusal with NO returned root. No UI, worker, automatic publication
   or partial checkpoint/history write.
-- [ ] **V17e2b2d3b — Integrate one-CAS union with worker/undo history choreography.**
-  Wire an explicitly opted-in Step through the worker's original-root
-  CAS and existing history/mirror-state checkpoint machinery. A CAS
-  winner must append exactly ONE history transition and publish one
-  matching mirror-map state without an observable half-committed
-  window; test competing writers, history/renderer inputs and
-  refusal/backlog handling. Do not activate the visible desktop
-  Merge geometry control until manual and repeated-stamp acceptance.
+- [x] **V17e2b2d3b — Worker FIFO, one-CAS union and mirrored history choreography.**
+  An EXPLICIT-only background `AsyncSculptWorker::mergeExactContacts`
+  request carries its complete original V13 contact list, immutable
+  expected root and bounded Step settings together through the input
+  queue, refusing active strokes and stale snapshots instead of
+  reinterpreting old geometry. Recompute the full private
+  original-root union using the d3 composer, then apply the existing
+  V17c validator to the final cut/weld candidate. Preflight all net
+  added/removed reflected ID pairs against the three synchronized
+  sculpt mirror maps. Stage refiner and collapser pairs under
+  reversible journal transactions; roll back on any pre-CAS failure.
+  Publish ONLY the validated final root by one original-root CAS,
+  synchronize Inflate mirrors and append exactly ONE history entry
+  using d3 net dirty owner partitions, counts and mirror deltas.
+  Existing undo/redo/checkpoint and coalesced renderer snapshots
+  receive the SAME immutable union (no intermediate subdivision).
+  Separate completed/rejected union telemetry does not affect stamp
+  count. Full async regressions cover closed asymmetric and reflected
+  tetrahedral unions, captured-root staleness, one undo/redo,
+  mirror-safe durable recovery, budget refusal and subsequent input
+  draining. UI Merge geometry stays OFF. Exceptional failure after
+  CAS remains fatal as in the existing stamped publication path.
+  Repeated sculpt/union interaction acceptance is a later V17 gate.
 - [ ] **V17e2b2d4 — Generalize supported transverse cut seam topology.**
   Exercise multiple section curves through one original face, crossing
   and T-junction subdivision chains in COMPLETE closed-shell unions,
