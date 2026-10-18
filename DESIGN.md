@@ -1923,6 +1923,59 @@ This does NOT turn the geometry machinery on in the interactive
 sculpt worker; that and repeat-contact user-facing policies
 remain V17.
 
+## V17e2b2d3: One original-root private Step and net history/checkpoint journals
+
+`prepareExactCutStep` stages the V17e2b2b conforming cut followed by the
+V17e2b2d2 EXACT provenance-welded seam join as **two private COW
+transactions** and returns ONLY the original `expected` root and the
+complete FINAL `final` root. No intermediate cut root, partial deletion
+set, or unpublished mirror-map mutation is externally returned. The
+terminal immutable revision shares all unchanged partition/picking
+directory objects with the historical source. The eventual publisher
+may CAS **once** using `IndexedMeshRepository::publishIfCurrent(expected,
+final)`; if the published root changed during the private work, the
+whole terminal union is stale and rejected. There is no need to copy
+the complete mesh into another transaction just to "squash" the two
+private operations: original-root pointer identity and one final
+published root are the observable Step boundary.
+
+The composer independently repeats the final cut-halo collision query
+against the entire terminal mesh and re-evaluates c3's exact-child
+cavity-preserving authorization against the SAME cut revision. Every
+protected Exposed/ReversedBoundary child must survive with its corner
+positions EXACTLY unchanged. Unsupported contacts, budget exhaustion,
+invalid journals, and a stale private root return no final commit,
+publishable pointer, changed partition, or mirror deltas.
+
+The NET stable-ID journals are computed against the ORIGINAL snapshot,
+not by blindly concatenating the two private edit journals. They
+contain (1) newly inserted VertexIds and FaceIds still alive in the
+final revision; (2) genuinely retired OLD IDs; (3) changed original
+FaceIds that remain live; (4) only surviving new mirrored vertex/face
+orbits; and (5) paired removals of genuinely retired historical mirror
+IDs. Identities allocated and then retired before publication are NOT
+exposed as new live IDs or history mirror pairs. Their tombstones and
+shared monotone allocator watermarks are nevertheless preserved in the
+terminal revision and its durable checkpoint, so they can never be
+recycled. Exact partition owners of both cut and joined changes yield
+one sorted dirty-partition set without a full-mesh traversal. A
+conservative copied-payload accounting sum reflects the cost of both
+private COW transactions; history receives one transition with the
+final root, dirty set, and NET mirror deltas.
+
+Acceptance covers real closed-tetrahedron unions (2 connected
+components -> 1), reflected unions (4 -> 2), success and stale failure
+of the original-root indexed-repository CAS, stable old-root
+renderer/picker readers, preserved untouched partition pointers,
+ONE undo and ONE redo, mirrored pair undo/redo, durable checkpoint
+round-trips including tombstones and mirror pairs, and budget refusal
+without leaked intermediate roots. This is a **publication-ready data
+contract**, not an automatically activated live sculpt operation.
+Actual worker integration, history append ordering under concurrent
+publication, X=0 seam contacts, cross-section T-junctions and broader
+fidelity/load acceptance remain outside this milestone. The desktop
+Merge geometry option is still disabled.
+
 ## V17e2b2d2: Provenance-only join of c3 cut-surface boundary edges
 
 The original V16 cap/zipper was correctly rejecting the closed-tetra
