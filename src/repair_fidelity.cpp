@@ -1,6 +1,7 @@
 #include "mesher/repair_surgery.hpp"
 #include "mesher/versioned_refine.hpp"
 #include "mesher/versioned_collapse.hpp"
+#include "mesher/repair_intersection.hpp"
 
 #include <algorithm>
 #include <array>
@@ -846,6 +847,265 @@ SourceSplitLineage advanceCertifiedCollapseLineage(
     exactProtectedFaces(prior,*current);
     auto result=prior;
     result.terminal=current;
+    return result;
+}
+
+
+SourceExactCutLineage advanceCertifiedExactCutLineage(
+    const SourceSplitLineage& prior,const ExactCutStep& step,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors,
+    std::size_t maxFaceEvidence,std::size_t maxLivingDescendants) {
+    if(!prior.original||!prior.terminal||prior.living.empty()||
+       !step.complete||!step.expected||!step.final||
+       !step.sourceEvidence||step.expected!=prior.terminal||
+       !step.commit.revision||
+       step.commit.revision.get()!=&step.final->revision())
+        throw std::invalid_argument("Missing, stale or incomplete original-root exact-source Step");
+    const auto& evidence=*step.sourceEvidence;
+    const auto& cut=evidence.prepared;
+    if(cut.originalIndex!=step.expected||!cut.index||
+       !cut.commit.revision||cut.commit.revision.get()!=&cut.index->revision()||
+       cut.childSources.empty()||cut.sourceContacts.empty())
+        throw std::logic_error("Private cut source does not match certified original Step");
+    const bool mirrored=!cut.mirroredFaces.empty()||
+                        !cut.mirroredVertices.empty()||
+                        !cut.mirroredSeamVertices.empty();
+    if(mirrored&&!originalMirrors)
+        throw std::invalid_argument("Mirrored exact-source audit requires explicit original involution");
+
+    // Existing c1/c2/c3 and M03 work is governed by the ORIGINAL finite
+    // limits recorded by the complete Step. M26 also has a hard cap on
+    // the FaceId evidence/lookups it itself consumes; never truncate.
+    std::size_t livingCount=0;
+    std::map<FaceId,FaceId> originalOwnership;
+    for(const auto& [first,faces]:prior.living) {
+        if(!prior.original->maybeFace(first)||faces.empty())
+            throw std::logic_error("Missing first-original protected face ownership");
+        for(const auto id:faces) {
+            if(!prior.terminal->maybeFace(id)||
+               !originalOwnership.emplace(id,first).second)
+                throw std::logic_error("Duplicate or missing protected living source FaceId");
+        }
+        if(faces.size()>maxLivingDescendants-livingCount)
+            throw std::length_error("Pre-cut living source descendants exceed cap");
+        livingCount+=faces.size();
+    }
+    if(cut.childSources.size()>maxFaceEvidence)
+        throw std::length_error("Exact cut source-child evidence work exhausted");
+    const auto c3=planExactCutRemoval(cut,evidence.removalSettings);
+    if(!c3.ready()||c3.originalIndex!=step.expected||
+       c3.candidateIndex!=cut.index)
+        throw std::logic_error("Independent c1/c2/c3 source classification refused");
+    const auto m03=planUncutFaceRetirement(
+        cut,evidence.removalSettings,evidence.uncutLimits,originalMirrors);
+    if(!m03.ready())
+        throw std::logic_error("Independent M03 source retirement classification refused");
+    const auto sameIds=[](const std::vector<FaceId>& a,
+                          const std::vector<FaceId>& b) {
+        return a==b&&std::adjacent_find(a.begin(),a.end())==a.end();
+    };
+    if(!sameIds(evidence.removedChildren,c3.proposedRemoval)||
+       !sameIds(evidence.protectedChildren,c3.protectedChildren)||
+       !sameIds(evidence.removedUncut,m03.authorizedUncut)||
+       !sameIds(evidence.protectedUncut,m03.protectedUncut)||
+       evidence.classifiedChildren.size()!=c3.classifiedChildren.size()||
+       step.checkedProtectedFaces!=
+           c3.protectedChildren.size()+m03.protectedUncut.size())
+        throw std::logic_error("Exact-source evidence disagrees with independent c3/M03 decision");
+    std::map<FaceId,RegionTopologyIndex::FragmentKind> kind;
+    for(std::size_t i=0;i<c3.classifiedChildren.size();++i) {
+        const auto& actual=c3.classifiedChildren[i];
+        const auto& recorded=evidence.classifiedChildren[i];
+        if(actual.child!=recorded.child||
+           actual.original!=recorded.original||
+           actual.kind!=recorded.kind||
+           actual.negativeWinding!=recorded.negativeWinding||
+           actual.positiveWinding!=recorded.positiveWinding||
+           !kind.emplace(actual.child,actual.kind).second)
+            throw std::logic_error("Forged or incomplete certified child occupancy");
+    }
+    const std::size_t remaining=maxFaceEvidence-cut.childSources.size();
+    if(m03.authorizedUncut.size()>remaining||
+       m03.protectedUncut.size()>
+           remaining-m03.authorizedUncut.size()||
+       originalOwnership.size()>
+           remaining-m03.authorizedUncut.size()-m03.protectedUncut.size())
+        throw std::length_error("Exact-source retained/uncut evidence cap exhausted");
+    SourceExactCutLineage result;
+    result.survivors=prior;
+    result.survivors.terminal=step.final;
+    result.classifiedChildren=kind.size();
+    result.protectedChildren=c3.protectedChildren.size();
+    result.retiredChildren=c3.proposedRemoval.size();
+    result.certifiedUncutRetirements=m03.authorizedUncut.size();
+    result.checkedFaceEvidence=
+        cut.childSources.size()+m03.authorizedUncut.size()+
+        m03.protectedUncut.size()+originalOwnership.size();
+    const std::set<FaceId> removed(c3.proposedRemoval.begin(),
+                                   c3.proposedRemoval.end());
+    const std::set<FaceId> protectedCut(c3.protectedChildren.begin(),
+                                        c3.protectedChildren.end());
+    std::map<FaceId,FaceId> source;
+    for(const auto& [child,parent]:cut.childSources) {
+        if(!child||!parent||!cut.index->maybeFace(child)||
+           !step.expected->maybeFace(parent)||
+           !source.emplace(child,parent).second||
+           !kind.contains(child))
+            throw std::logic_error("Foreign, missing or duplicate exact source child");
+        const bool live=step.final->maybeFace(child)!=nullptr;
+        if(removed.contains(child)) {
+            const auto k=kind.at(child);
+            if(live||!step.final->retiredFace(child)||
+               (k!=RegionTopologyIndex::FragmentKind::Buried&&
+                k!=RegionTopologyIndex::FragmentKind::Outside))
+                throw std::logic_error("Uncertified source child retirement");
+        }else if(protectedCut.contains(child)) {
+            const auto k=kind.at(child);
+            if(!live||
+               (k!=RegionTopologyIndex::FragmentKind::Exposed&&
+                k!=RegionTopologyIndex::FragmentKind::ReversedBoundary))
+                throw std::logic_error("Protected exposed/cavity source child disappeared");
+            const auto before=cut.index->face(child).vertices;
+            const auto after=step.final->face(child).vertices;
+            // D2 may replace a proven seam vertex ID with its certified
+            // counterpart, but must not displace the protected patch.
+            for(unsigned corner=0;corner<3;++corner) {
+                const auto a=cut.index->vertex(before[corner]).position;
+                const auto b=step.final->vertex(after[corner]).position;
+                if(a.x!=b.x||a.y!=b.y||a.z!=b.z)
+                    throw std::logic_error("Exact d2 join displaced protected source face");
+            }
+        }else
+            throw std::logic_error("Unclassified original source cut child");
+    }
+    if(kind.size()!=source.size())
+        throw std::logic_error("Incomplete exact original child source graph");
+    const std::set<FaceId> goneUncut(m03.authorizedUncut.begin(),
+                                     m03.authorizedUncut.end());
+    const std::set<FaceId> safeUncut(m03.protectedUncut.begin(),
+                                     m03.protectedUncut.end());
+    for(const auto id:goneUncut) {
+        if(source.contains(id)||!step.expected->maybeFace(id)||
+           !cut.index->maybeFace(id)||
+           !step.final->retiredFace(id)||step.final->maybeFace(id))
+            throw std::logic_error("M03 source retirement was not an uncut original");
+    }
+    for(const auto id:safeUncut) {
+        if(source.contains(id)||!step.expected->maybeFace(id)||
+           !step.final->maybeFace(id)||
+           step.expected->face(id).vertices!=step.final->face(id).vertices)
+            throw std::logic_error("Protected original outer/cavity uncut source was rewritten");
+        for(const auto vertex:step.expected->face(id).vertices) {
+            const auto a=step.expected->vertex(vertex).position;
+            const auto b=step.final->vertex(vertex).position;
+            if(a.x!=b.x||a.y!=b.y||a.z!=b.z)
+                throw std::logic_error("Protected original uncut source XYZ moved");
+        }
+    }
+    std::set<FaceId> allRetirements=removed;
+    allRetirements.insert(goneUncut.begin(),goneUncut.end());
+    if(std::vector<FaceId>(allRetirements.begin(),allRetirements.end())!=
+       step.retiredFaces)
+        throw std::logic_error("Terminal net retired source faces disagree with c3/M03");
+    for(const auto child:step.addedFaces)
+        if(!source.contains(child)||step.expected->maybeFace(child)||
+           !step.final->maybeFace(child))
+            throw std::logic_error("Final added FaceId lacks certified cut source");
+
+    // Every first-original protected FaceId routes ONLY via the exact
+    // previous living source ID. Source-not-in-cut must remain unchanged,
+    // unless M03 independently authorized its complete retirement.
+    std::set<FaceId> uniqueFinal;
+    std::size_t nextLiving=0;
+    for(auto& [original,living]:result.survivors.living) {
+        std::vector<FaceId> next;
+        for(const auto previous:living) {
+            bool foundCut=false;
+            for(const auto& [child,parent]:source) {
+                if(parent!=previous)continue;
+                foundCut=true;
+                if(step.final->maybeFace(child))next.push_back(child);
+            }
+            if(foundCut)continue;
+            if(goneUncut.contains(previous))continue;
+            const auto previousFace=step.expected->maybeFace(previous);
+            const auto finalFace=step.final->maybeFace(previous);
+            if(!previousFace||!finalFace||
+               previousFace->vertices!=finalFace->vertices)
+                throw std::logic_error("Uncut protected first-original source disappeared");
+            for(const auto vertex:previousFace->vertices) {
+                const auto a=step.expected->vertex(vertex).position;
+                const auto b=step.final->vertex(vertex).position;
+                if(a.x!=b.x||a.y!=b.y||a.z!=b.z)
+                    throw std::logic_error("Uncut protected original source was displaced");
+            }
+            next.push_back(previous);
+        }
+        if(next.size()>maxLivingDescendants-nextLiving)
+            throw std::length_error("Exact source terminal descendant budget exhausted");
+        nextLiving+=next.size();
+        std::sort(next.begin(),next.end());
+        if(std::adjacent_find(next.begin(),next.end())!=next.end())
+            throw std::logic_error("Duplicated terminal source descendant");
+        for(const auto id:next)
+            if(!step.final->maybeFace(id)||!uniqueFinal.insert(id).second)
+                throw std::logic_error("Coincident independent source FaceIds were aliased");
+        if(next.empty())result.certifiedRetiredOrigins.push_back(original);
+        living=std::move(next);
+    }
+    // Exact mirrored cuts are certified by c3 and d2 using SOURCE face
+    // and vertex orbits. Independently assert every survivor is a
+    // complete exact reflected pair or genuine fixed singleton.
+    if(mirrored) {
+        std::set<std::pair<FaceId,FaceId>> valid;
+        for(const auto& [a,b]:cut.mirroredFaces) {
+            const bool aLive=step.final->maybeFace(a)!=nullptr;
+            const bool bLive=step.final->maybeFace(b)!=nullptr;
+            if(aLive!=bLive)
+                throw std::logic_error("Only half of source reflected face survives d2");
+            if(!aLive)continue;
+            valid.emplace(std::min(a,b),std::max(a,b));
+            const auto ta=step.final->face(a).vertices;
+            const auto tb=step.final->face(b).vertices;
+            bool match=false;
+            for(unsigned shift=0;shift<3;++shift) {
+                bool reflected=true;
+                for(unsigned j=0;j<3;++j) {
+                    const auto p=step.final->vertex(ta[j]).position;
+                    const auto q=step.final->vertex(tb[(shift+3-j)%3]).position;
+                    if(p.x!=-q.x||p.y!=q.y||p.z!=q.z)
+                        reflected=false;
+                }
+                if(reflected)match=true;
+            }
+            if(!match)throw std::logic_error("Final mirrored child fan lacks source-exact reflection");
+        }
+        const std::set<std::pair<FaceId,FaceId>> published(
+            step.survivingMirroredFaces.begin(),
+            step.survivingMirroredFaces.end());
+        if(valid!=published||published.size()!=step.survivingMirroredFaces.size())
+            throw std::logic_error("Final d2 mirrored source-child journals disagree");
+        for(const auto& [a,b]:step.addedMirrors) {
+            const auto p=step.final->vertex(a).position;
+            const auto q=step.final->vertex(b).position;
+            if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+               (a==b&&p.x!=0))
+                throw std::logic_error("Final d2 new mirror-point source orbit invalid");
+        }
+    }else if(!step.survivingMirroredFaces.empty()||
+             !step.addedMirrors.empty()||!step.removedMirrors.empty())
+        throw std::logic_error("Nonmirrored source Step invented mirror orbits");
+    for(const auto& [retired,retained]:evidence.finalWeldedPairs) {
+        if(!cut.index->maybeVertex(retired)||
+           !cut.index->maybeVertex(retained)||
+           step.final->maybeVertex(retired)||
+           !step.final->maybeVertex(retained))
+            throw std::logic_error("D2 exact seam weld lacks source-proven vertex retirement");
+        const auto a=cut.index->vertex(retired).position;
+        const auto b=cut.index->vertex(retained).position;
+        if(a.x!=b.x||a.y!=b.y||a.z!=b.z)
+            throw std::logic_error("D2 weld attempted proximity-only coincidence");
+    }
     return result;
 }
 
