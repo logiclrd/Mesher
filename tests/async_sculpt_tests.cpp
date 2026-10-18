@@ -953,23 +953,16 @@ void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
     const auto before=brush.snapshot();
     Mesh dummy;
     brush.stamp(dummy,areas);
-    if(brush.completedUnions()>0) {
-        require(brush.snapshot()!=before&&
-                brush.historyStatistics().undoDepth==1&&
-                brush.publishedRevisions()==1&&
-                brush.lastDetails().splitPairs==1&&
-                brush.undo()&&brush.snapshot()==before,
-                "Physical split PLUS accepted exact Boolean has one immutable original-root history entry");
-    }else {
-        require(brush.snapshot()==before&&
-                brush.rejectedStamps()==1&&
-                brush.publishedRevisions()==0&&
-                brush.historyStatistics().undoDepth==0&&
-                brush.checkpoint().index==before&&
-                brush.lastDirtyPartitions().empty()&&
-                !brush.lastRejection().empty(),
-                "Unsupported post-refine contact must undo both local split and exact source staging");
-    }
+    if(brush.completedUnions()!=1)
+        throw std::runtime_error(
+            "Real split plus source-certified physical union refused: "+
+            brush.lastRejection());
+    require(brush.snapshot()!=before&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.publishedRevisions()==1&&
+            brush.lastDetails().splitPairs==1&&
+            brush.undo()&&brush.snapshot()==before,
+            "Physical split PLUS accepted exact Boolean has one immutable original-root history entry");
 }
 void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
     // Unlike the already intersecting M16 acceptance source, this
