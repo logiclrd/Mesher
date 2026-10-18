@@ -1257,6 +1257,61 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
              <<strength<<" and complete original-root history\n";
 }
 
+void testM11OversizedPhysicalContactRefusesThenValidDrains() {
+    // Unlike an injected terminal validator refusal, this is an ACTUAL
+    // unsupported source candidate. A broad symmetrical brush moves many
+    // initially separate closed tetrahedron pairs at once, exceeding the
+    // bounded certified finite-source V13 section budget. The entire
+    // physical remesh candidate must be rejected without even one join.
+    const auto source=makeM11Towers(16,.15);
+    const auto initial=checkpointM11Source(source);
+    auto opts=m11PhysicalExactSettings();
+    opts.physicalSourceLimits.maxSectionTests=12; // one section group=6
+    AsyncSculptWorker worker(initial,.025,chooseM11TowerStrength(),.2,
+                             {},{},{},{},opts);
+    const auto old=worker.initialRevision();
+    const auto wait=[&] {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<stop) {
+            (void)worker.status();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        require(worker.canBegin(),"M11 finite-source over-budget worker event drained");
+        return worker.status();
+    };
+    worker.begin({5,0,70},160);
+    worker.end({5,0,70},0);
+    const auto rejected=wait();
+    const auto refusedSnapshot=worker.takeSnapshot();
+    if(rejected.rejectedStamps!=1)
+        throw std::runtime_error(
+            "M11 broad physically induced >12 original source contacts did not refuse: "+
+            rejected.lastRejection);
+    require(rejected.completedStamps==1&&rejected.completedUnions==0&&
+            rejected.publishedRevisions==0&&
+            rejected.history.undoDepth==0&&
+            refusedSnapshot&&refusedSnapshot->index==old&&
+            refusedSnapshot->dirtyPartitions.empty()&&
+            !rejected.lastRejection.empty(),
+            "Oversize contact query rolls back ALL physically moved sheets without a partial published union");
+    // Identical original root and same worker now accept the ordinary
+    // six-contact one-region physically triggered mirrored union.
+    worker.begin(source.input.front()[0].center,6);
+    worker.end(source.input.front()[0].center,0);
+    const auto accepted=wait();
+    const auto result=worker.takeSnapshot();
+    if(accepted.completedUnions!=1)
+        throw std::runtime_error(
+            "M11 valid queued stamp failed to recover after source-work refusal: "+
+            accepted.lastRejection);
+    require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
+            accepted.publishedRevisions==1&&accepted.history.undoDepth==1&&
+            result&&result->index!=old&&!result->dirtyPartitions.empty()&&
+            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0,
+            "Queued worker consumes refused large contact then correct physical symmetric union once");
+}
+
 void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
     const auto source=makeM11Towers(16,.15);
     const auto restored=checkpointM11Source(source);
@@ -1860,6 +1915,7 @@ int main() {
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
+        testM11OversizedPhysicalContactRefusesThenValidDrains();
         testExactPhysicalRemeshIsOneSpeculativeTransaction();
         testPhysicallyCreatedContactCanPassExactSourcePlanner();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
