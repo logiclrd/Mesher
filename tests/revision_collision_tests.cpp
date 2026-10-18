@@ -2965,6 +2965,15 @@ void testX0InvariantExactCutProbe() {
     check(!refusedStep.complete&&!refusedStep.final&&
           !refusedStep.commit.revision&&refusedStep.addedMirrors.empty(),
           "One original V13 source contact missing refuses the entire net Step");
+    auto forgedFixed=mirror;
+    const auto nonfixed=imported.flatIndex.vertexIds[0];
+    forgedFixed[nonfixed]=nonfixed;
+    const auto forgedStep=prepareExactCutStep(
+        root,contacts,stepLimits,&forgedFixed);
+    check(!forgedStep.complete&&!forgedStep.expected&&!forgedStep.final&&
+          !forgedStep.commit.revision&&forgedStep.addedMirrors.empty()&&
+          forgedStep.removedMirrors.empty(),
+          "Misidentified off-plane historical X=0 fixed orbit cannot create ANY net Step");
     auto limitStep=stepLimits;
     limitStep.maxNetChangedIds=1;
     const auto exhaustedStep=prepareExactCutStep(
