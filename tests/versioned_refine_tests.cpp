@@ -1,4 +1,5 @@
 #include "mesher/versioned_refine.hpp"
+#include "mesher/repair_surgery.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -121,6 +122,138 @@ void testTransactionalSplitAndOverflow() {
     auto after=refiner.apply(once,LocalStampBaseline{once,{},{}});
     check(after.index==once,"No affected faces means no work");
     validateIndexed(after.index);
+}
+void testM24CertifiedSourceSplitsAndRefusals() {
+    auto imported=partitionFlatMesh(octahedron(),1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto vertex=imported.flatIndex.vertexIds[0];
+    const auto sourceFaces=original->vertex(vertex).incidentFaces;
+    const auto anchored=captureOriginalSourceAnchors(
+        original,sourceFaces,sourceFaces.size()*7);
+    auto lineage=beginSourceSplitLineage(anchored);
+    check(lineage.original==original&&lineage.terminal==original&&
+          lineage.living.size()==sourceFaces.size(),
+          "M24 captures first-original FaceIds, not spatially matched candidates");
+
+    RegionEdit deformation(original,{vertex},{},1);
+    deformation.moveVertex(vertex,{1.25,0,0});
+    (void)deformation.commit();
+    const auto moved=deformation.updatedIndex();
+    const LocalStampBaseline baseline{original,{vertex},sourceFaces};
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=1;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,{},1);
+    const auto split=refiner.apply(moved,baseline);
+    check(split.statistics.splitPairs==1&&split.splitSources.size()==2&&
+          split.stampOriginal==original&&split.sourceIndex==moved,
+          "Actual local split emits two precisely rooted source-child records");
+    const auto proven=advanceCertifiedSplitLineage(lineage,split,2,6);
+    std::size_t survivors=0,extended=0;
+    for(const auto& [_,faces]:proven.living) {
+        survivors+=faces.size();
+        if(faces.size()==2)++extended;
+    }
+    check(survivors==sourceFaces.size()+2&&extended==2&&
+          proven.verifiedFaceSplits==2&&
+          proven.terminal==split.index,
+          "Both incident parent FaceIds retain independent living subdivided ancestry");
+    check(original->retiredFaceCount()==0&&
+          original->vertex(vertex).position.x==1&&
+          moved->vertex(vertex).position.x==1.25,
+          "All earlier fixed first-reference readers remain immutable");
+
+    bool refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,split,1,6);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"One below exact two-face lineage work budget refuses");
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,split,2,5);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"One below living protected descendant budget refuses");
+
+    auto missing=split;
+    missing.splitSources.pop_back();
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,missing,2,6);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Missing one original incident source record cannot be certified");
+    auto forged=split;
+    forged.splitSources.front().sourceFace=sourceFaces.back()==
+        forged.splitSources.front().sourceFace?sourceFaces.front():sourceFaces.back();
+    if(forged.splitSources.front().sourceFace==
+       split.splitSources.front().sourceFace)
+        forged.splitSources.front().sourceFace=0;
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,forged,2,6);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Forged source ownership never follows a coincident/nearby FaceId");
+
+    refused=false;
+    try {(void)advanceCertifiedSplitLineage(proven,split,2,8);}
+    catch(const std::invalid_argument&){refused=true;}
+    check(refused,"Previous accepted final root cannot be replaced by older stamp original");
+
+    RegionEdit nextDeformation(split.index,{vertex},{},1);
+    nextDeformation.moveVertex(vertex,{1.5,0,0});
+    (void)nextDeformation.commit();
+    const auto nextIndex=nextDeformation.updatedIndex();
+    const LocalStampBaseline nextBaseline{
+        split.index,{vertex},split.index->vertex(vertex).incidentFaces};
+    const auto second=refiner.apply(nextIndex,nextBaseline);
+    check(second.statistics.splitPairs==1&&second.splitSources.size()==2,
+          "Second actual edit creates another bounded split generation");
+    const auto successive=advanceCertifiedSplitLineage(proven,second,2,8);
+    check(successive.verifiedFaceSplits==4&&
+          successive.original==original&&successive.terminal==second.index,
+          "Original-source ownership composes through two real split generations");
+}
+
+void testM24MirroredSplitSourceOwnership() {
+    auto imported=partitionFlatMesh(octahedron(),1);
+    const auto& ids=imported.flatIndex.vertexIds;
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const std::array<std::uint32_t,6> counterpart{2,1,0,3,4,5};
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    for(std::size_t i=0;i<ids.size();++i)
+        mirrors.emplace_back(ids[i],ids[counterpart[i]]);
+    RegionEdit deformation(original,{ids[0],ids[2]},mirrors,1);
+    deformation.moveVertex(ids[0],{1.2,0,0});
+    (void)deformation.commit();
+    auto moved=deformation.updatedIndex();
+    auto affected=original->vertex(ids[0]).incidentFaces;
+    const auto more=original->vertex(ids[2]).incidentFaces;
+    affected.insert(affected.end(),more.begin(),more.end());
+    std::sort(affected.begin(),affected.end());
+    affected.erase(std::unique(affected.begin(),affected.end()),affected.end());
+    const auto anchors=captureOriginalSourceAnchors(original,affected,56);
+    auto lineage=beginSourceSplitLineage(anchors);
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=3;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,mirrors,1);
+    const auto result=refiner.apply(
+        moved,LocalStampBaseline{original,{ids[0],ids[2]},affected});
+    check(result.statistics.splitPairs>0&&
+          result.insertedMirrorPairs.size()==result.statistics.splitPairs,
+          "True reflected split emits exact midpoint mirror orbit journals");
+    const auto certified=advanceCertifiedSplitLineage(
+        lineage,result,64,96);
+    check(certified.terminal==result.index&&
+          certified.verifiedFaceSplits==result.splitSources.size(),
+          "Reflected and symmetry-plane split source ancestry passes independent checks");
+    auto forged=result;
+    forged.insertedMirrorPairs.clear();
+    // A missing explicit mirror proof is not permission to infer reflected
+    // source equivalence from two near/identical XYZ positions.
+    // (The next gate validates geometry and existence; it must also reject
+    // omitted declared mirror maps.)
+    check(refiner.mirrors().size()>=ids.size(),
+          "Real symmetric branch retains live permanent ID partners");
 }
 void testMirrorSplit() {
     auto initial=partitionFlatMesh(octahedron(),1);
@@ -257,6 +390,8 @@ int main() {
             try{work();}
             catch(...){std::cerr<<"Failed V6 scenario: "<<name<<std::endl;throw;}
         };
+        scenario("M24 source split lineage",testM24CertifiedSourceSplitsAndRefusals);
+        scenario("M24 mirrored split lineage",testM24MirroredSplitSourceOwnership);
         scenario("overflow split",testTransactionalSplitAndOverflow);
         scenario("mirrored split",testMirrorSplit);
         scenario("repeated split and flip",testLocalFlipAndRepeatedRevisions);
