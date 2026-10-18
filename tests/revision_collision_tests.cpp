@@ -946,6 +946,16 @@ void testPrivateConformingRevisionCommitsAtomically() {
               restored.index->retiredVertexIds()==prepared.final->retiredVertexIds()&&
               connectedClosedSurfaceComponents(*restored.index)==1,
               "One published net union survives durable checkpoint/restore");
+        // A valid private contact pair subset still is NOT authority to
+        // publish an incomplete cut of the original intersection graph.
+        const std::vector<RegionTopologyIndex::CollisionPair> partial{
+            all.front()};
+        const auto refusedPartial=prepareExactCutStep(
+            baseline,partial,stepLimits);
+        check(!refusedPartial.complete&&!refusedPartial.final&&
+              !refusedPartial.commit.revision&&
+              refusedPartial.addedVertices.empty(),
+              "Partial original contact graph cannot be published as one Step");
         auto workCap=stepLimits;
         workCap.maxDirtyPartitions=0;
         const auto refused=prepareExactCutStep(baseline,all,workCap);
@@ -1430,11 +1440,15 @@ void testMirroredCompleteContactCoverage() {
                          net.addedMirrors,net.removedMirrors,
                          net.copiedPayloadBytes);
     const auto rewind=mirrorHistory.undo();
-    check(rewind.index==root&&rewind.removeMirrors==net.addedMirrors,
-          "A single reflected union undo removes every newly introduced mirror pair");
+    check(rewind.index==root&&
+          rewind.removeMirrors==net.addedMirrors&&
+          rewind.addMirrors==net.removedMirrors,
+          "Single undo restores retired historical mirrors and removes all new pairs");
     const auto replay=mirrorHistory.redo();
-    check(replay.index==net.final&&replay.addMirrors==net.addedMirrors,
-          "A single reflected union redo restores every surviving mirror pair");
+    check(replay.index==net.final&&
+          replay.addMirrors==net.addedMirrors&&
+          replay.removeMirrors==net.removedMirrors,
+          "Single redo reapplies NET removed historical and surviving new mirror pairs");
     const auto noMirror=prepareExactCutStep(root,originalContacts,stepLimits);
     check(!noMirror.complete&&!noMirror.final&&noMirror.addedMirrors.empty(),
           "Mirrored original-root Step refuses missing historic involution");
