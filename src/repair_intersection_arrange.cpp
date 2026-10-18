@@ -332,18 +332,16 @@ bool arrangeFace(
         }
         if(!target||!addEdge(node,*target))return refuse(__LINE__);
     }
-    // A detached, simple closed section loop does not have any degree-one
-    // endpoints. Without a connection to the outer triangle perimeter,
-    // halfedge walking would triangulate BOTH the interior of the loop
-    // and the entire outer triangle, double-covering its occupied area.
-    // A single bridge creates a weakly simple face with repeated bridge
-    // vertices (which our ear clipper correctly rejects). TWO distinct,
-    // bounded, noncrossing ordinary scaffolds make both resulting faces
-    // simple while leaving all real V13 section edges untouched.
-    //
-    // Only isolated degree-two cycles qualify here. Complex detached
-    // arrangements, nested loops without visible chords, and ambiguous
-    // connector choices still refuse the entire source-face plan.
+    // A detached interior section component (a closed loop OR a
+    // degree-three/four graph at real section crossings) has no perimeter
+    // connection. Walking it separately would double-cover the source
+    // triangle's area. A single bridge makes a weakly simple polygon
+    // with repeated vertices; TWO distinct visible noncrossing scaffold
+    // edges are a bounded attempt to obtain simple halfedge regions.
+    // Genuine V13 section edges remain untouched and are NEVER scaffolds.
+    // Every detached node must have degree >=2: dangling or unconnectable
+    // graphs, non-simple halfedge walks, nested ambiguities and exhausted
+    // predicate/graph/triangulation budgets still refuse this source face.
     for(;;) {
         std::map<std::size_t,std::vector<std::size_t>> adjacent;
         for(const auto& [a,b]:graph) {

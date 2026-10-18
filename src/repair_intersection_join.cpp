@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <map>
+#include <sstream>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -230,15 +232,18 @@ ExactCutJoinResult joinCertifiedCutSections(
                     std::to_string(second.size()));
             for(std::size_t i=0;i<first.size();++i) {
                 const auto& a=first[i],&b=second[i];
-                if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing)
-                    return refused("Unmatched subdivision or aligned winding along contact "+
-                        std::to_string(k)+" interval "+std::to_string(i)+
-                        ": A["+std::to_string(a.lo)+","+
-                        std::to_string(a.hi)+"] B["+
-                        std::to_string(b.lo)+","+
-                        std::to_string(b.hi)+"] directions "+
-                        std::to_string(a.increasing)+","+
-                        std::to_string(b.increasing));
+                if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing) {
+                    // Preserve full double precision in diagnostics:
+                    // decimal-rounded interval labels can look identical
+                    // even when the strict protected-corner match fails.
+                    std::ostringstream why;
+                    why<<std::setprecision(17)
+                       <<"Unmatched subdivision or aligned winding along contact "
+                       <<k<<" interval "<<i<<": A["<<a.lo<<","<<a.hi
+                       <<"] B["<<b.lo<<","<<b.hi<<"] directions "
+                       <<a.increasing<<","<<b.increasing;
+                    return refused(why.str());
+                }
                 if(boundary[a.boundaryIndex].accounted||
                    boundary[b.boundaryIndex].accounted)
                     return refused("A seam boundary edge belongs to multiple contact sections");

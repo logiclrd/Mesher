@@ -1154,6 +1154,22 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   protrusion fixture also identified the still-open case of buried
   original faces never touched by a transverse cut: do NOT retire them
   without complete independent positive-winding authorization.
+  **Further qualified progress (V17e2b2d4b):** detached interior
+  V13 section graphs with crossing/degree-three/four junctions now
+  attempt TWO bounded, noncrossing visible scaffold chords. Original
+  area/orientation, c2 child-edge coverage, c1 two-sided positive
+  winding and c3 cavity-safe removal are independently proven for
+  complete, fully transverse 12-pair generic and 16-pair dyadic
+  orthogonal THREE-tetrahedron arrangements, not just selected pairs.
+  The d2 join can trace disjoint SURVIVING boundary subintervals rather
+  than requiring buried portions of every original section to remain
+  exposed, but still requires exact paired section endpoints, matching
+  subdivision, opposite directions and one boundary owner. Both triple
+  fixtures currently refuse final seam joining because independently
+  created junction interval coordinates are not exactly equal;
+  refusal exposes no final root or partial weld. Canonical shared
+  three-plane junction construction is the next **separate bounded**
+  task; no tolerance-based nearest weld or exposed geometry movement.
   Crossings/T-junction completed union, reflected and X=0 seams,
   differing densities and automatic repeated sculpt unions remain OPEN.
 - [ ] **V17e2b2d — Private exact-child excision and validated closure.**
