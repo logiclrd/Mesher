@@ -4199,3 +4199,31 @@ two-sided Hausdorff estimate. The tests use real Inflate motion,
 unchanged original root/picker, spoofed face ownership and one-under
 budget refusals. M19 never publishes geometry, turns on physicalExact,
 or claims the later active/hysteresis policy is complete.
+
+## October 18, 2026 — M20 flat proof work and M24 source-owned split certification
+
+The M19 read-only seven-point original source-face guard cannot accept
+a correctly remeshed original face once its FaceId/ordered incidence
+changes. Source ownership and geometric proximity are different:
+already-successful physical exact Boolean cuts have c1/c2/c3/d2
+original FaceId provenance, while local V6 splits, edge flips and V7
+collapse possess different and independently reviewable mutations.
+The entire M20 execution M24 → M25 → M26 → M27 → original M20
+integration was recorded in todo.md and V17_MILESTONES.md **before
+M24 code**. Original M12 and M20/M21–M23/M13–M15 remain intact.
+
+M24 records a committed split's exact immutable before/after root,
+rewritten original FaceId and appended child FaceId for every true
+original incident triangle. The independently read-only verifier
+checks the actual directed oriented two-child subdivision, exact
+midpoint and fixed-plane normalization, full split face/vertex
+journals and simultaneous mirror orbits; one interrupted/forged
+journal cannot authorize any protected patch. A first-original
+protected FaceId maps to the retained rewritten same ID PLUS each
+appended child through multiple real split generations and strict
+pre-stamp immutable root identity. Identical XYZ never transfers
+ownership to an unrelated triangle. Explicit work limits refuse
+rather than returning an incomplete lineage. Edge flips, collapsed
+original faces and c3/d2 Boolean children require M25/M26 before
+M20 can be complete. This cannot turn on physicalExact policy or
+desktop Merge geometry and asserts no unsupported fidelity guarantee.

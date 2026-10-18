@@ -1130,6 +1130,61 @@ and V18/V19 objectives remain unchanged. Refusal alone is not a positive weld.
   foreign-incidence refusals. Three-compiler substantive head CI
   #39159046998 succeeded; final PR-head check is required before merge.
   The original M12, M20–M23 and M13–M15 remain unchecked.
+**M20 flat execution rebaseline — October 18, 2026.** M20's original
+scope stays OPEN and unchanged; actual split, flip, collapse, exact
+cut/join, and across-Step composition have distinct source-ownership
+conditions. Record the ENTIRE planned sequence before any M24 code:
+**M24 → M25 → M26 → M27 → original M20 integration → M21–M23 → M12**.
+These are independent flat V17 peer IDs, not M20a descendants.
+M13–M15, V18/V19 and accepted M01–M19 remain untouched.
+
+- [x] **V17-M24 — Bounded, runtime-certified local split ancestry.**
+  Emit immutable before/after per-face proof records ONLY after actual
+  accepted RegionEdit split commits, including real reflected pairs and
+  self-mirrored X=0 midpoints. Consume these to trace original protected
+  FaceIds through repeated genuine split generations, retaining ALL
+  living stable FaceIds (rewritten original + appended child). Verify
+  exact source oriented subdivision and midpoint; source/target root
+  chains, independent coincident IDs and exact work caps. Refuse
+  missing/reordered/forged records, unproven flips or other ancestry,
+  never derive ownership by nearby XYZ. No physicalExact policy or
+  GUI authorization.
+  **Accepted:** PR #68 real two-generation splits, mirrored and X=0
+  fixed midpoint orbits, two separately valid coincident closed sheets,
+  exact opposite permanent-edge incidence, complete staged FaceId and
+  midpoint journals, root continuity, exact/one-below budget and
+  stale/forged/missing/cross-source/mirror refusals. Substantive head
+  Actions #39161099327 passed GCC/Clang/MSVC and 23 CPU suites.
+  M25–M27 and the original M20 checkbox remain OPEN.
+- [ ] **V17-M25 — Safe flip and collapse source-transition proofs.**
+  Extend lineage beyond M24's split-only positive domain with bounded
+  committed flip/collapse records. A flip that transfers area between
+  original owners requires a jointly certified source-patch domain,
+  never a unilateral inferred FaceId; a collapse that retires protected
+  Exposed/ReversedBoundary material must refuse absent M21 deliberate
+  permission. Positive valid local topological edits and mirrored
+  orbits; missing protected fragments and ambiguous ancestors refuse.
+- [ ] **V17-M26 — Source-exact c1/c2/c3/d2 child correspondence.**
+  Bridge original FaceId → source-proven conforming-cut childSources
+  through M02 subdivisions and surviving final d2 seam into a bounded
+  terminal descendant record, honoring c3 protected Exposed and true
+  ReversedBoundary versus Buried/Outside allowed retirement. No
+  source-free cap/zipper matches, unrelated coincident-ID aliases,
+  missing mirror/self-orbits or forged child source.
+- [ ] **V17-M27 — Lifetime patch composition and bounded witness audit.**
+  Compose accepted M24–M26 stage records across prior published Steps
+  from ONE immutable first nominated original root, preserving root
+  continuity, stable FaceIds, reflected/cavity identity, source-local
+  original edge units and honest complete cost caps. Accept actual
+  remesh and exact-join descendant positives and verify bounded
+  seven-point original-to-live-patch audit. Refuse stale captures,
+  missing/ambiguous ownership, falsely substituted coincident triangles,
+  truncated work and incomplete protected faces.
+- [ ] **V17-M20 integration (existing checkbox above).**
+  Only close M20 after M24–M27 jointly prove the unchanged original
+  M20 acceptance. This line is NOT a second M20 checkbox; M21 decides
+  deliberate sculpt scope and M22 activates the pre-CAS policy.
+
 - [ ] **V17-M20 — Source-certified remesh patch descendants.**
   Preserve original FaceId ownership through split/flip/collapse,
   rewritten/retired source faces and d2 exact-cut descendants, including

@@ -1,9 +1,11 @@
 #include "mesher/repair_surgery.hpp"
+#include "mesher/versioned_refine.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -207,6 +209,212 @@ SurfaceWitnessAudit auditOriginalSourceAnchors(
        !std::isfinite(total.rmsDistanceInEdges))
         throw std::logic_error("Original source anchor distance aggregate overflow");
     return total;
+}
+
+
+SourceSplitLineage beginSourceSplitLineage(
+    const OriginalSourceSurfaceAnchors& anchors) {
+    if(!anchors.original||anchors.faces.empty())
+        throw std::invalid_argument("Split lineage needs immutable original protected sources");
+    SourceSplitLineage lineage;
+    lineage.original=anchors.original;
+    lineage.terminal=anchors.original;
+    std::set<FaceId> distinct;
+    for(const auto& anchor:anchors.faces) {
+        if(!distinct.insert(anchor.face).second)
+            throw std::invalid_argument("Duplicate fixed-original lineage source");
+        const auto source=anchors.original->maybeFace(anchor.face);
+        if(!source||source->vertices!=anchor.originalVertices)
+            throw std::logic_error("Original lineage source incidence was replaced");
+        lineage.living.emplace_back(anchor.face,std::vector<FaceId>{anchor.face});
+    }
+    return lineage;
+}
+
+SourceSplitLineage advanceCertifiedSplitLineage(
+    const SourceSplitLineage& prior,
+    const VersionedRefineResult& refined,
+    std::size_t maxFaceEvidence,std::size_t maxLivingDescendants) {
+    if(!prior.original||!prior.terminal||prior.living.empty()||
+       !refined.stampOriginal||!refined.sourceIndex||!refined.index||
+       prior.terminal!=refined.stampOriginal)
+        throw std::invalid_argument("Stale or missing original-root split lineage chain");
+    if(!maxFaceEvidence||!maxLivingDescendants)
+        throw std::invalid_argument("Split provenance limits must be positive");
+    if(refined.splitSources.size()>maxFaceEvidence)
+        throw std::length_error("Split provenance source-face work cap exceeded");
+    if(refined.statistics.flipPairs)
+        throw std::logic_error("Split-only source lineage cannot approve a face flip");
+    SourceSplitLineage updated=prior;
+    // Normal-driven Inflate may have moved vertices, but cannot silently
+    // replace any original patch's ordered permanent vertex incidence.
+    std::set<FaceId> tracked;
+    for(const auto& [source,faces]:updated.living) {
+        if(!prior.original->maybeFace(source)||faces.empty())
+            throw std::logic_error("Source lineage has missing original identity");
+        for(const auto face:faces) {
+            if(!tracked.insert(face).second)
+                throw std::logic_error("Independent source patches share a live FaceId");
+            const auto before=prior.terminal->maybeFace(face);
+            const auto now=refined.sourceIndex->maybeFace(face);
+            if(!before||!now||before->vertices!=now->vertices)
+                throw std::logic_error("Unproven source face changed before the first split");
+        }
+    }
+    if(tracked.size()>maxLivingDescendants)
+        throw std::length_error("Split lineage living patch budget exhausted");
+    if(refined.splitSources.empty()) {
+        if(refined.statistics.splitPairs||!refined.insertedVertices.empty()||
+           !refined.changedFaces.empty()||refined.index!=refined.sourceIndex)
+            throw std::logic_error("Unjournaled source split or candidate topology change");
+        updated.terminal=refined.index;
+        return updated;
+    }
+    std::set<FaceId> changed;
+    std::set<VertexId> seenMidpoints;
+    auto current=refined.sourceIndex;
+    std::size_t groups=0;
+    for(std::size_t i=0;i<refined.splitSources.size();) {
+        const auto& first=refined.splitSources[i];
+        if(first.before!=current||!first.after||first.after==current)
+            throw std::logic_error("Split source proof roots are stale or out of order");
+        auto next=first.after;
+        const std::size_t start=i;
+        while(i<refined.splitSources.size()&&
+              refined.splitSources[i].before==current&&
+              refined.splitSources[i].after==next)
+            ++i;
+        const auto count=i-start;
+        if((count!=2&&count!=4)||
+           (!refined.sourceSplitsSymmetric&&count!=2))
+            throw std::logic_error("Committed split has missing or extra incident source faces");
+        std::set<FaceId> groupSources,groupChildren;
+        std::map<VertexId,std::size_t> midpointUse;
+        // Each midpoint must subdivide ONE undirected permanent-ID edge,
+        // seen once in each opposite orientation. Coincident disjoint edges
+        // have different IDs and must never be falsely source-paired.
+        std::map<VertexId,std::pair<VertexId,VertexId>> midpointEdges;
+        std::map<VertexId,unsigned> midpointOrientations;
+        for(std::size_t j=start;j<i;++j) {
+            const auto& record=refined.splitSources[j];
+            if(!record.sourceFace||!record.appendedFace||
+               !record.midpoint||!record.edgeA||!record.edgeB||
+               record.edgeA==record.edgeB||
+               record.sourceFace==record.appendedFace||
+               !groupSources.insert(record.sourceFace).second||
+               !groupChildren.insert(record.appendedFace).second||
+               current->maybeFace(record.appendedFace)||
+               current->maybeVertex(record.midpoint))
+                throw std::logic_error("Forged split source ID or repeated child ancestry");
+            const auto parent=current->maybeFace(record.sourceFace);
+            const auto kept=next->maybeFace(record.sourceFace);
+            const auto appended=next->maybeFace(record.appendedFace);
+            const auto midpoint=next->maybeVertex(record.midpoint);
+            const auto a=current->maybeVertex(record.edgeA);
+            const auto b=current->maybeVertex(record.edgeB);
+            if(!parent||!kept||!appended||!midpoint||!a||!b)
+                throw std::logic_error("Split source triangle or midpoint was not committed");
+            const auto mid=(a->position+b->position)*.5;
+            if(midpoint->position.y!=mid.y||midpoint->position.z!=mid.z||
+               (midpoint->position.x!=mid.x&&
+                !(refined.sourceSplitsSymmetric&&midpoint->position.x==0&&
+                  std::abs(mid.x)<=1e-9&&
+                  a->position.x==-b->position.x&&
+                  a->position.y==b->position.y&&
+                  a->position.z==b->position.z)))
+                throw std::logic_error("Child vertex is not its proven original edge midpoint");
+            bool matches=false;
+            const auto old=parent->vertices;
+            unsigned directedMask=0;
+            for(unsigned k=0;k<3;++k) {
+                const auto u=old[k],v=old[(k+1)%3],c=old[(k+2)%3];
+                if(!((u==record.edgeA&&v==record.edgeB)||
+                     (u==record.edgeB&&v==record.edgeA)))continue;
+                if(kept->vertices==std::array<VertexId,3>{u,record.midpoint,c}&&
+                   appended->vertices==
+                       std::array<VertexId,3>{record.midpoint,v,c}) {
+                    matches=true;
+                    directedMask=u==std::min(record.edgeA,record.edgeB)?1u:2u;
+                }
+            }
+            if(!matches)
+                throw std::logic_error("Child triangles are not oriented exact source subdivisions");
+            const auto physicalEdge=std::minmax(record.edgeA,record.edgeB);
+            const std::pair<VertexId,VertexId> edgeIds{
+                physicalEdge.first,physicalEdge.second};
+            const auto [edgeIt,newEdge]=midpointEdges.emplace(
+                record.midpoint,edgeIds);
+            if(!newEdge&&edgeIt->second!=edgeIds)
+                throw std::logic_error("Two coincident source edges falsely share a midpoint ID");
+            midpointOrientations[record.midpoint]|=directedMask;
+            ++midpointUse[record.midpoint];
+            changed.insert(record.sourceFace);
+            if(!changed.insert(record.appendedFace).second)
+                throw std::logic_error("A new child FaceId was assigned twice");
+            // Update protected roots exclusively through this source-owned
+            // directed parent record, retaining the parent rewritten FaceId.
+            for(auto& [_,living]:updated.living) {
+                if(std::find(living.begin(),living.end(),record.sourceFace)!=
+                   living.end()) {
+                    if(std::find(living.begin(),living.end(),
+                                 record.appendedFace)!=living.end())
+                        throw std::logic_error("Duplicate protected descendant FaceId");
+                    living.push_back(record.appendedFace);
+                }
+            }
+        }
+        if(midpointUse.size()!=count/2)
+            throw std::logic_error("Split group has inconsistent new midpoint count");
+        for(const auto& [id,uses]:midpointUse) {
+            if(uses!=2||midpointOrientations[id]!=3u||
+               !seenMidpoints.insert(id).second)
+                throw std::logic_error("Split midpoint lacks both opposite source edge incidences");
+        }
+        ++groups;
+        current=next;
+    }
+    if(current!=refined.index||groups!=refined.statistics.splitPairs)
+        throw std::logic_error("Split evidence does not span the complete final remesh");
+    std::set<VertexId> inserted(
+        refined.insertedVertices.begin(),refined.insertedVertices.end());
+    std::set<FaceId> reported(
+        refined.changedFaces.begin(),refined.changedFaces.end());
+    if(inserted.size()!=refined.insertedVertices.size()||
+       inserted!=seenMidpoints||reported!=changed||
+       reported.size()!=refined.changedFaces.size())
+        throw std::logic_error("Split result ID journals are incomplete or forged");
+    std::set<VertexId> mirrorRecorded;
+    for(const auto& [a,b]:refined.insertedMirrorPairs) {
+        if(!seenMidpoints.contains(a)||!seenMidpoints.contains(b)||
+           !mirrorRecorded.insert(a).second||
+           (a!=b&&!mirrorRecorded.insert(b).second))
+            throw std::logic_error("New mirror split provenance is incomplete");
+        const auto p=refined.index->vertex(a).position;
+        const auto q=refined.index->vertex(b).position;
+        if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+           ((a==b)!=(p.x==0)))
+            throw std::logic_error("Split midpoint mirror orbit is not exact");
+    }
+    if((refined.sourceSplitsSymmetric&&mirrorRecorded!=seenMidpoints)||
+       (!refined.sourceSplitsSymmetric&&!refined.insertedMirrorPairs.empty()))
+        throw std::logic_error("Split provenance missing or invented declared mirror orbits");
+    tracked.clear();
+    std::size_t livingCount=0;
+    for(auto& [source,faces]:updated.living) {
+        if(!prior.original->maybeFace(source))
+            throw std::logic_error("Original lineage has disappeared");
+        for(const auto id:faces) {
+            if(!refined.index->maybeFace(id)||!tracked.insert(id).second)
+                throw std::logic_error("Protected split descendant missing or double-owned");
+        }
+        if(faces.size()>maxLivingDescendants-livingCount)
+            throw std::length_error("Protected split descendants exceed finite patch budget");
+        livingCount+=faces.size();
+        std::sort(faces.begin(),faces.end());
+    }
+    updated.terminal=refined.index;
+    updated.verifiedFaceSplits+=refined.splitSources.size();
+    return updated;
 }
 
 } // namespace mesher
