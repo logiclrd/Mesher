@@ -625,6 +625,21 @@ SourceSplitLineage advanceCertifiedRefineLineage(
     // No foreign patch may have stolen the same permanent FaceId.
     if(protectedIds(advanced).size()>maxLivingDescendants)
         throw std::length_error("Flip protected face budget exhausted");
+    // Every protected living FaceId must have the exact post-split
+    // incidence unless a separately audited flip explicitly names it.
+    // A private extra rewrite cannot hide behind another valid flip.
+    std::set<FaceId> provedFlipFaces;
+    for(const auto& proof:refined.flipSources)
+        provedFlipFaces.insert(proof.faces.begin(),proof.faces.end());
+    for(const auto& [_,faces]:advanced.living)
+        for(const auto id:faces) {
+            const auto beforeFace=advanced.terminal->maybeFace(id);
+            const auto afterFace=current->maybeFace(id);
+            if(!beforeFace||!afterFace||
+               (beforeFace->vertices!=afterFace->vertices&&
+                !provedFlipFaces.contains(id)))
+                throw std::logic_error("Unjournaled protected descendant changed across flips");
+        }
     advanced.terminal=current;
     return advanced;
 }
@@ -669,6 +684,31 @@ SourceSplitLineage advanceCertifiedCollapseLineage(
            !current->maybeVertex(event.retired)||
            event.after->maybeVertex(event.retired))
             throw std::logic_error("Forged or stale committed collapse root/edge");
+        const auto sourceEdge=std::minmax(event.survivor,event.retired);
+        const auto sides=current->maybeEdgeSides(
+            {sourceEdge.first,sourceEdge.second});
+        if(!sides||sides->size()!=2)
+            throw std::logic_error("Retired collapse source edge is not a closed two-face link");
+        const auto beforeSurvivor=current->vertex(event.survivor).position;
+        const auto beforeRetired=current->vertex(event.retired).position;
+        const auto midpoint=(beforeSurvivor+beforeRetired)*.5;
+        const bool retainedSeam=event.symmetric&&event.paired&&
+            event.mirrorSurvivor==event.survivor&&
+            event.mirrorRetired!=event.retired;
+        const auto expected=retainedSeam?beforeSurvivor:midpoint;
+        const auto actual=event.after->vertex(event.survivor).position;
+        if(actual.x!=expected.x||actual.y!=expected.y||
+           actual.z!=expected.z)
+            throw std::logic_error("Collapsed survivor moved to an unproven source position");
+        if(event.paired&&event.mirrorSurvivor!=event.survivor) {
+            const auto m=current->vertex(event.mirrorSurvivor).position;
+            const auto n=current->vertex(event.mirrorRetired).position;
+            const auto pairPosition=(m+n)*.5;
+            const auto found=event.after->vertex(event.mirrorSurvivor).position;
+            if(found.x!=pairPosition.x||found.y!=pairPosition.y||
+               found.z!=pairPosition.z)
+                throw std::logic_error("Mirrored collapse survivor is not the certified midpoint");
+        }
         std::set<FaceId> touched;
         for(const auto id:{event.survivor,event.retired})
             for(const auto face:current->vertex(id).incidentFaces)
