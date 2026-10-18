@@ -313,10 +313,17 @@ std::string pairMirroredMultiSectionPlan(
             if(match)return "Ambiguous reflected contact-curve orbit";
             match=j;
         }
-        if(!match)
+        if(!match) {
+            std::string detail;
+            for(const auto& section:plan.segments)
+                detail+=" ["+std::to_string(section.firstFace)+"/"+
+                    std::to_string(section.secondFace)+"]";
             return "No reflected section for original contact "+std::to_string(i)+
+                " source="+std::to_string(a.firstFace)+"/"+
+                std::to_string(a.secondFace)+
                 " reflected source pair "+std::to_string(first)+"/"+
-                std::to_string(second);
+                std::to_string(second)+" sections:"+detail;
+        }
         if(!matchedSegments.insert(*match).second)
             return "Duplicate reflected section destination "+
                 std::to_string(*match)+" from original contact "+
