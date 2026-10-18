@@ -660,6 +660,42 @@ next peer; M12–M15 and V18/V19 retain their objectives.
 
 ## V17-M17 — Complete V13 contact graph from a physical post-sculpt proposal
 
+**Independent acceptance (bounded):** Complete post-sculpt
+V13 source discovery is now a pure read-only query returning
+`Clean`, `CompleteTransverse`, or `Refused` and the EXACT
+immutable candidate-root pointer only for conclusive cases.
+Every live candidate VertexId seeds one bounded indexed original
+contact graph, independent of selected dirty faces. Every
+returned canonical original FaceId pair is independently
+a source-supported finite transverse V13 segment; ambiguous,
+point-tangent, wholly coplanar, exhausted-work and invalid
+mirror-map requests never return a usable partial pair list.
+Reflected source validation checks the full candidate involution,
+including exact XYZ and genuine on-plane fixed IDs.
+
+The tests require a real normal-driven motion starting from
+two disjoint closed tetrahedra and ending with positive finite
+contact, alongside a physically displaced complete three-contact
+M16 off-plane source and six-contact reflected counterpart.
+The positive source graph equals independently rediscovered
+candidate FaceIds and survives refusal probes one below
+exact section/V13 query budgets. A real local post-Inflate
+edge split forces the evaluator to examine the rewritten
+terminal candidate source, either returning its entire
+verified graph or refusing without leakage. Old immutable
+source roots/tombstones, mirror state, renderer and undo
+history remain unchanged. The scoped acceptance register is
+[V17_M17_PHYSICAL_CONTACT_DISCOVERY.md](V17_M17_PHYSICAL_CONTACT_DISCOVERY.md).
+
+**Not M17:** The returned source pairs are NOT permission to
+publish surgery, weld vertices, retire child faces or skip a
+terminal collision check. This milestone cannot prove the
+first fully committed physical Boolean or any sixteen-Step
+repeated union. M18 handles captured original-root stale CAS
+and post-remesh net journals; original M11 retains sixteen
+physically induced positives and queue/undo/checkpoint
+recovery. CI must be green GCC/Clang/MSVC before merging.
+
 **Why independently complete:** V16's existing `evaluateSculptCollisionCandidate`
 can classify and approximate-contour-heal a *different* geometry path.
 The exact M06–M10 union requires ALL source FaceId V13 pairs on the
@@ -682,9 +718,10 @@ accepted exact private planner will see those same pairs. No
 Boolean construction, worker CAS, renderer, history or desktop
 switch is authorized at M17.
 
-**Negative:** tangent/coplanan, near coincidence, incomplete
-mirror source, stale root, and bounded collision query may not
-produce a partially certified contact set. Existing accepted
+**Negative:** tangent/coplanar, near coincidence, incomplete
+mirror source and bounded collision queries may not return a
+partially certified contact set. A stale candidate expected root
+is refused by M18's original-root CAS, not inferred by M17. Existing accepted
 clean stamps continue to commit unchanged. Old immutable
 reader/picking roots, mirror identities and source coordinates
 remain unmodified.
