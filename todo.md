@@ -1116,7 +1116,7 @@ episodes are separate independently complete gates. Sequence:
 M13–M15. All are flat peer IDs, no recursively nested tasks. Existing M13–M15
 and V18/V19 objectives remain unchanged. Refusal alone is not a positive weld.
 
-- [ ] **V17-M19 — Fixed-original ID-bound surface anchor.**
+- [x] **V17-M19 — Fixed-original ID-bound surface anchor.**
   Capture an immutable original FaceId reference and its seven per-face
   witnesses and original edge scale. A bounded, read-only check accepts
   only the same living FaceId with identical original vertex incidence,
@@ -1124,6 +1124,12 @@ and V18/V19 objectives remain unchanged. Refusal alone is not a positive weld.
   geometric motion, source disappearance/rewrite, malformed source, and
   exact vs one-below-distance-work limits. Refuse unproven remeshing until
   M20. No physicalExact activation or publication in M19.
+  Accepted in PR #67: read-only capture and audit of fixed source
+  FaceIds and incidence, 14-point zero/drift real Inflate positives,
+  exact vs one-below distance cap, stale-reference, duplicate and
+  foreign-incidence refusals. Three-compiler substantive head CI
+  #39159046998 succeeded; final PR-head check is required before merge.
+  The original M12, M20–M23 and M13–M15 remain unchecked.
 - [ ] **V17-M20 — Source-certified remesh patch descendants.**
   Preserve original FaceId ownership through split/flip/collapse,
   rewritten/retired source faces and d2 exact-cut descendants, including
