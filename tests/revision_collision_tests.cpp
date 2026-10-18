@@ -2762,8 +2762,6 @@ void testX0InvariantExactCutProbe() {
           connectedClosedSurfaceComponents(*joined.index)==1&&
           allPairs(*joined.index).empty(),
           "Real X=0 private Boolean converts two intersecting closed tetrahedra into ONE collision-free closed connected union");
-    std::set<VertexId> retired(joined.retiredVertices.begin(),
-                               joined.retiredVertices.end());
     std::size_t keptFixed=0;
     for(const auto& [id,mate]:partners) {
         const auto live=joined.index->maybeVertex(id)!=nullptr;
@@ -2781,7 +2779,7 @@ void testX0InvariantExactCutProbe() {
         }
     }
     check(keptFixed>0&&joined.index->retiredFaceCount()>0&&
-          joined.index->retiredVertexCount()>0&&
+          !joined.index->retiredVertexIds().empty()&&
           root->pickingRootIdentity()==previousIdentity&&
           root->retiredFaceCount()==0,
           "M08 actually retires hidden children and seam duplicate IDs without publishing history");
