@@ -161,6 +161,10 @@ ExactCutJoinResult joinCertifiedCutSections(
                !uncut.ready())
                 return refused("Independent uncut original authorization: "+
                                uncut.refusal);
+            // Even NoChanges may have surveyed protected Exposed or
+            // ReversedBoundary original faces. Their immutable identity
+            // and physical corners remain mandatory join invariants.
+            protectedUncut=uncut.protectedUncut;
             if(uncut.ready()) {
                 if(!std::includes(uncut.combinedRemoval.begin(),
                                   uncut.combinedRemoval.end(),
@@ -170,7 +174,6 @@ ExactCutJoinResult joinCertifiedCutSections(
                 deleted.insert(uncut.authorizedUncut.begin(),
                                uncut.authorizedUncut.end());
                 extraUncut=uncut.authorizedUncut;
-                protectedUncut=uncut.protectedUncut;
             }
         }
         std::map<FaceId,FaceId> sources;
