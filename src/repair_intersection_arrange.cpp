@@ -609,7 +609,17 @@ ConformingCutPlan buildMultiSectionCutPlan(
         interiors[face].push_back(id);
         return id;
     };
-    for(const auto contact:contacts) {
+    // Insertion-order-dependent near-equal endpoint reuse is not a
+    // stable source geometry model. Build this private graph in a fixed
+    // FaceId-pair order, then restore the caller's original contact order
+    // for the materializer/c2 sourceContacts/sectionFirst journals.
+    auto orderedContacts=contacts;
+    std::sort(orderedContacts.begin(),orderedContacts.end(),
+        [](const auto& a,const auto& b) {
+            if(a.first!=b.first)return a.first<b.first;
+            return a.second<b.second;
+        });
+    for(const auto contact:orderedContacts) {
         if(contact.ambiguous||contact.first==contact.second||
            !index.maybeFace(contact.first)||!index.maybeFace(contact.second))
             return reject("Invalid or ambiguous multi-section contact");
@@ -805,6 +815,21 @@ ConformingCutPlan buildMultiSectionCutPlan(
                     ++incident;
             if(incident<3)return reject("Canonical junction has incomplete cut fan");
         }
+    // Restore exactly the source pair ordering supplied by the caller.
+    // Downstream permanent sectionFirst/sectionSecond arrays are indexed
+    // against sourceContacts in that original order.
+    std::map<std::pair<FaceId,FaceId>,ConformingCutSegment> byPair;
+    for(const auto& segment:result.segments)
+        if(!byPair.emplace(std::make_pair(segment.firstFace,
+                                         segment.secondFace),segment).second)
+            return reject("Duplicated source section before journal reordering");
+    result.segments.clear();
+    for(const auto& contact:contacts) {
+        const auto found=byPair.find({contact.first,contact.second});
+        if(found==byPair.end())
+            return reject("Source contact lost during canonical ordering");
+        result.segments.push_back(found->second);
+    }
     result.status=IntersectionSectionStatus::TransverseSegment;
     if(mirrors) {
         const auto error=pairMirroredMultiSectionPlan(index,result,*mirrors,limits);
