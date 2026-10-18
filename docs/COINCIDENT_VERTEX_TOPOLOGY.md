@@ -1,7 +1,9 @@
 # Coincident geometry, provenance, and vertex identity
 
-**Status:** Normative design and planned acceptance, not an assertion that all
-cases below are supported by the current Mesher. Established 2026-10-18.
+**Status:** Normative design; the bounded V17-M16 regression domain
+is accepted at GCC/Clang/MSVC code head 4979b25 (Actions 39144616634).
+This is NOT an assertion that every coincident-vertex configuration
+below is a supported Boolean union. Established 2026-10-18.
 **Owners:** [V17-M16](V17_MILESTONES.md#v17-m16--generic-coincident-geometry-and-seam-equivalence-acceptance)
 (the bounded off-plane/general acceptance gate, scheduled after M10 and before
 M11); M10 owns the broader adversarial refusal matrix; V19 owns stress,
@@ -159,7 +161,7 @@ is automatically weldable. A fully closed manifold union must
 actually be proved; a refused source operation is not a positive
 Boolean result.
 
-## Scope and planned delivery
+## Scope and independently accepted delivery boundary
 
 M16 is a distinct flat **peer** milestone, not a recursive subdivision of
 M10 or reopened M06–M09. Schedule M10 then M16 before M11's repeated

@@ -3907,3 +3907,28 @@ scope; M11 is still the independent physical sculpt repeat
 gate, M14 covers post-CAS fault atomicity, and M15 alone
 enables the opt-in desktop Merge geometry switch. V18's
 Off-mode collision controls remain separate.
+
+**M16 bounded verification follow-up (October 18, 2026):** The
+complete off-X=0 three-original-contact source proof, distinct
+prejoin exact-coincident per-sheet stable IDs, certified 2→1
+private and ORIGINAL-root terminal joins, reversed source order
+and true reflected off-plane seam counterparts passed. Two
+independent touching closed shell fans both on/off-plane,
+four unrelated tetrahedral one-ring fans at EXACT (0,0,0),
+a 1e-7 near miss and a third incidental touching shell next
+to the otherwise-active source join preserve separate IDs
+or refuse without inventing authorizing finite intervals.
+Incomplete source FaceId coverage, forged original child
+ownership and exhausted exact seam budgets return no final
+root/history or dirty/mirror journal. M02/M03/M04/M05/M08/
+M09/M10 regression controls remain intact.
+Windows MSVC /W4 /WX, GCC, Clang, all 23 CPU suites and the
+applicable benchmarks passed in code-head PR Actions
+39144616634 on commit 4979b25. Early MSVC C4456 errors
+were TEST-only nested local variable shadowing and were
+corrected without relaxing original-contact or manifold
+checks. The bounded accepted cases are cataloged in
+docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md. No global
+coordinate deduplication, auto Merge geometry switch or
+unsupported higher-sheet Boolean welding is enabled.
+M11 remains NEXT; M12–M15/V18/V19 are unchanged.

@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M09 are complete in their independently accepted private cut/c3/join and terminal original-root worker scopes; M10–M16 and V17 as a whole remain open.** Newly added flat peer M16 is scheduled after M10 and **before M11**, without renumbering accepted existing IDs. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
+**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M11–M15 and V17 as a whole remain open.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -966,8 +966,33 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   imported 3D topology, universal contact acceptance or automatic
   sculpt-driven unions. Coincident ID identity remains the explicit
   NEW M16 acceptance gate, NEXT before M11/M15.
-- [ ] **V17-M16 — Source-proven coincident-geometry and seam-equivalence acceptance.**
+- [x] **V17-M16 — Source-proven coincident-geometry and seam-equivalence acceptance.**
   Coordinate equality alone NEVER implies VertexId equivalence; distinct exact-coordinate source vertices remain distinct through private conformance. Prove a proper, source-complete off-X=0 transverse section weld yielding one genuinely closed oriented manifold (plus mirrored off-plane control) while preserving unrelated exact-coordinate duplicates on and off X=0. Require exact original FaceId/interval provenance, independently classified c1/c2/c3/M03 removal, valid connected final vertex links, edge winding, mirror orbits and no residual collisions. Accidental isolated corner/edge touches, protected cavity coincidences, wrong/near-coordinate pseudo-welds, incompatible multi-sheet fans and resource exhaustion must refuse without any partial root, mirror/history/dirty journal or dropped worker input. Regress M04/M05/M08/M09 positives and preserve old readers/tombstones. Full acceptance cases and non-goals: [docs/COINCIDENT_VERTEX_TOPOLOGY.md](docs/COINCIDENT_VERTEX_TOPOLOGY.md). **Complete after M10 and before M11/M15; peer milestone, not a nested subtask.**
+  **Accepted M16:** The real complete THREE-contact two-closed-tetra
+  source graph translated completely off X=0 passes a genuine
+  c1/c2/c3/d2 2→1 private closed oriented vertex-manifold and one
+  ORIGINAL-root Step. Pre-join endpoint coordinates match EXACTLY but
+  source sheets retain distinct stable VertexIds; only complete
+  finite source interval provenance authorizes the terminal weld.
+  Reversed complete original-contact order also passes. The already
+  positive M05 reciprocal off-plane mirrored graphs now assert private
+  source-separated IDs and full joined edge/vertex fans.
+  Two otherwise valid tangent tetrahedra sharing one exact XYZ on
+  OR off the plane keep separate stable IDs through no-op; four
+  independent closed tetrahedral fans touching at one exact point
+  remain separate and may not produce a Boolean four-fan; a 1e-7
+  near-miss cannot be snapped. An unrelated exact-coordinate third
+  source at the active region either remains independent of an
+  otherwise-certified two-body join or causes a complete refusal.
+  Missing original FaceId contacts, forged owning FaceId and finite
+  seam budget exhaustion refuse without a publishable Step,
+  retirement, mirror history or dirty journal. Existing M02–M10
+  true positive/cavity/queued worker controls remain unchanged.
+  Full GCC, Clang, Windows MSVC /W4 /WX, 23 CPU suites and
+  applicable benchmarks passed at test-code head 4979b25
+  (Actions pull-request run 39144616634); the acceptance register is
+  docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md. This does NOT
+  enable sculpt-triggered merging or generic imported topology.
 - [ ] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**
   After M10/M16's supported-domain and coincidence gates, real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
 - [ ] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**

@@ -616,7 +616,23 @@ V13 FaceId contact, forging a child owning FaceId, or
 exhausting the seam matching budget likewise yields no
 publishable root/commit or mirror/dirty delta.
 
-**Verification gate:** The runtime pipeline is unchanged; this
+**Accepted code-head verification:** GCC, Clang and Windows MSVC
+warnings-as-errors compilation, all 23 CPU test suites and
+applicable benchmarks passed at 4979b25 (PR Actions 39144616634).
+The runtime pipeline is unchanged; the bounded M16 source-owned
+positive/regression contract is now independently accepted.
+Genuine off-plane certified 2→1 union and reversed source
+order, both reciprocal off-plane reflected terminal unions,
+the on/off-plane accidental tangent identities, four-fan
+point refusal, near-miss, active-halo unrelated third shell,
+source provenance forgery, missing FaceId and exhausted seam
+budgets are distinguished as supported-success, preserved
+identity or safe refusal, never interchangeable.
+M11 is the next independently complete physical-stroke gate.
+Full exact-HEAD CI and independent post-merge main verification
+remain additional publication checks.
+
+**Historical verification boundary:** The runtime pipeline is unchanged; this
 milestone adds a strict integrated positive/refusal test contract
 to the already accepted source-owned conformance, c3 occupancy,
 d2 interval weld and original-root worker. Review and merge only
