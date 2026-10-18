@@ -2372,6 +2372,50 @@ void testReflectedThreeBodyCompleteOriginalContacts() {
               "Two complete reflected three-body groups form two separate closed unions");
         verifyMirroredOriginalRootStep(original,mirrorMap,result,
                                       orthogonal?"orthogonal-32":"generic-24",2);
+        auto partial=all;
+        partial.pop_back();
+        const auto missing=prepareExactCutStep(original,partial,limits,&mirrorMap);
+        check(!missing.complete&&!missing.expected&&!missing.final&&
+              !missing.commit.revision&&missing.addedMirrors.empty(),
+              "Missing one of the mirrored original three-body V13 contact pairs refuses the whole source root");
+        auto omitted=mirrorMap;
+        omitted.erase(imported.flatIndex.vertexIds[0]);
+        const auto noMirror=prepareExactCutStep(original,all,limits,&omitted);
+        check(!noMirror.complete&&!noMirror.expected&&!noMirror.final&&
+              noMirror.addedMirrors.empty()&&noMirror.removedMirrors.empty(),
+              "Incomplete historical vertex involution refuses complete reflected source graph");
+        auto mispaired=mirrorMap;
+        const auto r0=imported.flatIndex.vertexIds[0],
+                   r1=imported.flatIndex.vertexIds[1],
+                   l0=imported.flatIndex.vertexIds[12],
+                   l1=imported.flatIndex.vertexIds[13];
+        mispaired[r0]=l1;mispaired[l1]=r0;
+        mispaired[r1]=l0;mispaired[l0]=r1;
+        const auto wrongFace=prepareExactCutStep(original,all,limits,&mispaired);
+        check(!wrongFace.complete&&!wrongFace.expected&&!wrongFace.final&&
+              wrongFace.addedMirrors.empty()&&wrongFace.retiredFaces.empty(),
+              "Reciprocal but geometrically WRONG source mirror-face mapping refuses both halves");
+        auto tight=limits;
+        tight.cut.maxMirroredPairTests=0;
+        const auto noPairWork=prepareExactCutStep(original,all,tight,&mirrorMap);
+        check(!noPairWork.complete&&!noPairWork.expected&&!noPairWork.final&&
+              noPairWork.addedMirrors.empty(),
+              "Reflected source point pairing work limit never leaks partial mirror IDs");
+        tight=limits;
+        tight.maxNetChangedIds=1;
+        const auto noNet=prepareExactCutStep(original,all,tight,&mirrorMap);
+        check(!noNet.complete&&!noNet.expected&&!noNet.final&&
+              !noNet.commit.revision&&!noNet.addedMirrors.size(),
+              "Reflected net stable-ID budget refuses without original-root history mutation");
+        const auto cut=materializeTransverseCutCandidate(
+            original,all,{},256,&mirrorMap);
+        auto mismatched=cut;
+        mismatched.mirroredFaces.pop_back();
+        const auto invalid=joinCertifiedCutSections(
+            mismatched,limits.join,&mirrorMap,true);
+        check(!invalid.complete&&!invalid.index&&!invalid.commit&&
+              invalid.weldedPairs.empty()&&invalid.retiredFaces.empty(),
+              "A missing reflected source FaceId cut orbit cannot authorize an asymmetric terminal weld");
         check(original->pickingRootIdentity()==identity&&
               connectedClosedSurfaceComponents(*original)==6,
               "Mirrored three-body original readers remain unaffected");
