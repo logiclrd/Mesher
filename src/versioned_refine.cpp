@@ -191,6 +191,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
     result.index=postInflate;
     result.sourceIndex=postInflate;
     result.stampOriginal=baseline.before;
+    result.sourceSplitsSymmetric=!mirrors_.empty();
     if(!settings_.enabled)return result;
 
     struct Candidate {Edge edge;double length;};
