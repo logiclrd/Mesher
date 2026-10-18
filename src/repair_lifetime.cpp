@@ -1,6 +1,7 @@
 #include "mesher/repair_surgery.hpp"
 #include "mesher/repair_intersection.hpp"
 #include "mesher/versioned_collapse.hpp"
+#include "mesher/versioned_inflate.hpp"
 #include "mesher/versioned_refine.hpp"
 
 #include <algorithm>
@@ -333,6 +334,126 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
     return result;
 }
 
+
+OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
+    const OriginalPatchLifetime& before,
+    const VersionedInflateStamp& inflated,
+    const VersionedRefineResult& refined,
+    const VersionedCollapseResult& collapsed,
+    const ExactCutStep* exact,
+    const std::unordered_map<VertexId,VertexId>* sourceMirrors,
+    std::size_t maxCumulativeFaceEvidence,
+    std::size_t maxLivingDescendants,
+    std::size_t maxInflateVertices,
+    std::size_t maxInflateFaces) {
+    (void)verifyLifetime(before,maxLivingDescendants);
+    if(!inflated.baseline.before||!inflated.index||
+       inflated.baseline.before!=before.lineage.terminal||
+       refined.stampOriginal!=inflated.baseline.before||
+       refined.sourceIndex!=inflated.index||!refined.index||
+       collapsed.stampOriginal!=inflated.baseline.before||
+       collapsed.sourceIndex!=refined.index||!collapsed.index||
+       (exact&&(!exact->complete||exact->expected!=collapsed.index||
+                !exact->final)))
+        throw std::invalid_argument("Physical source bundle contains stale or skipped private roots");
+    // Certify the full Inflate geometry domain by source ID, not nearest
+    // matching, and ensure no unreported new/retired/rewritten triangles.
+    // Work is capped before it can be accidentally truncated.
+    if(!maxInflateVertices||!maxInflateFaces)
+        throw std::length_error("Finite original Inflate evidence limits required");
+    std::map<VertexId,Vec3> oldVertices,newVertices;
+    std::map<FaceId,std::array<VertexId,3>> oldFaces,newFaces;
+    const auto load=[&](const RegionTopologyIndex& index,
+                        std::map<VertexId,Vec3>& vertices,
+                        std::map<FaceId,std::array<VertexId,3>>& faces) {
+        index.revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& partition) {
+                if(partition.vertices.size()>maxInflateVertices-vertices.size()||
+                   partition.faces.size()>maxInflateFaces-faces.size())
+                    throw std::length_error("Complete original Inflate geometry evidence exhausted");
+                for(const auto& vertex:partition.vertices)
+                    if(!vertices.emplace(vertex.id,vertex.position).second)
+                        throw std::logic_error("Duplicate original Inflate vertex source");
+                for(const auto& face:partition.faces)
+                    if(!faces.emplace(face.id,face.vertices).second)
+                        throw std::logic_error("Duplicate original Inflate face source");
+            });
+    };
+    load(*before.lineage.terminal,oldVertices,oldFaces);
+    load(*inflated.index,newVertices,newFaces);
+    if(oldFaces!=newFaces||oldVertices.size()!=newVertices.size()||
+       inflated.baseline.movedVertices.size()!=inflated.moved)
+        throw std::logic_error("Original Inflate silently replaced source face/vertex incidence");
+    std::set<VertexId> moved(inflated.baseline.movedVertices.begin(),
+                             inflated.baseline.movedVertices.end());
+    std::set<FaceId> affected(inflated.baseline.affectedFaces.begin(),
+                              inflated.baseline.affectedFaces.end());
+    if(moved.size()!=inflated.baseline.movedVertices.size()||
+       affected.size()!=inflated.baseline.affectedFaces.size())
+        throw std::logic_error("Inflate source journals duplicate moved vertices or incident faces");
+    std::set<FaceId> actualAffected;
+    for(const auto& [id,position]:oldVertices) {
+        const auto it=newVertices.find(id);
+        if(it==newVertices.end())
+            throw std::logic_error("Inflate replaced a permanent original VertexId");
+        if(!moved.contains(id)&&
+           (position.x!=it->second.x||
+            position.y!=it->second.y||
+            position.z!=it->second.z))
+            throw std::logic_error("Inflate displaced an unjournaled original vertex");
+    }
+    for(const auto id:moved) {
+        if(!oldVertices.contains(id)||!newVertices.contains(id))
+            throw std::logic_error("Inflate reported foreign moved source vertex");
+        for(const auto face:before.lineage.terminal->vertex(id).incidentFaces)
+            actualAffected.insert(face);
+    }
+    if(actualAffected!=affected)
+        throw std::logic_error("Inflate source journal omitted or invented incident source faces");
+
+    // The M24/M25 validator already permits authenticated Inflate XYZ
+    // displacement while requiring EXACT old source incidence. It then
+    // proves each actually committed split/flip by root/FaceId journals.
+    auto stage=advanceOriginalPatchLifetime(
+        before,refined,maxCumulativeFaceEvidence,maxLivingDescendants);
+    // The collapser stores the *stamp's* original for its LocalBaseline;
+    // M25 requires its ACTUAL source root. Both identities are verified
+    // above before re-expressing that source as the prior stage terminal.
+    if(collapsed.collapseSources.empty()) {
+        if(collapsed.index!=refined.index||
+           collapsed.statistics.accepted||
+           !collapsed.removedVertices.empty()||
+           !collapsed.removedFaces.empty()||
+           !collapsed.rewrittenFaces.empty()||
+           !collapsed.removedMirrorPairs.empty())
+            throw std::logic_error("Unjournaled topology mutation in zero-collapse physical stage");
+    }else {
+        auto sourceCollapse=collapsed;
+        sourceCollapse.stampOriginal=refined.index;
+        stage=advanceOriginalPatchLifetime(
+            stage,sourceCollapse,maxCumulativeFaceEvidence,
+            maxLivingDescendants);
+    }
+    if(exact)stage=advanceOriginalPatchLifetime(
+        stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
+        maxLivingDescendants);
+    if(stage.lineage.terminal!=(exact?exact->final:collapsed.index))
+        throw std::logic_error("Physical final terminal root differs from complete certified private stages");
+    // Consolidate all verified *private* stage certificates into ONE
+    // externally usable successor. This preserves M21's exact
+    // predecessor binding and cumulative original evidence counters.
+    OriginalPatchLifetime complete=std::move(stage);
+    if(before.acceptedTransitions==std::numeric_limits<std::size_t>::max())
+        throw std::length_error("External original lifetime Step count overflow");
+    complete.acceptedTransitions=before.acceptedTransitions+1;
+    bool reflected=false;
+    for(auto cursor=complete.certificate;
+        cursor&&cursor!=before.certificate;cursor=cursor->parent)
+        reflected=reflected||cursor->reflectedStep;
+    seal(complete,before.certificate,reflected);
+    (void)verifyLifetime(complete,maxLivingDescendants);
+    return complete;
+}
 
 OriginalPatchIntentDeclaration declareOriginalPatchIntent(
     const OriginalPatchLifetime& before,
