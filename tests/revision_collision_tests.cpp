@@ -3547,6 +3547,18 @@ void testMirroredMultipleSectionsReadOnly() {
 // selected locally-conforming subset. These historical 21-contact
 // crossing/T examples prove a private arrangement can be viable for
 // TWO pairs while the COMPLETE Boolean domain must still refuse.
+void addDomainCube(Mesh& mesh,Vec3 center,double half) {
+    const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},
+        {-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}
+    }})mesh.vertices.push_back(center+p*half);
+    for(const auto t:std::array<std::array<std::uint32_t,3>,12>{{
+        {0,2,1},{0,3,2},{4,5,6},{4,6,7},
+        {0,1,5},{0,5,4},{3,7,6},{3,6,2},
+        {0,4,7},{0,7,3},{1,2,6},{1,6,5}
+    }})mesh.triangles.push_back({first+t[0],first+t[1],first+t[2]});
+}
 void testSupportedDomainAdversarialMatrix() {
     const auto proveNoPublication=[](
         const std::shared_ptr<const RegionTopologyIndex>& root,
@@ -3667,6 +3679,78 @@ void testSupportedDomainAdversarialMatrix() {
         check(connectedClosedSurfaceComponents(*original)==2,
               "Rejected coincident entire closed shells preserve independent topology");
     }
+    // V16's actual near-tangent and folded *closed cubes* are
+    // full-source exact Boolean probes, rather than relying solely on
+    // the older approximate-excision stress. Acceptance is permitted
+    // ONLY with one fully audited terminal union; a refusal must be
+    // total, diagnosed and preserve the source. These intentionally
+    // awkward contact graphs do not automatically become a supported
+    // positive merely because some local triangles are transverse.
+    const auto examine=[&](Mesh mesh,const char* label) {
+        const auto imported=partitionFlatMesh(mesh,32);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto oldRoot=original->pickingRootIdentity();
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto result=prepareExactCutStep(original,all);
+        if(result.complete) {
+            check(result.expected==original&&result.final&&
+                  result.commit.revision.get()==&result.final->revision()&&
+                  connectedClosedSurfaceComponents(*result.final)==1&&
+                  allPairs(*result.final).empty(),
+                  "Accepted V16 near/folded complete contact must be a true closed nonintersecting union");
+            auditClosedVertexLinks(*result.final);
+            std::cout<<"[v17-m10] "<<label
+                     <<" decision=certified-positive contacts="<<all.size()<<'\n';
+        }else {
+            proveNoPublication(original,result,label);
+            std::cout<<"[v17-m10] "<<label
+                     <<" complete-original-contacts="<<all.size()<<'\n';
+        }
+        check(original->pickingRootIdentity()==oldRoot&&
+              original->retiredFaceCount()==0,
+              "V16 stressed original-reader identity remains immutable irrespective of outcome");
+    };
+    for(const unsigned variant:{0u,1u,2u}) {
+        Mesh mesh;
+        Vec3 a{-.55,-.1,-.2},b{.55,.15,.2};
+        double half=.9;
+        if(variant==1) {
+            half=1;a={-1,0,0};b={1-1e-7,.03,.07};
+        }else if(variant==2) {
+            half=1;a={-1,0,0};b={1,0,0};
+        }
+        addDomainCube(mesh,a,half);
+        addDomainCube(mesh,b,half);
+        examine(std::move(mesh),
+                variant==0?"V16 overlapping cubes":
+                variant==1?"V16 near-coplanar grazing":"V16 exact tangent plane");
+    }
+    // A deliberately strongly oblique/affine-folded 3-shell group
+    // reproduces V16's folded region family. The scope remains
+    // bounded: any uncertified multi-sheet arrangement must refuse,
+    // not masquerade as a useful Boolean joined mesh.
+    {
+        Mesh mesh;
+        const Vec3 middle{.35,-.7,.2},last{.05,-.35,-.7};
+        addDomainCube(mesh,{-1.25,0,0},1);
+        addDomainCube(mesh,middle,1);
+        addDomainCube(mesh,last,.8);
+        const double angle=.37-.7*.2;
+        const auto sn=std::sin(angle),cs=std::cos(angle);
+        for(unsigned i=8;i<16;++i) {
+            const auto p=mesh.vertices[i]-middle;
+            mesh.vertices[i]=middle+Vec3{
+                cs*p.x-sn*p.y,sn*p.x+cs*p.y,p.z};
+        }
+        for(unsigned i=16;i<24;++i) {
+            const auto p=mesh.vertices[i]-last;
+            mesh.vertices[i]=last+Vec3{
+                p.x+.25*p.z,p.y+.2*p.x,p.z};
+        }
+        examine(std::move(mesh),"V16 rotated/sheared folded three-shell junction");
+    }
+
     // Nested bodies with no surface contact are not implicitly allowed
     // to retire a shell: M03 only permits source-proven untouched-face
     // retirement in a REAL complete intersection episode.
