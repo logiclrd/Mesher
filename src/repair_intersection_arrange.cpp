@@ -680,6 +680,82 @@ ConformingCutPlan buildMultiSectionCutPlan(
         }
         result.segments.push_back(match);
     }
+    if(mirrors) {
+        // A reflective original triangle (one existing X=0 vertex
+        // plus two off-plane reflected corners) must be split into
+        // physically coherent half-fans. Build a SOURCE-PROVEN exact
+        // X=0 midpoint on its original crossing edge and require the
+        // old fixed vertex -> midpoint line as an internal planar
+        // constraint. Its other original edge incident face receives
+        // the SAME point through the ordinary conforming cuts map.
+        // This is not an additional V13 original pair and never
+        // confers independent collision/weld authorization.
+        const auto mirrorOf=[&](VertexId id)->VertexId {
+            const auto it=mirrors->find(id);
+            if(it==mirrors->end()||
+               !mirrors->contains(it->second)||
+               mirrors->at(it->second)!=id||
+               !index.maybeVertex(it->second))
+                throw std::logic_error(
+                    "Invariant original source needs a complete mirror involution");
+            const auto a=index.vertex(id).position,
+                       b=index.vertex(it->second).position;
+            if(b.x!=-a.x||b.y!=a.y||b.z!=a.z)
+                throw std::logic_error(
+                    "Invariant original source mirror has wrong coordinates");
+            return it->second;
+        };
+        // The genuine V13 section graph fixes the affected source
+        // set. A conforming midpoint subsequently reaches the other
+        // incident face via cuts[] without fake contact pairs.
+        const std::vector<FaceId> sources(affected.begin(),affected.end());
+        for(const auto source:sources) {
+            const auto tri=index.face(source).vertices;
+            std::array<VertexId,3> reflectedVertices{
+                mirrorOf(tri[0]),mirrorOf(tri[1]),mirrorOf(tri[2])};
+            auto left=tri,right=reflectedVertices;
+            std::sort(left.begin(),left.end());
+            std::sort(right.begin(),right.end());
+            if(left!=right)continue;
+            VertexId fixed{},from{},to{};
+            for(const auto v:tri) {
+                if(mirrorOf(v)==v) {
+                    if(fixed)throw std::logic_error(
+                        "Unsupported multiple old seam vertices on invariant source");
+                    fixed=v;
+                }else if(!from)from=v;
+                else to=v;
+            }
+            if(!fixed||!from||!to||mirrorOf(from)!=to||
+               mirrorOf(to)!=from)
+                throw std::logic_error(
+                    "Invariant source needs one exact fixed corner and one mirrored edge");
+            const auto key=edge(from,to);
+            const auto a=index.vertex(key.a).position,
+                       b=index.vertex(key.b).position;
+            if(a.x==0||b.x==0||a.x!=-b.x||a.y!=b.y||a.z!=b.z)
+                throw std::logic_error(
+                    "Invariant source crossing edge is not an exact reflected pair");
+            const Vec3 midpoint{0,a.y,a.z};
+            auto& cutsOnEdge=cuts[key];
+            std::optional<std::size_t> midpointId;
+            for(auto& [t,id]:cutsOnEdge) {
+                if(std::abs(t-.5)>1e-9)continue;
+                const auto old=result.points.at(id).position;
+                if(std::abs(old.x)>1e-9*length(b-a)||
+                   old.y!=midpoint.y||old.z!=midpoint.z)
+                    throw std::logic_error(
+                        "Existing X=0 cut on invariant original edge is not exact");
+                result.points[id].position=midpoint;
+                midpointId=id;break;
+            }
+            if(!midpointId) {
+                midpointId=newPoint({midpoint,std::nullopt,key,0});
+                cutsOnEdge.emplace_back(.5,*midpointId);
+            }
+            perFace[source].push_back({original(fixed),*midpointId,source});
+        }
+    }
     // The same complete V13 graph may arrive in any contact order.
     // Give each original source face a fixed section-pair traversal:
     // swapping i/j changes roundoff around endpoint parameters and can
