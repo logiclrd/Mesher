@@ -314,6 +314,19 @@ void testM27OriginalLifetimeRepeatedRealRemesh() {
     catch(const std::logic_error&){refused=true;}
     check(refused,"M27 original witness spoof cannot hide repeated protected erosion");
     fraudulent=twice;
+    fraudulent.sourceFaceEvidence=0;
+    refused=false;
+    try {(void)advanceOriginalPatchLifetime(
+        fraudulent,secondResult,4,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 opaque proof prevents reset of cumulative original-source work cap");
+    fraudulent=twice;
+    fraudulent.acceptedTransitions=0;
+    refused=false;
+    try {(void)auditOriginalPatchLifetime(fraudulent,original,56,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M27 opaque proof prevents rewriting accepted Step history");
+    fraudulent=twice;
     std::swap(fraudulent.lineage.living[0].second,
               fraudulent.lineage.living[1].second);
     refused=false;
