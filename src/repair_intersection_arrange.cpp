@@ -681,6 +681,7 @@ ConformingCutPlan buildMultiSectionCutPlan(
         result.segments.push_back(match);
     }
     if(mirrors) {
+        try {
         // A reflective original triangle (one existing X=0 vertex
         // plus two off-plane reflected corners) must be split into
         // physically coherent half-fans. Build a SOURCE-PROVEN exact
@@ -754,6 +755,9 @@ ConformingCutPlan buildMultiSectionCutPlan(
                 cutsOnEdge.emplace_back(.5,*midpointId);
             }
             perFace[source].push_back({original(fixed),*midpointId,source});
+        }
+        }catch(const std::logic_error& error) {
+            return reject(error.what()); // no partial/private mirror candidate
         }
     }
     // The same complete V13 graph may arrive in any contact order.
