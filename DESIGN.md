@@ -2895,3 +2895,60 @@ and retirement policy. The following remain separately open:
 three-body crossing/T-junction final unions, buried unchanged faces,
 unequal edge densities, reflected multi-section, self-reflected X=0
 seams, and repeated automatic 4D sculpt/union desktop acceptance.
+
+
+## V17e2b2d4b — Fully certified three-solid cut arrangements, sparse seam refusal
+
+The next end-to-end fixture exposed two separate limits. Historical
+three-tetrahedron crossing and interior T-junction examples each have
+21 original V13 contact pairs, including nontransverse/grazing cases:
+the selected two-pair planar arrangements are real, but those whole
+closed-shell geometries are NOT supported full-contact Boolean inputs.
+Never skip the 19 other original pairs or relax their V13 refusal.
+
+A new generic dyadic geometry uses THREE independently closed,
+oriented tetrahedra and a COMPLETE original graph of TWELVE strictly
+transverse triangle contact pairs. An additional deliberately
+orthogonal dyadic three-plane arrangement has SIXTEEN genuine
+transverse original pairs after removing unrelated edge coincidences.
+Both have contact lines meeting on an original source face. A detached
+source-face contact graph may have real degree-three/four interior
+junctions rather than only the degree-two closed cycles supported in
+the first d4 subset. The bounded planar planner now attempts two
+noncrossing, visible original-perimeter scaffold chords for such
+detached components whose nodes all have degree >= 2. Neither chord
+becomes a V13 seam or a weld key. Any weakly simple halfedge cycle,
+nonpositive child, overlapping triangulation, broken edge fan, missing
+contact, unsupported component or work exhaustion still refuses
+atomically. In the NEW full-contact regressions, private persistent-ID
+cut materialization and independently recomputed c2 complete real
+child-EDGE coverage, c1 reliable strictly positive-winding occupancy,
+and c3 cavity-protected exact-child removal all PASS. The original
+historical readers remain pointer-stable.
+
+A Boolean union involving three solids may bury PART of a true V13
+contact section inside the third solid. The d2 seam tracer therefore
+collects only c3-authorized directed surviving edge subintervals:
+gaps and wholly buried sections are permitted, but overlapping or
+duplicate intervals are forbidden. Each surviving subinterval must
+still have an EXACT endpoint- and subdivision-matched partner with
+opposite direction on the other original sheet. Every surviving
+removal-boundary edge must be accounted for exactly once; no unrelated
+colocated vertices become equivalences. The last RegionEdit manifold,
+fidelity and whole-halo intersection audits, d3 original-root CAS and
+worker/history acceptance are unchanged. Refusal reports the precise
+contact and interval at 17 significant digits when there is a
+subdivision mismatch.
+
+Neither triple fixture currently produces a publishable union. Both
+progress through c1/c2/c3 but refuse exact d2 seam matching because
+independently arranged triple-junction vertices yield numerically
+different section subdivisions/coordinates. The intended next bounded
+task is *canonical, source-proven shared triple-plane junction point
+construction across all affected original faces*, with a physical
+exact-coordinate/area/fidelity and manifold proof; moving protected
+corners or accepting near-neighbor matches by tolerance is NOT an
+acceptable substitute. The original-root/worker/UI status is exactly
+as before: no automatic sculpt Boolean, no UI Merge geometry, no
+claim of completed three-body crossing/T-junction union. V17e2b2d4
+and its V17 parent remain OPEN.
