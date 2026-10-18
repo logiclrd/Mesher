@@ -3148,3 +3148,74 @@ and ONE original-root CAS/undo/history/checkpoint Step. In particular,
 M03 does not introduce a new intermediate published cut nor alter
 the default disabled UI Merge geometry behavior. M05/M06 own
 paired reflected and fixed-plane original-face deletion orbits.
+
+## V17-M04 — Full three-solid original-root net union acceptance
+
+The M01–M03 private geometric certificates now feed one ORIGINAL-root
+V17 d3 Step. `prepareExactCutStep` internally stages an M01
+conforming revision, passes its complete original V13 source pairs to
+the bounded M02 exact seam interval/refinement preflight and uses the
+resulting additional PRIVATE RegionEdit, if needed, as the final cut
+input. M03 independently recomputes whole-face no-original-contact
+and positive-winding c1/c2 evidence for every potentially buried
+ORIGINAL face that received no section cut. The M02 trace stage and
+the d2 terminal join are given exactly the same M03-authorized
+untouched-original retirement set: a buried untouched base is not a
+surviving seam edge simply because it remains in the intermediate
+cut revision. This alignment is certified, NEVER inferred by spatial
+proximity or permission to erase an arbitrary unchanged face.
+
+All contact sections still come from COMPLETE rediscovered original
+V13 FaceId pairs; unmatched one-sided intervals, duplicate ownership,
+nonexact physical endpoints, wrongly directed seams, unsupported
+reflection, uncertain occupancy, uncut face with a V13 contact,
+nonmanifold/incomplete incident fans and budget overruns fail closed.
+The final exact join retires only c1/c2/c3 children plus
+independently M03-authorized untouched originals and welds only
+exactly coincident, source-proven V13 edge endpoints with opposite
+survivor directions. Final changed-halo and whole-final collision
+regressions refuse any remaining nonadjacent surface intersection.
+Every protected exposed or reversed-cavity child and original
+retains exactly its previous physical location.
+
+The d3 composition compares the FINAL postjoin immutable revision
+ONLY against the ORIGINAL baseline (never the intermediate cut/
+refined root). Stable IDs born-and-retired within unpublished edits
+are excluded from live additions, while original IDs actually
+retired—including M03-authorized previously unchanged original
+FaceIds—enter net tombstone/undo/checkpoint journals. New and
+rewritten FaceIds, inserted and retired VertexIds, mirrored history
+(for legacy supported mirrored Steps), dirty partition owners and
+actual COW payload-copy work from all private edits are composed
+into a single terminal `RevisionCommit`. A consumer's ONE CAS
+against the captured original root and ONE `RevisionHistory.append`
+are the only possible acceptance/publication operations.
+
+Positive integration regressions now require BOTH complete
+12-contact generic and 16-contact orthogonal three-tetrahedron
+graphs to form one connected, closed, oriented edge- and vertex-
+manifold private 3→1 union. They audit ALL final live faces for
+any nonadjacent intersections, zero protected surface displacement,
+net original-root stable-ID/element-count changes, a successful
+CAS plus stale-CAS replay refusal, exactly one undo/redo Step,
+and durable checkpoint restoration with exact tombstones and
+closed connected geometry. An additional one-above/three-below
+protrusion retires the wholly buried, **uncut** original tetra base
+while leaving an unrelated inverted enclosed cavity shell intact;
+its two remaining connected closed surface components represent
+the union exterior and protected internal cavity. Deliberately
+incomplete 12/16-source graphs, tightened global net journal and
+refinement predicate budgets and the historical complete 21-pair
+grazing/T examples are negative all-or-nothing controls.
+
+The cut, optional refinement, M03 classification, exact join,
+terminal root and net journal are still PRIVATE until a caller
+chooses the explicit worker operation. Symmetric multi-junction
+refinement/untouched-source retirement remains gated until M05;
+X=0 self-paired orbits remain M06. These tests do not enable
+sculpt-driven repeated post-Inflate Boolean Steps (M08),
+continuous cumulative fidelity/hysteresis (M09), per-physical-Step
+aggregate resource caps (M10), injected post-CAS transaction
+failure protection (M11), or the default-off Merge geometry
+desktop switch (M12). Broader V19 imported and near-degenerate
+universality is not claimed.

@@ -58,7 +58,7 @@ ExactCutStep prepareExactCutStep(
            !limits.maxNetChangedIds||!limits.maxDirtyPartitions||
            !limits.maxFinalCollisionFaces)
             return reject("Original-root Step requires an immutable source and finite budgets");
-        // The ONLY API that exposes this intermediate is internal to
+        // The ONLY API that exposes these intermediates is internal to
         // preparing the Step; callers receive the original and final roots
         // together, never a publishable half-subdivided contact surface.
         const auto cut=materializeTransverseCutCandidate(
@@ -288,7 +288,7 @@ ExactCutStep prepareExactCutStep(
             return reject("Nonmirrored Step unexpectedly allocated reflected orbits");
 
         // There is no whole-mesh traversal on this hot path. All partition
-        // owners arise from explicit cut and seam write journals. Unchanged
+        // owners arise from explicit cut, refinement and seam write journals. Unchanged
         // partition pointers remain path-shared between the original and
         // terminal COW revisions. History dirties are this exact local set.
         if(owners.empty()||owners.size()>limits.maxDirtyPartitions)

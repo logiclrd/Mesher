@@ -469,7 +469,7 @@ struct ExactCutStep {
     std::vector<std::pair<VertexId,VertexId>> addedMirrors,removedMirrors;
     std::vector<std::pair<FaceId,FaceId>> survivingMirroredFaces;
     std::vector<PartitionId> dirtyPartitions;
-    std::size_t copiedPayloadBytes{}; // cost of BOTH private COW edits
+    std::size_t copiedPayloadBytes{}; // cost of ALL private COW edits
     std::size_t finalCollisionSeeds{},checkedProtectedFaces{};
     // Relative counts; callers append one History entry using their
     // existing absolute counts. Does not include born-then-retired IDs.

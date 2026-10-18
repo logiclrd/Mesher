@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M03 are complete in their independent private certification scopes; M04–M12 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M04 are complete in their bounded private acceptance/transaction scopes; M05–M12 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -770,8 +770,34 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   internal cavity are negative controls. No actual topology deletion
   or one-root d3 publication is performed (M04), and new mirror
   retirement orbits remain fail-closed (M05/M06).
-- [ ] **V17-M04 — Full closed three-body Boolean union with one immutable terminal Step.**
-  Positive complete 12/16-contact intersecting-three-tetra unions, strict manifold/final collision/fidelity proof, one CAS/history/checkpoint, missing-pair and unsupported original-contact refusal.
+- [x] **V17-M04 — Full closed three-body Boolean union with one original-root terminal Step.**
+  Compose the canonical M01 triple-plane source-point cut, the M02
+  opposite-sheet exact section subdivision alignment and the M03
+  independently classified untouched buried-original FaceId retirement
+  into a single original-root immutable Step. A private extra M02
+  RegionEdit, when required, remains invisible and its new FaceId/
+  VertexId allocations and COW costs enter only the NET composed
+  history/dirty/retirement journal. The M02 source interval preflight
+  now reasons about the same M03-authorized removal boundary as d2:
+  an uncut buried face must not manufacture a false unmatched seam.
+  The final d2 joins only exact source-paired opposite section edges;
+  it retires both genuine child fragments and authorized unchanged
+  faces and protects exposed and reversed cavity boundaries. The
+  complete closed THREE tetrahedron fixtures with 12 generic and 16
+  orthogonal proper transverse original V13 pairs both pass one
+  connected edge/vertex-manifold, final changed-halo and whole-final
+  surface collision audit, original-source coordinate fidelity and
+  one original-root CAS, balanced permanent ID/dirty journal, ONE
+  undo/redo history transition and durable checkpoint/restore.
+  The one-above/three-below tetrahedron additionally deletes its
+  independently authorized uncut buried base while preserving a
+  separate reversed cavity shell. Source pair omission, insufficient
+  net-ID/refinement budgets, unsupported historical 21-pair grazing
+  contact cases and stale original-root CAS fail closed with no
+  publishable cut or intermediate root. Mirrored triple-region
+  refinement, X=0 fixed-plane seams and automatic sculpt integration
+  remain gated by M05, M06 and M08 respectively. Default desktop
+  Merge geometry remains disabled; no universal Boolean claim.
 - [ ] **V17-M05 — Off-plane mirrored multi-section Boolean acceptance.**
   True crossing/T-junction reflected unions with exact original/new reciprocal stable-ID and face orbits, paired retirement, one Step, recovery and negative mirror-map tests.
 - [ ] **V17-M06 — Self-reflected X=0 cut/seam invariant topology.**
