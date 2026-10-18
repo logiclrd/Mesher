@@ -3774,6 +3774,49 @@ void testSourceCertifiedCoincidentVertexIdentity() {
                  <<(onPlane?"X=0":"off-plane")
                  <<" coincidence=preserved independent-fans=2\\n";
     }
+    // A THIRD independently valid shell has a corner exactly on a
+    // real source vertex beside the active transverse Boolean halo.
+    // This unrelated (nontransverse) duplicate MUST NOT be globally
+    // deduplicated, even when the first two solids can be joined.
+    {
+        Mesh extra=mesh;
+        const auto p=mesh.vertices.front();
+        const double h=.1;
+        // The tetra's +X,+Y,-Z corner meets p, while its other
+        // corners lie strictly to the -X side of the active geometry.
+        addTetrahedron(extra,{p.x-h,p.y-h,p.z+h},h);
+        const auto imp=partitionFlatMesh(extra,256);
+        const auto index=RegionTopologyIndex::build(imp.revision);
+        const auto first=imp.flatIndex.vertexIds[0],
+                   unrelated=imp.flatIndex.vertexIds[8+1];
+        const auto a=index->vertex(first).position,
+                   bpos=index->vertex(unrelated).position;
+        check(first!=unrelated&&a.x==bpos.x&&a.y==bpos.y&&a.z==bpos.z&&
+              connectedClosedSurfaceComponents(*index)==3,
+              "Unrelated exact XYZ at an active union halo retains third source-owned vertex ID");
+        auditClosedVertexLinks(*index);
+        const auto originalPicking=index->pickingRootIdentity();
+        const auto all=index->triangleIntersections(
+            imp.flatIndex.vertexIds,{});
+        const auto full=prepareExactCutStep(index,all,stepLimits);
+        if(full.complete) {
+            check(full.final&&full.expected==index&&
+                  full.final->maybeVertex(unrelated)&&
+                  connectedClosedSurfaceComponents(*full.final)==2&&
+                  allPairs(*full.final).empty(),
+                  "Only source-certified first two solids may join; coincident third shell remains independent");
+            auditClosedVertexLinks(*full.final);
+        }else {
+            check(!full.expected&&!full.final&&!full.commit.revision&&
+                  full.addedVertices.empty()&&full.addedMirrors.empty()&&
+                  full.dirtyPartitions.empty()&&!full.refusal.empty(),
+                  "Incidental identical halo corner may refuse, but can never authorize partial topology");
+        }
+        check(index->pickingRootIdentity()==originalPicking&&
+              index->maybeVertex(first)&&index->maybeVertex(unrelated)&&
+              index->retiredFaceCount()==0,
+              "Original touching three-shell identity and renderer root remain untouched");
+    }
     // Four independent closed one-ring fans can occupy the SAME point.
     // Their tangent cones lie in separate octants. A coordinate-based
     // merge would create one vertex with FOUR disconnected links.
