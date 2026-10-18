@@ -3774,6 +3774,40 @@ void testSourceCertifiedCoincidentVertexIdentity() {
                  <<(onPlane?"X=0":"off-plane")
                  <<" coincidence=preserved independent-fans=2\\n";
     }
+    // Four independent closed one-ring fans can occupy the SAME point.
+    // Their tangent cones lie in separate octants. A coordinate-based
+    // merge would create one vertex with FOUR disconnected links.
+    {
+        Mesh four;
+        for(const auto center:std::array<Vec3,4>{{
+            {1,1,1},{-1,-1,1},{-1,1,-1},{1,-1,-1}
+        }})addTetrahedron(four,center,1);
+        const auto imported=partitionFlatMesh(four,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto oldRoot=original->pickingRootIdentity();
+        const std::array<unsigned,4> localCorners{{0,1,2,3}};
+        std::set<VertexId> separate;
+        for(unsigned shell=0;shell<4;++shell) {
+            const auto id=imported.flatIndex.vertexIds[4*shell+localCorners[shell]];
+            check(separate.insert(id).second&&
+                  original->vertex(id).position.x==0&&
+                  original->vertex(id).position.y==0&&
+                  original->vertex(id).position.z==0,
+                  "Four independently source-owned stable IDs occupy the exact same 3D point");
+        }
+        check(connectedClosedSurfaceComponents(*original)==4&&
+              original->pickingRootIdentity()==oldRoot,
+              "Independent four-sheet point contact must retain four closed components");
+        auditClosedVertexLinks(*original);
+        const auto contacts=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto invalid=prepareExactCutStep(original,contacts);
+        check(!invalid.complete&&!invalid.expected&&!invalid.final&&
+              !invalid.commit.revision&&invalid.addedMirrors.empty()&&
+              invalid.dirtyPartitions.empty()&&
+              original->retiredFaceCount()==0,
+              "An incompatible four-fan contact cannot authorize shared VertexId or Boolean history");
+    }
     // A near-miss is not an exact source point. Move the would-be
     // touching corner 1e-7 outside BOTH tangential support directions,
     // leaving a real gap and forbidding any distance-threshold snap.
