@@ -244,10 +244,13 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
             const auto pairs=edit.replaceSelfMirroredFace(a.sourceFace,children);
             for(const auto& [first,second]:pairs) {
                 output.mirroredFaces.emplace_back(first,second);
-                for(const auto id:{first,second}) {
-                    output.childSources.emplace_back(id,a.sourceFace);
-                    if(id==a.sourceFace)output.rewrittenFaces.push_back(id);
-                    else output.insertedFaces.push_back(id);
+                output.childSources.emplace_back(first,a.sourceFace);
+                if(first==a.sourceFace)output.rewrittenFaces.push_back(first);
+                else output.insertedFaces.push_back(first);
+                if(second!=first) {
+                    output.childSources.emplace_back(second,a.sourceFace);
+                    if(second==a.sourceFace)output.rewrittenFaces.push_back(second);
+                    else output.insertedFaces.push_back(second);
                 }
             }
             continue;

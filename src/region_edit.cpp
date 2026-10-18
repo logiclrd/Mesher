@@ -434,7 +434,7 @@ std::pair<FaceId,FaceId> RegionEdit::splitSelfMirroredFace(
 std::vector<std::pair<FaceId,FaceId>> RegionEdit::replaceSelfMirroredFace(
     FaceId id,const std::vector<std::array<VertexId,3>>& children) {
     if(mirror_.empty()||!faces_.contains(id)||faceChanges_.contains(id)||
-       children.size()<2||children.size()%2)
+       children.size()<2)
         throw std::logic_error("Invariant source replacement needs complete paired fan");
     const auto old=index_->face(id).vertices;
     const std::array<VertexId,3> reflected{
@@ -453,6 +453,19 @@ std::vector<std::pair<FaceId,FaceId>> RegionEdit::replaceSelfMirroredFace(
         const auto tri=children[i];
         const std::array<VertexId,3> twin{
             mirroredVertex(tri[0]),mirroredVertex(tri[2]),mirroredVertex(tri[1])};
+        if(cyclic(twin,tri)) {
+            // A genuine invariant CHILD is a single topological
+            // triangle, not two coincident faces. No self-cycle can
+            // consist of three different on-plane vertices.
+            std::size_t fixedCount=0;
+            for(const auto v:tri)fixedCount+=mirroredVertex(v)==v;
+            if(fixedCount!=1)
+                throw std::logic_error(
+                    "Self-reflected child has an invalid fixed-point fan");
+            used[i]=true;
+            pairIndices.emplace_back(i,i);
+            continue;
+        }
         std::optional<std::size_t> found;
         for(std::size_t j=i+1;j<children.size();++j) {
             if(used[j])continue;
@@ -463,7 +476,7 @@ std::vector<std::pair<FaceId,FaceId>> RegionEdit::replaceSelfMirroredFace(
             }
         }
         if(!found)throw std::logic_error(
-            "Invariant fan lacks a distinct opposite-winding child");
+            "Invariant fan lacks an opposite-winding child");
         ensureReferences(children[*found]);
         used[i]=used[*found]=true;
         pairIndices.emplace_back(i,*found);
@@ -477,13 +490,25 @@ std::vector<std::pair<FaceId,FaceId>> RegionEdit::replaceSelfMirroredFace(
             const auto first=children[a],second=children[b];
             if(k==0) {
                 setFace(id,first);
+                if(a==b) {
+                    faceMirror_.emplace(id,id);
+                    result.emplace_back(id,id);
+                }else {
+                    const auto writable=chooseInsertionPartition(owner,false);
+                    const auto mate=view_.addFace(writable,second);
+                    newFaces_[mate]=writable;
+                    faceChanges_[mate]=second;
+                    faceMirror_.emplace(id,mate);
+                    faceMirror_.emplace(mate,id);
+                    result.emplace_back(id,mate);
+                }
+            }else if(a==b) {
                 const auto writable=chooseInsertionPartition(owner,false);
-                const auto mate=view_.addFace(writable,second);
-                newFaces_[mate]=writable;
-                faceChanges_[mate]=second;
-                faceMirror_.emplace(id,mate);
-                faceMirror_.emplace(mate,id);
-                result.emplace_back(id,mate);
+                const auto self=view_.addFace(writable,first);
+                newFaces_[self]=writable;
+                faceChanges_[self]=first;
+                faceMirror_.emplace(self,self);
+                result.emplace_back(self,self);
             }else {
                 const auto ids=appendMirroredFaces(owner,owner,first);
                 result.push_back(ids);
