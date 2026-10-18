@@ -1,6 +1,7 @@
 #include "mesher/triangle_collision.hpp"
 #include "mesher/repair_intersection.hpp"
 #include "mesher/repair_surgery.hpp"
+#include "mesher/versioned_refine.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
 #include "mesher/revision_history.hpp"
@@ -1019,6 +1020,103 @@ void testPrivateConformingRevisionCommitsAtomically() {
             m27Forged,baseline,m27Cost+7,8192);}
         catch(const std::logic_error&){m27Refused=true;}
         check(m27Refused,"M27 immutable proven ownership rejects spoofed coincident source IDs");
+        // V17-M20 INTEGRATION: cross a REAL certified c1/c2/c3/M03/d2
+        // original-root union, then a separately committed local
+        // edge split on that union's terminal root. All 8 first-original
+        // FaceIds (including buried/rewritten ones) stay owned by their
+        // ORIGINAL nominated source, not by nearest post-weld geometry.
+        // This exercises M26 -> M24 -> M27 in ONE lifetime rather than
+        // accepting disjoint isolated milestone tests as integration.
+        RefineSettings integratedSettings;
+        integratedSettings.enabled=true;
+        integratedSettings.maximumEdgeRatio=.01;
+        integratedSettings.maximumSplitPairsPerStamp=1;
+        integratedSettings.optimizeFlips=false;
+        integratedSettings.maximumFlipPairsPerStamp=0;
+        VersionedLocalRefiner integratedRefiner(8,integratedSettings,{},256);
+        std::vector<VertexId> terminalVertices;
+        prepared.final->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& part) {
+                for(const auto& vertex:part.vertices)
+                    terminalVertices.push_back(vertex.id);
+            });
+        std::sort(terminalVertices.begin(),terminalVertices.end());
+        bool integratedAccepted=false;
+        for(const auto vertex:terminalVertices) {
+            const auto incident=prepared.final->vertex(vertex).incidentFaces;
+            if(incident.empty())continue;
+            const auto pos=prepared.final->vertex(vertex).position;
+            try {
+                RegionEdit deformation(prepared.final,{vertex},{},256);
+                deformation.moveVertex(
+                    vertex,{pos.x+.3,pos.y+.13,pos.z-.09});
+                (void)deformation.commit();
+                const auto refined=integratedRefiner.apply(
+                    deformation.updatedIndex(),
+                    LocalStampBaseline{prepared.final,{vertex},incident});
+                if(refined.statistics.splitPairs!=1||
+                   refined.splitSources.size()!=2)
+                    continue;
+                const auto exactSourceCost=
+                    lifetimeAfter.sourceFaceEvidence+
+                    refined.splitSources.size();
+                const auto terminalLifetime=advanceOriginalPatchLifetime(
+                    lifetimeAfter,refined,exactSourceCost,8192);
+                std::size_t terminalWork=0;
+                for(const auto& [_,living]:terminalLifetime.lineage.living)
+                    terminalWork+=7*living.size();
+                const auto audited=auditOriginalPatchLifetime(
+                    terminalLifetime,baseline,terminalWork,8192);
+                check(terminalLifetime.anchors.original==baseline&&
+                      terminalLifetime.lineage.original==baseline&&
+                      terminalLifetime.lineage.terminal==refined.index&&
+                      terminalLifetime.acceptedTransitions==2&&
+                      terminalLifetime.sourceFaceEvidence==exactSourceCost&&
+                      terminalLifetime.certifiedRetiredOriginals==
+                          lifetimeAfter.certifiedRetiredOriginals&&
+                      audited.total.distanceTests==terminalWork,
+                      "M20 genuine exact union then real local split retains SAME original root and Buried/Outside authority");
+                // The terminal source split gets exactly TWO face-proof
+                // records, but retirement still belongs to the earlier
+                // signed-winding c3/M03 step. Work is cumulative, not reset.
+                bool exhausted=false;
+                try {(void)advanceOriginalPatchLifetime(
+                    lifetimeAfter,refined,exactSourceCost-1,8192);}
+                catch(const std::length_error&){exhausted=true;}
+                check(exhausted,
+                      "M20 real union-to-remesh transition refuses one under cumulative proof cap");
+                exhausted=false;
+                try {(void)auditOriginalPatchLifetime(
+                    terminalLifetime,baseline,terminalWork-1,8192);}
+                catch(const std::length_error&){exhausted=true;}
+                check(exhausted,
+                      "M20 real union-to-remesh audit refuses one under full original witness budget");
+                IndexedMeshRepository published(baseline);
+                check(published.publishIfCurrent(baseline,prepared.final)&&
+                      published.publishIfCurrent(prepared.final,refined.index)&&
+                      published.snapshot()==refined.index&&
+                      !published.publishIfCurrent(baseline,refined.index)&&
+                      baseline->pickingRootIdentity()==sourceRoot,
+                      "M20 genuine Boolean and remesh publish as two atomic CAS roots; stale original publication refuses");
+                auto foreign=terminalLifetime;
+                std::swap(foreign.lineage.living[0].second,
+                          foreign.lineage.living[1].second);
+                bool alienRefused=false;
+                try {(void)auditOriginalPatchLifetime(
+                    foreign,baseline,terminalWork+7,8192);}
+                catch(const std::logic_error&){alienRefused=true;}
+                check(alienRefused,
+                      "M20 source-owned integrated lineage refuses foreign or coincident FaceId assignment");
+                integratedAccepted=true;
+                break;
+            }catch(const std::logic_error&) {
+                // Some candidate stamp positions are intentionally
+                // unsuitable for this union's face fan; only an actual
+                // committed and independently verified split qualifies.
+            }
+        }
+        check(integratedAccepted,
+              "M20 complete real exact join must support source-certified subsequent local remesh");
         const auto countLive=[&](const RegionTopologyIndex& index) {
             std::pair<std::size_t,std::size_t> result{};
             index.revision().forEachPartition(
