@@ -453,6 +453,19 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const UncutFaceRetirementLimits& uncutLimits={});
 
 
+// V17-M26: terminal-only source provenance retained by a SUCCESSFUL
+// original-root Step. Intermediate meshes are PRIVATE evidence, never
+// publication candidates. The c3 classification is source-proven from
+// complete c1/c2 original-contact coverage; no position-based ownership.
+struct ExactCutSourceEvidence {
+    ConformingCutCandidate prepared;
+    std::vector<CutFragmentOccupancy> classifiedChildren;
+    std::vector<FaceId> removedChildren,protectedChildren;
+    std::vector<FaceId> removedUncut,protectedUncut;
+    std::vector<std::pair<VertexId,VertexId>> finalWeldedPairs;
+    CutRemovalSettings removalSettings{};
+};
+
 // V17e2b2d3: Stage the entire subdivision + certified seam join as
 // ONE original-root Step. Two private RegionEdits are implementation
 // details: the returned FINAL immutable root is the ONLY publishable
@@ -484,6 +497,9 @@ struct ExactCutStep {
     std::vector<FaceId> addedFaces,rewrittenFaces,retiredFaces;
     std::vector<std::pair<VertexId,VertexId>> addedMirrors,removedMirrors;
     std::vector<std::pair<FaceId,FaceId>> survivingMirroredFaces;
+    // Only non-null for a complete Step; retain the immutable private
+    // evidence until M26 read-only auditing, not in history/checkpoints.
+    std::shared_ptr<const ExactCutSourceEvidence> sourceEvidence;
     std::vector<PartitionId> dirtyPartitions;
     std::size_t copiedPayloadBytes{}; // cost of ALL private COW edits
     std::size_t finalCollisionSeeds{},checkedProtectedFaces{};
