@@ -280,14 +280,14 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     auto index=RegionTopologyIndex::restore(
         std::move(revision),retiredVertices,retiredFaces);
     validateMirrors(mirrors,*index);
-    DurableCheckpoint loaded;
-    loaded.index=std::move(index);
-    loaded.mirrorPairs=std::move(mirrors);
-    loaded.initialVertexCount=static_cast<std::size_t>(initialVertexCount);
-    loaded.originalFidelityRequired=requiresOriginalFidelity;
+    DurableCheckpoint recovered;
+    recovered.index=std::move(index);
+    recovered.mirrorPairs=std::move(mirrors);
+    recovered.initialVertexCount=static_cast<std::size_t>(initialVertexCount);
+    recovered.originalFidelityRequired=requiresOriginalFidelity;
     // Never reconstruct source ancestry from a hash of the terminal mesh.
-    loaded.verifiedOriginalFidelity.reset();
-    return loaded;
+    recovered.verifiedOriginalFidelity.reset();
+    return recovered;
 }
 
 AsyncCheckpointWriter::AsyncCheckpointWriter()
