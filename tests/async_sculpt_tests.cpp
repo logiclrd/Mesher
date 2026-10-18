@@ -1298,22 +1298,26 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
         if(i==4) {
             const auto before=roots.back();
             const auto noContact=stampAt({5,-14,10000},6);
+            const auto unchangedSnapshot=worker.takeSnapshot();
             require(noContact.completedUnions==4&&
                     noContact.publishedRevisions==4&&
                     noContact.history.undoDepth==4&&
                     noContact.rejectedStamps==0&&
-                    !worker.takeSnapshot()&&
+                    unchangedSnapshot&&unchangedSnapshot->index==before&&
+                    unchangedSnapshot->dirtyPartitions.empty()&&
                     validationCount==4,
                     "M11 no-contact queued input neither publishes nor consumes a success");
             // Next real positive candidate is VALID geometrically, but
             // the caller vetoes its terminal Step after exact staging.
             // This checks the entire speculative map/history rollback.
             const auto refused=stampAt(center,6);
+            const auto refusedSnapshot=worker.takeSnapshot();
             require(refused.rejectedStamps==1&&
                     refused.completedUnions==4&&
                     refused.publishedRevisions==4&&
                     refused.history.undoDepth==4&&
-                    !worker.takeSnapshot()&&
+                    refusedSnapshot&&refusedSnapshot->index==before&&
+                    refusedSnapshot->dirtyPartitions.empty()&&
                     validationCount==5&&
                     !refused.lastRejection.empty(),
                     "M11 post-Boolean refused input preserves queued root and full original history");
