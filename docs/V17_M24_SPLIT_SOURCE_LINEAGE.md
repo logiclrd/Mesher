@@ -73,3 +73,23 @@ grows that original face's living child-ID set.
 The evidence is finite geometric/provenance bookkeeping and
 does **not** prove collision-free Boolean welding, cavity survival,
 a continuous two-sided Hausdorff bound, or automatic UI readiness.
+
+## Verified independently green CI checkpoint
+
+The substantive PR #68 source/test head passed GitHub Actions
+[39161099327](https://github.com/logiclrd/Mesher/actions/runs/39161099327):
+Linux GCC, Linux Clang and Windows MSVC /W4 /WX, all 23 CPU CTest
+suites and applicable benchmarks. Positive regressions include
+two accepted real local source-split generations from one retained
+first-reference root, a genuinely reflected multi-face split,
+a genuine X=0 self-mirrored midpoint from actual seam deformation,
+and two independent closed coincident octahedra whose unrelated
+source FaceIds never share child ancestry. Negative cases include
+a missing incident source record, a substituted face/edge ID,
+omitted mirror journal, stale root, unproven flip and work one below
+the exact evidence or living descendant limit.
+
+This verifies M24 ONLY. The original M20/M12 objectives and the
+M25–M27/M21–M23 execution peers remain open pending their own
+positive and negative acceptance; the Merge geometry desktop feature
+is still default-off.
