@@ -2166,6 +2166,79 @@ void testOrthogonalTripleJunctionProbe() {
     }
 }
 
+void testReflectedThreeBodyCompleteOriginalContacts() {
+    for(const bool orthogonal:{false,true}) {
+        Mesh mesh;
+        const std::array<Vec3,12> generic{{
+            {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+            {.375,.375,.25},{.625,.375,.25},
+            {.625,.625,-.25},{.375,.25,-.25},
+            {.21875,.15625,.34375},{.46875,.125,.34375},
+            {.53125,.40625,-.1875},{.28125,.09375,-.125}
+        }};
+        const std::array<Vec3,12> rightAngle{{
+            {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+            {.5,.25,.5},{.5,.75,.5},{.5,.625,-.5},{.875,.375,-.25},
+            {.25,.5,.625},{.75,.5,.625},{.625,.5,-.625},{.8125,.125,-.3125}
+        }};
+        const auto positions=orthogonal?rightAngle:generic;
+        for(const auto p:positions)
+            mesh.vertices.push_back({p.x+5,p.y,p.z});
+        for(const auto p:positions)
+            mesh.vertices.push_back({-p.x-5,p.y,p.z});
+        for(unsigned half=0;half<2;++half)
+            for(unsigned solid=0;solid<3;++solid)
+                for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                    {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+                }}) {
+                    const auto start=half*12+solid*4;
+                    mesh.triangles.push_back({
+                        start+tri[0],
+                        start+tri[half?2:1],
+                        start+tri[half?1:2]});
+                }
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto identity=original->pickingRootIdentity();
+        std::unordered_map<VertexId,VertexId> mirrorMap;
+        for(std::size_t i=0;i<12;++i) {
+            const auto a=imported.flatIndex.vertexIds[i],
+                       b=imported.flatIndex.vertexIds[i+12];
+            mirrorMap.emplace(a,b);mirrorMap.emplace(b,a);
+        }
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto expectedPairs=orthogonal?32u:24u;
+        check(all.size()==expectedPairs,
+              "Complete reflected three-body graph doubles its genuine original V13 source contacts");
+        CutRemovalSettings contours;
+        contours.contours.maximumPlanarityInRadii=4.0;
+        contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+        contours.contours.maximumIsoperimetricRatio=20.0;
+        contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        contours.contours.maximumPerimeterRatio=20.0;
+        contours.contours.maximumGapInEdges=.1;
+        contours.contours.minimumNormalAlignment=0;
+        ExactCutStepLimits limits;
+        limits.join.removal=contours;
+        limits.requireMirrors=true;
+        const auto result=prepareExactCutStep(original,all,limits,&mirrorMap);
+        std::cout<<"[mirrored-m05] orthogonal="<<orthogonal
+                 <<" contacts="<<all.size()
+                 <<" complete="<<result.complete
+                 <<" refusal="<<result.refusal<<'\n';
+        if(!result.complete)
+            throw std::runtime_error(
+                "Complete reflected triple intersection failed: "+result.refusal);
+        check(result.expected==original&&result.final&&
+              connectedClosedSurfaceComponents(*result.final)==2,
+              "Two complete reflected three-body groups form two separate closed unions");
+        check(original->pickingRootIdentity()==identity&&
+              connectedClosedSurfaceComponents(*original)==6,
+              "Mirrored three-body original readers remain unaffected");
+    }
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -2665,6 +2738,7 @@ int main() {
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
+        testReflectedThreeBodyCompleteOriginalContacts();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
