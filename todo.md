@@ -1269,13 +1269,36 @@ documentation follows before the merge.
   This closes ONLY the original M20 *source provenance* objective.
   M21 intentional feature exemptions, M22 active terminal pre-CAS
   policy, M23 clean episodes and original M12 remain OPEN.
-- [ ] **V17-M21 — Explicit intentional feature scope and cavity policy.**
+- [x] **V17-M21 — Explicit intentional feature scope and cavity policy.**
   A caller-designated intended brush displacement protects unaffected
   exposed/reversed-cavity surfaces and exempts only source-proven intended
   features. The decision honors complete signed-winding c1/c2/c3/M03
   Buried/Outside retirements. Prove nonmirrored/mirrored legitimate
   intent, preserved outer and cavity walls, and refusal for forged or
   ambiguous scope, without guessing intent from candidate distances.
+  **Accepted PR #73, substantive Actions #39171683227:** caller
+  explicitly lists FIRST-original intended FaceIds, bound to the
+  pre-edit opaque source certificate; only the immediately succeeding
+  M24/M25/M26-certified candidate is eligible. Geometric exemption
+  applies ONLY to those named original owners; all remaining live
+  Exposed/ReversedBoundary source descendants get the COMPLETE seven
+  original-witness comparison with original-edge scales and bounded
+  full-work preflight. Completely classified c3/M03 Buried/Outside
+  retirement remains source-certified; neither intended scope nor
+  proximity can invent disappearance. Symmetric stages MUST supply a
+  reciprocal original VertexId involution and closed opposite-winding
+  original FaceId intent orbits, including genuine X=0 singletons.
+  Positive actual asymmetric and reflected X=0 displaced/split
+  sculpt, completely independently coincident closed sources,
+  real c3/M03 uncut buried originals with protected reversed-cavity
+  components (asymmetric and paired mirror) are accepted.
+  Partial/alien/duplicate source nomination, wrong coincident sheet,
+  missing mirror pairs, stale/sibling predecessor, forged retirement,
+  unintended protected drift, and one-under full-distance work
+  refuse. GCC/Clang/MSVC warnings-as-errors, all 23 CPU suites and
+  applicable benchmarks green. This is READ-ONLY M21 scope policy,
+  NOT M22 pre-CAS activation, M23 clean episode or original M12
+  final integration; UI Merge geometry stays default disabled.
 - [ ] **V17-M22 — Active cumulative final physicalExact preservation.**
   Validate terminal post-remesh/post-d2 root before original-root CAS
   against first original-source witnesses and descendants in local

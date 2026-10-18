@@ -235,6 +235,49 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
     std::size_t maxDistanceTests=131072,
     std::size_t maxLivingDescendants=16384);
 
+// V17-M21: caller-declared, FIRST-original FaceId sculpt intent.
+// Only this explicit selection can exempt a source's geometric witness
+// deviation; no proximity/brush distance guesses at evaluation time.
+// The opaque declaration binds the certified PRE-edit lifetime. The
+// candidate must be its exact certified M24/M25/M26 successor.
+// This is a READ-ONLY policy decision; M22 owns actual pre-CAS use.
+struct OriginalPatchIntentCertificate;
+struct OriginalPatchIntentDeclaration {
+    std::shared_ptr<const OriginalPatchIntentCertificate> certificate;
+};
+struct OriginalPatchIntentDecision {
+    std::size_t intendedOriginals{};
+    std::size_t protectedOriginals{};
+    std::size_t protectedWitnesses{};
+    std::size_t certifiedRetiredOriginals{};
+    std::size_t totalDistanceTests{};
+    double maximumProtectedDeviationInEdges{};
+};
+// Empty intendedSources means *no* sculpt displacement permission.
+// For mirrored mode the caller must provide the immutable original
+// source VertexId involution; every protected source and intended face
+// must have an exact reciprocal opposite-winding original partner.
+// The intent set must be closed under reflection, including fixed
+// X=0 singleton FaceId orbits. No supplied partner is trusted by XYZ.
+OriginalPatchIntentDeclaration declareOriginalPatchIntent(
+    const OriginalPatchLifetime& before,
+    const std::vector<FaceId>& intendedSources,
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
+    std::size_t maxSourceFaces=4096);
+// Checks ALL active first-original sources, never just the intended set.
+// Buried/Outside originals may disappear ONLY through M26's explicit
+// independently sealed c3/M03 retirement. Exposed/ReversedBoundary
+// protected sources must retain a live certified descendant. Distances
+// for untouched sources are normalized by their ORIGINAL edge scales.
+// Intent never authorizes missing ancestry or source-ID substitution.
+OriginalPatchIntentDecision evaluateOriginalPatchIntent(
+    const OriginalPatchLifetime& before,
+    const OriginalPatchLifetime& after,
+    const OriginalPatchIntentDeclaration& intent,
+    double maxProtectedDeviationInEdges=1e-7,
+    std::size_t maxDistanceTests=131072,
+    std::size_t maxLivingDescendants=16384);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.
