@@ -1589,6 +1589,71 @@ void testGenericCompleteThreeBodyTransverseGraph() {
           "Triple-contact attempts never alter historical immutable pointers");
 }
 
+// Orthogonal plane intersection at exactly dyadic (0.5,0.5,0):
+// B's source face lies in X=.5, C's in Y=.5 and A's top face
+// lies in Z=0. Other tetra faces have independent transverse contacts.
+void testOrthogonalTripleJunctionProbe() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.5,.25,.5},{.5,.75,.5},{.5,.625,-.5},{.875,.375,-.25},
+        {.25,.5,.5},{.75,.5,.5},{.625,.5,-.5},{.75,.125,-.25}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto start=solid*4;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            start+t[0],start+t[1],start+t[2]});
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    const auto all=root->triangleIntersections(imported.flatIndex.vertexIds,{});
+    std::size_t unsupported=0;
+    for(const auto& pair:all) {
+        const auto a=root->face(pair.first).vertices,
+                   b=root->face(pair.second).vertices;
+        const auto coordinates=[&](std::array<VertexId,3> f) {
+            return std::array<Vec3,3>{{
+                root->vertex(f[0]).position,root->vertex(f[1]).position,
+                root->vertex(f[2]).position
+            }};
+        };
+        if(splitTransverseTriangleContact(coordinates(a),a,
+            coordinates(b),b).status!=IntersectionSectionStatus::TransverseSegment)
+            ++unsupported;
+    }
+    std::cout<<"[orthogonal-triple] pairs="<<all.size()
+             <<" unsupported="<<unsupported<<'\n';
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=0.1;
+    contours.contours.minimumNormalAlignment=0;
+    try {
+        const auto cut=materializeTransverseCutCandidate(root,all);
+        const auto coverage=certifyConformingCutCoverage(cut);
+        const auto occupancy=assessConformingCutFragments(cut);
+        const auto removal=planExactCutRemoval(cut,contours);
+        ExactCutJoinLimits limits;
+        limits.removal=contours;
+        const auto joined=joinCertifiedCutSections(cut,limits);
+        std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
+                 <<" reason="<<coverage.refusal
+                 <<" occupancy="<<occupancy.complete
+                 <<" reason="<<occupancy.refusal
+                 <<" removal="<<removal.ready()
+                 <<" reason="<<removal.refusal
+                 <<" join="<<joined.complete
+                 <<" reason="<<joined.refusal<<'\n';
+    }catch(const std::exception& e) {
+        std::cout<<"[orthogonal-triple] cut-refusal="<<e.what()<<'\n';
+    }
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -2085,6 +2150,7 @@ int main() {
         testSeparateCompleteSectionsOnOneOriginalFace();
         testFullThreeBodyContactAdmission();
         testGenericCompleteThreeBodyTransverseGraph();
+        testOrthogonalTripleJunctionProbe();
         throw std::runtime_error("Temporary three-body full-contact diagnostic exit");
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
