@@ -3307,3 +3307,26 @@ post-Inflate/refine/collapse Merge geometry is still off and
 belongs to M08/M12. Original V13/V15 thresholds, ring/zipper
 heuristics, protected geometry, V18 displacement constraint
 and broader V19 imported/large-model acceptance stay unchanged.
+
+## V17-M06/M07 flat forward replanning — preserve original X=0 objectives
+
+The previous single M06 combined two independent certification
+layers: V13-to-private COW conforming source topology with
+on-plane fixed-point identities, and terminal c1/c2/c3/d2
+Boolean removal/welding with original-root atomic history.
+A genuine complete three-pair closed-tetrahedron X=0 fixture
+revealed independently checkable failure modes: unsupported
+original tangency, about 5.55e-17 source-plane rounding,
+asymmetric planar ear diagonals, original-edge conforming
+midpoints, fixed-point allocation and mirrored seam class
+ownership. These are NOT grounds for global nearest-coordinate
+snapping or arbitrary Boolean deletion.
+
+The SAME original requirements are now planned as two FLAT,
+standalone green-CI milestones: M06 source-only certification
+and M07 exact terminal union/history. Former M07–M12 now
+M08–M13 respectively with every refusal-matrix, real
+sculpt-triggered union, active fidelity/hysteresis,
+aggregate work bound/telemetry, post-CAS fault protection
+and default-off desktop acceptance retained in order.
+No deeper child tasks are introduced and V17 stays open.

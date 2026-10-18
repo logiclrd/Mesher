@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M05 are complete in their bounded private off-plane acceptance/transaction scopes; M06–M12 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M05 are complete in their bounded private off-plane acceptance/transaction scopes; M06–M13 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -796,7 +796,7 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   contact cases and stale original-root CAS fail closed with no
   publishable cut or intermediate root. Mirrored triple-region
   refinement, X=0 fixed-plane seams and automatic sculpt integration
-  remain gated by M05, M06 and M08 respectively. Default desktop
+  remain gated by M05, M06 and M09 respectively. Default desktop
   Merge geometry remains disabled; no universal Boolean claim.
 - [x] **V17-M05 — Off-plane mirrored multi-section Boolean acceptance.**
   Complete 24-source-contact GENERIC and 32-contact ORTHOGONAL
@@ -828,22 +828,44 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   checkpoint reload and synchronized three-controller mirror maps.
   Support remains STRICTLY OFF X=0 (M06); optional unequal-density
   mirrored NEW extra-refinement split staging that lacks proven
-  paired COW orbits remains fail-closed (M07 supported-domain
+  paired COW orbits remains fail-closed (M08 supported-domain
   boundary), not silently replaced by nearest-point matching.
   Automatic brush-triggered merging and the desktop toggle remain off.
-- [ ] **V17-M06 — Self-reflected X=0 cut/seam invariant topology.**
-  One fixed-plane VertexId per invariant junction, valid incident fans and mirrored journals, accepted on-plane supported unions and strict ambiguous-plane refusal.
-- [ ] **V17-M07 — Full-contact geometric boundary and fail-closed acceptance matrix.**
+- [ ] **V17-M06 — Independently certified X=0 source-cut and invariant child-fan topology.**
+  Full ORIGINAL V13 strictly transverse X=0 contact graphs, explicit
+  source-proven seam points and shared original-edge midpoints, ONE
+  new self-mirror VertexId per fixed source-owned point, and complete
+  reverse-winding reflected/singleton invariant FaceId child orbits.
+  Require private locally manifold conforming cut, source coverage,
+  original-corner fidelity and exact reciprocal original/new maps.
+  Ambiguous near-plane/grazing/coplanar geometry and exhausted budgets
+  refuse without a private root. No Boolean deletion or history.
+
+- [ ] **V17-M07 — Exact X=0 Boolean closure, atomic retirement and original-root history.**
+  Consume M06 private certified cut for c1/c2/c3 and M03 whole-uncut
+  original retirement, then perform strict d2 source-paired seam
+  matching. One self-mirrored weld class is allowed ONLY for genuine
+  independently source-proven X=0 fixed IDs; no unrelated world-point
+  welding, doubled seam loops or collapsed nonmanifold fans. Retire
+  self/mirrored old and new FaceIds/VertexIds together, preserve
+  exterior and cavity geometry, audit final closed oriented manifold
+  and full final collisions. One original-root CAS/history undo/redo,
+  net self-pair mirror journals, worker three-map synchronization,
+  durable checkpoint. Refuse unknown 4+ contacts, tangency,
+  coplanar/near-degenerate topologies, missing/wrong mirror maps,
+  orphaned invariant fans and work exhaustion atomically. Live
+  activation remains disabled.
+- [ ] **V17-M08 — Full-contact geometric boundary and fail-closed acceptance matrix.**
   Historical 21-pair nontransverse examples, fold/tangent/near-coplanar/nested/multi-region refusals, finite work/quality thresholds and tested complete-contact supported cases.
-- [ ] **V17-M08 — Repeated actual sculpt-triggered classified symmetric unions.**
+- [ ] **V17-M09 — Repeated actual sculpt-triggered classified symmetric unions.**
   Real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
-- [ ] **V17-M09 — Active original-anchored exposed-feature and hysteresis policy.**
+- [ ] **V17-M10 — Active original-anchored exposed-feature and hysteresis policy.**
   Cumulative geometry acceptance versus the first reference, intentional deformation exceptions, cavity protection, proven episode reset and stable repeated-contact decisions.
-- [ ] **V17-M10 — Aggregate per-Step work bounds and diagnostic telemetry.**
+- [ ] **V17-M11 — Aggregate per-Step work bounds and diagnostic telemetry.**
   Winding/collision/arrangement/contour/join/feature/resource budgets with exact-boundary refusals and honest completion, time, memory-proxy and rejection accounting.
-- [ ] **V17-M11 — Post-CAS failure and auxiliary-state transaction acceptance.**
+- [ ] **V17-M12 — Post-CAS failure and auxiliary-state transaction acceptance.**
   Fault-injected commit/history/mirror/dirty/checkpoint consistency; one visible final root and undo transition or safe, completely reported failure.
-- [ ] **V17-M12 — Default-off live Merge geometry switch and targeted desktop acceptance.**
+- [ ] **V17-M13 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode for only proven geometry with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 
 - [ ] **V18 — Opt-in 'Merge geometry: Off' collision constraints.**
