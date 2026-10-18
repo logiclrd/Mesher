@@ -1306,13 +1306,32 @@ documentation follows before the merge.
   published lifetime. Do not paper over this by rebasing original witnesses,
   declaring intermediate roots publishable, or skipping unsupported parts.
   Work sequence recorded BEFORE implementation:
-  - [ ] **V17-M28 — One-stamp private source-transition bundle.**
+  - [x] **V17-M28 — One-stamp private source-transition bundle.**
     Certify full original-root physical stamp source evidence (including
     unchanged-incidence deliberate displacement and all subsequent M24/M25/
     M26 stages), verify the complete original FaceId → final protected
     descendants and mirrored source orbits, and seal ONE external successor
     certificate with the actual previous published root. Full stage cost and
     unsupported collapse/proof combinations refuse, not assume source.
+    **Accepted PR #74, substantive Actions #39173794290:** source-bound
+    complete Inflate vertex/face halo, actual M24/M25 refinements,
+    conservative M25 collapse and source-exact c1/c2/c3/M03/d2 final
+    join, combined through ONE immutable externally certified previous
+    published root. Recompute all Inflate moved-source and full original
+    face/vertex journal under finite limits; a genuinely unchanged
+    collapse costs zero, whereas a real one requires complete proof.
+    Every private revision is read-only and M27's cumulative FaceId
+    owners, original seven witnesses, Buried/Outside authority, and
+    source evidence work remain sealed. Positive two physical stamps
+    measure cumulative original-reference drift, one real two-child
+    M24 local split, and a genuinely physically triggered exact
+    union all return an M21-compatible SINGLE external successor.
+    One-under evidence/vertex caps, forged moved source, stale root,
+    and excessive second unscoped erosion refuse. GCC/Clang/MSVC
+    all 23 CTest suites and applicable benchmarks green.
+    **M29/M30 and original M22 remain OPEN:** there is no active
+    worker publication hook, durable first-original recovery or UI
+    activation in M28.
   - [ ] **V17-M29 — Durable lifetime publication state and recovery.**
     Keep immutable first-root source witnesses, intended-scope credentials,
     explicit certified buried retirements, and cumulative face work across
