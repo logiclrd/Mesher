@@ -3620,3 +3620,99 @@ first acceptance for composing intermediate COW revisions into
 a SINGLE ORIGINAL-root publication, with net fixed-point mirror
 journal, three-controller worker, one undo/redo and durable checkpoint.
 No automatic/live Merge geometry has been activated.
+
+
+## V17-M09 — X=0 ORIGINAL-root Boolean Step and worker mirror history
+
+**October 18, 2026; scope.** M06 established the complete
+three-original-source-contact on-plane cut with one permanent
+self-mirrored ID per independently proven fixed point. M07 added
+genuine c1/c2/c3 removal, protected cavity and invariant contour
+proof, and M08 proved one privately staged 2→1 exact Boolean union
+with connected oriented vertex links and independent M03 uncut
+source checks. All those intermediate roots stay PRIVATE: neither
+an original-root CAS nor worker mirror-map updates may expose
+them individually.
+
+**Net original-root journal.** `prepareExactCutStep` continues to
+stage one source cut and one certified d2 terminal join and to
+compute only the NET original-to-final delta, excluding every
+VertexId/FaceId that was allocated and retired in an invisible
+middle COW stage. Its original historical vertex retirement proof
+now distinguishes true self orbits (a,a) at original X=0 from
+paired off-plane (a,b), requiring exact original geometry and
+complete retirement of the entire original involution orbit.
+A surviving M06 new `mirroredSeamVertices` source-fixed ID
+becomes ONE new (id,id) addedMirrors history entry only if it is
+genuinely absent from the original root, lives at exactly X=0 in
+both cut and final roots and is present in the NET addedVertices.
+A born-then-retired new self ID contributes NEITHER to the live
+new mirror journal nor the original-root retirement journal.
+Every off-plane pair still remains distinct and either both
+survive with exact reverse coordinates or both retire. Their
+aggregate inserted-ID cardinality must equal two times paired
+orbit count plus one times singleton count, with no duplicate
+permanent IDs. Surviving original or inserted child FaceIds
+must retain the verified reflection winding, permitting a
+genuine invariant (face,face) stable FaceId singleton. Dirty
+partitions derive only from the private source/join write
+owners whose ORIGINAL and FINAL persistent pointers differ;
+the one composed Step also accounts for all COW allocation
+costs, net count deltas, full changed-halo collisions and
+protected exposed/reversed cavity source triangles. Work caps
+refuse a complete publishable Step without exposing private
+cut/join roots or partial history journals.
+
+**Three-controller worker transaction.** The explicit async
+`mergeExactContacts(expected,completeOriginalPairs,limits)`
+command binds the original expected pointer at enqueue time.
+Preparation never reads an in-between root as the worker's
+new expected root. Before CAS, it verifies Inflate/Refiner/
+Collapser map agreement and stages true historical self and
+off-plane retirement plus new fixed/off-plane additions in
+the Refiner and Collapser speculative mirror journals.
+One (id,id) journal entry inserts or removes one map key,
+not two, while a true off-plane pair inserts/removes two.
+The target final index is checked for every new live orbit's
+EXACT reflection and historical old IDs are forbidden in
+addedMirrors. An invalid or stale map, missing V13 source
+contact, net work exhaustion, validator refusal or a stale
+original CAS refuses without changed root/history or
+published renderer dirties. Only after the ONE successful
+original CAS does the worker apply the identical deltas to
+Inflate, append ONE undo/redo history transition and expose
+the final root/dirty partitions to renderer and picker.
+The already documented unexpected post-CAS fatal failure
+boundary remains M14, not silently called recoverable.
+
+**History and durable identity.** Undo restores the exact held
+original immutable root and its complete original X=0
+singleton/paired mirror involution. Redo restores exactly the
+terminal X=0 union and only the surviving singleton/paired
+new journal entries. The checkpoint format already stores a
+mirror entry as two stable IDs; (id,id) is valid and occupies
+one record, with exact live-ID validation. Save/reload preserves
+all surviving mirror pairs and fixed-point records together
+with retired FaceId/VertexId tombstones, stable identity
+watermarks and the terminal (never intermediate) mesh.
+A newly restored symmetric async worker must recreate all
+three synchronized mirror controller maps from that same
+durable set and conservatively refuse stale-source contacts.
+
+**Acceptance/fail-closed limits.** The positive fixture is the
+EXACT M06 two-tetra source (THREE strictly transverse original
+V13 pairs), not a synthetic subset of contacts. It must
+prove one connected collision-free terminal union, final
+incident link topology, both real fixed and off-plane net
+mirror orbits, retired orphan IDs, exact source original
+coordinates, ONE CAS with stale replay refusal, one
+undo/redo history transition, queued worker failure followed
+by success and future input draining, and durable recovery.
+Missing one source pair, malformed original off-plane mapping
+forged as a self-pair, stale expected root and work cap refusal
+must leave the original index and all mirror journals untouched.
+M11 still owns automatic physical sculpt-triggered contact
+unions, M14 owns unexpected post-CAS failure atomicity and
+M15 owns default-off desktop activation. There is no general
+claim for arbitrary tangential, coplanar or high-degree
+junction topology.
