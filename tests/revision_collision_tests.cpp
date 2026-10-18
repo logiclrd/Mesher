@@ -2588,11 +2588,25 @@ void testX0InvariantExactCutProbe() {
         plan.mirroredSeamCutPoints.end());
     check(fixedPointIndices.size()==plan.mirroredSeamCutPoints.size(),
           "Each physical source fixed point appears once in the plan");
-    for(const auto i:fixedPointIndices)
+    std::size_t invariantOriginalEdgeMidpoints=0;
+    for(const auto i:fixedPointIndices) {
         check(i<plan.points.size()&&
               plan.points[i].position.x==0&&
               !plan.points[i].existingVertex,
               "X=0 source seam has exactly one independent new fixed-point plan ID");
+        const auto& point=plan.points[i];
+        if(!point.boundaryEdge)continue;
+        const auto edge=*point.boundaryEdge;
+        const auto a=root->vertex(edge.a).position,
+                   b=root->vertex(edge.b).position;
+        if(a.x==-b.x&&a.x!=0&&a.y==b.y&&a.z==b.z) {
+            check(point.position.y==a.y&&point.position.z==a.z,
+                  "Invariant original edge midpoint cannot alter its exact Y/Z source");
+            ++invariantOriginalEdgeMidpoints;
+        }
+    }
+    check(invariantOriginalEdgeMidpoints>0,
+          "At least one invariant X=0 cut point is the exact original mirrored edge midpoint");
 
     const auto cut=materializeTransverseCutCandidate(
         root,contacts,{},256,&mirror);
@@ -2680,6 +2694,32 @@ void testX0InvariantExactCutProbe() {
     }
     check(incompleteRefused,
           "One missing ORIGINAL contact is never certified as complete X=0 coverage");
+    // The original source's former low-Y vertex was exactly on a
+    // supporting plane, creating a genuinely unsupported V13 graze.
+    // Fail closed rather than using the X=0 fixed-point rule to treat
+    // such a collision as a transverse source section.
+    auto tangent=mesh;
+    tangent.vertices[7].y=.1;
+    const auto tangentImport=partitionFlatMesh(tangent,256);
+    const auto tangentRoot=RegionTopologyIndex::build(tangentImport.revision);
+    std::unordered_map<VertexId,VertexId> tangentMirror;
+    for(unsigned tetra=0;tetra<2;++tetra) {
+        const auto start=tetra*4u;
+        const auto a=tangentImport.flatIndex.vertexIds[start],
+                   b=tangentImport.flatIndex.vertexIds[start+1],
+                   c=tangentImport.flatIndex.vertexIds[start+2],
+                   d=tangentImport.flatIndex.vertexIds[start+3];
+        tangentMirror[a]=b;tangentMirror[b]=a;
+        tangentMirror[c]=c;tangentMirror[d]=d;
+    }
+    const auto grazingContacts=tangentRoot->triangleIntersections(
+        tangentImport.flatIndex.vertexIds,{});
+    check(grazingContacts.size()>contacts.size()&&
+          buildConformingCutPlan(
+              *tangentRoot,grazingContacts,{},&tangentMirror).status!=
+              IntersectionSectionStatus::TransverseSegment,
+          "Genuine X=0 supporting-plane grazing remains strictly unsupported");
+
     auto broken=mirror;
     broken.erase(imported.flatIndex.vertexIds[0]);
     const auto rejected=buildConformingCutPlan(*root,contacts,{},&broken);
