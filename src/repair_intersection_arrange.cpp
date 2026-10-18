@@ -403,8 +403,8 @@ bool arrangeFace(
             });
         std::optional<std::pair<Connector,Connector>> selected;
         for(const auto& first:possible) {
-            const auto f=std::minmax(first.from,first.to);
-            graph.insert({f.first,f.second}); // speculative visibility only
+            const auto endpoints=std::minmax(first.from,first.to);
+            graph.insert({endpoints.first,endpoints.second}); // speculative visibility only
             for(const auto& second:possible) {
                 if(first.from==second.from||first.to==second.to)continue;
                 if(arrangementPredicates>=limits.maxArrangementPredicates)
@@ -414,7 +414,7 @@ bool arrangeFace(
                 selected=std::make_pair(first,second);
                 break;
             }
-            graph.erase({f.first,f.second});
+            graph.erase({endpoints.first,endpoints.second});
             if(selected)break;
         }
         if(!selected)return refuse(__LINE__);
