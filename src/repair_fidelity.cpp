@@ -611,6 +611,39 @@ SourceSplitLineage advanceCertifiedRefineLineage(
             }else if(!proof.mirrors.empty())
                 throw std::logic_error("Asymmetric flip invented mirror correspondence");
         }
+        if(refined.sourceSplitsSymmetric) {
+            std::map<VertexId,VertexId> mirror;
+            for(const auto& [a,b]:refined.flipSources[start].mirrors)
+                mirror.emplace(a,b);
+            std::vector<std::array<VertexId,3>> oldFaces,newFaces;
+            for(std::size_t j=start;j<i;++j) {
+                const auto& proof=refined.flipSources[j];
+                if(proof.mirrors!=refined.flipSources[start].mirrors)
+                    throw std::logic_error("Reflected flip halves disagree on source mirror map");
+                oldFaces.insert(oldFaces.end(),proof.oldTriangles.begin(),
+                                proof.oldTriangles.end());
+                newFaces.insert(newFaces.end(),proof.newTriangles.begin(),
+                                proof.newTriangles.end());
+            }
+            const auto reflectedFan=[&](
+                const std::vector<std::array<VertexId,3>>& triangles) {
+                for(const auto& tri:triangles) {
+                    const std::array<VertexId,3> partner{
+                        mirror.at(tri[0]),mirror.at(tri[2]),mirror.at(tri[1])};
+                    bool found=false;
+                    for(const auto& candidate:triangles)
+                        for(unsigned shift=0;shift<3;++shift)
+                            if(candidate[shift]==partner[0]&&
+                               candidate[(shift+1)%3]==partner[1]&&
+                               candidate[(shift+2)%3]==partner[2])
+                                found=true;
+                    if(!found)return false;
+                }
+                return true;
+            };
+            if(!reflectedFan(oldFaces)||!reflectedFan(newFaces))
+                throw std::logic_error("Reflected source flip lacks its exact opposite-winding face fan");
+        }
         ++transactions;
         current=after;
     }
