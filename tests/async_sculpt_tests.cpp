@@ -1580,7 +1580,8 @@ void testM28FullPrivatePhysicalStampLifetime() {
     require(joined.acceptedTransitions==1&&
             joined.lineage.original==source&&
             joined.lineage.terminal==exact.final&&
-            !joined.certifiedRetiredOriginals.empty(),
+            joined.sourceFaceEvidence>0&&
+            exact.final->retiredFaceCount()>0,
             "M28 real Inflate/refine/collapse/c3-M03-d2 cascade exposes ONE sealed original successor");
     const auto allow=declareOriginalPatchIntent(
         sourceBefore,supplied.flatIndex.faceIds);
