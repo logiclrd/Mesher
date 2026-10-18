@@ -235,6 +235,20 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
     std::size_t maxDistanceTests=131072,
     std::size_t maxLivingDescendants=16384);
 
+// V17-M29: immutable root-bound, predecessor-linked source proof for
+// history and checkpoint publication. These checks are read-only and
+// must run before any CAS; M30 wires them into the worker.
+void verifyOriginalPatchPublicationRoot(
+    const OriginalPatchLifetime& lifetime,
+    const std::shared_ptr<const RegionTopologyIndex>& expected,
+    std::size_t maxLivingDescendants=16384);
+void verifyOriginalPatchPublicationTransition(
+    const OriginalPatchLifetime& previous,
+    const OriginalPatchLifetime& next,
+    const std::shared_ptr<const RegionTopologyIndex>& before,
+    const std::shared_ptr<const RegionTopologyIndex>& terminal,
+    std::size_t maxLivingDescendants=16384);
+
 // V17-M28: complete ORIGINAL-root physical stamp source transition.
 // All input revisions are actual privately committed Inflate/refine/
 // collapse/c1-c3-M03-d2 roots in order, but exactly ONE externally

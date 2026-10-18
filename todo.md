@@ -1332,7 +1332,7 @@ documentation follows before the merge.
     **M29/M30 and original M22 remain OPEN:** there is no active
     worker publication hook, durable first-original recovery or UI
     activation in M28.
-  - [ ] **V17-M29 — Durable lifetime publication state and recovery.**
+  - [x] **V17-M29 — Durable lifetime publication state and recovery.**
     Keep immutable first-root source witnesses, intended-scope credentials,
     explicit certified buried retirements, and cumulative face work across
     accepted worker Steps; synchronize worker undo/redo, history eviction,
@@ -1340,6 +1340,37 @@ documentation follows before the merge.
     authenticated first-root ancestry must refuse opt-in fidelity rather
     than quietly reset its baseline. Prove private failed candidates change
     no identity, FIFO, history, mirror or dirty state.
+    **Accepted PR #75, substantive Actions #39176592637:** an
+    authenticated, opaque first-original lifetime is now an optional
+    immutable field of bounded COW history entries. An actual new
+    descendant must pass exact previous/terminal root, first-original
+    owner, original seven-witness and predecessor-certificate checks
+    BEFORE history mutates or discards redo. Undo/redo return the exact
+    old/new lifetime with their permanent FaceId lineage, original
+    root and accumulated work. Cumulative source anchors survive
+    history eviction; opaque proofs use WEAK predecessor ownership
+    so older COW roots do not stay resident merely through history
+    ancestry. Forked redo requires a new authenticated child; stale,
+    forged and missing credentials refuse before mutating history.
+    In-memory trusted handoff can keep the full sealed certificate.
+    Legacy version-12 disk checkpoints still load. A protected
+    version-13 checkpoint stores a checksummed provenance-REQUIRED
+    marker but NEVER invents certificate authority by hashing
+    terminal geometry: disk reload without independent authenticated
+    first-root ancestry refuses protected physicalExact recovery,
+    and an unprotected session cannot silently acquire a fresh
+    first-original baseline. This is intentionally a fail-closed
+    disk-recovery boundary, NOT successful reconstitution of
+    forgotten provenance; a later true resumable proof transcript
+    would need its own validated design. Tests cover V12/V13 read,
+    trusted in-memory handoff, protected recovered refusal,
+    authentic multi-Step history, stale/forged/redo branches,
+    root retirement and cumulative source work. Full GCC/Clang/
+    MSVC warnings-as-errors, 23 CPU suites and benchmarks green.
+    **M30 and original M22 remain OPEN:** no new active physical
+    worker pre-CAS evaluator is enabled by M29, no desktop default
+    change, and existing worker FIFO/mirror/dirty/rollback regressions
+    stay green.
   - [ ] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
     Wire the M21 intent declaration and complete first-original M27
     sampled audit to BOTH actual stamped physical exact and explicitly

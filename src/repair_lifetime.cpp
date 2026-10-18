@@ -21,7 +21,8 @@ struct LifetimeSourceCertificate {
     std::shared_ptr<const RegionTopologyIndex> original,terminal;
     // Exact preceding certified lifetime. A sibling/independently
     // reanchored candidate is NOT a successor of an intent declaration.
-    std::shared_ptr<const LifetimeSourceCertificate> parent;
+    // Do not pin every historical COW root after undo history evicts it.
+    std::weak_ptr<const LifetimeSourceCertificate> parent;
     bool reflectedStep{};
     std::vector<std::pair<FaceId,std::vector<FaceId>>> living;
     std::vector<FaceId> retired;
@@ -416,6 +417,7 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     // proves each actually committed split/flip by root/FaceId journals.
     auto stage=advanceOriginalPatchLifetime(
         before,refined,maxCumulativeFaceEvidence,maxLivingDescendants);
+    bool reflected=stage.certificate->reflectedStep;
     // The collapser stores the *stamp's* original for its LocalBaseline;
     // M25 requires its ACTUAL source root. Both identities are verified
     // above before re-expressing that source as the prior stage terminal.
@@ -433,10 +435,14 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
         stage=advanceOriginalPatchLifetime(
             stage,sourceCollapse,maxCumulativeFaceEvidence,
             maxLivingDescendants);
+        reflected=reflected||stage.certificate->reflectedStep;
     }
-    if(exact)stage=advanceOriginalPatchLifetime(
-        stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
-        maxLivingDescendants);
+    if(exact) {
+        stage=advanceOriginalPatchLifetime(
+            stage,*exact,sourceMirrors,maxCumulativeFaceEvidence,
+            maxLivingDescendants);
+        reflected=reflected||stage.certificate->reflectedStep;
+    }
     if(stage.lineage.terminal!=(exact?exact->final:collapsed.index))
         throw std::logic_error("Physical final terminal root differs from complete certified private stages");
     // Consolidate all verified *private* stage certificates into ONE
@@ -446,13 +452,38 @@ OriginalPatchLifetime advanceCertifiedPhysicalStampLifetime(
     if(before.acceptedTransitions==std::numeric_limits<std::size_t>::max())
         throw std::length_error("External original lifetime Step count overflow");
     complete.acceptedTransitions=before.acceptedTransitions+1;
-    bool reflected=false;
-    for(auto cursor=complete.certificate;
-        cursor&&cursor!=before.certificate;cursor=cursor->parent)
-        reflected=reflected||cursor->reflectedStep;
+    // Per-stage flags are captured during verification: weak history
+    // predecessors may expire immediately and must not be traversed.
     seal(complete,before.certificate,reflected);
     (void)verifyLifetime(complete,maxLivingDescendants);
     return complete;
+}
+
+void verifyOriginalPatchPublicationRoot(
+    const OriginalPatchLifetime& lifetime,
+    const std::shared_ptr<const RegionTopologyIndex>& expected,
+    std::size_t maxLivingDescendants) {
+    if(!expected||lifetime.lineage.terminal!=expected)
+        throw std::logic_error("Publication source certificate is not for the exact current root");
+    (void)verifyLifetime(lifetime,maxLivingDescendants);
+}
+void verifyOriginalPatchPublicationTransition(
+    const OriginalPatchLifetime& previous,
+    const OriginalPatchLifetime& next,
+    const std::shared_ptr<const RegionTopologyIndex>& before,
+    const std::shared_ptr<const RegionTopologyIndex>& terminal,
+    std::size_t maxLivingDescendants) {
+    verifyOriginalPatchPublicationRoot(previous,before,maxLivingDescendants);
+    verifyOriginalPatchPublicationRoot(next,terminal,maxLivingDescendants);
+    if(next.certificate->parent.lock()!=previous.certificate||
+       next.anchors.original!=previous.anchors.original||
+       next.acceptedTransitions!=previous.acceptedTransitions+1||
+       next.sourceFaceEvidence<previous.sourceFaceEvidence||
+       next.lineage.original!=previous.lineage.original||
+       next.lineage.terminal==previous.lineage.terminal)
+        throw std::logic_error("Proposed original-source history is not the exact certified successor");
+    if(next.anchors.faces.size()!=previous.anchors.faces.size())
+        throw std::logic_error("Proposed original-source history changed protected source set");
 }
 
 OriginalPatchIntentDeclaration declareOriginalPatchIntent(
@@ -545,7 +576,7 @@ OriginalPatchIntentDecision evaluateOriginalPatchIntent(
     if(!intent.certificate||
        intent.certificate->predecessor!=before.certificate||
        !after.certificate||
-       after.certificate->parent!=before.certificate||
+       after.certificate->parent.lock()!=before.certificate||
        (after.certificate->reflectedStep&&!intent.certificate->mirrored)||
        before.anchors.original!=after.anchors.original||
        before.anchors.faces.size()!=after.anchors.faces.size()||

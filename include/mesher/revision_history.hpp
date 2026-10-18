@@ -11,6 +11,7 @@
 
 namespace mesher {
 
+struct OriginalPatchLifetime;
 using MirrorPair=std::pair<VertexId,VertexId>;
 
 struct HistoryTransition {
@@ -19,6 +20,8 @@ struct HistoryTransition {
     std::vector<MirrorPair> addMirrors;
     std::vector<MirrorPair> removeMirrors;
     std::size_t vertices{},faces{};
+    // Authenticated first-original source lifetime at exactly this root.
+    std::shared_ptr<const OriginalPatchLifetime> fidelity;
 };
 
 struct HistoryStatistics {
@@ -38,13 +41,15 @@ public:
     explicit RevisionHistory(std::shared_ptr<const RegionTopologyIndex> initial,
         std::size_t maximumRevisions=64,std::size_t maximumChangeBytes=32*1024*1024,
         RevisionRetirementQueue* retirement=nullptr,
-        std::size_t initialVertices=0,std::size_t initialFaces=0);
+        std::size_t initialVertices=0,std::size_t initialFaces=0,
+        std::shared_ptr<const OriginalPatchLifetime> firstOriginal=nullptr);
     void append(std::shared_ptr<const RegionTopologyIndex> index,
         std::vector<PartitionId> changedPartitions,
         std::vector<MirrorPair> addedMirrors,
         std::vector<MirrorPair> removedMirrors,
         std::size_t copiedPayloadBytes,
-        std::size_t vertices=0,std::size_t faces=0);
+        std::size_t vertices=0,std::size_t faces=0,
+        std::shared_ptr<const OriginalPatchLifetime> fidelity=nullptr);
     bool canUndo() const noexcept {return cursor_>0;}
     bool canRedo() const noexcept {return cursor_+1<entries_.size();}
     HistoryTransition undo();
@@ -53,6 +58,9 @@ public:
     std::shared_ptr<const RegionTopologyIndex> current() const noexcept {
         return entries_[cursor_].index;
     }
+    std::shared_ptr<const OriginalPatchLifetime> currentFidelity() const noexcept {
+        return entries_[cursor_].fidelity;
+    }
 private:
     struct Entry {
         std::shared_ptr<const RegionTopologyIndex> index;
@@ -60,6 +68,7 @@ private:
         std::vector<MirrorPair> added,removed;
         std::size_t bytes{};
         std::size_t vertices{},faces{};
+        std::shared_ptr<const OriginalPatchLifetime> fidelity;
     };
     void retire(Entry&& entry);
     void discardRedo();

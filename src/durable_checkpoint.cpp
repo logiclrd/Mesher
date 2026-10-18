@@ -1,4 +1,5 @@
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/repair_surgery.hpp"
 
 #include <array>
 #include <bit>
@@ -125,11 +126,16 @@ void validateMirrors(const std::vector<std::pair<VertexId,VertexId>>& pairs,
 void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
     const auto& index=*snapshot.index;
     validateMirrors(snapshot.mirrorPairs,index);
+    const bool fidelityRequired=snapshot.originalFidelityRequired||
+        static_cast<bool>(snapshot.verifiedOriginalFidelity);
+    if(snapshot.verifiedOriginalFidelity)
+        verifyOriginalPatchPublicationRoot(
+            *snapshot.verifiedOriginalFidelity,snapshot.index);
     const auto marks=index.revision().identityWatermarks();
     const auto retiredVertices=index.retiredVertexIds();
     const auto retiredFaces=index.retiredFaceIds();
     writer.number(magic);
-    writer.number(12,4);
+    writer.number(fidelityRequired?13:12,4);
     writer.number(marks.nextVertex);
     writer.number(marks.nextFace);
     writer.number(marks.nextOverflow);
@@ -145,6 +151,10 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
     writer.number(snapshot.mirrorPairs.size());
     writer.number(retiredVertices.size());
     writer.number(retiredFaces.size());
+    // No opaque proof is created by loading serialized metadata. The
+    // version 13 marker survives a checksummed write/read roundtrip,
+    // requiring explicit trusted first-original reauthentication.
+    if(fidelityRequired)writer.number(1,1);
     index.revision().forEachPartition(
         [&](PartitionId id,const MeshPartition& partition) {
             writer.number(id,4);
@@ -196,7 +206,10 @@ void writeCheckpoint(const std::filesystem::path& destination,
 
 DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     BinaryReader reader(destination);
-    if(reader.number()!=magic||reader.number(4)!=12)
+    if(reader.number()!=magic)
+        throw std::runtime_error("Unsupported checkpoint magic/version");
+    const auto version=reader.number(4);
+    if(version!=12&&version!=13)
         throw std::runtime_error("Unsupported checkpoint magic/version");
     MeshIdentityWatermarks marks{reader.number(),reader.number(),reader.number()};
     const auto initialVertexCount=reader.number();
@@ -206,6 +219,9 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     const auto pairs=reader.number();
     const auto retiredVertexCount=reader.number();
     const auto retiredFaceCount=reader.number();
+    const bool requiresOriginalFidelity=version==13;
+    if(version==13&&reader.number(1)!=1)
+        throw std::runtime_error("Checkpoint protected source marker invalid");
     if(partitions>maxRecords||pairs>maxRecords||
        retiredVertexCount>maxRecords||retiredFaceCount>maxRecords||
        reader.remaining<8||
@@ -264,8 +280,14 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     auto index=RegionTopologyIndex::restore(
         std::move(revision),retiredVertices,retiredFaces);
     validateMirrors(mirrors,*index);
-    return {std::move(index),std::move(mirrors),
-            static_cast<std::size_t>(initialVertexCount)};
+    DurableCheckpoint recovered;
+    recovered.index=std::move(index);
+    recovered.mirrorPairs=std::move(mirrors);
+    recovered.initialVertexCount=static_cast<std::size_t>(initialVertexCount);
+    recovered.originalFidelityRequired=requiresOriginalFidelity;
+    // Never reconstruct source ancestry from a hash of the terminal mesh.
+    recovered.verifiedOriginalFidelity.reset();
+    return recovered;
 }
 
 AsyncCheckpointWriter::AsyncCheckpointWriter()

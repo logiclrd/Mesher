@@ -245,6 +245,10 @@ private:
     std::size_t clonedPartitionBytes_{};
     StampTimings timings_{};
     StampDetails details_{};
+    // A checkpoint restored without an authenticated FIRST-original
+    // certificate must never automatically restart fidelity at its
+    // current terminal root. M30 installs the active pre-CAS guard.
+    bool originalFidelityRequired_{};
     std::vector<PartitionId> lastDirtyPartitions_;
 };
 

@@ -1,4 +1,5 @@
 #include "mesher/revision_history.hpp"
+#include "mesher/repair_surgery.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -11,12 +12,16 @@ RevisionHistory::RevisionHistory(
     std::shared_ptr<const RegionTopologyIndex> initial,
     std::size_t maximumRevisions,std::size_t maximumChangeBytes,
     RevisionRetirementQueue* retirement,
-    std::size_t initialVertices,std::size_t initialFaces)
+    std::size_t initialVertices,std::size_t initialFaces,
+    std::shared_ptr<const OriginalPatchLifetime> firstOriginal)
     :maximumRevisions_(maximumRevisions),maximumChangeBytes_(maximumChangeBytes),
      retirement_(retirement) {
     if(!initial||!maximumRevisions_||!maximumChangeBytes_)
         throw std::invalid_argument("History needs initial revision and positive limits");
-    entries_.push_back({std::move(initial),{},{},{},0,initialVertices,initialFaces});
+    if(firstOriginal)
+        verifyOriginalPatchPublicationRoot(*firstOriginal,initial);
+    entries_.push_back({std::move(initial),{},{},{},0,initialVertices,
+                        initialFaces,std::move(firstOriginal)});
 }
 void RevisionHistory::retire(Entry&& entry) {
     if(entry.bytes>totalBytes_)throw std::logic_error("History byte accounting underflow");
@@ -37,9 +42,25 @@ void RevisionHistory::append(
     std::vector<MirrorPair> addedMirrors,
     std::vector<MirrorPair> removedMirrors,
     std::size_t copiedPayloadBytes,
-    std::size_t vertices,std::size_t faces) {
+    std::size_t vertices,std::size_t faces,
+    std::shared_ptr<const OriginalPatchLifetime> fidelity) {
     if(!index)throw std::invalid_argument("Cannot append null history root");
-    if(index==current())return;
+    if(index==current()) {
+        if(fidelity!=currentFidelity())
+            throw std::logic_error("Unchanged history root cannot replace first-original credentials");
+        return;
+    }
+    // Verify BEFORE discarding the redo branch, modifying the byte budget
+    // or committing an index. The original source reference cannot be
+    // restarted by passing a new independently anchored lifetime.
+    if(currentFidelity()) {
+        if(!fidelity)
+            throw std::logic_error("Missing first-original lifetime on tracked history append");
+        verifyOriginalPatchPublicationTransition(
+            *currentFidelity(),*fidelity,current(),index);
+    }else if(fidelity) {
+        throw std::logic_error("Untracked history cannot silently re-anchor original fidelity");
+    }
     discardRedo();
     std::sort(changedPartitions.begin(),changedPartitions.end());
     changedPartitions.erase(std::unique(changedPartitions.begin(),
@@ -73,7 +94,7 @@ void RevisionHistory::append(
         throw std::overflow_error("History payload counter overflow");
     entries_.push_back({std::move(index),std::move(changedPartitions),
                         std::move(addedMirrors),std::move(removedMirrors),
-                        copiedPayloadBytes,vertices,faces});
+                        copiedPayloadBytes,vertices,faces,std::move(fidelity)});
     totalBytes_+=copiedPayloadBytes;
     cursor_=entries_.size()-1;
     // The current entry is always retained even if one large edit exceeds
@@ -105,14 +126,15 @@ HistoryTransition RevisionHistory::undo() {
     --cursor_;
     return {entries_[cursor_].index,std::move(changed),
             std::move(add),std::move(remove),
-            entries_[cursor_].vertices,entries_[cursor_].faces};
+            entries_[cursor_].vertices,entries_[cursor_].faces,
+            entries_[cursor_].fidelity};
 }
 HistoryTransition RevisionHistory::redo() {
     if(!canRedo())throw std::logic_error("History has no redo revision");
     ++cursor_;
     auto& next=entries_[cursor_];
     return {next.index,next.dirty,next.added,next.removed,
-            next.vertices,next.faces};
+            next.vertices,next.faces,next.fidelity};
 }
 HistoryStatistics RevisionHistory::statistics() const noexcept {
     return {entries_.size(),totalBytes_,dropped_,redoDropped_,
