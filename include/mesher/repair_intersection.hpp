@@ -364,6 +364,7 @@ struct ExactCutStepLimits {
     ConformingCutLimits cut{};
     ExactCutJoinLimits join{};
     std::size_t partitionCapacity=256;
+    bool requireMirrors=false; // explicit symmetric Step intent; no fallback
     std::size_t maxNetChangedIds=32768;
     std::size_t maxDirtyPartitions=4096;
     std::size_t maxFinalCollisionFaces=16384;
