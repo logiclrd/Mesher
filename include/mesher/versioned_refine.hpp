@@ -26,6 +26,7 @@ struct VersionedRefineResult {
     // independent verifier can reject stale/mismatched source chains.
     std::shared_ptr<const RegionTopologyIndex> stampOriginal,sourceIndex;
     std::vector<RefineSplitSourceEvidence> splitSources;
+    bool sourceSplitsSymmetric{}; // explicit runtime split mirror intent
     RefineStatistics statistics{};
     std::vector<VertexId> insertedVertices;
     std::vector<std::pair<VertexId,VertexId>> insertedMirrorPairs;
