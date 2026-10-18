@@ -3498,3 +3498,13 @@ inserted identity, missing original V13 pair, exhausted child
 work and the prior M06 genuine grazing fixture must refuse
 with no approved partial deletion or old-root mutation. The
 off-plane 24/32-contact M05 results remain regression controls.
+
+**M07 verification follow-up, October 18:** The strict fixed-ring
+regression (two self-orbit source anchors, at least one real invariant
+contour), exact child classification/removal and preserved original
+reader identity passed 23 CPU suites and all applicable build/benchmark
+checks on Linux GCC, Linux Clang and Windows MSVC at code commit
+9b4a0a6313e4e3b649059a61a35f9d935ec63c7b
+(Actions run 39135929681). M07's private c3 certificate is accepted;
+M08 PRIVATE d2 terminal X=0 disk weld and M09 original-root one-Step
+worker/history checkpoint remain explicitly OPEN. No live toggle.
