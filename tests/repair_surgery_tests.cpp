@@ -1527,6 +1527,217 @@ void testRepeatedRealSymmetricTowerContactAndAnchoredSurface() {
                 "Held immutable reader roots survive all repeated contact attempts");
 }
 
+void testCompletePostSculptOriginalContactDiscovery() {
+    const auto pairSet=[](
+        const std::vector<RegionTopologyIndex::CollisionPair>& pairs) {
+        std::set<std::pair<FaceId,FaceId>> ids;
+        for(const auto& pair:pairs) {
+            require(pair.first<pair.second&&!pair.ambiguous,
+                    "M17 complete certified pair is canonical and unambiguous");
+            require(ids.emplace(pair.first,pair.second).second,
+                    "M17 does not return duplicate source pairs");
+        }
+        return ids;
+    };
+    const auto allVertices=[](const RegionTopologyIndex& root) {
+        std::vector<VertexId> ids;
+        root.revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& part) {
+                for(const auto& vertex:part.vertices)ids.push_back(vertex.id);
+            });
+        return ids;
+    };
+    const auto checkSource=[&](
+        const std::shared_ptr<const RegionTopologyIndex>& before,
+        const VersionedInflateStamp& physical,
+        bool mirrored,
+        const std::unordered_map<VertexId,VertexId>* mirrors) {
+        require(physical.index!=before&&physical.moved>0&&
+                !physical.baseline.movedVertices.empty()&&
+                !physical.baseline.affectedFaces.empty(),
+                "A real Inflate deformation, not an explicit Merge command, makes the M17 candidate");
+        const ProposedSculptStep privateStep{
+            before,physical.index,physical.baseline.movedVertices,
+            physical.baseline.affectedFaces};
+        auto result=assessPostSculptOriginalContacts(
+            privateStep,mirrored,{},mirrors);
+        require(result.ready()&&result.originalCandidate==physical.index&&
+                result.originalCandidate!=before&&
+                !result.contacts.empty()&&result.refusal.empty(),
+                "M17 returns a genuine complete candidate-root finite V13 contact graph");
+        const auto raw=physical.index->triangleIntersections(
+            allVertices(*physical.index),{});
+        require(pairSet(result.contacts)==pairSet(raw)&&
+                result.discoveredPairs==raw.size(),
+                "M17 entire candidate-source graph equals independent all-live-face query");
+        for(const auto& pair:result.contacts) {
+            const auto idsA=physical.index->face(pair.first).vertices;
+            const auto idsB=physical.index->face(pair.second).vertices;
+            const auto xyz=[&](const std::array<VertexId,3>& ids) {
+                return std::array<Vec3,3>{{
+                    physical.index->vertex(ids[0]).position,
+                    physical.index->vertex(ids[1]).position,
+                    physical.index->vertex(ids[2]).position}};
+            };
+            require(splitTransverseTriangleContact(
+                        xyz(idsA),idsA,xyz(idsB),idsB).status==
+                        IntersectionSectionStatus::TransverseSegment,
+                    "Every M17 claimed original contact has a finite source-proven transverse section");
+        }
+        auto capped=SculptSourceContactLimits{};
+        capped.maxSectionTests=raw.size()-1;
+        const auto incomplete=assessPostSculptOriginalContacts(
+            privateStep,mirrored,capped,mirrors);
+        require(incomplete.status==SculptSourceContactStatus::Refused&&
+                incomplete.contacts.empty()&&!incomplete.originalCandidate&&
+                !incomplete.refusal.empty(),
+                "Too-small aggregate source-section limit cannot return truncated positive graph");
+        capped={};
+        capped.query.maxReportedContacts=raw.size()-1;
+        const auto exhausted=assessPostSculptOriginalContacts(
+            privateStep,mirrored,capped,mirrors);
+        require(exhausted.status==SculptSourceContactStatus::Refused&&
+                exhausted.contacts.empty()&&!exhausted.originalCandidate&&
+                !exhausted.refusal.empty(),
+                "Exactly one-short V13 query work cap never certifies a partial source list");
+        capped={};
+        capped.maxFaces=7;
+        const auto tooMany=assessPostSculptOriginalContacts(
+            privateStep,mirrored,capped,mirrors);
+        require(tooMany.status==SculptSourceContactStatus::Refused&&
+                tooMany.contacts.empty()&&!tooMany.originalCandidate,
+                "Whole source-owner index size is bounded before attempting work");
+        require(before->retiredFaceCount()==0&&
+                physical.index->retiredFaceCount()==0,
+                "M17 read-only contact certificates leave all original stable IDs untouched");
+        return raw.size();
+    };
+    Mesh source;
+    // This M16 source fixture has a complete positive three-contact
+    // original FaceId graph. It is translated strictly OFF X=0.
+    const std::array<Vec3,8> points{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}}};
+    for(const auto p:points)source.vertices.push_back({p.x+5,p.y,p.z});
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}}})
+            source.triangles.push_back({
+                4*tetra+t[0],4*tetra+t[1],4*tetra+t[2]});
+    const auto imported=partitionFlatMesh(source,256);
+    const auto before=RegionTopologyIndex::build(imported.revision);
+    const auto originalPicking=before->pickingRootIdentity();
+    const std::array<BrushArea,1> stroke{{{{4,0,0},.5,.9}}};
+    VersionedInflateBrush inflate(.0005,{});
+    const auto candidate=inflate.stamp(before,stroke,256);
+    const auto count=checkSource(before,candidate,false,nullptr);
+    require(count==3,
+            "Physical post-sculpt source candidate retains all three true M16 finite contacts");
+    require(before->pickingRootIdentity()==originalPicking&&
+            before->triangleIntersections(allVertices(*before),{}).size()==3,
+            "M17 does not replace or rewrite held pre-stamp BVH readers");
+
+    // Reflection must be certified on every live *candidate* stable ID,
+    // never inferred by XYZ from an incomplete historical list.
+    Mesh reflected=source;
+    const auto firstCount=source.vertices.size();
+    for(const auto p:source.vertices)
+        reflected.vertices.push_back({-p.x,p.y,p.z});
+    const auto firstFaces=source.triangles.size();
+    for(std::size_t i=0;i<firstFaces;++i) {
+        const auto t=source.triangles[i];
+        const auto delta=static_cast<std::uint32_t>(firstCount);
+        reflected.triangles.push_back({
+            t.a+delta,t.c+delta,t.b+delta});
+    }
+    auto mirroredImport=partitionFlatMesh(reflected,256);
+    const auto symmetricRoot=RegionTopologyIndex::build(mirroredImport.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirroredPairs;
+    std::unordered_map<VertexId,VertexId> mirroredMap;
+    for(std::size_t i=0;i<firstCount;++i) {
+        const auto a=mirroredImport.flatIndex.vertexIds[i];
+        const auto twin=mirroredImport.flatIndex.vertexIds[firstCount+i];
+        mirroredPairs.emplace_back(a,twin);
+        mirroredMap.emplace(a,twin);
+        mirroredMap.emplace(twin,a);
+    }
+    const std::array<BrushArea,2> symmetricStroke{{
+        {{4,0,0},.5,.9},{{-4,0,0},.5,.9}}};
+    VersionedInflateBrush symmetricInflate(.0005,{},mirroredPairs);
+    const auto symmetricCandidate=symmetricInflate.stamp(
+        symmetricRoot,symmetricStroke,256);
+    const auto symmetricCount=checkSource(
+        symmetricRoot,symmetricCandidate,true,&mirroredMap);
+    require(symmetricCount==6,
+            "Reflected physical candidate discovers BOTH three-contact source halves");
+    const auto symmetricProposal=ProposedSculptStep{
+        symmetricRoot,symmetricCandidate.index,
+        symmetricCandidate.baseline.movedVertices,
+        symmetricCandidate.baseline.affectedFaces};
+    auto missingMirror=mirroredMap;
+    missingMirror.erase(mirroredPairs.front().first);
+    const auto invalid=assessPostSculptOriginalContacts(
+        symmetricProposal,true,{},&missingMirror);
+    require(invalid.status==SculptSourceContactStatus::Refused&&
+            !invalid.originalCandidate&&invalid.contacts.empty(),
+            "A missing historical post-refine mirror ID cannot certify any contact pair");
+
+    // Exercise real motion FROM A GAP to collision. The expected
+    // crossing comes from normals/brush influence, not a preset
+    // original-contact list, and no chosen dirty subset may hide
+    // any other affected original face.
+    bool induced=false;
+    for(const double halfGap:{.15,.25,.35}) {
+        if(induced)break;
+        Mesh gap;
+        const auto tetra=[&](Vec3 center) {
+            const auto offset=static_cast<std::uint32_t>(gap.vertices.size());
+            for(const auto p:std::array<Vec3,4>{{
+                {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}}})
+                gap.vertices.push_back(center+p);
+            for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{0,2,3},{0,3,1},{1,3,2}}})
+                gap.triangles.push_back({
+                    offset+t[0],offset+t[1],offset+t[2]});
+        };
+        tetra({-1-halfGap,0,0});
+        tetra({1+halfGap,.19,-.11});
+        const auto gapImport=partitionFlatMesh(gap,256);
+        const auto gapRoot=RegionTopologyIndex::build(gapImport.revision);
+        require(gapRoot->triangleIntersections(
+                    allVertices(*gapRoot),{}).empty(),
+                "Physical M17 candidate begins with two independent closed solids and a gap");
+        for(const double strength:{.35,.55,.8,1.0,1.3}) {
+            const std::array<BrushArea,1> area{{{{0,0,0},6,.95}}};
+            VersionedInflateBrush moving(strength,{});
+            const auto physical=moving.stamp(gapRoot,area,256);
+            const ProposedSculptStep trial{
+                gapRoot,physical.index,
+                physical.baseline.movedVertices,
+                physical.baseline.affectedFaces};
+            auto observed=assessPostSculptOriginalContacts(trial,false);
+            if(!observed.ready())continue;
+            const auto ground=physical.index->triangleIntersections(
+                allVertices(*physical.index),{});
+            require(!ground.empty()&&
+                    pairSet(ground)==pairSet(observed.contacts)&&
+                    observed.originalCandidate==physical.index,
+                    "Physical crossing uses the exact resulting root and all original pairs");
+            induced=true;
+            std::cout<<"[v17-m17] genuine normal-driven gap-crossing: "
+                     <<observed.contacts.size()
+                     <<" complete source pairs, strength="<<strength<<'\n';
+            break;
+        }
+    }
+    require(induced,
+            "At least one actual physically induced gap crossing must have complete finite V13 source evidence");
+
+    const auto clean=assessPostSculptOriginalContacts(
+        {before,before,{},{}},false);
+    require(clean.ready()&&clean.originalCandidate==before,
+            "Existing crossing geometry remains a complete source graph even without a dirty subset");
+}
 void testActualCollisionSculptCandidateNeverLeaksPartialGeometry() {
     Mesh m;
     cube(m,{-0.55,0,0},.9);
@@ -2015,6 +2226,7 @@ int main() {
         testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift();
         testContactEpisodeHysteresisNeverCachesApproval();
         testRepeatedRealSymmetricTowerContactAndAnchoredSurface();
+        testCompletePostSculptOriginalContactDiscovery();
         testActualCollisionSculptCandidateNeverLeaksPartialGeometry();
         testCompleteSculptCandidateClassifiedRepairGate();
         testExplicitClassifiedRepairPolicyAndNoChanges();
