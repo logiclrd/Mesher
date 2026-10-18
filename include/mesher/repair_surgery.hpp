@@ -2,6 +2,7 @@
 
 #include "mesher/repair_plan.hpp"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -57,6 +58,40 @@ SurfaceWitnessAudit auditSurfaceWitnesses(
     const std::vector<Vec3>& witnesses,
     const std::vector<FaceId>& candidateFaces,
     double originalEdgeLength,
+    std::size_t maxDistanceTests=131072);
+
+// V17-M19: a fixed ORIGINAL source-FaceId anchor, not nearest-world-space
+// equivalence. The reference root and seven witnesses survive later edits.
+// M19 audits only original faces retaining EXACT original vertex incidence:
+// a split, flip, retirement or unproven rewrite must refuse instead of
+// silently matching another coincident surface. M20 owns source-certified
+// descendant mapping for those later topology changes.
+struct OriginalSourceFaceAnchor {
+    FaceId face{};
+    std::array<VertexId,3> originalVertices{};
+    std::array<Vec3,7> witnesses{};
+    double originalEdgeLength{};
+};
+struct OriginalSourceSurfaceAnchors {
+    std::shared_ptr<const RegionTopologyIndex> original;
+    std::vector<OriginalSourceFaceAnchor> faces;
+};
+// Read-only snapshot capture; faces are explicit protected nominations,
+// excluding deliberately moved features under the later M21 policy.
+OriginalSourceSurfaceAnchors captureOriginalSourceAnchors(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const std::vector<FaceId>& protectedFaces,
+    std::size_t maxWitnesses=4096);
+// Audit against the bound original, not the prior published revision.
+// expectedReference must be the EXACT original root retained by the owner;
+// a stale/different reference or unproven face ancestry fails closed.
+// Each source face uses only its own surviving FaceId, 7 distance tests.
+// Returns finite sampled one-sided distances in each ORIGINAL local edge
+// scale: no two-sided Hausdorff, cavity or Boolean permission is implied.
+SurfaceWitnessAudit auditOriginalSourceAnchors(
+    const OriginalSourceSurfaceAnchors& anchors,
+    const std::shared_ptr<const RegionTopologyIndex>& expectedReference,
+    const RegionTopologyIndex& candidate,
     std::size_t maxDistanceTests=131072);
 
 // Transactional closure surgery on a private region revision.

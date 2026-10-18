@@ -124,4 +124,89 @@ SurfaceWitnessAudit auditSurfaceWitnesses(
         throw std::logic_error("Surface witness aggregate overflow");
     return audit;
 }
+OriginalSourceSurfaceAnchors captureOriginalSourceAnchors(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const std::vector<FaceId>& protectedFaces,
+    std::size_t maxWitnesses) {
+    if(!original||protectedFaces.empty())
+        throw std::invalid_argument("Original source anchors require a root and protected faces");
+    if(maxWitnesses==0||protectedFaces.size()>maxWitnesses/7)
+        throw std::length_error("Original source anchor capture exceeds witness budget");
+    OriginalSourceSurfaceAnchors result;
+    result.original=std::move(original);
+    result.faces.reserve(protectedFaces.size());
+    std::set<FaceId> unique;
+    for(const FaceId id:protectedFaces) {
+        if(!unique.insert(id).second||!result.original->maybeFace(id))
+            throw std::invalid_argument("Duplicate or missing protected original FaceId");
+        const auto vertices=result.original->face(id).vertices;
+        const Vec3 a=result.original->vertex(vertices[0]).position;
+        const Vec3 b=result.original->vertex(vertices[1]).position;
+        const Vec3 c=result.original->vertex(vertices[2]).position;
+        if(!finitePoint(a)||!finitePoint(b)||!finitePoint(c))
+            throw std::invalid_argument("Nonfinite protected original geometry");
+        const double ab=dot(b-a,b-a),bc=dot(c-b,c-b),
+                     ca=dot(a-c,a-c);
+        const double smallest=std::min({ab,bc,ca});
+        if(!(smallest>0)||!std::isfinite(smallest))
+            throw std::invalid_argument("Degenerate protected original edge scale");
+        OriginalSourceFaceAnchor anchor;
+        anchor.face=id;
+        anchor.originalVertices=vertices;
+        anchor.originalEdgeLength=std::sqrt(smallest);
+        const auto points=sampleSurfaceWitnesses(*result.original,{id},7);
+        std::copy(points.begin(),points.end(),anchor.witnesses.begin());
+        result.faces.push_back(anchor);
+    }
+    return result;
+}
+
+SurfaceWitnessAudit auditOriginalSourceAnchors(
+    const OriginalSourceSurfaceAnchors& anchors,
+    const std::shared_ptr<const RegionTopologyIndex>& expectedReference,
+    const RegionTopologyIndex& candidate,
+    std::size_t maxDistanceTests) {
+    if(!anchors.original||!expectedReference||
+       anchors.original!=expectedReference||anchors.faces.empty())
+        throw std::invalid_argument("Missing or stale original surface anchor reference");
+    if(anchors.faces.size()>maxDistanceTests/7)
+        throw std::length_error("Original source anchor audit exceeds distance work budget");
+    SurfaceWitnessAudit total;
+    double meanSum=0,energySum=0;
+    std::set<FaceId> unique;
+    for(const auto& anchor:anchors.faces) {
+        // Source FaceId and ordered vertex incidence, not XYZ, establish
+        // this limited M19 correspondence. M20 supplies certified remesh
+        // descendants; this conservative gate refuses them until then.
+        if(!unique.insert(anchor.face).second)
+            throw std::invalid_argument("Duplicate source patch anchor");
+        const auto source=anchors.original->maybeFace(anchor.face);
+        const auto living=candidate.maybeFace(anchor.face);
+        if(!source||source->vertices!=anchor.originalVertices||
+           !living||living->vertices!=anchor.originalVertices)
+            throw std::logic_error("Protected original patch ancestry is missing or rewritten");
+        if(!(anchor.originalEdgeLength>0)||
+           !std::isfinite(anchor.originalEdgeLength))
+            throw std::invalid_argument("Invalid original source edge scale");
+        const std::vector<Vec3> points(
+            anchor.witnesses.begin(),anchor.witnesses.end());
+        const auto sample=auditSurfaceWitnesses(
+            candidate,points,{anchor.face},anchor.originalEdgeLength,7);
+        total.witnessCount+=sample.witnessCount;
+        total.candidateFaces+=sample.candidateFaces;
+        total.distanceTests+=sample.distanceTests;
+        total.maximumDistanceInEdges=std::max(
+            total.maximumDistanceInEdges,sample.maximumDistanceInEdges);
+        meanSum+=sample.meanDistanceInEdges*sample.witnessCount;
+        energySum+=sample.rmsDistanceInEdges*
+                   sample.rmsDistanceInEdges*sample.witnessCount;
+    }
+    total.meanDistanceInEdges=meanSum/total.witnessCount;
+    total.rmsDistanceInEdges=std::sqrt(energySum/total.witnessCount);
+    if(!std::isfinite(total.meanDistanceInEdges)||
+       !std::isfinite(total.rmsDistanceInEdges))
+        throw std::logic_error("Original source anchor distance aggregate overflow");
+    return total;
+}
+
 } // namespace mesher

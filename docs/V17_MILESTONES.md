@@ -930,3 +930,31 @@ is required because physical input discovery, its exact candidate
 geometry ownership, and committed original-root transaction are
 independently testable gates. No recursively nested tasks or
 unbounded partially completed M11 checkbox are introduced.
+
+## October 18, 2026 — M12 fixed-reference fidelity rebaseline
+
+M12's original objective and acceptance at this document's existing
+section are unchanged and remain OPEN, as do M13–M15, V18 and V19.
+The optional seven-witness V16 guard currently uses a static candidate
+FaceId list and the three-clean-check tracker is only diagnostic.
+Neither establishes lifetime protected source provenance through
+split/flip/collapse/d2 joins or intentional movement. The entire work
+sequence is recorded in todo.md BEFORE beginning implementation.
+New peer IDs are V17-M19–M23, not recursively nested M12 descendants.
+
+| Order | Positive independent gate | Mandatory fail-closed gate |
+|---|---|---|
+| M19 | Immutable original FaceId bound to seven witnesses, per-original edge length, bounded unchanged-incidence audit during actual movement | Absent/rewritten source FaceId, unrelated coincident patch, invalid origin, distance work over limit |
+| M20 | Proven live descendants of original protected FaceId through local remesh and exact join, preserving mirror and distinct coincident fans | Ambiguous or missing ancestry, exhausted graph work |
+| M21 | Explicit intended sculpt feature scope and cavity-safe Exposed/ReversedBoundary vs Buried/Outside selection using signed-winding source proof | Geometrically inferred intent or forged/missing original scope |
+| M22 | Cumulative reference-to-terminal physical exact Step audit before original CAS; accepted true intended union and first small drift; rejected accumulated second drift | Stale reference, missing lineage, one-under budget, leaked mirror/history/dirty/picker state |
+| M23 | Conclusive three-clean-check episode reset, real repeated contact, refusal and FIFO recovery without skipped certification | Budget/uncertain/refused check cannot count as Clean or authorize a cached union |
+| M12 integration | All original M12 acceptance including same-patch repeats, protected mirrored exterior/cavity, intentional deformation and worker snapshot/checkpoint | No universal two-sided Hausdorff, arbitrary imported topology or disabled UI bypass |
+
+**Execution:** M19 → M20 → M21 → M22 → M23 → original M12 final
+integration, then unchanged M13–M15. Every new milestone must pass
+positive and refusal regressions and warnings-as-errors GCC/Clang/MSVC.
+No M19-only conservative refusal can count as finished M12. The physical
+exact mode and desktop merge geometry UI both retain default-off
+behavior until M15. Existing M11 sixteen positive union and M16
+coincident-ID safety coverage remain prerequisites.
