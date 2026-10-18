@@ -574,6 +574,32 @@ void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
           evidence.perOriginal[8].livingDescendants==1&&
           evidence.perOriginal[8].sampled.maximumDistanceInEdges<1e-12,
           "M27 one physical coincident sheet is unchanged and owned only by its actual first-source IDs");
+    // M21 must not infer sculpt intent from XYZ coincidence: both
+    // genuinely closed octahedra initially occupy identical points.
+    // Only permanent original first-sheet FaceIds are authorized;
+    // the second coincident component remains fully protected.
+    const auto coincidentBefore=beginOriginalPatchLifetime(anchor);
+    const auto firstSheetIntent=declareOriginalPatchIntent(
+        coincidentBefore,original->vertex(moving).incidentFaces,
+        nullptr,16);
+    const auto coincidentIntent=evaluateOriginalPatchIntent(
+        coincidentBefore,lifetime,firstSheetIntent,1e-9,126,18);
+    check(coincidentIntent.intendedOriginals==4&&
+          coincidentIntent.protectedOriginals==12&&
+          coincidentIntent.protectedWitnesses==84&&
+          coincidentIntent.maximumProtectedDeviationInEdges<1e-9,
+          "M21 independent exactly coincident component cannot be selected as intended by nearby world-space XYZ");
+    std::vector<FaceId> unrelated;
+    for(unsigned i=8;i<12;++i)
+        unrelated.push_back(sources[i]);
+    const auto wrongCoincident=declareOriginalPatchIntent(
+        coincidentBefore,unrelated,nullptr,16);
+    bool refusalByCoincidence=false;
+    try {(void)evaluateOriginalPatchIntent(
+        coincidentBefore,lifetime,wrongCoincident,1e-9,126,18);}
+    catch(const std::logic_error&){refusalByCoincidence=true;}
+    check(refusalByCoincidence,
+          "M21 naming the WRONG coincident physical sheet cannot exempt actually moved original sources");
     bool refused=false;
     try {(void)auditOriginalPatchLifetime(lifetime,original,125,18);}
     catch(const std::length_error&){refused=true;}
