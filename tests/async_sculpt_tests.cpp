@@ -1131,7 +1131,7 @@ DurableCheckpoint checkpointM11Source(const M11TowerSource& source) {
     DurableCheckpoint out;
     out.index=RegionTopologyIndex::build(imported.revision);
     out.initialVertexCount=source.mesh.vertices.size();
-    for(const auto [i,j]:source.originalPairs)
+    for(const auto& [i,j]:source.originalPairs)
         out.mirrorPairs.emplace_back(
             imported.flatIndex.vertexIds[i],imported.flatIndex.vertexIds[j]);
     return out;
@@ -1229,7 +1229,7 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
                 brush.checkpoint().mirrorPairs.size()>=
                     previousMirror.size(),
                 "M11 each accepted tower union has no residual original contacts and valid net mirrored IDs");
-        for(const auto [a,b]:brush.checkpoint().mirrorPairs) {
+        for(const auto& [a,b]:brush.checkpoint().mirrorPairs) {
             require(after->maybeVertex(a)&&after->maybeVertex(b),
                 "M11 historical mirror map has no deleted original source ID");
             const auto x=after->vertex(a).position;
@@ -1357,7 +1357,7 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
                     roots.back()->retiredFaceIds()&&
                 checkpoint.mirrorPairs.size()>restored.mirrorPairs.size(),
                 "M11 final durable recovery contains all net mirrored terminal source identities");
-        for(const auto [a,b]:checkpoint.mirrorPairs) {
+        for(const auto& [a,b]:checkpoint.mirrorPairs) {
             require(checkpoint.index->maybeVertex(a)&&
                     checkpoint.index->maybeVertex(b),
                     "No retired or transient speculative ID leaks into M11 durable mirror checkpoint");
