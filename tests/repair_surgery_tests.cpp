@@ -1305,11 +1305,14 @@ void testM19FixedOriginalFaceSourceAnchorsAndRefusals() {
     require(refused,
             "Different prior revision cannot silently replace first original anchor");
 
-    // Two distinct source FaceIds may cover the same spatial patch, but
-    // identical/near-identical XYZ alone cannot transfer original FaceId
-    // ownership. Reassign a pair of triangles to each other's source ID.
+    // Identical XYZ is not source-incidence provenance. Reversing every
+    // face retains the exact same triangle point sets and closed surface,
+    // but changes ordered vertex incidence for every original FaceId.
+    // Reordering whole triangles alone may be undone by spatial importer
+    // canonicalization, so it is not a reliable negative fixture.
     Mesh reordered=mesh;
-    std::swap(reordered.triangles[2],reordered.triangles[3]);
+    for(auto& triangle:reordered.triangles)
+        std::swap(triangle.b,triangle.c);
     const auto other=RegionTopologyIndex::build(
         partitionFlatMesh(reordered,1).revision);
     require(other->maybeFace(sources.front())!=nullptr&&
