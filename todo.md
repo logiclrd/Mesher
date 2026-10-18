@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01 and M02 are complete in their independent private cut/join-preflight scopes; M03–M12 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M03 are complete in their independent private certification scopes; M04–M12 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -749,8 +749,27 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   Step/history journal; M05 owns mirrored NEW refinement orbits.
   Production V15 thresholds, protected coordinates and desktop
   Merge geometry remain unchanged.
-- [ ] **V17-M03 — Safe retirement of wholly buried, previously uncut original faces.**
-  Homogeneous positive-winding/original-face classification with complete local contact checks; preserve cavity/exposed faces, retire only independently authorized material.
+- [x] **V17-M03 — Safe retirement authorization for wholly buried uncut original faces.**
+  Added `planUncutFaceRetirement`, a strict READ-ONLY independent
+  original-source connected-component/whole-face classifier. It recomputes
+  c2 COMPLETE original V13 coverage and c1 actual child occupancy,
+  derives child removal/protection directly from positive signed winding
+  (not caller-supplied V15 contours), traverses the FULL bounded original
+  face-connected uncut patch around the genuine cut sources, proves no
+  unreported V13 contact on EACH original candidate face and checks
+  unchanged source FaceIds, owners and exact vertex positions. Four
+  interior points at two signed offsets on each side must agree on
+  homogeneous unit winding, with NO full-mesh fallback. Buried/Outside
+  originals are authorized; Exposed/ReversedBoundary stay protected.
+  The original and c1/c2/c3 child sets combine into one sorted FaceId
+  retirement plan, subject to a fresh V15 contour quality check.
+  Independent aggregate collision, adjacency, winding and face budgets
+  refuse without leaking partial authorization. A real 1-above/3-below
+  two-tetra fixture authorizes its previously uncut buried base;
+  missing V13 pairs, strict work caps and a disconnected inverted
+  internal cavity are negative controls. No actual topology deletion
+  or one-root d3 publication is performed (M04), and new mirror
+  retirement orbits remain fail-closed (M05/M06).
 - [ ] **V17-M04 — Full closed three-body Boolean union with one immutable terminal Step.**
   Positive complete 12/16-contact intersecting-three-tetra unions, strict manifold/final collision/fidelity proof, one CAS/history/checkpoint, missing-pair and unsupported original-contact refusal.
 - [ ] **V17-M05 — Off-plane mirrored multi-section Boolean acceptance.**

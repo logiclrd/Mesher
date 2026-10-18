@@ -114,6 +114,46 @@ mirrored orbit staging remains M05 and X=0 is M06.
 
 ## V17-M03 — Fully buried unchanged-source-face authorization
 
+**Implementation/acceptance:** Complete as a private READ-ONLY
+retirement proposal. `planUncutFaceRetirement` recomputes complete
+original-source V13 c2 coverage, real-child signed-winding c1 evidence and
+the only valid child removal classes, then expands the full bounded
+ORIGINAL edge-connected patch of untouched source faces adjacent to
+the actual cut sources. Every traversed triangle must retain exactly
+the same old FaceId, owner, three original VertexIds and physical
+coordinates on the privately cut revision. An independent local V13
+collision search over each whole original face certifies there is NO
+intervening source-surface contact through its interior; uncertain,
+grazing, nonmanifold or partially explored components refuse. Four
+interior sample locations, each with two exact signed offsets on both
+normal sides, must agree on a reliable unit positive-winding jump
+without unbounded global reference fallback. Buried/Outside original
+faces are authorized; all Exposed/ReversedBoundary faces (including
+genuine cavity boundaries) remain protected. The authorized and
+protected original IDs are combined with the rederived real-child
+journals and freshly validated through V15 contour readiness; a
+caller-fabricated Ready contour does not confer deletion authority.
+
+The positive fixture is a one-apex-above/three-base-vertices-below
+closed tetrahedron penetrating a second closed tetrahedron. Its buried
+base has NO V13 section and NO c1 cut-child provenance, but becomes
+a separately proven unchanged original FaceId in the combined
+retirement proposal. All untouched outer faces remain protected.
+An additional disconnected inverted closed shell inside the large
+tetrahedron represents a true cavity and is not even scoped as
+eligible for removal. Incomplete source pairs, zero original-face
+component budget, exhausted ray budget, and exhausted original V13
+candidate discovery each fail atomically with no authorization; old
+root/picking identity and tombstones remain unchanged.
+
+M03 does NOT actually retire geometry or return a joinable COW root.
+M04 owns consuming this fresh independent proposal, exact d2 closure
+and original-root single-Step net FaceId/VertexId/undo publication.
+Mirrored new untouched-source retirement needs M05/M06's complete
+original and new involution orbits. Full V19 large-model performance
+and universal exact Boolean support remain explicitly out of scope.
+
+
 **Objective.** Extend exact-child c1/c2/c3 provenance and retirement to an ORIGINAL triangle that was *never cut* yet is proven wholly Buried/Outside in a complete local union. The prior 1-above/3-below protrusion case is the concrete missing geometry; changed-child-only deletion must remain unauthorized.
 
 **Acceptance.** A separate complete-original-face occupancy/connected-component decision proves homogeneous strict positive-winding behavior, correct original source identity and no intervening intersecting section before any retirement. Preserve Exposed and ReversedBoundary cavity/outer detail and forbid an arbitrary enclosed cavity from being discarded. Bound discovery, winding and fan/collision checks; atomically refuse mixed, uncertain, unsupported or partially surveyed unchanged faces. Include a positive formerly buried-uncut-face fixture, boundary/cavity negatives and original root/tombstone checks. The authorized FaceId set must compose with c3's journal without allowing a manually nominated V15 Ready plan to authorize removal.

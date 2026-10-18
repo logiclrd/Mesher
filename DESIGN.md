@@ -3075,3 +3075,76 @@ positive union gate. M05/M06 own mirrored/fixed-plane extensions.
 No automatic Merge geometry, V18 Off displacement constraint, V15
 quality relaxation or approximate protected source position
 changes are introduced.
+
+## V17-M03 — Bounded untouched original-face retirement authorization
+
+The earlier c1/c2/c3 child-deletion journal permits retirement only
+of real subdivided children of an original transverse V13 contact.
+A small closed tetrahedron with ONE vertex above another tetrahedron's
+top surface and THREE vertices below that surface has a completely
+buried base face which receives NO original transverse section and
+therefore NO cut-child provenance. Attempting to force the baseline
+c3 proposal to delete that old FaceId would bypass the complete
+original-contact/source identity contract. Leaving the face behind
+would create internal double-skin or prevent a true Boolean union.
+
+`planUncutFaceRetirement` is an independent immutable READ-ONLY
+evidence path, and never accepts a caller's original FaceId nomination
+or a manually constructed `RepairPlan::Ready` contour. It first
+RECOMPUTES c2 coverage for every supplied original V13 contact pair
+and c1 complete cut-child signed occupancy against the SAME private
+source revision. All child classification decisions are rechecked
+for an exact +1 original oriented winding jump; Exposed and
+ReversedBoundary are protected while Buried and Outside are eligible
+for retirement.
+
+The additional candidate search traverses the ENTIRE original
+edge-connected component of untouched faces adjoining changed
+source faces, stopping only at independently verified changed
+original-face boundaries. Traversal is explicitly finite and
+budgeted: exceeding any original-face or adjacency cap aborts the
+whole proposal without a subset result. Every candidate still must
+exist in both immutable indices with exactly the same original
+FaceId, partition owner, ordered VertexIds and XYZ corner positions.
+For EACH uncut face, an independently bounded V13 original-revision
+triangle-intersection query must yield ZERO unresolved contacts.
+This is the whole-original-face contact-free condition necessary
+to upgrade local interior winding observations to homogeneous
+classification on the supported nondegenerate closed surface
+domain: an unreported section or even a potential grazing pair
+must not slip through just because finitely many probes missed it.
+
+As with c1, the winding probes use four strictly interior barycentric
+positions and two normal offsets on each of BOTH sides. The face
+must have one stable signed winding jump of +1 at all probes and a
+single occupancy class; any disagreement or near-resolution
+offset refuses. Queries use accelerated bounded work only:
+no fallback to full-mesh solid angles. Buried/Outside originals
+are authorized; Exposed and reversed true cavity boundaries
+are always protected. The candidate faces are added to the
+recomputed c1/c2-selected child FaceId removal set and a NEW
+V15 contour-quality plan is required to match the FULL combined
+FaceId set exactly. The proposal is otherwise never allowed to
+mutate any old/private root, tombstone, picker, renderer or history.
+
+The regression's real two closed tetrahedra yield three complete
+transverse original contacts from the three sloped protrusion
+sides. The fourth B face, its buried base, has NO V13 contact.
+The baseline c3 child-only nomination cannot include that original
+FaceId. M03 positively authorizes it, protects the large tetra's
+untouched outer faces, and stages the complete deletion candidate.
+An additional disconnected inward-oriented nested closed shell is
+a separate true internal cavity: it cannot be reached from the
+cut-source connected component and is NEVER nominated for removal.
+Incomplete original contact pairs, zero face/adjacency/winding
+budgets, V13 collision budget, nonconforming old IDs, uncertain
+winding and unsupported mirror orbits refuse with NO partial
+FaceId list or contour. Source and candidate picking roots remain
+unchanged. Broad nontransverse, wholly coincident and arbitrarily
+nested imported shell semantics remain outside this certified domain.
+
+V17-M04 still owns actual safe deletion plus d2 exact section join
+and ONE original-root CAS/undo/history/checkpoint Step. In particular,
+M03 does not introduce a new intermediate published cut nor alter
+the default disabled UI Merge geometry behavior. M05/M06 own
+paired reflected and fixed-plane original-face deletion orbits.
