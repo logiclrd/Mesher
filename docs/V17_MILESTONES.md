@@ -1000,3 +1000,43 @@ M24 itself is a **read-only provenance consumer** of actual
 runtime-emitted split records. It must not switch on Merge geometry,
 publish a private candidate, change a V13 predicate, or claim
 continuous two-sided Hausdorff fidelity.
+
+## October 18, 2026 — M26 source-exact c1/c2/c3/M03/d2 survivor handoff
+
+The full flat M20 sequence M24 → M25 → M26 → M27 → original M20
+integration was recorded before M24. M24 and M25 remain accepted;
+this M26 implementation does not change any objective or subdivide
+the plan, nor authorize physicalExact in the desktop UI.
+
+After **ALL** existing V13 contact discovery, conforming cuts,
+c1/positive-signed-winding c2/c3, M03 uncut component decisions,
+d2 reflected/on-plane exact welding, residual full-final collision,
+protected surface, mirror and original-root journal validation has
+succeeded, the PRIVATE original-root Step alone retains immutable
+source evidence. Refused Steps expose none. Evidence includes the
+existing sourceFace → child FaceId graph, unchanged private cut
+index, complete typed Exposed/ReversedBoundary/Buried/Outside child
+classification, explicit M03 protected/retired uncut original FaceIds,
+finite original work settings and exact d2 source-proven vertex welds.
+Only the terminal Step is publishable; intermediate evidence is not
+added to repository, render, picker, history or checkpoint objects.
+
+An independent **read-only** M26 consumer MUST reexecute complete
+c1/c2/c3/M03 source classification with original finite limits,
+require the same original root pointer, verify all source IDs, exact
+child winding decisions, protected output XYZ, net stable ID journals,
+mirrored source face orbits (including self-paired fixed X=0), and
+explicit exact d2 source weld endpoints. It advances original FaceId
+ownership through each *actually living* terminal child; only
+source-certified wholly Buried/Outside or M03 authorized buried
+uncut originals can have empty live sets. No nearest XYZ matcher,
+approximate substituted sheet, partial classification, or protected
+exterior/ReversedBoundary deletion is ever authorization. Additional
+face evidence/descendant counts are finite, exact-limit passes and
+one-under-limit refuses.
+
+M27 later combines these source outputs with fixed original witnesses
+across successive accepted Steps; M21 later defines deliberate
+protected-feature movement/exception. This stage does not claim
+continuous two-sided Hausdorff, universal imported mesh support,
+deletion of unclassified cavities, or new desktop controls.

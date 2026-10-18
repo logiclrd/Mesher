@@ -1,5 +1,6 @@
 #include "mesher/triangle_collision.hpp"
 #include "mesher/repair_intersection.hpp"
+#include "mesher/repair_surgery.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
 #include "mesher/revision_history.hpp"
@@ -904,6 +905,69 @@ void testPrivateConformingRevisionCommitsAtomically() {
               "One Step has original CAS expectation and final immutable root only");
         check(connectedClosedSurfaceComponents(*prepared.final)==1,
               "Composed original-root Step is a truly connected closed union");
+        // M26: actual complete source/c1/c2/c3/M03/d2 journal must
+        // independently map ALL original protected faces to permanent
+        // surviving children or precisely classified buried retirements.
+        const auto originalAnchors=captureOriginalSourceAnchors(
+            baseline,imported.flatIndex.faceIds,
+            imported.flatIndex.faceIds.size()*7);
+        const auto originalLineage=beginSourceSplitLineage(originalAnchors);
+        const auto lineage=advanceCertifiedExactCutLineage(
+            originalLineage,prepared,nullptr,8192,8192);
+        check(lineage.survivors.original==baseline&&
+              lineage.survivors.terminal==prepared.final&&
+              lineage.classifiedChildren>0&&
+              lineage.protectedChildren>0&&
+              lineage.retiredChildren>0&&
+              lineage.checkedFaceEvidence>0,
+              "M26 complete real d2 union has classified first-original surviving child sources");
+        for(const auto& [_,children]:lineage.survivors.living)
+            for(const auto id:children)
+                check(prepared.final->maybeFace(id)!=nullptr,
+                      "Every M26 surviving child is a real terminal permanent FaceId");
+        bool capRefusal=false;
+        try {(void)advanceCertifiedExactCutLineage(
+            originalLineage,prepared,nullptr,
+            lineage.checkedFaceEvidence-1,8192);}
+        catch(const std::length_error&){capRefusal=true;}
+        check(capRefusal,
+              "M26 exact complete original source evidence cap accepts equality and refuses one below");
+        const auto exactCap=advanceCertifiedExactCutLineage(
+            originalLineage,prepared,nullptr,
+            lineage.checkedFaceEvidence,8192);
+        check(exactCap.checkedFaceEvidence==lineage.checkedFaceEvidence,
+              "M26 exact face evidence bound is sufficient without a partial audit");
+        auto m26Stale=prepared;
+        m26Stale.expected=prepared.final;
+        bool m26Refused=false;
+        try {(void)advanceCertifiedExactCutLineage(
+            originalLineage,m26Stale,nullptr,8192,8192);}
+        catch(const std::invalid_argument&){m26Refused=true;}
+        check(m26Refused,"M26 cannot re-anchor to a later drifting revision");
+        auto forged=prepared;
+        auto fakeProof=std::make_shared<ExactCutSourceEvidence>(
+            *prepared.sourceEvidence);
+        check(!fakeProof->classifiedChildren.empty(),
+              "M26 positive d2 Step retains actual typed c3 child provenance");
+        fakeProof->classifiedChildren.front().kind=
+            RegionTopologyIndex::FragmentKind::Ambiguous;
+        forged.sourceEvidence=fakeProof;
+        m26Refused=false;
+        try {(void)advanceCertifiedExactCutLineage(
+            originalLineage,forged,nullptr,8192,8192);}
+        catch(const std::logic_error&){m26Refused=true;}
+        check(m26Refused,
+              "M26 forged c3 class cannot replace independently recomputed source winding");
+        fakeProof=std::make_shared<ExactCutSourceEvidence>(
+            *prepared.sourceEvidence);
+        fakeProof->prepared.childSources.pop_back();
+        forged.sourceEvidence=fakeProof;
+        m26Refused=false;
+        try {(void)advanceCertifiedExactCutLineage(
+            originalLineage,forged,nullptr,8192,8192);}
+        catch(const std::logic_error&){m26Refused=true;}
+        check(m26Refused,
+              "M26 an incomplete source-child journal cannot authorize d2 even if mesh is manifold");
         const auto countLive=[&](const RegionTopologyIndex& index) {
             std::pair<std::size_t,std::size_t> result{};
             index.revision().forEachPartition(
@@ -1919,6 +1983,25 @@ void testWhollyBuriedUncutOriginalFace() {
           connectedClosedSurfaceComponents(*full.final)==2,
           "One root retires uncut buried original base but retains the true reversed cavity");
     assertThreeBodyOneRootHistory(original,full,2,"buried-uncut-cavity");
+    const auto ancestry=captureOriginalSourceAnchors(
+        original,imported.flatIndex.faceIds,
+        imported.flatIndex.faceIds.size()*7);
+    const auto certified=advanceCertifiedExactCutLineage(
+        beginSourceSplitLineage(ancestry),full,nullptr,8192,8192);
+    check(std::find(certified.certifiedRetiredOrigins.begin(),
+                    certified.certifiedRetiredOrigins.end(),sourceBase)!=
+                    certified.certifiedRetiredOrigins.end()&&
+          certified.certifiedUncutRetirements>0,
+          "M26 recognizes only fully M03-certified buried unchanged source retirement");
+    for(unsigned i=8;i<12;++i) {
+        const auto cavity=imported.flatIndex.faceIds[i];
+        const auto it=std::find_if(certified.survivors.living.begin(),
+                                  certified.survivors.living.end(),
+                                  [&](const auto& a){return a.first==cavity;});
+        check(it!=certified.survivors.living.end()&&
+              it->second==std::vector<FaceId>{cavity},
+              "M26 independently preserves actual reversed-cavity source FaceIds");
+    }
     check(original->pickingRootIdentity()==rootIdentity&&
           original->retiredFaceCount()==0&&
           original->maybeFace(sourceBase)&&cut.index->maybeFace(sourceBase),
@@ -2575,6 +2658,35 @@ void testReflectedUncutBurialCavityOrbits() {
               "Reflected independently enclosed reversed cavity faces remain permanent");
     }
     verifyMirroredOriginalRootStep(root,mirrors,full,"uncut-cavity-orbits",4);
+    const auto reflectedAnchors=captureOriginalSourceAnchors(
+        root,imported.flatIndex.faceIds,
+        imported.flatIndex.faceIds.size()*7);
+    const auto reflectedLineage=beginSourceSplitLineage(reflectedAnchors);
+    const auto reflectedProof=advanceCertifiedExactCutLineage(
+        reflectedLineage,full,&mirrors,16384,16384);
+    check(reflectedProof.survivors.terminal==full.final&&
+          reflectedProof.certifiedUncutRetirements>=2&&
+          std::find(reflectedProof.certifiedRetiredOrigins.begin(),
+                    reflectedProof.certifiedRetiredOrigins.end(),baseRight)!=
+                    reflectedProof.certifiedRetiredOrigins.end()&&
+          std::find(reflectedProof.certifiedRetiredOrigins.begin(),
+                    reflectedProof.certifiedRetiredOrigins.end(),baseLeft)!=
+                    reflectedProof.certifiedRetiredOrigins.end(),
+          "M26 source exact mirror orbit retirement is paired and both cavity components live");
+    bool noMirror=false;
+    try {(void)advanceCertifiedExactCutLineage(
+        reflectedLineage,full,nullptr,16384,16384);}
+    catch(const std::invalid_argument&){noMirror=true;}
+    check(noMirror,"M26 refuses mirrored source proof without explicit old reciprocal ID map");
+    auto tampered=full;
+    auto proof=std::make_shared<ExactCutSourceEvidence>(*full.sourceEvidence);
+    proof->prepared.mirroredFaces.pop_back();
+    tampered.sourceEvidence=proof;
+    bool refused=false;
+    try {(void)advanceCertifiedExactCutLineage(
+        reflectedLineage,tampered,&mirrors,16384,16384);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M26 refuses missing reflected source-child orbit after private d2");
 
     auto incomplete=contacts;
     incomplete.pop_back();
@@ -2904,6 +3016,25 @@ void testX0InvariantExactCutProbe() {
           allPairs(*net.final).empty(),
           "X=0 terminal Boolean has one captured ORIGINAL-root Step, not an intermediate cut");
     auditClosedVertexLinks(*net.final);
+    const auto x0Anchors=captureOriginalSourceAnchors(
+        root,imported.flatIndex.faceIds,
+        imported.flatIndex.faceIds.size()*7);
+    const auto x0Certified=advanceCertifiedExactCutLineage(
+        beginSourceSplitLineage(x0Anchors),net,&mirror,16384,16384);
+    check(x0Certified.survivors.original==root&&
+          x0Certified.survivors.terminal==net.final&&
+          x0Certified.protectedChildren>0&&
+          x0Certified.retiredChildren>0,
+          "M26 independently certifies actual X=0 self-reflected child-source and terminal seam orbits");
+    std::set<FaceId> x0Children;
+    for(const auto& [original,descendants]:x0Certified.survivors.living) {
+        check(root->maybeFace(original)!=nullptr,
+              "X=0 original protected FaceId remains the first source");
+        for(const auto child:descendants)
+            check(x0Children.insert(child).second&&
+                  net.final->maybeFace(child)!=nullptr,
+                  "M26 terminal invariant/symmetric child has one unique source FaceId");
+    }
     std::set<VertexId> journaled;
     std::size_t fixedAdded=0;
     for(const auto& [a,b]:net.addedMirrors) {

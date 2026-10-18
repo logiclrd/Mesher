@@ -4266,3 +4266,33 @@ correspondence, M27 owns across-accepted-Step source patch/fidelity
 composition and original M20/M12 remain open. M25 is no physicalExact
 or Vulkan product activation, general area-sharing solver, or
 continuous two-sided Hausdorff guarantee.
+
+## October 18, 2026 — V17-M26 original source-certified Boolean descendants
+
+Successful exact-cut original-root Step construction had already
+validated c1/c2/c3, M03, private d2 seam joins, final residual
+intersections, protected child fidelity, original stable mirror IDs
+and net-history journals, but had discarded the child's original
+FaceId provenance on returning the final candidate. M26 records
+**private source evidence only on COMPLETE Steps**: the conforming
+cut's original parent→child stable FaceId ownership graph, exact typed
+child occupancy, protected/Buried/Outside selections, separately
+certified M03 uncut original retention/retirement and source-owned
+d2 seam replacements. These are immutable evidence for a read-only
+consumer, never publishable private roots or history/checkpoint data.
+
+Independent audit recomputes full original-source c1/c2/c3/M03
+classification with the Step's same finite query budgets. Every
+protected Exposed or ReversedBoundary descendant must remain live
+at its same exact triangle XYZ even when d2 replaces seam vertex
+identities; an original source may become empty ONLY via complete
+certified Buried/Outside child retirement or exact M03 buried uncut
+authority. Off-plane and accidental independent coincident sheets
+remain distinguishable by source FaceId and stable vertex fan; X=0
+singleton orbits must derive from the source cut rather than nearest
+coordinate equivalence. Reflected final child face journals and d2
+welded vertex roots are checked without copying global mirror maps.
+The first original source root and all intermediate roots remain
+COW reader-stable, with bounded evidence work. M27 will measure
+fixed-original lifetime feature fidelity on these descendants; M21
+owns deliberate intent and M22 activates live terminal acceptance.

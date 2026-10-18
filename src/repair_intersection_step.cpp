@@ -386,6 +386,20 @@ ExactCutStep prepareExactCutStep(
         composed.finalCollisionSeeds=seeds.size();
         composed.checkedProtectedFaces=policy.protectedChildren.size()+
             joined.protectedUncut.size();
+        // Preserve source-local c1/c2/c3/M03/d2 evidence only for a FULLY
+        // validated terminal Step. The private cut root is never publishable;
+        // this record is not added to persistent history or checkpoints.
+        auto provenance=std::make_shared<ExactCutSourceEvidence>();
+        provenance->prepared=std::move(prepared);
+        provenance->classifiedChildren=policy.classifiedChildren;
+        provenance->removedChildren=policy.proposedRemoval;
+        provenance->protectedChildren=policy.protectedChildren;
+        provenance->removedUncut=joined.retiredUncut;
+        provenance->protectedUncut=joined.protectedUncut;
+        provenance->finalWeldedPairs=joined.weldedPairs;
+        provenance->removalSettings=limits.join.removal;
+        provenance->uncutLimits=limits.uncut;
+        composed.sourceEvidence=std::move(provenance);
         composed.complete=true;
         return composed;
     }catch(const std::exception& e) {
