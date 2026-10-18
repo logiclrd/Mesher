@@ -1725,6 +1725,13 @@ void testGenericCompleteThreeBodyTransverseGraph() {
               "All generic triple junction original contacts have full c2/c1/c3 certified private children");
         ExactCutJoinLimits joinLimits;
         joinLimits.removal=contours;
+        const auto unchangedMatch=reconcileCertifiedSeamSubdivisions(
+            cut,ExactSeamRefinementLimits{.join=joinLimits});
+        check(unchangedMatch.complete&&unchangedMatch.refined&&
+              unchangedMatch.insertedVertices==0&&
+              unchangedMatch.insertedFaces==0&&
+              unchangedMatch.refined->index==cut.index,
+              "Matching true three-body source intervals require no speculative refinement");
         const auto joined=joinCertifiedCutSections(cut,joinLimits);
         check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
               !joined.commit&&joined.weldedPairs.empty()),
@@ -1750,6 +1757,11 @@ void testGenericCompleteThreeBodyTransverseGraph() {
         const auto removal2=planExactCutRemoval(*aligned.refined,contours);
         check(coverage2.complete&&removal2.ready(),
               "Every new source-child FaceId is independently c1/c2/c3 certified");
+        check(uneven.index->pickingRootIdentity()!=
+                  aligned.refined->index->pickingRootIdentity()&&
+              cut.index->pickingRootIdentity()!=
+                  aligned.refined->index->pickingRootIdentity(),
+              "Pre-refinement original readers retain their immutable picking roots");
         const auto accepted=joinCertifiedCutSections(*aligned.refined,joinLimits);
         check(accepted.complete&&accepted.index&&
               connectedClosedSurfaceComponents(*accepted.index)==1,
