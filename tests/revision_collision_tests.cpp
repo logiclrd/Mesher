@@ -2105,6 +2105,22 @@ void testGenericCompleteThreeBodyTransverseGraph() {
     check(!exceeded.complete&&!exceeded.expected&&!exceeded.final&&
           !exceeded.commit.revision&&exceeded.addedFaces.empty(),
           "Terminal original-root net stable-ID budget refuses without publishing a private cut");
+    auto narrow=limits;
+    narrow.maxFinalCollisionFaces=1;
+    const auto noFinalHalo=prepareExactCutStep(root,all,narrow);
+    check(!noFinalHalo.complete&&!noFinalHalo.expected&&!noFinalHalo.final&&
+          !noFinalHalo.commit.revision&&
+          noFinalHalo.addedFaces.empty()&&noFinalHalo.retiredFaces.empty()&&
+          noFinalHalo.refusal.find("collision")!=std::string::npos,
+          "Successful private geometry still refuses when complete FINAL collision halo cannot be checked");
+    narrow=limits;
+    narrow.join.maxTraceTests=1;
+    const auto noSeamTrace=prepareExactCutStep(root,all,narrow);
+    check(!noSeamTrace.complete&&!noSeamTrace.expected&&!noSeamTrace.final&&
+          !noSeamTrace.commit.revision&&
+          noSeamTrace.addedVertices.empty()&&noSeamTrace.dirtyPartitions.empty()&&
+          noSeamTrace.refusal.find("trace")!=std::string::npos,
+          "Fully certified source graph cannot approve an untraced finite seam pair");
     check(root->pickingRootIdentity()==originalRoot&&
           connectedClosedSurfaceComponents(*root)==3,
           "Triple-contact attempts never alter historical immutable pointers");
