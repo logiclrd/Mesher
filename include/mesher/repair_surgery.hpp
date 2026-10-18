@@ -178,6 +178,11 @@ SourceExactCutLineage advanceCertifiedExactCutLineage(
 struct OriginalPatchLifetime {
     OriginalSourceSurfaceAnchors anchors;
     SourceSplitLineage lineage;
+    // Immutable verification snapshot published ONLY by begin/advance.
+    // A mutable public lineage view cannot substitute coincident FaceIds
+    // for independently certified owners at witness-audit time.
+    std::shared_ptr<const std::vector<std::pair<FaceId,std::vector<FaceId>>>>
+        verifiedOwnership;
     std::vector<FaceId> certifiedRetiredOriginals;
     std::size_t acceptedTransitions{};
     std::size_t sourceFaceEvidence{}; // cumulative finite verification work
