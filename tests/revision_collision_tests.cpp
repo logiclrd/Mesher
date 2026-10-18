@@ -1666,6 +1666,109 @@ ConformingCutCandidate splitSingleCertifiedBoundaryForTest(
     return result;
 }
 
+void assertThreeBodyOneRootHistory(
+    const std::shared_ptr<const RegionTopologyIndex>& original,
+    const ExactCutStep& step,
+    std::size_t expectedComponents,
+    const std::string& fixture) {
+    if(!step.complete)
+        throw std::runtime_error(fixture+" original-root union refused: "+step.refusal);
+    check(step.expected==original&&step.final&&
+          step.commit.revision&&
+          step.commit.revision.get()==&step.final->revision()&&
+          step.final!=original&&
+          connectedClosedSurfaceComponents(*step.final)==expectedComponents,
+          "A three-body Step has exactly one complete final immutable revision");
+    check(!step.dirtyPartitions.empty()&&
+          step.finalCollisionSeeds>0&&step.checkedProtectedFaces>0&&
+          !step.retiredFaces.empty()&&!step.addedFaces.empty()&&
+          !step.rewrittenFaces.empty(),
+          "Original-root Step carries true protected, dirty and net face journals");
+    const auto counts=[](const RegionTopologyIndex& index) {
+        std::pair<std::size_t,std::size_t> amount{};
+        index.revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& p){
+                amount.first+=p.vertices.size();
+                amount.second+=p.faces.size();
+            });
+        return amount;
+    };
+    const auto before=counts(*original),after=counts(*step.final);
+    check(static_cast<std::ptrdiff_t>(after.first)-
+              static_cast<std::ptrdiff_t>(before.first)==
+              step.vertexCountDelta&&
+          static_cast<std::ptrdiff_t>(after.second)-
+              static_cast<std::ptrdiff_t>(before.second)==
+              step.faceCountDelta,
+          "Net permanent journals match actual original-root element count changes");
+    for(const auto id:step.addedVertices)
+        check(!original->maybeVertex(id)&&step.final->maybeVertex(id),
+              "Added VertexIds exist only in the one published final revision");
+    for(const auto id:step.retiredVertices)
+        check(original->maybeVertex(id)&&!step.final->maybeVertex(id),
+              "Retired original VertexIds are absent from the final revision");
+    for(const auto id:step.addedFaces)
+        check(!original->maybeFace(id)&&step.final->maybeFace(id),
+              "Added FaceIds are final live IDs, not intermediate-only revisions");
+    for(const auto id:step.retiredFaces)
+        check(original->maybeFace(id)&&!step.final->maybeFace(id),
+              "Retired original FaceIds have no surviving final face");
+    for(const auto id:step.rewrittenFaces)
+        check(original->maybeFace(id)&&step.final->maybeFace(id)&&
+              original->face(id).vertices!=step.final->face(id).vertices,
+              "Net rewritten FaceId survives but has different final topology");
+
+    std::vector<FaceId> faces;
+    step.final->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& p) {
+            for(const auto& f:p.faces)faces.push_back(f.id);
+        });
+    check(step.final->triangleIntersections({},faces).empty(),
+          "Every face of a complete three-body union is globally collision-free");
+    IndexedMeshRepository published(original);
+    check(published.snapshot()==original&&
+          published.publishIfCurrent(step.expected,step.final)&&
+          published.snapshot()==step.final&&
+          !published.publishIfCurrent(step.expected,step.final)&&
+          published.snapshot()==step.final,
+          "Single CAS from captured original root rejects stale replay");
+    check(original->maybeFace(step.retiredFaces.front())&&
+          original->retiredFaceCount()==0,
+          "Historical readers continue to see their untouched original FaceIds");
+    RevisionHistory history(original,8,32*1024*1024,nullptr,
+                            before.first,before.second);
+    history.append(step.final,step.dirtyPartitions,
+                   step.addedMirrors,step.removedMirrors,
+                   step.copiedPayloadBytes,after.first,after.second);
+    check(history.statistics().undoDepth==1&&history.current()==step.final,
+          "Entire three-body cut, refinement and join append ONE undoable Step");
+    const auto undone=history.undo();
+    check(undone.index==original&&undone.vertices==before.first&&
+          undone.faces==before.second&&
+          undone.dirtyPartitions==step.dirtyPartitions,
+          "Exactly one undo restores original counts, root and dirty partitions");
+    const auto redone=history.redo();
+    check(redone.index==step.final&&redone.vertices==after.first&&
+          redone.faces==after.second,
+          "Exactly one redo restores terminal three-body union");
+    const auto path=std::filesystem::temp_directory_path()/
+        ("mesher_v17_m04_"+fixture+".mshr");
+    writeCheckpoint(path,{step.final,{},before.first});
+    const auto reload=readCheckpoint(path);
+    std::filesystem::remove(path);
+    check(counts(*reload.index)==after&&
+          connectedClosedSurfaceComponents(*reload.index)==expectedComponents&&
+          reload.index->retiredFaceIds()==step.final->retiredFaceIds()&&
+          reload.index->retiredVertexIds()==step.final->retiredVertexIds(),
+          "Durable checkpoint/restore retains one fully accepted mesh and tombstones");
+    std::cout<<"[three-body-m04] "<<fixture
+             <<" final-components="<<expectedComponents
+             <<" deleted="<<step.retiredFaces.size()
+             <<" added="<<step.addedFaces.size()
+             <<" rewritten="<<step.rewrittenFaces.size()
+             <<" dirty="<<step.dirtyPartitions.size()<<'\n';
+}
+
 void testWhollyBuriedUncutOriginalFace() {
     Mesh mesh;
     // A large closed tetra is pierced by the three sloping sides of B.
@@ -1748,6 +1851,22 @@ void testWhollyBuriedUncutOriginalFace() {
               original->maybeFace(cavity)&&cut.index->maybeFace(cavity),
               "Disconnected reversed cavity component must NEVER be retired by adjacency inference");
     }
+    ExactCutStepLimits stepLimits;
+    stepLimits.join.removal=contours;
+    const auto full=prepareExactCutStep(original,contacts,stepLimits);
+    std::cout<<"[uncut-m04] accepted="<<full.complete
+             <<" reason="<<full.refusal<<'\n';
+    if(!full.complete)
+        throw std::runtime_error(
+            "Certified fully buried unchanged base could not form a final union: "+
+            full.refusal);
+    check(!full.final->maybeFace(sourceBase)&&
+          std::binary_search(full.retiredFaces.begin(),
+                             full.retiredFaces.end(),sourceBase)&&
+          full.final->maybeFace(imported.flatIndex.faceIds[8])&&
+          connectedClosedSurfaceComponents(*full.final)==2,
+          "One root retires uncut buried original base but retains the true reversed cavity");
+    assertThreeBodyOneRootHistory(original,full,2,"buried-uncut-cavity");
     check(original->pickingRootIdentity()==rootIdentity&&
           original->retiredFaceCount()==0&&
           original->maybeFace(sourceBase)&&cut.index->maybeFace(sourceBase),
@@ -1921,14 +2040,19 @@ void testGenericCompleteThreeBodyTransverseGraph() {
     const auto final=prepareExactCutStep(root,all,limits);
     std::cout<<"[generic-triple] final="<<final.complete
              <<" final-refusal="<<final.refusal<<'\n';
-    if(final.complete)
-        check(final.expected==root&&final.final&&
-              connectedClosedSurfaceComponents(*final.final)==1,
-              "A fully validated generic three-body union must be connected");
-    else
-        check(!final.expected&&!final.final&&!final.commit.revision&&
-              final.addedFaces.empty()&&final.retiredFaces.empty(),
-              "Unsupported generic triple intersections remain entirely private");
+    assertThreeBodyOneRootHistory(root,final,1,"generic-12");
+    auto partial=all;
+    partial.pop_back();
+    const auto missing=prepareExactCutStep(root,partial,limits);
+    check(!missing.complete&&!missing.expected&&!missing.final&&
+          !missing.commit.revision&&missing.retiredFaces.empty(),
+          "Missing one of twelve original V13 contacts refuses without an original-root journal");
+    auto budget=limits;
+    budget.maxNetChangedIds=1;
+    const auto exceeded=prepareExactCutStep(root,all,budget);
+    check(!exceeded.complete&&!exceeded.expected&&!exceeded.final&&
+          !exceeded.commit.revision&&exceeded.addedFaces.empty(),
+          "Terminal original-root net stable-ID budget refuses without publishing a private cut");
     check(root->pickingRootIdentity()==originalRoot&&
           connectedClosedSurfaceComponents(*root)==3,
           "Triple-contact attempts never alter historical immutable pointers");
@@ -1995,6 +2119,39 @@ void testOrthogonalTripleJunctionProbe() {
         check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
               !joined.commit&&joined.weldedPairs.empty()),
               "Orthogonal junction mismatch refuses without a publishable seam or journal");
+        ExactSeamRefinementLimits refinementLimits;
+        refinementLimits.join=limits;
+        const auto refined=reconcileCertifiedSeamSubdivisions(cut,refinementLimits);
+        std::cout<<"[orthogonal-m04] refine="<<refined.complete
+                 <<" reason="<<refined.refusal
+                 <<" vertices="<<refined.insertedVertices
+                 <<" faces="<<refined.insertedFaces<<'\n';
+        if(refined.complete&&refined.refined) {
+            const auto paired=joinCertifiedCutSections(*refined.refined,limits);
+            std::cout<<"[orthogonal-m04] refined-join="<<paired.complete
+                     <<" reason="<<paired.refusal<<'\n';
+        }
+        ExactCutStepLimits stepLimits;
+        stepLimits.join.removal=contours;
+        const auto full=prepareExactCutStep(root,all,stepLimits);
+        std::cout<<"[orthogonal-m04] final="<<full.complete
+                 <<" reason="<<full.refusal<<'\n';
+        if(!full.complete)
+            throw std::runtime_error(
+                "Complete original-root orthogonal three-body union: "+full.refusal);
+        assertThreeBodyOneRootHistory(root,full,1,"orthogonal-16");
+        auto partial=all;
+        partial.pop_back();
+        const auto omitted=prepareExactCutStep(root,partial,stepLimits);
+        check(!omitted.complete&&!omitted.expected&&!omitted.final&&
+              !omitted.commit.revision&&omitted.retiredFaces.empty(),
+              "Missing one of sixteen original source contacts refuses entire orthogonal Step");
+        auto exhausted=stepLimits;
+        exhausted.refinement.maxCandidateTests=0;
+        const auto noWork=prepareExactCutStep(root,all,exhausted);
+        check(!noWork.complete&&!noWork.expected&&!noWork.final&&
+              !noWork.commit.revision,
+              "Zero seam interval work budget does not emit an incomplete triple-union root");
         std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
                  <<" reason="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete

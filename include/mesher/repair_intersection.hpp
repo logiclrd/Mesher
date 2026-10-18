@@ -396,6 +396,7 @@ struct ExactCutJoinResult {
     std::shared_ptr<const RegionTopologyIndex> index;
     std::optional<RevisionCommit> commit;
     std::vector<FaceId> retiredFaces;
+    std::vector<FaceId> retiredUncut,protectedUncut;
     std::vector<VertexId> retiredVertices;
     std::vector<FaceId> rewrittenFaces;
     std::vector<std::pair<VertexId,VertexId>> weldedPairs; // retired -> retained
@@ -408,7 +409,8 @@ struct ExactCutJoinResult {
 ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits={},
-    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
+    bool includeAuthorizedUncutOriginals=false);
 
 // V17-M02: Reconcile DIFFERENT exact source-section edge subdivisions
 // between two independently staged cut sheets. This is a private COW
@@ -431,7 +433,8 @@ struct ExactSeamRefinementResult {
 };
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
-    const ExactSeamRefinementLimits& limits={});
+    const ExactSeamRefinementLimits& limits={},
+    bool includeAuthorizedUncutOriginals=false);
 
 
 // V17e2b2d3: Stage the entire subdivision + certified seam join as
@@ -441,6 +444,8 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
 struct ExactCutStepLimits {
     ConformingCutLimits cut{};
     ExactCutJoinLimits join{};
+    ExactSeamRefinementLimits refinement{};
+    UncutFaceRetirementLimits uncut{};
     std::size_t partitionCapacity=256;
     bool requireMirrors=false; // explicit symmetric Step intent; no fallback
     std::size_t maxNetChangedIds=32768;
@@ -464,7 +469,7 @@ struct ExactCutStep {
     std::vector<std::pair<VertexId,VertexId>> addedMirrors,removedMirrors;
     std::vector<std::pair<FaceId,FaceId>> survivingMirroredFaces;
     std::vector<PartitionId> dirtyPartitions;
-    std::size_t copiedPayloadBytes{}; // cost of BOTH private COW edits
+    std::size_t copiedPayloadBytes{}; // cost of ALL private COW edits
     std::size_t finalCollisionSeeds{},checkedProtectedFaces{};
     // Relative counts; callers append one History entry using their
     // existing absolute counts. Does not include born-then-retired IDs.

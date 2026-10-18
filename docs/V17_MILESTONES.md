@@ -160,6 +160,53 @@ and universal exact Boolean support remain explicitly out of scope.
 
 ## V17-M04 — Complete closed three-body Boolean union
 
+**Implementation/acceptance:** Complete for the declared
+finite original-V13 transverse three-solid fixtures in a PRIVATE
+one-original-root net Step. `prepareExactCutStep` now composes M01
+canonical source point cuts with M02's additional explicitly verified
+source-side subdivision edit (if needed), M03's independent retirement
+authorization for whole uncut buried originals, and strict d2 private
+exact-weld closure. **The intermediate COW revisions are never published.**
+The seam preflight and final d2 removal are checked against the SAME
+M03-authorized source boundary, preventing the still-present but
+demonstrably buried whole original face from masquerading as an
+unpaired survivor seam. Every newly produced child FaceId and retained
+original requires independently recomputed c1/c2/c3/M03 proof;
+the original/root final comparison yields net stable IDs, tombstones,
+rewrites, true dirty partitions and the sum of private COW copied
+payloads, excluding identities born-and-retired before publication.
+
+The **complete** generic 12-contact and orthogonal 16-contact
+three-tetrahedron graphs both produce ONE final immutable connected,
+closed, orientably sewn union with no remaining nonadjacent final
+triangle intersections; protected source/cavity surfaces are unchanged.
+Their acceptance test audits all final faces, uses exactly one CAS
+against the captured baseline, rejects stale replay, appends ONE
+undoable history step, undoes/redoes exact counts and original pointer
+identity, checks net FaceId/VertexId and dirty journal counts, and
+restores a durable checkpoint with identical tombstones. A THIRD
+positive fixture—the one-apex-above/three-base-vertices-below
+protrusion—removes its completely untouched buried original base
+and retains an unrelated inward-oriented cavity shell, resulting
+in two intentional final closed components (outer connected union
+plus protected interior cavity). Full original V13 graph omission,
+tightened net changed-ID and interval sweep budgets and the earlier
+full 21-pair unsupported grazing/T examples refuse without any
+publishable root, history transition or partial stable-ID journal.
+
+This M04 gate does **not** enable a default or automatic worker
+Boolean policy. Its new M02+M03 path is asymmetric only; V17-M05
+owns complete reflected new section orbits and mirrored untouched
+face retirement; V17-M06 owns X=0 invariant seam orbits. V17-M07
+still owns the larger adversarial geometric refusal matrix; V17-M08
+owns repeated physical sculpt-triggered union Steps; V17-M09–M11
+own active cumulative fidelity/hysteresis, aggregate full-Step work
+caps, and post-CAS injected failure robustness. V17-M12 alone enables
+the default-off desktop option. Synthetic regression contour
+settings retain the previously accepted bounded V15 positive
+threshold envelope and do **not** change production defaults.
+
+
 **Objective.** Compose the three-body V13/c2/c1/c3/d2 results (and M03's extra authorization if necessary) into one private, complete original-root d3 transaction. Unlike M01/M02, this is the first positive **3 intersecting closed shells → 1 connected closed manifold** gate with genuine junctions, not merely two disconnected section loops through one face.
 
 **Acceptance.** At least the complete 12-contact generic and 16-contact orthogonal three-tetrahedron fixtures produce an accepted final immutable root with one connected, closed, correctly oriented, edge- and vertex-manifold union, zero relevant final changed-halo intersections, unchanged protected surface coordinates/witness bounds, valid net FaceId/VertexId retirement/rewrite/insert journals and a single original-root CAS/history/undo/checkpoint transition. Repeat entire contact discovery, no selected-pair shortcut; all unsupported historical 21-pair grazing/T cases still refuse atomically unless independently proven supported. No UI activation or claim of universal Boolean behavior.

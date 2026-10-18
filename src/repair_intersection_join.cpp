@@ -129,7 +129,8 @@ std::map<VertexId,VertexId> mirrorMap(
 ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits,
-    const std::unordered_map<VertexId,VertexId>* originalMirrors) {
+    const std::unordered_map<VertexId,VertexId>* originalMirrors,
+    bool includeAuthorizedUncutOriginals) {
     try {
         if(!cut.index||!cut.originalIndex||!cut.commit.revision||
            cut.commit.revision.get()!=&cut.index->revision()||
@@ -151,6 +152,28 @@ ExactCutJoinResult joinCertifiedCutSections(
         const auto& index=*cut.index;
         std::set<FaceId> deleted(nomination.proposedRemoval.begin(),
                                  nomination.proposedRemoval.end());
+        std::vector<FaceId> extraUncut,protectedUncut;
+        if(includeAuthorizedUncutOriginals) {
+            if(mirrored)return refused(
+                "Uncut original retirement mirror orbits require V17-M05");
+            const auto uncut=planUncutFaceRetirement(
+                cut,limits.removal);
+            if(uncut.status!=CutRemovalStatus::NoChanges&&
+               !uncut.ready())
+                return refused("Independent uncut original authorization: "+
+                               uncut.refusal);
+            if(uncut.ready()) {
+                if(!std::includes(uncut.combinedRemoval.begin(),
+                                  uncut.combinedRemoval.end(),
+                                  nomination.proposedRemoval.begin(),
+                                  nomination.proposedRemoval.end()))
+                    return refused("Uncut and c3 child removal journals disagree");
+                deleted.insert(uncut.authorizedUncut.begin(),
+                               uncut.authorizedUncut.end());
+                extraUncut=uncut.authorizedUncut;
+                protectedUncut=uncut.protectedUncut;
+            }
+        }
         std::map<FaceId,FaceId> sources;
         for(const auto& [child,source]:cut.childSources)
             if(!sources.emplace(child,source).second)
@@ -426,6 +449,15 @@ ExactCutJoinResult joinCertifiedCutSections(
             limits.residualCollisionLimits);
         if(!collisions.empty())
             return refused("Joined private seam has residual nonadjacent intersections");
+        for(const auto face:protectedUncut) {
+            if(!final->maybeFace(face)||
+               !cut.originalIndex->maybeFace(face)||
+               !exact(final->vertex(final->face(face).vertices[0]).position,
+                      cut.originalIndex->vertex(
+                          cut.originalIndex->face(face).vertices[0]).position)||
+               final->face(face).vertices!=cut.originalIndex->face(face).vertices)
+                return refused("Private seam changed an exposed/cavity uncut original");
+        }
         for(const auto face:nomination.protectedChildren) {
             if(!final->maybeFace(face))
                 return refused("Private seam retired an exposed or legitimate cavity child");
@@ -444,6 +476,8 @@ ExactCutJoinResult joinCertifiedCutSections(
         result.index=std::move(final);
         result.commit=std::move(committed);
         result.retiredFaces.assign(deleted.begin(),deleted.end());
+        result.retiredUncut=std::move(extraUncut);
+        result.protectedUncut=std::move(protectedUncut);
         result.retiredVertices.assign(removedVertices.begin(),removedVertices.end());
         for(const auto& [face,_]:rewritten)result.rewrittenFaces.push_back(face);
         for(const auto& [old,keep]:representative)
@@ -459,7 +493,8 @@ ExactCutJoinResult joinCertifiedCutSections(
 
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
-    const ExactSeamRefinementLimits& limits) {
+    const ExactSeamRefinementLimits& limits,
+    bool includeAuthorizedUncutOriginals) {
     ExactSeamRefinementResult out;
     const auto require=[](bool good,const char* reason) {
         if(!good)throw std::logic_error(reason);
@@ -474,9 +509,16 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
         require(originalNomination.ready()&&
                 !originalNomination.proposedRemoval.empty(),
                 "Seam refinement needs complete c1/c2/c3 removal authorization");
-        const std::set<FaceId> deleted(
+        std::set<FaceId> deleted(
             originalNomination.proposedRemoval.begin(),
             originalNomination.proposedRemoval.end());
+        if(includeAuthorizedUncutOriginals) {
+            const auto uncut=planUncutFaceRetirement(cut,limits.join.removal);
+            require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
+                    "Source-aligned seam needs independently certified uncut originals");
+            deleted.insert(uncut.authorizedUncut.begin(),
+                           uncut.authorizedUncut.end());
+        }
         std::map<FaceId,FaceId> sources;
         for(const auto& [child,original]:cut.childSources)
             require(sources.emplace(child,original).second,
@@ -716,8 +758,16 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
         for(const auto& [child,origin]:refined.childSources)
             require(newSources.emplace(child,origin).second,
                     "Refined source child journal duplicated a FaceId");
-        const std::set<FaceId> newDeleted(
+        std::set<FaceId> newDeleted(
             updated.proposedRemoval.begin(),updated.proposedRemoval.end());
+        if(includeAuthorizedUncutOriginals) {
+            const auto uncut=planUncutFaceRetirement(
+                refined,limits.join.removal);
+            require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
+                    "Refined seam lost original uncut-face authorization");
+            newDeleted.insert(uncut.authorizedUncut.begin(),
+                              uncut.authorizedUncut.end());
+        }
         auto matched=gather(*refined.index,newDeleted,newSources);
         std::size_t checks=0,matches=0;
         for(std::size_t k=0;k<refined.sourceContacts.size();++k) {
