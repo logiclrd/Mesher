@@ -580,6 +580,52 @@ remain V19. This M10 acceptance does not enable physical Merge.
 
 ## V17-M16 — Generic coincident geometry and seam-equivalence acceptance
 
+**M16 implementation and acceptance evidence.** The
+[bounded identity matrix](V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md)
+links each required *successful* source-certified union and
+*refused/preserved* topology to its actual original-source
+regression. The positive example translates the real M06
+two-tetra/THREE original-contact source geometry completely
+OFF X=0, WITHOUT a mirror map: the conforming private cut
+must retain two distinct stable VertexIds at EVERY one of
+its exact co-located source-owned endpoints. c1/c2/c3 and
+the physical d2 operation then produce one REAL 2→1
+closed connected oriented full-final collision-free manifold;
+the original-root composed Step succeeds, including with
+the entire original contact set reversed. This is not an
+X=0 special-case weld and cannot be satisfied by a safe
+refusal or a convenient position-key deduplication.
+The existing M05 fully reflected off-plane source graph
+now additionally checks the separate cut IDs and the
+postjoin reciprocal mirrored 2-component vertex fans.
+
+Negative and intentional-nonjoin fixtures include separate
+closed tetrahedra sharing exactly ONE source corner at
+X=0 and off-plane, with both original IDs retained in
+the unmodified/local-no-op revision and with NO permitted
+vertex-only Boolean seam; four independently closed
+tetrahedral tangent cones at a single exact point retain
+FOUR distinct VertexIds and must not be fused into a
+nonmanifold four-fan; a 1e-7 exterior gap forbids any
+near-neighbor pseudo-weld. A third distinct closed shell
+touching one corner of the active otherwise-positive
+two-body source region cannot be absorbed: either the
+proven pair alone joins while the third remains independent,
+or a complete refusal results. Omitting a real original
+V13 FaceId contact, forging a child owning FaceId, or
+exhausting the seam matching budget likewise yields no
+publishable root/commit or mirror/dirty delta.
+
+The independent terminal audit tests closed opposite-wound
+edge incidence, ONE connected vertex link per live stable
+ID, physical full-final collision freedom for certified
+joined sheets, permanent identity/protected source fidelity
+and immutable original renderer/picker readers. Existing
+M02/M03/M04/M05/M08/M09/M10 positive and safe-refusal
+regressions remain cross-checks. This bounded acceptance
+does NOT enable live physical sculpting: M11 remains the
+next peer; M12–M15 and V18/V19 retain their objectives.
+
 **Objective.** Apply the same *provenance-before-identity* rules to arbitrary **off-plane and on-plane** coincident coordinates: distinct source-owned vertices remain independent unless complete original V13 sections, opposite surviving finite intervals, c1/c2/c3 plus M03 authorization and valid full incident links justify a weld. X=0 reflection adds one fixed-point-orbit invariant but does not authorize welding unrelated coincident fans. Never deduplicate by global XYZ or nearest distance. The full design and test classification are normative in [COINCIDENT_VERTEX_TOPOLOGY.md](COINCIDENT_VERTEX_TOPOLOGY.md).
 
 **Acceptance.** An independently source-certified proper transverse **off-X=0** seam whose distinct pre-join vertices have exactly identical XYZ produces a genuine closed, oriented, vertex-/edge-manifold connected union (and mirrored reciprocal output where applicable). The original pre-join IDs remain separate through conformance and merge only at authorized d2 closure. A distinct accidental exact-coordinate duplicate in a valid, unjoined region retains its identity, with both X=0 and off-plane controls; unsupported requested joins safely refuse rather than creating a non-manifold fan. Near-coincident and vertex-only tangent, coincident unrelated component/cavity, coplanar, incomplete FaceId provenance, 3+/4-sheet conflicting fans, forged mirror self-orbits, degenerate link, quality/collision and work-exhaustion cases refuse atomically without coordinate snapping or partial publication. Verify complete V13 contacts, reversible discovery order, entire final edge and connected vertex-link manifold, mirror/tombstone/old-reader/worker-history identity, and unchanged M04/M05/M08/M09 positives. Distinguish **supported positive union** from **safe refusal**. Keep broader imported-mesh stress for V19.
