@@ -564,8 +564,9 @@ void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
     // Identical XYZ is deliberately NOT a reason to share a lifetime
     // protected source patch. Two coincident closed original octahedra
     // retain independent FaceIds and independent nearest-child audits.
+    const auto coincidentBefore=beginOriginalPatchLifetime(anchor);
     const auto lifetime=advanceOriginalPatchLifetime(
-        beginOriginalPatchLifetime(anchor),split,2,18);
+        coincidentBefore,split,2,18);
     const auto evidence=auditOriginalPatchLifetime(
         lifetime,original,126,18);
     check(evidence.total.distanceTests==126&&
@@ -578,7 +579,6 @@ void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
     // genuinely closed octahedra initially occupy identical points.
     // Only permanent original first-sheet FaceIds are authorized;
     // the second coincident component remains fully protected.
-    const auto coincidentBefore=beginOriginalPatchLifetime(anchor);
     const auto firstSheetIntent=declareOriginalPatchIntent(
         coincidentBefore,original->vertex(moving).incidentFaces,
         nullptr,16);
