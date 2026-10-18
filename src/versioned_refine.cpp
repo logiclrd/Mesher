@@ -189,6 +189,8 @@ VersionedRefineResult VersionedLocalRefiner::apply(
         throw std::invalid_argument("Refinement needs two immutable stamp revisions");
     VersionedRefineResult result;
     result.index=postInflate;
+    result.sourceIndex=postInflate;
+    result.stampOriginal=baseline.before;
     if(!settings_.enabled)return result;
 
     struct Candidate {Edge edge;double length;};
@@ -274,6 +276,17 @@ VersionedRefineResult VersionedLocalRefiner::apply(
                 addMirrorPair(mid,other);
                 result.insertedMirrorPairs.push_back({mid,other});
             }
+            // Record provenance ONLY after the complete validated edit.
+            // Each appended FaceId derives from its exact original incident
+            // face, not an arbitrary coincident world-space triangle.
+            for(std::size_t i=0;i<originalFaces.size();++i)
+                result.splitSources.push_back({
+                    current,result.index,originalFaces[i],addedFaces[i],
+                    mid,e.a,e.b});
+            for(std::size_t i=0;i<mirrorFaces.size();++i)
+                result.splitSources.push_back({
+                    current,result.index,mirrorFaces[i],mirrorAdded[i],
+                    other,mirrored.a,mirrored.b});
             ++result.statistics.splitPairs;
             result.statistics.newVertices+=paired?2u:1u;
             for(const auto id:{e.a,e.b,mid})touched.insert(id);
