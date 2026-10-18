@@ -289,6 +289,11 @@ SourceSplitLineage advanceCertifiedSplitLineage(
             throw std::logic_error("Committed split is missing an incident source face");
         std::set<FaceId> groupSources,groupChildren;
         std::map<VertexId,std::size_t> midpointUse;
+        // Each midpoint must subdivide ONE undirected permanent-ID edge,
+        // seen once in each opposite orientation. Coincident disjoint edges
+        // have different IDs and must never be falsely source-paired.
+        std::map<VertexId,std::pair<VertexId,VertexId>> midpointEdges;
+        std::map<VertexId,unsigned> midpointOrientations;
         for(std::size_t j=start;j<i;++j) {
             const auto& record=refined.splitSources[j];
             if(!record.sourceFace||!record.appendedFace||
@@ -311,21 +316,36 @@ SourceSplitLineage advanceCertifiedSplitLineage(
             const auto mid=(a->position+b->position)*.5;
             if(midpoint->position.y!=mid.y||midpoint->position.z!=mid.z||
                (midpoint->position.x!=mid.x&&
-                !(midpoint->position.x==0&&std::abs(mid.x)<=1e-9)))
+                !(refined.sourceSplitsSymmetric&&midpoint->position.x==0&&
+                  std::abs(mid.x)<=1e-9&&
+                  a->position.x==-b->position.x&&
+                  a->position.y==b->position.y&&
+                  a->position.z==b->position.z)))
                 throw std::logic_error("Child vertex is not its proven original edge midpoint");
             bool matches=false;
             const auto old=parent->vertices;
+            unsigned directedMask=0;
             for(unsigned k=0;k<3;++k) {
                 const auto u=old[k],v=old[(k+1)%3],c=old[(k+2)%3];
                 if(!((u==record.edgeA&&v==record.edgeB)||
                      (u==record.edgeB&&v==record.edgeA)))continue;
                 if(kept->vertices==std::array<VertexId,3>{u,record.midpoint,c}&&
                    appended->vertices==
-                       std::array<VertexId,3>{record.midpoint,v,c})
+                       std::array<VertexId,3>{record.midpoint,v,c}) {
                     matches=true;
+                    directedMask=u==std::min(record.edgeA,record.edgeB)?1u:2u;
+                }
             }
             if(!matches)
                 throw std::logic_error("Child triangles are not oriented exact source subdivisions");
+            const auto physicalEdge=std::minmax(record.edgeA,record.edgeB);
+            const std::pair<VertexId,VertexId> edgeIds{
+                physicalEdge.first,physicalEdge.second};
+            const auto [edgeIt,newEdge]=midpointEdges.emplace(
+                record.midpoint,edgeIds);
+            if(!newEdge&&edgeIt->second!=edgeIds)
+                throw std::logic_error("Two coincident source edges falsely share a midpoint ID");
+            midpointOrientations[record.midpoint]|=directedMask;
             ++midpointUse[record.midpoint];
             changed.insert(record.sourceFace);
             if(!changed.insert(record.appendedFace).second)
@@ -345,8 +365,9 @@ SourceSplitLineage advanceCertifiedSplitLineage(
         if(midpointUse.size()!=count/2)
             throw std::logic_error("Split group has inconsistent new midpoint count");
         for(const auto& [id,uses]:midpointUse) {
-            if(uses!=2||!seenMidpoints.insert(id).second)
-                throw std::logic_error("Split midpoint lacks exactly two original incident faces");
+            if(uses!=2||midpointOrientations[id]!=3u||
+               !seenMidpoints.insert(id).second)
+                throw std::logic_error("Split midpoint lacks both opposite source edge incidences");
         }
         ++groups;
         current=next;
