@@ -1310,6 +1310,113 @@ void testSectionsMeetAtInteriorTjunction() {
 }
 
 
+// V17e2b2d4: admit COMPLETE original V13 contact graphs in the same
+// closed three-solid crossing / T-junction fixtures previously used only
+// with two hand-selected contacts. Never infer union readiness from the
+// selected-face subdivision alone: the complete graph may contain triple
+// intersections or topology which the current seam matcher must refuse.
+void testFullThreeBodyContactAdmission() {
+    const auto exercise=[](bool tJunction) {
+        Mesh mesh;
+        const std::array<Vec3,12> positions=tJunction
+            ?std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-1,.7,-1},{.7,.7,-1},{.7,.7,1},{.5,2.5,3}
+            }}
+            :std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-2,.7,-1},{3,.7,-1},{.5,.7,2},{.5,2.5,3}
+            }};
+        for(const auto p:positions)mesh.vertices.push_back(p);
+        for(unsigned solid=0;solid<3;++solid) {
+            const auto v=4u*solid;
+            for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }})mesh.triangles.push_back({
+                v+t[0],v+t[1],v+t[2]});
+        }
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto root=RegionTopologyIndex::build(imported.revision);
+        const auto oldPicking=root->pickingRootIdentity();
+        check(connectedClosedSurfaceComponents(*root)==3,
+              "Triple-contact acceptance begins with three independent closed shells");
+        const auto all=root->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        check(all.size()>2,
+              "Three-solid contact graph must contain more than two original pairs");
+        const auto shared=imported.flatIndex.faceIds[0];
+        check(std::count_if(all.begin(),all.end(),
+            [&](const auto& p){return p.first==shared||p.second==shared;})>=2,
+              "One original triangle meets both other closed shells");
+        std::set<std::pair<FaceId,FaceId>> unique;
+        for(const auto& pair:all)
+            check(unique.emplace(pair.first,pair.second).second,
+                  "Complete V13 query must not repeat original contact identities");
+        std::cout<<"[three-body-contacts] kind="
+                 <<(tJunction?"T-junction":"crossing")
+                 <<" complete-pairs="<<all.size()<<'\n';
+
+        CutRemovalSettings contours;
+        contours.contours.maximumPlanarityInRadii=4.0;
+        contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+        contours.contours.maximumIsoperimetricRatio=20.0;
+        contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        contours.contours.maximumPerimeterRatio=20.0;
+        contours.contours.maximumGapInEdges=20.0;
+        contours.contours.minimumNormalAlignment=0;
+        ExactCutStepLimits limits;
+        limits.join.removal=contours;
+        try {
+            const auto cut=materializeTransverseCutCandidate(root,all);
+            check(cut.originalIndex==root&&cut.index&&
+                  cut.index!=root&&cut.sourceContacts.size()==all.size(),
+                  "Full original graph remains private and retains every section");
+            const auto c2=certifyConformingCutCoverage(cut);
+            const auto c1=assessConformingCutFragments(cut);
+            const auto c3=planExactCutRemoval(cut,contours);
+            std::cout<<"[three-body-cut] kind="
+                     <<(tJunction?"T-junction":"crossing")
+                     <<" coverage="<<c2.complete
+                     <<" coverage-reason="<<c2.refusal
+                     <<" winding="<<c1.complete
+                     <<" winding-reason="<<c1.refusal
+                     <<" removal="<<c3.ready()
+                     <<" removal-reason="<<c3.refusal<<'\n';
+        }catch(const std::exception& error) {
+            std::cout<<"[three-body-cut] kind="
+                     <<(tJunction?"T-junction":"crossing")
+                     <<" private-refusal="<<error.what()<<'\n';
+        }
+        // The ONLY publication authority is the composed original-root
+        // Step. A full graph which cannot prove all prerequisites must
+        // return no terminal root, net IDs, or CAS/history permission.
+        const auto final=prepareExactCutStep(root,all,limits);
+        std::cout<<"[three-body-step] kind="
+                 <<(tJunction?"T-junction":"crossing")
+                 <<" accepted="<<final.complete
+                 <<" reason="<<final.refusal<<'\n';
+        if(final.complete) {
+            check(final.expected==root&&final.final&&
+                  final.commit.revision.get()==&final.final->revision()&&
+                  connectedClosedSurfaceComponents(*final.final)==1,
+                  "Complete certified triple union is one closed connected root");
+        }else
+            check(!final.expected&&!final.final&&!final.commit.revision&&
+                  final.addedVertices.empty()&&final.retiredVertices.empty()&&
+                  final.addedFaces.empty()&&final.retiredFaces.empty()&&
+                  final.rewrittenFaces.empty()&&final.dirtyPartitions.empty(),
+                  "Unsupported complete triple graph refuses with no publishable Step");
+        check(root->pickingRootIdentity()==oldPicking&&
+              root->retiredFaceCount()==0&&
+              connectedClosedSurfaceComponents(*root)==3,
+              "Multi-section acceptance does not mutate old readers or original shells");
+    };
+    exercise(false);
+    exercise(true);
+}
+
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -1803,6 +1910,7 @@ int main() {
         testPrivateConformingRevisionCommitsAtomically();
         testCrossingMultipleSectionsPerOriginalTriangle();
         testSectionsMeetAtInteriorTjunction();
+        testFullThreeBodyContactAdmission();
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
