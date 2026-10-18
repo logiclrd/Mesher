@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <unordered_map>
@@ -470,6 +471,53 @@ void testLocalFlipAndRepeatedRevisions() {
         auto deformed=inflate.stamp(current,
             std::vector<BrushArea>{{{.25,-.65,.67},.52,.25}},16);
         auto changed=refiner.apply(deformed.index,deformed.baseline);
+        // M25: a genuinely accepted split-plus-flip transaction has an
+        // unrelated protected first-original patch with unchanged incidence
+        // and vertex coordinates. Verify ALL flip records independently.
+        std::optional<FaceId> untouched;
+        current->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& partition) {
+                for(const auto& face:partition.faces) {
+                    if(untouched||!changed.index->maybeFace(face.id)||
+                       !deformed.index->maybeFace(face.id)||
+                       changed.index->face(face.id).vertices!=face.vertices||
+                       deformed.index->face(face.id).vertices!=face.vertices)
+                        continue;
+                    bool stable=true;
+                    for(const auto vertex:face.vertices) {
+                        const auto original=current->vertex(vertex).position;
+                        const auto final=changed.index->vertex(vertex).position;
+                        const auto middle=deformed.index->vertex(vertex).position;
+                        if(length(original-final)!=0||
+                           length(original-middle)!=0)stable=false;
+                    }
+                    if(stable)untouched=face.id;
+                }
+            });
+        check(untouched.has_value(),"M25 finds a truly unaffected protected source face");
+        const auto anchors=captureOriginalSourceAnchors(current,{*untouched},7);
+        const auto certified=advanceCertifiedRefineLineage(
+            beginSourceSplitLineage(anchors),changed,4096,4096);
+        check(certified.original==current&&certified.terminal==changed.index&&
+              certified.living.size()==1&&
+              certified.living[0].second==std::vector<FaceId>{*untouched},
+              "Real split/flip transaction preserves independent unaffected source owner");
+        if(!changed.flipSources.empty()) {
+            auto forged=changed;
+            forged.flipSources.front().faces[1]=
+                forged.flipSources.front().faces[0];
+            bool refused=false;
+            try {(void)advanceCertifiedRefineLineage(
+                beginSourceSplitLineage(anchors),forged,4096,4096);}
+            catch(const std::logic_error&){refused=true;}
+            check(refused,"Duplicated committed flip FaceId refuses source certification");
+            refused=false;
+            try {(void)advanceCertifiedRefineLineage(
+                beginSourceSplitLineage(anchors),changed,
+                changed.splitSources.size()+changed.flipSources.size()-1,4096);}
+            catch(const std::length_error&){refused=true;}
+            check(refused,"One-below complete mixed split/flip evidence cap refuses");
+        }
         splits+=changed.statistics.splitPairs;
         flips+=changed.statistics.flipPairs;
         current=changed.index;
