@@ -252,6 +252,10 @@ void testM24MirroredSplitSourceOwnership() {
     // source equivalence from two near/identical XYZ positions.
     // (The next gate validates geometry and existence; it must also reject
     // omitted declared mirror maps.)
+    bool missing=false;
+    try {(void)advanceCertifiedSplitLineage(lineage,forged,64,96);}
+    catch(const std::logic_error&){missing=true;}
+    check(missing,"Omitting mirrored split journal must refuse rather than XYZ auto-pair");
     check(refiner.mirrors().size()>=ids.size(),
           "Real symmetric branch retains live permanent ID partners");
 }
