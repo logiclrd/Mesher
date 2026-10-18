@@ -171,7 +171,7 @@ std::string pairMirroredMultiSectionPlan(
         ++comparisons;
     };
     for(std::size_t i=0;i<plan.points.size();++i) {
-        const auto& p=plan.points[i];
+        auto& p=plan.points[i];
         if(p.existingVertex) {
             const auto originalTwin=mirrorOf(*p.existingVertex);
             if(!originalTwin||!existing.contains(*originalTwin))
