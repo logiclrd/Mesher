@@ -531,6 +531,49 @@ M11; the default-off desktop switch remains M15.
 
 ## V17-M10 — Supported-domain refusal and fidelity matrix
 
+**Completed M10 bounded acceptance (October 18).** A new
+[complete-source supported-domain register](V17_M10_SUPPORTED_DOMAIN.md)
+enumerates each bounded positive and refusal case by real ORIGINAL
+V13 contact count, source proof, validation stage and final topology
+result. The historical crossing and interior T-junction **21-contact**
+closed three-tetra original graphs (not their two selected locally
+cuttable curves) deterministically refuse, in original and reversed
+contact order, with NO intermediate or publishable original-root
+Step/journal, no retirement and unchanged three source components.
+Independent tetrahedra touching only at one XYZ, wholly coincident
+coplanar closed tetrahedral shells and a nested no-contact inner
+shell refuse any invented transverse Boolean joining/retirement.
+This is strict unsupported-domain behavior, not three claims of
+successful Boolean unions.
+
+The V16 near-coplanar, exact tangent, volumetric overlapping
+two-cube configurations and rotated/affine-sheared three-cube
+multi-shell stress cases are run through complete original V13
+discovery and terminal ORIGINAL-root preparation rather than
+selective approximate-scar authority. Such an input can only
+be classified as positive if the ONE terminal root independently
+passes connected closure, opposite oriented edge winding,
+connected vertex links and an exhaustive final nonadjacent
+collision test; any other case must refuse without residual
+journal or original-reader change. Separately, otherwise-positive
+generic **12-contact** three-body geometry proves that a too-small
+final full collision halo and too-small d2 source-seam trace budget
+refuse atomically, as does the existing strict net-ID budget.
+
+Pre-existing proven positives continue as regression controls:
+M04 generic/orthogonal 12/16 3→1, M05 off-plane mirrored 24/32,
+M08/M09 on-plane 3-contact 2→1, source-certified M02 unequal
+density and M03 untouched buried base with preserved reverse
+cavity. The M10 matrix enforces exact source geometry and does
+not relax production V13/V15 thresholds to force synthetic
+positives. Full GCC, Clang and MSVC warnings-as-errors build,
+23 CPU suites and applicable benchmarks passed at test code
+commit 79793ce (Actions 39142497184). The broader coincident-
+vertex equivalence/fan decision remains separate **M16**, already
+planned and now NEXT after M10, BEFORE M11 and M15; imported
+nonmanifold, tunnels, multi-way arbitrary joins and scalability
+remain V19. This M10 acceptance does not enable physical Merge.
+
 **Objective.** Turn actual discovered geometric limits into explicit *bounded, reproducible* supported/refused contracts rather than a promise of arbitrary overlapping solids. Exercise complete 21-pair historical crossing/T cases and V16's near-tangent/folded tests; clarify which near-parallel, coplanar, grazing, shared-vertex, branching, nested-loop, tunnel, multi-component, strongly nonplanar and imported nonmanifold inputs are unsupported.
 
 **Acceptance.** Deterministic matrix of positive cases and negative fail-closed cases using **complete V13 original contact discovery**, with diagnostics identifying the real blocker (input predicate, arrangement, occupancy, missing unchanged face, cavity, seam, quality, manifold, fidelity or work cap). No unsupported case produces a partial edit, new history entry, lost input, orphaned mirror pair, unbounded internal work or accepted residual self-intersection. Preserve finite edge/area/triangle-quality and sampled witness checks; do not silently relax production V15 thresholds to pass synthetic fixtures. This is a supported-domain contract, **not** the broader user-device/100k-vertex V19 program. Accidental exact/near-coincident identities are documented in [the coincidence contract](COINCIDENT_VERTEX_TOPOLOGY.md); M16 owns their independently accepted source-equivalence regression gate rather than silently broadening M10.
