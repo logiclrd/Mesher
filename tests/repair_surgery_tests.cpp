@@ -1257,6 +1257,84 @@ void testMixedExposedAndBuriedFaceProvenance() {
             index->pickingRootIdentity()==oldRoot,
             "Mixed-fragment inspection is strictly read-only");
 }
+void testM19FixedOriginalFaceSourceAnchorsAndRefusals() {
+    Mesh mesh;
+    cube(mesh,{},1);
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto oldPicker=original->pickingRootIdentity();
+    const std::vector<FaceId> sources{
+        imported.flatIndex.faceIds[2],imported.flatIndex.faceIds[3]};
+    const auto anchors=captureOriginalSourceAnchors(original,sources,14);
+    require(anchors.original==original&&anchors.faces.size()==2&&
+            anchors.faces[0].face==sources[0]&&
+            anchors.faces[0].originalEdgeLength>0,
+            "Original root and source FaceId identities remain fixed at capture");
+    const auto pristine=auditOriginalSourceAnchors(
+        anchors,original,*original,14);
+    require(pristine.witnessCount==14&&pristine.candidateFaces==2&&
+            pristine.distanceTests==14&&
+            pristine.maximumDistanceInEdges<1e-12,
+            "Seven samples per original FaceId and exact distance budget audit pristine source");
+    bool refused=false;
+    try {(void)auditOriginalSourceAnchors(
+        anchors,original,*original,13);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,
+            "One below exact source-face distance budget refuses without sampling subset");
+
+    const auto vertex=original->face(sources.front()).vertices.front();
+    const std::array<BrushArea,1> area{{
+        {original->vertex(vertex).position,.7,1}
+    }};
+    VersionedInflateBrush inflate(.35,{});
+    const auto moved=inflate.stamp(original,area,1);
+    require(moved.index!=original&&moved.moved>0,
+            "Source audit tests a real unpublished normal-driven geometric displacement");
+    const auto drift=auditOriginalSourceAnchors(
+        anchors,original,*moved.index,14);
+    require(drift.witnessCount==14&&drift.distanceTests==14&&
+            drift.maximumDistanceInEdges>1e-9&&
+            original->pickingRootIdentity()==oldPicker&&
+            original->retiredFaceCount()==0,
+            "Original source reference remains immutable; moved source has measurable drift");
+    refused=false;
+    try {(void)auditOriginalSourceAnchors(
+        anchors,moved.index,*moved.index,14);}
+    catch(const std::invalid_argument&){refused=true;}
+    require(refused,
+            "Different prior revision cannot silently replace first original anchor");
+
+    // Two distinct source FaceIds may cover the same spatial patch, but
+    // identical/near-identical XYZ alone cannot transfer original FaceId
+    // ownership. Reassign a pair of triangles to each other's source ID.
+    Mesh reordered=mesh;
+    std::swap(reordered.triangles[2],reordered.triangles[3]);
+    const auto other=RegionTopologyIndex::build(
+        partitionFlatMesh(reordered,1).revision);
+    require(other->maybeFace(sources.front())!=nullptr&&
+            other->face(sources.front()).vertices!=
+                anchors.faces.front().originalVertices,
+            "Fixture genuinely changes face source incidence while retaining its FaceId");
+    refused=false;
+    try {(void)auditOriginalSourceAnchors(anchors,original,*other,14);}
+    catch(const std::logic_error&){refused=true;}
+    require(refused,
+            "Unproven source face rewrite refuses rather than choosing a nearby candidate");
+
+    refused=false;
+    try {(void)captureOriginalSourceAnchors(
+        original,{sources.front(),sources.front()},14);}
+    catch(const std::invalid_argument&){refused=true;}
+    require(refused,"Duplicate protected original sources are invalid");
+    refused=false;
+    try {(void)captureOriginalSourceAnchors(original,sources,13);}
+    catch(const std::length_error&){refused=true;}
+    require(refused,"Original source witness capture enforces exact finite budget");
+    require(original->pickingRootIdentity()==oldPicker&&
+            original->retiredFaceCount()==0,
+            "All source audits/refusals are read-only on retained original root");
+}
 void testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift() {
     Mesh mesh;
     cube(mesh,{},1);
@@ -2301,6 +2379,8 @@ int main() {
         std::cout<<"Surgery fixture: intersected mixed face provenance"<<std::endl;
         testMixedExposedAndBuriedFaceProvenance();
         std::cout<<"Surgery fixture: explicit classified repair policy"<<std::endl;
+        std::cout<<"Surgery fixture: M19 immutable source FaceId surface audit"<<std::endl;
+        testM19FixedOriginalFaceSourceAnchorsAndRefusals();
         testAnchoredOriginalWitnessesProtectAgainstCumulativeDrift();
         testContactEpisodeHysteresisNeverCachesApproval();
         testRepeatedRealSymmetricTowerContactAndAnchoredSurface();
