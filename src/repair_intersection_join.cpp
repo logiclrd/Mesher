@@ -76,16 +76,22 @@ std::vector<Arc> trace(
         if(a.lo!=b.lo)return a.lo<b.lo;
         return a.hi<b.hi;
     });
-    if(found.empty())
-        throw std::logic_error("Original section has no exposed child boundary edges");
-    double covered=0;
+    // In a multi-solid union an original contact section can pass through
+    // a THIRD occupied solid. Its buried subintervals have no surviving
+    // removal boundary on either side, even though the c2 certificate
+    // must still trace the ENTIRE original curve along both cut sheets.
+    // Collect only actual c3-directed survivor boundaries here. Intervals
+    // may have gaps, but never overlap (duplicate ownership). The caller
+    // independently requires matching intervals and opposite directions
+    // on the two original sheets before any seam weld can be authorized.
+    double previousHigh=-epsilon;
     for(const auto& arc:found) {
-        if(arc.lo>covered+epsilon||arc.lo<covered-epsilon)
-            throw std::logic_error("Original section has a missing or duplicate boundary interval");
-        covered=arc.hi;
+        if(arc.lo< -epsilon||arc.hi>length0+epsilon||
+           arc.lo<previousHigh-epsilon)
+            throw std::logic_error(
+                "Original section has duplicate, overlapping or off-section boundary interval");
+        previousHigh=arc.hi;
     }
-    if(std::abs(covered-length0)>epsilon)
-        throw std::logic_error("Cut section is only partly represented by surviving child edges");
     return found;
 }
 std::map<VertexId,VertexId> mirrorMap(
@@ -181,8 +187,12 @@ ExactCutJoinResult joinCertifiedCutSections(
             return refused("No open intersection seam follows authorized face retirement");
 
         // Correspondences are introduced ONLY by a known V13 source pair
-        // and continuous child-EDGE chains on BOTH independently represented
-        // sheets. No global coordinate hash or nearest-vertex welding.
+        // and certified child-EDGE intervals on BOTH independently represented
+        // sheets. A third shell may bury a section subinterval; matching
+        // survivor intervals still require identical subdivisions/opposite
+        // winding. The final closed-manifold, complete c2 and whole-halo
+        // collision audits remain mandatory. No coordinate hash or
+        // nearest-vertex welding.
         std::map<VertexId,VertexId> parent;
         const auto root=[&](VertexId v) {
             while(parent.contains(v)&&parent.at(v)!=v)v=parent.at(v);
