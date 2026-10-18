@@ -466,6 +466,46 @@ This milestone stages NO published Step or history.
 
 ## V17-M09 — X=0 original-root Step/worker/checkpoint acceptance
 
+**Implementation/acceptance:** COMPLETE for the exact M06–M08
+source-proven X=0 THREE-original-contact two-closed-tetra geometry.
+The terminal original-root net journal includes one (id,id)
+`addedMirrors` for every LIVE new source-certified fixed X=0
+vertex, and one (id,id) `removedMirrors` when an original fixed
+vertex is truly retired. Ordinary off-plane IDs retain one
+distinct reciprocal pair per orbit, with exact source and final
+XYZ; intermediate born-and-retired private vertices/faces are
+excluded from net published mirror/history additions.
+The final root retains proper closed oriented vertex-link
+manifoldness and no nonadjacent collisions while original
+source corners, protected cavity surfaces and persistent
+historical readers remain unchanged. Changed root dirty
+partitions and ID/count/COW work journals are derived from
+only the ORIGINAL versus FINAL immutable states.
+
+The complete Step passes ONE captured-original CAS and stale
+replay refusal, one undo/redo history transition, and durable
+checkpoint read-back including singleton/pair mirror orbits,
+permanent tombstones and stable watermark identities.
+The queued async worker first refuses a missing original
+source pair with no published cut/history, then successfully
+completes one captured-root Step, rejects stale replay, reverses
+the mirrored fixed/pair journals on undo, re-applies the same
+journals on redo, saves terminal checkpoint, and restores a
+new symmetric worker whose three controller maps remain
+synchronized. Corrupt original off-plane self-orbits and
+work exhaustion refuse the entire Step atomically.
+The first failure in the worker regression was its test's
+uncanonical mirror-pair ordering, not a runtime restoration
+failure; canonicalized pair comparison then passed all
+cross-platform suites. GCC, Clang and MSVC warning-as-error
+code-head 29fec56 CI passed all 23 CPU tests and benchmarks
+in Actions run 39139919037.
+
+Automatic sculpt-triggered merging is STILL NOT enabled
+(M11), unexpected post-CAS exceptions are a separate
+terminal safety boundary (M14), and the desktop Merge
+geometry toggle remains default-off and disabled (M15).
+
 **Objective.** Complete the rest of the *unchanged original M07
 objective* by composing M06 cut, M07 c3, M08 closed d2 and any
 independently M03-authorized uncut original into exactly ONE

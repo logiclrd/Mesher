@@ -246,22 +246,28 @@ ExactCutStep prepareExactCutStep(
             std::set<std::pair<VertexId,VertexId>> visited;
             for(const auto id:composed.retiredVertices) {
                 const auto it=originalMirrors->find(id);
-                if(it==originalMirrors->end()||it->second==id||
+                if(it==originalMirrors->end()||
                    !originalMirrors->contains(it->second)||
                    originalMirrors->at(it->second)!=id)
-                    return reject("Retired historical vertex lacks its exact reciprocal mirror");
+                    return reject("Retired historical vertex lacks its exact reciprocal or fixed mirror");
                 const auto partner=it->second;
+                if(partner==id) {
+                    if(original->vertex(id).position.x!=0)
+                        return reject("Retired historical self-mirror ID was not fixed");
+                }else if(!reflected(original->vertex(id).position,
+                                    original->vertex(partner).position))
+                    return reject("Retired historical mirror XYZ is not reflected");
                 if(final.maybeVertex(partner)||
                    !std::binary_search(composed.retiredVertices.begin(),
                                        composed.retiredVertices.end(),partner))
-                    return reject("Final Step retired only half an original mirror orbit");
+                    return reject("Final Step retired only part of an original mirror orbit");
                 if(visited.insert(ordered(id,partner)).second)
                     composed.removedMirrors.push_back(ordered(id,partner));
             }
             for(const auto& [a,b]:prepared.mirroredVertices) {
                 if(a==b||!cutAddedVertices.contains(a)||
                    !cutAddedVertices.contains(b))
-                    return reject("New mirror journal contains non-new or self-paired ID");
+                    return reject("New mirror journal contains non-new or self-paired off-plane ID");
                 const bool liveA=final.maybeVertex(a)!=nullptr,
                            liveB=final.maybeVertex(b)!=nullptr;
                 if(liveA!=liveB)
@@ -273,6 +279,24 @@ ExactCutStep prepareExactCutStep(
                     composed.addedMirrors.push_back(ordered(a,b));
                 }
             }
+            std::set<VertexId> fixed;
+            for(const auto id:prepared.mirroredSeamVertices) {
+                if(!fixed.insert(id).second||
+                   !cutAddedVertices.contains(id)||original->maybeVertex(id)||
+                   !previous.maybeVertex(id)||previous.vertex(id).position.x!=0)
+                    return reject("Fixed new source mirror orbit is not a genuine cut ID");
+                if(final.maybeVertex(id)) {
+                    if(final.vertex(id).position.x!=0||
+                       !std::binary_search(composed.addedVertices.begin(),
+                                           composed.addedVertices.end(),id))
+                        return reject("Final composed Step lost a live new fixed seam orbit");
+                    composed.addedMirrors.emplace_back(id,id);
+                }else if(!removedVertices.contains(id))
+                    return reject("Fixed new source cut ID vanished without retirement");
+            }
+            if(cutAddedVertices.size()!=prepared.mirroredVertices.size()*2+
+                                        fixed.size())
+                return reject("New original-root Step has incomplete paired/singleton mirror journals");
             for(const auto& [a,b]:prepared.mirroredFaces) {
                 const bool liveA=final.maybeFace(a)!=nullptr,
                            liveB=final.maybeFace(b)!=nullptr;
@@ -285,7 +309,8 @@ ExactCutStep prepareExactCutStep(
                         std::min(a,b),std::max(a,b));
                 }
             }
-        }else if(!prepared.mirroredVertices.empty()||!prepared.mirroredFaces.empty())
+        }else if(!prepared.mirroredVertices.empty()||!prepared.mirroredFaces.empty()||
+                  !prepared.mirroredSeamVertices.empty())
             return reject("Nonmirrored Step unexpectedly allocated reflected orbits");
 
         // There is no whole-mesh traversal on this hot path. All partition

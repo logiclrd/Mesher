@@ -2868,6 +2868,120 @@ void testX0InvariantExactCutProbe() {
         check(a.x==bpos.x&&a.y==bpos.y&&a.z==bpos.z,
               "Every surviving historical original corner keeps EXACT XYZ");
     }
+    // M09: compose the M06 cut, M07 source c3 and M08 welded private
+    // d2 into exactly ONE net, ORIGINAL-root Step and mirror journal.
+    ExactCutStepLimits stepLimits;
+    stepLimits.requireMirrors=true;
+    stepLimits.join=joinLimits;
+    const auto net=prepareExactCutStep(root,contacts,stepLimits,&mirror);
+    std::cout<<"[x0-m09] complete="<<net.complete
+             <<" reason="<<net.refusal
+             <<" added="<<net.addedMirrors.size()
+             <<" retired="<<net.removedMirrors.size()<<'\n';
+    if(!net.complete)
+        throw std::runtime_error(
+            "M09 X=0 original-root composed Step refused: "+net.refusal);
+    check(net.expected==root&&net.final&&net.commit.revision&&
+          net.commit.revision.get()==&net.final->revision()&&
+          !net.dirtyPartitions.empty()&&
+          connectedClosedSurfaceComponents(*net.final)==1&&
+          allPairs(*net.final).empty(),
+          "X=0 terminal Boolean has one captured ORIGINAL-root Step, not an intermediate cut");
+    auditClosedVertexLinks(*net.final);
+    std::set<VertexId> journaled;
+    std::size_t fixedAdded=0;
+    for(const auto& [a,b]:net.addedMirrors) {
+        check(!root->maybeVertex(a)&&!root->maybeVertex(b)&&
+              net.final->maybeVertex(a)&&net.final->maybeVertex(b)&&
+              journaled.insert(a).second&&
+              (a==b||journaled.insert(b).second),
+              "New M09 net mirror orbit has exact unique LIVE VertexIds");
+        const auto p=net.final->vertex(a).position,
+                   q=net.final->vertex(b).position;
+        check(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+              "New net fixed/paired mirror map is physically reflected");
+        if(a==b) {
+            ++fixedAdded;
+            check(p.x==0,"One genuine fixed source VertexId adds one self-paired orbit");
+        }
+    }
+    check(fixedAdded>0&&net.addedMirrors.size()>fixedAdded,
+          "One Step journals BOTH surviving new X=0 singleton and off-plane paired points");
+    for(const auto& [a,b]:net.removedMirrors)
+        check(root->maybeVertex(a)&&root->maybeVertex(b)&&
+              !net.final->maybeVertex(a)&&!net.final->maybeVertex(b)&&
+              (a!=b||root->vertex(a).position.x==0),
+              "Removed ORIGINAL singletons or pairs retire only complete historical orbits");
+    IndexedMeshRepository repository(root);
+    check(repository.publishIfCurrent(net.expected,net.final)&&
+          !repository.publishIfCurrent(net.expected,net.final)&&
+          repository.snapshot()==net.final,
+          "One final X=0 original-root CAS succeeds and stale replay refuses");
+    std::size_t initialV=0,initialF=0,finalV=0,finalF=0;
+    root->revision().forEachPartition([&](PartitionId,const MeshPartition& p){
+        initialV+=p.vertices.size();initialF+=p.faces.size();
+    });
+    net.final->revision().forEachPartition([&](PartitionId,const MeshPartition& p){
+        finalV+=p.vertices.size();finalF+=p.faces.size();
+    });
+    check(static_cast<std::ptrdiff_t>(finalV)-
+              static_cast<std::ptrdiff_t>(initialV)==net.vertexCountDelta&&
+          static_cast<std::ptrdiff_t>(finalF)-
+              static_cast<std::ptrdiff_t>(initialF)==net.faceCountDelta,
+          "Original-root stable VertexId/FaceId count deltas equal final live counts");
+    RevisionHistory oneHistory(root,8,32*1024*1024,nullptr,initialV,initialF);
+    oneHistory.append(net.final,net.dirtyPartitions,
+                      net.addedMirrors,net.removedMirrors,
+                      net.copiedPayloadBytes,finalV,finalF);
+    check(oneHistory.statistics().undoDepth==1&&
+          oneHistory.undo().index==root,
+          "One X=0 composed Boolean appends ONE undoable original-root history Step");
+    check(oneHistory.redo().index==net.final,
+          "One redo restores the identical final immutable X=0 Boolean revision");
+    std::vector<std::pair<VertexId,VertexId>> checkpointPairs;
+    for(const auto& [a,b]:mirror)
+        if(a<=b&&net.final->maybeVertex(a)) {
+            check(net.final->maybeVertex(b)!=nullptr,
+                  "Old X=0 original mirror orbit retires in full");
+            checkpointPairs.emplace_back(a,b);
+        }
+    checkpointPairs.insert(checkpointPairs.end(),
+                           net.addedMirrors.begin(),net.addedMirrors.end());
+    std::sort(checkpointPairs.begin(),checkpointPairs.end());
+    const auto checkpointPath=std::filesystem::temp_directory_path()/
+        "mesher_v17_m09_x0_private_original_root.mshr";
+    writeCheckpoint(checkpointPath,{net.final,checkpointPairs,initialV});
+    const auto loaded=readCheckpoint(checkpointPath);
+    std::filesystem::remove(checkpointPath);
+    check(loaded.index&&loaded.mirrorPairs==checkpointPairs&&
+          loaded.index->retiredFaceIds()==net.final->retiredFaceIds()&&
+          loaded.index->retiredVertexIds()==net.final->retiredVertexIds()&&
+          connectedClosedSurfaceComponents(*loaded.index)==1,
+          "Durable X=0 checkpoint reload preserves singleton/pair mirror and tombstone history");
+    auto absentStep=contacts;
+    absentStep.pop_back();
+    const auto refusedStep=prepareExactCutStep(
+        root,absentStep,stepLimits,&mirror);
+    check(!refusedStep.complete&&!refusedStep.final&&
+          !refusedStep.commit.revision&&refusedStep.addedMirrors.empty(),
+          "One original V13 source contact missing refuses the entire net Step");
+    auto forgedFixed=mirror;
+    const auto nonfixed=imported.flatIndex.vertexIds[0];
+    forgedFixed[nonfixed]=nonfixed;
+    const auto forgedStep=prepareExactCutStep(
+        root,contacts,stepLimits,&forgedFixed);
+    check(!forgedStep.complete&&!forgedStep.expected&&!forgedStep.final&&
+          !forgedStep.commit.revision&&forgedStep.addedMirrors.empty()&&
+          forgedStep.removedMirrors.empty(),
+          "Misidentified off-plane historical X=0 fixed orbit cannot create ANY net Step");
+    auto limitStep=stepLimits;
+    limitStep.maxNetChangedIds=1;
+    const auto exhaustedStep=prepareExactCutStep(
+        root,contacts,limitStep,&mirror);
+    check(!exhaustedStep.complete&&!exhaustedStep.final&&
+          !exhaustedStep.commit.revision&&exhaustedStep.addedMirrors.empty(),
+          "Net singleton and paired history budget refuses before any CAS");
+
     auto partialJoin=cut;
     partialJoin.sourceContacts.pop_back();
     const auto missingJoin=joinCertifiedCutSections(
