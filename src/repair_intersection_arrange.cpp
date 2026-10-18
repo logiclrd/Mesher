@@ -332,6 +332,96 @@ bool arrangeFace(
         }
         if(!target||!addEdge(node,*target))return refuse(__LINE__);
     }
+    // A detached, simple closed section loop does not have any degree-one
+    // endpoints. Without a connection to the outer triangle perimeter,
+    // halfedge walking would triangulate BOTH the interior of the loop
+    // and the entire outer triangle, double-covering its occupied area.
+    // A single bridge creates a weakly simple face with repeated bridge
+    // vertices (which our ear clipper correctly rejects). TWO distinct,
+    // bounded, noncrossing ordinary scaffolds make both resulting faces
+    // simple while leaving all real V13 section edges untouched.
+    //
+    // Only isolated degree-two cycles qualify here. Complex detached
+    // arrangements, nested loops without visible chords, and ambiguous
+    // connector choices still refuse the entire source-face plan.
+    for(;;) {
+        std::map<std::size_t,std::vector<std::size_t>> adjacent;
+        for(const auto& [a,b]:graph) {
+            adjacent[a].push_back(b);
+            adjacent[b].push_back(a);
+        }
+        std::set<std::size_t> attached;
+        std::vector<std::size_t> stack(
+            boundaryPoints.begin(),boundaryPoints.end());
+        while(!stack.empty()) {
+            const auto node=stack.back();stack.pop_back();
+            if(!attached.insert(node).second)continue;
+            for(const auto next:adjacent.at(node))
+                if(!attached.contains(next))stack.push_back(next);
+        }
+        std::optional<std::size_t> detached;
+        for(const auto& [node,_]:adjacent)
+            if(!attached.contains(node)) {
+                detached=node;break;
+            }
+        if(!detached)break;
+        std::set<std::size_t> island;
+        stack.push_back(*detached);
+        while(!stack.empty()) {
+            const auto node=stack.back();stack.pop_back();
+            if(!island.insert(node).second)continue;
+            for(const auto next:adjacent.at(node))
+                if(!island.contains(next))stack.push_back(next);
+        }
+        if(island.size()<3)return refuse(__LINE__);
+        for(const auto node:island)
+            if(adjacent.at(node).size()!=2)
+                return refuse(__LINE__); // not a simple detached loop
+
+        struct Connector {
+            std::size_t from{},to{};
+            double distance{};
+        };
+        std::vector<Connector> possible;
+        for(const auto from:island)
+            for(const auto to:boundaryPoints) {
+                if(arrangementPredicates>=limits.maxArrangementPredicates)
+                    throw std::length_error("Enclosed-section scaffold candidate budget");
+                ++arrangementPredicates;
+                const auto a=locate(from),b=locate(to);
+                const auto span=std::hypot(a.x-b.x,a.y-b.y);
+                const auto k=std::minmax(from,to);
+                if(span<=tolerance||graph.contains({k.first,k.second})||
+                   !visible(from,to))continue;
+                possible.push_back({from,to,span});
+            }
+        std::sort(possible.begin(),possible.end(),
+            [](const Connector& a,const Connector& b) {
+                if(a.distance!=b.distance)return a.distance<b.distance;
+                if(a.from!=b.from)return a.from<b.from;
+                return a.to<b.to;
+            });
+        std::optional<std::pair<Connector,Connector>> selected;
+        for(const auto& first:possible) {
+            const auto endpoints=std::minmax(first.from,first.to);
+            graph.insert({endpoints.first,endpoints.second}); // speculative visibility only
+            for(const auto& second:possible) {
+                if(first.from==second.from||first.to==second.to)continue;
+                if(arrangementPredicates>=limits.maxArrangementPredicates)
+                    throw std::length_error("Enclosed-section double-scaffold budget");
+                ++arrangementPredicates;
+                if(!visible(second.from,second.to))continue;
+                selected=std::make_pair(first,second);
+                break;
+            }
+            graph.erase({endpoints.first,endpoints.second});
+            if(selected)break;
+        }
+        if(!selected)return refuse(__LINE__);
+        if(!addEdge(selected->first.from,selected->first.to)||
+           !addEdge(selected->second.from,selected->second.to))
+            return refuse(__LINE__);
+    }
     std::map<std::size_t,std::vector<std::size_t>> outgoing;
     for(const auto& [a,b]:graph) {
         outgoing[a].push_back(b);

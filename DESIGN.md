@@ -2835,3 +2835,63 @@ with **one** CAS from the original Step root. The original-anchored
 surface-witness audit remains read-only until V17 chooses explicit
 feature anchors and cumulative tolerance. V18 is separate nonmerge
 collision-constrained displacement; V19 remains wider desktop acceptance.
+
+
+## V17e2b2d4 — First bounded detached-loop full-contact union subset
+
+The earlier V17e2b2b2 arrangement can subdivide selected proper crossings,
+interior T-junctions and open section chains, but degree-one endpoint
+scaffolding did NOT cover a disconnected, closed, entirely face-interior
+intersection loop. Walking both the inner cycle and its outer triangle
+would double-cover area and fail the original-face orientation/area audit;
+a single bridge yields a weakly simple polygon with repeated vertices.
+
+For each detached graph component that is STRICTLY a simple degree-two
+closed cycle, the planner now searches a finite set of original-perimeter
+connector candidates. It installs exactly TWO ordinary, visible,
+noncrossing scaffold chords: distinct cycle nodes to distinct perimeter
+nodes, with bounded candidate and visibility predicates, graph-edge
+and triangulation work, deterministic distance/ID order. These chords
+join the graph sufficiently for simple halfedge regions and oriented ear
+clipping. They are NOT V13 contact sections and carry no weld authority.
+Unsupported detached branching, nested or unconnectable cycles,
+ambiguous crossings and exhausted budgets still refuse the whole plan.
+The original face area, oriented winding, child-edge coverage, protected
+corners, stable source IDs, immutable old root and final residual-collision
+audits remain prerequisites, not inferred from scaffold success.
+
+The new closed-shell fixture is one large tetrahedral shell with TWO
+independent compact tetrahedral protrusions. Each smaller tetrahedron
+has two vertices on either side of the large shell's common top face:
+all four of its original triangles participate in finite transverse
+contacts, producing EIGHT complete V13 source pairs. The two resulting
+disjoint interior quadrilateral section loops pass c1 positive-winding
+classification, independent c2 continuous two-sheet coverage, c3
+cavity-safe child selection, d2 provenance-only edge welding and d3
+one-original-root Step composition. The test-specific V15 contour
+envelope is finite and explicitly chosen: preliminary shape settings
+are relaxed only for the test, while the permissible hypothetical
+zipper gap is STRICTER (0.1 original-edge units) to avoid matching
+unrelated loops. The production V15 defaults are unchanged; the final
+union introduces NO zipper/cap strip or coordinate-based nearby weld.
+The resulting surface has ONE connected closed component from THREE
+original closed components, with preserved original picking identity.
+A matching explicit async worker FIFO regression checks one terminal
+snapshot, one original-root CAS/history Step, stale request refusal,
+undo/redo and durable stable-ID tombstones. It is not automatic desktop
+sculpt activation.
+
+A separate three-body crossing and interior T-junction fixture now
+submits the COMPLETE original contact graph to the cut/winding/
+coverage/removal/composed-Step probes rather than using only two
+selected section pairs. Acceptance is either an independently proven
+terminal closed union or an entirely nonpublishable refusal. This test
+does NOT claim that triple-junction unions now succeed. Importantly,
+an initial protrusion with one exposed vertex and three buried
+vertices left an entire unchanged original face fully buried. The
+seam adapter correctly refused its unproven cut boundary; deleting
+that untouched face would require a new complete safe classification
+and retirement policy. The following remain separately open:
+three-body crossing/T-junction final unions, buried unchanged faces,
+unequal edge densities, reflected multi-section, self-reflected X=0
+seams, and repeated automatic 4D sculpt/union desktop acceptance.

@@ -580,6 +580,26 @@ Mesh twoIntersectingTetrahedra(bool reflected=false) {
         mesh.triangles.push_back({face[0]+8,face[2]+8,face[1]+8});
     return mesh;
 }
+// Two disjoint transverse four-section loops in ONE original triangle.
+// Every face of each small protrusion crosses the top of the large closed
+// tetrahedron; no unchanged wholly buried face needs unauthorized deletion.
+Mesh twoSeparateFullSectionLoops() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,12>{{
+        {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+        {.375,.375,.25},{.625,.375,.25},
+        {.625,.625,-.25},{.375,.25,-.25},
+        {1,.25,.25},{1.25,.25,.25},
+        {1.25,.5,-.25},{1,.125,-.25}
+    }})mesh.vertices.push_back(p);
+    for(unsigned solid=0;solid<3;++solid) {
+        const auto v=solid*4;
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({v+t[0],v+t[1],v+t[2]});
+    }
+    return mesh;
+}
 std::vector<RegionTopologyIndex::CollisionPair> fullOriginalContacts(
     const RegionTopologyIndex& index) {
     std::vector<VertexId> vertices;
@@ -711,6 +731,79 @@ void testWorkerUnionRefusalsDoNotBlockLaterInput() {
     require(merged&&merged->index&&merged->index!=initial,
             "Worker is usable and publishes one complete Step after refusal");
 }
+void testWorkerMultipleCompleteSectionsOneHistoryStep() {
+    AsyncSculptWorker worker(twoSeparateFullSectionLoops(),.025,.006,.2,
+                             {},{},{},false);
+    const auto original=worker.initialRevision();
+    const auto historical=original->pickingRootIdentity();
+    const auto contacts=fullOriginalContacts(*original);
+    require(contacts.size()==8,
+            "Worker multiple-section fixture has all eight genuine original V13 pairs");
+    auto limits=supportedUnionLimits(false);
+    // The two spatially separated real seam orbits are not candidate
+    // partners for a hypothetical V15 zipper across protrusions.
+    limits.join.removal.contours.maximumGapInEdges=0.1;
+    worker.mergeExactContacts(original,contacts,limits);
+    waitForUnion(worker,1);
+    const auto status=worker.status();
+    if(status.completedUnions!=1)
+        throw std::runtime_error(
+            "Worker refused certified multiple-section union: "+
+            status.lastRejection);
+    require(status.rejectedUnions==0&&status.completedStamps==0&&
+            status.publishedRevisions==1&&status.history.undoDepth==1,
+            "Two section loops publish in one queued command and one history Step");
+    const auto ready=worker.takeSnapshot();
+    require(ready&&ready->index&&ready->index!=original&&
+            !ready->dirtyPartitions.empty()&&
+            original->pickingRootIdentity()==historical,
+            "Only final multiple-seam union is delivered to renderer/picker");
+    const auto final=ready->index;
+    worker.mergeExactContacts(original,contacts,limits);
+    waitForUnion(worker,2);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().history.undoDepth==1&&
+            !worker.takeSnapshot(),
+            "Original-root stale multi-loop request cannot publish or append history");
+    worker.undo();
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(15);
+    while(worker.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto reverted=worker.takeSnapshot();
+    require(reverted&&reverted->index==original,
+            "Multi-loop union has one undo to exact historical pointer");
+    worker.redo();
+    const auto redoDeadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(15);
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<redoDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto restored=worker.takeSnapshot();
+    require(restored&&restored->index==final,
+            "Multi-loop union redo returns same single terminal revision");
+    const auto file=std::filesystem::temp_directory_path()/
+                    "mesher-worker-v17-multiple-loop-union.mshr";
+    try {
+        worker.saveCheckpoint(file);
+        const auto saveDeadline=std::chrono::steady_clock::now()+
+                                std::chrono::seconds(15);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<saveDeadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "Multi-loop union checkpoint reaches durable writer");
+        const auto loaded=readCheckpoint(file);
+        require(loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
+                loaded.index->retiredVertexIds()==final->retiredVertexIds(),
+                "Multiple independent real contact seams preserve exact tombstones after reload");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(file,ec);
+        throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+}
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
     const auto imported=partitionFlatMesh(mesh,256);
@@ -787,6 +880,7 @@ int main() {
         testOptInCollisionAssessmentOnCleanAsyncStrokes();
         testVersionedWorkerWithRemeshingEnabled();
         testQueuedExactUnionOneStepHistoryAndRefusal();
+        testWorkerMultipleCompleteSectionsOneHistoryStep();
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";

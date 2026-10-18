@@ -1141,6 +1141,21 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   uneven densities, mirrored section intersections and X=0 seam orbits.
   Prove mesh-fidelity bounds and fan validity or fail closed; never
   reinterpret unrelated coincident sheets as contact partners.
+  **Qualified progress (PR #49):** bounded two-bridge scaffolding for
+  detached SIMPLE closed interior section loops, retaining every real
+  V13 constraint. A complete eight-contact, three-closed-tetrahedron
+  fixture with two separate loops in ONE source face now yields a
+  certified 3→1 manifold union using existing c1/c2/c3/d2/d3 gates.
+  Private original-root and queued worker tests exercise safe original
+  readers, stale root refusal, one history Step, undo/redo and durable
+  tombstones. The distinct three-body crossing/T-junction COMPLETE
+  graphs are now queried and probed end-to-end; unsupported topology
+  continues to refuse with no final Step. The separate 1-above/3-below
+  protrusion fixture also identified the still-open case of buried
+  original faces never touched by a transverse cut: do NOT retire them
+  without complete independent positive-winding authorization.
+  Crossings/T-junction completed union, reflected and X=0 seams,
+  differing densities and automatic repeated sculpt unions remain OPEN.
 - [ ] **V17e2b2d — Private exact-child excision and validated closure.**
   Consume only a V17e2b2c3 Ready nomination tied to one exact candidate
   revision; redo and validate the full private V16 surgery, mirrored
