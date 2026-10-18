@@ -112,7 +112,19 @@ std::string pairMirroredMultiSectionPlan(
         if(found==faceByVertices.end())
             return "Mirrored affected source face or edge neighbor absent";
         const auto j=found->second;
-        if(i==j)return "Invariant source face needs separate X=0 seam handling";
+        if(i==j) {
+            // A genuinely invariant triangular source has exactly ONE
+            // self-paired old point and TWO distinct reciprocal off-plane
+            // vertices. Faces entirely in the mirror plane are excluded.
+            const auto original=index.face(plan.faces[i].sourceFace).vertices;
+            std::size_t fixed=0;
+            for(const auto vertex:original) {
+                const auto other=mirrorOf(vertex);
+                if(!other)return "Invariant source has an incomplete fixed-point orbit";
+                fixed+=*other==vertex;
+            }
+            if(fixed!=1)return "Invariant original source face has unsupported fixed-point fan";
+        }
         if(!reversedCycle(corners,index.face(plan.faces[j].sourceFace).vertices))
             return "Source face winding is not oppositely mirrored";
         faceMirror[i]=j;
@@ -139,7 +151,7 @@ std::string pairMirroredMultiSectionPlan(
         return std::max({length(a-b),length(b-c),length(c-a)});
     };
     for(std::size_t i=0;i<plan.points.size();++i) {
-        const auto& p=plan.points[i];
+        auto& p=plan.points[i];
         if(p.existingVertex) {
             if(!index.maybeVertex(*p.existingVertex)||
                !existing.emplace(*p.existingVertex,i).second||
@@ -159,7 +171,7 @@ std::string pairMirroredMultiSectionPlan(
         ++comparisons;
     };
     for(std::size_t i=0;i<plan.points.size();++i) {
-        const auto& p=plan.points[i];
+        auto& p=plan.points[i];
         if(p.existingVertex) {
             const auto originalTwin=mirrorOf(*p.existingVertex);
             if(!originalTwin||!existing.contains(*originalTwin))
@@ -200,7 +212,37 @@ std::string pairMirroredMultiSectionPlan(
             match=j;
         }
         if(!match)return "Unpaired reflected arrangement junction or endpoint";
-        if(*match==i)return "New X=0 self-orbit requires seam-fan staging";
+        if(*match==i) {
+            if(counterpart!=provenance(p))
+                return "Ambiguous reflected source point has non-self provenance";
+            // On a genuine reflected source orbit, a whole-original
+            // mirrored edge or invariant face already fixes the physical
+            // seam at X=0. Double arithmetic in the independent V13
+            // section solver may yield |x|~1e-16 rather than bitwise
+            // zero. Correct ONLY this source-proven plane coordinate;
+            // never merge two different point IDs or move Y/Z/corners.
+            const auto scale=localScale(p);
+            const auto epsilon=std::max(
+                1e-12*scale,
+                128*std::numeric_limits<double>::epsilon()*
+                    std::max({std::abs(p.position.x),
+                              std::abs(p.position.y),
+                              std::abs(p.position.z),scale}));
+            bool fixedSource=false;
+            if(p.boundaryEdge) {
+                const auto a=mirrorOf(p.boundaryEdge->a);
+                const auto b=mirrorOf(p.boundaryEdge->b);
+                fixedSource=a&&b&&canonical(*a,*b)==*p.boundaryEdge;
+            }else {
+                const auto source=faceById.find(p.owningFace);
+                fixedSource=source!=faceById.end()&&
+                    faceMirror[source->second]==source->second;
+            }
+            if(!fixedSource||std::abs(p.position.x)>epsilon)
+                return "New self-mirrored section point is not source-proven on X=0";
+            p.position.x=0;
+            plan.mirroredSeamCutPoints.push_back(i);
+        }
         partner[i]=*match;
     }
     for(std::size_t i=0;i<partner.size();++i)
@@ -271,10 +313,68 @@ std::string pairMirroredMultiSectionPlan(
             if(match)return "Ambiguous reflected contact-curve orbit";
             match=j;
         }
-        if(!match||!matchedSegments.insert(*match).second)
-            return "Missing or duplicate reflected contact-curve orbit";
+        if(!match) {
+            std::string detail;
+            for(const auto& section:plan.segments)
+                detail+=" ["+std::to_string(section.firstFace)+"/"+
+                    std::to_string(section.secondFace)+"]";
+            return "No reflected section for original contact "+std::to_string(i)+
+                " source="+std::to_string(a.firstFace)+"/"+
+                std::to_string(a.secondFace)+
+                " reflected source pair "+std::to_string(first)+"/"+
+                std::to_string(second)+" sections:"+detail;
+        }
+        if(!matchedSegments.insert(*match).second)
+            return "Duplicate reflected section destination "+
+                std::to_string(*match)+" from original contact "+
+                std::to_string(i);
     }
 
+    // The same original V13 sections and the source-proven X=0 axis
+    // constrain both halves of an invariant original face. A local
+    // ear-walk might pick different diagonals across reflection. Keep
+    // the positive-X conforming half and reflect ALL of its complete
+    // child triangles into negative-X in reverse winding. The two
+    // half-disks meet at the SAME self-mirrored point IDs.
+    for(std::size_t i=0;i<plan.faces.size();++i) {
+        if(faceMirror[i]!=i)continue;
+        auto& face=plan.faces[i];
+        const auto& triangles=face.triangles;
+        if(triangles.empty())return "Invariant source face has no cut fan";
+        std::vector<std::array<std::size_t,3>> positive;
+        const auto triSide=[&](std::array<std::size_t,3> tri) {
+            int sign=0;
+            for(const auto v:tri) {
+                const auto x=plan.points.at(v).position.x;
+                if(x>0) {
+                    if(sign<0)return 0;
+                    sign=1;
+                }else if(x<0) {
+                    if(sign>0)return 0;
+                    sign=-1;
+                }
+            }
+            return sign;
+        };
+        for(const auto tri:triangles) {
+            const auto side=triSide(tri);
+            if(side==0)
+                return "Invariant original triangle crosses an uncut or degenerate X=0 axis";
+            if(side>0)positive.push_back(tri);
+        }
+        if(positive.empty())
+            return "Invariant source half-disk has no positive-area cut children";
+        std::vector<std::array<std::size_t,3>> symmetric=positive;
+        for(const auto tri:positive) {
+            if(++comparisons>limits.maxMirroredPairTests)
+                throw std::length_error("Invariant reflected child symmetry budget");
+            symmetric.push_back({
+                partner[tri[0]],partner[tri[2]],partner[tri[1]]});
+        }
+        face.triangles=std::move(symmetric);
+        if(!areaPreserved(index,face,plan.points))
+            return "Invariant source reflected half-fan failed original area/orientation";
+    }
     // The independent ear/scaffold walks are not required to choose the
     // same diagonal. Use ONE canonical face tessellation per orbit, and
     // reflect each child triangle with opposite winding, ensuring that

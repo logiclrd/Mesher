@@ -314,6 +314,11 @@ public:
     // entire edge; all incident faces must be split in one transaction.
     std::pair<FaceId,FaceId> splitSelfMirroredFace(
         FaceId face,VertexId from,VertexId to,VertexId midpoint);
+    // General bounded invariant-source fan; prove all child triangles
+    // occur in DISTINCT, reverse-winding reflected pairs. Keep one
+    // original FaceId and allocate only the other child FaceIds.
+    std::vector<std::pair<FaceId,FaceId>> replaceSelfMirroredFace(
+        FaceId source,const std::vector<std::array<VertexId,3>>& children);
     void removeMirroredFaces(FaceId first,FaceId second);
     void removeMirroredVertices(VertexId first,VertexId second);
     VertexId mirroredVertex(VertexId vertex) const;

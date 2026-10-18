@@ -2528,6 +2528,217 @@ void testReflectedUncutBurialCavityOrbits() {
           "Missing original mirror involution refuses paired classified face retirement");
 }
 
+void testX0InvariantExactCutProbe() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})mesh.vertices.push_back(p);
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})
+            mesh.triangles.push_back({tetra*4+t[0],
+                                      tetra*4+t[1],tetra*4+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::unordered_map<VertexId,VertexId> mirror;
+    for(unsigned tetra=0;tetra<2;++tetra) {
+        const auto start=tetra*4u;
+        const auto left=imported.flatIndex.vertexIds[start],
+                   right=imported.flatIndex.vertexIds[start+1],
+                   axisC=imported.flatIndex.vertexIds[start+2],
+                   axisD=imported.flatIndex.vertexIds[start+3];
+        mirror[left]=right;mirror[right]=left;
+        mirror[axisC]=axisC;mirror[axisD]=axisD;
+    }
+    const auto contacts=root->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    std::cout<<"[x0-m06] original-pairs="<<contacts.size()<<'\n';
+    for(const auto& c:contacts) {
+        const auto a=root->face(c.first).vertices,
+                   b=root->face(c.second).vertices;
+        std::array<Vec3,3> pa{},pb{};
+        for(unsigned i=0;i<3;++i) {
+            pa[i]=root->vertex(a[i]).position;
+            pb[i]=root->vertex(b[i]).position;
+        }
+        const auto section=splitTransverseTriangleContact(pa,a,pb,b);
+        std::cout<<"[x0-m06] pair="<<c.first<<","<<c.second
+                 <<" ambiguous="<<c.ambiguous
+                 <<" section="<<static_cast<int>(section.status)
+                 <<" start=("<<section.endpoints[0].x<<","
+                 <<section.endpoints[0].y<<","<<section.endpoints[0].z<<")"
+                 <<" end=("<<section.endpoints[1].x<<","
+                 <<section.endpoints[1].y<<","<<section.endpoints[1].z<<")"
+                 <<'\n';
+    }
+    check(contacts.size()==3,
+          "X=0 regression uses exactly three genuinely transverse ORIGINAL V13 contacts");
+    const auto previousIdentity=root->pickingRootIdentity();
+    const auto plan=buildConformingCutPlan(*root,contacts,{},&mirror);
+    if(plan.status!=IntersectionSectionStatus::TransverseSegment)
+        throw std::runtime_error(
+            "X=0 source-proven conforming arrangement refused: "+plan.refusal);
+    check(!plan.mirroredSeamCutPoints.empty()&&
+          !plan.mirroredCutPoints.empty(),
+          "Source-complete invariant cut has genuine fixed points and off-plane paired points");
+    std::set<std::size_t> fixedPointIndices(
+        plan.mirroredSeamCutPoints.begin(),
+        plan.mirroredSeamCutPoints.end());
+    check(fixedPointIndices.size()==plan.mirroredSeamCutPoints.size(),
+          "Each physical source fixed point appears once in the plan");
+    std::size_t invariantOriginalEdgeMidpoints=0;
+    for(const auto i:fixedPointIndices) {
+        check(i<plan.points.size()&&
+              plan.points[i].position.x==0&&
+              !plan.points[i].existingVertex,
+              "X=0 source seam has exactly one independent new fixed-point plan ID");
+        const auto& point=plan.points[i];
+        if(!point.boundaryEdge)continue;
+        const auto edge=*point.boundaryEdge;
+        const auto a=root->vertex(edge.a).position,
+                   b=root->vertex(edge.b).position;
+        if(a.x==-b.x&&a.x!=0&&a.y==b.y&&a.z==b.z) {
+            check(point.position.y==a.y&&point.position.z==a.z,
+                  "Invariant original edge midpoint cannot alter its exact Y/Z source");
+            ++invariantOriginalEdgeMidpoints;
+        }
+    }
+    check(invariantOriginalEdgeMidpoints>0,
+          "At least one invariant X=0 cut point is the exact original mirrored edge midpoint");
+
+    const auto cut=materializeTransverseCutCandidate(
+        root,contacts,{},256,&mirror);
+    if(!cut.index||!cut.commit.revision)
+        throw std::runtime_error("Invariant original contact cut did not materialize");
+    check(cut.originalIndex==root&&cut.index!=root&&
+          cut.commit.revision.get()==&cut.index->revision()&&
+          cut.index->pickingRootIdentity()!=previousIdentity&&
+          !cut.mirroredSeamVertices.empty(),
+          "Complete source cut uses ONE unpublished COW root with real X=0 vertices");
+    const auto coverage=certifyConformingCutCoverage(cut);
+    if(!coverage.complete)
+        throw std::runtime_error(
+            "Invariant conforming source-cut c2 coverage refused: "+coverage.refusal);
+    check(cut.sourceContacts.size()==contacts.size()&&
+          cut.sectionFirst.size()==contacts.size()&&
+          cut.sectionSecond.size()==contacts.size(),
+          "Every complete source V13 section has exact independently traced sheet endpoints");
+    check(cut.insertedVertices.size()==
+              cut.mirroredVertices.size()*2+cut.mirroredSeamVertices.size(),
+          "Each inserted vertex is accounted for by one distinct or fixed reflection orbit");
+    std::map<VertexId,VertexId> partners(mirror.begin(),mirror.end());
+    for(const auto& [a,b]:cut.mirroredVertices) {
+        check(a!=b&&!root->maybeVertex(a)&&!root->maybeVertex(b)&&
+              partners.emplace(a,b).second&&partners.emplace(b,a).second,
+              "New off-plane vertex IDs form real reciprocal reflection orbits");
+    }
+    for(const auto id:cut.mirroredSeamVertices)
+        check(!root->maybeVertex(id)&&cut.index->maybeVertex(id)&&
+              partners.emplace(id,id).second&&
+              cut.index->vertex(id).position.x==0,
+              "One permanent self-mirrored VertexId represents each new source fixed point");
+    std::set<FaceId> owned;
+    for(const auto& [child,source]:cut.childSources) {
+        check(owned.insert(child).second&&root->maybeFace(source)&&
+              cut.index->maybeFace(child),
+              "Every conforming child has unique FaceId and true original source provenance");
+    }
+    check(cut.mirroredFaces.size()>0,
+          "Invariant and off-plane source children are explicitly journaled");
+    std::set<FaceId> paired;
+    for(const auto& [a,b]:cut.mirroredFaces) {
+        check(owned.contains(a)&&owned.contains(b)&&
+              paired.insert(a).second&&
+              (a==b||paired.insert(b).second),
+              "Every conforming source child is in one exact reciprocal FaceId orbit");
+        const auto first=cut.index->face(a).vertices,
+                   second=cut.index->face(b).vertices;
+        bool reversed=false;
+        for(unsigned shift=0;shift<3;++shift) {
+            bool match=true;
+            for(unsigned j=0;j<3;++j)
+                if(!partners.contains(first[j])||
+                   partners.at(first[j])!=second[(shift+3-j)%3])
+                    match=false;
+            if(match)reversed=true;
+        }
+        check(reversed,
+              "Every invariant or reflected child has the exact expected reversed cycle");
+    }
+    check(paired.size()==owned.size(),
+          "No invariant child FaceId was silently omitted or duplicated");
+    for(const auto& [id,other]:mirror) {
+        check(root->vertex(id).position.x==
+              cut.index->vertex(id).position.x&&
+              root->vertex(id).position.y==
+              cut.index->vertex(id).position.y&&
+              root->vertex(id).position.z==
+              cut.index->vertex(id).position.z&&
+              partners.at(other)==id,
+              "Old protected X=0 and off-plane original corners stay byte-exact");
+    }
+    check(root->pickingRootIdentity()==previousIdentity&&
+          root->retiredFaceCount()==0&&root->retiredVertexIds().empty(),
+          "The source-cut alone cannot retire any original or mutate historical readers");
+    auto missing=contacts;
+    missing.pop_back();
+    bool incompleteRefused=false;
+    try {
+        const auto partial=materializeTransverseCutCandidate(
+            root,missing,{},256,&mirror);
+        incompleteRefused=!certifyConformingCutCoverage(partial).complete;
+    }catch(const std::exception&) {
+        incompleteRefused=true;
+    }
+    check(incompleteRefused,
+          "One missing ORIGINAL contact is never certified as complete X=0 coverage");
+    // The original source's former low-Y vertex was exactly on a
+    // supporting plane, creating a genuinely unsupported V13 graze.
+    // Fail closed rather than using the X=0 fixed-point rule to treat
+    // such a collision as a transverse source section.
+    auto tangent=mesh;
+    tangent.vertices[7].y=.1;
+    const auto tangentImport=partitionFlatMesh(tangent,256);
+    const auto tangentRoot=RegionTopologyIndex::build(tangentImport.revision);
+    std::unordered_map<VertexId,VertexId> tangentMirror;
+    for(unsigned tetra=0;tetra<2;++tetra) {
+        const auto start=tetra*4u;
+        const auto a=tangentImport.flatIndex.vertexIds[start],
+                   b=tangentImport.flatIndex.vertexIds[start+1],
+                   c=tangentImport.flatIndex.vertexIds[start+2],
+                   d=tangentImport.flatIndex.vertexIds[start+3];
+        tangentMirror[a]=b;tangentMirror[b]=a;
+        tangentMirror[c]=c;tangentMirror[d]=d;
+    }
+    const auto grazingContacts=tangentRoot->triangleIntersections(
+        tangentImport.flatIndex.vertexIds,{});
+    check(grazingContacts.size()>contacts.size()&&
+          buildConformingCutPlan(
+              *tangentRoot,grazingContacts,{},&tangentMirror).status!=
+              IntersectionSectionStatus::TransverseSegment,
+          "Genuine X=0 supporting-plane grazing remains strictly unsupported");
+
+    auto broken=mirror;
+    broken.erase(imported.flatIndex.vertexIds[0]);
+    const auto rejected=buildConformingCutPlan(*root,contacts,{},&broken);
+    check(rejected.status!=IntersectionSectionStatus::TransverseSegment,
+          "Absent original mirror map partner cannot produce X=0 source topology");
+    ConformingCutLimits tight;
+    tight.maxMirroredPairTests=0;
+    bool exhausted=false;
+    try {
+        const auto refused=buildConformingCutPlan(*root,contacts,tight,&mirror);
+        exhausted=refused.status!=IntersectionSectionStatus::TransverseSegment;
+    }catch(const std::length_error&) {exhausted=true;}
+    check(exhausted,
+          "Insufficient invariant orbit work never produces a consumable source cut");
+    std::cout<<"[x0-m06] cut=1 contacts="<<contacts.size()
+             <<" fixed="<<cut.mirroredSeamVertices.size()
+             <<" paired="<<cut.mirroredVertices.size()
+             <<" children="<<cut.childSources.size()<<'\n';
+}
 void testMirroredCompleteContactCoverage() {
     // Two real closed intersecting tetrahedra translated to X>0 plus
     // their exact reverse-winding reflection. Unlike the selective four
@@ -3027,6 +3238,7 @@ int main() {
         testGenericCompleteThreeBodyTransverseGraph();
         testOrthogonalTripleJunctionProbe();
         testMirroredMultipleSectionsReadOnly();
+        testX0InvariantExactCutProbe();
         testReflectedThreeBodyCompleteOriginalContacts();
         testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();

@@ -3307,3 +3307,104 @@ post-Inflate/refine/collapse Merge geometry is still off and
 belongs to M08/M12. Original V13/V15 thresholds, ring/zipper
 heuristics, protected geometry, V18 displacement constraint
 and broader V19 imported/large-model acceptance stay unchanged.
+
+## V17-M06/M07 flat forward replanning — preserve original X=0 objectives
+
+The previous single M06 combined two independent certification
+layers: V13-to-private COW conforming source topology with
+on-plane fixed-point identities, and terminal c1/c2/c3/d2
+Boolean removal/welding with original-root atomic history.
+A genuine complete three-pair closed-tetrahedron X=0 fixture
+revealed independently checkable failure modes: unsupported
+original tangency, about 5.55e-17 source-plane rounding,
+asymmetric planar ear diagonals, original-edge conforming
+midpoints, fixed-point allocation and mirrored seam class
+ownership. These are NOT grounds for global nearest-coordinate
+snapping or arbitrary Boolean deletion.
+
+The SAME original requirements are now planned as two FLAT,
+standalone green-CI milestones: M06 source-only certification
+and M07 exact terminal union/history. Former M07–M12 now
+M08–M13 respectively with every refusal-matrix, real
+sculpt-triggered union, active fidelity/hysteresis,
+aggregate work bound/telemetry, post-CAS fault protection
+and default-off desktop acceptance retained in order.
+No deeper child tasks are introduced and V17 stays open.
+
+## V17-M06 — Fully conforming private X=0 original-source cut
+
+The positive test now uses TWO closed reflected tetrahedra, each with
+a pair of mirror-related original off-axis vertices and two original
+self-mirrored X=0 vertices. A first geometry candidate had six V13
+contact hits but THREE were genuine grazing/tangencies on a source
+supporting plane, which the conservative V13 intersection-section
+solver rightly rejected. Moving that one source vertex to an
+interior dyadic coordinate left exactly THREE proper strictly
+transverse original contact pairs. Source coordinates and the FULL
+pair list, not selected subcontacts, are fed to the existing
+conforming planner.
+
+Two independent V13 triangle-section calculations on a proven
+invariant source face/edge placed the SAME physically invariant
+original-source cut point at X=-5.55112e-17 and X=0. This is
+a roundoff artifact *after* the original mirror involution and
+fixed source-face/edge provenance have been established. The
+mirrored source normalizer now accepts the self-orbit only after
+a bounded finite near-X-zero check AND an exact original source
+ID proof. It canonicalizes ONLY the X coordinate; neither Y/Z
+nor historic vertices change. A different point ID at nearby
+coordinates is NEVER globally welded, and near-plane input with
+no original invariant source proof continues to refuse.
+
+An invariant original triangle has a unique original FaceId, not
+two coincident reflected FaceIds. Its previous free triangle
+arrangement could choose an asymmetric ear scaffold; the new
+source fan builder uses its positive-X conforming side once and
+mirrors every triangle in reversed winding, sharing the existing
+on-plane source point indices and the ONE new fixed point index.
+All resulting children must lie within the original oriented
+source triangle, preserve total area and have complete incident
+fans. `RegionEdit` extends the prior V16 one-edge
+`splitSelfMirroredFace` operation to a full strict finite
+`replaceSelfMirroredFace` child fan. It supports distinct
+reflected child FaceId pairs and genuine self-mirrored singleton
+child faces, but never manufactures an all-X=0 coincident pair.
+Original source FaceIds keep one live rewritten descendant,
+new child FaceIds have exact parent provenance, and all new
+off-plane cut points use reciprocal mirror VertexId pairs.
+Every genuinely new on-plane point uses
+`appendSeamVertex` ONCE and is its OWN mirror map entry.
+The local COW edit checks all affected edge incidence and vertex
+fans before creating its unpublished immutable root.
+
+The conformance regression now enforces full three-contact V13
+coverage with an independent c2 certificate, every inserted
+vertex accounted for by exactly one paired or singleton orbit,
+every source-owned child accounted for by exactly one reflected
+face-orbit, reverse winding of all child partners, exact old
+corner coordinates and old reader/picking identity. Incomplete
+original V13 source pairs, incomplete historic mirror maps and
+exhausted mirrored orbit work never return a certified private
+candidate. The two components are not Boolean-welded here:
+the purpose of V17-M06 is exclusively ORIGINAL source CUT
+topology with exact self-reflection, not material classification,
+retirement, published history, or a complete Boolean union.
+
+This separation was intentionally decided and planned BEFORE
+further implementation in the flat milestone list; V17-M07
+is the independent same-objective closure/atomic-publication
+follow-on. An earlier exploratory X=0 one-Step attempt reached
+c3 but found 'Conflicting child-contour vertex mirror mapping':
+the historical mirrored c3 contour classifier still assumes
+two distinct VertexIds and FaceIds for each reflection orbit,
+and cannot yet authorize a self-paired fixed-point boundary.
+The partial c3, d2, Step and worker changes from the exploratory
+branch have been withheld from M06's accepted runtime source
+path. M07 must fix the refusal with true original provenance
+and valid invariant disk fans, never by weakening the V13/V15
+cavity or unique-edge predicates; only then can it test a
+single original-root final CAS, one undo/redo history entry,
+the worker's three synchronized mirror controllers and a
+durable exact mirror-orbit checkpoint. Both the old M05 off-plane
+positive acceptance and V17-M08–M13 downstream goals remain
+unchanged; the desktop Merge geometry option is still disabled.
