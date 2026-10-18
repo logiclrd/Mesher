@@ -596,6 +596,16 @@ void testLocalFlipAndRepeatedRevisions() {
               certified.living.size()==1&&
               certified.living[0].second==std::vector<FaceId>{*untouched},
               "Real split/flip transaction preserves independent unaffected source owner");
+        const auto m27FirstRoot=beginOriginalPatchLifetime(anchors);
+        const auto m27FinalRoot=advanceOriginalPatchLifetime(
+            m27FirstRoot,changed,4096,4096);
+        const auto m27Distance=auditOriginalPatchLifetime(
+            m27FinalRoot,current,7,4096);
+        check(m27FinalRoot.lineage.terminal==changed.index&&
+              m27FinalRoot.lineage.original==current&&
+              m27Distance.total.distanceTests==7&&
+              m27Distance.total.maximumDistanceInEdges<1e-12,
+              "M27 genuine committed 2-to-2 source flip retains unrelated immutable first original patch");
         if(!changed.flipSources.empty()) {
             // Reconstruct source identity from actual committed split
             // journals, never from face geometry. When the refiner flips
