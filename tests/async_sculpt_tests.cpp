@@ -1151,6 +1151,29 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     require(queued.status().history.redoDepth==0&&
             queued.status().history.undoDepth==1,
             "M18 worker redo restores single terminal Boolean history entry");
+    const auto durableFile=std::filesystem::temp_directory_path()/
+        "mesher-v17-m18-physical-worker-checkpoint.mshr";
+    try {
+        queued.saveCheckpoint(durableFile);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(queued.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(queued.checkpointStatistics().completed==1,
+                "M18 real queued physical terminal Step is durably saved");
+        const auto reloaded=readCheckpoint(durableFile);
+        require(reloaded.index&&
+                reloaded.index->retiredFaceIds()==
+                    queuedFinal->index->retiredFaceIds()&&
+                reloaded.index->retiredVertexIds()==
+                    queuedFinal->index->retiredVertexIds(),
+                "M18 queued recovered checkpoint preserves final-only permanent ID history");
+    }catch(...){
+        std::error_code ec;std::filesystem::remove(durableFile,ec);
+        throw;
+    }
+    std::error_code removeError;std::filesystem::remove(durableFile,removeError);
 
     // A deliberately exhausted source query refuses before any private
     // conformance root or history is exposed. A later identical valid
