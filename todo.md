@@ -939,8 +939,33 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   benchmarks passed at 29fec56 (Actions 39139919037).
   No automatic brush-triggered union, live UI toggle or post-CAS
   fault-atomicity activation: those remain M11, M15 and M14.
-- [ ] **V17-M10 — Full-contact geometric boundary and fail-closed acceptance matrix.**
+- [x] **V17-M10 — Full-contact geometric boundary and fail-closed acceptance matrix.**
   Historical 21-pair nontransverse examples, fold/tangent/near-coplanar/nested/multi-region refusals, finite work/quality thresholds and tested complete-contact supported cases. Classify exact/near-coincident contact refusals without confusing source identity and mere geometric equality; M16 owns independently positive and negative generic identity acceptance.
+  **Accepted bounded M10 matrix:** A dedicated source-owned acceptance
+  register in docs/V17_M10_SUPPORTED_DOMAIN.md separates PROVEN 12-/16-
+  contact 3→1, 24-/32-contact mirrored, three-contact X=0, M03 protected
+  cavity and M02 alignment positives from the complete historical
+  crossing/T 21-pair unsupported V13 graphs. Both original 21-pair
+  cases and REVERSED contact order refuse before creating a public
+  original-root Step; original 3 closed shells, picker, retirement,
+  net ID/mirror/dirty journals and history remain unchanged.
+  Vertex-only tangency, exact whole-shell coplanar coincidence and
+  fully nested no-V13-contact shells refuse instead of inventing a
+  seam, deduplicating XYZ or removing independent internal shells.
+  Actual V16 near-tangent and rotated/sheared folded cube fixtures
+  are re-probed with full original V13 contact discovery: any
+  successful terminal union must have ONE connected oriented
+  closed edge/vertex manifold with NO nonadjacent intersections,
+  otherwise the entire original-root Step refuses with stage reason.
+  Tightened otherwise-positive 12-contact final collision halo,
+  source seam trace and net stable-ID budgets refuse with NO partial
+  root. Production contact/V15 quality and source-coordinate policy
+  is unchanged. GCC/Clang/MSVC warning-clean 23-suite and benchmark
+  CI passed at test code head 79793ce (Actions 39142497184).
+  This completes the bounded refusal/support CONTRACT, not arbitrary
+  imported 3D topology, universal contact acceptance or automatic
+  sculpt-driven unions. Coincident ID identity remains the explicit
+  NEW M16 acceptance gate, NEXT before M11/M15.
 - [ ] **V17-M16 — Source-proven coincident-geometry and seam-equivalence acceptance.**
   Coordinate equality alone NEVER implies VertexId equivalence; distinct exact-coordinate source vertices remain distinct through private conformance. Prove a proper, source-complete off-X=0 transverse section weld yielding one genuinely closed oriented manifold (plus mirrored off-plane control) while preserving unrelated exact-coordinate duplicates on and off X=0. Require exact original FaceId/interval provenance, independently classified c1/c2/c3/M03 removal, valid connected final vertex links, edge winding, mirror orbits and no residual collisions. Accidental isolated corner/edge touches, protected cavity coincidences, wrong/near-coordinate pseudo-welds, incompatible multi-sheet fans and resource exhaustion must refuse without any partial root, mirror/history/dirty journal or dropped worker input. Regress M04/M05/M08/M09 positives and preserve old readers/tombstones. Full acceptance cases and non-goals: [docs/COINCIDENT_VERTEX_TOPOLOGY.md](docs/COINCIDENT_VERTEX_TOPOLOGY.md). **Complete after M10 and before M11/M15; peer milestone, not a nested subtask.**
 - [ ] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**

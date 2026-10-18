@@ -2105,6 +2105,22 @@ void testGenericCompleteThreeBodyTransverseGraph() {
     check(!exceeded.complete&&!exceeded.expected&&!exceeded.final&&
           !exceeded.commit.revision&&exceeded.addedFaces.empty(),
           "Terminal original-root net stable-ID budget refuses without publishing a private cut");
+    auto narrow=limits;
+    narrow.maxFinalCollisionFaces=1;
+    const auto noFinalHalo=prepareExactCutStep(root,all,narrow);
+    check(!noFinalHalo.complete&&!noFinalHalo.expected&&!noFinalHalo.final&&
+          !noFinalHalo.commit.revision&&
+          noFinalHalo.addedFaces.empty()&&noFinalHalo.retiredFaces.empty()&&
+          noFinalHalo.refusal.find("collision")!=std::string::npos,
+          "Successful private geometry still refuses when complete FINAL collision halo cannot be checked");
+    narrow=limits;
+    narrow.join.maxTraceTests=1;
+    const auto noSeamTrace=prepareExactCutStep(root,all,narrow);
+    check(!noSeamTrace.complete&&!noSeamTrace.expected&&!noSeamTrace.final&&
+          !noSeamTrace.commit.revision&&
+          noSeamTrace.addedVertices.empty()&&noSeamTrace.dirtyPartitions.empty()&&
+          noSeamTrace.refusal.find("trace")!=std::string::npos,
+          "Fully certified source graph cannot approve an untraced finite seam pair");
     check(root->pickingRootIdentity()==originalRoot&&
           connectedClosedSurfaceComponents(*root)==3,
           "Triple-contact attempts never alter historical immutable pointers");
@@ -3543,6 +3559,232 @@ void testMirroredMultipleSectionsReadOnly() {
     exercise(true);  // interior T-junction
 }
 
+// V17-M10: classify FULL original V13 contact graphs, never a hand-
+// selected locally-conforming subset. These historical 21-contact
+// crossing/T examples prove a private arrangement can be viable for
+// TWO pairs while the COMPLETE Boolean domain must still refuse.
+void addDomainCube(Mesh& mesh,Vec3 center,double half) {
+    const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},
+        {-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}
+    }})mesh.vertices.push_back(center+p*half);
+    for(const auto t:std::array<std::array<std::uint32_t,3>,12>{{
+        {0,2,1},{0,3,2},{4,5,6},{4,6,7},
+        {0,1,5},{0,5,4},{3,7,6},{3,6,2},
+        {0,4,7},{0,7,3},{1,2,6},{1,6,5}
+    }})mesh.triangles.push_back({first+t[0],first+t[1],first+t[2]});
+}
+void testSupportedDomainAdversarialMatrix() {
+    const auto proveNoPublication=[](
+        const std::shared_ptr<const RegionTopologyIndex>& root,
+        const ExactCutStep& decision,const char* label) {
+        check(!decision.complete&&!decision.expected&&!decision.final&&
+              !decision.commit.revision&&
+              decision.addedVertices.empty()&&
+              decision.retiredVertices.empty()&&
+              decision.addedFaces.empty()&&
+              decision.retiredFaces.empty()&&
+              decision.rewrittenFaces.empty()&&
+              decision.addedMirrors.empty()&&decision.removedMirrors.empty()&&
+              decision.survivingMirroredFaces.empty()&&
+              decision.dirtyPartitions.empty()&&
+              !decision.refusal.empty(),
+              "Unsupported V17-M10 input cannot leak intermediate root or history/ID authority");
+        check(root->retiredFaceCount()==0&&
+              root->retiredVertexIds().empty(),
+              "Adversarial source snapshot never acquires a retirement tombstone");
+        std::cout<<"[v17-m10] "<<label
+                 <<" decision=safely-refused stage="<<decision.refusal<<'\n';
+    };
+    const auto historical=[](bool tJunction) {
+        Mesh mesh;
+        const std::array<Vec3,12> positions=tJunction
+            ?std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-1,.7,-1},{.7,.7,-1},{.7,.7,1},{.5,2.5,3}
+            }}
+            :std::array<Vec3,12>{{
+                {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
+                {.7,-2,-1},{.7,3,-1},{.7,.5,2},{2.5,.5,3},
+                {-2,.7,-1},{3,.7,-1},{.5,.7,2},{.5,2.5,3}
+            }};
+        for(const auto p:positions)mesh.vertices.push_back(p);
+        for(unsigned k=0;k<3;++k)
+            for(const auto t:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+            }})
+                mesh.triangles.push_back({4*k+t[0],4*k+t[1],4*k+t[2]});
+        return mesh;
+    };
+    for(const bool tj:{false,true}) {
+        const auto imported=partitionFlatMesh(historical(tj),256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto identity=original->pickingRootIdentity();
+        const auto complete=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        check(complete.size()==21,
+              "Historical crossing/T test MUST use the complete 21-original-pair V13 graph");
+        const auto originalFaces=imported.flatIndex.faceIds;
+        const auto hasContact=[&](FaceId a,FaceId b) {
+            const auto pair=std::minmax(a,b);
+            return std::find_if(complete.begin(),complete.end(),
+                [&](const auto& c) {
+                    return c.first==pair.first&&c.second==pair.second;
+                })!=complete.end();
+        };
+        check(hasContact(originalFaces[0],originalFaces[4])&&
+              hasContact(originalFaces[0],originalFaces[8]),
+              "Both old selected two-pair planar cuts exist, but 19 more original pairs matter");
+        const auto completePlan=buildConformingCutPlan(*original,complete);
+        check(completePlan.status!=IntersectionSectionStatus::TransverseSegment&&
+              !completePlan.refusal.empty(),
+              "Historical 21-pair transverse selection must refuse its nontransverse full graph");
+        ExactCutStepLimits limits;
+        const auto result=prepareExactCutStep(original,complete,limits);
+        proveNoPublication(original,result,tj?"21-pair T-junction":"21-pair crossing");
+        auto reversed=complete;
+        std::reverse(reversed.begin(),reversed.end());
+        const auto reverseResult=prepareExactCutStep(original,reversed,limits);
+        proveNoPublication(original,reverseResult,
+                           tj?"reverse T-junction":"reverse crossing");
+        check(original->pickingRootIdentity()==identity&&
+              connectedClosedSurfaceComponents(*original)==3,
+              "Unsupported original 21-pair request preserves THREE historical closed shells");
+        // A strict hard stage cap is an independently observable
+        // BUDGET refusal; neither reason is promoted to a valid weld.
+        auto capped=limits;
+        capped.maxNetChangedIds=1;
+        const auto limited=prepareExactCutStep(original,complete,capped);
+        proveNoPublication(original,limited,"21-pair bounded refusal");
+    }
+    // Exact vertex-only tangency is not an intersection CURVE.
+    // The absence of a complete positive section must never turn into
+    // a synthetic seam merely because two original XYZs coincide.
+    {
+        Mesh mesh;
+        addTetrahedron(mesh,{0,0,0},1);
+        addTetrahedron(mesh,{2,2,0},1);
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto before=original->pickingRootIdentity();
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto result=prepareExactCutStep(original,all);
+        proveNoPublication(original,result,"vertex-only tetra tangent");
+        check(connectedClosedSurfaceComponents(*original)==2&&
+              original->pickingRootIdentity()==before,
+              "Touching but independently closed tetrahedra retain two independent vertex fans");
+    }
+    // Coincident coplanar boundary faces are NOT independent finite
+    // transverse two-sheet section evidence. A whole-face coincidence
+    // must not be mistaken for a valid closed Boolean seam.
+    {
+        Mesh mesh;
+        addTetrahedron(mesh,{0,0,0},1);
+        addTetrahedron(mesh,{0,0,0},1);
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        check(!all.empty(),
+              "Whole-shell coincidence is reported by bounded V13 contact discovery");
+        const auto result=prepareExactCutStep(original,all);
+        proveNoPublication(original,result,"coincident coplanar tetra shells");
+        check(connectedClosedSurfaceComponents(*original)==2,
+              "Rejected coincident entire closed shells preserve independent topology");
+    }
+    // V16's actual near-tangent and folded *closed cubes* are
+    // full-source exact Boolean probes, rather than relying solely on
+    // the older approximate-excision stress. Acceptance is permitted
+    // ONLY with one fully audited terminal union; a refusal must be
+    // total, diagnosed and preserve the source. These intentionally
+    // awkward contact graphs do not automatically become a supported
+    // positive merely because some local triangles are transverse.
+    const auto examine=[&](Mesh mesh,const char* label) {
+        const auto imported=partitionFlatMesh(mesh,32);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto oldRoot=original->pickingRootIdentity();
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        const auto result=prepareExactCutStep(original,all);
+        if(result.complete) {
+            check(result.expected==original&&result.final&&
+                  result.commit.revision.get()==&result.final->revision()&&
+                  connectedClosedSurfaceComponents(*result.final)==1&&
+                  allPairs(*result.final).empty(),
+                  "Accepted V16 near/folded complete contact must be a true closed nonintersecting union");
+            auditClosedVertexLinks(*result.final);
+            std::cout<<"[v17-m10] "<<label
+                     <<" decision=certified-positive contacts="<<all.size()<<'\n';
+        }else {
+            proveNoPublication(original,result,label);
+            std::cout<<"[v17-m10] "<<label
+                     <<" complete-original-contacts="<<all.size()<<'\n';
+        }
+        check(original->pickingRootIdentity()==oldRoot&&
+              original->retiredFaceCount()==0,
+              "V16 stressed original-reader identity remains immutable irrespective of outcome");
+    };
+    for(const unsigned variant:{0u,1u,2u}) {
+        Mesh mesh;
+        Vec3 a{-.55,-.1,-.2},b{.55,.15,.2};
+        double half=.9;
+        if(variant==1) {
+            half=1;a={-1,0,0};b={1-1e-7,.03,.07};
+        }else if(variant==2) {
+            half=1;a={-1,0,0};b={1,0,0};
+        }
+        addDomainCube(mesh,a,half);
+        addDomainCube(mesh,b,half);
+        examine(std::move(mesh),
+                variant==0?"V16 overlapping cubes":
+                variant==1?"V16 near-coplanar grazing":"V16 exact tangent plane");
+    }
+    // A deliberately strongly oblique/affine-folded 3-shell group
+    // reproduces V16's folded region family. The scope remains
+    // bounded: any uncertified multi-sheet arrangement must refuse,
+    // not masquerade as a useful Boolean joined mesh.
+    {
+        Mesh mesh;
+        const Vec3 middle{.35,-.7,.2},last{.05,-.35,-.7};
+        addDomainCube(mesh,{-1.25,0,0},1);
+        addDomainCube(mesh,middle,1);
+        addDomainCube(mesh,last,.8);
+        const double angle=.37-.7*.2;
+        const auto sn=std::sin(angle),cs=std::cos(angle);
+        for(unsigned i=8;i<16;++i) {
+            const auto p=mesh.vertices[i]-middle;
+            mesh.vertices[i]=middle+Vec3{
+                cs*p.x-sn*p.y,sn*p.x+cs*p.y,p.z};
+        }
+        for(unsigned i=16;i<24;++i) {
+            const auto p=mesh.vertices[i]-last;
+            mesh.vertices[i]=last+Vec3{
+                p.x+.25*p.z,p.y+.2*p.x,p.z};
+        }
+        examine(std::move(mesh),"V16 rotated/sheared folded three-shell junction");
+    }
+
+    // Nested bodies with no surface contact are not implicitly allowed
+    // to retire a shell: M03 only permits source-proven untouched-face
+    // retirement in a REAL complete intersection episode.
+    {
+        Mesh mesh;
+        addTetrahedron(mesh,{0,0,0},3);
+        addTetrahedron(mesh,{0,0,0},.25);
+        const auto imported=partitionFlatMesh(mesh,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto all=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        check(all.empty(),"Strictly nested closed shells have no original V13 surface contacts");
+        proveNoPublication(original,prepareExactCutStep(original,all),
+                           "fully nested without V13 source section");
+        check(connectedClosedSurfaceComponents(*original)==2,
+              "No-contact nested cavity/inner shell cannot disappear by inferred occupancy");
+    }
+}
 void testPruningAndNoOp() {
     SphereOptions options;
     options.vertexCount=700;
@@ -3585,6 +3827,7 @@ int main() {
         testReflectedThreeBodyCompleteOriginalContacts();
         testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();
+        testSupportedDomainAdversarialMatrix();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
