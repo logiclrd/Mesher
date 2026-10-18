@@ -937,13 +937,13 @@ void testPrivateConformingRevisionCommitsAtomically() {
             lineage.checkedFaceEvidence,8192);
         check(exactCap.checkedFaceEvidence==lineage.checkedFaceEvidence,
               "M26 exact face evidence bound is sufficient without a partial audit");
-        auto stale=prepared;
-        stale.expected=prepared.final;
-        bool refused=false;
+        auto m26Stale=prepared;
+        m26Stale.expected=prepared.final;
+        bool m26Refused=false;
         try {(void)advanceCertifiedExactCutLineage(
-            originalLineage,stale,nullptr,8192,8192);}
-        catch(const std::invalid_argument&){refused=true;}
-        check(refused,"M26 cannot re-anchor to a later drifting revision");
+            originalLineage,m26Stale,nullptr,8192,8192);}
+        catch(const std::invalid_argument&){m26Refused=true;}
+        check(m26Refused,"M26 cannot re-anchor to a later drifting revision");
         auto forged=prepared;
         auto fakeProof=std::make_shared<ExactCutSourceEvidence>(
             *prepared.sourceEvidence);
@@ -952,21 +952,21 @@ void testPrivateConformingRevisionCommitsAtomically() {
         fakeProof->classifiedChildren.front().kind=
             RegionTopologyIndex::FragmentKind::Ambiguous;
         forged.sourceEvidence=fakeProof;
-        refused=false;
+        m26Refused=false;
         try {(void)advanceCertifiedExactCutLineage(
             originalLineage,forged,nullptr,8192,8192);}
-        catch(const std::logic_error&){refused=true;}
-        check(refused,
+        catch(const std::logic_error&){m26Refused=true;}
+        check(m26Refused,
               "M26 forged c3 class cannot replace independently recomputed source winding");
         fakeProof=std::make_shared<ExactCutSourceEvidence>(
             *prepared.sourceEvidence);
         fakeProof->prepared.childSources.pop_back();
         forged.sourceEvidence=fakeProof;
-        refused=false;
+        m26Refused=false;
         try {(void)advanceCertifiedExactCutLineage(
             originalLineage,forged,nullptr,8192,8192);}
-        catch(const std::logic_error&){refused=true;}
-        check(refused,
+        catch(const std::logic_error&){m26Refused=true;}
+        check(m26Refused,
               "M26 an incomplete source-child journal cannot authorize d2 even if mesh is manifold");
         const auto countLive=[&](const RegionTopologyIndex& index) {
             std::pair<std::size_t,std::size_t> result{};
