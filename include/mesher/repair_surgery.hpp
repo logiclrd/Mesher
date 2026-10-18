@@ -118,6 +118,29 @@ SourceSplitLineage advanceCertifiedSplitLineage(
     std::size_t maxFaceEvidence=1024,
     std::size_t maxLivingDescendants=4096);
 
+struct VersionedCollapseResult;
+// V17-M25: verify actual validated 2→2 face swaps atop the M24
+// source-proven split chain. A protected flip is permitted only when
+// BOTH faces have the SAME unambiguous original protected source.
+// Different protected owners and mixed protected/unprotected patches
+// refuse rather than inferring ancestry from coordinates.
+SourceSplitLineage advanceCertifiedRefineLineage(
+    const SourceSplitLineage& prior,
+    const VersionedRefineResult& refined,
+    std::size_t maxFaceEvidence=1024,
+    std::size_t maxLivingDescendants=4096);
+// A source-certified collapse can advance when it leaves ALL nominated
+// original protected descendant faces and their XYZ unchanged. Removing
+// or moving protected Exposed/ReversedBoundary material is not allowed
+// without M21's intentional displacement policy; no such policy is
+// invented here. Every actual deleted/rewritten FaceId is independently
+// checked against its committed pre/post transaction and stable IDs.
+SourceSplitLineage advanceCertifiedCollapseLineage(
+    const SourceSplitLineage& prior,
+    const VersionedCollapseResult& collapsed,
+    std::size_t maxFaceEvidence=1024,
+    std::size_t maxLivingDescendants=4096);
+
 // Transactional closure surgery on a private region revision.
 // A successful result remains unpublished; the caller may perform an
 // IndexedMeshRepository::publishIfCurrent() against the original snapshot.

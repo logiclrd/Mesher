@@ -224,6 +224,24 @@ bool VersionedDirectionalCollapser::attempt(
         }
         result.removedVertices.push_back(b);
         if(paired&&mb!=b)result.removedVertices.push_back(mb);
+        // The complete private RegionEdit has already committed. Record
+        // its exact original/root edge endpoints and every changed FaceId
+        // in ONE event (including its reflected side when paired).
+        CollapseSourceEvidence evidence;
+        evidence.before=current;
+        evidence.after=result.index;
+        evidence.survivor=a;
+        evidence.retired=b;
+        evidence.mirrorSurvivor=ma;
+        evidence.mirrorRetired=mb;
+        evidence.symmetric=symmetric;
+        evidence.paired=paired;
+        for(const auto& changed:changes) {
+            if(changed.deleted)evidence.retiredFaces.push_back(changed.id);
+            else if(changed.original!=changed.next)
+                evidence.rewrittenFaces.push_back(changed.id);
+        }
+        result.collapseSources.push_back(std::move(evidence));
         if(symmetric) {
             // The previous geometry root preserves retired IDs. This map
             // describes *only* living pairs, without broken dangling links.
@@ -252,6 +270,8 @@ VersionedCollapseResult VersionedDirectionalCollapser::tryEdge(
         throw std::invalid_argument("Collapse requires an immutable stamp baseline");
     VersionedCollapseResult result;
     result.index=std::move(postEdit);
+    result.sourceIndex=result.index;
+    result.stampOriginal=baseline.before;
     if(!settings_.enabled||settings_.maximumPairsPerStamp==0)return result;
     if(!result.index->maybeVertex(a)||!result.index->maybeVertex(b)||
        !baseline.before->maybeVertex(a)||!baseline.before->maybeVertex(b))
@@ -273,6 +293,8 @@ VersionedCollapseResult VersionedDirectionalCollapser::apply(
         throw std::invalid_argument("Collapse requires an immutable stamp baseline");
     VersionedCollapseResult result;
     result.index=std::move(postEdit);
+    result.sourceIndex=result.index;
+    result.stampOriginal=baseline.before;
     if(!settings_.enabled||settings_.maximumPairsPerStamp==0)return result;
     struct Candidate {Edge id;double length;};
     std::set<Edge> seen;

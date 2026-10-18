@@ -359,6 +359,33 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             result.modifiedPartitions+=committed.statistics.modifiedPartitions;
             result.copiedDirectoryNodes+=committed.statistics.copiedDirectoryNodes;
             result.clonedPartitionBytes+=committed.statistics.clonedPartitionBytes;
+            // M25 evidence originates from the ACTUAL accepted RegionEdit.
+            // Preserve its immutable pair of roots, ordered face IDs and
+            // exact old/new incidence. The explicit real mirror involution
+            // prevents an unrelated coincident sheet being treated as a
+            // paired face just because its coordinates happen to match.
+            std::vector<std::pair<VertexId,VertexId>> orbit;
+            if(!mirrors_.empty()) {
+                std::set<VertexId> unique;
+                for(const auto id:seeds)unique.insert(id);
+                for(const auto id:unique) {
+                    const auto partner=mirrors_.at(id);
+                    orbit.emplace_back(id,partner);
+                }
+            }
+            const auto record=[&](const ProposedFlip& flip) {
+                RefineFlipSourceEvidence evidence;
+                evidence.before=current;
+                evidence.after=result.index;
+                evidence.faces=flip.faces;
+                evidence.newTriangles=flip.replacement;
+                evidence.oldTriangles={current->face(flip.faces[0]).vertices,
+                                       current->face(flip.faces[1]).vertices};
+                evidence.mirrors=orbit;
+                result.flipSources.push_back(std::move(evidence));
+            };
+            record(*first);
+            if(second)record(*second);
             for(const auto face:first->faces)result.changedFaces.push_back(face);
             if(second)for(const auto face:second->faces)
                 result.changedFaces.push_back(face);

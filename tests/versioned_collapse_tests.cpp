@@ -1,5 +1,6 @@
 #include "mesher/versioned_collapse.hpp"
 #include "mesher/versioned_refine.hpp"
+#include "mesher/repair_surgery.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -130,6 +131,110 @@ void testNoOpAndOneCollapse() {
     check(newId>b&&newId>a,"Stable IDs never recycled after local collapse");
     // Growth is deliberately discarded: it would otherwise add an orphan.
 }
+void testM25ConservativeProtectedCollapseProof() {
+    // Two permanent-ID-distinct closed components: a real compressed
+    // collapse touches only the first, while source anchors protect the
+    // untouched second. No inferred spatial or global ownership transfer.
+    Mesh mesh=octahedron();
+    const auto copy=octahedron();
+    const auto offset=static_cast<std::uint32_t>(mesh.vertices.size());
+    for(auto p:copy.vertices) {
+        p.x+=10;
+        mesh.vertices.push_back(p);
+    }
+    for(const auto face:copy.triangles)
+        mesh.triangles.push_back({face.a+offset,face.b+offset,face.c+offset});
+    const auto imported=partitionFlatMesh(mesh,1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    CollapseSettings settings;
+    settings.enabled=true;
+    settings.minimumEdgeRatio=2;
+    settings.maximumPairsPerStamp=1;
+    VersionedDirectionalCollapser collapser(mesh.vertices.size(),settings,{},1);
+    const VertexId a=imported.flatIndex.vertexIds[0];
+    const VertexId b=imported.flatIndex.vertexIds[1];
+    const Vec3 movedPos=mesh.vertices[0]*.6+mesh.vertices[1]*.4;
+    RegionEdit deformation(original,{b},{},1);
+    deformation.moveVertex(b,movedPos);
+    (void)deformation.commit();
+    const auto deformed=deformation.updatedIndex();
+    LocalStampBaseline baseline{original,{b},original->vertex(b).incidentFaces};
+    const auto collapsed=collapser.tryEdge(deformed,baseline,a,b);
+    check(collapsed.statistics.accepted==1&&
+          collapsed.collapseSources.size()==1&&
+          collapsed.collapseSources[0].retiredFaces.size()==2,
+          "M25 real source-collapse journal captures committed 2-face retirement");
+    std::vector<FaceId> farSources;
+    for(std::size_t i=8;i<16;++i)
+        farSources.push_back(imported.flatIndex.faceIds[i]);
+    const auto anchors=captureOriginalSourceAnchors(original,farSources,56);
+    const auto lineage=beginSourceSplitLineage(anchors);
+    const auto proved=advanceCertifiedCollapseLineage(
+        lineage,collapsed,32,8);
+    check(proved.original==original&&proved.terminal==collapsed.index&&
+          proved.living==lineage.living&&
+          original->maybeVertex(b)!=nullptr&&collapsed.index->retiredVertex(b),
+          "Real collapse leaves all protected first-original FaceIds and old readers intact");
+    const auto& event=collapsed.collapseSources.front();
+    const auto touched=event.before->vertex(event.survivor).incidentFaces.size()+
+                       event.before->vertex(event.retired).incidentFaces.size();
+    bool refused=false;
+    try {(void)advanceCertifiedCollapseLineage(
+        lineage,collapsed,touched-1,8);}
+    catch(const std::length_error&){refused=true;}
+    // The actual unique touched set is smaller than the sum above; compare
+    // against the independently measured unique stable-ID face halo.
+    std::set<FaceId> actualTouched;
+    for(const auto id:{event.survivor,event.retired})
+        for(const auto face:event.before->vertex(id).incidentFaces)
+            actualTouched.insert(face);
+    refused=false;
+    try {(void)advanceCertifiedCollapseLineage(
+        lineage,collapsed,actualTouched.size()-1,8);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"One below exact complete committed collapse face-halo budget refuses");
+    auto forged=collapsed;
+    forged.collapseSources.front().retiredFaces.pop_back();
+    refused=false;
+    try {(void)advanceCertifiedCollapseLineage(lineage,forged,32,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Missing source retirement refuses the whole committed collapse");
+    auto wrong=collapsed;
+    wrong.collapseSources.front().retired=b;
+    wrong.collapseSources.front().survivor=b;
+    refused=false;
+    try {(void)advanceCertifiedCollapseLineage(lineage,wrong,32,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Forged collapsed endpoint cannot inherit protected original source");
+
+    // A nearby ORIGINAL protected face sharing a surviving vertex must
+    // refuse even though its FaceId remains live: collapse moves its XYZ.
+    FaceId protectedNear=0;
+    for(const auto id:original->vertex(a).incidentFaces) {
+        const auto t=original->face(id).vertices;
+        if(std::find(t.begin(),t.end(),b)==t.end()) {
+            protectedNear=id;break;
+        }
+    }
+    check(protectedNear!=0,"Find face whose geometry a valid collapse would move");
+    const auto protectedAnchor=captureOriginalSourceAnchors(
+        original,{protectedNear},7);
+    refused=false;
+    try {(void)advanceCertifiedCollapseLineage(
+        beginSourceSplitLineage(protectedAnchor),collapsed,32,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Protected surviving original face cannot be deformed without M21 intent");
+    const auto removedAnchor=captureOriginalSourceAnchors(
+        original,{collapsed.removedFaces.front()},7);
+    refused=false;
+    try {(void)advanceCertifiedCollapseLineage(
+        beginSourceSplitLineage(removedAnchor),collapsed,32,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"Protected retired original source face is never authorized implicitly");
+    check(original->retiredFaceCount()==0&&
+          original->maybeVertex(b)!=nullptr,
+          "All refused protected-cavity/exterior candidate audits are read only");
+}
 void testMirroredCollapseAgainstLegacy() {
     SphereOptions options;
     options.vertexCount=500;
@@ -190,6 +295,52 @@ void testMirroredCollapseAgainstLegacy() {
                   "Both mirrored IDs retained as persistent tombstones");
             check(result.index->retiredFaceCount()==4,
                   "Both mirrored edge triangles removed atomically");
+            // Protect one untouched off-X=0 original face on each side
+            // of an ACTUAL accepted reflected collapse. No mirrored
+            // ancestry is inferred from coincident XYZ alone.
+            std::array<FaceId,2> protectedMirrors{};
+            before->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& part) {
+                    for(const auto& face:part.faces) {
+                        if(!result.index->maybeFace(face.id)||
+                           !after->maybeFace(face.id)||
+                           result.index->face(face.id).vertices!=face.vertices||
+                           after->face(face.id).vertices!=face.vertices)
+                            continue;
+                        bool stable=true;
+                        for(const auto v:face.vertices) {
+                            const auto p=before->vertex(v).position;
+                            if(length(p-after->vertex(v).position)!=0||
+                               length(p-result.index->vertex(v).position)!=0)
+                                stable=false;
+                        }
+                        if(!stable)continue;
+                        const auto x=before->vertex(face.vertices[0]).position.x+
+                                     before->vertex(face.vertices[1]).position.x+
+                                     before->vertex(face.vertices[2]).position.x;
+                        auto& chosen=protectedMirrors[x<0?0:1];
+                        if(!chosen)chosen=face.id;
+                    }
+                });
+            check(protectedMirrors[0]&&protectedMirrors[1],
+                  "Find untouched original mirrored exterior on both sides");
+            const auto protectedAnchor=captureOriginalSourceAnchors(
+                before,{protectedMirrors[0],protectedMirrors[1]},14);
+            const auto line=advanceCertifiedCollapseLineage(
+                beginSourceSplitLineage(protectedAnchor),result,1024,2);
+            check(line.terminal==result.index&&
+                  line.living.size()==2&&
+                  result.collapseSources.size()==1&&
+                  result.collapseSources.front().paired,
+                  "Real reflected collapse is certified while outer protected sources persist");
+            auto unpaired=result;
+            unpaired.collapseSources.front().mirrorRetired=
+                unpaired.collapseSources.front().retired;
+            bool failed=false;
+            try {(void)advanceCertifiedCollapseLineage(
+                beginSourceSplitLineage(protectedAnchor),unpaired,1024,2);}
+            catch(const std::logic_error&){failed=true;}
+            check(failed,"Missing reflected stable vertex source refuses actual paired collapse");
             for(const auto& [v,partner]:versioned.mirrors()) {
                 const auto left=result.index->vertex(v).position;
                 const auto right=result.index->vertex(partner).position;
@@ -285,6 +436,7 @@ void testMultipleLocalCollapses() {
 int main() {
     try {
         testNoOpAndOneCollapse();
+        testM25ConservativeProtectedCollapseProof();
         testMirroredCollapseAgainstLegacy();
         testMultipleLocalCollapses();
         std::cout<<"Versioned local collapse regression suite passed\n";
