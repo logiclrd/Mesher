@@ -154,10 +154,8 @@ ExactCutJoinResult joinCertifiedCutSections(
                                  nomination.proposedRemoval.end());
         std::vector<FaceId> extraUncut,protectedUncut;
         if(includeAuthorizedUncutOriginals) {
-            if(mirrored)return refused(
-                "Uncut original retirement mirror orbits require V17-M05");
             const auto uncut=planUncutFaceRetirement(
-                cut,limits.removal);
+                cut,limits.removal,{},originalMirrors);
             if(uncut.status!=CutRemovalStatus::NoChanges&&
                !uncut.ready())
                 return refused("Independent uncut original authorization: "+
