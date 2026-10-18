@@ -1017,9 +1017,23 @@ void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
           std::chrono::steady_clock::now()<deadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     const auto undone=worker.takeSnapshot();
-    require(undone&&undone->index==root&&
-            checkpoint("undone").mirrorPairs==originalPairs,
-            "One worker undo restores SAME original root and all 8 historical mirror IDs");
+    require(undone&&undone->index==root,
+            "One worker undo restores SAME original immutable root");
+    const auto undoneMirrors=checkpoint("undone").mirrorPairs;
+    auto expectedOriginalMirrors=originalPairs;
+    for(auto& [a,b]:expectedOriginalMirrors)
+        if(b<a)std::swap(a,b);
+    std::sort(expectedOriginalMirrors.begin(),expectedOriginalMirrors.end());
+    if(undoneMirrors!=expectedOriginalMirrors) {
+        std::cout<<"[x0-m09-undo] original="<<expectedOriginalMirrors.size()
+                 <<" restored="<<undoneMirrors.size()<<'\n';
+        for(const auto& [a,b]:expectedOriginalMirrors)
+            std::cout<<"[x0-m09-undo] expected "<<a<<","<<b<<'\n';
+        for(const auto& [a,b]:undoneMirrors)
+            std::cout<<"[x0-m09-undo] actual "<<a<<","<<b<<'\n';
+    }
+    require(undoneMirrors==expectedOriginalMirrors,
+            "One X=0 worker undo restores all historical fixed and reciprocal mirror orbits");
     worker.redo();
     while(worker.status().history.redoDepth!=0&&
           std::chrono::steady_clock::now()<deadline)
