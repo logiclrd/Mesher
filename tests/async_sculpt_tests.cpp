@@ -1033,6 +1033,22 @@ void testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint() {
             loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
             loaded.index->retiredVertexIds()==final->retiredVertexIds(),
             "X=0 durable reload has exact live fixed/paired orbits and tombstones");
+    AsyncSculptWorker recovered(loaded,.025,.006,.2,{},{},{});
+    require(recovered.initialRevision()==loaded.index&&
+            recovered.status().history.undoDepth==0&&
+            recovered.status().publishedRevisions==0,
+            "Recovered X=0 worker begins from ONLY the committed terminal revision");
+    // A restored symmetric worker must have three mutually consistent
+    // mirror-controller states or this explicit command refuses before
+    // attempting source V13 planning with the wrong root.
+    recovered.mergeExactContacts(loaded.index,contacts,limits);
+    waitForUnion(recovered,1);
+    require(recovered.status().completedUnions==0&&
+            recovered.status().rejectedUnions==1&&
+            recovered.status().lastRejection.find("controllers disagree")==
+                std::string::npos&&
+            !recovered.takeSnapshot(),
+            "Recovered worker keeps synchronized fixed/pair maps while refusing stale source contacts");
 }
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
