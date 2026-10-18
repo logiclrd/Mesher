@@ -712,7 +712,7 @@ ConformingCutPlan buildMultiSectionCutPlan(
                 // Compare with the THREE actual *finite* original V13
                 // sections, not just their infinite supporting lines.
                 bool onAll=true,nearEnd=false;
-                for(const auto pairFaces:std::array<std::pair<FaceId,FaceId>,3>{{
+                for(const auto& pairFaces:std::array<std::pair<FaceId,FaceId>,3>{{
                     {triple[0],triple[1]},
                     {triple[0],triple[2]},
                     {triple[1],triple[2]}}}) {
