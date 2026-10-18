@@ -1723,6 +1723,40 @@ void testCompletePostSculptOriginalContactDiscovery() {
                     pairSet(ground)==pairSet(observed.contacts)&&
                     observed.originalCandidate==physical.index,
                     "Physical crossing uses the exact resulting root and all original pairs");
+            // The same actual private candidate may still be locally
+            // refined before the M18 decision. M17 must classify the
+            // final post-remesh root, including any newly owned FaceIds,
+            // rather than recycling its old pre-split pair list.
+            RefineSettings settings;
+            settings.enabled=true;
+            settings.maximumEdgeRatio=.1;
+            settings.maximumSplitPairsPerStamp=1;
+            settings.optimizeFlips=false;
+            VersionedLocalRefiner refiner(gap.vertices.size(),settings,{},256);
+            const auto afterRefine=refiner.apply(
+                physical.index,physical.baseline);
+            require(afterRefine.index!=physical.index&&
+                    !afterRefine.insertedVertices.empty(),
+                    "Physical M17 contact probe actually performs one local post-Inflate edge split");
+            std::vector<FaceId> changed=physical.baseline.affectedFaces;
+            changed.insert(changed.end(),
+                           afterRefine.changedFaces.begin(),
+                           afterRefine.changedFaces.end());
+            const auto classified=assessPostSculptOriginalContacts(
+                {gapRoot,afterRefine.index,physical.baseline.movedVertices,
+                 changed},false);
+            const auto allAfterSplit=afterRefine.index->triangleIntersections(
+                allVertices(*afterRefine.index),{});
+            if(classified.ready()) {
+                require(classified.originalCandidate==afterRefine.index&&
+                        pairSet(classified.contacts)==pairSet(allAfterSplit),
+                        "Real split/flip candidate certificates refer only to final post-remesh source FaceIds");
+            }else {
+                require(classified.status==SculptSourceContactStatus::Refused&&
+                        classified.contacts.empty()&&
+                        !classified.originalCandidate&&!classified.refusal.empty(),
+                        "Ambiguous post-remesh original graph refuses with no partial old-source journal");
+            }
             induced=true;
             std::cout<<"[v17-m17] genuine normal-driven gap-crossing: "
                      <<observed.contacts.size()
