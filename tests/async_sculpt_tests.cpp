@@ -686,6 +686,31 @@ void testQueuedExactUnionOneStepHistoryAndRefusal() {
     }
     std::error_code ec;std::filesystem::remove(file,ec);
 }
+void testWorkerUnionRefusalsDoNotBlockLaterInput() {
+    AsyncSculptWorker worker(twoIntersectingTetrahedra(),.025,.006,.2,
+                             {},{},{},false);
+    const auto initial=worker.initialRevision();
+    const auto contacts=fullOriginalContacts(*initial);
+    auto limits=supportedUnionLimits(false);
+    limits.maxNetChangedIds=1; // guaranteed full transaction refusal
+    worker.mergeExactContacts(initial,contacts,limits);
+    waitForUnion(worker,1);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().completedUnions==0&&
+            worker.status().history.undoDepth==0&&
+            worker.status().publishedRevisions==0&&
+            !worker.takeSnapshot(),
+            "Rejected work-bounded union publishes no partial root or mailbox");
+    worker.mergeExactContacts(initial,contacts,supportedUnionLimits(false));
+    waitForUnion(worker,2);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().completedUnions==1&&
+            worker.status().history.undoDepth==1,
+            "Valid queued union still commits after an earlier budget refusal");
+    const auto merged=worker.takeSnapshot();
+    require(merged&&merged->index&&merged->index!=initial,
+            "Worker is usable and publishes one complete Step after refusal");
+}
 void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     auto mesh=twoIntersectingTetrahedra(true);
     const auto imported=partitionFlatMesh(mesh,256);
@@ -714,7 +739,8 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     while(worker.status().history.redoDepth==0&&
           std::chrono::steady_clock::now()<deadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    require(worker.takeSnapshot()->index==original,
+    const auto undone=worker.takeSnapshot();
+    require(undone&&undone->index==original,
             "Mirrored worker undo restores original root and reciprocal old mirrors");
     worker.redo();
     while(worker.status().history.redoDepth!=0&&
@@ -762,6 +788,7 @@ int main() {
         testVersionedWorkerWithRemeshingEnabled();
         testQueuedExactUnionOneStepHistoryAndRefusal();
         testWorkerMirroredUnionMirrorHistoryAndCheckpoint();
+        testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"Async worker test failed: "<<e.what()<<'\n';
