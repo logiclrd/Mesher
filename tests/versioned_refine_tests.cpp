@@ -225,6 +225,45 @@ void testM24CertifiedSourceSplitsAndRefusals() {
           "Original-source ownership composes through two real split generations");
 }
 
+void testM24SelfMirroredPlaneSourceMidpoint() {
+    auto imported=partitionFlatMesh(octahedron(),1);
+    const auto& ids=imported.flatIndex.vertexIds;
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+    const std::array<std::uint32_t,6> counterpart{2,1,0,3,4,5};
+    for(std::size_t i=0;i<ids.size();++i)
+        mirrors.emplace_back(ids[i],ids[counterpart[i]]);
+    const auto originalFaces=imported.flatIndex.faceIds;
+    const auto anchors=captureOriginalSourceAnchors(original,originalFaces,56);
+    RegionEdit deformation(original,{ids[4]},mirrors,1);
+    deformation.moveVertex(ids[4],{0,0,1.6});
+    (void)deformation.commit();
+    const auto moved=deformation.updatedIndex();
+    const LocalStampBaseline baseline{
+        original,{ids[4]},original->vertex(ids[4]).incidentFaces};
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=8;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,mirrors,1);
+    const auto split=refiner.apply(moved,baseline);
+    bool hasFixed=false;
+    for(const auto& [a,b]:split.insertedMirrorPairs) {
+        if(a==b) {
+            hasFixed=true;
+            check(split.index->vertex(a).position.x==0,
+                  "Real symmetric runtime midpoint singleton lies on exact X=0");
+        }
+    }
+    check(hasFixed&&split.statistics.splitPairs>0,
+          "Actual reflected local split includes a genuinely self-mirrored X=0 midpoint");
+    const auto proven=advanceCertifiedSplitLineage(
+        beginSourceSplitLineage(anchors),split,64,96);
+    check(proven.terminal==split.index&&
+          proven.verifiedFaceSplits==split.splitSources.size(),
+          "Fixed-point split source lineages are certified, not duplicated into coincident IDs");
+}
 void testM24CoincidentSheetsKeepIndependentPermanentSourceIDs() {
     Mesh mesh=octahedron();
     const Mesh another=octahedron();
@@ -458,6 +497,7 @@ int main() {
         };
         scenario("M24 source split lineage",testM24CertifiedSourceSplitsAndRefusals);
         scenario("M24 mirrored split lineage",testM24MirroredSplitSourceOwnership);
+        scenario("M24 X=0 singleton source split",testM24SelfMirroredPlaneSourceMidpoint);
         scenario("M24 coincident independent sources",testM24CoincidentSheetsKeepIndependentPermanentSourceIDs);
         scenario("overflow split",testTransactionalSplitAndOverflow);
         scenario("mirrored split",testMirrorSplit);
