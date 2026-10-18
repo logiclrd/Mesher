@@ -17,7 +17,7 @@ Keeping completed V17e2b2c and V17e2b2d umbrella checkboxes open alongside compl
 
 ## Milestone rules — no further task nesting
 
-Each active milestone has exactly one flat ID, **V17-M01 through V17-M16**. No lettered, numbered or recursive child IDs are permitted. New M16 is an append-only peer scheduled **after M10 and before M11**: accepted M01–M15 labels and historical cross-references are not renumbered. This is an execution order, not a recursive ID hierarchy. An unresolved complication becomes either a named *acceptance case inside the same milestone* or a **new peer** milestone through an explicit rebaseline of the list—not M01a, M01b1, etc.
+Each active milestone has exactly one flat ID, **V17-M01 through V17-M18**. M17 and M18 are append-only independent peers scheduled before the original M11 acceptance; M11–M15 identifiers and objectives remain unchanged. No lettered, numbered or recursive child IDs are permitted. New M16 is an append-only peer scheduled **after M10 and before M11**: accepted M01–M15 labels and historical cross-references are not renumbered. This is an execution order, not a recursive ID hierarchy. An unresolved complication becomes either a named *acceptance case inside the same milestone* or a **new peer** milestone through an explicit rebaseline of the list—not M01a, M01b1, etc.
 
 Each milestone must deliver a bounded, independently reviewable change to the **existing immutable mesh**, private read-only diagnostic or explicit worker/desktop policy; its own positive/negative regression tests and measurable acceptance conditions; documentation of supported/refused geometry; and warning-clean GCC, Clang and MSVC CI. It must be possible to merge the milestone with the feature still disabled; where later milestones consume earlier ones, prerequisite interfaces must be explicit, rather than treating the entire V17 as one merge-sized unit. **Tests that accept safe refusal do not prove successful union.** Close a milestone only on its stated positive acceptance; a persistent exact-junction mismatch must not be rebranded as a finished three-body union.
 
@@ -42,6 +42,8 @@ The accepted foundation is V17a, V17b, V17c, V17d1/d2, V17e1/e2a, V17e2b1, V17e2
 | **V17-M09** | ONE original-root Step, net self-orbit mirrors, worker, undo/redo and checkpoint | M08 and M04/M05 history |
 | **V17-M10** | Finite supported/refused geometry and adversarial topology acceptance matrix | Existing cut/join; parallelizable |
 | **V17-M16** | General off-plane coincidence provenance, identity preservation and certified-only seam welding | M04/M05/M08/M09, source-aware M10 cases; REQUIRED before M11/M15 |
+| **V17-M17** | Complete post-sculpt original-source V13 contact graph; bounded read-only classification on actual private remesh candidate | M10/M16 proof domain; existing V17 candidate pipeline |
+| **V17-M18** | ONE physically triggered real exact Boolean union inside one sculpt Step, atomic original-root/mirror history | M17 contact graph and M09 original-root composer |
 | **V17-M11** | Repeated *actual sculpt-driven* symmetric classified union Steps and recovery | Accepted M04–M09 Boolean domain; M10 and M16 geometric safety gates |
 | **V17-M12** | Active cumulative exposed-detail and contact-episode decision policies | Existing anchor/episode diagnostics; can run in parallel |
 | **V17-M13** | Aggregate per-Step resource caps and honest timing/diagnostic telemetry | Existing per-query budgets; can run in parallel |
@@ -656,6 +658,61 @@ next peer; M12–M15 and V18/V19 retain their objectives.
 
 **Sequencing.** Added as an independently completable flat peer after M10, **before M11 and M15**. M01–M15 IDs and their completed objectives are unchanged; M16 is deliberately numbered out of execution order to avoid renumbering history.
 
+## V17-M17 — Complete V13 contact graph from a physical post-sculpt proposal
+
+**Why independently complete:** V16's existing `evaluateSculptCollisionCandidate`
+can classify and approximate-contour-heal a *different* geometry path.
+The exact M06–M10 union requires ALL source FaceId V13 pairs on the
+actual immutable input revision, not a small selected subset of
+contacts. Physical Inflate/refine/collapse may move, split, flip,
+or retire source IDs; the candidate's owner graph is therefore
+not the brush's previous snapshot. Mixing the two certificates
+would violate the source/identity contract of M16.
+
+**Objective:** Provide a read-only, bounded post-sculpt candidate
+contact evaluator on the complete candidate root. Preserve exact
+candidate FaceIds and full original V13 contacts; distinguish
+clean, finite-transverse candidate, ambiguous unsupported,
+and exhausted-work classification without a partial pair subset.
+Check reciprocal mirrored orbit integrity where specified.
+Tests must create REAL physical post-Inflate/remesh motion across a
+gap, independently recover full candidate contacts and their
+original-source pair identities, then demonstrate the already
+accepted exact private planner will see those same pairs. No
+Boolean construction, worker CAS, renderer, history or desktop
+switch is authorized at M17.
+
+**Negative:** tangent/coplanan, near coincidence, incomplete
+mirror source, stale root, and bounded collision query may not
+produce a partially certified contact set. Existing accepted
+clean stamps continue to commit unchanged. Old immutable
+reader/picking roots, mirror identities and source coordinates
+remain unmodified.
+
+## V17-M18 — First fully physical exact Boolean original-root Step
+
+**Why independently complete:** A real complete V13 candidate
+contact graph is not yet a safe sculpt commit. The exact join
+recomputes c1/c2/c3 and closure on the candidate, while the
+worker must incorporate pre-union Inflate/refine/collapse
+edits, changed mirrors and true net original-to-final stable
+IDs into ONE captured-original-root CAS/undo/checkpoint.
+The private M09 exact Step expected root equals the actual
+post-remesh candidate, NOT the earlier painter root.
+
+**Objective:** Use M17's complete candidate-pair decision to
+perform ONE genuinely physically induced exact finite-source
+transverse merge, including a reflected positive case whenever
+the already certified geometry supports it. No approximate
+V16 zipper may substitute for source-proven d2, and no private
+candidate/cut/join may be separately published. Refused
+candidate, budget or post-union validator failure must roll
+back all speculative maps, original stamp and dirties; a
+later supported physical stamp still succeeds. Verify
+current/previous immutable root, net ID and FaceId tombstone,
+single renderer dirty set, mirror orbits, one history/CAS,
+undo/redo and durable checkpoint. Still default off.
+
 ## V17-M11 — Repeated real sculpt-driven union Steps
 
 **Objective.** Replace the explicit-only V17e2b2d3b test command as the sole demonstrated success path with a narrowly supported, genuinely collision-triggered post-Inflate/refine/collapse union decision. Preserve 4D input sampler order, independently moving sheets, local split/flip/collapse, symmetry and the unchanged default off behavior.
@@ -716,3 +773,15 @@ next peer; M12–M15 and V18/V19 retain their objectives.
 | V17 | Live product objective, still open | M01–M16, culminating in M15 after M16 |
 
 The original exact identifier text, statuses, comments, test expectations and scope warnings are retained in [the verbatim task archive](V17_LEGACY_TASK_TREE.md). This table maps *ownership of remaining acceptance gaps*, not a claim that previously completed source code needs to be redone. The broad V17 objective remains unfinished until **every required flat milestone, including the new M16 coincidence gate**, has independently passed and M15's explicit activation gate is accepted. V18 and V19 have not been postponed, merged, deleted or changed.
+
+
+**October 18 post-M16 flat replanning note:** The old single M11
+objective remains completely intact. Its real sixteen-stamp physical
+positive, alternating symmetric tower, 4D queue drain, clean/no-contact,
+refusal-then-success, one original-root history per accepted union and
+cross-platform CI are *not* satisfied by M17's discovery or M18's
+first physically triggered positive. The sequence M17 → M18 → M11
+is required because physical input discovery, its exact candidate
+geometry ownership, and committed original-root transaction are
+independently testable gates. No recursively nested tasks or
+unbounded partially completed M11 checkbox are introduced.
