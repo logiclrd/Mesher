@@ -2,7 +2,7 @@
 
 **Authoritative work plan, rebaselined from Mesher `main` at `28c419f6` (PR #50).** Supersedes the *organization* of the older `V17e2b2...` nesting without changing the feature objectives, numerical acceptance policy, supported-domain limits, or any implementation already accepted. The [original task block](V17_LEGACY_TASK_TREE.md) is preserved verbatim; [`DESIGN.md`](../DESIGN.md) remains the detailed engineering history, and [V16 final acceptance](V16_FINAL_ACCEPTANCE.md) remains the pre-existing private-surgery boundary.
 
-## Why a new plan is necessary
+**October 18 M07 scope rebaseline:** M06 exposed three independently completable downstream gates (c3 invariant contour certification, d2 exact Boolean disk/weld, original-root worker/history). The *full* original M07 objective is retained as sequential flat M07–M09, and former M08–M13 objectives are renumbered M10–M15 without loss. Historical append-only DESIGN and archived genealogy retain their historical labels.\n\n## Why a new plan is necessary
 
 The earlier sequence described a speculative linear path through triangle clipping, winding, closure and live publication. Implementation exposed several **orthogonal** obstacles that should not become indefinitely nested descendants of one task:
 
@@ -17,7 +17,7 @@ Keeping completed V17e2b2c and V17e2b2d umbrella checkboxes open alongside compl
 
 ## Milestone rules — no further task nesting
 
-Each active milestone has exactly one flat ID, **V17-M01 through V17-M13**. No lettered, numbered or recursive child IDs are permitted. An unresolved complication becomes either a named *acceptance case inside the same milestone* or a **new peer** milestone through an explicit rebaseline of the list—not M01a, M01b1, etc.
+Each active milestone has exactly one flat ID, **V17-M01 through V17-M15**. No lettered, numbered or recursive child IDs are permitted. An unresolved complication becomes either a named *acceptance case inside the same milestone* or a **new peer** milestone through an explicit rebaseline of the list—not M01a, M01b1, etc.
 
 Each milestone must deliver a bounded, independently reviewable change to the **existing immutable mesh**, private read-only diagnostic or explicit worker/desktop policy; its own positive/negative regression tests and measurable acceptance conditions; documentation of supported/refused geometry; and warning-clean GCC, Clang and MSVC CI. It must be possible to merge the milestone with the feature still disabled; where later milestones consume earlier ones, prerequisite interfaces must be explicit, rather than treating the entire V17 as one merge-sized unit. **Tests that accept safe refusal do not prove successful union.** Close a milestone only on its stated positive acceptance; a persistent exact-junction mismatch must not be rebranded as a finished three-body union.
 
@@ -37,15 +37,17 @@ The accepted foundation is V17a, V17b, V17c, V17d1/d2, V17e1/e2a, V17e2b1, V17e2
 | **V17-M04** | Publishable private **three-body** union with complete original contacts and manifold/fidelity certification | M01–M03 where fixture needs them |
 | **V17-M05** | Explicitly mirrored off-plane multi-section/triple-surface union | M02/M04 geometry as needed |
 | **V17-M06** | Source-proven **X=0** invariant fixed-point cuts and reflected child-face fan topology, **private only** | M05 correspondence conventions |
-| **V17-M07** | Strict X=0 cavity-safe Boolean seam join, self-orbit retirements, one original-root transaction/history | M06 source-conforming cut and M04 publication conventions |
-| **V17-M08** | Finite supported/refused geometry and adversarial topology acceptance matrix | Existing cut/join; parallelizable |
-| **V17-M09** | Repeated *actual sculpt-driven* symmetric classified union Steps and recovery | Sufficient M04–M07 accepted Boolean domain |
-| **V17-M10** | Active cumulative exposed-detail and contact-episode decision policies | Existing anchor/episode diagnostics; can run in parallel |
-| **V17-M11** | Aggregate per-Step resource caps and honest timing/diagnostic telemetry | Existing per-query budgets; can run in parallel |
-| **V17-M12** | Transactional post-CAS/exception and persistent-state fault acceptance | Existing explicit d3b worker; can run in parallel |
-| **V17-M13** | Default-off live **Merge geometry** opt-in and targeted desktop acceptance | Relevant earlier positive gates, no unresolved publication safety failures |
+| **V17-M07** | Read-only positive X=0 c3 self/paired mirror contour, complete child classification and cavity-safe retirement | M06 private cut |
+| **V17-M08** | Complete original-contact X=0 exact PRIVATE d2 welded closed union, manifold/fidelity/collision audit | M07, M02/M03 |
+| **V17-M09** | ONE original-root Step, net self-orbit mirrors, worker, undo/redo and checkpoint | M08 and M04/M05 history |
+| **V17-M10** | Finite supported/refused geometry and adversarial topology acceptance matrix | Existing cut/join; parallelizable |
+| **V17-M11** | Repeated *actual sculpt-driven* symmetric classified union Steps and recovery | Sufficient M04–M07 accepted Boolean domain |
+| **V17-M12** | Active cumulative exposed-detail and contact-episode decision policies | Existing anchor/episode diagnostics; can run in parallel |
+| **V17-M13** | Aggregate per-Step resource caps and honest timing/diagnostic telemetry | Existing per-query budgets; can run in parallel |
+| **V17-M14** | Transactional post-CAS/exception and persistent-state fault acceptance | Existing explicit d3b worker; can run in parallel |
+| **V17-M15** | Default-off live **Merge geometry** opt-in and targeted desktop acceptance | Relevant earlier positive gates, no unresolved publication safety failures |
 
-Dependencies are **test prerequisites**, not permission to make an unbounded combined PR. For example M03, M10, M11 and M12 may be developed and merged while M01/M02 remain unresolved. A blocked milestone retains its ID and a specific refusal/acceptance counterexample; do not keep subdividing it recursively.
+Dependencies are **test prerequisites**, not permission to make an unbounded combined PR. For example M03, M12, M13 and M14 may be developed and merged while M01/M02 remain unresolved. A blocked milestone retains its ID and a specific refusal/acceptance counterexample; do not keep subdividing it recursively.
 
 ## V17-M01 — Canonical three-sheet junction provenance
 
@@ -198,11 +200,11 @@ publishable root, history transition or partial stable-ID journal.
 This M04 gate does **not** enable a default or automatic worker
 Boolean policy. Its new M02+M03 path is asymmetric only; V17-M05
 owns complete reflected new section orbits and mirrored untouched
-face retirement; V17-M06 owns X=0 invariant seam orbits. V17-M08
-still owns the larger adversarial geometric refusal matrix; V17-M09
-owns repeated physical sculpt-triggered union Steps; V17-M10–M12
+face retirement; V17-M06 owns X=0 invariant seam orbits. V17-M10
+still owns the larger adversarial geometric refusal matrix; V17-M11
+owns repeated physical sculpt-triggered union Steps; V17-M12–M14
 own active cumulative fidelity/hysteresis, aggregate full-Step work
-caps, and post-CAS injected failure robustness. V17-M13 alone enables
+caps, and post-CAS injected failure robustness. V17-M15 alone enables
 the default-off desktop option. Synthetic regression contour
 settings retain the previously accepted bounded V15 positive
 threshold envelope and do **not** change production defaults.
@@ -258,11 +260,11 @@ fail with NO published or partially consumable final root.
 
 **Domain boundary retained:** Nonproven additional mirrored
 unequal-density subdivision splits are still refused rather than
-forging new partner IDs; M08 will record this in the geometric
+forging new partner IDs; M10 will record this in the geometric
 supported/refused matrix. M06 owns self-paired invariant X=0
-source faces and seam vertices. M09 owns physical automatic
-sculpt-triggered union, M10–M12 remaining global policy and
-publication fault testing, M13 the default-off UI opt-in. This
+source faces and seam vertices. M11 owns physical automatic
+sculpt-triggered union, M12–M14 remaining global policy and
+publication fault testing, M15 the default-off UI opt-in. This
 milestone does NOT relax any original V13/V15 geometry threshold,
 introduce global nearest-coordinate welding or enable live Merge
 geometry.
@@ -327,7 +329,7 @@ checkpoint recovery. The initial incomplete terminal-join and
 worker experiments were *not* merged into the accepted M06 path:
 their earlier branch commits remain available for M07 review,
 and M06's runtime join/worker implementations remain fail-closed
-on this newly accepted cut. M08–M13 and the V17 overall feature
+on this newly accepted cut. M10–M15 and the V17 overall feature
 remain open; automatic Merge geometry is disabled.
 
 
@@ -353,62 +355,107 @@ planes, unpaired or ill-conditioned mirror points, ambiguous
 invariant child triangulation and all work-budget overruns.
 No retirement, seam weld or history is part of M06.
 
-## V17-M07 — Invariant-plane exact Boolean join and single history Step
+## V17-M07 — Invariant-plane c3 mirror/contour certification
 
-**Objective.** Complete the REMAINDER of original M06: use M06's
-certified X=0 cut to classify and remove only genuinely buried
-material, join ONLY exact original source-paired survivor intervals,
-and produce one closed union rather than two coincident border loops.
-Off-plane mirror pairs, self-paired fixed VertexIds and invariant
-FaceIds all obey one atomic history transaction.
+**Objective.** Consume M06's TRUE complete three-contact X=0
+source-conforming private cut; certify c1 occupancy, complete c2
+finite two-sheet coverage, verified singleton as well as reciprocal
+child FaceId and VertexId involutions, and cavity-safe c3 deletion
+and reflected boundary-contour ownership. The published original
+root remains unchanged; no Boolean seam join is authorized here.
 
-**Acceptance.** Positive complete X=0 transverse source graph(s)
-reach c1 signed winding, c2 complete sections, c3 cavity-safe
-removal, original-face burial authority and strict d2 opposite
-seam pair/winding. A mirrored seam equivalence class is self
-ONLY if EVERY contributing ID is separately source-proven fixed
-on X=0, with no welding unrelated overlapping sheets. Preserve
-all original protected exterior/cavity fans and coordinates,
-validate edge/vertex-manifold closure, exact reflection and
-no final nonadjacent collision. The terminal Step has one original
-root CAS, one undo/redo, true net self and paired mirror journals,
-all three synchronized worker maps and durable checkpoint.
-Missing/noninvolutive maps, unknown four-or-more-way invariant disk
-rings, tangent/coplanar planes, wrong-sided fans, wrong source
-pairing and exhausted budgets return no terminal root/history.
-Automatic Merge geometry remains disabled until M13.
+**Acceptance.** The exact M06 closed symmetric two-tetra fixture
+positively reaches c3 Ready: every source child has consistent reliable
+positive signed winding, each mirrored child/contour is supported by
+original face, edge and whole-fan provenance (including a possible
+single invariant reflected orbit), and all legitimate exposed and
+reversed cavity surfaces are protected. Any required M03 untouched
+original authorization stays independently source-proven. Missing
+source contact, erroneous X=0 self-pair, conflicting vertex/FaceId
+orbit, incomplete contour, false 4+sheet disk, tangent/grazing,
+or exhausted bounded work refuses with no partial nomination.
+Existing M05 off-plane behavior remains unchanged. No d2 weld,
+terminal history Step, worker or UI activation in this milestone.
 
-## V17-M08 — Supported-domain refusal and fidelity matrix
+## V17-M08 — X=0 exact source-paired PRIVATE Boolean join
+
+**Objective.** Consume the independently positive M07 c3 proposal
+plus any source-complete M03 authorized original-face retirement,
+then pair exactly coincident finite original V13 survivor intervals
+on BOTH independently represented sheets. A fixed-point Boolean
+equivalence class requires each contributing source VertexId to
+have independent original X=0 fixed identity; shared world position
+or mere mirror orbit never authorizes welding.
+
+**Acceptance.** Complete M06 three-original-contact two-tetra
+geometry yields exactly ONE privately staged closed, connected,
+properly wound, edge- and vertex-manifold union with exact physical
+reflection, valid single on-plane disk/link, no double X=0 loops,
+hanging T branch, orphan FaceId or residual nonadjacent collision.
+Protected original exterior/cavity coordinates survive unchanged,
+only c3/M03 authorized material retires, and unchanged-source
+provenance, bounded seam quality and final fan checks remain.
+Missing original pair, unrelated coincident sheet, wrong mirror
+orientation, nonmanifold 4+sheet junction, tangent/coplanar/near
+plane unproven points, unbalanced section intervals and exhausted
+join/retirement limits refuse without a consumable final root.
+This milestone stages NO published Step or history.
+
+## V17-M09 — X=0 original-root Step/worker/checkpoint acceptance
+
+**Objective.** Complete the rest of the *unchanged original M07
+objective* by composing M06 cut, M07 c3, M08 closed d2 and any
+independently M03-authorized uncut original into exactly ONE
+original-root stable-ID transaction, undoable history transition
+and durable queued explicit worker union.
+
+**Acceptance.** The positive complete 3-contact X=0 fixture reaches
+one ORIGINAL-root CAS/Step, one undo/redo with pointer identity,
+complete new/retired/rewritten FaceId and VertexId/tombstone net
+journals including genuine self-paired and reciprocal vertices,
+exact surviving mirrored child-face orbits and real face-owner
+dirty COW partitions. All THREE worker mirror controllers remain
+synchronized through queued execution, rejection, undo/redo and
+.mshr checkpoint restore. Source-corner fidelity, final full actual
+collision, cavity, orientation and manifold checks still apply.
+Stale expected root, missing original source pairs, malformed
+self or reciprocal orbit, bad disk, exhausted work and worker
+stroke conflict refuse without any partially visible revision,
+mirror journal or history. Unexpected post-CAS fault handling
+remains M14; automatic sculpt-triggered geometry merge remains
+M11; the default-off desktop switch remains M15.
+
+## V17-M10 — Supported-domain refusal and fidelity matrix
 
 **Objective.** Turn actual discovered geometric limits into explicit *bounded, reproducible* supported/refused contracts rather than a promise of arbitrary overlapping solids. Exercise complete 21-pair historical crossing/T cases and V16's near-tangent/folded tests; clarify which near-parallel, coplanar, grazing, shared-vertex, branching, nested-loop, tunnel, multi-component, strongly nonplanar and imported nonmanifold inputs are unsupported.
 
 **Acceptance.** Deterministic matrix of positive cases and negative fail-closed cases using **complete V13 original contact discovery**, with diagnostics identifying the real blocker (input predicate, arrangement, occupancy, missing unchanged face, cavity, seam, quality, manifold, fidelity or work cap). No unsupported case produces a partial edit, new history entry, lost input, orphaned mirror pair, unbounded internal work or accepted residual self-intersection. Preserve finite edge/area/triangle-quality and sampled witness checks; do not silently relax production V15 thresholds to pass synthetic fixtures. This is a supported-domain contract, **not** the broader user-device/100k-vertex V19 program.
 
-## V17-M09 — Repeated real sculpt-driven union Steps
+## V17-M11 — Repeated real sculpt-driven union Steps
 
 **Objective.** Replace the explicit-only V17e2b2d3b test command as the sole demonstrated success path with a narrowly supported, genuinely collision-triggered post-Inflate/refine/collapse union decision. Preserve 4D input sampler order, independently moving sheets, local split/flip/collapse, symmetry and the unchanged default off behavior.
 
 **Acceptance.** The actual symmetric two-tower physical fixture performs repeated **successful** classified union Steps over at least the established sixteen alternating-tower inputs, not merely safe rejection; every accepted Step is complete and globally checked in the relevant changed halo. Mix no-contact and unsupported collisions; reject failing Steps recoverably, consume every input exactly once, and continue to later good stamps. Match CPU private roots, async worker snapshots and original readers; one CAS/undo/redo/dirty owner delta per accepted Step, no in-between cut root. Retain 32-repeat same-patch and old-root controls. No desktop toggle yet.
 
-## V17-M10 — Active original-anchored fidelity and contact hysteresis
+## V17-M12 — Active original-anchored fidelity and contact hysteresis
 
 **Objective.** Promote the existing optional seven-points-per-original-face anchored witness guard and read-only three-clean-check episode tracker into explicit, conservative **geometric decisions**. Define original reference, stable spatial patch mapping, preserved exposed versus intentionally displaced detail, budget/cumulative bound and a documented reset/hysteresis rule.
 
 **Acceptance.** Absolute deviation is measured from nominated ORIGINAL exposed features across multiple Steps, not from successive drifting revisions; Buried and Outside material is allowed to disappear. Conclusive evidence (not uncertain/budget-exhausted checks) alone permits an episode reset; hysteresis never skips full final collision/classification validation. Demonstrate accepted legitimate deformation, rejected cumulative erosion, exposed/cavity preservation, same-patch repeat, symmetric outer walls, deliberately moved-feature exclusions and budget refusal with exact rollback. No unsupported claim of a continuous two-sided Hausdorff certificate.
 
-## V17-M11 — Aggregate work bounds and decision telemetry
+## V17-M13 — Aggregate work bounds and decision telemetry
 
 **Objective.** Enforce finite limits across an entire speculative Step in addition to the completed V13 per-query, c1 winding, V15 contour, arrangement and private residual budgets: repeated ray/BVH walks, repeated component tests, normalization, triangulation, join tracing, witness comparisons, and speculative memory/partition-copy accounting. The exceptional full-mesh solid-angle fallback stays disabled for live policy.
 
 **Acceptance.** A declared collection of global Step caps limits counted operations, affected faces/vertices/partitions, candidate contacts, winding queries, trace/arrangement predicates and memory-proxy work; exact-limit success and one-under-limit refusals prove no partial authorization. Status distinguishes clean accepted, successful union, budget refusal, uncertain contact, unsupported geometry, stale original root and unexpected fatal error, with counts, lifetime erosion, contact episode and measured elapsed CPU time. Do not claim strict universal real-time or RSS bounds, even with finite counters; V19 owns broader scalability measurements.
 
-## V17-M12 — Publication-phase exception atomicity
+## V17-M14 — Publication-phase exception atomicity
 
 **Objective.** Close the previously identified gap where **exceptions after the final CAS** can remain fatal. Make the final geometry, mirror-map state, stable ID/tombstone changes, render dirty partitions, picking root, history/redo, checkpoint metadata and worker counts one coherent observable Step, or enter a documented safe terminal state without silent divergence.
 
 **Acceptance.** Fault injection and stale-race tests around validation, mirror staging, CAS, history append, snapshot mailbox, and durable checkpoint scheduling prove either (a) a rejected, unobserved Step with the exact old published state, or (b) one fully committed state that readers, renderer, undo/redo and reload observe consistently. No duplicate history transition, partial reflected orbit, leaked candidate root, skipped 4D sample or misleading success telemetry. Distinguish legitimate recoverable validation/budget refusal from unexpected exceptions; no unbounded full-mesh copy on each commit. The already accepted explicit asymmetric/reflected worker unions suffice for *standalone* positive tests.
 
-## V17-M13 — Opt-in Merge geometry activation and targeted acceptance
+## V17-M15 — Opt-in Merge geometry activation and targeted acceptance
 
 **Objective.** Expose **Merge geometry = On** only for the explicitly proven V17 supported-domain pipeline, with the prior default behavior remaining **Off**. Treat the feature switch as an independent product/publication gate, not as a by-product of passing a low-level private fixture.
 
@@ -420,7 +467,7 @@ Automatic Merge geometry remains disabled until M13.
 - Re-discover the COMPLETE bounded original V13 contact set; no hand-picked pair subset, global nearest-neighbor seam welding, forged FaceId/VertexId provenance, incomplete original incident-edge conformance, implicit arbitrary cavity deletion or relaxed quality/fidelity limits. Use the same immutable cut root through c1/c2/c3 and d2/d3 authorization.
 - Preserve source geometry and original enclosed detail when classified Exposed/ReversedBoundary, and permit proven Buried/Outside deletion. Anchor cumulative witnesses to the ORIGINAL relevant revision, with explicit exemption for intentional sculpt displacement and measured bounded work; do not claim an unconditional two-sided Hausdorff guarantee.
 - Preserve symmetric X=0 fixed-point topology, permanent ID and mirror involution, retained/reflected winding, COW partition pointer identity, original-root reader stability and exact undo/redo/checkpoint metadata. No intermediate cut/normalization root can become visible.
-- Default brush mode stays unchanged until M13; a rejected input is consumed in FIFO order, does not publish an invalid deformation and does not stop later input. Recoverable bounded-work refusal must be distinct from unexpected fatal failure.
+- Default brush mode stays unchanged until M15; a rejected input is consumed in FIFO order, does not publish an invalid deformation and does not stop later input. Recoverable bounded-work refusal must be distinct from unexpected fatal failure.
 - Existing V16 cap/zipper arc-length ring correspondence, radius-difference/centroid-separation topology heuristics and contour quality policy stay as accepted; the exact-section Boolean join must not manufacture a gratuitous zipper/cap or silently apply a worse contour threshold to avoid a refusal.
 - **V18 remains separate:** when Merge geometry is Off, constrain normal displacement to avoid NEW nonadjacent crossing with mesh-scale clearance and permit valid tangential sliding; both sheets moving and symmetry need tests. This is not exact swept CCD; document tunneling and do not clean arbitrary imported intersections.
 - **V19 remains separate:** extensive near-coplanar/multicontact/tunnel/folded/imported geometries, extreme local density, repeated edits, performance at 5k/20k/100k+, larger meshes when practical and hands-on Linux/Windows Vulkan acceptance, without claims of universal real time, global volumetric remesh or total RSS ceiling.
@@ -430,16 +477,16 @@ Automatic Merge geometry remains disabled until M13.
 
 | Historical work | Status at rebaseline | Flat milestone(s) retaining unfinished work |
 | --- | --- | --- |
-| V17a / V17b | Complete bounded winding/collision foundation | M11 aggregate extensions |
-| V17c | Complete prepublication rejection/rollback | M12 post-CAS gap |
-| V17d1 / V17d2 | Complete supported classified private/mirrored paths | M05, M06, M09, M12 |
-| V17e1 / V17e2a | Complete repeat-contact probes, anchored diagnostics | M09, M10 |
-| V17e2b1 / V17e2b2a / V17e2b2b1 / V17e2b2b2 | Complete transverse sections, conformance and private arrangements | M01, M02, M08 |
+| V17a / V17b | Complete bounded winding/collision foundation | M13 aggregate extensions |
+| V17c | Complete prepublication rejection/rollback | M14 post-CAS gap |
+| V17d1 / V17d2 | Complete supported classified private/mirrored paths | M05, M06, M11, M14 |
+| V17e1 / V17e2a | Complete repeat-contact probes, anchored diagnostics | M11, M12 |
+| V17e2b1 / V17e2b2a / V17e2b2b1 / V17e2b2b2 | Complete transverse sections, conformance and private arrangements | M01, M02, M10 |
 | V17e2b2b3a / V17e2b2b3b | Complete reflected private plan and ID staging | M05, M06 |
-| V17e2b2c1 / c2 / c3 | Complete real-child occupancy, source coverage, protected removal | M01, M03, M04, M08 |
-| V17e2b2d1 / d2 / d3 / d3b | Complete surgery adapter, exact join, original-root Step and explicit worker | M02, M04, M09, M12 |
-| V17e2b2d4 including PR #49 and PR #50 | Qualified progress, previously open umbrella | M01–M09 |
-| V17e2b2c / V17e2b2d | Superseded **open umbrella summaries** over already complete child contracts plus current gaps | M01–M08, M12 |
-| V17 | Live product objective, still open | M01–M13, culminating in M13 |
+| V17e2b2c1 / c2 / c3 | Complete real-child occupancy, source coverage, protected removal | M01, M03, M04, M10 |
+| V17e2b2d1 / d2 / d3 / d3b | Complete surgery adapter, exact join, original-root Step and explicit worker | M02, M04, M11, M14 |
+| V17e2b2d4 including PR #49 and PR #50 | Qualified progress, previously open umbrella | M01–M11 |
+| V17e2b2c / V17e2b2d | Superseded **open umbrella summaries** over already complete child contracts plus current gaps | M01–M10, M14 |
+| V17 | Live product objective, still open | M01–M15, culminating in M15 |
 
-The original exact identifier text, statuses, comments, test expectations and scope warnings are retained in [the verbatim task archive](V17_LEGACY_TASK_TREE.md). This table maps *ownership of remaining acceptance gaps*, not a claim that previously completed source code needs to be redone. The broad V17 objective remains unfinished until **every required flat milestone** has independently passed and M13's explicit activation gate is accepted. V18 and V19 have not been postponed, merged, deleted or changed.
+The original exact identifier text, statuses, comments, test expectations and scope warnings are retained in [the verbatim task archive](V17_LEGACY_TASK_TREE.md). This table maps *ownership of remaining acceptance gaps*, not a claim that previously completed source code needs to be redone. The broad V17 objective remains unfinished until **every required flat milestone** has independently passed and M15's explicit activation gate is accepted. V18 and V19 have not been postponed, merged, deleted or changed.
