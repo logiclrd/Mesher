@@ -1032,8 +1032,12 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
         require(pa.x==-pb.x&&pa.y==pb.y&&pa.z==pb.z,
                 "Physical reflected exact union retains source-correct 3D mirrors");
     }
+    auto expectedOriginalPairs=source.mirrorPairs;
+    for(auto& [a,b]:expectedOriginalPairs)
+        if(b<a)std::swap(a,b);
+    std::sort(expectedOriginalPairs.begin(),expectedOriginalPairs.end());
     require(symmetric.undo()&&symmetric.snapshot()==mirroredInitial&&
-            symmetric.checkpoint().mirrorPairs==source.mirrorPairs&&
+            symmetric.checkpoint().mirrorPairs==expectedOriginalPairs&&
             symmetric.redo()&&symmetric.snapshot()==final,
             "Physical exact symmetric history reverses full original and terminal mirrors");
     const auto file=std::filesystem::temp_directory_path()/
