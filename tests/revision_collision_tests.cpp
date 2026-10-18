@@ -1995,6 +1995,18 @@ void testOrthogonalTripleJunctionProbe() {
         check(joined.complete||(joined.refusal.size()>0&&!joined.index&&
               !joined.commit&&joined.weldedPairs.empty()),
               "Orthogonal junction mismatch refuses without a publishable seam or journal");
+        ExactSeamRefinementLimits refinementLimits;
+        refinementLimits.join=limits;
+        const auto refined=reconcileCertifiedSeamSubdivisions(cut,refinementLimits);
+        std::cout<<"[orthogonal-m04] refine="<<refined.complete
+                 <<" reason="<<refined.refusal
+                 <<" vertices="<<refined.insertedVertices
+                 <<" faces="<<refined.insertedFaces<<'\n';
+        if(refined.complete&&refined.refined) {
+            const auto paired=joinCertifiedCutSections(*refined.refined,limits);
+            std::cout<<"[orthogonal-m04] refined-join="<<paired.complete
+                     <<" reason="<<paired.refusal<<'\n';
+        }
         std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
                  <<" reason="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
