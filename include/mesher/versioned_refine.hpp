@@ -11,8 +11,21 @@
 
 namespace mesher {
 
+// M24: a source-owned, immutable committed edge split. Each accepted
+// two-face (or reflected four-face) RegionEdit contributes one record
+// per rewritten source face, never based on XYZ-nearest matching.
+struct RefineSplitSourceEvidence {
+    std::shared_ptr<const RegionTopologyIndex> before,after;
+    FaceId sourceFace{},appendedFace{};
+    VertexId midpoint{},edgeA{},edgeB{};
+};
+
 struct VersionedRefineResult {
     std::shared_ptr<const RegionTopologyIndex> index;
+    // The real immutable pre-stamp original and post-Inflate input; an
+    // independent verifier can reject stale/mismatched source chains.
+    std::shared_ptr<const RegionTopologyIndex> stampOriginal,sourceIndex;
+    std::vector<RefineSplitSourceEvidence> splitSources;
     RefineStatistics statistics{};
     std::vector<VertexId> insertedVertices;
     std::vector<std::pair<VertexId,VertexId>> insertedMirrorPairs;
