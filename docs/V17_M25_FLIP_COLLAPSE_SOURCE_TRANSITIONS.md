@@ -28,8 +28,11 @@ triangle area must remain within the strict 1e-8 relative tolerance.
 Protecting only one face, or two independently owned faces, refuses
 rather than arbitrarily transferring some original protected detail.
 Mirrored cases require source-provided reciprocal permanent-ID
-mirror pairs and finite reflected source coordinates. No coordinate
-match can infer an otherwise absent source or mirror ownership.
+mirror pairs and finite reflected source coordinates. The entire
+pre/post reflected triangle fan must match its source-proven partner
+with opposite winding and cyclic incidence, including invariant
+fixed-plane orbits. No coordinate match can infer an otherwise absent
+source or mirror ownership.
 
 A valid unprotected flip can coexist with an unrelated original
 protected feature, which retains its stable descendant FaceIds;
