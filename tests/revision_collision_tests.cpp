@@ -3774,6 +3774,36 @@ void testSourceCertifiedCoincidentVertexIdentity() {
                  <<(onPlane?"X=0":"off-plane")
                  <<" coincidence=preserved independent-fans=2\\n";
     }
+    // A near-miss is not an exact source point. Move the would-be
+    // touching corner 1e-7 outside BOTH tangential support directions,
+    // leaving a real gap and forbidding any distance-threshold snap.
+    {
+        Mesh near;
+        addTetrahedron(near,{0,0,0},1);
+        addTetrahedron(near,{2+1e-7,2+1e-7,0},1);
+        const auto imported=partitionFlatMesh(near,256);
+        const auto original=RegionTopologyIndex::build(imported.revision);
+        const auto a=imported.flatIndex.vertexIds[1],
+                   b=imported.flatIndex.vertexIds[4];
+        const auto pa=original->vertex(a).position,
+                   pb=original->vertex(b).position;
+        check(a!=b&&pa.x!=pb.x&&pa.y!=pb.y&&
+              std::abs(pa.x-pb.x)<1e-6&&
+              connectedClosedSurfaceComponents(*original)==2,
+              "Near-but-not-equal XYZ never implies shared source identity");
+        auditClosedVertexLinks(*original);
+        const auto before=original->pickingRootIdentity();
+        const auto contacts=original->triangleIntersections(
+            imported.flatIndex.vertexIds,{});
+        check(contacts.empty(),
+              "True near-miss cannot manufacture an original V13 transverse contact");
+        const auto result=prepareExactCutStep(original,contacts);
+        check(!result.complete&&!result.final&&!result.expected&&
+              !result.commit.revision&&result.addedVertices.empty()&&
+              result.addedMirrors.empty()&&
+              original->pickingRootIdentity()==before,
+              "Near-point pseudo-weld must refuse without coordinate snapping or ID history");
+    }
 }
 void testSupportedDomainAdversarialMatrix() {
     const auto proveNoPublication=[](
