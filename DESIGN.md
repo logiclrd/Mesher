@@ -3750,8 +3750,8 @@ a complete original-V13-paired, c1/c2/c3/M03-authorized, oriented,
 closed/manifold-valid join. Near-equality alone never qualifies.
 
 The precise invariant, decision sequence, positive/refusal fixture
-matrix, and scope boundary are now [COINCIDENT_VERTEX_TOPOLOGY.md](
-docs/COINCIDENT_VERTEX_TOPOLOGY.md). A new independent peer V17-M16
+matrix, and scope boundary are now recorded in [COINCIDENT_VERTEX_TOPOLOGY.md](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
+A new independent peer V17-M16
 is scheduled after M10 and before M11 and M15; previous milestone
 IDs, historical accepted work, and the broader V19 stress program
 are unchanged. This document records a PLAN, not evidence that
