@@ -1360,7 +1360,9 @@ void testSeparateCompleteSectionsOnOneOriginalFace() {
     contours.contours.maximumIsoperimetricRatio=20.0;
     contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
     contours.contours.maximumPerimeterRatio=20.0;
-    contours.contours.maximumGapInEdges=20.0;
+    // Restrict V15's hypothetical contour pairing to the genuinely
+    // coincident loops; d2 later proves exact partner edges via V13.
+    contours.contours.maximumGapInEdges=0.1;
     contours.contours.minimumNormalAlignment=0;
     ExactCutStepLimits limits;
     limits.join.removal=contours;
