@@ -968,6 +968,57 @@ void testPrivateConformingRevisionCommitsAtomically() {
         catch(const std::logic_error&){m26Refused=true;}
         check(m26Refused,
               "M26 an incomplete source-child journal cannot authorize d2 even if mesh is manifold");
+        // M27 consumes the ACTUAL M26 classified terminal union without
+        // re-anchoring any witness to the private cut or post-weld root.
+        const auto lifetimeBefore=beginOriginalPatchLifetime(originalAnchors);
+        const auto lifetimeAfter=advanceOriginalPatchLifetime(
+            lifetimeBefore,prepared,nullptr,8192,8192);
+        const auto sampleWork=[&](const OriginalPatchLifetime& lifetime) {
+            std::size_t n=0;
+            for(const auto& [_,faces]:lifetime.lineage.living)
+                n+=7*faces.size();
+            return n;
+        };
+        const auto m27Cost=sampleWork(lifetimeAfter);
+        check(m27Cost>0&&
+              lifetimeAfter.sourceFaceEvidence==lineage.checkedFaceEvidence&&
+              lifetimeAfter.anchors.original==baseline&&
+              lifetimeAfter.lineage.terminal==prepared.final,
+              "M27 cumulative original-root lineage consumes certified terminal Boolean children");
+        const auto sourceAudit=auditOriginalPatchLifetime(
+            lifetimeAfter,baseline,m27Cost,8192);
+        check(sourceAudit.total.distanceTests==m27Cost&&
+              sourceAudit.livingOriginals+
+              sourceAudit.certifiedRetiredOriginals.size()==
+                  originalAnchors.faces.size()&&
+              sourceAudit.total.witnessCount==7*sourceAudit.livingOriginals,
+              "M27 bounded sampled original witnesses audit exactly their source-owned survivors");
+        bool m27Refused=false;
+        try {(void)auditOriginalPatchLifetime(
+            lifetimeAfter,baseline,m27Cost-1,8192);}
+        catch(const std::length_error&){m27Refused=true;}
+        check(m27Refused,"M27 complete exact-join witness work one-below refuses whole audit");
+        m27Refused=false;
+        try {(void)advanceOriginalPatchLifetime(
+            lifetimeBefore,prepared,nullptr,lineage.checkedFaceEvidence-1,8192);}
+        catch(const std::length_error&){m27Refused=true;}
+        check(m27Refused,"M27 complete original-source M26 evidence cannot be truncated");
+        m27Refused=false;
+        try {(void)advanceOriginalPatchLifetime(
+            lifetimeAfter,prepared,nullptr,16384,8192);}
+        catch(const std::invalid_argument&){m27Refused=true;}
+        check(m27Refused,"M27 refused older original-root Step cannot substitute later root");
+        auto m27Forged=lifetimeAfter;
+        if(m27Forged.lineage.living.size()>1)
+            std::swap(m27Forged.lineage.living[0].second,
+                      m27Forged.lineage.living[1].second);
+        else m27Forged.lineage.living.front().second.push_back(
+            prepared.final->face(imported.flatIndex.faceIds[0]).id);
+        m27Refused=false;
+        try {(void)auditOriginalPatchLifetime(
+            m27Forged,baseline,m27Cost+7,8192);}
+        catch(const std::logic_error&){m27Refused=true;}
+        check(m27Refused,"M27 immutable proven ownership rejects spoofed coincident source IDs");
         const auto countLive=[&](const RegionTopologyIndex& index) {
             std::pair<std::size_t,std::size_t> result{};
             index.revision().forEachPartition(
@@ -1993,6 +2044,19 @@ void testWhollyBuriedUncutOriginalFace() {
                     certified.certifiedRetiredOrigins.end()&&
           certified.certifiedUncutRetirements>0,
           "M26 recognizes only fully M03-certified buried unchanged source retirement");
+    const auto m27Buried=advanceOriginalPatchLifetime(
+        beginOriginalPatchLifetime(ancestry),full,nullptr,8192,8192);
+    check(std::find(m27Buried.certifiedRetiredOriginals.begin(),
+                    m27Buried.certifiedRetiredOriginals.end(),sourceBase)!=
+                    m27Buried.certifiedRetiredOriginals.end()&&
+          m27Buried.anchors.original==original,
+          "M27 lifetime keeps M03 wholly buried retirements distinct from lost outer/cavity features");
+    const auto m27BuriedAudit=auditOriginalPatchLifetime(
+        m27Buried,original,131072,8192);
+    check(m27BuriedAudit.certifiedRetiredOriginals==
+              m27Buried.certifiedRetiredOriginals&&
+          m27BuriedAudit.total.distanceTests>0,
+          "M27 original-witness comparison reports certified burial without pretending preservation");
     for(unsigned i=8;i<12;++i) {
         const auto cavity=imported.flatIndex.faceIds[i];
         const auto it=std::find_if(certified.survivors.living.begin(),
@@ -2673,6 +2737,20 @@ void testReflectedUncutBurialCavityOrbits() {
                     reflectedProof.certifiedRetiredOrigins.end(),baseLeft)!=
                     reflectedProof.certifiedRetiredOrigins.end(),
           "M26 source exact mirror orbit retirement is paired and both cavity components live");
+    const auto m27Paired=advanceOriginalPatchLifetime(
+        beginOriginalPatchLifetime(reflectedAnchors),
+        full,&mirrors,16384,16384);
+    check(m27Paired.anchors.original==root&&
+          m27Paired.lineage.terminal==full.final&&
+          m27Paired.certifiedRetiredOriginals==
+              reflectedProof.certifiedRetiredOrigins,
+          "M27 retains paired source-certified M03 retirement on real mirrored Step");
+    const auto m27PairedAudit=auditOriginalPatchLifetime(
+        m27Paired,root,131072,16384);
+    check(m27PairedAudit.total.distanceTests>0&&
+          m27PairedAudit.livingOriginals>0&&
+          m27PairedAudit.certifiedRetiredOriginals.size()>=2,
+          "M27 first-original mirrored outer/cavity witnesses remain source-local");
     bool noMirror=false;
     try {(void)advanceCertifiedExactCutLineage(
         reflectedLineage,full,nullptr,16384,16384);}
@@ -3026,6 +3104,15 @@ void testX0InvariantExactCutProbe() {
           x0Certified.protectedChildren>0&&
           x0Certified.retiredChildren>0,
           "M26 independently certifies actual X=0 self-reflected child-source and terminal seam orbits");
+    const auto m27X0=advanceOriginalPatchLifetime(
+        beginOriginalPatchLifetime(x0Anchors),net,&mirror,16384,16384);
+    const auto m27X0Audit=auditOriginalPatchLifetime(
+        m27X0,root,131072,16384);
+    check(m27X0.anchors.original==root&&
+          m27X0.lineage.terminal==net.final&&
+          m27X0Audit.livingOriginals>0&&
+          m27X0Audit.total.distanceTests>0,
+          "M27 actual X=0 self-mirrored original source tracks ONLY certified final FaceIds");
     std::set<FaceId> x0Children;
     for(const auto& [original,descendants]:x0Certified.survivors.living) {
         check(root->maybeFace(original)!=nullptr,
