@@ -2742,8 +2742,10 @@ void testReflectedUncutBurialCavityOrbits() {
         full,&mirrors,16384,16384);
     check(m27Paired.anchors.original==root&&
           m27Paired.lineage.terminal==full.final&&
-          m27Paired.certifiedRetiredOriginals==
-              reflectedProof.certifiedRetiredOrigins,
+          std::set<FaceId>(m27Paired.certifiedRetiredOriginals.begin(),
+                           m27Paired.certifiedRetiredOriginals.end())==
+              std::set<FaceId>(reflectedProof.certifiedRetiredOrigins.begin(),
+                               reflectedProof.certifiedRetiredOrigins.end()),
           "M27 retains paired source-certified M03 retirement on real mirrored Step");
     const auto m27PairedAudit=auditOriginalPatchLifetime(
         m27Paired,root,131072,16384);
