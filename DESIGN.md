@@ -1939,6 +1939,11 @@ the complete mesh into another transaction just to "squash" the two
 private operations: original-root pointer identity and one final
 published root are the observable Step boundary.
 
+Mirrored Step intent is **explicit**: setting `requireMirrors` means a
+missing historical vertex involution is a hard refusal rather than an
+implicit conversion into an unrelated nonmirrored union. Geometric
+X-symmetry alone is not reliable evidence of the requested topology.
+
 The composer independently repeats the final cut-halo collision query
 against the entire terminal mesh and re-evaluates c3's exact-child
 cavity-preserving authorization against the SAME cut revision. Every
