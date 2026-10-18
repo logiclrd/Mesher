@@ -1299,6 +1299,41 @@ documentation follows before the merge.
   applicable benchmarks green. This is READ-ONLY M21 scope policy,
   NOT M22 pre-CAS activation, M23 clean episode or original M12
   final integration; UI Merge geometry stays default disabled.
+**V17-M22 implementation plan (flat, independently completable; original M22 objective unchanged).**
+  The actual worker physical Step contains several PRIVATE source transitions
+  (Inflate → M24/M25 refine → protected-safe collapse → M26 d2 exact union)
+  before ONE published CAS, whereas M21 requires ONE certified previous
+  published lifetime. Do not paper over this by rebasing original witnesses,
+  declaring intermediate roots publishable, or skipping unsupported parts.
+  Work sequence recorded BEFORE implementation:
+  - [ ] **V17-M28 — One-stamp private source-transition bundle.**
+    Certify full original-root physical stamp source evidence (including
+    unchanged-incidence deliberate displacement and all subsequent M24/M25/
+    M26 stages), verify the complete original FaceId → final protected
+    descendants and mirrored source orbits, and seal ONE external successor
+    certificate with the actual previous published root. Full stage cost and
+    unsupported collapse/proof combinations refuse, not assume source.
+  - [ ] **V17-M29 — Durable lifetime publication state and recovery.**
+    Keep immutable first-root source witnesses, intended-scope credentials,
+    explicit certified buried retirements, and cumulative face work across
+    accepted worker Steps; synchronize worker undo/redo, history eviction,
+    checkpoint/recovery and stale generation. A recovered root without
+    authenticated first-root ancestry must refuse opt-in fidelity rather
+    than quietly reset its baseline. Prove private failed candidates change
+    no identity, FIFO, history, mirror or dirty state.
+  - [ ] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
+    Wire the M21 intent declaration and complete first-original M27
+    sampled audit to BOTH actual stamped physical exact and explicitly
+    queued source-exact union worker paths, after final d2/remesh. Test a
+    genuine intended union, first small permitted drift, second cumulative
+    unacceptable erosion, rejected one-under cap/stale root, unchanged
+    original pointer, checkpoint/undo history, mirror maps, dirty
+    partitions and serialized work while later valid requests drain.
+    Default-disabled UI and prior M11 sixteen real unions must remain green.
+  - [ ] **V17-M22 final integrated acceptance (existing checkbox below).**
+    Verify M28–M30 jointly, warnings-as-errors GCC/Clang/MSVC with existing
+    23 suites, preserve M23 and original M12 as open. Only then check the
+    ORIGINAL M22 checkbox, not this explanatory plan.
 - [ ] **V17-M22 — Active cumulative final physicalExact preservation.**
   Validate terminal post-remesh/post-d2 root before original-root CAS
   against first original-source witnesses and descendants in local
