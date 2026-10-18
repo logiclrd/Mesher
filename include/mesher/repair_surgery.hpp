@@ -175,14 +175,15 @@ SourceExactCutLineage advanceCertifiedExactCutLineage(
 // Completely buried/outside source retirement must be explicitly
 // certified by M26, never inferred from zero geometric proximity.
 // No policy threshold / CAS / UI authorization is implemented here.
+// Opaque immutable proof of verified ancestry, original/terminal root
+// continuity, cumulative work and authorized retirements. Only M27's
+// implementation can create a certificate: mutating a public snapshot
+// cannot reset the shared evidence budget or alias coincident owners.
+struct LifetimeSourceCertificate;
 struct OriginalPatchLifetime {
     OriginalSourceSurfaceAnchors anchors;
     SourceSplitLineage lineage;
-    // Immutable verification snapshot published ONLY by begin/advance.
-    // A mutable public lineage view cannot substitute coincident FaceIds
-    // for independently certified owners at witness-audit time.
-    std::shared_ptr<const std::vector<std::pair<FaceId,std::vector<FaceId>>>>
-        verifiedOwnership;
+    std::shared_ptr<const LifetimeSourceCertificate> certificate;
     std::vector<FaceId> certifiedRetiredOriginals;
     std::size_t acceptedTransitions{};
     std::size_t sourceFaceEvidence{}; // cumulative finite verification work
