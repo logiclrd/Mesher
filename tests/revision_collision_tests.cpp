@@ -1572,9 +1572,12 @@ void assertCanonicalTripleJunctions(
     auto reversed=complete;
     std::reverse(reversed.begin(),reversed.end());
     const auto again=buildConformingCutPlan(root,reversed);
-    check(again.status==IntersectionSectionStatus::TransverseSegment&&
-          again.junctions.size()==plan.junctions.size(),
-          "Canonical geometry is stable under original-contact enumeration order");
+    if(again.status!=IntersectionSectionStatus::TransverseSegment||
+       again.junctions.size()!=plan.junctions.size())
+        throw std::runtime_error(
+            std::string(fixture)+" reverse contact order refused/differed: "+
+            again.refusal+" triples="+std::to_string(again.junctions.size())+
+            " expected="+std::to_string(plan.junctions.size()));
     for(const auto& junction:again.junctions) {
         const auto found=positions.find(junction.sourceFaces);
         check(found!=positions.end()&&
