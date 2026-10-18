@@ -2721,13 +2721,24 @@ void testX0InvariantExactCutProbe() {
     check(total==decision.proposedRemoval.size(),
           "Singleton and ordinary removed FaceId orbit cardinality is exact");
     std::set<std::size_t> ringOrbits;
+    std::size_t selfRings=0;
     for(const auto& [a,b]:decision.mirroredContours) {
         check(a<=b&&ringOrbits.insert(a).second&&
               (a==b||ringOrbits.insert(b).second),
               "A contour is reflected to precisely one ring including itself");
+        if(a==b) {
+            ++selfRings;
+            unsigned fixedAnchors=0;
+            for(const auto id:decision.contourPlan.contours[a].vertexIds)
+                if(partners.contains(id)&&partners.at(id)==id)
+                    ++fixedAnchors;
+            check(fixedAnchors==2,
+                  "An X=0 invariant section ring has two source-fixed boundary anchors");
+        }
     }
-    check(ringOrbits.size()==decision.contourPlan.contours.size(),
-          "Every c3 contour has a real verified reflected orbit");
+    check(ringOrbits.size()==decision.contourPlan.contours.size()&&
+          selfRings>0,
+          "Every c3 contour has an orbit including the real self-reflected X=0 ring");
     auto wrongChild=cut;
     if(!wrongChild.mirroredFaces.empty()) {
         wrongChild.mirroredFaces.front().second=
