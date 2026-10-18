@@ -2815,6 +2815,30 @@ void testX0InvariantExactCutProbe() {
           allPairs(*joined.index).empty(),
           "Real X=0 private Boolean converts two intersecting closed tetrahedra into ONE collision-free closed connected union");
     auditClosedVertexLinks(*joined.index);
+
+    // The M03 untouched-original survey is a separately derived source
+    // certificate, not a caller-chosen deletion set. The same genuine
+    // invariant original mirror topology must be accepted when this
+    // conservative survey is requested for final closure.
+    const auto untouched=planUncutFaceRetirement(
+        cut,contours,{},&mirror);
+    check(untouched.ready()||
+          untouched.status==CutRemovalStatus::NoChanges,
+          "M03 X=0 original-source survey must accept valid invariant mirror orbits");
+    const auto joinedWithOriginals=joinCertifiedCutSections(
+        cut,joinLimits,&mirror,true);
+    std::cout<<"[x0-m08] uncut="<<static_cast<int>(untouched.status)
+             <<" reason="<<untouched.refusal
+             <<" full-join="<<joinedWithOriginals.complete
+             <<" full-reason="<<joinedWithOriginals.refusal<<'\n';
+    if(!joinedWithOriginals.complete)
+        throw std::runtime_error(
+            "M08 source-certified X=0 unchanged-original join refused: "+
+            joinedWithOriginals.refusal);
+    check(connectedClosedSurfaceComponents(*joinedWithOriginals.index)==1&&
+          allPairs(*joinedWithOriginals.index).empty(),
+          "M03 original-face survey never invalidates the complete X=0 private union");
+    auditClosedVertexLinks(*joinedWithOriginals.index);
     std::size_t keptFixed=0;
     for(const auto& [id,mate]:partners) {
         const auto live=joined.index->maybeVertex(id)!=nullptr;
