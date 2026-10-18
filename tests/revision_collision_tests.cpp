@@ -2682,6 +2682,74 @@ void testX0InvariantExactCutProbe() {
     check(root->pickingRootIdentity()==previousIdentity&&
           root->retiredFaceCount()==0&&root->retiredVertexIds().empty(),
           "The source-cut alone cannot retire any original or mutate historical readers");
+    // M07 independently redoes the entire source/c1/c2/c3 selection.
+    // These *synthetic-test-only* V15 shape allowances match the other
+    // complete-tetra Boolean acceptance fixtures; no production quality
+    // predicate is modified.
+    CutRemovalSettings contours;
+    contours.contours.maximumPlanarityInRadii=4.0;
+    contours.contours.maximumSingleCapPlanarityInRadii=4.0;
+    contours.contours.maximumIsoperimetricRatio=20.0;
+    contours.contours.maximumSingleCapIsoperimetricRatio=20.0;
+    contours.contours.maximumPerimeterRatio=20.0;
+    contours.contours.maximumGapInEdges=2.5;
+    contours.contours.minimumNormalAlignment=0;
+    const auto decision=planExactCutRemoval(cut,contours);
+    std::cout<<"[x0-m07] c3="<<static_cast<int>(decision.status)
+             <<" reason="<<decision.refusal
+             <<" removed="<<decision.proposedRemoval.size()
+             <<" mirror-orbits="<<decision.mirroredRemoval.size()
+             <<" contours="<<decision.contourPlan.contours.size()<<'\\n';
+    if(!decision.ready())
+        throw std::runtime_error(
+            "M07 complete X=0 source c3 certificate refused: "+decision.refusal);
+    check(decision.checkedContacts==contacts.size()&&
+          !decision.proposedRemoval.empty()&&
+          !decision.protectedChildren.empty()&&
+          !decision.mirroredRemoval.empty()&&
+          decision.classifiedChildren.size()==cut.childSources.size(),
+          "M07 positive X=0 c3 has complete source, classified and protected children");
+    std::size_t total=0;
+    for(const auto& [a,b]:decision.mirroredRemoval) {
+        check(std::binary_search(decision.proposedRemoval.begin(),
+                                 decision.proposedRemoval.end(),a)&&
+              std::binary_search(decision.proposedRemoval.begin(),
+                                 decision.proposedRemoval.end(),b),
+              "Each c3 removed FaceId has its exact singleton or paired mirror mate");
+        total+=(a==b?1:2);
+    }
+    check(total==decision.proposedRemoval.size(),
+          "Singleton and ordinary removed FaceId orbit cardinality is exact");
+    std::set<std::size_t> ringOrbits;
+    for(const auto& [a,b]:decision.mirroredContours) {
+        check(a<=b&&ringOrbits.insert(a).second&&
+              (a==b||ringOrbits.insert(b).second),
+              "A contour is reflected to precisely one ring including itself");
+    }
+    check(ringOrbits.size()==decision.contourPlan.contours.size(),
+          "Every c3 contour has a real verified reflected orbit");
+    auto wrongChild=cut;
+    if(!wrongChild.mirroredFaces.empty()) {
+        wrongChild.mirroredFaces.front().second=
+            wrongChild.mirroredFaces.front().first;
+        const auto denied=planExactCutRemoval(wrongChild,contours);
+        check(!denied.ready()&&denied.proposedRemoval.empty(),
+              "Invented child singleton orbit cannot grant c3 retirement");
+    }
+    auto noFixed=cut;
+    noFixed.mirroredSeamVertices.pop_back();
+    const auto deniedFixed=planExactCutRemoval(noFixed,contours);
+    check(!deniedFixed.ready()&&deniedFixed.proposedRemoval.empty(),
+          "Omitting a fixed source cut vertex refuses entire contour certificate");
+    CutRemovalSettings cappedContours=contours;
+    cappedContours.coverage.maxChildren=0;
+    const auto exhaustedRemoval=planExactCutRemoval(cut,cappedContours);
+    check(!exhaustedRemoval.ready()&&
+          exhaustedRemoval.proposedRemoval.empty(),
+          "Exhausted M07 c3 mirrored work cannot leak a deletion proposal");
+    check(root->pickingRootIdentity()==previousIdentity&&
+          root->retiredFaceCount()==0&&root->retiredVertexIds().empty(),
+          "Read-only c3 never publishes a cut, weld or source retirement");
     auto missing=contacts;
     missing.pop_back();
     bool incompleteRefused=false;
