@@ -2007,6 +2007,14 @@ void testOrthogonalTripleJunctionProbe() {
             std::cout<<"[orthogonal-m04] refined-join="<<paired.complete
                      <<" reason="<<paired.refusal<<'\n';
         }
+        ExactCutStepLimits stepLimits;
+        stepLimits.join.removal=contours;
+        const auto full=prepareExactCutStep(root,all,stepLimits);
+        std::cout<<"[orthogonal-m04] final="<<full.complete
+                 <<" reason="<<full.refusal<<'\n';
+        if(!full.complete)
+            throw std::runtime_error(
+                "Complete original-root orthogonal three-body union: "+full.refusal);
         std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
                  <<" reason="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
