@@ -1,6 +1,6 @@
 # V17 — Flat, independently completable milestones
 
-**Authoritative work plan, rebaselined from Mesher \`main\` at \`28c419f6\` (PR #50).** Supersedes the *organization* of the older \`V17e2b2...\` nesting without changing the feature objectives, numerical acceptance policy, supported-domain limits, or any implementation already accepted. The [original task block](V17_LEGACY_TASK_TREE.md) is preserved verbatim; [\`DESIGN.md\`](../DESIGN.md) remains the detailed engineering history, and [V16 final acceptance](V16_FINAL_ACCEPTANCE.md) remains the pre-existing private-surgery boundary.
+**Authoritative work plan, rebaselined from Mesher `main` at `28c419f6` (PR #50).** Supersedes the *organization* of the older `V17e2b2...` nesting without changing the feature objectives, numerical acceptance policy, supported-domain limits, or any implementation already accepted. The [original task block](V17_LEGACY_TASK_TREE.md) is preserved verbatim; [`DESIGN.md`](../DESIGN.md) remains the detailed engineering history, and [V16 final acceptance](V16_FINAL_ACCEPTANCE.md) remains the pre-existing private-surgery boundary.
 
 ## Why a new plan is necessary
 
