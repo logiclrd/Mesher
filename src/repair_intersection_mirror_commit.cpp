@@ -105,8 +105,8 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
             if(p.x!=q.x||p.y!=q.y||p.z!=q.z)
                 throw std::logic_error("Cut graph altered original vertex coordinates");
         }
-    // Full point orbits include ORIGINAL corners and NEW cut vertices. A new
-    // X=0 self-pair cannot be manufactured without proving seam fan topology.
+    // Original self-paired vertices and SOURCE-PROVEN new fixed points are
+    // valid only with complete invariant reflected child fan coverage.
     std::vector<std::size_t> partner(plan.points.size(),plan.points.size());
     for(std::size_t i=0;i<plan.points.size();++i)
         if(plan.points[i].existingVertex) {
@@ -125,6 +125,12 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
             throw std::logic_error("New mirror cut requires distinct exact off-plane orbit");
         partner[a]=b;partner[b]=a;
     }
+    for(const auto i:plan.mirroredSeamCutPoints) {
+        if(i>=plan.points.size()||plan.points[i].existingVertex||
+           plan.points[i].position.x!=0||partner[i]!=plan.points.size())
+            throw std::logic_error("Invalid new self-mirrored cut junction");
+        partner[i]=i;
+    }
     for(std::size_t i=0;i<partner.size();++i)
         if(partner[i]>=partner.size()||partner[partner[i]]!=i)
             throw std::logic_error("Incomplete mirrored cut point orbit");
@@ -135,7 +141,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
         const CutTriangle reflected{
             mirrorOf(original[0]),mirrorOf(original[2]),mirrorOf(original[1])};
         const auto found=faceByCorners.find(ordered(reflected));
-        if(found==faceByCorners.end()||found->second==i||
+        if(found==faceByCorners.end()||
            !cyclic(reflected,
                baseline->face(plan.faces[found->second].sourceFace).vertices))
             throw std::logic_error("Invalid or invariant reflected source face");
@@ -215,6 +221,13 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
         output.insertedVertices.push_back(second);
         output.mirroredVertices.emplace_back(first,second);
     }
+    for(const auto i:plan.mirroredSeamCutPoints) {
+        const auto id=edit.appendSeamVertex(
+            pointOwner(*baseline,plan.points[i]),plan.points[i].position);
+        assigned[i]=id;
+        output.insertedVertices.push_back(id);
+        output.mirroredSeamVertices.push_back(id);
+    }
     const auto transformed=[&](LocalTriangle tri)->CutTriangle {
         for(const auto i:tri)
             if(i>=assigned.size()||assigned[i]==0)
@@ -223,8 +236,22 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     };
     for(std::size_t i=0;i<plan.faces.size();++i) {
         const auto j=facePartner[i];
-        if(i>=j)continue;
+        if(i>j)continue;
         const auto& a=plan.faces[i];
+        if(i==j) {
+            std::vector<CutTriangle> children;
+            for(const auto tri:a.triangles)children.push_back(transformed(tri));
+            const auto pairs=edit.replaceSelfMirroredFace(a.sourceFace,children);
+            for(const auto& [first,second]:pairs) {
+                output.mirroredFaces.emplace_back(first,second);
+                for(const auto id:{first,second}) {
+                    output.childSources.emplace_back(id,a.sourceFace);
+                    if(id==a.sourceFace)output.rewrittenFaces.push_back(id);
+                    else output.insertedFaces.push_back(id);
+                }
+            }
+            continue;
+        }
         const auto& b=plan.faces[j];
         edit.replaceMirroredFaces(a.sourceFace,b.sourceFace,
                                   transformed(a.triangles.front()));

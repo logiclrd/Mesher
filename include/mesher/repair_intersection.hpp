@@ -116,6 +116,9 @@ struct ConformingCutPlan {
     std::vector<ConformingCutJunction> junctions;
     // Verified reflected point pairs (distinct sheets never coalesce).
     std::vector<std::pair<std::size_t,std::size_t>> mirroredCutPoints;
+    // Source-proven ON-plane fixed-point cut orbits; one point/VertexId,
+    // never two coincident reflected IDs.
+    std::vector<std::size_t> mirroredSeamCutPoints;
     std::string refusal;
 };
 // Each boundary edge cut is represented by ONE ephemeral point index in
@@ -150,6 +153,7 @@ struct ConformingCutCandidate {
     // face mirror orbits, ready for a future original-root Step journal.
     // Empty for the nonmirrored path; no published map is mutated here.
     std::vector<std::pair<VertexId,VertexId>> mirroredVertices;
+    std::vector<VertexId> mirroredSeamVertices;
     std::vector<std::pair<FaceId,FaceId>> mirroredFaces;
     // Exact caller-supplied original contact order, retained so an
     // independent certification pass can compare with ALL V13 local hits.

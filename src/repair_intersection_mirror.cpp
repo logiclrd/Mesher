@@ -112,7 +112,19 @@ std::string pairMirroredMultiSectionPlan(
         if(found==faceByVertices.end())
             return "Mirrored affected source face or edge neighbor absent";
         const auto j=found->second;
-        if(i==j)return "Invariant source face needs separate X=0 seam handling";
+        if(i==j) {
+            // A genuinely invariant triangular source has exactly ONE
+            // self-paired old point and TWO distinct reciprocal off-plane
+            // vertices. Faces entirely in the mirror plane are excluded.
+            const auto original=index.face(id).vertices;
+            std::size_t fixed=0;
+            for(const auto vertex:original) {
+                const auto other=mirrorOf(vertex);
+                if(!other)return "Invariant source has an incomplete fixed-point orbit";
+                fixed+=*other==vertex;
+            }
+            if(fixed!=1)return "Invariant original source face has unsupported fixed-point fan";
+        }
         if(!reversedCycle(corners,index.face(plan.faces[j].sourceFace).vertices))
             return "Source face winding is not oppositely mirrored";
         faceMirror[i]=j;
@@ -200,7 +212,11 @@ std::string pairMirroredMultiSectionPlan(
             match=j;
         }
         if(!match)return "Unpaired reflected arrangement junction or endpoint";
-        if(*match==i)return "New X=0 self-orbit requires seam-fan staging";
+        if(*match==i) {
+            if(p.position.x!=0||counterpart!=provenance(p))
+                return "Ambiguous reflected source point is not exactly on X=0";
+            plan.mirroredSeamCutPoints.push_back(i);
+        }
         partner[i]=*match;
     }
     for(std::size_t i=0;i<partner.size();++i)
@@ -275,6 +291,40 @@ std::string pairMirroredMultiSectionPlan(
             return "Missing or duplicate reflected contact-curve orbit";
     }
 
+    // Invariant source faces need actual REVERSE-WINDING child pairs
+    // entirely within their OWN original triangle. The exact reflected
+    // point indices prove each pair, not proximity between unrelated
+    // source sheets. No triangular child may mirror to itself.
+    for(std::size_t i=0;i<plan.faces.size();++i) {
+        if(faceMirror[i]!=i)continue;
+        const auto& tris=plan.faces[i].triangles;
+        if(tris.empty()||tris.size()%2)
+            return "Invariant source face has odd/incomplete reflected cut fan";
+        std::vector<bool> paired(tris.size());
+        for(std::size_t k=0;k<tris.size();++k) {
+            if(paired[k])continue;
+            const auto t=tris[k];
+            const std::array<std::size_t,3> reflection{
+                partner[t[0]],partner[t[2]],partner[t[1]]};
+            std::optional<std::size_t> found;
+            for(std::size_t j=k+1;j<tris.size();++j) {
+                if(paired[j])continue;
+                countTest();
+                const auto other=tris[j];
+                bool cyclic=false;
+                for(unsigned shift=0;shift<3;++shift)
+                    if(other[0]==reflection[shift]&&
+                       other[1]==reflection[(shift+1)%3]&&
+                       other[2]==reflection[(shift+2)%3])cyclic=true;
+                if(cyclic) {
+                    if(found)return "Invariant source has ambiguous duplicate reflected child";
+                    found=j;
+                }
+            }
+            if(!found)return "Invariant cut triangle has no opposite-winding twin";
+            paired[k]=paired[*found]=true;
+        }
+    }
     // The independent ear/scaffold walks are not required to choose the
     // same diagonal. Use ONE canonical face tessellation per orbit, and
     // reflect each child triangle with opposite winding, ensuring that

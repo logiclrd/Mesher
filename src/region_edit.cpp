@@ -431,6 +431,71 @@ std::pair<FaceId,FaceId> RegionEdit::splitSelfMirroredFace(
         throw;
     }
 }
+std::vector<std::pair<FaceId,FaceId>> RegionEdit::replaceSelfMirroredFace(
+    FaceId id,const std::vector<std::array<VertexId,3>>& children) {
+    if(mirror_.empty()||!faces_.contains(id)||faceChanges_.contains(id)||
+       children.size()<2||children.size()%2)
+        throw std::logic_error("Invariant source replacement needs complete paired fan");
+    const auto old=index_->face(id).vertices;
+    const std::array<VertexId,3> reflected{
+        mirroredVertex(old[0]),mirroredVertex(old[2]),mirroredVertex(old[1])};
+    if(!cyclic(reflected,old))
+        throw std::logic_error("Changed original face is not an invariant reflected source");
+    std::size_t fixed=0;
+    for(const auto v:old)fixed+=mirroredVertex(v)==v;
+    if(fixed!=1)
+        throw std::logic_error("Invariant source fan must contain one old fixed-point vertex");
+    std::vector<std::pair<std::size_t,std::size_t>> pairIndices;
+    std::vector<bool> used(children.size());
+    for(std::size_t i=0;i<children.size();++i) {
+        if(used[i])continue;
+        ensureReferences(children[i]);
+        const auto tri=children[i];
+        const std::array<VertexId,3> twin{
+            mirroredVertex(tri[0]),mirroredVertex(tri[2]),mirroredVertex(tri[1])};
+        std::optional<std::size_t> found;
+        for(std::size_t j=i+1;j<children.size();++j) {
+            if(used[j])continue;
+            if(cyclic(twin,children[j])) {
+                if(found)throw std::logic_error(
+                    "Invariant fan has duplicate mirrored child triangles");
+                found=j;
+            }
+        }
+        if(!found)throw std::logic_error(
+            "Invariant fan lacks a distinct opposite-winding child");
+        ensureReferences(children[*found]);
+        used[i]=used[*found]=true;
+        pairIndices.emplace_back(i,*found);
+    }
+    try {
+        std::vector<std::pair<FaceId,FaceId>> result;
+        result.reserve(pairIndices.size());
+        const auto owner=index_->face(id).owner;
+        for(std::size_t k=0;k<pairIndices.size();++k) {
+            const auto [a,b]=pairIndices[k];
+            const auto first=children[a],second=children[b];
+            if(k==0) {
+                setFace(id,first);
+                const auto writable=chooseInsertionPartition(owner,false);
+                const auto mate=view_.addFace(writable,second);
+                newFaces_[mate]=writable;
+                faceChanges_[mate]=second;
+                faceMirror_.emplace(id,mate);
+                faceMirror_.emplace(mate,id);
+                result.emplace_back(id,mate);
+            }else {
+                const auto ids=appendMirroredFaces(owner,owner,first);
+                result.push_back(ids);
+            }
+        }
+        return result;
+    }catch(...) {
+        poisoned_=true;
+        throw;
+    }
+}
+
 void RegionEdit::removeMirroredFaces(FaceId a,FaceId b) {
     if(mirror_.empty()||a==b||!faces_.contains(a)||!faces_.contains(b))
         throw std::logic_error("Both paired faces must be editable");
