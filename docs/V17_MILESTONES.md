@@ -1163,3 +1163,45 @@ consume this authenticated scope before original-root CAS and
 prove cumulative first-original threshold refusal; M23 and
 original M12 remain separate. The sampled one-sided fidelity
 limit and default-disabled Merge geometry option are unchanged.
+
+## October 18, 2026 — M22 flat implementation replan; M28 acceptance
+
+M22's original objective is unchanged: **active cumulative first-original
+source fidelity immediately before one complete physicalExact worker
+CAS**, with deliberate M21 feature scope, protected outer/reversed
+cavity surfaces, exact d2 union, all finite work caps and recoverable
+atomic refusal. The actual worker performs several PRIVATE
+Inflate/refine/collapse/d2 stages in one original-root Step. M21's
+opaque intended feature declaration and M27's lifetime certificate
+must name the PREVIOUS PUBLISHED root, never a private intermediate
+stage. Accordingly the complete remaining sequence was planned as
+flat independently-completable **M28 → M29 → M30 → original M22
+integrated acceptance** in `todo.md` BEFORE implementation.
+
+M28 (PR #74; `docs/V17_M28_PHYSICAL_STAMP_SOURCE_BUNDLE.md`)
+accepts a complete authentic physical stamp source chain: full bounded
+unchanged FaceId/VertexId/ordered triangle incidence across normal-
+driven Inflate, exact moved VertexId and affected source face halo,
+actual committed M24/M25 splits/flips, conservative protected-safe
+collapse and optional M26 certified c1/c2/c3/M03/d2 terminal join.
+An actually NO-CHANGE collapse consumes no evidence; a real collapse
+requires complete source proof. All finite stage work and original
+face ownership are replayed against exact predecessor COW roots,
+then sealed into ONE externally valid M21 predecessor-bound successor.
+First original seven source witness points/edge lengths never rebase.
+Genuine two consecutive physical stamps show increasing protected
+first-original drift; an actual Inflate-plus-M24 local split and
+an actual physically generated source-exact union prove the full
+private chain. Forged movement reports, stale roots, exhausted full
+vertex/source evidence and one-under caps refuse. GCC, Clang and
+MSVC all passed 23 CPU suites and applicable benchmarks.
+
+This remains a **read-only private-stage proof**. M29 must preserve
+real worker published lifetime and recoverable history/checkpoint
+or fail safely on missing first-root source credentials. M30
+must connect complete terminal M21 fidelity and intent to both
+actual physical worker CAS paths, including queued input, atomic
+rejection and later valid FIFO draining. Original M22 remains OPEN
+until combined M28–M30 acceptance; M23/M12, unrelated milestones,
+the current PR-only CI cancellation and disabled desktop Merge
+geometry remain unchanged.
