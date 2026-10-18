@@ -633,6 +633,154 @@ void VersionedSculptBrush::stamp(
     }
 }
 
+bool VersionedSculptBrush::mergeExactContacts(
+    std::shared_ptr<const RegionTopologyIndex> expected,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const ExactCutStepLimits& requested) {
+    const auto reject=[&](const std::string& reason) {
+        lastDirtyPartitions_.clear();
+        lastRejection_=reason;
+        ++rejectedUnions_;
+        return false;
+    };
+    const auto old=published_.snapshot();
+    if(!expected||old!=expected)
+        return reject("Exact Boolean Step expected root is stale");
+    if(contacts.empty())
+        return reject("Exact Boolean Step requires a complete explicit contact set");
+    if(inflate_.mirrors()!=refiner_.mirrors()||
+       inflate_.mirrors()!=collapser_.mirrors())
+        return reject("Sculpt mirror controllers disagree before Boolean union");
+    ExactCutStepLimits limits=requested;
+    // Symmetric sculpt sessions may NEVER silently become asymmetric
+    // merely because a queued request omitted mirror correspondence.
+    limits.requireMirrors=symmetric_;
+    const auto result=prepareExactCutStep(
+        old,contacts,limits,symmetric_?&collapser_.mirrors():nullptr);
+    if(!result.complete||!result.final||
+       result.expected!=old||result.commit.revision.get()!=
+           &result.final->revision())
+        return reject("Exact Boolean Step preparation refused: "+result.refusal);
+
+    // Every mirror mutation must be a valid extension or retirement of
+    // the CURRENT three synchronized controller maps. This is checked
+    // before any publication or speculative state mutation.
+    const auto& living=collapser_.mirrors();
+    std::set<VertexId> removed;
+    for(const auto& [a,b]:result.removedMirrors) {
+        if(!living.contains(a)||!living.contains(b)||
+           living.at(a)!=b||living.at(b)!=a||
+           !removed.insert(a).second||!removed.insert(b).second)
+            return reject("Stale or duplicated original mirror retirement");
+    }
+    std::set<VertexId> inserted;
+    for(const auto& [a,b]:result.addedMirrors) {
+        if(!a||!b||a==b||living.contains(a)||living.contains(b)||
+           !inserted.insert(a).second||!inserted.insert(b).second||
+           !result.final->maybeVertex(a)||!result.final->maybeVertex(b))
+            return reject("New reflected vertex conflicts with current mirror maps");
+    }
+    if(!symmetric_&&(!result.addedMirrors.empty()||
+                     !result.removedMirrors.empty()))
+        return reject("Asymmetric sculpt request created mirror journal entries");
+
+    const auto changedVertices=[&] {
+        std::vector<VertexId> ids=result.addedVertices;
+        ids.insert(ids.end(),result.retiredVertices.begin(),
+                   result.retiredVertices.end());
+        return ids;
+    }();
+    const auto changedFaces=[&] {
+        std::vector<FaceId> ids=result.addedFaces;
+        ids.insert(ids.end(),result.rewrittenFaces.begin(),
+                   result.rewrittenFaces.end());
+        ids.insert(ids.end(),result.retiredFaces.begin(),
+                   result.retiredFaces.end());
+        return ids;
+    }();
+    if(validator_) {
+        std::string reason;
+        try {
+            reason=validator_({old,result.final,
+                std::span<const VertexId>(changedVertices),
+                std::span<const FaceId>(changedFaces)});
+        }catch(const std::length_error& e){reason=e.what();}
+        catch(const std::logic_error& e){reason=e.what();}
+        if(!reason.empty())return reject(reason);
+    }
+    const auto countAfter=[&](std::size_t current,std::ptrdiff_t delta) {
+        if(delta<0) {
+            const auto decrement=static_cast<std::size_t>(-(delta+1))+1;
+            if(current<decrement)throw std::logic_error(
+                "Boolean union element count underflow");
+            return current-decrement;
+        }
+        if(static_cast<std::size_t>(delta)>
+           std::numeric_limits<std::size_t>::max()-current)
+            throw std::logic_error("Boolean union element count overflow");
+        return current+static_cast<std::size_t>(delta);
+    };
+    const auto newVertices=countAfter(vertices_,result.vertexCountDelta);
+    const auto newFaces=countAfter(faces_,result.faceCountDelta);
+
+    // The worker is the only writer of the sculpt controller maps,
+    // history, and snapshots. Begin both speculative mirror journals;
+    // any prepublication failure rolls both back without changing the
+    // source root, history, rendered snapshot, or Inflate mirror map.
+    refiner_.beginStep();
+    try {collapser_.beginStep();}
+    catch(...) {refiner_.rollbackStep();throw;}
+    bool didPublish=false;
+    try {
+        for(const auto& [a,b]:result.removedMirrors) {
+            refiner_.removeMirrorPair(a,b);
+            collapser_.removeMirrorPair(a,b);
+        }
+        for(const auto& [a,b]:result.addedMirrors) {
+            refiner_.addMirrorPair(a,b);
+            collapser_.addMirrorPair(a,b);
+        }
+        // ONE original-root indexed CAS, with NO intermediate cut or
+        // seam-only root ever visible to renderer/picker subscribers.
+        if(!published_.publishIfCurrent(old,result.final)) {
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+            return reject("Exact Boolean Step lost its original-root CAS");
+        }
+        didPublish=true;
+        for(const auto& [a,b]:result.removedMirrors)
+            inflate_.removeMirrorPair(a,b);
+        for(const auto& [a,b]:result.addedMirrors)
+            inflate_.addMirrorPair(a,b);
+        history_.append(result.final,result.dirtyPartitions,
+            result.addedMirrors,result.removedMirrors,
+            result.copiedPayloadBytes,newVertices,newFaces);
+        refiner_.commitStep();
+        collapser_.commitStep();
+    }catch(...) {
+        // A post-CAS failure is fatal, as with the pre-existing sculpt
+        // publication path: it must NEVER be called a recoverable refusal.
+        if(!didPublish) {
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+        }
+        throw;
+    }
+    vertices_=newVertices;
+    faces_=newFaces;
+    lastDirtyPartitions_=result.dirtyPartitions;
+    lastRejection_.clear();
+    details_={};
+    details_.vertices=vertices_;
+    details_.triangles=faces_;
+    modifiedPartitions_+=result.commit.statistics.modifiedPartitions;
+    copiedDirectoryNodes_+=result.commit.statistics.copiedDirectoryNodes;
+    clonedPartitionBytes_+=result.copiedPayloadBytes;
+    ++publishedRevisions_;
+    ++completedUnions_;
+    return true;
+}
+
 bool VersionedSculptBrush::undo() {
     if(!history_.canUndo())return false;
     const auto previous=published_.snapshot();
