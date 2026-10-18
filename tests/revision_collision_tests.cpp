@@ -2532,7 +2532,7 @@ void testX0InvariantExactCutProbe() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,8>{{
         {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
-        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.1,-.65}
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
     }})mesh.vertices.push_back(p);
     for(unsigned tetra=0;tetra<2;++tetra)
         for(const auto t:std::array<std::array<unsigned,3>,4>{{
