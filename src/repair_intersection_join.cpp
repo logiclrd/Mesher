@@ -493,7 +493,8 @@ ExactCutJoinResult joinCertifiedCutSections(
 
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
-    const ExactSeamRefinementLimits& limits) {
+    const ExactSeamRefinementLimits& limits,
+    bool includeAuthorizedUncutOriginals) {
     ExactSeamRefinementResult out;
     const auto require=[](bool good,const char* reason) {
         if(!good)throw std::logic_error(reason);
@@ -508,9 +509,16 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
         require(originalNomination.ready()&&
                 !originalNomination.proposedRemoval.empty(),
                 "Seam refinement needs complete c1/c2/c3 removal authorization");
-        const std::set<FaceId> deleted(
+        std::set<FaceId> deleted(
             originalNomination.proposedRemoval.begin(),
             originalNomination.proposedRemoval.end());
+        if(includeAuthorizedUncutOriginals) {
+            const auto uncut=planUncutFaceRetirement(cut,limits.join.removal);
+            require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
+                    "Source-aligned seam needs independently certified uncut originals");
+            deleted.insert(uncut.authorizedUncut.begin(),
+                           uncut.authorizedUncut.end());
+        }
         std::map<FaceId,FaceId> sources;
         for(const auto& [child,original]:cut.childSources)
             require(sources.emplace(child,original).second,
@@ -750,8 +758,16 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
         for(const auto& [child,origin]:refined.childSources)
             require(newSources.emplace(child,origin).second,
                     "Refined source child journal duplicated a FaceId");
-        const std::set<FaceId> newDeleted(
+        std::set<FaceId> newDeleted(
             updated.proposedRemoval.begin(),updated.proposedRemoval.end());
+        if(includeAuthorizedUncutOriginals) {
+            const auto uncut=planUncutFaceRetirement(
+                refined,limits.join.removal);
+            require(uncut.ready()||uncut.status==CutRemovalStatus::NoChanges,
+                    "Refined seam lost original uncut-face authorization");
+            newDeleted.insert(uncut.authorizedUncut.begin(),
+                              uncut.authorizedUncut.end());
+        }
         auto matched=gather(*refined.index,newDeleted,newSources);
         std::size_t checks=0,matches=0;
         for(std::size_t k=0;k<refined.sourceContacts.size();++k) {

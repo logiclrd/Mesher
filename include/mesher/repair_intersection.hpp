@@ -433,7 +433,8 @@ struct ExactSeamRefinementResult {
 };
 ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
     const ConformingCutCandidate& cut,
-    const ExactSeamRefinementLimits& limits={});
+    const ExactSeamRefinementLimits& limits={},
+    bool includeAuthorizedUncutOriginals=false);
 
 
 // V17e2b2d3: Stage the entire subdivision + certified seam join as

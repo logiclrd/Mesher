@@ -78,7 +78,7 @@ ExactCutStep prepareExactCutStep(
             auto refineLimits=limits.refinement;
             refineLimits.join=limits.join;
             const auto alignment=reconcileCertifiedSeamSubdivisions(
-                cut,refineLimits);
+                cut,refineLimits,true);
             if(!alignment.complete||!alignment.refined)
                 return reject("Original-root Step exact seam refinement refused: "+
                               alignment.refusal);
