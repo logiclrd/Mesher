@@ -3,6 +3,7 @@
 #include "mesher/refine.hpp"
 #include "mesher/versioned_inflate.hpp"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <unordered_map>
@@ -20,12 +21,25 @@ struct RefineSplitSourceEvidence {
     VertexId midpoint{},edgeA{},edgeB{};
 };
 
+// A completed 2-to-2 diagonal flip (one record per actual pair of
+// source triangles, including the opposite reflected pair if present).
+// Every record binds the same validated private transaction roots.
+struct RefineFlipSourceEvidence {
+    std::shared_ptr<const RegionTopologyIndex> before,after;
+    std::array<FaceId,2> faces{};
+    std::array<std::array<VertexId,3>,2> oldTriangles{},newTriangles{};
+    // Exact source-provided map; empty in asymmetric operation. A mirrored
+    // transaction must prove its vertex involution, never infer from XYZ.
+    std::vector<std::pair<VertexId,VertexId>> mirrors;
+};
+
 struct VersionedRefineResult {
     std::shared_ptr<const RegionTopologyIndex> index;
     // The real immutable pre-stamp original and post-Inflate input; an
     // independent verifier can reject stale/mismatched source chains.
     std::shared_ptr<const RegionTopologyIndex> stampOriginal,sourceIndex;
     std::vector<RefineSplitSourceEvidence> splitSources;
+    std::vector<RefineFlipSourceEvidence> flipSources;
     bool sourceSplitsSymmetric{}; // explicit runtime split mirror intent
     RefineStatistics statistics{};
     std::vector<VertexId> insertedVertices;
