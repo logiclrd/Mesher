@@ -1685,9 +1685,8 @@ void testWhollyBuriedUncutOriginalFace() {
         const auto start=4u*solid;
         for(const auto t:std::array<std::array<unsigned,3>,4>{{
             {0,1,2},{1,0,3},{2,1,3},{0,2,3}
-        }})mesh.triangles.push_back(solid<2?
-            std::array<unsigned,3>{start+t[0],start+t[1],start+t[2]}:
-            std::array<unsigned,3>{start+t[0],start+t[2],start+t[1]});
+        }})mesh.triangles.push_back({
+            start+t[0],start+t[solid<2?1:2],start+t[solid<2?2:1]});
     }
     const auto imported=partitionFlatMesh(mesh,256);
     const auto original=RegionTopologyIndex::build(imported.revision);
