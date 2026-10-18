@@ -1156,7 +1156,7 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   stale/forged/missing/cross-source/mirror refusals. Substantive head
   Actions #39161099327 passed GCC/Clang/MSVC and 23 CPU suites.
   M25–M27 and the original M20 checkbox remain OPEN.
-- [ ] **V17-M25 — Safe flip and collapse source-transition proofs.**
+- [x] **V17-M25 — Safe flip and collapse source-transition proofs.**
   Extend lineage beyond M24's split-only positive domain with bounded
   committed flip/collapse records. A flip that transfers area between
   original owners requires a jointly certified source-patch domain,
@@ -1164,6 +1164,20 @@ M13–M15, V18/V19 and accepted M01–M19 remain untouched.
   Exposed/ReversedBoundary material must refuse absent M21 deliberate
   permission. Positive valid local topological edits and mirrored
   orbits; missing protected fragments and ambiguous ancestors refuse.
+  **Accepted in PR #69, substantive Actions #39163332789:** real
+  repeated sphere split+2→2 flip positive preserving unrelated
+  original protected sources; actual asymmetric and paired mirrored
+  collapse positive with immutable protected outer walls; source-ID
+  quad boundary, same-original-owner protected transfer, reflected
+  reciprocal/opposite-winding fan, collapse midpoint/seam, exact
+  retired/rewritten FaceId and tombstone source journals.
+  Real cross-original protected flip, unproven protected collapse
+  deletion/movement, stale/missing/forged journals and one-under
+  evidence caps refuse. Full 23-suite GCC/Clang/MSVC CI green.
+  Deliberate cross-original protected remapping WITHOUT separately
+  certified joint source partition remains unsupported/refused; no
+  automatic ownership transfer or M21 intentional deformation.
+  M26, M27, M20 and original M12 remain OPEN.
 - [ ] **V17-M26 — Source-exact c1/c2/c3/d2 child correspondence.**
   Bridge original FaceId → source-proven conforming-cut childSources
   through M02 subdivisions and surviving final d2 seam into a bounded
