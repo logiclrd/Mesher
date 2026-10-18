@@ -3408,3 +3408,103 @@ the worker's three synchronized mirror controllers and a
 durable exact mirror-orbit checkpoint. Both the old M05 off-plane
 positive acceptance and V17-M08–M13 downstream goals remain
 unchanged; the desktop Merge geometry option is still disabled.
+
+
+## V17-M07 — Source-proven X=0 c3 reflected child and contour orbits
+
+**October 18, 2026; scope boundary and implementation.** The positive
+private M06 original cut revealed a failure of representation, not a
+license to weld: c3's historical mirrored deletion code assumed that
+every FaceId and VertexId reflection orbit has cardinality TWO.
+Its `addPairedVertex` rejected `a == b`, its face orbit count was
+`2*pairCount == childCount`, its inserted vertex count was similarly
+restricted, and contour mate discovery searched only `j > i`.
+An original source-proven fixed point at X=0 can have a single
+stable VertexId and a genuine invariant triangular child can have
+a single FaceId; an actual reflected contour can have one index
+representing the whole closed ring.
+
+**Forward planning made before changing the runtime gate.** This
+proved too broad for a single c3-plus-d2-plus-CAS milestone.
+`todo.md` and `docs/V17_MILESTONES.md` now divide the SAME
+original full M07 acceptance into three independent flat peers:
+M07 positive PRIVATE cavity-safe c3 mirror/contour provenance;
+M08 exact-source d2 welded manifold PRIVATE union; M09 final
+original-root Step/worker/undo/redo/checkpoint. The formerly planned
+M08–M13 objectives move unchanged to M10–M15. No deep subtask
+hierarchy or empty checkbox masquerading as a finished union.
+
+**c3 source-authority representation.** Mirror child FaceId orbits
+are stored canonically as (a,a) for a single genuinely invariant child
+or (a,b) for two distinct reflected children. The verified involution
+map contains both directions for a paired orbit and just one
+entry for a singleton. Each FaceId in the FULL `childSources`
+map is accounted for ONCE. Source originals must themselves
+have exact reversed reflected face XYZ/winding, and each actual
+child triangle must have a compatible reversed reflected vertex
+cycle; invariant child triangles require precisely one source-fixed
+corner and a mutually exchanged off-plane edge. New fixed IDs
+are authorized by the M06 `mirroredSeamVertices` journal and must
+be absent from the ORIGINAL root with exactly X=0. Historical
+candidate fixed IDs must be actual corners of their genuine
+ORIGINAL source faces, still present in the real child face, with
+unchanged X=0 source coordinates; a coincident arbitrary new
+point is NOT promoted to an old fixed mirror orbit. All inserted
+vertex IDs must be accounted for by exactly one journal entry:
+2 per ordinary pair, 1 per verified fixed point. Both count and
+involution checks are enforced.
+
+**Reflected removal and rim ownership.** c3's reliable c1
+positive signed-winding decision and independently recomputed
+complete c2 finite original-contact edge evidence remain mandatory.
+Exposed and reverse cavity classes are not deleted. FaceId removal
+journals use one (a,a) entry for a singleton, one (a,b) entry
+for a genuine pair, and expand counts by 1 or 2 respectively.
+V15's contour shape scoring remains unchanged; no synthetic
+Ready permission is created. Each directed closed contour ring
+must have a UNIQUE reflected partner (which can be itself).
+Each self-reflected contour is checked for exactly two source
+fixed boundary anchors under the reversed cyclic vertex
+involution. A loop with an unmaterialized crossing-edge midpoint,
+duplicated contour corner or competing reflected mate refuses.
+Caps and zipper choices are verified for reflection closure as
+before, including permissible fixed contour orbits. This is a
+read-only provenance/nomination decision: it does NOT call
+RegionEdit, remove a face or weld unrelated source sheets.
+
+**Proof boundaries retained.** Invariant contour certification
+does not alone prove that two separate original sheets may be
+physically welded. Existing `joinCertifiedCutSections` still
+rejects a self-reflected seam equivalence class and does not
+yet accept a fully validated on-plane disk/link. The original
+source-proven d2 exact coincident survivor-interval match,
+final closed edge/vertex manifoldness, no residual collisions,
+cavity safety, one original-root history transaction and queued
+worker mirror journal are all separately required in M08/M09.
+Production V13 predicates and V15 scoring thresholds are NEVER
+weakened to force this fixture; as in prior M04/M05 acceptance,
+the synthetic tetra regression alone may configure more permissive
+TEST-only V15 shape metrics. Automatic sculpt-triggered Merge
+geometry and the desktop switch remain disabled.
+
+**Regression target.** Extend the EXACT M06 two-closed-tetra
+complete three-original-contact fixture, retaining the original
+root and independent c2 coverage. Require positive c3 Ready,
+fully classified source children, authorized and protected
+FaceIds, exact singleton/pair removal counts and unique
+contour involutions with a real fixed rim having two source
+fixed anchors. Broken singleton child journals, missing fixed
+inserted identity, missing original V13 pair, exhausted child
+work and the prior M06 genuine grazing fixture must refuse
+with no approved partial deletion or old-root mutation. The
+off-plane 24/32-contact M05 results remain regression controls.
+
+**M07 verification follow-up, October 18:** The strict fixed-ring
+regression (two self-orbit source anchors, at least one real invariant
+contour), exact child classification/removal and preserved original
+reader identity passed 23 CPU suites and all applicable build/benchmark
+checks on Linux GCC, Linux Clang and Windows MSVC at code commit
+9b4a0a6313e4e3b649059a61a35f9d935ec63c7b
+(Actions run 39135929681). M07's private c3 certificate is accepted;
+M08 PRIVATE d2 terminal X=0 disk weld and M09 original-root one-Step
+worker/history checkpoint remain explicitly OPEN. No live toggle.

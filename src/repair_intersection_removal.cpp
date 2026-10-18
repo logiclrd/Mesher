@@ -32,29 +32,77 @@ struct VerifiedMirrors {
     std::map<FaceId,FaceId> faces;
     std::map<VertexId,VertexId> vertices;
 };
-void addPairedVertex(std::map<VertexId,VertexId>& partners,
-                     VertexId a,VertexId b) {
-    const auto aFound=partners.find(a),bFound=partners.find(b);
-    if(a==b||(aFound!=partners.end()&&aFound->second!=b)||
-       (bFound!=partners.end()&&bFound->second!=a))
+// The cut itself certifies new self-paired IDs. Existing fixed IDs
+// must be ORIGINAL corners of an actually cut source face; the mirror
+// face fan below independently proves their reflected corner incidence.
+void addProvenVertex(std::map<VertexId,VertexId>& partners,
+                     VertexId a,VertexId b,
+                     const std::set<VertexId>& fixed) {
+    const auto first=partners.find(a),second=partners.find(b);
+    if((a==b&&!fixed.contains(a))||
+       (first!=partners.end()&&first->second!=b)||
+       (second!=partners.end()&&second->second!=a))
         throw std::logic_error("Conflicting child-contour vertex mirror mapping");
     partners[a]=b;
     partners[b]=a;
+}
+bool reflectedFace(const RegionTopologyIndex& index,FaceId a,FaceId b) {
+    const auto first=index.face(a).vertices;
+    const auto second=index.face(b).vertices;
+    for(unsigned shift=0;shift<3;++shift) {
+        bool matches=true;
+        for(unsigned i=0;i<3;++i)
+            if(!exactlyMirrors(index.vertex(first[i]).position,
+                 index.vertex(second[(shift+3-i)%3]).position))
+                matches=false;
+        if(matches)return true;
+    }
+    return false;
 }
 VerifiedMirrors verifiedMirrorFaces(
     const ConformingCutCandidate& cut,
     const std::set<FaceId>& children,
     std::size_t maxPairs) {
-    if(cut.mirroredFaces.size()>maxPairs/2)
-        throw std::length_error("Paired cut face budget exhausted");
-    if(cut.mirroredFaces.size()*2!=children.size())
-        throw std::logic_error("Mirrored cut face journal omits a child orbit");
+    // One consumed work unit per child, including a true singleton,
+    // preserves the historic off-plane work ceiling.
+    if(children.size()>maxPairs)
+        throw std::length_error("Mirrored cut child-face budget exhausted");
     VerifiedMirrors partners;
+    std::set<VertexId> inserted(cut.insertedVertices.begin(),
+                                cut.insertedVertices.end());
+    if(inserted.size()!=cut.insertedVertices.size()||
+       cut.mirroredVertices.size()*2+cut.mirroredSeamVertices.size()
+           !=inserted.size())
+        throw std::logic_error("Incomplete newly inserted vertex mirror orbits");
+    std::set<VertexId> fixed,assigned;
+    for(const auto id:cut.mirroredSeamVertices) {
+        if(!assigned.insert(id).second||!inserted.contains(id)||
+           !cut.index->maybeVertex(id)||cut.originalIndex->maybeVertex(id)||
+           cut.index->vertex(id).position.x!=0)
+            throw std::logic_error("Invalid source-proven fixed cut vertex orbit");
+        fixed.insert(id);
+    }
+    for(const auto& [child,source]:cut.childSources) {
+        if(!children.contains(child)||!cut.originalIndex->maybeFace(source))
+            throw std::logic_error("Unproven mirrored child source FaceId");
+        const auto& original=cut.originalIndex->face(source).vertices;
+        const auto& actual=cut.index->face(child).vertices;
+        for(const auto v:original)
+            if(std::find(actual.begin(),actual.end(),v)!=actual.end()&&
+               cut.originalIndex->vertex(v).position.x==0)
+                fixed.insert(v);
+    }
+    std::map<FaceId,FaceId> sources;
+    for(const auto& [child,source]:cut.childSources)
+        if(!sources.emplace(child,source).second)
+            throw std::logic_error("Duplicated mirrored child provenance");
     for(const auto& [a,b]:cut.mirroredFaces) {
-        if(a==b||!children.contains(a)||!children.contains(b)||
+        if(!children.contains(a)||!children.contains(b)||
            !partners.faces.emplace(a,b).second||
-           !partners.faces.emplace(b,a).second)
+           (a!=b&&!partners.faces.emplace(b,a).second))
             throw std::logic_error("Invalid or duplicated mirrored child FaceId");
+        if(!reflectedFace(*cut.originalIndex,sources.at(a),sources.at(b)))
+            throw std::logic_error("Mirrored child sources lack reflected original face proof");
         const auto first=cut.index->face(a).vertices;
         const auto second=cut.index->face(b).vertices;
         bool matched=false;
@@ -66,9 +114,18 @@ VerifiedMirrors verifiedMirrorFaces(
                     cut.index->vertex(second[(shift+3-i)%3]).position))
                     same=false;
             if(!same)continue;
+            // A genuinely invariant *single* triangle has exactly one
+            // fixed corner and two exchanged nonplane corners.
+            if(a==b) {
+                unsigned seamCorners=0;
+                for(const auto v:first)
+                    if(fixed.contains(v))++seamCorners;
+                if(seamCorners!=1)
+                    throw std::logic_error("Invariant child has no unique fixed corner");
+            }
             for(unsigned i=0;i<3;++i)
-                addPairedVertex(partners.vertices,first[i],
-                    second[(shift+3-i)%3]);
+                addProvenVertex(partners.vertices,first[i],
+                    second[(shift+3-i)%3],fixed);
             matched=true;
             break;
         }
@@ -76,23 +133,23 @@ VerifiedMirrors verifiedMirrorFaces(
             throw std::logic_error("Mirrored children have inconsistent exact winding");
     }
     if(partners.faces.size()!=children.size())
-        throw std::logic_error("Incomplete mirrored child pairing");
-    std::set<VertexId> inserted(
-        cut.insertedVertices.begin(),cut.insertedVertices.end());
-    if(inserted.size()!=cut.insertedVertices.size()||
-       cut.mirroredVertices.size()*2!=inserted.size())
-        throw std::logic_error("Incomplete mirrored newly inserted vertex orbits");
-    std::set<VertexId> paired;
+        throw std::logic_error("Incomplete mirrored child face-orbit ownership");
+    for(const auto id:cut.mirroredSeamVertices)
+        if(!partners.vertices.contains(id)||partners.vertices.at(id)!=id)
+            throw std::logic_error("Source-fixed vertex lacks its child fan");
     for(const auto& [a,b]:cut.mirroredVertices) {
         if(a==b||!inserted.contains(a)||!inserted.contains(b)||
-           !paired.insert(a).second||!paired.insert(b).second||
+           !assigned.insert(a).second||!assigned.insert(b).second||
            !cut.index->maybeVertex(a)||!cut.index->maybeVertex(b)||
            cut.originalIndex->maybeVertex(a)||cut.originalIndex->maybeVertex(b)||
            !exactlyMirrors(cut.index->vertex(a).position,
                            cut.index->vertex(b).position)||
-           !partners.vertices.contains(a)||partners.vertices.at(a)!=b)
-            throw std::logic_error("Invalid mirrored permanent cut vertex orbits");
+           !partners.vertices.contains(a)||partners.vertices.at(a)!=b||
+           !partners.vertices.contains(b)||partners.vertices.at(b)!=a)
+            throw std::logic_error("Invalid permanent paired cut vertex orbit");
     }
+    if(assigned.size()!=inserted.size())
+        throw std::logic_error("Unaccounted for inserted cut mirror vertex");
     return partners;
 }
 bool reflectedContour(const RepairContour& a,const RepairContour& b,
@@ -118,21 +175,41 @@ bool stageMirroredContours(CutRemovalProposal& plan,
     const auto& contours=plan.contourPlan.contours;
     std::vector<std::size_t> partner(contours.size(),contours.size());
     for(std::size_t i=0;i<contours.size();++i) {
-        if(partner[i]!=contours.size())continue;
-        for(std::size_t j=i+1;j<contours.size();++j) {
-            if(partner[j]!=contours.size()||
-               !reflectedContour(contours[i],contours[j],vertexMirrors))
+        std::size_t matches=0;
+        for(std::size_t j=0;j<contours.size();++j) {
+            if(!reflectedContour(contours[i],contours[j],vertexMirrors))
                 continue;
-            partner[i]=j;partner[j]=i;
-            plan.mirroredContours.emplace_back(i,j);
-            break;
+            partner[i]=j;
+            ++matches;
         }
-        if(partner[i]==contours.size())return false;
+        // Require a UNIQUE reflected ring. Invariant rings appear
+        // once as (i,i); two co-located rings cannot silently share
+        // a mirror mate or make a branched fixed seam.
+        if(matches!=1)return false;
     }
-    // V15 may select independent caps, or zipper contour pairs. A
-    // mirrored repair must make symmetrical choices, not merely stage
-    // mirrored face and contour IDs with mismatched surgery operations.
-    std::set<std::size_t> capped(
+    for(std::size_t i=0;i<partner.size();++i) {
+        if(partner[partner[i]]!=i)return false;
+        if(partner[i]==i) {
+            // The involution on a SIMPLE oriented closed ring must
+            // reverse cyclic order at precisely two source-owned fixed
+            // vertices. One fixed vertex plus a midpoint of an
+            // *unsplit* crossing edge is not a conforming X=0 rim.
+            std::set<VertexId> visited;
+            unsigned anchors=0;
+            for(const auto vertex:contours[i].vertexIds) {
+                const auto mate=vertexMirrors.find(vertex);
+                if(!visited.insert(vertex).second||
+                   mate==vertexMirrors.end())return false;
+                if(mate->second==vertex)++anchors;
+            }
+            if(anchors!=2)return false;
+        }
+        if(i<=partner[i])
+            plan.mirroredContours.emplace_back(i,partner[i]);
+    }
+    // All V15-selected caps and zippers must themselves form
+    // closed reflection orbits; no change to quality thresholds.
+    const std::set<std::size_t> capped(
         plan.contourPlan.cappedContours.begin(),
         plan.contourPlan.cappedContours.end());
     for(const auto i:capped)
@@ -183,7 +260,8 @@ CutRemovalProposal planExactCutRemoval(
             return refused("Cut child status references a different revision");
 
         const bool mirrored=!cut.mirroredFaces.empty()||
-                            !cut.mirroredVertices.empty();
+                            !cut.mirroredVertices.empty()||
+                            !cut.mirroredSeamVertices.empty();
         VerifiedMirrors mirrors;
         if(mirrored)
             mirrors=verifiedMirrorFaces(cut,children,
@@ -249,11 +327,14 @@ CutRemovalProposal planExactCutRemoval(
                 if(!std::binary_search(proposed.proposedRemoval.begin(),
                                        proposed.proposedRemoval.end(),mate))
                     return refused("Removed children must form full mirror orbits");
-                if(id<mate)
+                if(id<=mate)
                     proposed.mirroredRemoval.emplace_back(id,mate);
             }
-            if(proposed.mirroredRemoval.size()*2!=proposed.proposedRemoval.size())
-                return refused("Incomplete mirrored deletion FaceId pairing");
+            std::size_t count=0;
+            for(const auto& [a,b]:proposed.mirroredRemoval)
+                count+=(a==b?1:2);
+            if(count!=proposed.proposedRemoval.size())
+                return refused("Incomplete mirrored deletion FaceId orbit");
         }
         if(proposed.proposedRemoval.empty()) {
             proposed.status=Status::NoChanges;
