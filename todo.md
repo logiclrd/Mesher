@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M07 are complete in their independently accepted private cut/c3 scopes; M08–M15 and V17 as a whole remain open.**
+**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M08 are complete in their independently accepted private cut/c3/join scopes; M09–M15 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -882,7 +882,7 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   Linux GCC, Linux Clang and Windows MSVC at code head 9b4a0a6.
   This is deliberately NOT a Boolean weld or history publication;
   M08 and M09 remain positive acceptance gates.
-- [ ] **V17-M08 — X=0 original-paired private d2 seam closure.**
+- [x] **V17-M08 — X=0 original-paired private d2 seam closure.**
   Consume M07 Ready source-certified retirement plus independently
   justified M03 whole-uncut-original retirement, if required. Weld
   only exact opposite surviving finite original V13 intervals; X=0
@@ -893,6 +893,23 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   produce one PRIVATE closed connected symmetric manifold with
   no residual collisions; reject unsupported 4+ sheets, tangencies,
   near-coordinate pseudo-weld, dangling edges and exhausted work.
+  **Accepted private M08:** M07's same complete three-original V13-contact
+  two-tetrahedron cut now passes strict c3→d2 positive seam intervals,
+  one unpublished RegionEdit and a true 2→1 connected closed manifold.
+  Each independently source-proven X=0 sheet vertex in a self-reflected
+  equivalence class becomes one permanent stable representative; off-plane
+  classes remain distinct reciprocal IDs. Independent whole-terminal
+  FaceId/edge winding and connected vertex-link audits, no residual
+  intersections, old-source exact XYZ/picking identity, real retired
+  FaceId/VertexId tombstones and exact remaining mirror orbits pass.
+  M03's independently verified untouched-original survey additionally
+  accepts true self-paired original mirror orbits, and its optional
+  join mode passes the same closed X=0 terminal private union.
+  Missing source pairs, forged historical self-mapping and exhausted
+  seam work refuse atomically. Test-only synthetic tetra V15 contour
+  allowances are unchanged; GCC, Clang and MSVC 23-suite CI passed
+  at code head fefa926 (Actions #39138641095). NO original-root CAS,
+  history, worker journal or default UI activation is claimed.
 - [ ] **V17-M09 — X=0 original-root history, queued worker and mirror journals.**
   Compose M06 private cut, M07 c3 and M08 real d2 closed weld into ONE
   original-root immutable Step/CAS with true net stable-ID/tombstone
