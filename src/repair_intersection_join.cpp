@@ -224,11 +224,21 @@ ExactCutJoinResult joinCertifiedCutSections(
             auto second=trace(index,boundary,pair.second,start,end,
                               traceTests,limits.maxTraceTests);
             if(first.size()!=second.size())
-                return refused("Independently subdivided source section edge counts differ");
+                return refused("Independently subdivided source section edge counts differ, contact "+
+                    std::to_string(k)+": "+
+                    std::to_string(first.size())+" versus "+
+                    std::to_string(second.size()));
             for(std::size_t i=0;i<first.size();++i) {
                 const auto& a=first[i],&b=second[i];
                 if(a.lo!=b.lo||a.hi!=b.hi||a.increasing==b.increasing)
-                    return refused("Unmatched subdivision or aligned winding along joined section");
+                    return refused("Unmatched subdivision or aligned winding along contact "+
+                        std::to_string(k)+" interval "+std::to_string(i)+
+                        ": A["+std::to_string(a.lo)+","+
+                        std::to_string(a.hi)+"] B["+
+                        std::to_string(b.lo)+","+
+                        std::to_string(b.hi)+"] directions "+
+                        std::to_string(a.increasing)+","+
+                        std::to_string(b.increasing));
                 if(boundary[a.boundaryIndex].accounted||
                    boundary[b.boundaryIndex].accounted)
                     return refused("A seam boundary edge belongs to multiple contact sections");
