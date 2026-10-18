@@ -4102,3 +4102,67 @@ sixteen real alternating symmetric physical unions
 and FIFO cleanup acceptance after this first physical
 positive. The precise tests and limitations are
 catalogued in docs/V17_M18_PHYSICAL_EXACT_STEP.md.
+
+
+## V17-M11 — Positive repeated physical source-exact unions in two reflected towers
+
+**October 18, 2026; independent post-M18 repeat/FIFO boundary.**
+M18's first physical exact Boolean is not sufficient evidence
+for sixteen repeated 4D worker unions. The earlier V16 repeated
+two-tower test could count refusal as a safe outcome. The M11
+source fixture uses SIXTEEN different initially CLEAN closed
+two-tetra contact regions instead, eight each on two spatially
+separated towers, with independently exactly reflected negative-X
+sheets and complete reciprocal VertexIds. The physical input
+alternates tower A/B and advances height bands; radius and
+separation ensure only one independent pair on each reflected
+half is moved per stamp. At all sixteen inputs, genuinely
+normal-driven Inflate must CREATE finite original V13 source
+contacts. The current M17 all-candidate discovery and M18
+private source-proven c1/c2/c3/M03/d2 union accept a real
+closed and oriented two-half joined result; a refusal does
+NOT satisfy the positive requirement. The next input begins
+from that SAME published root, never from a fresh copy.
+Accepted roots undergo independent full live V13 collision
+queries, protected live mirror ID and 3D-reflection checks,
+genuine FaceId retirement, nonempty dirty partition
+publication and exactly one original-root CAS/history.
+All old BVH/picker roots stay reachable and immutable.
+The sixteen history entries undo back to the exact
+initial pointer and redo through every previously held
+terminal pointer.
+
+The async original 4D FIFO worker independently delivers
+sixteen physical begin/end commands, NOT explicit Merge
+requests, with a complete final-only renderer snapshot for
+each joined region. A distant clean command may produce
+an unchanged snapshot but never an invented publication.
+A terminal-validator refusal after speculative exact
+staging also yields only an unchanged snapshot with no
+history/mirror delta; the next identical physical command
+succeeds on that SAME worker. A separate very broad
+normal-driven symmetric physical stroke moves many
+eligible source regions at once and exceeds a finite
+M17 original source-work cap, refusing the WHOLE Step.
+A subsequent normal single-region command on the same
+work-bounded worker must then pass. Final queued durable
+checkpoint, live-only reciprocal mirror orbits, and
+sixteen independent queued undo/redo commands verify
+history and checkpoint identity. Existing M10/M16/M17
+negative geometry cases remain fail-closed and unmodified.
+
+The separately accepted V16 thirty-two same-patch cap
+replacement witness regression and earlier old-root
+tests are retained; neither is rebranded as a supported
+32-Step Boolean union. The M18 real post-Inflate
+split-plus-exact-union and existing remeshing tests
+also remain positive independent controls. M11 does
+NOT prove endless remerging of one already welded
+surface, arbitrary N-sheet imported geometry, all
+local split/flip/collapse choices in the same exact
+stamp, M12 original anchored cumulative behavior,
+M13 global budget accounting, M14 post-CAS failure
+atomicity, or M15 desktop opt-in Vulkan acceptance.
+The live desktop switch still defaults OFF. The test
+recipe and limits are in
+docs/V17_M11_REPEATED_PHYSICAL_UNIONS.md.

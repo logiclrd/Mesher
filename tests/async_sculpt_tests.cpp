@@ -1074,6 +1074,385 @@ void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
         throw std::runtime_error(
             "No complete clean-to-contact candidate proved an EXACT Boolean: "+last);
 }
+// M11: sixteen independently eligible ORIGINAL source regions arranged in
+// TWO alternated symmetric towers. All shells start DISJOINT. A stamp
+// touches ONE pair in each reflected tower half, not 16 pre-existing seams.
+// An early all-root scan must therefore be clean, and only the actually
+// physically deformed region may join at each scheduled input.
+struct M11TowerSource {
+    Mesh mesh;
+    std::vector<std::pair<std::size_t,std::size_t>> originalPairs;
+    std::vector<std::array<BrushArea,2>> input;
+};
+M11TowerSource makeM11Towers(std::size_t count,double gap) {
+    M11TowerSource out;
+    const std::array<Vec3,4> tetra{{
+        {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}}};
+    const std::array<std::array<unsigned,3>,4> faces{{
+        {0,1,2},{0,2,3},{0,3,1},{1,3,2}}};
+    for(std::size_t i=0;i<count;++i) {
+        const double y=i%2==0?-14.0:14.0;
+        const double z=20.0*static_cast<double>(i/2);
+        const Vec3 center{5,y,z};
+        const auto start=out.mesh.vertices.size();
+        for(const Vec3 shift:{Vec3{-1-gap,0,0},
+                              Vec3{1+gap,.19,-.11}}) {
+            const auto off=static_cast<std::uint32_t>(
+                out.mesh.vertices.size());
+            for(const auto p:tetra)
+                out.mesh.vertices.push_back(center+shift+p);
+            for(const auto tri:faces)
+                out.mesh.triangles.push_back({
+                    off+tri[0],off+tri[1],off+tri[2]});
+        }
+        const auto mirroredStart=out.mesh.vertices.size();
+        const auto facesAtStart=out.mesh.triangles.size();
+        for(std::size_t j=0;j<8;++j) {
+            const auto p=out.mesh.vertices[start+j];
+            out.mesh.vertices.push_back({-p.x,p.y,p.z});
+            out.originalPairs.emplace_back(start+j,mirroredStart+j);
+        }
+        for(std::size_t j=0;j<8;++j) {
+            const auto t=out.mesh.triangles[facesAtStart-8+j];
+            // Mirror reverses triangle orientation and preserves the
+            // original four independently closed source components.
+            const auto d=static_cast<std::uint32_t>(mirroredStart-start);
+            out.mesh.triangles.push_back({
+                t.a+d,t.c+d,t.b+d});
+        }
+        out.input.push_back({{
+            {{5,y,z},6,.95},{{-5,y,z},6,.95}
+        }});
+    }
+    return out;
+}
+DurableCheckpoint checkpointM11Source(const M11TowerSource& source) {
+    const auto imported=partitionFlatMesh(source.mesh,256);
+    DurableCheckpoint out;
+    out.index=RegionTopologyIndex::build(imported.revision);
+    out.initialVertexCount=source.mesh.vertices.size();
+    for(const auto& [i,j]:source.originalPairs)
+        out.mirrorPairs.emplace_back(
+            imported.flatIndex.vertexIds[i],imported.flatIndex.vertexIds[j]);
+    return out;
+}
+SculptCollisionSettings m11PhysicalExactSettings() {
+    SculptCollisionSettings result;
+    result.physicalExact=true;
+    auto& p=result.physicalExactLimits.join.removal.contours;
+    p.maximumPlanarityInRadii=4.0;
+    p.maximumSingleCapPlanarityInRadii=4.0;
+    p.maximumIsoperimetricRatio=20.0;
+    p.maximumSingleCapIsoperimetricRatio=20.0;
+    p.maximumPerimeterRatio=20.0;
+    p.maximumGapInEdges=2.5;
+    p.minimumNormalAlignment=0;
+    result.physicalSourceLimits.maxSectionTests=128;
+    return result;
+}
+double chooseM11TowerStrength() {
+    // Find a single supported physical strength from the same source
+    // topology, without hardcoding manually fabricated intersection pairs.
+    // The chosen strength is fixed for the entire sixteen-input run.
+    constexpr double halfGap=.15;
+    const auto trial=makeM11Towers(1,halfGap);
+    const auto initialTrial=checkpointM11Source(trial);
+    Mesh dummy;
+    double strength=0;
+    std::string last;
+    for(const double testStrength:{.35,.55,.8,1.0,1.3}) {
+        VersionedSculptBrush one(initialTrial,testStrength,
+            {},{},{},256,{},m11PhysicalExactSettings());
+        one.stamp(dummy,trial.input.front());
+        if(one.completedUnions()==1&&one.publishedRevisions()==1) {
+            strength=testStrength;
+            break;
+        }
+        last=one.lastRejection();
+    }
+    if(strength==0)
+        throw std::runtime_error(
+            "M11 no supported single symmetric clean-to-contact tower union: "+last);
+
+    return strength;
+}
+void testM11SixteenAlternatingPhysicalTowerUnions() {
+    constexpr double halfGap=.15;
+    const double strength=chooseM11TowerStrength();
+    Mesh dummy;
+    const auto source=makeM11Towers(16,halfGap);
+    const auto starting=checkpointM11Source(source);
+    const auto original=starting.index;
+    const auto originalPicker=original->pickingRootIdentity();
+    std::vector<VertexId> allIds;
+    original->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices)allIds.push_back(v.id);
+        });
+    require(original->triangleIntersections(allIds,{}).empty(),
+            "All sixteen symmetric tower inputs start with distinct clean shells");
+    VersionedSculptBrush brush(starting,strength,
+        {},{},{},256,{},m11PhysicalExactSettings());
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> immutable{
+        original};
+    std::size_t unionCount=0;
+    for(std::size_t step=0;step<16;++step) {
+        const auto before=brush.snapshot();
+        const auto previous=brush.historyStatistics();
+        const auto previousMirror=brush.checkpoint().mirrorPairs;
+        const auto oldPicking=before->pickingRootIdentity();
+        brush.stamp(dummy,source.input[step]);
+        if(brush.completedUnions()!=unionCount+1)
+            throw std::runtime_error(
+                "M11 physical tower "+std::to_string(step)+
+                " did not produce required supported Boolean union: "+
+                brush.lastRejection());
+        ++unionCount;
+        const auto after=brush.snapshot();
+        require(after!=before&&
+                before->pickingRootIdentity()==oldPicking&&
+                brush.publishedRevisions()==unionCount&&
+                brush.completedStamps()==step+1&&
+                brush.historyStatistics().undoDepth==previous.undoDepth+1&&
+                brush.rejectedStamps()==0&&
+                brush.collisionRepairedStamps()==unionCount&&
+                !brush.lastDirtyPartitions().empty()&&
+                brush.checkpoint().index==after,
+                "M11 every real alternate tower stamp has one final immutable CAS/history");
+        std::vector<VertexId> vertices;
+        after->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& part) {
+                for(const auto& v:part.vertices)vertices.push_back(v.id);
+            });
+        require(after->triangleIntersections(vertices,{}).empty()&&
+                after->retiredFaceCount()>before->retiredFaceCount()&&
+                brush.checkpoint().mirrorPairs.size()>=
+                    previousMirror.size(),
+                "M11 each accepted tower union has no residual original contacts and valid net mirrored IDs");
+        for(const auto& [a,b]:brush.checkpoint().mirrorPairs) {
+            require(after->maybeVertex(a)&&after->maybeVertex(b),
+                "M11 historical mirror map has no deleted original source ID");
+            const auto x=after->vertex(a).position;
+            const auto y=after->vertex(b).position;
+            require(x.x==-y.x&&x.y==y.y&&x.z==y.z,
+                "M11 every terminal mirror orbit has exact reflected 3D positions");
+        }
+        immutable.push_back(after);
+    }
+    require(unionCount==16&&brush.historyStatistics().undoDepth==16&&
+            brush.publishedRevisions()==16&&
+            original->pickingRootIdentity()==originalPicker&&
+            original->retiredFaceCount()==0,
+            "Sixteen genuinely physical alternating symmetric welds retain immutable old readers");
+    for(std::size_t n=16;n>0;--n) {
+        require(brush.undo()&&brush.snapshot()==immutable[n-1],
+                "All sixteen accepted physical Boolean roots are independently undoable");
+    }
+    require(brush.checkpoint().mirrorPairs.size()==starting.mirrorPairs.size(),
+            "Sixteen undo operations restore all original reciprocal source vertex IDs");
+    for(std::size_t n=1;n<=16;++n)
+        require(brush.redo()&&brush.snapshot()==immutable[n],
+                "All sixteen physical symmetric terminal roots are independently redoable");
+    std::cout<<"[m11] sixteen genuinely joined symmetric two-tower inputs, strength="
+             <<strength<<" and complete original-root history\n";
+}
+
+void testM11OversizedPhysicalContactRefusesThenValidDrains() {
+    // Unlike an injected terminal validator refusal, this is an ACTUAL
+    // unsupported source candidate. A broad symmetrical brush moves many
+    // initially separate closed tetrahedron pairs at once, exceeding the
+    // bounded certified finite-source V13 section budget. The entire
+    // physical remesh candidate must be rejected without even one join.
+    const auto source=makeM11Towers(16,.15);
+    const auto initial=checkpointM11Source(source);
+    auto opts=m11PhysicalExactSettings();
+    opts.physicalSourceLimits.maxSectionTests=12; // one section group=6
+    AsyncSculptWorker worker(initial,.025,chooseM11TowerStrength(),.2,
+                             {},{},{},{},opts);
+    const auto old=worker.initialRevision();
+    const auto wait=[&] {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<stop) {
+            (void)worker.status();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        require(worker.canBegin(),"M11 finite-source over-budget worker event drained");
+        return worker.status();
+    };
+    worker.begin({5,0,70},160);
+    worker.end({5,0,70},0);
+    const auto rejected=wait();
+    const auto refusedSnapshot=worker.takeSnapshot();
+    if(rejected.rejectedStamps!=1)
+        throw std::runtime_error(
+            "M11 broad physically induced >12 original source contacts did not refuse: "+
+            rejected.lastRejection);
+    require(rejected.completedStamps==1&&rejected.completedUnions==0&&
+            rejected.publishedRevisions==0&&
+            rejected.history.undoDepth==0&&
+            refusedSnapshot&&refusedSnapshot->index==old&&
+            refusedSnapshot->dirtyPartitions.empty()&&
+            !rejected.lastRejection.empty(),
+            "Oversize contact query rolls back ALL physically moved sheets without a partial published union");
+    // Identical original root and same worker now accept the ordinary
+    // six-contact one-region physically triggered mirrored union.
+    worker.begin(source.input.front()[0].center,6);
+    worker.end(source.input.front()[0].center,0);
+    const auto accepted=wait();
+    const auto result=worker.takeSnapshot();
+    if(accepted.completedUnions!=1)
+        throw std::runtime_error(
+            "M11 valid queued stamp failed to recover after source-work refusal: "+
+            accepted.lastRejection);
+    require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
+            accepted.publishedRevisions==1&&accepted.history.undoDepth==1&&
+            result&&result->index!=old&&!result->dirtyPartitions.empty()&&
+            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0,
+            "Queued worker consumes refused large contact then correct physical symmetric union once");
+}
+
+void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
+    const auto source=makeM11Towers(16,.15);
+    const auto restored=checkpointM11Source(source);
+    const auto first=restored.index;
+    const auto strength=chooseM11TowerStrength();
+    std::size_t validationCount=0;
+    SculptStepValidator rejectFifth=[&](const ProposedSculptStep& step) {
+        require(step.before&&step.candidate&&step.before!=step.candidate,
+                "M11 queued worker validates only immutable original and full candidate roots");
+        if(++validationCount==5)
+            return std::string("M11 deliberately invalid terminal stamp: recoverable refusal");
+        return std::string{};
+    };
+    AsyncSculptWorker worker(restored,.025,strength,.2,{},{},{},
+                             rejectFifth,m11PhysicalExactSettings());
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> roots{first};
+    const auto waitForDrain=[&] {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<stop) {
+            (void)worker.status();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto current=worker.status();
+        require(worker.canBegin()&&current.pendingSteps==0&&
+                current.pendingSegments==0,
+                "M11 4D worker consumes each queued input exactly once before next stroke");
+        return current;
+    };
+    const auto stampAt=[&](Vec3 center,double radius) {
+        worker.begin(center,radius);
+        worker.end(center,0);
+        return waitForDrain();
+    };
+    for(std::size_t i=0;i<16;++i) {
+        const auto center=source.input[i][0].center;
+        // An explicit, physically no-contact 4D stroke in the middle
+        // must drain without producing a new root or a synthetic union.
+        if(i==4) {
+            const auto before=roots.back();
+            const auto noContact=stampAt({5,-14,10000},6);
+            const auto unchangedSnapshot=worker.takeSnapshot();
+            require(noContact.completedUnions==4&&
+                    noContact.publishedRevisions==4&&
+                    noContact.history.undoDepth==4&&
+                    noContact.rejectedStamps==0&&
+                    unchangedSnapshot&&unchangedSnapshot->index==before&&
+                    unchangedSnapshot->dirtyPartitions.empty()&&
+                    validationCount==4,
+                    "M11 no-contact queued input neither publishes nor consumes a success");
+            // Next real positive candidate is VALID geometrically, but
+            // the caller vetoes its terminal Step after exact staging.
+            // This checks the entire speculative map/history rollback.
+            const auto refused=stampAt(center,6);
+            const auto refusedSnapshot=worker.takeSnapshot();
+            require(refused.rejectedStamps==1&&
+                    refused.completedUnions==4&&
+                    refused.publishedRevisions==4&&
+                    refused.history.undoDepth==4&&
+                    refusedSnapshot&&refusedSnapshot->index==before&&
+                    refusedSnapshot->dirtyPartitions.empty()&&
+                    validationCount==5&&
+                    !refused.lastRejection.empty(),
+                    "M11 post-Boolean refused input preserves queued root and full original history");
+            require(worker.initialRevision()!=nullptr&&
+                    before->pickingRootIdentity()!=nullptr,
+                    "Rejected physical Step preserves held immutable BVH readers");
+        }
+        const auto current=stampAt(center,6);
+        if(current.completedUnions!=i+1)
+            throw std::runtime_error(
+                "M11 queued alternate tower "+std::to_string(i)+
+                " failed physical source union: "+current.lastRejection);
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index&&snapshot->index!=roots.back()&&
+                !snapshot->dirtyPartitions.empty()&&
+                current.publishedRevisions==i+1&&
+                current.history.undoDepth==i+1&&
+                current.completedStamps==i+1+(i>=4?2:0)&&
+                current.rejectedStamps==(i>=4?1u:0u),
+                "Each M11 real 4D physical input produces exactly one final snapshot and history entry");
+        require(roots.back()->pickingRootIdentity()!=nullptr&&
+                snapshot->index->retiredFaceCount()>
+                    roots.back()->retiredFaceCount(),
+                "M11 queued physical terminal source union preserves prior picker roots");
+        roots.push_back(snapshot->index);
+    }
+    const auto checkpointFile=std::filesystem::temp_directory_path()/
+        "mesher-v17-m11-16-real-physical-tower-unions.mshr";
+    try {
+        worker.saveCheckpoint(checkpointFile);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "M11 4D queued final root has a durable complete checkpoint");
+        const auto checkpoint=readCheckpoint(checkpointFile);
+        require(checkpoint.index&&
+                checkpoint.index->retiredFaceIds()==
+                    roots.back()->retiredFaceIds()&&
+                checkpoint.mirrorPairs.size()>restored.mirrorPairs.size(),
+                "M11 final durable recovery contains all net mirrored terminal source identities");
+        for(const auto& [a,b]:checkpoint.mirrorPairs) {
+            require(checkpoint.index->maybeVertex(a)&&
+                    checkpoint.index->maybeVertex(b),
+                    "No retired or transient speculative ID leaks into M11 durable mirror checkpoint");
+        }
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(checkpointFile,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(checkpointFile,ec);
+    for(std::size_t n=16;n>0;--n) {
+        worker.undo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.status().history.redoDepth!=17-n&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.undoDepth==n-1,
+                "M11 each real FIFO physical union is independently undoable");
+    }
+    for(std::size_t n=1;n<=16;++n) {
+        worker.redo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.status().history.undoDepth!=n&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n],
+                "M11 4D FIFO redo restores exact immutable terminal root identity");
+    }
+}
+
 void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     const auto config=[] {
         SculptCollisionSettings c;
@@ -1534,6 +1913,9 @@ int main() {
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
+        testM11SixteenAlternatingPhysicalTowerUnions();
+        testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
+        testM11OversizedPhysicalContactRefusesThenValidDrains();
         testExactPhysicalRemeshIsOneSpeculativeTransaction();
         testPhysicallyCreatedContactCanPassExactSourcePlanner();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
