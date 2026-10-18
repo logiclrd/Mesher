@@ -464,6 +464,7 @@ struct ExactCutSourceEvidence {
     std::vector<FaceId> removedUncut,protectedUncut;
     std::vector<std::pair<VertexId,VertexId>> finalWeldedPairs;
     CutRemovalSettings removalSettings{};
+    UncutFaceRetirementLimits uncutLimits{};
 };
 
 // V17e2b2d3: Stage the entire subdivision + certified seam join as
