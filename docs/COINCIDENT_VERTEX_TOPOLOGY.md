@@ -1,7 +1,9 @@
 # Coincident geometry, provenance, and vertex identity
 
-**Status:** Normative design and planned acceptance, not an assertion that all
-cases below are supported by the current Mesher. Established 2026-10-18.
+**Status:** Normative design; the bounded V17-M16 regression domain
+is accepted at GCC/Clang/MSVC code head 4979b25 (Actions 39144616634).
+This is NOT an assertion that every coincident-vertex configuration
+below is a supported Boolean union. Established 2026-10-18.
 **Owners:** [V17-M16](V17_MILESTONES.md#v17-m16--generic-coincident-geometry-and-seam-equivalence-acceptance)
 (the bounded off-plane/general acceptance gate, scheduled after M10 and before
 M11); M10 owns the broader adversarial refusal matrix; V19 owns stress,
@@ -139,7 +141,27 @@ order and unrelated duplicate vertices near the active repair halo.
 Explicitly report accepted / safely refused / unsupported, rather than
 counting a safe refusal as a positive union.
 
-## Scope and planned delivery
+## Bounded implementation and independent evidence
+
+The concrete fixture-by-fixture contract is now recorded in
+[V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md](V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md).
+Its off-plane *positive* two-sheet cut and original-root Boolean union
+must retain different stable VertexIds at EXACT equal positions in
+the conformance stage, but leave only source-authorized final seam
+representatives after a complete d2 join. The separate reflected
+off-plane positive control requires two distinct reciprocal joined
+components and a valid connected incident fan at every vertex.
+
+The deliberately *negative/preservation* tests retain independent
+on-plane/off-plane tangent vertex identities, a four-way exact point
+of tangency, a 1e-7 near-miss, an unrelated tangent shell near the
+active source repair region, and missing/forged/over-budget source
+inputs. These are not claims that arbitrary 3D coincident data
+is automatically weldable. A fully closed manifold union must
+actually be proved; a refused source operation is not a positive
+Boolean result.
+
+## Scope and independently accepted delivery boundary
 
 M16 is a distinct flat **peer** milestone, not a recursive subdivision of
 M10 or reopened M06–M09. Schedule M10 then M16 before M11's repeated

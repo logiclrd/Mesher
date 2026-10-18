@@ -3829,3 +3829,106 @@ supported-domain diagnostics, not automatic physical input
 triggering. M16's source-proven equivalence gate is next after
 M10, before M11's physical alternating-tower sequence; M12–M15,
 V18 and V19 keep their established objectives.
+
+
+## V17-M16 — Provenance before geometric coincidence in all coordinate regions
+
+**October 18, 2026; independent gate after M10, before M11.**
+Previously, the invariant-reflection fixture at X=0 dominated the
+development discussions because fixed-point mirror orbits require a
+single stable (id,id) vertex and an invariant child FaceId fan. That
+is a separate algebraic reflection constraint, NOT a reason
+unrelated vertices sharing XYZ anywhere should merge. More
+generally, a shared world coordinate is compatible with several
+topologies: two independent surfaces and their separate stable IDs;
+two independently materialized cut endpoints later joined with
+complete original V13 interval proof; a point-only or tangential
+contact for which no source-paired finite seam exists; or an
+incompatible three-/four-sheet branch which cannot be made manifold
+by naive global deduplication.
+
+M16 promotes the previously documented
+[coincident-vertex identity contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md)
+into source-to-terminal regressions with an explicit
+[acceptance register](docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md).
+An accepted off-X=0 two-tetra THREE-contact source union must
+prove all original contacts, independently exact matched but
+DISTINCT VertexIds in the conforming *private* cut, complete
+c1 positive signed winding, c2 finite section trace, c3
+cavity-safe retirement, and ONLY then d2 exact original-contact
+survivor interval joining. A truly connected closed oriented
+and vertex-link manifold 2→1 terminal result (also one composed
+ORIGINAL-root Step) proves that matching source endpoints do
+eventually become one terminal permanent VertexId. Reversing
+the full source-pair order is an acceptance control, not a
+selected subset of contacts. No source coordinate moves
+and no global XYZ map is consulted to choose representatives.
+
+The reflected positive control is separate: the complete
+off-plane reflected V13 fixture starts with opposite sheets'
+own unique stable endpoint IDs despite exactly matching XYZ
+on each intersecting pair; the final two mirrored joined
+components have no duplicates on a certified terminal seam
+and each has proper vertex links. Reflective off-plane
+equivalence classes remain RECIPROCAL (two distinct IDs).
+The established on-plane M08/M09 fixture can have a TRUE
+self-paired ID (one ID) ONLY with original fixed-point source
+provenance; an unrelated coincident on-plane corner must
+remain a different ID.
+
+The negative controls prove this is a topological,
+coordinate-independent safety rule. Two valid tetrahedra
+touching only at ONE vertex, off-plane or exactly X=0,
+retain BOTH stable source IDs and TWO individually closed
+connected one-rings; their local no-op does not deduplicate
+world coordinates, and an explicit Boolean union request
+must refuse without a finite V13 source interval. Four
+mutually tangent tetrahedral cones having four distinct
+permanent IDs at EXACT (0,0,0) cannot be welded into a
+single branched four-fan vertex. Two source points separated
+by only 1e-7 remain nonidentical and cannot be snapped or
+inferred as a valid source curve. Tampered source-owning
+FaceIds, omitted whole original contacts, incompatible
+mirror maps, untraced/over-budget seams and uncertain
+tangent/coplanar or cavity classification must refuse with
+no final root, retirement or mirror/history delta. The
+existing M02/M03/M04/M05/M08/M09/M10 regressions remain
+real positive or fail-closed gates rather than being
+reinterpreted as evidence for universal imported topology.
+
+**Limit of acceptance.** M16 is NOT a global redundant-vertex
+cleanup operation, arbitrary plane reflection generalization,
+or generic N-way Boolean algorithm. Unsupported independent
+coincidences can remain in an immutable source revision
+without invalidating their separately connected vertex
+fans. Pathological imported topology, arbitrary tunnels
+and high-degree four-sheet welds remain in V19's stress
+scope; M11 is still the independent physical sculpt repeat
+gate, M14 covers post-CAS fault atomicity, and M15 alone
+enables the opt-in desktop Merge geometry switch. V18's
+Off-mode collision controls remain separate.
+
+**M16 bounded verification follow-up (October 18, 2026):** The
+complete off-X=0 three-original-contact source proof, distinct
+prejoin exact-coincident per-sheet stable IDs, certified 2→1
+private and ORIGINAL-root terminal joins, reversed source order
+and true reflected off-plane seam counterparts passed. Two
+independent touching closed shell fans both on/off-plane,
+four unrelated tetrahedral one-ring fans at EXACT (0,0,0),
+a 1e-7 near miss and a third incidental touching shell next
+to the otherwise-active source join preserve separate IDs
+or refuse without inventing authorizing finite intervals.
+Incomplete source FaceId coverage, forged original child
+ownership and exhausted exact seam budgets return no final
+root/history or dirty/mirror journal. M02/M03/M04/M05/M08/
+M09/M10 regression controls remain intact.
+Windows MSVC /W4 /WX, GCC, Clang, all 23 CPU suites and the
+applicable benchmarks passed in code-head PR Actions
+39144616634 on commit 4979b25. Early MSVC C4456 errors
+were TEST-only nested local variable shadowing and were
+corrected without relaxing original-contact or manifold
+checks. The bounded accepted cases are cataloged in
+docs/V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md. No global
+coordinate deduplication, auto Merge geometry switch or
+unsupported higher-sheet Boolean welding is enabled.
+M11 remains NEXT; M12–M15/V18/V19 are unchanged.
