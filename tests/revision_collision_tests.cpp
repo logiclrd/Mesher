@@ -2041,6 +2041,18 @@ void testGenericCompleteThreeBodyTransverseGraph() {
     std::cout<<"[generic-triple] final="<<final.complete
              <<" final-refusal="<<final.refusal<<'\n';
     assertThreeBodyOneRootHistory(root,final,1,"generic-12");
+    auto partial=all;
+    partial.pop_back();
+    const auto missing=prepareExactCutStep(root,partial,limits);
+    check(!missing.complete&&!missing.expected&&!missing.final&&
+          !missing.commit.revision&&missing.retiredFaces.empty(),
+          "Missing one of twelve original V13 contacts refuses without an original-root journal");
+    auto budget=limits;
+    budget.maxNetChangedIds=1;
+    const auto exceeded=prepareExactCutStep(root,all,budget);
+    check(!exceeded.complete&&!exceeded.expected&&!exceeded.final&&
+          !exceeded.commit.revision&&exceeded.addedFaces.empty(),
+          "Terminal original-root net stable-ID budget refuses without publishing a private cut");
     check(root->pickingRootIdentity()==originalRoot&&
           connectedClosedSurfaceComponents(*root)==3,
           "Triple-contact attempts never alter historical immutable pointers");
@@ -2128,6 +2140,18 @@ void testOrthogonalTripleJunctionProbe() {
             throw std::runtime_error(
                 "Complete original-root orthogonal three-body union: "+full.refusal);
         assertThreeBodyOneRootHistory(root,full,1,"orthogonal-16");
+        auto partial=all;
+        partial.pop_back();
+        const auto omitted=prepareExactCutStep(root,partial,stepLimits);
+        check(!omitted.complete&&!omitted.expected&&!omitted.final&&
+              !omitted.commit.revision&&omitted.retiredFaces.empty(),
+              "Missing one of sixteen original source contacts refuses entire orthogonal Step");
+        auto exhausted=stepLimits;
+        exhausted.refinement.maxCandidateTests=0;
+        const auto noWork=prepareExactCutStep(root,all,exhausted);
+        check(!noWork.complete&&!noWork.expected&&!noWork.final&&
+              !noWork.commit.revision,
+              "Zero seam interval work budget does not emit an incomplete triple-union root");
         std::cout<<"[orthogonal-triple] cut=1 coverage="<<coverage.complete
                  <<" reason="<<coverage.refusal
                  <<" occupancy="<<occupancy.complete
