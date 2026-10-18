@@ -339,6 +339,139 @@ void testM27OriginalLifetimeRepeatedRealRemesh() {
           "M27 all accepted and refused witness audits preserve original readers");
 }
 
+void testM21RealNonMirroredIntentAndProtectedOuterFaces() {
+    const auto imported=partitionFlatMesh(octahedron(),1);
+    const auto first=RegionTopologyIndex::build(imported.revision);
+    const auto all=imported.flatIndex.faceIds;
+    const auto v=imported.flatIndex.vertexIds[0];
+    const auto affected=first->vertex(v).incidentFaces;
+    check(all.size()==8&&affected.size()==4,
+          "M21 real original octahedron has four intended and four unaffected exterior faces");
+    const auto anchors=captureOriginalSourceAnchors(first,all,56);
+    const auto before=beginOriginalPatchLifetime(anchors);
+    const auto intent=declareOriginalPatchIntent(before,affected,nullptr,8);
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=1;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,{},1);
+    RegionEdit edit(first,{v},{},1);
+    edit.moveVertex(v,{1.25,0,0});
+    (void)edit.commit();
+    const auto changed=refiner.apply(
+        edit.updatedIndex(),LocalStampBaseline{first,{v},affected});
+    check(changed.statistics.splitPairs==1&&changed.splitSources.size()==2,
+          "M21 real deliberately displaced surface is source-certified through a local split");
+    const auto after=advanceOriginalPatchLifetime(before,changed,2,10);
+    const auto accepted=evaluateOriginalPatchIntent(
+        before,after,intent,1e-9,70,10);
+    check(accepted.intendedOriginals==4&&
+          accepted.protectedOriginals==4&&
+          accepted.protectedWitnesses==28&&
+          accepted.totalDistanceTests==70&&
+          accepted.certifiedRetiredOriginals==0&&
+          accepted.maximumProtectedDeviationInEdges<1e-9,
+          "M21 actual caller-designated sculpt moves only intended sources, preserving untouched exterior");
+    bool refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        before,after,intent,1e-9,69,10);}
+    catch(const std::length_error&){refused=true;}
+    check(refused,"M21 complete original patch work cap refuses one below even with scoped intent");
+    std::vector<FaceId> partial(affected.begin()+1,affected.end());
+    const auto incomplete=declareOriginalPatchIntent(before,partial,nullptr,8);
+    refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        before,after,incomplete,1e-9,70,10);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 missing deliberately displaced source ID cannot be inferred by brush proximity");
+    refused=false;
+    try {(void)declareOriginalPatchIntent(before,{all[0],all[0]},nullptr,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 duplicate caller intent source refuses");
+    refused=false;
+    try {(void)declareOriginalPatchIntent(before,{all.back()+100},nullptr,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 invented foreign original FaceId cannot gain exemption");
+    refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        before,before,intent,1e-9,70,10);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 declaration cannot authorize an uncertified sibling or original root");
+    const auto other=declareOriginalPatchIntent(after,affected,nullptr,8);
+    refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        before,after,other,1e-9,70,10);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 stale declaration cannot be rebound to a newer source root");
+    check(first->retiredFaceCount()==0&&first->vertex(v).position.x==1,
+          "M21 all intent decisions are read-only and leave original picker root unchanged");
+}
+
+void testM21RealMirroredX0IntentClosure() {
+    const auto imported=partitionFlatMesh(octahedron(),1);
+    const auto& ids=imported.flatIndex.vertexIds;
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto originals=imported.flatIndex.faceIds;
+    const std::array<std::uint32_t,6> corresponding{2,1,0,3,4,5};
+    std::vector<std::pair<VertexId,VertexId>> pairs;
+    std::unordered_map<VertexId,VertexId> originalMirrors;
+    for(std::size_t i=0;i<ids.size();++i) {
+        pairs.emplace_back(ids[i],ids[corresponding[i]]);
+        originalMirrors.emplace(ids[i],ids[corresponding[i]]);
+    }
+    const auto before=beginOriginalPatchLifetime(
+        captureOriginalSourceAnchors(original,originals,56));
+    const auto intended=original->vertex(ids[4]).incidentFaces;
+    check(intended.size()==4,"M21 reflected top X=0 source has four explicit intended original faces");
+    const auto intent=declareOriginalPatchIntent(
+        before,intended,&originalMirrors,8);
+    RegionEdit deformation(original,{ids[4]},pairs,1);
+    deformation.moveVertex(ids[4],{0,0,1.6});
+    (void)deformation.commit();
+    RefineSettings settings;
+    settings.enabled=true;
+    settings.maximumEdgeRatio=.25;
+    settings.maximumSplitPairsPerStamp=8;
+    settings.optimizeFlips=false;
+    VersionedLocalRefiner refiner(6,settings,pairs,1);
+    const auto refined=refiner.apply(
+        deformation.updatedIndex(),
+        LocalStampBaseline{
+            original,{ids[4]},original->vertex(ids[4]).incidentFaces});
+    check(refined.statistics.splitPairs>0&&
+          !refined.insertedMirrorPairs.empty(),
+          "M21 genuine reflected X=0 runtime split commits fixed and paired mirror source evidence");
+    const auto after=advanceOriginalPatchLifetime(before,refined,128,128);
+    std::size_t comparisons=0;
+    for(const auto& [_,faces]:after.lineage.living)
+        comparisons+=faces.size()*7;
+    const auto accepted=evaluateOriginalPatchIntent(
+        before,after,intent,1e-9,comparisons,128);
+    check(accepted.intendedOriginals==4&&
+          accepted.protectedOriginals==4&&
+          accepted.maximumProtectedDeviationInEdges<1e-9,
+          "M21 explicit reflected source intent preserves untouched original outer walls");
+    const auto asym=declareOriginalPatchIntent(before,intended,nullptr,8);
+    bool refused=false;
+    try {(void)evaluateOriginalPatchIntent(
+        before,after,asym,1e-9,comparisons,128);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 actual mirrored stage cannot silently disable source mirror proof");
+    std::vector<FaceId> missing(intended.begin()+1,intended.end());
+    refused=false;
+    try {(void)declareOriginalPatchIntent(
+        before,missing,&originalMirrors,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 missing reciprocal reflected intended first-original FaceId refuses");
+    auto forged=originalMirrors;
+    forged.erase(ids[0]);
+    refused=false;
+    try {(void)declareOriginalPatchIntent(
+        before,intended,&forged,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused,"M21 incomplete original mirror VertexId involution refuses");
+}
 void testM24SelfMirroredPlaneSourceMidpoint() {
     auto imported=partitionFlatMesh(octahedron(),1);
     const auto& ids=imported.flatIndex.vertexIds;
@@ -725,6 +858,8 @@ int main() {
         };
         scenario("M24 source split lineage",testM24CertifiedSourceSplitsAndRefusals);
         scenario("M27 first-original repeated remesh lifetime",testM27OriginalLifetimeRepeatedRealRemesh);
+        scenario("M21 explicit real sculpt source intent",testM21RealNonMirroredIntentAndProtectedOuterFaces);
+        scenario("M21 reflected X=0 source intent closure",testM21RealMirroredX0IntentClosure);
         scenario("M24 mirrored split lineage",testM24MirroredSplitSourceOwnership);
         scenario("M24 X=0 singleton source split",testM24SelfMirroredPlaneSourceMidpoint);
         scenario("M24 coincident independent sources",testM24CoincidentSheetsKeepIndependentPermanentSourceIDs);
