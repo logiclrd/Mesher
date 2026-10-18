@@ -7,6 +7,8 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -237,7 +239,15 @@ bool arrangeFace(
             const double u=cross2(qp,r)/denominator;
             if(t< -1e-10||t>1+1e-10||
                u< -1e-10||u>1+1e-10)continue;
-            if(t<0||t>1||u<0||u>1)return refuse(__LINE__); // grazing uncertainty
+            if(t<0||t>1||u<0||u>1) {
+                std::ostringstream why;
+                why<<std::setprecision(17)<<"source-face "<<faceId
+                   <<" section partner "<<a.partner<<" / "<<b.partner
+                   <<" uncertain endpoint t="<<t<<" u="<<u
+                   <<" segments a=("<<a.a<<","<<a.b<<") b=("<<b.a
+                   <<","<<b.b<<")";
+                throw std::logic_error(why.str());
+            }
             const auto intersection=Point2{p.x+t*r.x,p.y+t*r.y};
             // Only the THREE independently verified original contact
             // pairs can grant a canonical cross-sheet junction. This is
