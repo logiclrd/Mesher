@@ -1002,8 +1002,12 @@ SourceExactCutLineage advanceCertifiedExactCutLineage(
                 throw std::logic_error("Protected original uncut source XYZ moved");
         }
     }
-    std::set<FaceId> allRetirements=removed;
-    allRetirements.insert(goneUncut.begin(),goneUncut.end());
+    // Original-root journals are NET: private cut faces that were born
+    // then retired are not externally visible retired FaceIds.
+    std::set<FaceId> allRetirements=goneUncut;
+    for(const auto child:removed)
+        if(step.expected->maybeFace(child))
+            allRetirements.insert(child);
     if(std::vector<FaceId>(allRetirements.begin(),allRetirements.end())!=
        step.retiredFaces)
         throw std::logic_error("Terminal net retired source faces disagree with c3/M03");
