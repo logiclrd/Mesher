@@ -910,6 +910,67 @@ void testWorkerMirroredThreeBodyOneHistoryStep() {
     std::filesystem::remove(filename,ec);
 }
 
+void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})mesh.triangles.push_back({
+            4*tetra+t[0],4*tetra+t[1],4*tetra+t[2]});
+    const std::array<BrushArea,1> areas{{{{4,0,0},.5,.9}}};
+    RefineSettings refine;
+    refine.enabled=true;
+    refine.maximumEdgeRatio=.1;
+    refine.maximumSplitPairsPerStamp=1;
+    refine.optimizeFlips=false;
+    // Prove the physical input really exercises a local split after
+    // Inflate, before the original-root Boolean staging starts.
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    VersionedInflateBrush inflate(.0005,{});
+    const auto inflated=inflate.stamp(original,areas,256);
+    VersionedLocalRefiner local(mesh.vertices.size(),refine,{},256);
+    const auto split=local.apply(inflated.index,inflated.baseline);
+    require(split.statistics.splitPairs==1&&
+            split.index!=inflated.index&&
+            !split.insertedVertices.empty(),
+            "M18 test exercises a REAL newly born post-Inflate stable vertex ID");
+    SculptCollisionSettings opts;
+    opts.physicalExact=true;
+    auto& quality=opts.physicalExactLimits.join.removal.contours;
+    quality.maximumPlanarityInRadii=4.0;
+    quality.maximumSingleCapPlanarityInRadii=4.0;
+    quality.maximumIsoperimetricRatio=20.0;
+    quality.maximumSingleCapIsoperimetricRatio=20.0;
+    quality.maximumPerimeterRatio=20.0;
+    quality.maximumGapInEdges=2.5;
+    quality.minimumNormalAlignment=0;
+    VersionedSculptBrush brush(mesh,.0005,{},{},refine,false,256,{},opts);
+    const auto before=brush.snapshot();
+    Mesh dummy;
+    brush.stamp(dummy,areas);
+    if(brush.completedUnions()>0) {
+        require(brush.snapshot()!=before&&
+                brush.historyStatistics().undoDepth==1&&
+                brush.publishedRevisions()==1&&
+                brush.lastDetails().splitPairs==1&&
+                brush.undo()&&brush.snapshot()==before,
+                "Physical split PLUS accepted exact Boolean has one immutable original-root history entry");
+    }else {
+        require(brush.snapshot()==before&&
+                brush.rejectedStamps()==1&&
+                brush.publishedRevisions()==0&&
+                brush.historyStatistics().undoDepth==0&&
+                brush.checkpoint().index==before&&
+                brush.lastDirtyPartitions().empty()&&
+                !brush.lastRejection().empty(),
+                "Unsupported post-refine contact must undo both local split and exact source staging");
+    }
+}
 void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
     // Unlike the already intersecting M16 acceptance source, this
     // stimulus begins with TWO disjoint closed solids. The only way to
@@ -1430,6 +1491,7 @@ int main() {
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
+        testExactPhysicalRemeshIsOneSpeculativeTransaction();
         testPhysicallyCreatedContactCanPassExactSourcePlanner();
         testWorkerUnionRefusalsDoNotBlockLaterInput();
         std::cout<<"Asynchronous sculpt worker tests passed\n";
