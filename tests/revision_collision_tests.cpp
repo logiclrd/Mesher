@@ -3016,6 +3016,25 @@ void testX0InvariantExactCutProbe() {
           allPairs(*net.final).empty(),
           "X=0 terminal Boolean has one captured ORIGINAL-root Step, not an intermediate cut");
     auditClosedVertexLinks(*net.final);
+    const auto x0Anchors=captureOriginalSourceAnchors(
+        root,imported.flatIndex.faceIds,
+        imported.flatIndex.faceIds.size()*7);
+    const auto x0Certified=advanceCertifiedExactCutLineage(
+        beginSourceSplitLineage(x0Anchors),net,&mirror,16384,16384);
+    check(x0Certified.survivors.original==root&&
+          x0Certified.survivors.terminal==net.final&&
+          x0Certified.protectedChildren>0&&
+          x0Certified.retiredChildren>0,
+          "M26 independently certifies actual X=0 self-reflected child-source and terminal seam orbits");
+    std::set<FaceId> x0Children;
+    for(const auto& [original,descendants]:x0Certified.survivors.living) {
+        check(root->maybeFace(original)!=nullptr,
+              "X=0 original protected FaceId remains the first source");
+        for(const auto child:descendants)
+            check(x0Children.insert(child).second&&
+                  net.final->maybeFace(child)!=nullptr,
+                  "M26 terminal invariant/symmetric child has one unique source FaceId");
+    }
     std::set<VertexId> journaled;
     std::size_t fixedAdded=0;
     for(const auto& [a,b]:net.addedMirrors) {
