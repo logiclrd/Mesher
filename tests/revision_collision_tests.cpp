@@ -2,10 +2,14 @@
 #include "mesher/repair_intersection.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
+#include "mesher/revision_history.hpp"
+#include "mesher/durable_checkpoint.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
+#include <map>
 #include <iostream>
 #include <set>
 #include <stdexcept>
@@ -829,6 +833,136 @@ void testPrivateConformingRevisionCommitsAtomically() {
         check(!budgetJoin.complete&&!budgetJoin.index&&
               !budgetJoin.commit,
               "Insufficient local seam edge budget returns no partial joined revision");
+        // The public V17e2b2d3 preparation returns the ORIGINAL expected
+        // pointer and ONE terminal root; intermediate cut and join roots
+        // never enter publication, history, checkpoints or render picking.
+        ExactCutStepLimits stepLimits;
+        stepLimits.join=joinLimits;
+        const auto prepared=prepareExactCutStep(baseline,all,stepLimits);
+        if(!prepared.complete)
+            throw std::runtime_error(
+                "Original-root net Boolean Step refused: "+prepared.refusal);
+        check(prepared.expected==baseline&&prepared.final&&
+              prepared.final!=whole.index&&prepared.final!=baseline&&
+              prepared.commit.revision.get()==&prepared.final->revision()&&
+              prepared.addedMirrors.empty()&&prepared.removedMirrors.empty()&&
+              prepared.dirtyPartitions.size()>0&&
+              prepared.finalCollisionSeeds>0&&
+              prepared.checkedProtectedFaces>0,
+              "One Step has original CAS expectation and final immutable root only");
+        check(connectedClosedSurfaceComponents(*prepared.final)==1,
+              "Composed original-root Step is a truly connected closed union");
+        const auto countLive=[&](const RegionTopologyIndex& index) {
+            std::pair<std::size_t,std::size_t> result{};
+            index.revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& p) {
+                    result.first+=p.vertices.size();result.second+=p.faces.size();
+                });
+            return result;
+        };
+        const auto beforeCounts=countLive(*baseline),
+                   afterCounts=countLive(*prepared.final);
+        check(static_cast<std::ptrdiff_t>(afterCounts.first)-
+                  static_cast<std::ptrdiff_t>(beforeCounts.first)==
+                  prepared.vertexCountDelta&&
+              static_cast<std::ptrdiff_t>(afterCounts.second)-
+                  static_cast<std::ptrdiff_t>(beforeCounts.second)==
+                  prepared.faceCountDelta,
+              "Net journals balance actual root-level live vertex/face counts");
+        for(const auto id:prepared.addedVertices)
+            check(!baseline->maybeVertex(id)&&prepared.final->maybeVertex(id),
+                  "Net inserted vertex exists ONLY at committed final root");
+        for(const auto id:prepared.addedFaces)
+            check(!baseline->maybeFace(id)&&prepared.final->maybeFace(id),
+                  "Net inserted face exists ONLY at committed final root");
+        for(const auto id:prepared.retiredFaces)
+            check(baseline->maybeFace(id)&&!prepared.final->maybeFace(id)&&
+                  prepared.final->retiredFace(id),
+                  "Net retired original face maintains permanent ID tombstone");
+        for(const auto id:prepared.rewrittenFaces)
+            check(baseline->maybeFace(id)&&prepared.final->maybeFace(id)&&
+                  baseline->face(id).vertices!=prepared.final->face(id).vertices,
+                  "A net rewritten FaceId differs from its original geometry");
+        for(const auto id:prepared.retiredVertices)
+            check(baseline->maybeVertex(id)&&!prepared.final->maybeVertex(id)&&
+                  prepared.final->retiredVertex(id),
+                  "Net retired original vertex maintains permanent ID tombstone");
+        baseline->revision().forEachPartition(
+            [&](PartitionId owner,const MeshPartition&) {
+                if(!std::binary_search(prepared.dirtyPartitions.begin(),
+                                        prepared.dirtyPartitions.end(),owner))
+                    check(baseline->revision().partition(owner)==
+                          prepared.final->revision().partition(owner),
+                          "Untouched original COW partition has identical pointer");
+            });
+        IndexedMeshRepository publication(baseline);
+        const auto historical=publication.snapshot();
+        check(historical==baseline&&
+              publication.publishIfCurrent(prepared.expected,prepared.final)&&
+              publication.snapshot()==prepared.final&&
+              historical->pickingRootIdentity()==sourceRoot,
+              "ONE original-root CAS publishes final Boolean without intermediate root");
+        check(!publication.publishIfCurrent(prepared.expected,whole.index)&&
+              publication.snapshot()==prepared.final,
+              "Stale original-root CAS cannot restore a cut-only intermediate");
+        IndexedMeshRepository competed(baseline);
+        RegionEdit competingEdit(baseline,{imported.flatIndex.vertexIds.front()});
+        const auto movedId=imported.flatIndex.vertexIds.front();
+        const auto beforePoint=baseline->vertex(movedId).position;
+        competingEdit.moveVertex(movedId,
+            {beforePoint.x,beforePoint.y,beforePoint.z+.01});
+        (void)competingEdit.commit();
+        const auto competingIndex=competingEdit.updatedIndex();
+        check(competed.publishIfCurrent(baseline,competingIndex)&&
+              !competed.publishIfCurrent(prepared.expected,prepared.final)&&
+              competed.snapshot()==competingIndex,
+              "Concurrent winner makes entire prepared union refuse CAS atomically");
+        RevisionHistory history(baseline,8,32*1024*1024,nullptr,
+                                beforeCounts.first,beforeCounts.second);
+        history.append(prepared.final,prepared.dirtyPartitions,
+                       prepared.addedMirrors,prepared.removedMirrors,
+                       prepared.copiedPayloadBytes,
+                       afterCounts.first,afterCounts.second);
+        check(history.current()==prepared.final&&
+              history.statistics().undoDepth==1,
+              "Composed cut plus join creates exactly ONE undo history Step");
+        const auto undo=history.undo();
+        check(undo.index==baseline&&undo.vertices==beforeCounts.first&&
+              undo.faces==beforeCounts.second&&
+              undo.dirtyPartitions==prepared.dirtyPartitions,
+              "ONE undo returns to exact original picking and geometric revision");
+        const auto redo=history.redo();
+        check(redo.index==prepared.final&&
+              redo.vertices==afterCounts.first&&
+              redo.faces==afterCounts.second,
+              "ONE redo returns to exact connected Boolean union revision");
+        const auto path=std::filesystem::temp_directory_path()/
+            "mesher_v17_exact_cut_step_unmirrored.mshr";
+        writeCheckpoint(path,{prepared.final,{},beforeCounts.first});
+        const auto restored=readCheckpoint(path);
+        std::filesystem::remove(path);
+        check(countLive(*restored.index)==afterCounts&&
+              restored.index->retiredFaceIds()==prepared.final->retiredFaceIds()&&
+              restored.index->retiredVertexIds()==prepared.final->retiredVertexIds()&&
+              connectedClosedSurfaceComponents(*restored.index)==1,
+              "One published net union survives durable checkpoint/restore");
+        // A valid private contact pair subset still is NOT authority to
+        // publish an incomplete cut of the original intersection graph.
+        const std::vector<RegionTopologyIndex::CollisionPair> partial{
+            all.front()};
+        const auto refusedPartial=prepareExactCutStep(
+            baseline,partial,stepLimits);
+        check(!refusedPartial.complete&&!refusedPartial.final&&
+              !refusedPartial.commit.revision&&
+              refusedPartial.addedVertices.empty(),
+              "Partial original contact graph cannot be published as one Step");
+        auto workCap=stepLimits;
+        workCap.maxDirtyPartitions=0;
+        const auto refused=prepareExactCutStep(baseline,all,workCap);
+        check(!refused.complete&&!refused.final&&!refused.commit.revision&&
+              refused.dirtyPartitions.empty()&&refused.addedFaces.empty()&&
+              publication.snapshot()==prepared.final,
+              "Budget refusal cannot leak net journal or replace published union");
         const auto nomination=planExactCutRemoval(whole,supportedContours);
         std::cout<<"[exact-removal-probe] status="
                  <<static_cast<int>(nomination.status)
@@ -1256,6 +1390,69 @@ void testMirroredCompleteContactCoverage() {
         check(!joined.commit&&!joined.index&&
               joined.retiredFaces.empty()&&joined.weldedPairs.empty(),
               "Unsupported mirrored seam geometry safely refuses whole revision");
+    ExactCutStepLimits stepLimits;
+    stepLimits.join=joinLimits;
+    stepLimits.requireMirrors=true;
+    const auto net=prepareExactCutStep(root,originalContacts,stepLimits,&mirrors);
+    if(!net.complete)
+        throw std::runtime_error("Mirrored original-root union Step refused: "+net.refusal);
+    check(net.expected==root&&net.final&&
+          net.commit.revision.get()==&net.final->revision()&&
+          connectedClosedSurfaceComponents(*net.final)==2&&
+          !net.addedMirrors.empty()&&
+          !net.survivingMirroredFaces.empty()&&
+          net.checkedProtectedFaces>0,
+          "Two reflected unions yield ONE original-root net Step and mirror journals");
+    for(const auto& [a,b]:net.addedMirrors)
+        check(!root->maybeVertex(a)&&!root->maybeVertex(b)&&
+              net.final->maybeVertex(a)&&net.final->maybeVertex(b)&&
+              net.final->vertex(a).position.x==-net.final->vertex(b).position.x,
+              "Only surviving NEW reflected VertexIds enter the history delta");
+    for(const auto& [a,b]:net.survivingMirroredFaces)
+        check(net.final->maybeFace(a)&&net.final->maybeFace(b),
+              "Only surviving reflected child faces enter the composed face journal");
+    std::vector<std::pair<VertexId,VertexId>> checkpointMirrors;
+    for(const auto& [a,b]:mirrors)
+        if(a<b) {
+            const bool aliveA=net.final->maybeVertex(a)!=nullptr,
+                       aliveB=net.final->maybeVertex(b)!=nullptr;
+            check(aliveA==aliveB,
+                  "Every retired ORIGINAL mirror vertex has a retired reflected partner");
+            if(aliveA)checkpointMirrors.emplace_back(a,b);
+            else check(std::binary_search(
+                net.removedMirrors.begin(),net.removedMirrors.end(),
+                std::pair<VertexId,VertexId>{a,b}),
+                "Retired historical mirror pair must appear in NET removed delta");
+        }
+    checkpointMirrors.insert(checkpointMirrors.end(),
+                             net.addedMirrors.begin(),net.addedMirrors.end());
+    std::sort(checkpointMirrors.begin(),checkpointMirrors.end());
+    const auto checkpointPath=std::filesystem::temp_directory_path()/
+        "mesher_v17_exact_cut_step_reflected.mshr";
+    writeCheckpoint(checkpointPath,{net.final,checkpointMirrors,16});
+    const auto recovered=readCheckpoint(checkpointPath);
+    std::filesystem::remove(checkpointPath);
+    check(connectedClosedSurfaceComponents(*recovered.index)==2&&
+          recovered.mirrorPairs==checkpointMirrors&&
+          recovered.index->retiredFaceIds()==net.final->retiredFaceIds(),
+          "Mirrored original-root union checkpoint restores stable IDs and orbits");
+    RevisionHistory mirrorHistory(root,8,32*1024*1024,nullptr,16,16);
+    mirrorHistory.append(net.final,net.dirtyPartitions,
+                         net.addedMirrors,net.removedMirrors,
+                         net.copiedPayloadBytes);
+    const auto rewind=mirrorHistory.undo();
+    check(rewind.index==root&&
+          rewind.removeMirrors==net.addedMirrors&&
+          rewind.addMirrors==net.removedMirrors,
+          "Single undo restores retired historical mirrors and removes all new pairs");
+    const auto replay=mirrorHistory.redo();
+    check(replay.index==net.final&&
+          replay.addMirrors==net.addedMirrors&&
+          replay.removeMirrors==net.removedMirrors,
+          "Single redo reapplies NET removed historical and surviving new mirror pairs");
+    const auto noMirror=prepareExactCutStep(root,originalContacts,stepLimits);
+    check(!noMirror.complete&&!noMirror.final&&noMirror.addedMirrors.empty(),
+          "Mirrored original-root Step refuses missing historic involution");
     const auto mirroredProposal=planExactCutRemoval(cut,supportedContours);
     std::cout<<"[exact-removal-mirror-probe] status="
              <<static_cast<int>(mirroredProposal.status)

@@ -355,4 +355,50 @@ ExactCutJoinResult joinCertifiedCutSections(
     const ExactCutJoinLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
 
+
+// V17e2b2d3: Stage the entire subdivision + certified seam join as
+// ONE original-root Step. Two private RegionEdits are implementation
+// details: the returned FINAL immutable root is the ONLY publishable
+// candidate. Nothing in this API publishes or appends to history.
+struct ExactCutStepLimits {
+    ConformingCutLimits cut{};
+    ExactCutJoinLimits join{};
+    std::size_t partitionCapacity=256;
+    bool requireMirrors=false; // explicit symmetric Step intent; no fallback
+    std::size_t maxNetChangedIds=32768;
+    std::size_t maxDirtyPartitions=4096;
+    std::size_t maxFinalCollisionFaces=16384;
+    CollisionQueryLimits finalCollisionLimits{
+        16384,131072,16384,131072,65536,4096};
+};
+struct ExactCutStep {
+    bool complete{};
+    std::string refusal;
+    // The caller MUST CAS from expected to final, NEVER from the cut
+    // intermediate. Both pointers share the original identity domain.
+    std::shared_ptr<const RegionTopologyIndex> expected;
+    std::shared_ptr<const RegionTopologyIndex> final;
+    RevisionCommit commit;
+    // NET stable-ID deltas relative to expected. IDs born AND retired
+    // inside the two private edits are excluded from these journals.
+    std::vector<VertexId> addedVertices,retiredVertices;
+    std::vector<FaceId> addedFaces,rewrittenFaces,retiredFaces;
+    std::vector<std::pair<VertexId,VertexId>> addedMirrors,removedMirrors;
+    std::vector<std::pair<FaceId,FaceId>> survivingMirroredFaces;
+    std::vector<PartitionId> dirtyPartitions;
+    std::size_t copiedPayloadBytes{}; // cost of BOTH private COW edits
+    std::size_t finalCollisionSeeds{},checkedProtectedFaces{};
+    // Relative counts; callers append one History entry using their
+    // existing absolute counts. Does not include born-then-retired IDs.
+    std::ptrdiff_t vertexCountDelta{},faceCountDelta{};
+};
+// A mirrored cut requires the original stable-ID involution. Any
+// unsupported geometry, mismatch, stale provenance or bounded-work
+// exhaustion returns NO final/commit, journals or publication permission.
+ExactCutStep prepareExactCutStep(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const ExactCutStepLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
+
 } // namespace mesher

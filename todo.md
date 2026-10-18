@@ -1087,17 +1087,39 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
   omitted historical mirror involution. No V15 zipper-strip/cap faces
   or UI/worker/history publication; finite-tolerance transverse domain
   only and test-specific finite c3 contour thresholds.
-- [ ] **V17e2b2d3 — Compose one original-root private Step and net ID journals.**
-  Rebase the completed two-revision conforming cut + exact seam join
-  as ONE atomic revision candidate rooted in the ORIGINAL published
-  snapshot; reconcile net inserted/rewritten/retired permanent FaceIds
-  and VertexIds and complete new/original mirror mappings, dirty
-  partitions, cursor/picking dependencies, checkpoint and undo/redo
-  semantics without ever publishing the intermediate cut revision.
-  Repeat full residual-contact, full protected-surface fidelity and
-  every changed region/connected-component acceptance test against
-  the combined final candidate. Test CAS conflict, stale old-root
-  readers and all-or-nothing refusal; do not enable desktop UI yet.
+- [x] **V17e2b2d3 — Compose one original-root private Step and net ID journals.**
+  One `prepareExactCutStep` stages BOTH private COW edits (conforming
+  source-face subdivision and proven exact-section seam joining)
+  against the SAME original immutable revision and returns ONLY the
+  original expected root and terminal closed-union root. The two
+  intermediate edits remain private; unchanged partition and picking
+  nodes are path-shared. There is no expensive full-revision copy or
+  traversal to "squash" the Step. Recompute full final changed-child
+  residual collisions and all protected exposed/cavity face geometric
+  fidelity before authorization. Reconcile NET born/alive added,
+  original retired and original rewritten VertexIds/FaceIds; exclude
+  born-then-retired intermediates from the published history journal
+  while preserving tombstones/never-reused allocator watermarks.
+  Validate old and new reciprocal reflected stable-ID orbits,
+  surviving mirrored child faces, paired retirement and both added
+  and removed MirrorPair history deltas. Track sorted local dirty
+  partition owners and conservative cumulative two-edit COW bytes
+  for ONE history entry, with original-root single compare-and-swap
+  and atomic stale-root CAS refusal. Positive regressions: single
+  connected union, mirrored pair of unions, unchanged old-root
+  readers and untouched COW partitions, count/ID journals, single
+  undo/redo, reflected redo/undo mirror deltas, checkpoint restore
+  with exact mirror/tombstone state, and partial-contact/work-budget
+  refusal with NO returned root. No UI, worker, automatic publication
+  or partial checkpoint/history write.
+- [ ] **V17e2b2d3b — Integrate one-CAS union with worker/undo history choreography.**
+  Wire an explicitly opted-in Step through the worker's original-root
+  CAS and existing history/mirror-state checkpoint machinery. A CAS
+  winner must append exactly ONE history transition and publish one
+  matching mirror-map state without an observable half-committed
+  window; test competing writers, history/renderer inputs and
+  refusal/backlog handling. Do not activate the visible desktop
+  Merge geometry control until manual and repeated-stamp acceptance.
 - [ ] **V17e2b2d4 — Generalize supported transverse cut seam topology.**
   Exercise multiple section curves through one original face, crossing
   and T-junction subdivision chains in COMPLETE closed-shell unions,
