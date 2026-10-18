@@ -213,6 +213,21 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     for(std::size_t i=0;i<plan.points.size();++i) {
         if(plan.points[i].existingVertex||i>partner[i])continue;
         const auto j=partner[i];
+        if(plan.points[i].position.x==0||plan.points[j].position.x==0) {
+            const auto describe=[&](std::size_t id) {
+                const auto& p=plan.points[id];
+                std::string desc=std::to_string(id)+" face="+
+                    std::to_string(p.owningFace);
+                if(p.boundaryEdge)
+                    desc+=" edge="+std::to_string(p.boundaryEdge->a)+","+
+                          std::to_string(p.boundaryEdge->b);
+                desc+=" x="+std::to_string(p.position.x);
+                return desc;
+            };
+            throw std::logic_error(
+                "Two supposedly mirrored source cut points lie on X=0: "+
+                describe(i)+" and "+describe(j));
+        }
         const auto [first,second]=edit.appendMirroredVertices(
             pointOwner(*baseline,plan.points[i]),
             pointOwner(*baseline,plan.points[j]),plan.points[i].position);
