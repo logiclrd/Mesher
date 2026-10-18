@@ -14,6 +14,17 @@ Each accepted input MUST increment completed physical unions and repaired stamp 
 
 The worker separately consumes sixteen physical begin/end commands through the unchanged exact 4D input pipeline, without ever invoking the explicit Merge command. An inserted far-away clean input is consumed without a new revision, history or dirty owner; the worker may still deliver an unchanged snapshot. A deliberately rejected terminal-validator input, after complete private Boolean staging, is consumed without partial mirror/history publication; the next identical physical input succeeds and later commands drain in order. These are recovery tests and DO NOT replace existing M10/M16/M17/M18 geometric unsupported-contact and budget refusals.
 
+A separate strict original-source-work refusal exercises a genuinely
+physical, simultaneous broad symmetric brush across MANY still-disjoint
+tower bands. With at most 12 candidate original-source sections permitted
+(sufficient for one reflected pair's six transverse contacts, but not for
+a multi-band burst), the oversized input must fail closed: original
+published root, history, dirty set and mirror state remain unchanged.
+A later ordinary single-band physical input on the SAME queued worker
+must then complete a true symmetric source-certified join. This is
+a real unsupported bounded collision input, not an injected validator
+message or a fabricated contact list.
+
 Accepted worker stamps each produce only one terminal indexed snapshot with dirty owners. After sixteen accepted physical unions the worker durably saves a full .mshr checkpoint containing the terminal retired FaceIds/VertexIds and only live mirror orbits. Undo and redo sixteen queued transitions, checking exact immutable root identity at each step.
 
 ## Acceptance boundaries
