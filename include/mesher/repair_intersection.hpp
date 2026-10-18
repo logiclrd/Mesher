@@ -396,6 +396,7 @@ struct ExactCutJoinResult {
     std::shared_ptr<const RegionTopologyIndex> index;
     std::optional<RevisionCommit> commit;
     std::vector<FaceId> retiredFaces;
+    std::vector<FaceId> retiredUncut,protectedUncut;
     std::vector<VertexId> retiredVertices;
     std::vector<FaceId> rewrittenFaces;
     std::vector<std::pair<VertexId,VertexId>> weldedPairs; // retired -> retained
@@ -408,7 +409,8 @@ struct ExactCutJoinResult {
 ExactCutJoinResult joinCertifiedCutSections(
     const ConformingCutCandidate& cut,
     const ExactCutJoinLimits& limits={},
-    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr);
+    const std::unordered_map<VertexId,VertexId>* originalMirrors=nullptr,
+    bool includeAuthorizedUncutOriginals=false);
 
 // V17-M02: Reconcile DIFFERENT exact source-section edge subdivisions
 // between two independently staged cut sheets. This is a private COW
@@ -441,6 +443,8 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
 struct ExactCutStepLimits {
     ConformingCutLimits cut{};
     ExactCutJoinLimits join{};
+    ExactSeamRefinementLimits refinement{};
+    UncutFaceRetirementLimits uncut{};
     std::size_t partitionCapacity=256;
     bool requireMirrors=false; // explicit symmetric Step intent; no fallback
     std::size_t maxNetChangedIds=32768;

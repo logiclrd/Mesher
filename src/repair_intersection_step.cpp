@@ -68,19 +68,36 @@ ExactCutStep prepareExactCutStep(
            !cut.commit.revision||
            cut.commit.revision.get()!=&cut.index->revision())
             return reject("Original-root Step subdivided a mismatched baseline");
+        // M02 and M03 remain private evidence stages. Neither intermediate
+        // revision is exposed to the repository/history/render consumer.
+        // Mirrored new subdivision/uncut orbits remain M05-only; historical
+        // symmetric two-body Steps retain their supported direct path.
+        ConformingCutCandidate prepared=cut;
+        bool additionallyRefined=false;
+        if(!originalMirrors) {
+            auto refineLimits=limits.refinement;
+            refineLimits.join=limits.join;
+            const auto alignment=reconcileCertifiedSeamSubdivisions(
+                cut,refineLimits);
+            if(!alignment.complete||!alignment.refined)
+                return reject("Original-root Step exact seam refinement refused: "+
+                              alignment.refusal);
+            prepared=*alignment.refined;
+            additionallyRefined=prepared.index!=cut.index;
+        }
         const auto joined=joinCertifiedCutSections(
-            cut,limits.join,originalMirrors);
+            prepared,limits.join,originalMirrors,!originalMirrors);
         if(!joined.complete||!joined.index||!joined.commit||
            !joined.commit->revision||
            joined.commit->revision.get()!=&joined.index->revision())
             return reject("Original-root Step seam join refused: "+joined.refusal);
         const auto& final=*joined.index;
-        const auto& previous=*cut.index;
+        const auto& previous=*prepared.index;
 
         // The complete changed halo is rechecked against the entire FINAL
         // index. No appeal to a previous iteration's contact query suffices.
         std::set<FaceId> seeds;
-        for(const auto& [child,_]:cut.childSources)
+        for(const auto& [child,_]:prepared.childSources)
             if(final.maybeFace(child))seeds.insert(child);
         for(const auto face:joined.rewrittenFaces)
             if(final.maybeFace(face))seeds.insert(face);
@@ -96,10 +113,16 @@ ExactCutStep prepareExactCutStep(
         // original exposed/cavity face disappeared behind the weld. A
         // surviving child's coordinates must match EXACTLY, not merely
         // project onto another approximate triangle.
-        const auto policy=planExactCutRemoval(cut,limits.join.removal);
-        if(!policy.ready()||
-           policy.proposedRemoval!=joined.retiredFaces)
-            return reject("Final Step and certified exact child removal disagree");
+        const auto policy=planExactCutRemoval(prepared,limits.join.removal);
+        if(!policy.ready())return reject(
+            "Final Step lacks complete revalidated c1/c2/c3 evidence");
+        std::set<FaceId> expectedRemoved(
+            policy.proposedRemoval.begin(),policy.proposedRemoval.end());
+        expectedRemoved.insert(joined.retiredUncut.begin(),
+                               joined.retiredUncut.end());
+        if(std::vector<FaceId>(expectedRemoved.begin(),expectedRemoved.end())!=
+               joined.retiredFaces)
+            return reject("Final Step and certified child+uncut removal disagree");
         for(const auto face:policy.protectedChildren) {
             if(!final.maybeFace(face))
                 return reject("Final Step retired an exposed or cavity interface");
@@ -111,16 +134,25 @@ ExactCutStep prepareExactCutStep(
                     return reject("Final Step displaced protected exact-child surface");
         }
 
+        for(const auto face:joined.protectedUncut) {
+            if(!original->maybeFace(face)||!final.maybeFace(face)||
+               original->face(face).vertices!=final.face(face).vertices)
+                return reject("Final Step modified protected uncut cavity/outer face");
+            for(const auto vertex:original->face(face).vertices)
+                if(!same(original->vertex(vertex).position,
+                         final.vertex(vertex).position))
+                    return reject("Protected unchanged original face lost exact geometry");
+        }
         std::set<VertexId> cutAddedVertices(
-            cut.insertedVertices.begin(),cut.insertedVertices.end());
+            prepared.insertedVertices.begin(),prepared.insertedVertices.end());
         std::set<FaceId> cutAddedFaces(
-            cut.insertedFaces.begin(),cut.insertedFaces.end());
+            prepared.insertedFaces.begin(),prepared.insertedFaces.end());
         std::set<VertexId> removedVertices(
             joined.retiredVertices.begin(),joined.retiredVertices.end());
         std::set<FaceId> removedFaces(
             joined.retiredFaces.begin(),joined.retiredFaces.end());
-        if(cutAddedVertices.size()!=cut.insertedVertices.size()||
-           cutAddedFaces.size()!=cut.insertedFaces.size()||
+        if(cutAddedVertices.size()!=prepared.insertedVertices.size()||
+           cutAddedFaces.size()!=prepared.insertedFaces.size()||
            removedVertices.size()!=joined.retiredVertices.size()||
            removedFaces.size()!=joined.retiredFaces.size())
             return reject("Duplicate stable IDs in composed local edit journals");
@@ -188,7 +220,7 @@ ExactCutStep prepareExactCutStep(
         }
 
         std::set<FaceId> modifiedOriginals(
-            cut.rewrittenFaces.begin(),cut.rewrittenFaces.end());
+            prepared.rewrittenFaces.begin(),prepared.rewrittenFaces.end());
         modifiedOriginals.insert(
             joined.rewrittenFaces.begin(),joined.rewrittenFaces.end());
         for(const auto id:modifiedOriginals) {
@@ -225,7 +257,7 @@ ExactCutStep prepareExactCutStep(
                 if(visited.insert(ordered(id,partner)).second)
                     composed.removedMirrors.push_back(ordered(id,partner));
             }
-            for(const auto& [a,b]:cut.mirroredVertices) {
+            for(const auto& [a,b]:prepared.mirroredVertices) {
                 if(a==b||!cutAddedVertices.contains(a)||
                    !cutAddedVertices.contains(b))
                     return reject("New mirror journal contains non-new or self-paired ID");
@@ -240,7 +272,7 @@ ExactCutStep prepareExactCutStep(
                     composed.addedMirrors.push_back(ordered(a,b));
                 }
             }
-            for(const auto& [a,b]:cut.mirroredFaces) {
+            for(const auto& [a,b]:prepared.mirroredFaces) {
                 const bool liveA=final.maybeFace(a)!=nullptr,
                            liveB=final.maybeFace(b)!=nullptr;
                 if(liveA!=liveB)
@@ -252,7 +284,7 @@ ExactCutStep prepareExactCutStep(
                         std::min(a,b),std::max(a,b));
                 }
             }
-        }else if(!cut.mirroredVertices.empty()||!cut.mirroredFaces.empty())
+        }else if(!prepared.mirroredVertices.empty()||!prepared.mirroredFaces.empty())
             return reject("Nonmirrored Step unexpectedly allocated reflected orbits");
 
         // There is no whole-mesh traversal on this hot path. All partition
@@ -303,25 +335,31 @@ ExactCutStep prepareExactCutStep(
             static_cast<std::ptrdiff_t>(composed.addedFaces.size())-
             static_cast<std::ptrdiff_t>(composed.retiredFaces.size());
         const auto a=cut.commit.statistics.clonedPartitionBytes,
+                   middle=additionallyRefined?
+                       prepared.commit.statistics.clonedPartitionBytes:0,
                    b=joined.commit->statistics.clonedPartitionBytes;
-        if(a>std::numeric_limits<std::size_t>::max()-b)
+        if(a>std::numeric_limits<std::size_t>::max()-middle||
+           a+middle>std::numeric_limits<std::size_t>::max()-b)
             throw std::length_error("Combined private COW payload work overflow");
-        composed.copiedPayloadBytes=a+b;
+        composed.copiedPayloadBytes=a+middle+b;
         composed.expected=std::move(original);
         composed.final=joined.index;
         composed.commit.revision=joined.commit->revision;
         composed.commit.statistics.clonedPartitions=
             cut.commit.statistics.clonedPartitions+
+            (additionallyRefined?prepared.commit.statistics.clonedPartitions:0)+
             joined.commit->statistics.clonedPartitions;
         composed.commit.statistics.clonedPartitionBytes=
             composed.copiedPayloadBytes;
         composed.commit.statistics.copiedDirectoryNodes=
             cut.commit.statistics.copiedDirectoryNodes+
+            (additionallyRefined?prepared.commit.statistics.copiedDirectoryNodes:0)+
             joined.commit->statistics.copiedDirectoryNodes;
         composed.commit.statistics.modifiedPartitions=
             composed.dirtyPartitions.size();
         composed.finalCollisionSeeds=seeds.size();
-        composed.checkedProtectedFaces=policy.protectedChildren.size();
+        composed.checkedProtectedFaces=policy.protectedChildren.size()+
+            joined.protectedUncut.size();
         composed.complete=true;
         return composed;
     }catch(const std::exception& e) {
