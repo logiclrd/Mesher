@@ -29,6 +29,18 @@ struct DurableCheckpoint {
     // Only an IN-MEMORY trusted snapshot can hold this sealed certificate;
     // a binary checkpoint never synthesizes a trusted source proof.
     std::shared_ptr<const OriginalPatchLifetime> verifiedOriginalFidelity;
+    DurableCheckpoint()=default;
+    DurableCheckpoint(
+        std::shared_ptr<const RegionTopologyIndex> root,
+        std::vector<std::pair<VertexId,VertexId>> mirrors={},
+        std::size_t initialVertices=0,
+        bool requireFidelity=false,
+        std::shared_ptr<const OriginalPatchLifetime> authenticated={})
+        :index(std::move(root)),mirrorPairs(std::move(mirrors)),
+         initialVertexCount(initialVertices),
+         originalFidelityRequired(requireFidelity||
+             static_cast<bool>(authenticated)),
+         verifiedOriginalFidelity(std::move(authenticated)) {}
 };
 // Binary V12 checkpoint: live partition/face identities, independent shared
 // allocator high-water marks, tombstones and mirrored identities. An explicit
