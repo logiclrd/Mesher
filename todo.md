@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M05 are complete in their bounded private off-plane acceptance/transaction scopes; M06–M13 and V17 as a whole remain open.**
+Each item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M06 are complete in their independently accepted private cut/transaction scopes; M07–M13 and V17 as a whole remain open.**
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -831,15 +831,34 @@ Each item below is a **standalone mergeable milestone** with its own positive/ne
   paired COW orbits remains fail-closed (M08 supported-domain
   boundary), not silently replaced by nearest-point matching.
   Automatic brush-triggered merging and the desktop toggle remain off.
-- [ ] **V17-M06 — Independently certified X=0 source-cut and invariant child-fan topology.**
-  Full ORIGINAL V13 strictly transverse X=0 contact graphs, explicit
-  source-proven seam points and shared original-edge midpoints, ONE
-  new self-mirror VertexId per fixed source-owned point, and complete
-  reverse-winding reflected/singleton invariant FaceId child orbits.
-  Require private locally manifold conforming cut, source coverage,
-  original-corner fidelity and exact reciprocal original/new maps.
-  Ambiguous near-plane/grazing/coplanar geometry and exhausted budgets
-  refuse without a private root. No Boolean deletion or history.
+- [x] **V17-M06 — Independently certified X=0 source-cut and invariant child-fan topology.**
+  A full two-closed-tetra fixture with THREE truly transverse original
+  V13 source pairs (the initial tangent vertex was deliberately moved
+  away from the supporting plane) now produces a complete privately
+  committed, locally manifold conforming cut and c2 source coverage.
+  Both true mirror-paired off-plane points AND single new permanent
+  self-mirrored X=0 source-owned VertexIds are included, with exact
+  original corner coordinates, true original FaceId provenance, and
+  complete distinct/singleton reflected reverse-winding child FaceId
+  orbits. The mirrored arrangement recognizes canonical source-proven
+  X=0 fixed points, correcting ONLY an independently computed 5.55e-17
+  residual X after proving the ORIGINAL invariant edge/face orbit.
+  It constructs each invariant source triangle's positive half-disk
+  once and reflects the full fan, using RegionEdit's one-ID seam
+  vertex, paired/singleton child allocation, full local fan/edge
+  validation and immutable COW commit. Missing original contacts
+  refuse independent c2 certification; incomplete source mirror
+  involutions and zero mirrored pairing work refuse private
+  conformance, with no source-root mutation or half-published state.
+  The original and candidate picking roots, all original corners,
+  inserted orbit cardinality, original contact/child coverage and
+  protected old reader identity are tested. This milestone NEVER
+  deletes classified faces, authorizes a d2 weld, publishes one
+  original-root Step, or updates worker mirror maps. The earlier
+  attempt to enable that NEXT layer uncovered c3's
+  'Conflicting child-contour vertex mirror mapping'; this remains
+  explicitly open under V17-M07, whose terminal code changes were
+  withheld from M06 so unsupported Boolean joins still refuse.
 
 - [ ] **V17-M07 — Exact X=0 Boolean closure, atomic retirement and original-root history.**
   Consume M06 private certified cut for c1/c2/c3 and M03 whole-uncut

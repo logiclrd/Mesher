@@ -273,6 +273,63 @@ geometry.
 
 ## V17-M06 — Source-proven invariant X=0 cut and reflected child fans
 
+**Implementation/acceptance:** Complete as a **private source
+conformance milestone**, not a completed X=0 Boolean union. A new
+two-closed-tetra fixture has THREE FULL original V13 strictly
+transverse source contacts with X=0 crossing geometry, after
+removing one genuine near-tangent side-plane configuration from
+the initial diagnostic fixture. A complete exact mirror map
+self-pairs existing ORIGINAL vertices on X=0 and reciprocally
+pairs the strictly off-plane originals.
+
+The reflected multi-section planner identifies a new self orbit
+ONLY for an original proven invariant cut edge or source face.
+Independent V13 arithmetic had produced X=-5.55112e-17 instead of
+exact zero; the source-constrained normalization sets ONLY that
+one X coordinate to zero, within a finite scale-dependent error
+envelope. Y/Z, old vertices and independent near-coincident
+distinct original source points are NEVER snapped or welded.
+The original invariant source triangle's positive-X cut half-fan
+is selected once and explicitly reflected into negative-X
+children with reversed winding. Each source-owned fixed point
+becomes exactly ONE fresh VertexId allocated with
+`RegionEdit::appendSeamVertex`; off-plane points are allocated
+only as real reciprocal `appendMirroredVertices` orbits.
+`RegionEdit::replaceSelfMirroredFace` checks the entire child
+fan, staged reflected pairs and possible genuine invariant
+singleton child FaceIds before making ONE unpublished COW root.
+Every changed source FaceId retains full area, winding, complete
+incident local edges/vertex fans and original-source provenance.
+
+The POSITIVE test requires `buildConformingCutPlan`,
+`materializeTransverseCutCandidate` and independently recomputed
+`certifyConformingCutCoverage` to pass the complete original
+contact graph. It audits source-owned fixed/new paired vertex
+cardinality, all child face-orbit identities and reversed cycles,
+unchanged old corners, distinct immutable source/cut picking
+roots and absence of original-root retirement. Missing a V13
+pair refuses COMPLETE c2 coverage (whether at planning or
+certification); noninvolutive original mirrors and a zero pairing
+budget also refuse. No default geometry policy or historical
+M05 off-plane behavior has been changed.
+
+**Next and NOT ACCEPTED as part of M06:** Strict c3 child-winding
+and mirrored removal authorization currently refuses this same
+new source cut at 'Conflicting child-contour vertex mirror mapping'
+because the previous V15 child/contour evidence assumed distinct
+two-ID vertex/face orbits. V17-M07 explicitly owns support for
+proven self-paired X=0 vertices and invariant FaceIds throughout
+c1/c2/c3, source-owned cavity-safe retirement, d2 source-paired
+seam equivalence/closure, exact symmetric net stable ID history,
+one original-root CAS, worker three-controller mirrors and
+checkpoint recovery. The initial incomplete terminal-join and
+worker experiments were *not* merged into the accepted M06 path:
+their earlier branch commits remain available for M07 review,
+and M06's runtime join/worker implementations remain fail-closed
+on this newly accepted cut. M08–M13 and the V17 overall feature
+remain open; automatic Merge geometry is disabled.
+
+
 **Objective.** Establish one independently completable PRIVATE
 conforming cut for full original V13 strictly transverse contacts
 crossing the reflection plane. Prove that on-plane intersections
