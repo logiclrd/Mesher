@@ -2166,6 +2166,143 @@ void testOrthogonalTripleJunctionProbe() {
     }
 }
 
+void verifyMirroredOriginalRootStep(
+    std::shared_ptr<const RegionTopologyIndex> original,
+    const std::unordered_map<VertexId,VertexId>& historical,
+    const ExactCutStep& step,
+    const std::string& fixture,
+    std::size_t expectedComponents) {
+    check(step.complete&&step.expected==original&&step.final&&
+          step.commit.revision.get()==&step.final->revision()&&
+          !step.dirtyPartitions.empty()&&
+          connectedClosedSurfaceComponents(*step.final)==expectedComponents&&
+          !step.addedMirrors.empty()&&
+          !step.survivingMirroredFaces.empty(),
+          "Reflected original-root Step must be one complete manifold net journal");
+    std::map<VertexId,VertexId> map;
+    std::vector<std::pair<VertexId,VertexId>> historyPairs;
+    for(const auto& [a,b]:historical) {
+        if(a>b)continue;
+        const bool liveA=step.final->maybeVertex(a)!=nullptr,
+                   liveB=step.final->maybeVertex(b)!=nullptr;
+        check(liveA==liveB,"Reflected old original vertex pair retires together");
+        if(liveA) {
+            map.emplace(a,b);map.emplace(b,a);
+            historyPairs.emplace_back(a,b);
+        }else
+            check(std::binary_search(step.removedMirrors.begin(),
+                                     step.removedMirrors.end(),
+                                     std::pair<VertexId,VertexId>{a,b}),
+                  "Retired original stable mirror pair appears in ONE net mirror delta");
+    }
+    for(const auto& [a,b]:step.addedMirrors) {
+        check(a!=b&&!historical.contains(a)&&!historical.contains(b)&&
+              !original->maybeVertex(a)&&!original->maybeVertex(b)&&
+              step.final->maybeVertex(a)&&step.final->maybeVertex(b),
+              "New paired VertexIds are both genuinely new live off-plane vertices");
+        check(map.emplace(a,b).second&&map.emplace(b,a).second,
+              "Each new stable reflected vertex has exactly one partner");
+        historyPairs.emplace_back(a,b);
+    }
+    std::sort(historyPairs.begin(),historyPairs.end());
+    std::set<FaceId> liveFaces;
+    std::map<std::array<VertexId,3>,FaceId> byCorners;
+    std::pair<std::size_t,std::size_t> finalCounts{};
+    step.final->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            finalCounts.first+=part.vertices.size();
+            for(const auto& v:part.vertices) {
+                const auto id=v.id;
+                check(map.contains(id)&&map.contains(map.at(id))&&
+                      map.at(map.at(id))==id&&
+                      map.at(id)!=id,
+                      "Both new and existing live mirror maps are exact involutions");
+                const auto p=step.final->vertex(id).position,
+                           q=step.final->vertex(map.at(id)).position;
+                check(p.x!=0&&q.x==-p.x&&q.y==p.y&&q.z==p.z,
+                      "Off-plane reflected vertex coordinates are exactly reciprocal");
+            }
+            for(const auto& face:part.faces) {
+                ++finalCounts.second;
+                liveFaces.insert(face.id);
+                auto ids=face.vertices;
+                std::sort(ids.begin(),ids.end());
+                check(byCorners.emplace(ids,face.id).second,
+                      "Final mirrored surface cannot contain duplicate coincident source faces");
+            }
+        });
+    for(const auto face:liveFaces) {
+        const auto tri=step.final->face(face).vertices;
+        std::array<VertexId,3> mapped{
+            map.at(tri[0]),map.at(tri[2]),map.at(tri[1])};
+        auto corners=mapped;
+        std::sort(corners.begin(),corners.end());
+        const auto it=byCorners.find(corners);
+        check(it!=byCorners.end()&&it->second!=face,
+              "Every terminal face has exactly one distinct reflected FaceId");
+        const auto partner=step.final->face(it->second).vertices;
+        bool reversed=false;
+        for(unsigned shift=0;shift<3;++shift)
+            if(partner[0]==mapped[shift]&&
+               partner[1]==mapped[(shift+1)%3]&&
+               partner[2]==mapped[(shift+2)%3])reversed=true;
+        check(reversed,"Reflected final face always has opposite winding");
+    }
+    std::pair<std::size_t,std::size_t> initialCounts{};
+    original->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            initialCounts.first+=part.vertices.size();
+            initialCounts.second+=part.faces.size();
+        });
+    check(static_cast<std::ptrdiff_t>(finalCounts.first)-
+              static_cast<std::ptrdiff_t>(initialCounts.first)==
+              step.vertexCountDelta&&
+          static_cast<std::ptrdiff_t>(finalCounts.second)-
+              static_cast<std::ptrdiff_t>(initialCounts.second)==
+              step.faceCountDelta,
+          "Mirrored net stable ID accounting matches original/terminal counts");
+    std::vector<FaceId> seeds(liveFaces.begin(),liveFaces.end());
+    check(step.final->triangleIntersections({},seeds).empty(),
+          "Both complete reflected unions have no final nonadjacent intersections");
+    IndexedMeshRepository published(original);
+    check(published.publishIfCurrent(step.expected,step.final)&&
+          !published.publishIfCurrent(step.expected,step.final),
+          "Both reflected halves publish in one original-root CAS, stale replay refuses");
+    RevisionHistory history(original,8,32*1024*1024,nullptr,
+                            initialCounts.first,initialCounts.second);
+    history.append(step.final,step.dirtyPartitions,
+                   step.addedMirrors,step.removedMirrors,
+                   step.copiedPayloadBytes,finalCounts.first,finalCounts.second);
+    check(history.statistics().undoDepth==1&&history.current()==step.final,
+          "Complete reflected contact graphs have one undo history Step");
+    const auto undo=history.undo();
+    check(undo.index==original&&undo.vertices==initialCounts.first&&
+          undo.faces==initialCounts.second&&
+          undo.removeMirrors==step.addedMirrors&&
+          undo.addMirrors==step.removedMirrors,
+          "One undo restores original geometry and exactly reverses net mirror deltas");
+    const auto redo=history.redo();
+    check(redo.index==step.final&&redo.vertices==finalCounts.first&&
+          redo.faces==finalCounts.second&&
+          redo.addMirrors==step.addedMirrors&&
+          redo.removeMirrors==step.removedMirrors,
+          "One redo restores both mirrored unions and net pair deltas");
+    const auto path=std::filesystem::temp_directory_path()/
+        ("mesher_v17_m05_"+fixture+".mshr");
+    writeCheckpoint(path,{step.final,historyPairs,initialCounts.first});
+    const auto loaded=readCheckpoint(path);
+    std::filesystem::remove(path);
+    check(loaded.index&&loaded.mirrorPairs==historyPairs&&
+          connectedClosedSurfaceComponents(*loaded.index)==expectedComponents&&
+          loaded.index->retiredFaceIds()==step.final->retiredFaceIds()&&
+          loaded.index->retiredVertexIds()==step.final->retiredVertexIds(),
+          "Reflected full-three-body history checkpoint restores both stable ID orbits");
+    std::cout<<"[mirrored-m05] fixture="<<fixture
+             <<" faces="<<finalCounts.second
+             <<" mirrored-new-pairs="<<step.addedMirrors.size()
+             <<" reflected-live-components="<<expectedComponents<<'\n';
+}
+
 void testReflectedThreeBodyCompleteOriginalContacts() {
     for(const bool orthogonal:{false,true}) {
         Mesh mesh;
@@ -2233,6 +2370,8 @@ void testReflectedThreeBodyCompleteOriginalContacts() {
         check(result.expected==original&&result.final&&
               connectedClosedSurfaceComponents(*result.final)==2,
               "Two complete reflected three-body groups form two separate closed unions");
+        verifyMirroredOriginalRootStep(original,mirrorMap,result,
+                                      orthogonal?"orthogonal-32":"generic-24",2);
         check(original->pickingRootIdentity()==identity&&
               connectedClosedSurfaceComponents(*original)==6,
               "Mirrored three-body original readers remain unaffected");
