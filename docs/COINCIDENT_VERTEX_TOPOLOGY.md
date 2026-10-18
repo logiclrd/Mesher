@@ -139,6 +139,26 @@ order and unrelated duplicate vertices near the active repair halo.
 Explicitly report accepted / safely refused / unsupported, rather than
 counting a safe refusal as a positive union.
 
+## Bounded implementation and independent evidence
+
+The concrete fixture-by-fixture contract is now recorded in
+[V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md](V17_M16_COINCIDENT_IDENTITY_ACCEPTANCE.md).
+Its off-plane *positive* two-sheet cut and original-root Boolean union
+must retain different stable VertexIds at EXACT equal positions in
+the conformance stage, but leave only source-authorized final seam
+representatives after a complete d2 join. The separate reflected
+off-plane positive control requires two distinct reciprocal joined
+components and a valid connected incident fan at every vertex.
+
+The deliberately *negative/preservation* tests retain independent
+on-plane/off-plane tangent vertex identities, a four-way exact point
+of tangency, a 1e-7 near-miss, an unrelated tangent shell near the
+active source repair region, and missing/forged/over-budget source
+inputs. These are not claims that arbitrary 3D coincident data
+is automatically weldable. A fully closed manifold union must
+actually be proved; a refused source operation is not a positive
+Boolean result.
+
 ## Scope and planned delivery
 
 M16 is a distinct flat **peer** milestone, not a recursive subdivision of
