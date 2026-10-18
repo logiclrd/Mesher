@@ -1,6 +1,6 @@
 # Mesher design principles (future milestones)
 
-> **Planning authority for ongoing V17:** [flat V17-M01–M12 milestone plan](docs/V17_MILESTONES.md) (rebaseline after PR #50); [original nested V17 tasks, verbatim](docs/V17_LEGACY_TASK_TREE.md). The sections below remain an unmodified chronological technical record, not active recursively numbered TODOs.
+> **Planning authority for ongoing V17:** [flat V17-M01–M16 milestone plan](docs/V17_MILESTONES.md) (rebaseline after PR #50, with append-only M16 coincidence gate added 2026-10-18); [normative coincident-geometry/identity contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md); [original nested V17 tasks, verbatim](docs/V17_LEGACY_TASK_TREE.md). The sections below remain a chronological technical record, not active recursively numbered TODOs.
 
 The current milestone includes a generated manifold, Vulkan viewport,
 and a CPU Inflate-brush stroke engine. This document distinguishes implemented
@@ -3735,3 +3735,24 @@ commit 29fec5607d9fcc6da70a2c0722076a4197de79e2
 (Actions 39139919037) were successful. The code and docs now
 mark the independently tested original-root M09 gate accepted;
 M10–M15 and overall live V17 acceptance remain separate.
+
+## October 18: source-proven coincidence is a general 3D topology rule (planning decision)
+
+Coincident coordinates do NOT imply a shared VertexId or authorize a weld,
+whether X=0 or not. X=0 is the fixed-point set of Mesher's CURRENT
+reflection R(x,y,z)=(-x,y,z); it adds exact self-orbit and invariant
+face-fan constraints, but is not the source of the underlying
+coincident-vertex problem. Distinct valid components may touch at
+exactly one XYZ; blindly replacing both IDs would create a disconnected
+one-ring. On the other hand, separately source-owned conforming
+section points with identical XYZ MUST become one representative after
+a complete original-V13-paired, c1/c2/c3/M03-authorized, oriented,
+closed/manifold-valid join. Near-equality alone never qualifies.
+
+The precise invariant, decision sequence, positive/refusal fixture
+matrix, and scope boundary are now [COINCIDENT_VERTEX_TOPOLOGY.md](
+docs/COINCIDENT_VERTEX_TOPOLOGY.md). A new independent peer V17-M16
+is scheduled after M10 and before M11 and M15; previous milestone
+IDs, historical accepted work, and the broader V19 stress program
+are unchanged. This document records a PLAN, not evidence that
+arbitrary coincident imported geometry is supported.

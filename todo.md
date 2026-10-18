@@ -710,7 +710,7 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
-**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M09 are complete in their independently accepted private cut/c3/join and terminal original-root worker scopes; M10–M15 and V17 as a whole remain open.**
+**October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M09 are complete in their independently accepted private cut/c3/join and terminal original-root worker scopes; M10–M16 and V17 as a whole remain open.** Newly added flat peer M16 is scheduled after M10 and **before M11**, without renumbering accepted existing IDs. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
 
 - [x] **V17-M01 — Canonical source-proven multi-sheet/triple-plane junction identities.**
   Construct original-ordered, finite-V13-verified three-plane points
@@ -940,9 +940,11 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   No automatic brush-triggered union, live UI toggle or post-CAS
   fault-atomicity activation: those remain M11, M15 and M14.
 - [ ] **V17-M10 — Full-contact geometric boundary and fail-closed acceptance matrix.**
-  Historical 21-pair nontransverse examples, fold/tangent/near-coplanar/nested/multi-region refusals, finite work/quality thresholds and tested complete-contact supported cases.
+  Historical 21-pair nontransverse examples, fold/tangent/near-coplanar/nested/multi-region refusals, finite work/quality thresholds and tested complete-contact supported cases. Classify exact/near-coincident contact refusals without confusing source identity and mere geometric equality; M16 owns independently positive and negative generic identity acceptance.
+- [ ] **V17-M16 — Source-proven coincident-geometry and seam-equivalence acceptance.**
+  Coordinate equality alone NEVER implies VertexId equivalence; distinct exact-coordinate source vertices remain distinct through private conformance. Prove a proper, source-complete off-X=0 transverse section weld yielding one genuinely closed oriented manifold (plus mirrored off-plane control) while preserving unrelated exact-coordinate duplicates on and off X=0. Require exact original FaceId/interval provenance, independently classified c1/c2/c3/M03 removal, valid connected final vertex links, edge winding, mirror orbits and no residual collisions. Accidental isolated corner/edge touches, protected cavity coincidences, wrong/near-coordinate pseudo-welds, incompatible multi-sheet fans and resource exhaustion must refuse without any partial root, mirror/history/dirty journal or dropped worker input. Regress M04/M05/M08/M09 positives and preserve old readers/tombstones. Full acceptance cases and non-goals: [docs/COINCIDENT_VERTEX_TOPOLOGY.md](docs/COINCIDENT_VERTEX_TOPOLOGY.md). **Complete after M10 and before M11/M15; peer milestone, not a nested subtask.**
 - [ ] **V17-M11 — Repeated actual sculpt-triggered classified symmetric unions.**
-  Real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
+  After M10/M16's supported-domain and coincidence gates, real physical tower contact after Inflate/split/flip/collapse, successful repeated sixteen-Step unions, clean/no-contact continuation, rejected-input drain, immutable history and renderer roots.
 - [ ] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**
   Cumulative geometry acceptance versus the first reference, intentional deformation exceptions, cavity protection, proven episode reset and stable repeated-contact decisions.
 - [ ] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
@@ -950,7 +952,7 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
 - [ ] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
   Fault-injected commit/history/mirror/dirty/checkpoint consistency; one visible final root and undo transition or safe, completely reported failure.
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
-  Explicit on-mode for only proven geometry with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
+  Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 
 - [ ] **V18 — Opt-in 'Merge geometry: Off' collision constraints.**
   On the same post-state triangle neighborhood, constrain normal
@@ -964,7 +966,9 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   selected/validated.
 - [ ] **V19 — 3D robustness, performance and desktop acceptance.**
   Stress multiple/near-tangent/coplanar intersection regions, tunnels,
-  ambiguous enclosed shells, very uneven/local high-density triangles,
+  ambiguous enclosed shells, imported meshes with pre-existing unrelated
+  exactly coincident positions or nonmanifold fans (never automatic global
+  coordinate deduplication), very uneven/local high-density triangles,
   repeat zipper edits and pathological collision workloads. Add explicit
   accuracy/budget/failure diagnostics, performance measurement at
   5k/20k/100k and larger where practical, and user-observed Linux/Windows
