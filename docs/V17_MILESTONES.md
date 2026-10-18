@@ -36,9 +36,10 @@ The accepted foundation is V17a, V17b, V17c, V17d1/d2, V17e1/e2a, V17e2b1, V17e2
 | **V17-M03** | Independent classified retirement of untouched fully buried original faces, cavity-safe and bounded | Existing c1/c2/c3 |
 | **V17-M04** | Publishable private **three-body** union with complete original contacts and manifold/fidelity certification | M01–M03 where fixture needs them |
 | **V17-M05** | Explicitly mirrored off-plane multi-section/triple-surface union | M02/M04 geometry as needed |
-| **V17-M06** | Reflected **X=0** invariant seam/fixed-point contact topology | M05 correspondence conventions |
+| **V17-M06** | Source-proven **X=0** invariant fixed-point cuts and reflected child-face fan topology, **private only** | M05 correspondence conventions |
+| **V17-M07** | Strict X=0 cavity-safe Boolean seam join, self-orbit retirements, one original-root transaction/history | M06 source-conforming cut and M04 publication conventions |
 | **V17-M08** | Finite supported/refused geometry and adversarial topology acceptance matrix | Existing cut/join; parallelizable |
-| **V17-M09** | Repeated *actual sculpt-driven* symmetric classified union Steps and recovery | Sufficient M04–M06 accepted domain |
+| **V17-M09** | Repeated *actual sculpt-driven* symmetric classified union Steps and recovery | Sufficient M04–M07 accepted Boolean domain |
 | **V17-M10** | Active cumulative exposed-detail and contact-episode decision policies | Existing anchor/episode diagnostics; can run in parallel |
 | **V17-M11** | Aggregate per-Step resource caps and honest timing/diagnostic telemetry | Existing per-query budgets; can run in parallel |
 | **V17-M12** | Transactional post-CAS/exception and persistent-state fault acceptance | Existing explicit d3b worker; can run in parallel |
