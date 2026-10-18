@@ -1323,8 +1323,13 @@ void testSeparateCompleteSectionsOnOneOriginalFace() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,12>{{
         {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
-        {.5,.5,.25},{.25,.25,-.25},{.75,.25,-.25},{.25,.75,-.25},
-        {1.25,.25,.25},{1,.125,-.25},{1.5,.125,-.25},{1.25,.5,-.25}
+        // Each protrusion has two vertices above and two below A's
+        // top face, so ALL FOUR of its original triangles are cut.
+        // Nothing fully buried remains unclassified and unchanged.
+        {.375,.375,.25},{.625,.375,.25},
+        {.625,.625,-.25},{.375,.25,-.25},
+        {1,.25,.25},{1.25,.25,.25},
+        {1.25,.5,-.25},{1,.125,-.25}
     }})mesh.vertices.push_back(p);
     for(unsigned solid=0;solid<3;++solid) {
         const auto base=4u*solid;
@@ -1342,8 +1347,8 @@ void testSeparateCompleteSectionsOnOneOriginalFace() {
         imported.flatIndex.vertexIds,{});
     std::cout<<"[separate-sections] original-contact-count="
              <<contacts.size()<<'\n';
-    check(contacts.size()==6,
-          "Two disjoint protrusions each form three finite original top-face sections");
+    check(contacts.size()==8,
+          "Two disjoint protrusions each have four full transverse top-face contact pairs");
     const auto top=imported.flatIndex.faceIds[0];
     for(const auto& pair:contacts)
         check(!pair.ambiguous&&(pair.first==top||pair.second==top),
