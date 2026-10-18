@@ -1672,16 +1672,22 @@ void testWhollyBuriedUncutOriginalFace() {
     // All three B base vertices are BELOW A's top plane and B's apex is
     // above it. B's own base triangle is fully inside A, but receives
     // ZERO original finite V13 sections and therefore NO cut children.
-    for(const auto p:std::array<Vec3,8>{{
+    for(const auto p:std::array<Vec3,12>{{
         {0,0,0},{2,0,0},{0,2,0},{0,0,-3},
-        {.4,.4,-.25},{.4,.6,-.25},{.6,.4,-.25},{.5,.5,.25}
+        {.4,.4,-.25},{.4,.6,-.25},{.6,.4,-.25},{.5,.5,.25},
+        // A separate REVERSED closed shell entirely inside A represents
+        // an intentional disconnected internal cavity. It must never
+        // enter the source-adjacent uncut removal scope.
+        {.12,.12,-1.1},{.12,.22,-1.1},
+        {.22,.12,-1.1},{.15,.15,-.9}
     }})mesh.vertices.push_back(p);
-    for(unsigned solid=0;solid<2;++solid) {
+    for(unsigned solid=0;solid<3;++solid) {
         const auto start=4u*solid;
         for(const auto t:std::array<std::array<unsigned,3>,4>{{
             {0,1,2},{1,0,3},{2,1,3},{0,2,3}
-        }})mesh.triangles.push_back({
-            start+t[0],start+t[1],start+t[2]});
+        }})mesh.triangles.push_back(solid<2?
+            std::array<unsigned,3>{start+t[0],start+t[1],start+t[2]}:
+            std::array<unsigned,3>{start+t[0],start+t[2],start+t[1]});
     }
     const auto imported=partitionFlatMesh(mesh,256);
     const auto original=RegionTopologyIndex::build(imported.revision);
@@ -1730,6 +1736,13 @@ void testWhollyBuriedUncutOriginalFace() {
         check(std::find(plan.protectedUncut.begin(),plan.protectedUncut.end(),
                   outer)!=plan.protectedUncut.end(),
               "Original exposed A side must be protected, never silently retired");
+    }
+    for(unsigned f=8;f<12;++f) {
+        const auto cavity=imported.flatIndex.faceIds[f];
+        check(std::find(plan.combinedRemoval.begin(),plan.combinedRemoval.end(),
+                        cavity)==plan.combinedRemoval.end()&&
+              original->maybeFace(cavity)&&cut.index->maybeFace(cavity),
+              "Disconnected reversed cavity component must NEVER be retired by adjacency inference");
     }
     check(original->pickingRootIdentity()==rootIdentity&&
           original->retiredFaceCount()==0&&
