@@ -1995,6 +1995,7 @@ int main() {
         testSectionsMeetAtInteriorTjunction();
         testSeparateCompleteSectionsOnOneOriginalFace();
         testFullThreeBodyContactAdmission();
+        throw std::runtime_error("Temporary three-body full-contact diagnostic exit");
         testMirroredMultipleSectionsReadOnly();
         testMirroredCompleteContactCoverage();
         testSimultaneouslyMovingSolids();
