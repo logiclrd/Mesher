@@ -399,6 +399,49 @@ terminal history Step, worker or UI activation in this milestone.
 
 ## V17-M08 — X=0 exact source-paired PRIVATE Boolean join
 
+**Implementation/acceptance:** Complete on the full M06
+three-original-contact symmetric two-closed-tetrahedron fixture as
+a PRIVATE certified d2 Boolean union. After independently recomputed
+c1/c2/c3 and M07 mirrored contour evidence, each matched seam
+boundary is authorized ONLY by the exact original V13 FaceId pair
+and identical 3D endpoints with opposite surviving directions.
+The historical/new cut mirror map now includes true X=0 self
+VertexId orbits; a self-reflected welded equivalence class is
+permitted only if EVERY contributing independent source-sheet
+vertex is itself exactly self-mirrored and has explicit M06 new
+seam-point or true original source-corner provenance. Any reflected
+off-plane class remains a distinct reciprocal two-ID class.
+One unpublished RegionEdit retires only actual c3-authorized buried
+children, exact counterpart seam duplicates and true orphan IDs.
+
+A complete independent audit of ALL terminal faces confirms one
+connected, closed, oriented edge manifold, one connected vertex
+link at EVERY final VertexId, and zero nonadjacent terminal surface
+intersections. Exact old XYZ, original picking root, protected
+surface geometry, net private FaceId/VertexId tombstones and
+physical reciprocal/singleton mirror orbits pass. The independent
+M03 unchanged-original source survey now accepts real invariant
+historical vertex and original FaceId orbits, with a singleton
+FaceId only if one corner is fixed and the other two are an exact
+exchanged off-plane pair under reversed cyclic winding. Its
+optional join mode independently produces the SAME valid closed
+X=0 terminal private union on this fixture. No invented
+unchanged-original deletion is required in that particular
+two-tetra positive test.
+
+Refusals for missing source contacts, forged historical fixed
+orbit, exhausted exact seam pairing and M07's forged child/point
+orbits return no final root, retirement list or welded mapping.
+The genuine M06 grazing original remains unsupported. Production
+V13/V15 quality and contact thresholds are not weakened;
+only the EXISTING synthetic tetra test-local V15 contour settings
+are used. The full 23-suite CPU and benchmark CI succeeded under
+Linux GCC, Linux Clang and Windows MSVC at code commit fefa926
+(Actions run 39138641095). **This is NOT a full original-root
+Step: M09 still owns ONE captured-original CAS/history, self-orbit
+net mirror journals, worker three-map synchronization, undo/redo
+and checkpoint acceptance. M11/M15 retain automatic/live enablement.**
+
 **Objective.** Consume the independently positive M07 c3 proposal
 plus any source-complete M03 authorized original-face retirement,
 then pair exactly coincident finite original V13 survivor intervals

@@ -63,6 +63,58 @@ std::size_t connectedClosedSurfaceComponents(const RegionTopologyIndex& index) {
     return components;
 }
 
+
+void auditClosedVertexLinks(const RegionTopologyIndex& index) {
+    // Independent whole-surface test-only vertex-link audit. Two closed
+    // sheets sharing just ONE vertex may pass edge manifoldness while
+    // forming two disconnected vertex fans; do not mistake that for a
+    // valid Boolean manifold.
+    std::map<VertexId,std::set<FaceId>> incident;
+    index.revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces)
+                for(const auto v:face.vertices)
+                    incident[v].insert(face.id);
+        });
+    check(incident.size()<=16384,
+          "Vertex-link fixture exceeds finite independent audit budget");
+    const auto oriented=[&](FaceId id,VertexId a,VertexId b) {
+        const auto tri=index.face(id).vertices;
+        for(unsigned i=0;i<3;++i) {
+            if(tri[i]==a&&tri[(i+1)%3]==b)return 1;
+            if(tri[i]==b&&tri[(i+1)%3]==a)return -1;
+        }
+        return 0;
+    };
+    for(const auto& [v,faces]:incident) {
+        std::set<FaceId> visited;
+        std::vector<FaceId> pending{*faces.begin()};
+        visited.insert(*faces.begin());
+        while(!pending.empty()) {
+            const auto face=pending.back();pending.pop_back();
+            const auto tri=index.face(face).vertices;
+            for(const auto other:tri) {
+                if(other==v)continue;
+                const auto a=std::min(v,other),b=std::max(v,other);
+                const auto sides=index.edgeSides({a,b});
+                check(sides.size()==2,
+                      "Each vertex-link edge must have precisely two incident faces");
+                FaceId adjacent{};
+                for(const auto& side:sides)
+                    if(side.face!=face)adjacent=side.face;
+                check(adjacent&&faces.contains(adjacent)&&
+                      oriented(face,v,other)==-oriented(adjacent,v,other)&&
+                      oriented(face,v,other)!=0,
+                      "Vertex-link neighbors must be connected with opposite edge winding");
+                if(visited.insert(adjacent).second)
+                    pending.push_back(adjacent);
+            }
+        }
+        check(visited.size()==faces.size(),
+              "One stable vertex may have only ONE connected manifold link");
+    }
+}
+
 void testNarrowPhase() {
     const Points a{{{0,0,0},{1,0,0},{0,1,0}}};
     const Ids ai{1,2,3};
@@ -2739,6 +2791,104 @@ void testX0InvariantExactCutProbe() {
     check(ringOrbits.size()==decision.contourPlan.contours.size()&&
           selfRings>0,
           "Every c3 contour has an orbit including the real self-reflected X=0 ring");
+    // M08 must produce a real PRIVATE joined closed surface from these
+    // SAME source-certified X=0 cut children. c3 Ready alone is not union.
+    ExactCutJoinLimits joinLimits;
+    joinLimits.removal=contours;
+    const auto joined=joinCertifiedCutSections(cut,joinLimits,&mirror);
+    std::cout<<"[x0-m08] joined="<<joined.complete
+             <<" reason="<<joined.refusal
+             <<" boundaries="<<joined.checkedBoundaryEdges
+             <<" welds="<<joined.weldedPairs.size()<<'\n';
+    if(!joined.complete)
+        throw std::runtime_error("M08 original-paired X=0 weld refused: "+
+                                 joined.refusal);
+    check(joined.index&&joined.commit&&joined.commit->revision&&
+          joined.commit->revision.get()==&joined.index->revision()&&
+          joined.index!=cut.index&&joined.index!=root&&
+          joined.checkedContacts==contacts.size()&&
+          joined.checkedBoundaryEdges>0&&!joined.weldedPairs.empty(),
+          "M08 private d2 weld commits exactly one unpublished valid revision");
+    check(connectedClosedSurfaceComponents(*root)==2&&
+          connectedClosedSurfaceComponents(*cut.index)==2&&
+          connectedClosedSurfaceComponents(*joined.index)==1&&
+          allPairs(*joined.index).empty(),
+          "Real X=0 private Boolean converts two intersecting closed tetrahedra into ONE collision-free closed connected union");
+    auditClosedVertexLinks(*joined.index);
+
+    // The M03 untouched-original survey is a separately derived source
+    // certificate, not a caller-chosen deletion set. The same genuine
+    // invariant original mirror topology must be accepted when this
+    // conservative survey is requested for final closure.
+    const auto untouched=planUncutFaceRetirement(
+        cut,contours,{},&mirror);
+    check(untouched.ready()||
+          untouched.status==CutRemovalStatus::NoChanges,
+          "M03 X=0 original-source survey must accept valid invariant mirror orbits");
+    const auto joinedWithOriginals=joinCertifiedCutSections(
+        cut,joinLimits,&mirror,true);
+    std::cout<<"[x0-m08] uncut="<<static_cast<int>(untouched.status)
+             <<" reason="<<untouched.refusal
+             <<" full-join="<<joinedWithOriginals.complete
+             <<" full-reason="<<joinedWithOriginals.refusal<<'\n';
+    if(!joinedWithOriginals.complete)
+        throw std::runtime_error(
+            "M08 source-certified X=0 unchanged-original join refused: "+
+            joinedWithOriginals.refusal);
+    check(connectedClosedSurfaceComponents(*joinedWithOriginals.index)==1&&
+          allPairs(*joinedWithOriginals.index).empty(),
+          "M03 original-face survey never invalidates the complete X=0 private union");
+    auditClosedVertexLinks(*joinedWithOriginals.index);
+    std::size_t keptFixed=0;
+    for(const auto& [id,mate]:partners) {
+        const auto live=joined.index->maybeVertex(id)!=nullptr;
+        const auto opposite=joined.index->maybeVertex(mate)!=nullptr;
+        check(live==opposite,
+              "Every source-certified old/new fixed or paired orbit retires together");
+        if(!live)continue;
+        const auto a=joined.index->vertex(id).position,
+                   bpos=joined.index->vertex(mate).position;
+        check(a.x==-bpos.x&&a.y==bpos.y&&a.z==bpos.z,
+              "All final live source-proven mirror vertices remain physically exact");
+        if(mate==id) {
+            check(a.x==0,"A welded self orbit has one exact X=0 stable ID");
+            ++keptFixed;
+        }
+    }
+    check(keptFixed>0&&joined.index->retiredFaceCount()>0&&
+          !joined.index->retiredVertexIds().empty()&&
+          root->pickingRootIdentity()==previousIdentity&&
+          root->retiredFaceCount()==0,
+          "M08 actually retires hidden children and seam duplicate IDs without publishing history");
+    for(const auto& [id,other]:mirror) {
+        (void)other;
+        if(!joined.index->maybeVertex(id))continue;
+        const auto a=root->vertex(id).position,
+                   bpos=joined.index->vertex(id).position;
+        check(a.x==bpos.x&&a.y==bpos.y&&a.z==bpos.z,
+              "Every surviving historical original corner keeps EXACT XYZ");
+    }
+    auto partialJoin=cut;
+    partialJoin.sourceContacts.pop_back();
+    const auto missingJoin=joinCertifiedCutSections(
+        partialJoin,joinLimits,&mirror);
+    check(!missingJoin.complete&&!missingJoin.index&&
+          !missingJoin.commit&&!missingJoin.weldedPairs.size(),
+          "Missing original V13 section cannot produce a private X=0 union");
+    auto impossible=mirror;
+    impossible[imported.flatIndex.vertexIds[2]]=
+        imported.flatIndex.vertexIds[0];
+    const auto forgedJoin=joinCertifiedCutSections(
+        cut,joinLimits,&impossible);
+    check(!forgedJoin.complete&&!forgedJoin.index&&!forgedJoin.commit,
+          "False original X=0 self-orbit mapping cannot weld or publish");
+    auto limitedJoin=joinLimits;
+    limitedJoin.maxSeamPairs=0;
+    const auto exhaustedJoin=joinCertifiedCutSections(
+        cut,limitedJoin,&mirror);
+    check(!exhaustedJoin.complete&&!exhaustedJoin.index&&
+          !exhaustedJoin.commit&&exhaustedJoin.retiredFaces.empty(),
+          "Exhausted X=0 seam work has no consumable retirement or final root");
     auto wrongChild=cut;
     if(!wrongChild.mirroredFaces.empty()) {
         wrongChild.mirroredFaces.front().second=
