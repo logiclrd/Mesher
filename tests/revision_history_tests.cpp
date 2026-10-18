@@ -1,4 +1,6 @@
 #include "mesher/revision_history.hpp"
+#include "mesher/repair_surgery.hpp"
+#include "mesher/versioned_sculpt.hpp"
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/versioned_refine.hpp"
@@ -206,6 +208,139 @@ void testCheckpointRoundTripAndRecovery() {
     }
     std::filesystem::remove_all(dir);
 }
+void testM29BoundedAuthenticatedLifetimeHistoryAndRecovery() {
+    auto imported=partitionFlatMesh(octahedron(),1);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto fixedRoot=original->pickingRootIdentity();
+    auto first=std::make_shared<OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(
+            captureOriginalSourceAnchors(original,imported.flatIndex.faceIds,56)));
+    RevisionHistory tracked(original,3,512,nullptr,6,8,first);
+    VersionedInflateBrush inflate(.035,{});
+    VersionedLocalRefiner refiner(6,{},{},1);
+    VersionedDirectionalCollapser collapse(6,{},{},1);
+    const std::array<BrushArea,1> patch{{{{1,0,0},.8,.9}}};
+    const auto makeNext=[&](const OriginalPatchLifetime& previous) {
+        const auto post=inflate.stamp(previous.lineage.terminal,patch,1);
+        const auto refined=refiner.apply(post.index,post.baseline);
+        const auto collapsed=collapse.apply(refined.index,post.baseline);
+        check(post.moved>0,"M29 real source lifetime history step changes geometry");
+        return std::make_shared<OriginalPatchLifetime>(
+            advanceCertifiedPhysicalStampLifetime(
+                previous,post,refined,collapsed,
+                nullptr,nullptr,256,256,6,8));
+    };
+    auto one=makeNext(*first);
+    tracked.append(one->lineage.terminal,{1},{},{},128,6,8,one);
+    check(tracked.currentFidelity()==one&&
+          tracked.statistics().undoDepth==1&&
+          one->anchors.original==original,
+          "M29 first worker-style history append stores exact authenticated lifetime root");
+    auto two=makeNext(*one);
+    tracked.append(two->lineage.terminal,{2},{},{},128,6,8,two);
+    const auto prior=tracked.statistics();
+    auto forged=std::make_shared<OriginalPatchLifetime>(*two);
+    forged->sourceFaceEvidence=999;
+    bool refused=false;
+    auto three=makeNext(*two);
+    try {tracked.append(three->lineage.terminal,{3},{},{},128,6,8,forged);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused&&tracked.current()==two->lineage.terminal&&
+          tracked.currentFidelity()==two&&
+          tracked.statistics().undoDepth==prior.undoDepth&&
+          tracked.statistics().discardedRedoRevisions==prior.discardedRedoRevisions,
+          "M29 unsealed original evidence cannot mutate history, cursor, redo or budget");
+    refused=false;
+    try {tracked.append(three->lineage.terminal,{3},{},{},128,6,8);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused&&tracked.currentFidelity()==two,
+          "M29 missing tracked lifetime cannot silently disable fidelity after two Steps");
+    refused=false;
+    try {tracked.append(three->lineage.terminal,{3},{},{},128,6,8,one);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused&&tracked.current()==two->lineage.terminal,
+          "M29 stale historical certificate cannot be submitted as next published source owner");
+    const auto changedBefore=tracked.currentFidelity();
+    tracked.append(three->lineage.terminal,{3},{},{},128,6,8,three);
+    const auto backward=tracked.undo();
+    check(backward.index==two->lineage.terminal&&
+          backward.fidelity==two&&tracked.currentFidelity()==changedBefore&&
+          tracked.statistics().redoDepth==1,
+          "M29 undo restores exact previous root AND matching immutable source certificate");
+    const auto forward=tracked.redo();
+    check(forward.index==three->lineage.terminal&&
+          forward.fidelity==three&&tracked.currentFidelity()==three,
+          "M29 redo restores original-parent provenance without reanchoring source witnesses");
+
+    // True history eviction must not be defeated by a strong chain of
+    // opaque proof parents pinning all historical COW root directories.
+    std::weak_ptr<const RegionTopologyIndex> evicted=one->lineage.terminal;
+    auto four=makeNext(*three);
+    tracked.append(four->lineage.terminal,{4},{},{},128,6,8,four);
+    check(tracked.statistics().droppedRevisions>0&&
+          tracked.statistics().retainedRevisions<=3&&
+          four->anchors.original==original&&
+          four->sourceFaceEvidence>=three->sourceFaceEvidence&&
+          four->acceptedTransitions==4,
+          "M29 bounded history evicts revisions but preserves original source and cumulative counters");
+    one.reset();
+    check(evicted.expired(),
+          "M29 weak opaque certificate parents do not retain evicted intermediate COW roots");
+
+    // Undo + accepted alternative edit discards only redo, while a
+    // rejected stale alternative leaves it intact.
+    const auto restore=tracked.undo();
+    auto alternate=makeNext(*restore.fidelity);
+    const auto stats=tracked.statistics();
+    refused=false;
+    try {tracked.append(alternate->lineage.terminal,{5},{},{},64,6,8,four);}
+    catch(const std::logic_error&){refused=true;}
+    check(refused&&tracked.statistics().redoDepth==stats.redoDepth,
+          "M29 stale branch source proof does not discard undo redo or change history");
+    tracked.append(alternate->lineage.terminal,{5},{},{},64,6,8,alternate);
+    check(!tracked.canRedo()&&tracked.currentFidelity()==alternate&&
+          tracked.statistics().discardedRedoRevisions>0&&
+          original->pickingRootIdentity()==fixedRoot,
+          "M29 genuinely authenticated new branch discards redo but leaves original picker fixed");
+
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-v17-m29-protected-original-checkpoint.mshr";
+    DurableCheckpoint protectedSnapshot;
+    protectedSnapshot.index=tracked.current();
+    protectedSnapshot.initialVertexCount=6;
+    protectedSnapshot.verifiedOriginalFidelity=tracked.currentFidelity();
+    protectedSnapshot.originalFidelityRequired=true;
+    try {
+        writeCheckpoint(file,protectedSnapshot);
+        const auto loaded=readCheckpoint(file);
+        check(loaded.index&&loaded.originalFidelityRequired&&
+              !loaded.verifiedOriginalFidelity&&
+              loaded.index->pickingRootIdentity()!=nullptr,
+              "M29 V13 disk checkpoint stores protected provenance requirement but cannot fabricate a sealed root");
+        SculptCollisionSettings physical;
+        physical.physicalExact=true;
+        refused=false;
+        try {(void)VersionedSculptBrush(
+            loaded,.01,{},{},{},256,{},physical);}
+        catch(const std::logic_error&){refused=true;}
+        check(refused,
+              "M29 protected physicalExact cannot reset original witnesses at recovered terminal root");
+        // An explicitly trusted in-memory handoff DOES retain exactly
+        // the original opaque first-root source certificate.
+        VersionedSculptBrush restored(
+            protectedSnapshot,.01,{},{},{},256,{},physical);
+        check(restored.snapshot()==tracked.current()&&
+              restored.checkpoint().originalFidelityRequired&&
+              restored.checkpoint().verifiedOriginalFidelity==
+                  tracked.currentFidelity(),
+              "M29 in-memory authenticated handoff preserves source identity and protected requirement");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(file,ec);
+        throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+}
+
 void testAsyncCheckpointCoalescing() {
     const auto dir=std::filesystem::temp_directory_path()/
         ("mesher-v12-async-"+std::to_string(
@@ -245,6 +380,7 @@ int main() {
         testBoundedHistoryAndBranching();
         testUndoMirrorDelta();
         testCheckpointRoundTripAndRecovery();
+        testM29BoundedAuthenticatedLifetimeHistoryAndRecovery();
         testAsyncCheckpointCoalescing();
         std::cout<<"V12 history and checkpoint regressions passed\n";
     }catch(const std::exception& e) {
