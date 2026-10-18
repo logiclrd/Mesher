@@ -295,6 +295,52 @@ void testMirroredCollapseAgainstLegacy() {
                   "Both mirrored IDs retained as persistent tombstones");
             check(result.index->retiredFaceCount()==4,
                   "Both mirrored edge triangles removed atomically");
+            // Protect one untouched off-X=0 original face on each side
+            // of an ACTUAL accepted reflected collapse. No mirrored
+            // ancestry is inferred from coincident XYZ alone.
+            std::array<FaceId,2> protectedMirrors{};
+            before->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& part) {
+                    for(const auto& face:part.faces) {
+                        if(!result.index->maybeFace(face.id)||
+                           !after->maybeFace(face.id)||
+                           result.index->face(face.id).vertices!=face.vertices||
+                           after->face(face.id).vertices!=face.vertices)
+                            continue;
+                        bool stable=true;
+                        for(const auto v:face.vertices) {
+                            const auto p=before->vertex(v).position;
+                            if(length(p-after->vertex(v).position)!=0||
+                               length(p-result.index->vertex(v).position)!=0)
+                                stable=false;
+                        }
+                        if(!stable)continue;
+                        const auto x=before->vertex(face.vertices[0]).position.x+
+                                     before->vertex(face.vertices[1]).position.x+
+                                     before->vertex(face.vertices[2]).position.x;
+                        auto& chosen=protectedMirrors[x<0?0:1];
+                        if(!chosen)chosen=face.id;
+                    }
+                });
+            check(protectedMirrors[0]&&protectedMirrors[1],
+                  "Find untouched original mirrored exterior on both sides");
+            const auto protectedAnchor=captureOriginalSourceAnchors(
+                before,{protectedMirrors[0],protectedMirrors[1]},14);
+            const auto line=advanceCertifiedCollapseLineage(
+                beginSourceSplitLineage(protectedAnchor),result,1024,2);
+            check(line.terminal==result.index&&
+                  line.living.size()==2&&
+                  result.collapseSources.size()==1&&
+                  result.collapseSources.front().paired,
+                  "Real reflected collapse is certified while outer protected sources persist");
+            auto unpaired=result;
+            unpaired.collapseSources.front().mirrorRetired=
+                unpaired.collapseSources.front().retired;
+            bool failed=false;
+            try {(void)advanceCertifiedCollapseLineage(
+                beginSourceSplitLineage(protectedAnchor),unpaired,1024,2);}
+            catch(const std::logic_error&){failed=true;}
+            check(failed,"Missing reflected stable vertex source refuses actual paired collapse");
             for(const auto& [v,partner]:versioned.mirrors()) {
                 const auto left=result.index->vertex(v).position;
                 const auto right=result.index->vertex(partner).position;
