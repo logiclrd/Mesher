@@ -24,6 +24,9 @@ bool same(Vec3 a,Vec3 b) {
 SourceSplitLineage verifyLifetime(
     const OriginalPatchLifetime& lifetime,
     std::size_t maxLivingDescendants) {
+    if(!lifetime.verifiedOwnership||
+       *lifetime.verifiedOwnership!=lifetime.lineage.living)
+        throw std::logic_error("Uncertified substituted or coincident source FaceId owners");
     if(!lifetime.anchors.original||!lifetime.lineage.original||
        !lifetime.lineage.terminal||
        lifetime.anchors.original!=lifetime.lineage.original||
@@ -74,6 +77,7 @@ SourceSplitLineage verifyLifetime(
                 throw std::logic_error("Missing, duplicated or foreign live descendant ID");
         active.living.emplace_back(first,faces);
     }
+    std::sort(expectedRetired.begin(),expectedRetired.end());
     if(expectedRetired!=lifetime.certifiedRetiredOriginals)
         throw std::logic_error("Retired original source lacks certified c3/M03 provenance");
     return active;
@@ -123,6 +127,9 @@ OriginalPatchLifetime applyVerified(
     if(!accepted.empty())throw std::logic_error("Stage invented foreign source owners");
     next.lineage.terminal=stage.terminal;
     next.lineage.verifiedFaceSplits=stage.verifiedFaceSplits;
+    next.verifiedOwnership=std::make_shared<
+        const std::vector<std::pair<FaceId,std::vector<FaceId>>>>(
+            next.lineage.living);
     next.sourceFaceEvidence+=additionalEvidence;
     if(next.acceptedTransitions==std::numeric_limits<std::size_t>::max())
         throw std::length_error("Lifetime accepted source transition count overflow");
@@ -161,6 +168,9 @@ OriginalPatchLifetime beginOriginalPatchLifetime(
     OriginalPatchLifetime state;
     state.anchors=anchors;
     state.lineage=beginSourceSplitLineage(anchors);
+    state.verifiedOwnership=std::make_shared<
+        const std::vector<std::pair<FaceId,std::vector<FaceId>>>>(
+            state.lineage.living);
     (void)verifyLifetime(state,16384);
     return state;
 }
