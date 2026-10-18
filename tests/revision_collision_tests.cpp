@@ -3575,6 +3575,173 @@ void addDomainCube(Mesh& mesh,Vec3 center,double half) {
         {0,4,7},{0,7,3},{1,2,6},{1,6,5}
     }})mesh.triangles.push_back({first+t[0],first+t[1],first+t[2]});
 }
+// M16 deliberately separates geometric equality from vertex identity.
+// Source-certified finite intervals are allowed to collapse independently
+// owned cut IDs; touching independent closed components are not.
+void testSourceCertifiedCoincidentVertexIdentity() {
+    const auto certifiedContourLimits=[] {
+        ExactCutJoinLimits limits;
+        limits.removal.contours.maximumPlanarityInRadii=4.0;
+        limits.removal.contours.maximumSingleCapPlanarityInRadii=4.0;
+        limits.removal.contours.maximumIsoperimetricRatio=20.0;
+        limits.removal.contours.maximumSingleCapIsoperimetricRatio=20.0;
+        limits.removal.contours.maximumPerimeterRatio=20.0;
+        limits.removal.contours.maximumGapInEdges=2.5;
+        limits.removal.contours.minimumNormalAlignment=0;
+        return limits;
+    };
+    // Two source-independent closed tetrahedra, in the accepted
+    // THREE-contact invariant topology, but translated OFF the symmetry
+    // plane. Nothing here is a mirror fixed-point trick.
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})mesh.vertices.push_back({p.x+5,p.y,p.z});
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})
+            mesh.triangles.push_back({
+                4*tetra+t[0],4*tetra+t[1],4*tetra+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(imported.revision);
+    const auto oldRoot=original->pickingRootIdentity();
+    const auto contacts=original->triangleIntersections(
+        imported.flatIndex.vertexIds,{});
+    check(contacts.size()==3&&connectedClosedSurfaceComponents(*original)==2,
+          "Off-X=0 M16 union requires THREE full V13 original source pairs");
+    const auto cut=materializeTransverseCutCandidate(original,contacts);
+    check(cut.originalIndex==original&&cut.sourceContacts.size()==contacts.size()&&
+          certifyConformingCutCoverage(cut).complete,
+          "Independent off-plane source sheets have complete c2 conformance");
+    const auto c1=assessConformingCutFragments(cut);
+    const auto contours=certifiedContourLimits();
+    const auto c3=planExactCutRemoval(cut,contours.removal);
+    check(c1.complete&&c3.ready()&&
+          c1.fragments.size()==cut.childSources.size(),
+          "Off-plane cut requires full independent c1/c2/c3 authority");
+    std::size_t independentEndpoints=0;
+    for(std::size_t i=0;i<cut.sectionFirst.size();++i)
+        for(unsigned end=0;end<2;++end) {
+            const auto a=cut.sectionFirst[i][end],
+                       b=cut.sectionSecond[i][end];
+            const auto pa=cut.index->vertex(a).position,
+                       pb=cut.index->vertex(b).position;
+            check(a!=b&&pa.x==pb.x&&pa.y==pb.y&&pa.z==pb.z&&pa.x>0,
+                  "Equal off-plane source seam XYZ MUST retain two private VertexIds");
+            ++independentEndpoints;
+        }
+    check(independentEndpoints>=6,
+          "M16 exercises multiple independent but geometrically identical source endpoints");
+    const auto joined=joinCertifiedCutSections(cut,contours);
+    if(!joined.complete)
+        throw std::runtime_error(
+            "Source-proven off-plane 2-to-1 private weld refused: "+joined.refusal);
+    check(joined.index&&joined.commit&&
+          joined.commit->revision.get()==&joined.index->revision()&&
+          connectedClosedSurfaceComponents(*joined.index)==1&&
+          allPairs(*joined.index).empty()&&
+          !joined.weldedPairs.empty(),
+          "Real finite V13 source pairs weld off-plane to ONE closed collision-free union");
+    auditClosedVertexLinks(*joined.index);
+    std::size_t physicallyFused=0;
+    for(std::size_t i=0;i<cut.sectionFirst.size();++i)
+        for(unsigned end=0;end<2;++end) {
+            const auto a=cut.sectionFirst[i][end],
+                       b=cut.sectionSecond[i][end];
+            const bool aliveA=joined.index->maybeVertex(a)!=nullptr,
+                       aliveB=joined.index->maybeVertex(b)!=nullptr;
+            if(aliveA!=aliveB)++physicallyFused;
+            check(!(aliveA&&aliveB),
+                  "A terminal matched original section cannot keep duplicate coincident seam IDs");
+        }
+    check(physicallyFused>0&&original->pickingRootIdentity()==oldRoot&&
+          original->retiredFaceCount()==0&&
+          connectedClosedSurfaceComponents(*cut.index)==2,
+          "Private c3/d2 welds certified sheet IDs but cannot change original readers");
+    ExactCutStepLimits stepLimits;
+    stepLimits.join=contours;
+    const auto net=prepareExactCutStep(original,contacts,stepLimits);
+    check(net.complete&&net.final&&net.expected==original&&
+          connectedClosedSurfaceComponents(*net.final)==1&&
+          allPairs(*net.final).empty(),
+          "One ORIGINAL-root source-certified off-plane Boolean Step is positive");
+    auditClosedVertexLinks(*net.final);
+    auto reversed=contacts;
+    std::reverse(reversed.begin(),reversed.end());
+    const auto reordered=prepareExactCutStep(original,reversed,stepLimits);
+    check(reordered.complete&&reordered.final&&
+          connectedClosedSurfaceComponents(*reordered.final)==1,
+          "Full original-contact discovery order cannot change off-plane join eligibility");
+    auditClosedVertexLinks(*reordered.final);
+    auto missing=contacts;
+    missing.pop_back();
+    const auto refused=prepareExactCutStep(original,missing,stepLimits);
+    check(!refused.complete&&!refused.expected&&!refused.final&&
+          !refused.commit.revision&&refused.addedVertices.empty()&&
+          refused.retiredVertices.empty()&&refused.dirtyPartitions.empty(),
+          "One missing ORIGINAL FaceId pair cannot authorize coincident-XYZ weld");
+    auto forged=cut;
+    forged.childSources.front().second=FaceId{};
+    const auto forgedJoin=joinCertifiedCutSections(forged,contours);
+    check(!forgedJoin.complete&&!forgedJoin.index&&!forgedJoin.commit&&
+          forgedJoin.weldedPairs.empty()&&forgedJoin.retiredFaces.empty(),
+          "Inventing FaceId source ownership never authorizes coordinate-based joining");
+    auto tiny=stepLimits;
+    tiny.join.maxSeamPairs=0;
+    const auto exhausted=prepareExactCutStep(original,contacts,tiny);
+    check(!exhausted.complete&&!exhausted.final&&!exhausted.expected&&
+          exhausted.addedMirrors.empty()&&exhausted.dirtyPartitions.empty(),
+          "A seam matching budget refusal must not leak any source equivalence Step");
+    std::cout<<"[v17-m16] off-plane source-certified joined=1"
+             <<" raw-private-endpoints="<<independentEndpoints
+             <<" physically-fused="<<physicallyFused<<'\n';
+
+    // Independently valid closed solids may touch at the EXACT SAME XYZ
+    // while keeping DIFFERENT stable IDs and two disconnected fans.
+    // Test once at X=0, once off-plane: the same identity law applies.
+    for(const bool onPlane:{false,true}) {
+        Mesh touching;
+        if(onPlane) {
+            addTetrahedron(touching,{-1,0,0},1);
+            addTetrahedron(touching,{1,2,0},1);
+        }else {
+            addTetrahedron(touching,{0,0,0},1);
+            addTetrahedron(touching,{2,2,0},1);
+        }
+        const auto imp=partitionFlatMesh(touching,256);
+        const auto index=RegionTopologyIndex::build(imp.revision);
+        const auto a=imp.flatIndex.vertexIds[1],
+                   b=imp.flatIndex.vertexIds[4];
+        const auto pa=index->vertex(a).position,
+                   pb=index->vertex(b).position;
+        check(a!=b&&pa.x==pb.x&&pa.y==pb.y&&pa.z==pb.z&&
+              (onPlane?(pa.x==0):(pa.x!=0))&&
+              connectedClosedSurfaceComponents(*index)==2,
+              "Two valid source-owned vertex fans may touch exactly without being one VertexId");
+        auditClosedVertexLinks(*index);
+        const auto identity=index->pickingRootIdentity();
+        RegionEdit edit(index,{a});
+        (void)edit.commit();
+        const auto noOp=edit.updatedIndex();
+        check(noOp&&noOp->maybeVertex(a)&&noOp->maybeVertex(b)&&
+              noOp->vertex(a).position.x==noOp->vertex(b).position.x&&
+              connectedClosedSurfaceComponents(*noOp)==2&&
+              noOp->pickingRootIdentity()==identity,
+              "A local no-op cannot globally deduplicate unrelated coincident source vertices");
+        const auto discovered=index->triangleIntersections(
+            imp.flatIndex.vertexIds,{});
+        const auto cannotWeld=prepareExactCutStep(index,discovered);
+        check(!cannotWeld.complete&&!cannotWeld.expected&&!cannotWeld.final&&
+              !cannotWeld.commit.revision&&cannotWeld.dirtyPartitions.empty()&&
+              index->maybeVertex(a)&&index->maybeVertex(b),
+              "A vertex-only tangent is no proof of a proper source-owned seam");
+        std::cout<<"[v17-m16] "
+                 <<(onPlane?"X=0":"off-plane")
+                 <<" coincidence=preserved independent-fans=2\\n";
+    }
+}
 void testSupportedDomainAdversarialMatrix() {
     const auto proveNoPublication=[](
         const std::shared_ptr<const RegionTopologyIndex>& root,
@@ -3828,6 +3995,7 @@ int main() {
         testReflectedUncutBurialCavityOrbits();
         testMirroredCompleteContactCoverage();
         testSupportedDomainAdversarialMatrix();
+        testSourceCertifiedCoincidentVertexIdentity();
         testSimultaneouslyMovingSolids();
         testBoundedCollisionDiscovery();
         testPruningAndNoOp();
