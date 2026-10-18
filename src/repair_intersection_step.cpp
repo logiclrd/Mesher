@@ -398,6 +398,7 @@ ExactCutStep prepareExactCutStep(
         provenance->protectedUncut=joined.protectedUncut;
         provenance->finalWeldedPairs=joined.weldedPairs;
         provenance->removalSettings=limits.join.removal;
+        provenance->uncutLimits=limits.uncut;
         composed.sourceEvidence=std::move(provenance);
         composed.complete=true;
         return composed;
