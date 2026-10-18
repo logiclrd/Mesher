@@ -1371,6 +1371,44 @@ documentation follows before the merge.
     worker pre-CAS evaluator is enabled by M29, no desktop default
     change, and existing worker FIFO/mirror/dirty/rollback regressions
     stay green.
+  **V17-M30 completion plan — flat execution peers (M30 objective unchanged).**
+    Code review of the M29 worker confirms two distinct original-root CAS
+    paths, a physical multi-private-stage M28 bundle and an explicit
+    queued exact-cut path. Original-source intent does not yet cross the
+    worker input boundary. Record the ENTIRE independently testable
+    sequence before editing; never infer intent from candidate XYZ or
+    silently make a new terminal root the first original:
+  - [ ] **V17-M31 — First-original intent transport and validation.**
+    Add deliberate FIRST-original FaceId selections to each physical
+    stroke and explicit queued union request, preserving FIFO order and
+    separate source identity. Keep an immutable original-source and
+    reflected-orbit authority for subsequent M21 declarations; reject
+    foreign, half-orbit or unverified recovered authority. Show the
+    caller choices cannot be synthesized from displaced candidate geometry.
+    This milestone installs INPUT CONTRACTS, not an active final CAS gate.
+  - [ ] **V17-M32 — Certified physical-stamp terminal CAS gate.**
+    Initialize source-authenticated M29 history from the actual original
+    root; replay complete M28 Inflate/refine/collapse/optional d2 source
+    evidence; evaluate predecessor-bound M21 intent and all original
+    seven-witness descendant work on the EXACT terminal root before CAS.
+    Reject cumulative unscoped erosion and one-under budgets, with no
+    partial history/mirror/dirty/checkpoint changes. Preserve real M18
+    physical unions and M11 sixteen positive mirrored tower unions.
+  - [ ] **V17-M33 — Certified explicit queued source-exact CAS gate.**
+    Bind explicit queued union intent to its actual expected previous
+    published lifetime, independently certify genuine M26 cut/d2
+    source-child survivors and retired Buried/Outside originals, enforce
+    complete M21 terminal bounds and M29 matching history credentials
+    before CAS; reject stale roots, missing/sibling/reflection or
+    coincident owner substitutions without changing redo or maps.
+  - [ ] **V17-M34 — Integrated protected worker FIFO acceptance.**
+    Combine M31-M33 under real asynchronous 4D begin/end and explicit
+    union queues: accepted intended union, small allowed first movement,
+    cumulative rejected second movement, later valid FIFO progress,
+    mirrored X=0 and independent coincident identity, reversed-cavity
+    protection, exact terminal-only renderer/picker, dirty face owners,
+    undo/redo/checkpoint requirement, finite caps, and M11 positives.
+    Keep M14 post-CAS exception injection and M15 desktop UI separate.
   - [ ] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
     Wire the M21 intent declaration and complete first-original M27
     sampled audit to BOTH actual stamped physical exact and explicitly
