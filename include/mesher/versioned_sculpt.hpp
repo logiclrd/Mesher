@@ -7,6 +7,7 @@
 #include "mesher/revision_history.hpp"
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/repair_surgery.hpp"
+#include "mesher/repair_intersection.hpp"
 
 #include <chrono>
 #include <functional>
@@ -140,6 +141,16 @@ public:
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
+    // Explicit, opt-in V17e2b2d3b worker-only command, never called by
+    // the desktop Merge geometry UI (which remains disabled). The expected
+    // root is captured when contacts are selected, not guessed when queued
+    // commands eventually execute. A failed/stale Step publishes NOTHING.
+    bool mergeExactContacts(
+        std::shared_ptr<const RegionTopologyIndex> expected,
+        const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+        const ExactCutStepLimits& limits={});
+    std::size_t completedUnions() const noexcept {return completedUnions_;}
+    std::size_t rejectedUnions() const noexcept {return rejectedUnions_;}
     HistoryStatistics historyStatistics() const noexcept {
         return history_.statistics();
     }
@@ -187,6 +198,7 @@ private:
     std::size_t initialVertexCount_{};
     std::size_t vertices_{},faces_{};
     std::size_t completed_{},publishedRevisions_{},rejected_{};
+    std::size_t completedUnions_{},rejectedUnions_{};
     SculptStepValidator validator_;
     SculptCollisionSettings collision_{};
     bool symmetric_=false;
