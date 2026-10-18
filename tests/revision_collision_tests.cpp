@@ -3826,7 +3826,7 @@ void testSourceCertifiedCoincidentVertexIdentity() {
         }})addTetrahedron(four,center,1);
         const auto fourImport=partitionFlatMesh(four,256);
         const auto fourRoot=RegionTopologyIndex::build(fourImport.revision);
-        const auto oldRoot=fourRoot->pickingRootIdentity();
+        const auto fourOriginalPickingRoot=fourRoot->pickingRootIdentity();
         const std::array<unsigned,4> localCorners{{0,1,2,3}};
         std::set<VertexId> separate;
         for(unsigned shell=0;shell<4;++shell) {
@@ -3838,7 +3838,7 @@ void testSourceCertifiedCoincidentVertexIdentity() {
                   "Four independently source-owned stable IDs occupy the exact same 3D point");
         }
         check(connectedClosedSurfaceComponents(*fourRoot)==4&&
-              fourRoot->pickingRootIdentity()==oldRoot,
+              fourRoot->pickingRootIdentity()==fourOriginalPickingRoot,
               "Independent four-sheet point contact must retain four closed components");
         auditClosedVertexLinks(*fourRoot);
         const auto fourContacts=fourRoot->triangleIntersections(
