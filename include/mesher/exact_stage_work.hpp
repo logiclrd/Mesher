@@ -18,6 +18,12 @@ struct ExactStageWork {
     std::size_t windingBoxes{},windingPartitions{};
     std::size_t windingTriangles{},windingRays{};
     std::size_t arrangementPairTests{},arrangementPredicates{};
+    // M43: counted original contour/closure work across repeated
+    // private selection, not retained final topology size.
+    std::size_t contourEdgeProbes{},contourBoundaryEdges{};
+    std::size_t contourLoopVisits{},closureRingTests{};
+    std::size_t closurePairCandidates{},closureSampleTests{};
+    std::size_t closureDpTransitions{};
     bool overflow{};
     void add(std::size_t& target,std::size_t count) noexcept {
         if(count>std::numeric_limits<std::size_t>::max()-target) {
@@ -62,6 +68,13 @@ struct ExactStageWorkLimits {
     std::size_t maxWindingRays=1048576;
     std::size_t maxArrangementPairTests=1048576;
     std::size_t maxArrangementPredicates=4194304;
+    std::size_t maxContourEdgeProbes=4194304;
+    std::size_t maxContourBoundaryEdges=1048576;
+    std::size_t maxContourLoopVisits=1048576;
+    std::size_t maxClosureRingTests=65536;
+    std::size_t maxClosurePairCandidates=1048576;
+    std::size_t maxClosureSampleTests=16777216;
+    std::size_t maxClosureDpTransitions=8388608;
 };
 
 inline std::string refuseExactStageWork(
@@ -91,6 +104,20 @@ inline std::string refuseExactStageWork(
         return "Aggregate source arrangement pair-test budget exhausted";
     if(value.arrangementPredicates>limits.maxArrangementPredicates)
         return "Aggregate source arrangement predicate budget exhausted";
+    if(value.contourEdgeProbes>limits.maxContourEdgeProbes)
+        return "Aggregate source contour edge-probe budget exhausted";
+    if(value.contourBoundaryEdges>limits.maxContourBoundaryEdges)
+        return "Aggregate source contour boundary-edge budget exhausted";
+    if(value.contourLoopVisits>limits.maxContourLoopVisits)
+        return "Aggregate source contour loop-visit budget exhausted";
+    if(value.closureRingTests>limits.maxClosureRingTests)
+        return "Aggregate source closure ring-test budget exhausted";
+    if(value.closurePairCandidates>limits.maxClosurePairCandidates)
+        return "Aggregate source closure pair-candidate budget exhausted";
+    if(value.closureSampleTests>limits.maxClosureSampleTests)
+        return "Aggregate source closure sample-test budget exhausted";
+    if(value.closureDpTransitions>limits.maxClosureDpTransitions)
+        return "Aggregate source closure DP-transition budget exhausted";
     return {};
 }
 

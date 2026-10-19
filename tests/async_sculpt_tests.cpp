@@ -3494,6 +3494,167 @@ void testM41ExactWholeStepQueryAccounting() {
              <<" rays="<<authentic.windingRays<<"\n";
 }
 
+// M43: direct AND queued complete source-exact original-root admissions
+// bind all actually nonzero contour/closure work to exact measured caps.
+// One-under is category-specific and refuses BEFORE the only root CAS.
+// A multi-ring unequal-density original closure is separately exercised
+// by the topology_aware_closure_fitness suite for all 7 nonzero buckets.
+void testM43WholeStepContourClosureAccounting() {
+    struct Bucket {
+        std::size_t ExactStageWork::*count;
+        std::size_t ExactStageWorkLimits::*limit;
+        const char* category;
+    };
+    constexpr std::array<Bucket,7> buckets{{
+        {&ExactStageWork::contourEdgeProbes,
+         &ExactStageWorkLimits::maxContourEdgeProbes,"contour edge-probe budget"},
+        {&ExactStageWork::contourBoundaryEdges,
+         &ExactStageWorkLimits::maxContourBoundaryEdges,"contour boundary-edge budget"},
+        {&ExactStageWork::contourLoopVisits,
+         &ExactStageWorkLimits::maxContourLoopVisits,"contour loop-visit budget"},
+        {&ExactStageWork::closureRingTests,
+         &ExactStageWorkLimits::maxClosureRingTests,"closure ring-test budget"},
+        {&ExactStageWork::closurePairCandidates,
+         &ExactStageWorkLimits::maxClosurePairCandidates,"closure pair-candidate budget"},
+        {&ExactStageWork::closureSampleTests,
+         &ExactStageWorkLimits::maxClosureSampleTests,"closure sample-test budget"},
+        {&ExactStageWork::closureDpTransitions,
+         &ExactStageWorkLimits::maxClosureDpTransitions,"closure DP-transition budget"}
+    }};
+    const auto fillLimits=[&](SculptCollisionSettings& settings,
+                              const ExactStageWork& evidence)->std::size_t {
+        std::size_t exercised=0;
+        for(const auto& bucket:buckets) {
+            const auto actual=evidence.*(bucket.count);
+            settings.exactStageLimits.*(bucket.limit)=actual;
+            if(actual)++exercised;
+        }
+        return exercised;
+    };
+    const auto chosen=chooseM39FourDimensionalSource();
+    const auto input=std::array<BrushArea,2>{{
+        {chosen.source.input[0][0].center,6,.3},
+        {{-chosen.source.input[0][0].center.x,
+          chosen.source.input[0][0].center.y,
+          chosen.source.input[0][0].center.z},6,.3}
+    }};
+    Mesh dummy;
+    const auto original=chosen.original;
+    const auto physical=m11PhysicalExactSettings();
+    const auto makePhysical=[&](SculptCollisionSettings settings) {
+        return VersionedSculptBrush(
+            original,chosen.strength,{},{},{},256,{},std::move(settings));
+    };
+    auto standard=makePhysical(physical);
+    standard.setOriginalPatchIntent(chosen.deliberate);
+    standard.stamp(dummy,input);
+    require(standard.completedUnions()==1,
+            "M43 real reflected original-source physical union must positively complete before contour calibration");
+    const auto truth=standard.lastStepResourceWork().exactStage;
+    auto exact=physical;
+    const auto active=fillLimits(exact,truth);
+    require(active>=3&&truth.contourEdgeProbes>0&&
+            truth.contourBoundaryEdges>0&&
+            truth.contourLoopVisits>0&&!truth.overflow,
+            "M43 physical source union genuinely performs three kinds of private c3/d2 contour work");
+    auto equal=makePhysical(exact);
+    equal.setOriginalPatchIntent(chosen.deliberate);
+    equal.stamp(dummy,input);
+    require(equal.completedUnions()==1&&
+            equal.lastStepResourceWork().published,
+            "M43 all measured original-root physical contour/closure categories allow exact-boundary single CAS");
+    for(const auto& bucket:buckets) {
+        if(!(truth.*(bucket.count)))continue; // no fictional work
+        auto tooFew=exact;
+        --(tooFew.exactStageLimits.*(bucket.limit));
+        auto denied=makePhysical(tooFew);
+        denied.setOriginalPatchIntent(chosen.deliberate);
+        const auto before=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto after=denied.checkpoint();
+        const auto& attempt=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                attempt.evaluated&&attempt.refused&&!attempt.published&&
+                attempt.exactStage.contourEdgeProbes==
+                    truth.contourEdgeProbes&&
+                attempt.exactStage.contourBoundaryEdges==
+                    truth.contourBoundaryEdges&&
+                attempt.refusal.find(bucket.category)!=std::string::npos,
+                "M43 each actual physical contour/closure one-under refusal preserves source, mirrors, renderer, history and complete attempted work");
+    }
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto sourceFaces=firstOriginalFaces(mesh);
+    const auto unionLimits=supportedUnionLimits(false);
+    SculptCollisionSettings queuedPolicy;
+    queuedPolicy.physicalExact=true;
+    queuedPolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto makeQueued=[&](SculptCollisionSettings settings) {
+        return VersionedSculptBrush(
+            mesh,.006,{},{},{},false,256,{},std::move(settings));
+    };
+    auto candidate=makeQueued(queuedPolicy);
+    const auto candidateRoot=candidate.snapshot();
+    require(candidate.mergeExactContacts(
+                candidateRoot,fullOriginalContacts(*candidateRoot),
+                unionLimits,sourceFaces),
+            "M43 independently true queued c1/c2/c3/M03/d2 original-root Boolean completes");
+    const auto queueTruth=candidate.lastStepResourceWork().exactStage;
+    const auto queueActive=fillLimits(queuedPolicy,queueTruth);
+    require(queueActive>=3&&queueTruth.contourEdgeProbes>0&&
+            queueTruth.contourBoundaryEdges>0&&
+            queueTruth.contourLoopVisits>0&&!queueTruth.overflow,
+            "M43 real queued source union contains nonzero repeated contour extraction and loop work");
+    auto queueExactly=makeQueued(queuedPolicy);
+    const auto qBefore=queueExactly.snapshot();
+    require(queueExactly.mergeExactContacts(
+                qBefore,fullOriginalContacts(*qBefore),
+                unionLimits,sourceFaces)&&
+            queueExactly.lastStepResourceWork().published,
+            "M43 queued original-root exact contour/closure boundaries accept real complete source work");
+    for(const auto& bucket:buckets) {
+        if(!(queueTruth.*(bucket.count)))continue;
+        auto oneUnder=queuedPolicy;
+        --(oneUnder.exactStageLimits.*(bucket.limit));
+        auto denied=makeQueued(oneUnder);
+        const auto before=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    before.index,fullOriginalContacts(*before.index),
+                    unionLimits,sourceFaces),
+                "M43 queued one-under real original-root contour work must refuse");
+        const auto after=denied.checkpoint();
+        const auto& attempt=denied.lastStepResourceWork();
+        require(after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.rejectedUnions()==1&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                attempt.evaluated&&attempt.refused&&!attempt.published&&
+                attempt.exactStage.contourEdgeProbes==
+                    queueTruth.contourEdgeProbes&&
+                attempt.refusal.find(bucket.category)!=std::string::npos,
+                "M43 queued independently named one-under contour/closure refuses without source, mirror, dirty or history side effects");
+    }
+    std::cout<<"[m43] original physical contour edge probes="
+             <<truth.contourEdgeProbes<<" loop="<<truth.contourLoopVisits
+             <<" ring="<<truth.closureRingTests
+             <<" closure samples="<<truth.closureSampleTests
+             <<"; queued probes="<<queueTruth.contourEdgeProbes
+             <<" loop="<<queueTruth.contourLoopVisits
+             <<" ring="<<queueTruth.closureRingTests<<"\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -5172,27 +5333,46 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
 
     const std::array<std::shared_ptr<const RegionTopologyIndex>,4>
         roots{{original,welded,allowed,final}};
-    for(std::size_t n=3;n>0;--n) {
-        worker.undo();
+    // M43 acceptance exposed a pre-existing M34 synchronization race:
+    // worker refreshStatus() runs BEFORE publish() installs the immutable
+    // UI snapshot. Seeing the new undoDepth does NOT fence the snapshot
+    // mailbox under MSVC (or Linux). Wait for the ACTUAL expected root
+    // AND history depths instead; do not weaken exact-ID undo/redo proof.
+    const auto waitForHistorySnapshot=[&](
+        std::size_t undoDepth,std::size_t redoDepth,
+        const std::shared_ptr<const RegionTopologyIndex>& target) {
+        std::optional<AsyncSculptWorker::Snapshot> found;
         const auto deadline=std::chrono::steady_clock::now()+
                             std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n-1&&
-              std::chrono::steady_clock::now()<deadline)
+        while(std::chrono::steady_clock::now()<deadline) {
+            const auto progress=worker.status();
+            if(progress.history.undoDepth==undoDepth&&
+               progress.history.redoDepth==redoDepth) {
+                auto candidate=worker.takeSnapshot();
+                if(candidate&&candidate->index==target) {
+                    found=std::move(candidate);
+                    break;
+                }
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        const auto snapshot=worker.takeSnapshot();
+        }
+        return found;
+    };
+    for(std::size_t n=3;n>0;--n) {
+        worker.undo();
+        const auto snapshot=waitForHistorySnapshot(
+            n-1,4-n,roots[n-1]);
         require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.undoDepth==n-1&&
                 worker.status().history.redoDepth==4-n,
                 "M34 each mixed source-exact/physical COW root is individually undoable");
     }
     for(std::size_t n=1;n<=3;++n) {
         worker.redo();
-        const auto deadline=std::chrono::steady_clock::now()+
-                            std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n&&
-              std::chrono::steady_clock::now()<deadline)
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        const auto snapshot=worker.takeSnapshot();
+        const auto snapshot=waitForHistorySnapshot(
+            n,3-n,roots[n]);
         require(snapshot&&snapshot->index==roots[n]&&
+                worker.status().history.undoDepth==n&&
                 worker.status().history.redoDepth==3-n,
                 "M34 redo across exact and physical entries restores exact immutable history roots");
     }
@@ -5340,6 +5520,7 @@ int main() {
         testM12OriginalFinalFirstReferenceAcceptance();
         testM40AggregateWholePrivateStepResourceBudgets();
         testM41ExactWholeStepQueryAccounting();
+        testM43WholeStepContourClosureAccounting();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();

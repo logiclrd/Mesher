@@ -1637,3 +1637,28 @@ and M40 COW work are protected.
 Original M13 and M42, M14/M15, V18/V19 remain OPEN.
 See `docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`.
 Exact documentation-head and merged-main CI still required.
+
+## October 19, 2026 — V17-M43 contour/cap-zipper real work admission
+
+The entire original M42 objective was rebaselined at the start
+to M43 actual contours/closure → M44 real join/refinement →
+M45 seven-witness feature/mirror/history → M46 worker timings/
+cumulative diagnostics → ORIGINAL M42 integrated acceptance →
+ORIGINAL M13 independent final. Original M42/M13 untouched OPEN.
+
+Substantive [PR #93 Actions #39296825695](https://github.com/logiclrd/Mesher/actions/runs/39296825695)
+GCC, Clang and MSVC all 23 CPU suites and applicable benchmarks GREEN.
+M43 instruments true seven finite contour/closure work dimensions
+at their processing sites and enforces exact and one-under across
+one complete original-source physical/queued candidate before CAS.
+A successful genuine unequal 4/8 original-vertex two-prism
+zipper tests all seven nonzero category costs (2048 rotated
+arc-length correspondences); real 72-source reflected physical
+union and separate queued certified exact Boolean calibrate
+complete candidate work with individually one-under refusals
+preserving mirrored original COW, source authority, dirty and
+history. No cap weakening, source proximity alias, or synthetic
+partial terminal is accepted. Evidence
+`docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
+Final PR-head and merged-main CI still required. M44–M46,
+original M42/M13, M14/M15/V18/V19 stay OPEN.

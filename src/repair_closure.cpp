@@ -1,4 +1,5 @@
 #include "repair_closure_internal.hpp"
+#include "mesher/exact_stage_work.hpp"
 
 #include <algorithm>
 #include <array>
@@ -66,6 +67,8 @@ Match correspondence(const std::vector<Vec3>& a,
         for(std::size_t shift=0;shift<samples;++shift) {
             double furthest=0,sum=0;
             for(std::size_t i=0;i<samples;++i) {
+                if(auto* work=executingExactStageWork)
+                    work->add(work->closureSampleTests,1);
                 const auto j=reversed?(shift+samples-i)%samples:
                                        (shift+i)%samples;
                 const auto delta=a[i]-b[j];
@@ -169,6 +172,8 @@ RepairPlan selectRepairClosures(const RegionTopologyIndex& index,
             settings.maximumSingleCapIsoperimetricRatio;
     }
     for(std::size_t i=0;i<n;++i) {
+        if(auto* work=executingExactStageWork)
+            work->add(work->closureRingTests,1);
         if(!ringGeometry(index,plan.contours[i],ringBounds,geometry[i]))
             return fail(std::move(plan),RepairPlanStatus::AmbiguousClosure,
                         "Contour nonplanar, degenerate or too elongated for fast area estimate");
@@ -178,6 +183,8 @@ RepairPlan selectRepairClosures(const RegionTopologyIndex& index,
     bool unsupportedLikelyZip=false;
     for(std::size_t i=0;i<n;++i) {
         for(std::size_t j=i+1;j<n;++j) {
+            if(auto* work=executingExactStageWork)
+                work->add(work->closurePairCandidates,1);
             const auto& a=geometry[i],b=geometry[j];
             const double ratio=std::max(plan.contours[i].perimeter,
                                         plan.contours[j].perimeter)/
@@ -237,6 +244,8 @@ RepairPlan selectRepairClosures(const RegionTopologyIndex& index,
         while(first<n&&(mask&(std::size_t{1}<<first)))++first;
         if(first==n)continue;
         const auto capMask=mask|(std::size_t{1}<<first);
+        if(auto* work=executingExactStageWork)
+            work->add(work->closureDpTransitions,1);
         dp[mask]=geometry[first].area+dp[capMask];
         selected[mask]=n; // cap first ring
         tie[mask]=tie[capMask];
@@ -246,6 +255,8 @@ RepairPlan selectRepairClosures(const RegionTopologyIndex& index,
             if(candidate==pairs.end()||!candidate->second.zipperAllowed)
                 continue;
             const auto nextMask=capMask|(std::size_t{1}<<second);
+            if(auto* work=executingExactStageWork)
+                work->add(work->closureDpTransitions,1);
             const auto cost=candidate->second.score.zipperArea+dp[nextMask];
             if(better(cost,dp[mask],settings.minimumRelativeAreaAdvantage)) {
                 dp[mask]=cost;

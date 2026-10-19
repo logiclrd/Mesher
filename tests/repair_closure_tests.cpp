@@ -1,4 +1,5 @@
 #include "mesher/repair_plan.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/repair_surgery.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
@@ -84,7 +85,58 @@ void testMergingWallsAndArcLength() {
     auto red=capFaces(imp,a,false);
     const auto second=capFaces(imp,b,true);
     red.insert(red.end(),second.begin(),second.end());
-    const auto plan=planRemovalContours(*index,red);
+    // M43: observe real NON-SYNTHETIC pair-matching, sample and DP
+    // cost of the same unequal-density two-ring zipped source fixture.
+    const auto untouchedPicker=index->pickingRootIdentity();
+    ExactStageWork contourWork;
+    const auto plan=[&] {
+        const ScopedExactStageWork meter(contourWork);
+        return planRemovalContours(*index,red);
+    }();
+    check(contourWork.contourEdgeProbes>0&&
+          contourWork.contourBoundaryEdges>0&&
+          contourWork.contourLoopVisits>0&&
+          contourWork.closureRingTests==2&&
+          contourWork.closurePairCandidates==1&&
+          contourWork.closureSampleTests==2*32*32&&
+          contourWork.closureDpTransitions>0&&
+          !contourWork.overflow,
+          "M43 counts all seven true contour traversal and arc-length zipper closure work categories");
+    struct WorkGate {
+        std::size_t ExactStageWork::*used;
+        std::size_t ExactStageWorkLimits::*limit;
+        const char* reason;
+    };
+    constexpr std::array<WorkGate,7> gates{{
+        {&ExactStageWork::contourEdgeProbes,
+         &ExactStageWorkLimits::maxContourEdgeProbes,"contour edge-probe budget"},
+        {&ExactStageWork::contourBoundaryEdges,
+         &ExactStageWorkLimits::maxContourBoundaryEdges,
+         "contour boundary-edge budget"},
+        {&ExactStageWork::contourLoopVisits,
+         &ExactStageWorkLimits::maxContourLoopVisits,"contour loop-visit budget"},
+        {&ExactStageWork::closureRingTests,
+         &ExactStageWorkLimits::maxClosureRingTests,"closure ring-test budget"},
+        {&ExactStageWork::closurePairCandidates,
+         &ExactStageWorkLimits::maxClosurePairCandidates,"closure pair-candidate budget"},
+        {&ExactStageWork::closureSampleTests,
+         &ExactStageWorkLimits::maxClosureSampleTests,"closure sample-test budget"},
+        {&ExactStageWork::closureDpTransitions,
+         &ExactStageWorkLimits::maxClosureDpTransitions,"closure DP-transition budget"}
+    }};
+    ExactStageWorkLimits exactly;
+    for(const auto& gate:gates)
+        exactly.*(gate.limit)=contourWork.*(gate.used);
+    check(refuseExactStageWork(contourWork,exactly).empty(),
+          "M43 all seven individually finite categories accept EXACT complete real unequal-ring closure selection work");
+    for(const auto& gate:gates) {
+        auto oneUnder=exactly;
+        --(oneUnder.*(gate.limit));
+        check(refuseExactStageWork(contourWork,oneUnder).find(
+                  gate.reason)!=std::string::npos&&
+              index->pickingRootIdentity()==untouchedPicker,
+              "M43 one-under original 2-ring pair/zipper/contour work refuses named category without any private COW mutation");
+    }
     check(plan.ready()&&plan.pairs.size()==1&&
           plan.cappedContours.empty(),"Nearby walls choose a zipper");
     check(plan.contours[0].vertexIds.size()!=
