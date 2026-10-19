@@ -344,8 +344,12 @@ void AsyncSculptWorker::run(std::stop_token token) {
         {
             std::lock_guard guard(statusMutex_);
             status_.terminalFailure=postCas;
-            if(postCas)
+            if(postCas) {
                 status_.terminalFailureReason=brush_->terminalFailureReason();
+                status_.lastRejection=brush_->lastRejection();
+                status_.stepResources=brush_->lastStepResourceWork();
+                status_.resources=brush_->resourceTotals();
+            }
             error_=failure;
         }
         reserved_=false;
