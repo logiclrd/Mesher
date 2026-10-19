@@ -745,6 +745,7 @@ void VersionedSculptBrush::stamp(
     refiner_.beginStep();
     try {collapser_.beginStep();}
     catch(...) {refiner_.rollbackStep();throw;}
+    bool didPublish=false;
     try {
     const auto refined=refiner_.apply(inflated.index,inflated.baseline);
     // Collapse must see V6's newly inserted stable mirror IDs immediately.
@@ -1143,6 +1144,8 @@ void VersionedSculptBrush::stamp(
     if(updated!=old) {
         if(!published_.publishIfCurrent(old,updated))
             throw std::logic_error("Single writer lost indexed root");
+        didPublish=true;
+        injectPostCasFault(SculptPostCasFaultPoint::AfterRootCas);
         ++publishedRevisions_;
     }
     // M18 publishes ONLY the final physical-to-exact mirror net. IDs
@@ -1168,6 +1171,8 @@ void VersionedSculptBrush::stamp(
     for(const auto& [a,b]:repairedAddedMirrors)
         inflate_.addMirrorPair(a,b);
     }
+    if(didPublish)
+        injectPostCasFault(SculptPostCasFaultPoint::AfterMirrorState);
     vertices_+=refined.insertedVertices.size();
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
@@ -1228,10 +1233,13 @@ void VersionedSculptBrush::stamp(
     }
     // A conclusively unchanged stamp is not an external source Step and
     // must not offer null credentials to tracked M29 history.
-    if(updated!=old)history_.append(updated,lastDirtyPartitions_,
-                    std::move(addedMirrors),std::move(removedMirrors),
-                    lastStepResourceWork_.privateCopiedBytes,
-                    vertices_,faces_,std::move(finalFidelity));
+    if(updated!=old) {
+        history_.append(updated,lastDirtyPartitions_,
+                        std::move(addedMirrors),std::move(removedMirrors),
+                        lastStepResourceWork_.privateCopiedBytes,
+                        vertices_,faces_,std::move(finalFidelity));
+        injectPostCasFault(SculptPostCasFaultPoint::AfterHistoryAppend);
+    }
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
@@ -1250,12 +1258,20 @@ void VersionedSculptBrush::stamp(
         seconds(start,Clock::now())*1000;
     lastStepResourceWork_.stageWall.publicationAndHistoryMs=
         seconds(publicationStarted,Clock::now())*1000;
-    recordStepDiagnostics();
     collapser_.commitStep();
     refiner_.commitStep();
+    if(didPublish)
+        injectPostCasFault(SculptPostCasFaultPoint::AfterAuxCommit);
+    recordStepDiagnostics();
     }catch(...) {
-        collapser_.rollbackStep();
-        refiner_.rollbackStep();
+        if(didPublish) {
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(start,Clock::now())*1000;
+            markPostCasFailure(std::current_exception());
+        }else {
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+        }
         throw;
     }
 }
