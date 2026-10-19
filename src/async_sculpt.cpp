@@ -95,6 +95,19 @@ void AsyncSculptWorker::mergeExactContacts(
     command.intendedOriginals=std::move(intendedOriginals);
     enqueue(std::move(command));
 }
+void AsyncSculptWorker::mergeDiscoveredContacts(
+    std::shared_ptr<const RegionTopologyIndex> expected,
+    ExactCutStepLimits limits,SculptSourceContactLimits discovery) {
+    if(!expected)
+        throw std::invalid_argument("Live Merge needs selected immutable expected root");
+    if(reserved_.load())
+        throw std::logic_error("Live Merge cannot overtake an active sculpt stroke");
+    Command command{Kind::DiscoverMerge};
+    command.expected=std::move(expected);
+    command.mergeLimits=std::move(limits);
+    command.discoveryLimits=std::move(discovery);
+    enqueue(std::move(command));
+}
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
     Command command{Kind::Checkpoint};
@@ -129,6 +142,10 @@ void AsyncSculptWorker::refreshStatus() {
     s.collisionRepairedStamps=brush_->collisionRepairedStamps();
     s.completedUnions=brush_->completedUnions();
     s.rejectedUnions=brush_->rejectedUnions();
+    s.liveMergeRequests=liveMergeRequests_;
+    s.liveMergeRefusals=liveMergeRefusals_;
+    s.liveMergeAccepted=liveMergeAccepted_;
+    s.liveMergeRefusal=liveMergeRefusal_;
     s.contact=brush_->contactStatistics();
     s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
@@ -276,6 +293,54 @@ void AsyncSculptWorker::run(std::stop_token token) {
                                          brush_->checkpoint());
                     ++checkpointCommands_;
                     break;
+                case Kind::DiscoverMerge: {
+                    ++liveMergeRequests_;
+                    auto refuse=[&](std::string reason) {
+                        ++liveMergeRefusals_;
+                        liveMergeRefusal_=std::move(reason);
+                    };
+                    if(stroke_.active()||stroke_.pendingSamples()!=0) {
+                        refuse("Live Merge requires idle source worker");
+                        break;
+                    }
+                    const auto selected=brush_->snapshot();
+                    if(!selected||selected!=command->expected) {
+                        refuse("Live Merge selected root is stale");
+                        break;
+                    }
+                    const auto firstRoot=brush_->firstOriginalSourceRoot();
+                    const auto order=brush_->originalOrder();
+                    if(!firstRoot||!order||order->faceIds.empty()) {
+                        refuse("Live Merge requires the trusted initial first-original FaceId source, not a disk-only or OFF-mode root");
+                        break;
+                    }
+                    // No selection fallback to XYZ coincidence, and no
+                    // expensive whole-root scan on the Vulkan thread.
+                    const auto assessed=brush_->discoverLiveMergeContacts(
+                        command->discoveryLimits);
+                    if(!assessed.ready()||assessed.originalCandidate!=selected) {
+                        refuse(assessed.status==SculptSourceContactStatus::Clean?
+                               "Live Merge found no intersecting source contacts":
+                               assessed.refusal.empty()?
+                               "Live Merge source contact discovery refused":
+                               assessed.refusal);
+                        break;
+                    }
+                    const bool merged=brush_->mergeExactContacts(
+                        selected,assessed.contacts,command->mergeLimits,
+                        order->faceIds);
+                    if(!merged) {
+                        refuse(brush_->lastRejection());
+                        break;
+                    }
+                    liveMergeRefusal_.clear();
+                    ++liveMergeAccepted_;
+                    const auto& dirty=brush_->lastDirtyPartitions();
+                    unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                              dirty.begin(),dirty.end());
+                    changed=true;
+                    break;
+                }
                 case Kind::Merge: {
                     if(stroke_.active()||stroke_.pendingSamples()!=0)
                         throw std::logic_error(
