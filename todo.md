@@ -1686,7 +1686,7 @@ preparation **before starting** any partial code work:
   both refuse atomically with old COW pointer/certificate/mirrors/
   dirty/history retained. Double undo/redo restores exact union roots.
   M38/M39 and the ORIGINAL M36/M12 final acceptance remain OPEN.
-- [ ] **V17-M38 — Same-patch complete source work and cumulative protected drift.**
+- [x] **V17-M38 — Same-patch complete source work and cumulative protected drift.**
   Against accepted M37 terminal sources, audit all seven first-original
   witnesses for each authenticated living descendant, per-original
   edge scales, full and exactly one-under limits (distinct from
@@ -1694,6 +1694,24 @@ preparation **before starting** any partial code work:
   real protected drift and reject the individually small second
   cumulative excess without any root/proof/mirror/history/dirty change.
   Include checkpoint and exact undo/redo evidence.
+  **Accepted in PR #85, substantive Actions #39212090176**:
+  all GCC/Clang/MSVC warning-as-errors builds, full 23 CPU suites and
+  applicable benchmarks green. Against the TWO genuinely source-exact
+  normal-driven M37 local union terminal roots, audited EXACT
+  7 x sum(living source descendants) first-reference work, per-original
+  seven fixed XYZ and own shortest-edge unit, exact full work positive
+  and one-under read-only AND active physical pre-CAS source refusal.
+  Genuine small mirrored protected outer wall physical motion first
+  accepts with a measured intermediate cumulative tolerance; the
+  second remains under the witness-work cap but is specifically refused
+  for original Exposed/ReversedBoundary first-root drift. Refused
+  operations retain exact COW/source/mirror/dirty/history identity,
+  V13 disk-only provenance refuses unsupported reauthentication,
+  and accepted source-root pointers undo/redo exactly. The drift
+  wall is part of this same authenticated multishell source but
+  separate from the overlapping-join brush influence; M39 must
+  integrate true async FIFO episodes, and original M36/M12 remain
+  distinct final integrated acceptance gates.
 - [ ] **V17-M39 — Protected overlapping-patch 4D episode and FIFO recovery.**
   Use the genuine same-patch physical-positive fixture through actual
   asynchronous Begin/End 4D input; demonstrate Contact, two accepted

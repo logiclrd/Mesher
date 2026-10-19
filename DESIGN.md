@@ -5033,3 +5033,47 @@ root drift, M39 true same-local 4D Contact/Clean/Unknown/FIFO recovery,
 and ORIGINAL M36 the simultaneous final combined policy. M12 remains
 open for its own separate acceptance; M13–M15 and V18/V19 are not
 claimed. See `docs/V17_M37_SCOPED_LOCAL_CAVITY_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M38 cumulative source fidelity after local dual physical union
+
+**M38 accepted in PR #85, substantive Actions #39212090176 GCC/Clang/MSVC green.**
+Using the genuine source-proven M37 two-overlapping-physical-union
+terminal as the exact authenticated predecessor, the complete source
+audit on the post-d2 terminal counts precisely **7 × sum(living
+descendants)**, not original triangle count or nearest XYZ. Retired
+source identity remains explicitly certified, each living owner retains
+seven immutable first-source witness XYZ and its own shortest-edge
+unit, and the true extra descendants after cuts are included. Exact
+finite witness work passes; one-under refuses. The active physical
+protected successor independently preflights that complete final
+candidate workload and its M29 original-source history proof BEFORE
+the one published root CAS. The work cap is distinct from Inflate
+source vertices/faces, cumulative face evidence, contact/section
+work, and the immutable M29 default.
+
+Two small real bilateral normal-driven outer wall motions against
+the SAME source-authenticated M37 multishell object's 40 unscoped
+protected original owners yield measured sequential first-root
+cumulative deviations. An independently certified M28 Inflate/refine/
+collapse pair establishes a finite threshold strictly between the
+first and second actual ORIGINAL edge-scaled maxima, while the live
+brush must separately produce first acceptance and second rejection
+with the specific exposed/reversed-cavity original drift reason; its
+second entire descendant work stays within the first permitted cap.
+The first published root remains source-matched, mirrored and
+undoable. Second refused motion does not alter opaque proof pointer,
+COW picker/root, full mirror map, dirty partitions, history/redo or
+publication. Protected V13 disk marker preserves final identity
+without ever manufacturing the lost source certificate; disk-only
+protected restart fails closed. Verified full exact source lifetime
+undo/redo pointers.
+
+**Scope:** the protected drift brush is spatially separate from the
+two overlapping original union brush footprints, but is part of their
+SAME unchanged first-original multi-shell source and trusted terminal.
+The original two joins and next drift are not asserted to occupy one
+continuous worker history. M39 still owes true same-patch 4D
+episode/FIFO recovery; ORIGINAL M36 then owes simultaneous joint
+acceptance; original M12 remains a separate final criterion review.
+No post-CAS M14 exceptional fault, desktop M15, V18 or V19 promise.
+See `docs/V17_M38_SAME_PATCH_WORK_AND_DRIFT_ACCEPTANCE.md`.

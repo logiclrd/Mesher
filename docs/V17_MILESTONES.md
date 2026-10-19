@@ -1457,3 +1457,32 @@ The proactively recorded flat next items remain **M38**, then
 **M39**, then ORIGINAL M36 combined final acceptance, followed by
 ORIGINAL M12 separate acceptance. M13–M15 and V18/V19 remain OPEN.
 See `docs/V17_M37_SCOPED_LOCAL_CAVITY_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M38 protected original work and cumulative drift accepted
+
+**PR #85**, substantive [Actions #39212090176](https://github.com/logiclrd/Mesher/actions/runs/39212090176):
+full Linux GCC, Linux Clang and Windows MSVC warnings-as-errors,
+23 CPU suites and applicable benchmarks GREEN. The M37 two TRUE
+physically triggered same-local-area d2 source unions yield one
+trusted M29 original certificate whose full post-d2 audit counts
+exactly seven original samples **per living source descendant**
+with immutable per-original shortest-edge units. Full exact cap
+succeeds and one-under `maxDistanceTests` independently refuses
+both read-only and live physical candidate pre-CAS. On the same
+original source, two small real protected mirrored outer wall
+motions are predicted by certified M28 stages and separately
+tested through actual `physicalExact`: first succeeds at the
+full witness-work cap; second, with the SAME work fitting within
+cap, refuses solely for cumulative first-original protected drift.
+No COW root/certificate/mirror/dirty/history/publication changes
+leak from refusals. The trusted post-union checkpoint safely
+starts the continuing protected source proof; V13 disk-only
+restore does NOT recreate it. Exact accepted undo/redo and
+independent old picker identity remain intact.
+
+The drift target is part of the same M37 first-original multishell
+source, though physically separate from the two joined local
+brush footprints: M39 still owes combined real 4D episode/FIFO,
+and ORIGINAL M36 and ORIGINAL M12 retain separate integration
+acceptance. M13–M15, V18/V19 remain open. See
+`docs/V17_M38_SAME_PATCH_WORK_AND_DRIFT_ACCEPTANCE.md`.
