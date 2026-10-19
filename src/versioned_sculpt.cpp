@@ -609,6 +609,8 @@ void VersionedSculptBrush::recordStepDiagnostics() noexcept {
         case SculptRefusalCategory::StaleExpectedRoot:sum(total.staleRefusals,1);break;
         case SculptRefusalCategory::None:break;
         }
+    }else if(step.postCasFailed) {
+        sum(total.postCasFailures,1);
     }else if(step.published) {
         sum(total.published,1);
         sum(total.publishedPrivateCopiedBytes,step.privateCopiedBytes);
@@ -617,6 +619,38 @@ void VersionedSculptBrush::recordStepDiagnostics() noexcept {
         total.publishedExact.accumulate(step.exactStage);
         total.observedPublishedMilliseconds+=step.elapsedMilliseconds;
     }else sum(total.unchanged,1);
+}
+
+void VersionedSculptBrush::ensureOperational() const {
+    if(terminalFailure())
+        throw std::logic_error(
+            "Terminal post-CAS failure; original-root transaction quarantined: "+
+            terminalFailureReason_);
+}
+void VersionedSculptBrush::injectPostCasFault(
+    SculptPostCasFaultPoint point) const {
+    if(collision_.postCasFaultInjection)
+        collision_.postCasFaultInjection(point);
+}
+void VersionedSculptBrush::markPostCasFailure(
+    std::exception_ptr error) {
+    std::string reason="unknown exception";
+    try {
+        if(error)std::rethrow_exception(error);
+    }catch(const std::exception& e) {
+        reason=e.what();
+    }catch(...) {}
+    terminalFailureReason_=
+        "Indexed root CAS completed, auxiliary transaction incomplete: "+reason;
+    lastRejection_=terminalFailureReason_;
+    lastDirtyPartitions_.clear();
+    lastStepResourceWork_.published=false;
+    lastStepResourceWork_.refused=false;
+    lastStepResourceWork_.postCasFailed=true;
+    lastStepResourceWork_.refusalCategory=SculptRefusalCategory::None;
+    lastStepResourceWork_.refusal=terminalFailureReason_;
+    recordStepDiagnostics();
+    terminalFailure_.store(true,std::memory_order_release);
 }
 
 std::string VersionedSculptBrush::validateOriginalIntentSources(
@@ -641,6 +675,7 @@ std::string VersionedSculptBrush::validateOriginalIntentSources(
 }
 void VersionedSculptBrush::setOriginalPatchIntent(
     std::vector<FaceId> originals) {
+    ensureOperational();
     physicalIntendedOriginals_=std::move(originals);
     physicalIntentRefusal_=validateOriginalIntentSources(
         physicalIntendedOriginals_);
@@ -649,6 +684,7 @@ void VersionedSculptBrush::setOriginalPatchIntent(
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
+    ensureOperational();
     const auto start=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::PhysicalStamp;
@@ -1229,6 +1265,7 @@ bool VersionedSculptBrush::mergeExactContacts(
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
     const ExactCutStepLimits& requested,
     const std::vector<FaceId>& intendedOriginals) {
+    ensureOperational();
     const auto started=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
@@ -1526,6 +1563,7 @@ bool VersionedSculptBrush::mergeExactContacts(
 }
 
 bool VersionedSculptBrush::undo() {
+    ensureOperational();
     if(!history_.canUndo())return false;
     const auto previous=published_.snapshot();
     const auto step=history_.undo();
@@ -1551,6 +1589,7 @@ bool VersionedSculptBrush::undo() {
     return true;
 }
 bool VersionedSculptBrush::redo() {
+    ensureOperational();
     if(!history_.canRedo())return false;
     const auto previous=published_.snapshot();
     const auto step=history_.redo();
@@ -1576,6 +1615,7 @@ bool VersionedSculptBrush::redo() {
     return true;
 }
 DurableCheckpoint VersionedSculptBrush::checkpoint() const {
+    ensureOperational();
     DurableCheckpoint snapshot;
     snapshot.index=published_.snapshot();
     snapshot.initialVertexCount=initialVertexCount_;
