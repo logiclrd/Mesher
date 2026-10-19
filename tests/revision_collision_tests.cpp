@@ -1,6 +1,7 @@
 #include "mesher/triangle_collision.hpp"
 #include "mesher/repair_intersection.hpp"
 #include "mesher/exact_stage_work.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/repair_surgery.hpp"
 #include "mesher/versioned_refine.hpp"
 #include "mesher/mesh_partitioning.hpp"
@@ -2339,7 +2340,39 @@ void testGenericCompleteThreeBodyTransverseGraph() {
               "Raw mismatched physical seam density must never accidentally weld");
         ExactSeamRefinementLimits refineLimits;
         refineLimits.join=joinLimits;
-        const auto aligned=reconcileCertifiedSeamSubdivisions(uneven,refineLimits);
+        // M44: the genuine unequal-source chain exercises OPTIONAL
+        // refinement (not merely the no-change path of ordinary 2-body
+        // joins), including bounded source boundary scans and successful
+        // opposite section matching before any root is published.
+        ExactStageWork refinedWork;
+        const auto aligned=[&] {
+            const ScopedExactStageWork active(refinedWork);
+            return reconcileCertifiedSeamSubdivisions(uneven,refineLimits);
+        }();
+        check(refinedWork.seamTraceProbes>0&&
+              refinedWork.seamRefinePredicates>0&&
+              refinedWork.seamRefineMatches>0&&
+              !refinedWork.overflow,
+              "M44 genuine THREE-solid unequal private source-child fan refinement records actual trace, interval and match operations");
+        ExactStageWorkLimits exactRefinement;
+        exactRefinement.maxSeamTraceProbes=refinedWork.seamTraceProbes;
+        exactRefinement.maxSeamRefinePredicates=
+            refinedWork.seamRefinePredicates;
+        exactRefinement.maxSeamRefineMatches=
+            refinedWork.seamRefineMatches;
+        check(refuseExactStageWork(refinedWork,exactRefinement).empty(),
+              "M44 exact actual unequal-seam source-refinement operation costs accept without guessed vertex-density parity");
+        auto underPredicates=exactRefinement;
+        --underPredicates.maxSeamRefinePredicates;
+        check(refuseExactStageWork(refinedWork,underPredicates).find(
+                  "seam refinement predicate budget")!=std::string::npos&&
+              uneven.index->pickingRootIdentity()!=nullptr,
+              "M44 real optional seam sweep refinement one-under category fails before root publication");
+        auto underMatches=exactRefinement;
+        --underMatches.maxSeamRefineMatches;
+        check(refuseExactStageWork(refinedWork,underMatches).find(
+                  "seam refinement match budget")!=std::string::npos,
+              "M44 real repaired counterpart subdivision match one-under refusal is category specific");
         if(!aligned.complete)
             throw std::runtime_error(
                 "Source-proven unequal seam density did not reconcile: "+
