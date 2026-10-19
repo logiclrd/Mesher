@@ -1151,15 +1151,16 @@ DurableCheckpoint checkpointM11Source(const M11TowerSource& source) {
     out.originalFidelityRequired=true;
     return out;
 }
-// Each M11 input owns an independent 16-face mirrored first-original
-// tower region. Never nominate originals already retired by earlier unions.
+// The caller continues to explicitly authorize previously sculpted
+// original towers as well as the new one. Future untouched towers remain
+// protected. M32 excludes ONLY independently certified wholly retired
+// origins from the subsequent M21 active intent declaration.
 std::vector<FaceId> m11RegionIntent(const M11TowerSource& source,
                                   std::size_t region) {
     if(region>=source.input.size())
         throw std::out_of_range("Missing M11 original contact region");
     const auto all=firstOriginalFaces(source.mesh);
-    const auto from=all.begin()+static_cast<std::ptrdiff_t>(16*region);
-    return {from,from+16};
+    return {all.begin(),all.begin()+static_cast<std::ptrdiff_t>(16*(region+1))};
 }
 SculptCollisionSettings m11PhysicalExactSettings() {
     SculptCollisionSettings result;
@@ -1371,8 +1372,8 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
     };
     std::size_t nextRegion=0;
     const auto stampAt=[&](Vec3 center,double radius) {
-        // A no-contact command is unscoped; real tower input selects
-        // its own immutable original source region.
+        // A no-contact command is unscoped; a genuine tower command
+        // carries all caller-approved earlier original bands plus this one.
         const bool isNoContact=center.z>9000;
         worker.begin(center,radius,isNoContact?std::vector<FaceId>{}:
                      m11RegionIntent(source,nextRegion));
