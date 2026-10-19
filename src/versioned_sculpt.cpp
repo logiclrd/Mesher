@@ -584,6 +584,20 @@ void VersionedSculptBrush::stamp(
     const auto start=Clock::now();
     // Scope is resolved on the worker at Begin and is never filled from
     // candidate geometry. Bad source input must not terminate FIFO.
+    if(!collision_.physicalExact&&history_.currentFidelity()) {
+        // Trusted protected history must not be mutated through a legacy
+        // proof-less stamp, which would otherwise fail M29 AFTER CAS.
+        lastDirtyPartitions_.clear();
+        lastRejection_="Authenticated source history needs a certified physicalExact Step";
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={};
+        ++rejected_;
+        ++completed_;
+        return;
+    }
     if(!physicalIntentRefusal_.empty()) {
         lastDirtyPartitions_.clear();
         lastRejection_=physicalIntentRefusal_;
