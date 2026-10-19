@@ -1853,6 +1853,10 @@ void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
     const double tolerance=.5*(firstDrift+secondDrift);
     const auto firstWork=auditOriginalPatchLifetime(
         predictedFirst,firstRoot).total.distanceTests;
+    const auto secondWork=auditOriginalPatchLifetime(
+        predictedSecond,firstRoot).total.distanceTests;
+    require(secondWork<=firstWork,
+            "M38 second refusal must not be caused by source work cap growth; measured complete second witness work fits the first accepted bound");
     require(firstWork>0&&firstWork<=131072&&
             firstWork==7*([&]{
                 std::size_t count=0;
@@ -1894,8 +1898,10 @@ void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
             "M38 EXACT measured post-d2 source work authorizes one real protected physical terminal CAS and M29 history");
     const auto liveFirstAudit=auditOriginalPatchLifetime(
         *accepted.verifiedOriginalFidelity,firstRoot,firstWork);
-    require(liveFirstAudit.total.distanceTests==firstWork,
-            "M38 live accepted physically produced terminal independently meets EXACT pre-CAS witness budget");
+    require(liveFirstAudit.total.distanceTests==firstWork&&
+            std::abs(protectedWorst(*accepted.verifiedOriginalFidelity)-
+                     firstDrift)<1e-8,
+            "M38 live accepted physically produced terminal matches measured drift and EXACT pre-CAS witness work");
     verifyOriginalPatchPublicationTransition(
         lifetime,*accepted.verifiedOriginalFidelity,
         joinedRoot,accepted.index);
@@ -1922,8 +1928,10 @@ void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
             afterLow.verifiedOriginalFidelity==
                 beforeLow.verifiedOriginalFidelity&&
             afterLow.mirrorPairs==beforeLow.mirrorPairs&&
-            !overBudget.lastRejection().empty(),
-            "M38 one-under same physical post-d2 source-proof work refuses atomically BEFORE publication");
+            overBudget.lastRejection().find(
+                "First-original witness audit distance budget exhausted")!=
+                    std::string::npos,
+            "M38 ONE-UNDER same physical post-d2 witness work, not unrelated collision or geometry, refuses before CAS");
 
     const auto beforeSecond=accepted;
     const auto priorHistory=permitted.historyStatistics();
@@ -1939,6 +1947,9 @@ void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
                 beforeSecond.verifiedOriginalFidelity&&
             refused.mirrorPairs==beforeSecond.mirrorPairs&&
             permitted.lastDirtyPartitions().empty()&&
+            permitted.lastRejection().find(
+                "Unintended exposed/reversed-cavity first-original surface drift")!=
+                    std::string::npos&&
             firstRoot->pickingRootIdentity()!=nullptr&&
             joinedRoot->pickingRootIdentity()==picker,
             "M38 SECOND individually small but cumulatively excessive protected original drift refuses without COW/source/history/mirrors/dirty change");
