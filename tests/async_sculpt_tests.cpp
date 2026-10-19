@@ -2826,6 +2826,144 @@ void testM36OriginalCombinedProtectedSamePatchPolicy() {
              <<roots.size()-1<<" immutable accepted FIFO history roots\n";
 }
 
+// ORIGINAL V17-M12: final standalone source-reference acceptance. The
+// M36 test above already executes the complete combined 4D policy in ONE
+// worker history. This independently reconstructs the FIRST root's
+// lifetime invariants from a second true M37 dual-physical-union final
+// revision. It deliberately refuses last-root rebasing, fake certified
+// counters, and even ONE missing source-descendant witness comparison.
+void testM12OriginalFinalFirstReferenceAcceptance() {
+    const auto fixture=makeM38ProtectedLocalFixture();
+    const auto first=fixture.firstOriginal;
+    const auto final=fixture.terminal.index;
+    const auto proof=fixture.terminal.verifiedOriginalFidelity;
+    require(first&&final&&proof&&first!=final&&
+            first!=fixture.afterFirstUnion&&
+            final!=fixture.afterFirstUnion&&
+            proof->anchors.original==first&&
+            proof->lineage.original==first&&
+            proof->lineage.terminal==final&&
+            proof->acceptedTransitions==2&&
+            fixture.terminal.originalFidelityRequired&&
+            fixture.originalFaceCount==72&&
+            fixture.deliberate.size()==32&&
+            fixture.protectedSources.size()==40&&
+            proof->anchors.faces.size()==72&&
+            proof->lineage.living.size()==72,
+            "Original M12 accepts only the actual two-contact 72-source M37 final root with one fixed authenticated first-original lifetime");
+    std::size_t living=0;
+    for(std::size_t i=0;i<proof->anchors.faces.size();++i) {
+        const auto& fixed=proof->anchors.faces[i];
+        const auto& entry=proof->lineage.living[i];
+        const auto originalFace=first->maybeFace(fixed.face);
+        require(originalFace&&fixed.face==entry.first&&
+                originalFace->vertices==fixed.originalVertices&&
+                std::isfinite(fixed.originalEdgeLength)&&
+                fixed.originalEdgeLength>0,
+                "Original M12 all 72 first source FaceIds, vertex incidence and local shortest-edge units are immutable");
+        const auto independent=captureOriginalSourceAnchors(
+            first,{fixed.face},7);
+        require(independent.original==first&&
+                independent.faces.size()==1&&
+                independent.faces[0].originalVertices==
+                    fixed.originalVertices&&
+                independent.faces[0].originalEdgeLength==
+                    fixed.originalEdgeLength,
+                "Original M12 immutable original 7-point reference recomputes from actual first COW root");
+        for(std::size_t j=0;j<7;++j) {
+            const auto a=independent.faces[0].witnesses[j];
+            const auto b=fixed.witnesses[j];
+            require(a.x==b.x&&a.y==b.y&&a.z==b.z,
+                    "Original M12 every protected and intended witness XYZ belongs to the original FaceId, not a new terminal triangulation");
+        }
+        living+=entry.second.size();
+        for(const auto child:entry.second)
+            require(static_cast<bool>(final->maybeFace(child)),
+                    "Original M12 every authenticated source living child really exists in exact terminal COW root");
+    }
+    const auto complete=auditOriginalPatchLifetime(
+        *proof,first,7*living);
+    require(living>72&&
+            complete.originalSources==72&&
+            complete.total.distanceTests==7*living&&
+            complete.total.witnessCount==7*complete.livingOriginals,
+            "Original M12 exact full audit traverses all genuine post-d2 descendants and seven original points PER living original source");
+    std::size_t summed=0;
+    for(const auto& record:complete.perOriginal) {
+        require(record.sampled.witnessCount==7&&
+                record.sampled.distanceTests==
+                    7*record.livingDescendants,
+                "Original M12 each living protected source samples all seven immutable original witnesses against every owned child");
+        summed+=record.sampled.distanceTests;
+    }
+    require(summed==complete.total.distanceTests,
+            "Original M12 all per-original work sums to exact full bounded terminal audit with no hidden partial success");
+
+    bool staleRefused=false,oneUnderRefused=false,forgedRefused=false;
+    try {
+        (void)auditOriginalPatchLifetime(
+            *proof,fixture.afterFirstUnion,7*living);
+    }catch(const std::invalid_argument&){staleRefused=true;}
+    try {
+        (void)auditOriginalPatchLifetime(*proof,first,7*living-1);
+    }catch(const std::length_error&){oneUnderRefused=true;}
+    auto forged=*proof;
+    ++forged.acceptedTransitions;
+    try {
+        (void)auditOriginalPatchLifetime(forged,first,7*living);
+    }catch(const std::logic_error&){forgedRefused=true;}
+    require(staleRefused&&oneUnderRefused&&forgedRefused,
+            "Original M12 independently refuses a later-root reanchor, one-under full descendant budget, and unsealed lifetime counter forgery");
+
+    for(const auto id:fixture.protectedSources) {
+        const auto before=first->maybeFace(id);
+        const auto after=final->maybeFace(id);
+        require(before&&after&&before->vertices==after->vertices,
+                "Original M12 all 40 unscoped source FaceIds retain exact original owner and ordered incidence");
+        for(const auto vertex:before->vertices) {
+            const auto p=first->vertex(vertex).position;
+            const auto q=final->vertex(vertex).position;
+            require(p.x==q.x&&p.y==q.y&&p.z==q.z,
+                    "Original M12 signed-winding cavity and exposed walls retain untouched protected XYZ across both real local unions");
+        }
+    }
+    for(const double x:{5.0,-5.0}) {
+        const auto cavity=final->positiveWindingAt({x,80,0});
+        const auto material=final->positiveWindingAt({
+            x+(x>0?1.5:-1.5),80,0});
+        const auto exterior=final->positiveWindingAt({
+            x+(x>0?4.0:-4.0),80,0});
+        require(cavity.reliable&&material.reliable&&
+                exterior.reliable&&
+                cavity.winding==0&&material.winding==1&&
+                exterior.winding==0,
+                "Original M12 both independently owned protected reflected reversed-cavity shells remain authentic 0/+1/0 signed solids");
+    }
+    require(fixture.terminal.mirrorPairs.size()>=
+                fixture.terminal.verifiedFirstOriginalMirrorPairs.size()&&
+            !fixture.terminal.mirrorPairs.empty(),
+            "Original M12 final source retains its authenticated original reflected orbit records");
+    for(const auto& [a,b]:fixture.terminal.mirrorPairs) {
+        require(final->maybeVertex(a)&&final->maybeVertex(b),
+                "Original M12 current reciprocal mirror pairs refer to real live permanent IDs");
+        const auto p=final->vertex(a).position;
+        const auto q=final->vertex(b).position;
+        require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                "Original M12 actual mirrored terminal ID orbits remain exactly reflected without any coincident-XYZ deduplication");
+    }
+    require(first->pickingRootIdentity()!=nullptr&&
+            fixture.afterFirstUnion->pickingRootIdentity()!=nullptr&&
+            final->pickingRootIdentity()!=nullptr,
+            "Original M12 all genuine first, intermediate and terminal reader/picker BVH roots survive immutable source history");
+
+    std::cout<<"[m12] original final: 2 genuine overlapping-patch "
+             <<"physical source unions, 72 first sources, "
+             <<fixture.protectedSources.size()<<" untouched outer/cavity "
+             <<"FaceIds, exact "<<complete.total.distanceTests
+             <<" living-descendant witness tests, stale/forged/one-under "
+             <<"refusal, independent mirror and cavity verification\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -4669,6 +4807,7 @@ int main() {
         testM38CompletePostD2WorkAndCumulativeProtectedDrift();
         testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO();
         testM36OriginalCombinedProtectedSamePatchPolicy();
+        testM12OriginalFinalFirstReferenceAcceptance();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
