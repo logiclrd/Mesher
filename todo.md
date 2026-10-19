@@ -1215,13 +1215,34 @@ sequence NOW, before beginning M42 implementation:
   `docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
   M44–M46, original M42, original M13, M14/M15, V18/V19
   remain OPEN. Documentation-head and merged-main CI gate merge.
-- [ ] **V17-M44 — Combined source-certified seam tracing, zipper and join work.**
+- [x] **V17-M44 — Combined source-certified seam tracing, zipper and join work.**
   Meter all actual original-root seam trace comparisons, matching
   intervals, source-owned join/weld predicates, asymmetric optional
   seam refinement and net mirrored-orbit checks; enforce separately
   finite aggregate caps on genuine direct and queued unions. Test
   exact-bound positive and one-under category-specific refusal with
   unchanged accepted source, mirror and checkpoint identity.
+  **M44 independently accepted substantive PR #94, Actions
+  #39303521777:** all GCC, Clang and Windows MSVC warnings-as-
+  errors 23 CPU suites and applicable benchmarks GREEN.
+  SEVEN real complete private original-source seam categories
+  (actual trace probes, opposite certified source intervals,
+  exact welded point comparisons, optional unequal subdivision
+  predicates and matched intervals, source-fixed/mirrored orbit
+  checks, retained-face rewires) have independent checked/
+  saturating aggregate bounds before ONE physical/queued CAS.
+  Genuine protected 72-source symmetric normal-driven exact union
+  and separately authenticated queued c1/c2/c3/M03/d2 positive
+  accept exact actual work; each exercised category independently
+  ONE-under refuses the named category while old source/M29,
+  mirror map, COW, dirty and history stay identical. Genuine
+  3-solid 12-contact UNEQUAL source fan regression independently
+  proves actual optional refinement predicate and matched source
+  interval work, exact/one-under and correctly certified joined
+  closure without global proximity welding. See
+  `docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`. M45/M46, ORIGINAL M42,
+  ORIGINAL M13, M14/M15/V18/V19 still OPEN; exact final-head and
+  merged-main CI remain mandatory.
 - [ ] **V17-M45 — Complete protected-original feature and pre-CAS history evidence.**
   Meter actual SEVEN-point × living-descendant closest-triangle
   checks across all repeated source proof audits and intended

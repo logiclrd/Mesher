@@ -5359,3 +5359,43 @@ M46 worker diagnostics. M43 doc:
 `docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
 Final document-head and independent merged-main three-compiler CI
 are required before reporting it as merged-complete.
+
+## October 19, 2026 — V17-M44 complete original-source seam trace and join work
+
+Second independent category of the flat ORIGINAL M42 rebaseline,
+M44 records **SEVEN separately bounded actual operations** across
+the unpublished original-root exact transaction: each true
+source-boundary trace probe; exact opposite-direction source interval
+match; source-authorized exact-XYZ union-find weld comparison;
+optional genuine unequal-density interval sweep/split predicate;
+reconciled seam-match check; live historical/new/fixed mirrored
+source-orbit certification; and each actual private retained-face
+rewire. Instrumenting the real `trace`, `mirrorMap`,
+`joinCertifiedCutSections` and
+`reconcileCertifiedSeamSubdivisions` sites (rather than
+inferencing final seam size) retains work counts across repeated
+full c1/c2/c3/M03/d2 source replay, including failed local checks.
+The existing M41 per-worker thread-local monotone meter, checked
+saturation and BEFORE-CAS aggregate independent category refusal
+apply to both direct mirrored physical and queued exact source
+commands. Local V13/d2 proof and M40/M43 bounds remain intact.
+
+Real positive normal-driven protected 72-first-original mirrored
+source union and an independent authenticated queued original-root
+exact union each calibrate complete attempted work; EXACT ceilings
+accept the identical positive Step. Each actually nonzero seam category
+gets a separate ONE-under refusal for its precise reason with
+old root, M29 source lifetime, mirrors, renderer dirtiness,
+publication and undo/redo history unchanged. The existing real
+three-closed-solid 12-contact *unequal private source-fan* regression
+now additionally proves nonzero optional refinement trace and
+interval predicate and reconciled match operations, with exact-pass/
+one-under test and eventual positively certified one-component join;
+it does not generalize to arbitrary triple-body welds.
+
+Substantive [PR #94 run #39303521777](https://github.com/logiclrd/Mesher/actions/runs/39303521777)
+passed all 23 CPU test suites under GCC/Clang/MSVC /W4 /WX
+and applicable benchmarks. Full final-doc PR head and independent
+merged-main CI are still mandatory. Evidence:
+`docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`.
+Original M42 and M13, plus M45/M46/M14/M15/V18/V19 remain OPEN.

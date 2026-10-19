@@ -1662,3 +1662,24 @@ partial terminal is accepted. Evidence
 `docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
 Final PR-head and merged-main CI still required. M44–M46,
 original M42/M13, M14/M15/V18/V19 stay OPEN.
+
+## October 19, 2026 — V17-M44 independently accepted source seam/refinement/join work
+
+[PR #94](https://github.com/logiclrd/Mesher/pull/94)
+substantive [CI #39303521777](https://github.com/logiclrd/Mesher/actions/runs/39303521777)
+GCC, Clang, Windows MSVC, all 23 CPU suites and applicable
+benchmarks GREEN. Seven true private source-certified seam trace,
+matched interval, weld comparison, optional refinement interval/
+match, mirror-orbit and retained-face rewire categories separately
+bounded before CAS. Actual supported real M39 physical reflected
+and queued original source unions accept precisely their completed
+per-category work and refuse each actually used ONE-under
+work category, leaving source/mirror/dirty/root/history unchanged.
+Genuine three-solid 12-contact UNEQUAL source fan optional refinement
+tests both attempted coverage/split sweeps and independently
+matched intervals; read-only exact/one-under and accepted final
+single-component join. All earlier M40/M41/M43 tests preserved.
+
+Full post-documentation PR-head and merged-main CI remain gates.
+M45/M46, ORIGINAL M42, ORIGINAL M13, M14/M15/V18/V19 OPEN.
+`docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`.

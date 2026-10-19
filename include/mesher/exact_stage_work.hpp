@@ -24,6 +24,11 @@ struct ExactStageWork {
     std::size_t contourLoopVisits{},closureRingTests{};
     std::size_t closurePairCandidates{},closureSampleTests{};
     std::size_t closureDpTransitions{};
+    // M44: actual private certified seam trace/refinement and join work.
+    std::size_t seamTraceProbes{},seamMatchedIntervals{};
+    std::size_t seamWeldComparisons{},seamRefinePredicates{};
+    std::size_t seamRefineMatches{},seamMirrorOrbitChecks{};
+    std::size_t seamFaceRewires{};
     bool overflow{};
     void add(std::size_t& target,std::size_t count) noexcept {
         if(count>std::numeric_limits<std::size_t>::max()-target) {
@@ -75,6 +80,13 @@ struct ExactStageWorkLimits {
     std::size_t maxClosurePairCandidates=1048576;
     std::size_t maxClosureSampleTests=16777216;
     std::size_t maxClosureDpTransitions=8388608;
+    std::size_t maxSeamTraceProbes=4194304;
+    std::size_t maxSeamMatchedIntervals=1048576;
+    std::size_t maxSeamWeldComparisons=4194304;
+    std::size_t maxSeamRefinePredicates=2097152;
+    std::size_t maxSeamRefineMatches=1048576;
+    std::size_t maxSeamMirrorOrbitChecks=4194304;
+    std::size_t maxSeamFaceRewires=2097152;
 };
 
 inline std::string refuseExactStageWork(
@@ -118,6 +130,20 @@ inline std::string refuseExactStageWork(
         return "Aggregate source closure sample-test budget exhausted";
     if(value.closureDpTransitions>limits.maxClosureDpTransitions)
         return "Aggregate source closure DP-transition budget exhausted";
+    if(value.seamTraceProbes>limits.maxSeamTraceProbes)
+        return "Aggregate source seam trace-probe budget exhausted";
+    if(value.seamMatchedIntervals>limits.maxSeamMatchedIntervals)
+        return "Aggregate source seam matched-interval budget exhausted";
+    if(value.seamWeldComparisons>limits.maxSeamWeldComparisons)
+        return "Aggregate source seam weld-comparison budget exhausted";
+    if(value.seamRefinePredicates>limits.maxSeamRefinePredicates)
+        return "Aggregate source seam refinement predicate budget exhausted";
+    if(value.seamRefineMatches>limits.maxSeamRefineMatches)
+        return "Aggregate source seam refinement match budget exhausted";
+    if(value.seamMirrorOrbitChecks>limits.maxSeamMirrorOrbitChecks)
+        return "Aggregate source seam mirror-orbit budget exhausted";
+    if(value.seamFaceRewires>limits.maxSeamFaceRewires)
+        return "Aggregate source seam face-rewire budget exhausted";
     return {};
 }
 
