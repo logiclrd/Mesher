@@ -75,7 +75,10 @@ public:
                      double timeSpeed,CurvatureSettings curvature,
                      CollapseSettings collapse,RefineSettings refine,
                      SculptStepValidator validator={},
-                     SculptCollisionSettings collision={});
+                     SculptCollisionSettings collision={},
+                     // Explicit trusted in-memory FIRST-root face set only;
+                     // unverified V13 disk snapshots can never supply it.
+                     std::vector<FaceId> trustedFirstOriginalFaces={});
 
     ~AsyncSculptWorker();
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;
@@ -157,6 +160,7 @@ private:
     std::size_t completedUndos_{},completedRedos_{},checkpointCommands_{};
     std::size_t liveMergeRequests_{},liveMergeRefusals_{},liveMergeAccepted_{};
     std::string liveMergeRefusal_;
+    std::vector<FaceId> trustedFirstOriginalFaces_;
     std::size_t snapshotPublications_{},lastSnapshotDirtyOwners_{};
     std::size_t totalSnapshotDirtyOwners_{};
     std::jthread worker_;
