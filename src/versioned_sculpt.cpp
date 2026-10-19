@@ -609,6 +609,8 @@ void VersionedSculptBrush::recordStepDiagnostics() noexcept {
         case SculptRefusalCategory::StaleExpectedRoot:sum(total.staleRefusals,1);break;
         case SculptRefusalCategory::None:break;
         }
+    }else if(step.postCasFailed) {
+        sum(total.postCasFailures,1);
     }else if(step.published) {
         sum(total.published,1);
         sum(total.publishedPrivateCopiedBytes,step.privateCopiedBytes);
@@ -617,6 +619,38 @@ void VersionedSculptBrush::recordStepDiagnostics() noexcept {
         total.publishedExact.accumulate(step.exactStage);
         total.observedPublishedMilliseconds+=step.elapsedMilliseconds;
     }else sum(total.unchanged,1);
+}
+
+void VersionedSculptBrush::ensureOperational() const {
+    if(terminalFailure())
+        throw std::logic_error(
+            "Terminal post-CAS failure; original-root transaction quarantined: "+
+            terminalFailureReason_);
+}
+void VersionedSculptBrush::injectPostCasFault(
+    SculptPostCasFaultPoint point) const {
+    if(collision_.postCasFaultInjection)
+        collision_.postCasFaultInjection(point);
+}
+void VersionedSculptBrush::markPostCasFailure(
+    std::exception_ptr error) {
+    std::string reason="unknown exception";
+    try {
+        if(error)std::rethrow_exception(error);
+    }catch(const std::exception& e) {
+        reason=e.what();
+    }catch(...) {}
+    terminalFailureReason_=
+        "Indexed root CAS completed, auxiliary transaction incomplete: "+reason;
+    lastRejection_=terminalFailureReason_;
+    lastDirtyPartitions_.clear();
+    lastStepResourceWork_.published=false;
+    lastStepResourceWork_.refused=false;
+    lastStepResourceWork_.postCasFailed=true;
+    lastStepResourceWork_.refusalCategory=SculptRefusalCategory::None;
+    lastStepResourceWork_.refusal=terminalFailureReason_;
+    recordStepDiagnostics();
+    terminalFailure_.store(true,std::memory_order_release);
 }
 
 std::string VersionedSculptBrush::validateOriginalIntentSources(
@@ -641,6 +675,7 @@ std::string VersionedSculptBrush::validateOriginalIntentSources(
 }
 void VersionedSculptBrush::setOriginalPatchIntent(
     std::vector<FaceId> originals) {
+    ensureOperational();
     physicalIntendedOriginals_=std::move(originals);
     physicalIntentRefusal_=validateOriginalIntentSources(
         physicalIntendedOriginals_);
@@ -649,6 +684,7 @@ void VersionedSculptBrush::setOriginalPatchIntent(
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
+    ensureOperational();
     const auto start=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::PhysicalStamp;
@@ -709,6 +745,7 @@ void VersionedSculptBrush::stamp(
     refiner_.beginStep();
     try {collapser_.beginStep();}
     catch(...) {refiner_.rollbackStep();throw;}
+    bool didPublish=false;
     try {
     const auto refined=refiner_.apply(inflated.index,inflated.baseline);
     // Collapse must see V6's newly inserted stable mirror IDs immediately.
@@ -1105,8 +1142,11 @@ void VersionedSculptBrush::stamp(
     // the exact index + mesh revision pair atomically once per completed
     // Step, never publishing partially refined intermediate topology.
     if(updated!=old) {
+        postCasInFlight_.store(true,std::memory_order_release);
         if(!published_.publishIfCurrent(old,updated))
             throw std::logic_error("Single writer lost indexed root");
+        didPublish=true;
+        injectPostCasFault(SculptPostCasFaultPoint::AfterRootCas);
         ++publishedRevisions_;
     }
     // M18 publishes ONLY the final physical-to-exact mirror net. IDs
@@ -1132,6 +1172,8 @@ void VersionedSculptBrush::stamp(
     for(const auto& [a,b]:repairedAddedMirrors)
         inflate_.addMirrorPair(a,b);
     }
+    if(didPublish)
+        injectPostCasFault(SculptPostCasFaultPoint::AfterMirrorState);
     vertices_+=refined.insertedVertices.size();
     faces_+=2*refined.insertedVertices.size();
     vertices_-=collapsed.removedVertices.size();
@@ -1192,10 +1234,13 @@ void VersionedSculptBrush::stamp(
     }
     // A conclusively unchanged stamp is not an external source Step and
     // must not offer null credentials to tracked M29 history.
-    if(updated!=old)history_.append(updated,lastDirtyPartitions_,
-                    std::move(addedMirrors),std::move(removedMirrors),
-                    lastStepResourceWork_.privateCopiedBytes,
-                    vertices_,faces_,std::move(finalFidelity));
+    if(updated!=old) {
+        history_.append(updated,lastDirtyPartitions_,
+                        std::move(addedMirrors),std::move(removedMirrors),
+                        lastStepResourceWork_.privateCopiedBytes,
+                        vertices_,faces_,std::move(finalFidelity));
+        injectPostCasFault(SculptPostCasFaultPoint::AfterHistoryAppend);
+    }
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
@@ -1214,12 +1259,22 @@ void VersionedSculptBrush::stamp(
         seconds(start,Clock::now())*1000;
     lastStepResourceWork_.stageWall.publicationAndHistoryMs=
         seconds(publicationStarted,Clock::now())*1000;
-    recordStepDiagnostics();
     collapser_.commitStep();
     refiner_.commitStep();
+    if(didPublish)
+        injectPostCasFault(SculptPostCasFaultPoint::AfterAuxCommit);
+    recordStepDiagnostics();
+    postCasInFlight_.store(false,std::memory_order_release);
     }catch(...) {
-        collapser_.rollbackStep();
-        refiner_.rollbackStep();
+        if(didPublish) {
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(start,Clock::now())*1000;
+            markPostCasFailure(std::current_exception());
+        }else {
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+        }
+        postCasInFlight_.store(false,std::memory_order_release);
         throw;
     }
 }
@@ -1229,6 +1284,7 @@ bool VersionedSculptBrush::mergeExactContacts(
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
     const ExactCutStepLimits& requested,
     const std::vector<FaceId>& intendedOriginals) {
+    ensureOperational();
     const auto started=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
@@ -1479,29 +1535,38 @@ bool VersionedSculptBrush::mergeExactContacts(
         }
         // ONE original-root indexed CAS, with NO intermediate cut or
         // seam-only root ever visible to renderer/picker subscribers.
+        postCasInFlight_.store(true,std::memory_order_release);
         if(!published_.publishIfCurrent(old,result.final)) {
+            postCasInFlight_.store(false,std::memory_order_release);
             collapser_.rollbackStep();
             refiner_.rollbackStep();
             return reject("Exact Boolean Step lost its original-root CAS");
         }
         didPublish=true;
+        injectPostCasFault(SculptPostCasFaultPoint::AfterRootCas);
         for(const auto& [a,b]:result.removedMirrors)
             inflate_.removeMirrorPair(a,b);
         for(const auto& [a,b]:result.addedMirrors)
             inflate_.addMirrorPair(a,b);
+        injectPostCasFault(SculptPostCasFaultPoint::AfterMirrorState);
         history_.append(result.final,result.dirtyPartitions,
             result.addedMirrors,result.removedMirrors,
             result.copiedPayloadBytes,newVertices,newFaces,
             std::move(finalFidelity));
+        injectPostCasFault(SculptPostCasFaultPoint::AfterHistoryAppend);
         refiner_.commitStep();
         collapser_.commitStep();
+        injectPostCasFault(SculptPostCasFaultPoint::AfterAuxCommit);
     }catch(...) {
-        // A post-CAS failure is fatal, as with the pre-existing sculpt
-        // publication path: it must NEVER be called a recoverable refusal.
-        if(!didPublish) {
+        if(didPublish) {
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(started,Clock::now())*1000;
+            markPostCasFailure(std::current_exception());
+        }else {
             collapser_.rollbackStep();
             refiner_.rollbackStep();
         }
+        postCasInFlight_.store(false,std::memory_order_release);
         throw;
     }
     vertices_=newVertices;
@@ -1522,10 +1587,12 @@ bool VersionedSculptBrush::mergeExactContacts(
     lastStepResourceWork_.stageWall.publicationAndHistoryMs=
         seconds(queuedPublicationStarted,Clock::now())*1000;
     recordStepDiagnostics();
+    postCasInFlight_.store(false,std::memory_order_release);
     return true;
 }
 
 bool VersionedSculptBrush::undo() {
+    ensureOperational();
     if(!history_.canUndo())return false;
     const auto previous=published_.snapshot();
     const auto step=history_.undo();
@@ -1551,6 +1618,7 @@ bool VersionedSculptBrush::undo() {
     return true;
 }
 bool VersionedSculptBrush::redo() {
+    ensureOperational();
     if(!history_.canRedo())return false;
     const auto previous=published_.snapshot();
     const auto step=history_.redo();
@@ -1576,6 +1644,9 @@ bool VersionedSculptBrush::redo() {
     return true;
 }
 DurableCheckpoint VersionedSculptBrush::checkpoint() const {
+    ensureOperational();
+    if(postCasInFlight_.load(std::memory_order_acquire))
+        throw std::logic_error("Checkpoint forbidden during original-root auxiliary commit");
     DurableCheckpoint snapshot;
     snapshot.index=published_.snapshot();
     snapshot.initialVertexCount=initialVertexCount_;

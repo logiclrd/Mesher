@@ -1847,3 +1847,50 @@ independent gates. See
 `docs/V17_M13_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
 M14 injected post-CAS exceptional consistency, M15
 default-off Vulkan Merge UI, V18 and V19 remain OPEN.
+
+## October 19, 2026 — V17-M14 original-root post-CAS exception acceptance
+
+After M13's separately verified whole-Step COW/source-work
+ledger, M14 targets the POST-CAS exceptional boundary:
+root publication may succeed while mirror journals,
+M29 first-original history, renderer dirty state
+and checkpoint authority are not fully installed.
+M14 explicitly selects the preplanned **fail-stop,
+quarantined, completely reported terminal failure**
+alternative rather than pretending to roll back
+an already committed original-root CAS.
+
+Opt-in test-only, normally absent fault callbacks
+throw at four real post-CAS boundaries in the protected
+72-FIRST-original mirrored physical M39 source Step and
+in the independent first-original authenticated queued
+two-tetra exact Boolean. After any such failure:
+no further stamp, Boolean Merge, undo, redo,
+trusted durable checkpoint or public indexed snapshot
+is permitted; the async worker drops all uncertain
+frames and reports terminal reason and attempted
+work instead of a phantom recoverable refusal or
+accepted publication. An atomic in-flight
+publication gate hides the indexed root from
+readers between CAS and auxiliary completion,
+verified by a held-CAS two-thread read race.
+
+The 35 real M41–M45 work counters and M40 private
+COW copy proxy remain charged to attempted work,
+not successful complete publication. A separate
+invalid-destination asynchronous checkpoint writer
+reports an actual FAILED I/O result, leaves one
+already verified accepted source root/history intact,
+and a subsequent valid persisted V13 checkpoint
+succeeds without fabricating opaque M29 authority.
+This is not a claim of process-crash-safe rollback
+or peak-RSS/hard runtime limits.
+
+Substantive [PR #99 Actions #39340898434](https://github.com/logiclrd/Mesher/actions/runs/39340898434)
+passed all GCC, Clang, MSVC warnings-as-errors
+23 CPU suites, checkpoint repeat stress and
+applicable benchmarks. Documentation-final and
+independent merged-main CI remain mandatory.
+See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.
+M15 desktop default-OFF live Merge opt-in and
+V18/V19 remain OPEN.

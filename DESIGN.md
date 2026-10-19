@@ -5638,3 +5638,82 @@ succeeded GCC, Clang, Windows MSVC warnings-as-errors,
 Exact final PR-head and separately merged-main green
 remain required; see
 `docs/V17_M13_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M14 fail-stop post-CAS auxiliary transaction boundary
+
+Pre-CAS source, geometry and finite-budget refusals remain
+recoverable and atomic (M40–M46 and original M42/M13).
+But an exception **AFTER** the one original-root
+`IndexedMeshRepository::publishIfCurrent` compare-and-swap
+cannot truthfully be called a refusal: the indexed root may
+already be externally newer while physical/queued mirror
+journals, M29 history, dirty renderer partitions and live
+checkpoint source authority remain partially updated.
+
+M14 chooses the explicitly planned **safe completely reported
+terminal failure** alternative, not unverified reverse-CAS
+rollback. `SculptCollisionSettings::postCasFaultInjection`
+defaults EMPTY, and supplies test-only callbacks at
+`AfterRootCas`, `AfterMirrorState`,
+`AfterHistoryAppend`, `AfterAuxCommit`.
+Both accepted-source physical and queued paths track whether
+CAS irrevocably completed. Before CAS they retain the
+existing speculative rollback/refusal path; after CAS
+they preserve the original exception and latch a
+terminal failure. No later Step, undo/redo, trusted
+checkpoint or root snapshot may escape the quarantined
+owner. The `postCasInFlight_` atomic release/acquire gate
+blocks concurrent external readers from acquiring the
+partially committed indexed source between CAS and
+successful auxiliary publication (including a second
+read-side check after index snapshot). No snapshot/mailbox
+publication of an uncertain worker root occurs after an
+exception.
+
+`SculptStepResourceWork::postCasFailed` and
+`SculptResourceTotals::postCasFailures` distinguish
+this irreversible, INCOMPLETE auxiliary transaction
+from a clean pre-CAS `refused` or safely `published`
+Step. It charges actually attempted M40 private copied
+payload bytes and all executed M41–M45 proof operations
+but cannot credit an accepted complete publication,
+Clean diagnostic, or successful history. The stopped
+`AsyncSculptWorker` exposes an explicit terminal
+diagnostic, last exact exception/attempted work and
+refuses further queued commands while dropping pending
+uncertain snapshot/dirty mailboxes. Previously issued
+immutable snapshots remain independently valid; the
+poisoned indexed root's auxiliary state is NOT
+claimable as a valid usable source.
+
+`testM14PostCasFaultQuarantineAndCheckpointIsolation`
+injects all four boundaries on genuine original-root
+M39 reflected protected 4D physical and independent
+authenticated queued c1/c2/c3/M03/d2 Boolean paths
+(8 post-CAS failure cases), plus genuine FIFO fatal
+propagation. A separate multithreaded held-after-CAS
+regression verifies the published root and checkpoint
+remain inaccessible during auxiliary update. An actual
+asynchronous filesystem checkpoint failure is a
+different, recoverable I/O event that leaves the
+already accepted source index, M29 history and worker
+published counters intact; a later valid write
+succeeds without re-executing geometry and disk V13
+never invents a sealed first-original credential.
+
+The explicit fail-stop alternative meets the planned
+M14 contract *or safe completely reported failure*,
+not atomic rollback of an already completed CAS or
+process-crash durability in every possible interruption.
+No topology, mirror equivalence, fixed-X plane,
+0/+1/0 signed cavity, original first-source witness
+or desktop default-OFF policy is relaxed. V17-M15
+desktop Merge opt-in acceptance and V18/V19 remain
+separate and OPEN.
+
+Substantive [PR #99 Actions #39340898434](https://github.com/logiclrd/Mesher/actions/runs/39340898434)
+passed GCC/Clang/MSVC /W4 /WX all 23 CPU suites
+and applicable checkpoint stress/benchmarks.
+Final documentation-exact-head and independently merged-main
+three-compiler tests are still required to close this gate.
+See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.

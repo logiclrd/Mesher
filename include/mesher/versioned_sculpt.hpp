@@ -10,7 +10,9 @@
 #include "mesher/repair_intersection.hpp"
 #include "mesher/exact_stage_work.hpp"
 
+#include <atomic>
 #include <chrono>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -115,6 +117,9 @@ struct SculptStepResourceLimits {
     std::size_t maxFinalDirtyPartitions=4096;
 };
 enum class SculptStepResourcePath {None, PhysicalStamp, QueuedExact};
+enum class SculptPostCasFaultPoint {
+    AfterRootCas, AfterMirrorState, AfterHistoryAppend, AfterAuxCommit
+};
 enum class SculptRefusalCategory {None,CallerOrProvenance,GeometryOrTopology,FiniteWorkBudget,StaleExpectedRoot};
 struct SculptStageWallObservations {
     // Wall-clock OBSERVATIONS, not deterministic time upper bounds.
@@ -126,6 +131,7 @@ struct SculptStepResourceWork {
     bool evaluated{}; // a complete candidate was measured
     bool published{}; // exact final original-root CAS succeeded
     bool refused{};   // no root CAS; budget or other source policy
+    bool postCasFailed{}; // irrevocable CAS, quarantined auxiliary state
     std::size_t privateCopiedBytes{}; // all private edits, including intermediates
     std::size_t changedIdReferences{}; // reference count, not unique stable IDs
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
@@ -139,7 +145,7 @@ struct SculptStepResourceWork {
 // never authenticate or restore these telemetry accumulators.
 struct SculptResourceTotals {
     std::size_t attempts{},physicalAttempts{},queuedExactAttempts{};
-    std::size_t published{},refused{},unchanged{};
+    std::size_t published{},refused{},unchanged{},postCasFailures{};
     std::size_t provenanceRefusals{},geometryRefusals{},budgetRefusals{},staleRefusals{};
     std::size_t attemptedPrivateCopiedBytes{},publishedPrivateCopiedBytes{};
     std::size_t attemptedChangedIdReferences{},publishedChangedIdReferences{};
@@ -152,6 +158,8 @@ struct SculptCollisionSettings {
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
+    // Test-only exceptional callback; unset in production and desktop.
+    std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};
     SculptOriginalIntentInputLimits originalIntentInput{};
     SculptOriginalTerminalLimits originalTerminal{};
     SculptStepResourceLimits stepResources{};
@@ -267,8 +275,23 @@ public:
     }
     DurableCheckpoint checkpoint() const;
 
+    bool terminalFailure() const noexcept {
+        return terminalFailure_.load(std::memory_order_acquire);
+    }
+    const std::string& terminalFailureReason() const noexcept {
+        return terminalFailureReason_;
+    }
+    // Quarantine a half-committed original-root transaction. Never hand a
+    // root with uncertain mirrors or history to a new reader.
     std::shared_ptr<const RegionTopologyIndex> snapshot() const noexcept {
-        return published_.snapshot();
+        if(terminalFailure()||postCasInFlight_.load(std::memory_order_acquire))
+            return nullptr;
+        auto result=published_.snapshot();
+        // A reader racing the CAS must not acquire an unpublished auxiliary
+        // root even if it observed the gate open immediately beforehand.
+        if(terminalFailure()||postCasInFlight_.load(std::memory_order_acquire))
+            return nullptr;
+        return result;
     }
     std::shared_ptr<const FlatMeshIndex> originalOrder() const noexcept {
         return flatOrder_;
@@ -298,6 +321,9 @@ public:
     }
 
 private:
+    void ensureOperational() const;
+    void markPostCasFailure(std::exception_ptr error);
+    void injectPostCasFault(SculptPostCasFaultPoint point) const;
     void recordStepDiagnostics() noexcept;
     std::string validateOriginalIntentSources(
         const std::vector<FaceId>& originals) const;
@@ -334,6 +360,9 @@ private:
     StampDetails details_{};
     SculptStepResourceWork lastStepResourceWork_{};
     SculptResourceTotals resourceTotals_{};
+    std::atomic<bool> postCasInFlight_{false};
+    std::atomic<bool> terminalFailure_{false};
+    std::string terminalFailureReason_;
     // A checkpoint restored without an authenticated FIRST-original
     // certificate must never automatically restart fidelity at its
     // current terminal root. M30 installs the active pre-CAS guard.

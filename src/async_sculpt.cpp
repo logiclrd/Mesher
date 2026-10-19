@@ -45,6 +45,10 @@ std::vector<Vec3> AsyncSculptWorker::centers(Vec3 point) const {
 }
 void AsyncSculptWorker::enqueue(Command command) {
     {
+        std::lock_guard guard(statusMutex_);
+        if(error_)std::rethrow_exception(error_);
+    }
+    {
         std::lock_guard guard(commandsMutex_);
         commands_.push_back(std::move(command));
     }
@@ -56,7 +60,8 @@ void AsyncSculptWorker::begin(
         throw std::logic_error("Previous sculpt stroke is still processing");
     Command command{Kind::Begin,point,0,radius};
     command.intendedOriginals=std::move(intendedOriginals);
-    enqueue(std::move(command));
+    try {enqueue(std::move(command));}
+    catch(...) {reserved_=false;throw;}
 }
 void AsyncSculptWorker::update(Vec3 point,double elapsedSeconds) {
     enqueue({Kind::Update,point,elapsedSeconds,0});
@@ -100,7 +105,7 @@ AsyncSculptWorker::Status AsyncSculptWorker::status() const {
     Status current;
     {
         std::lock_guard guard(statusMutex_);
-        if(error_)std::rethrow_exception(error_);
+        if(error_&&!status_.terminalFailure)std::rethrow_exception(error_);
         current=status_;
     }
     // Disk I/O finishes independently of worker stamps; do not leave save
@@ -327,9 +332,25 @@ void AsyncSculptWorker::run(std::stop_token token) {
             }
         }
     }catch(...) {
+        const auto failure=std::current_exception();
+        const bool postCas=brush_->terminalFailure();
+        {
+            std::lock_guard guard(snapshotMutex_);
+            // A post-CAS uncertain source is NEVER presented to a renderer.
+            // Earlier frames already delivered remain immutable.
+            latest_.reset();
+            unpublishedDirty_.clear();
+        }
         {
             std::lock_guard guard(statusMutex_);
-            error_=std::current_exception();
+            status_.terminalFailure=postCas;
+            if(postCas) {
+                status_.terminalFailureReason=brush_->terminalFailureReason();
+                status_.lastRejection=brush_->lastRejection();
+                status_.stepResources=brush_->lastStepResourceWork();
+                status_.resources=brush_->resourceTotals();
+            }
+            error_=failure;
         }
         reserved_=false;
     }
