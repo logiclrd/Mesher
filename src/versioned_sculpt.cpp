@@ -542,8 +542,9 @@ VersionedSculptBrush::VersionedSculptBrush(
            firstOriginalAuthority_->anchors.original==published_.snapshot())
             originalPairs=recovered.mirrorPairs;
         for(const auto& [a,b]:originalPairs) {
-            if(!a||!b||firstOriginalMirrors_.contains(a)&&firstOriginalMirrors_.at(a)!=b||
-               firstOriginalMirrors_.contains(b)&&firstOriginalMirrors_.at(b)!=a)
+            if(!a||!b||
+               (firstOriginalMirrors_.contains(a)&&firstOriginalMirrors_.at(a)!=b)||
+               (firstOriginalMirrors_.contains(b)&&firstOriginalMirrors_.at(b)!=a))
                 throw std::logic_error("Conflicting original reflected-source authority");
             firstOriginalMirrors_[a]=b;
             firstOriginalMirrors_[b]=a;
