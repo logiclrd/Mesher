@@ -1487,7 +1487,7 @@ void testM35RepeatedPhysicalUnionsInOneOverlappingPatch() {
                         "M35 both same-local-patch physical source joins undo and redo as independent immutable history roots");
                 std::cout<<"[m35] genuine TWO overlapping-patch physical unions, separation="
                          <<separation<<" gap="<<gap
-                         <<" strength="<<strength<<'\\n';
+                         <<" strength="<<strength<<'\n';
                 completed=true;
                 break;
             }
