@@ -4484,6 +4484,40 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
         else --under.stepResources.maxFinalDirtyPartitions;
         rejectPhysical(under,resourceReasons[field]);
     }
+    // Same immutable FIRST root, now continued through two REAL clean
+    // 4D Steps after certified Contact. Bound every dimension by the
+    // greatest genuinely observed Step in this exact source history,
+    // rather than trying to reuse the initial Contact's narrower cap
+    // to judge a different Clean candidate.
+    auto boundedHysteresis=physical;
+    const auto cleanAreas=std::array<BrushArea,2>{{
+        {picked.exterior,.5,.3},
+        {{-picked.exterior.x,picked.exterior.y,picked.exterior.z},.5,.3}
+    }};
+    std::array<SculptStepResourceWork,2> cleanWork{};
+    for(unsigned i=0;i<cleanWork.size();++i) {
+        physicalReference.setOriginalPatchIntent(picked.deliberate);
+        physicalReference.stamp(dummy,cleanAreas);
+        cleanWork[i]=physicalReference.lastStepResourceWork();
+        require(cleanWork[i].published&&cleanWork[i].evaluated&&
+                !cleanWork[i].refused&&
+                physicalReference.completedUnions()==1&&
+                physicalReference.contactStatistics().cleanChecks==i+1&&
+                physicalReference.contactStatistics().quietRun==i+1&&
+                physicalReference.historyStatistics().undoDepth==i+2,
+                "original M42 post-Contact original-source Clean phases are genuine accepted 4D history Steps");
+        auto& cap=boundedHysteresis.stepResources;
+        cap.maxPrivateCopiedBytes=std::max(
+            cap.maxPrivateCopiedBytes,cleanWork[i].privateCopiedBytes);
+        cap.maxChangedIdReferences=std::max(
+            cap.maxChangedIdReferences,cleanWork[i].changedIdReferences);
+        cap.maxFinalDirtyPartitions=std::max(
+            cap.maxFinalDirtyPartitions,cleanWork[i].finalDirtyPartitions);
+        for(const auto& category:buckets) {
+            auto& limit=boundedHysteresis.exactStageLimits.*(category.limit);
+            limit=std::max(limit,cleanWork[i].exactStage.*(category.work));
+        }
+    }
 
     const auto mesh=twoIntersectingTetrahedra();
     const auto sources=firstOriginalFaces(mesh);
@@ -4573,7 +4607,7 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
     // Entire real asynchronous FIFO paths must expose the same exact
     // calibrated cost, source authentication, history and dirty owners.
     AsyncSculptWorker physicalWorker(initial,.025,picked.strength,.2,
-                                    {},{},{},{},physical);
+                                    {},{},{},{},boundedHysteresis);
     physicalWorker.begin(at,6,picked.deliberate);
     physicalWorker.end(at,0);
     const auto until=std::chrono::steady_clock::now()+
@@ -4595,7 +4629,26 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
             firstStatus.lastSnapshotDirtyOwners>0&&
             firstStatus.contact.contactChecks==1&&
             firstStatus.contact.active,
-            "original M42 real direct M40-M46 exact equality executes on worker, publishes one Contact and one M29 history/dirty root");
+            "original M42 real bounded M40-M46 execution on worker publishes one Contact and one M29 history/dirty root");
+    for(unsigned i=0;i<cleanWork.size();++i) {
+        physicalWorker.begin(picked.exterior,.5,picked.deliberate);
+        physicalWorker.end(picked.exterior,0);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!physicalWorker.canBegin()&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto clean=physicalWorker.status();
+        require(physicalWorker.canBegin()&&
+                checkAggregate(cleanWork[i],clean.stepResources)&&
+                clean.completedUnions==1&&clean.rejectedStamps==0&&
+                clean.contact.cleanChecks==i+1&&
+                clean.contact.quietRun==i+1&&clean.contact.active&&
+                clean.history.undoDepth==i+2&&
+                clean.resources.attempts==i+2&&
+                clean.resources.published==i+2,
+                "original M42 SAME first-original source protected FIFO genuinely enters conclusive Clean hysteresis under simultaneously finite M40-M46 caps");
+    }
     const auto liveRoot=physicalWorker.initialRevision();
     physicalWorker.begin(at,.28,{FaceId{99999999}});
     physicalWorker.end(at,0);
@@ -4607,13 +4660,14 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
     const auto unknown=physicalWorker.status();
     require(physicalWorker.canBegin()&&
             unknown.rejectedStamps==1&&
-            unknown.resources.attempts==2&&
-            unknown.resources.published==1&&
+            unknown.resources.attempts==4&&
+            unknown.resources.published==3&&
             unknown.resources.refused==1&&
             unknown.resources.provenanceRefusals==1&&
             unknown.contact.uncertainChecks>=1&&
+            unknown.contact.cleanChecks==2&&
             unknown.contact.active&&unknown.contact.quietRun==0&&
-            unknown.history.undoDepth==1&&
+            unknown.history.undoDepth==3&&
             physicalWorker.initialRevision()==liveRoot,
             "original M42 invalid caller-provenance FIFO is UNKNOWN, not clean hysteresis credit or fabricated source/COW publication");
     physicalWorker.undo();
@@ -4626,7 +4680,7 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
     }
     require(physicalWorker.status().completedUndos==1&&
             physicalWorker.status().history.redoDepth==1&&
-            physicalWorker.status().resources.attempts==2,
+            physicalWorker.status().resources.attempts==4,
             "original M42 protected worker undo restores historical original-root without rebilling source proof");
     physicalWorker.redo();
     {
@@ -4639,7 +4693,7 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
     require(physicalWorker.status().completedRedos==1&&
             physicalWorker.status().history.redoDepth==0&&
             physicalWorker.initialRevision()==liveRoot&&
-            physicalWorker.status().resources.published==1,
+            physicalWorker.status().resources.published==3,
             "original M42 protected worker redo restores SAME accepted exact source without duplicated accepted work");
 
     AsyncSculptWorker queueWorker(mesh,.025,.006,.2,
