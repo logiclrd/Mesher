@@ -2249,6 +2249,163 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
             "M32 unscoped later stamp does not inherit previous intended exemption");
 }
 
+
+void testM33AuthenticatedQueuedOriginalExactUnion() {
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto sources=firstOriginalFaces(mesh);
+    const auto indexed=partitionFlatMesh(mesh,256);
+    const auto original=RegionTopologyIndex::build(indexed.revision);
+    const auto rootProof=beginOriginalPatchLifetime(
+        captureOriginalSourceAnchors(original,indexed.flatIndex.faceIds,
+                                     7*indexed.flatIndex.faceIds.size()));
+    const auto contacts=fullOriginalContacts(*original);
+    const auto limits=supportedUnionLimits(false);
+    const auto privatelyPrepared=prepareExactCutStep(original,contacts,limits);
+    require(privatelyPrepared.complete&&privatelyPrepared.final&&
+            privatelyPrepared.sourceEvidence,
+            "M33 asymmetric positive is a genuine fully source-certified c1/c2/c3/M03/d2 union");
+    const auto checked=advanceOriginalPatchLifetime(
+        rootProof,privatelyPrepared,nullptr,16384,16384);
+    const auto audit=auditOriginalPatchLifetime(checked,original,131072,16384);
+    require(audit.total.distanceTests>=7&&checked.sourceFaceEvidence>0,
+            "M33 private expected work includes actual exact-cut source lineage and original witnesses");
+
+    SculptCollisionSettings policy;
+    policy.physicalExact=true;
+    policy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    policy.originalTerminal.maxDistanceTests=audit.total.distanceTests;
+    policy.originalTerminal.maxCumulativeFaceEvidence=
+        checked.sourceFaceEvidence;
+    // Guarantee the exact work limit, then exercise a one-under negative.
+    auto limited=policy;
+    limited.originalTerminal.maxDistanceTests=audit.total.distanceTests-1;
+    AsyncSculptWorker denied(mesh,.025,.006,.2,{},{},{},false,{},limited);
+    const auto refusedOld=denied.initialRevision();
+    const auto refusedPicking=refusedOld->pickingRootIdentity();
+    denied.mergeExactContacts(refusedOld,fullOriginalContacts(*refusedOld),
+                             limits,sources);
+    waitForUnion(denied,1);
+    auto denial=denied.status();
+    require(denial.rejectedUnions==1&&denial.completedUnions==0&&
+            denial.history.undoDepth==0&&denial.publishedRevisions==0&&
+            !denied.takeSnapshot()&&refusedOld->pickingRootIdentity()==refusedPicking,
+            "M33 one-under COMPLETE original witness work fails before any terminal CAS");
+    require(denial.lastRejection.find("original")!=std::string::npos,
+            "M33 one-under original-witness rejection is diagnosable");
+
+    AsyncSculptWorker worker(mesh,.025,.006,.2,{},{},{},false,{},policy);
+    const auto before=worker.initialRevision();
+    const auto picking=before->pickingRootIdentity();
+    const auto complete=fullOriginalContacts(*before);
+    worker.mergeExactContacts(before,complete,limits,{FaceId{9999999}});
+    waitForUnion(worker,1);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().publishedRevisions==0&&
+            worker.status().history.undoDepth==0&&
+            !worker.takeSnapshot(),
+            "M33 forged original FaceId refuses privately before exact-cut CAS");
+    worker.mergeExactContacts(before,complete,limits,sources);
+    waitForUnion(worker,2);
+    const auto acceptedStatus=worker.status();
+    if(acceptedStatus.completedUnions!=1)
+        throw std::runtime_error(
+            "M33 real authenticated queued first-original union refused: "+
+            acceptedStatus.lastRejection);
+    auto accepted=worker.takeSnapshot();
+    require(accepted&&accepted->index!=before&&
+            acceptedStatus.rejectedUnions==1&&
+            acceptedStatus.publishedRevisions==1&&
+            acceptedStatus.history.undoDepth==1&&
+            acceptedStatus.completedStamps==0&&
+            !accepted->dirtyPartitions.empty()&&
+            before->pickingRootIdentity()==picking,
+            "M33 one queued exact final root, dirty partitions and source history after refusal");
+
+    // A stale queued source root is NEVER permitted to masquerade as the
+    // new predecessor, even if original contacts are geometrically identical.
+    worker.mergeExactContacts(before,complete,limits,sources);
+    waitForUnion(worker,3);
+    require(worker.status().rejectedUnions==2&&
+            worker.status().completedUnions==1&&
+            worker.status().history.undoDepth==1&&
+            !worker.takeSnapshot(),
+            "M33 stale queued original root refused with no second snapshot or history");
+
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-v17-m33-protected-explicit-source-exact.mshr";
+    try {
+        worker.saveCheckpoint(file);
+        const auto deadline=std::chrono::steady_clock::now()+
+            std::chrono::seconds(20);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "M33 protected exact final root writes one durable checkpoint");
+        const auto loaded=readCheckpoint(file);
+        require(loaded.originalFidelityRequired&&
+                !loaded.verifiedOriginalFidelity&&loaded.index&&
+                loaded.index->retiredFaceIds()==accepted->index->retiredFaceIds(),
+                "M33 protected V13 disk checkpoint requires authentic original proof; never reanchors");
+        bool refused=false;
+        try {(void)VersionedSculptBrush(loaded,.006,{},{},{},
+                                         256,{},policy);}
+        catch(const std::logic_error&){refused=true;}
+        require(refused,"M33 protected disk-recovered root refuses source-less physicalExact restart");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(file,ec);throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+    worker.undo();
+    const auto undoDeadline=std::chrono::steady_clock::now()+
+                             std::chrono::seconds(20);
+    while(worker.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<undoDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    require(worker.status().history.undoDepth==0&&
+            worker.takeSnapshot()->index==before,
+            "M33 one undo restores actual FIRST-original source root");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<undoDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto restored=worker.takeSnapshot();
+    require(restored&&restored->index==accepted->index&&
+            worker.status().history.undoDepth==1,
+            "M33 one redo restores exact authenticated queued terminal root");
+
+    // Direct brush exposes the matching sealed history credential and
+    // proves a refused budget preserves an existing redo branch.
+    VersionedSculptBrush direct(mesh,.006,{},{},{},false,256,{},policy);
+    const auto firstRoot=direct.snapshot();
+    require(direct.mergeExactContacts(firstRoot,
+            fullOriginalContacts(*firstRoot),limits,sources),
+            "M33 direct worker-owned protected exact step publishes certified union");
+    const auto after=direct.checkpoint();
+    require(after.verifiedOriginalFidelity&&
+            after.verifiedOriginalFidelity->anchors.original==firstRoot&&
+            after.verifiedOriginalFidelity->lineage.terminal==after.index&&
+            after.verifiedOriginalFidelity->acceptedTransitions==1&&
+            after.verifiedOriginalFidelity->sourceFaceEvidence>0,
+            "M33 one accepted queued exact terminal carries one authenticated first-original history successor");
+    require(direct.undo()&&direct.snapshot()==firstRoot&&
+            direct.checkpoint().verifiedOriginalFidelity->acceptedTransitions==0&&
+            direct.historyStatistics().redoDepth==1,
+            "M33 direct undo moves authenticated M29 source cursor to first root");
+    auto oneUnder=limits;
+    oneUnder.maxNetChangedIds=1;
+    require(!direct.mergeExactContacts(firstRoot,
+                fullOriginalContacts(*firstRoot),oneUnder,sources)&&
+            direct.snapshot()==firstRoot&&
+            direct.historyStatistics().redoDepth==1&&
+            direct.checkpoint().verifiedOriginalFidelity->acceptedTransitions==0,
+            "M33 full-transaction budget refusal preserves original root and redo branch");
+    require(direct.redo()&&direct.snapshot()==after.index&&
+            direct.checkpoint().verifiedOriginalFidelity==
+                after.verifiedOriginalFidelity,
+            "M33 redo after refused alternate branch reuses exact original-source certificate");
+}
+
 void testM31ExplicitFirstOriginalIntentTransport() {
     // Input scope is the CALLER's permanent original FaceId set, captured
     // before the physical candidate exists; it is not proximity-discovered.
@@ -2378,6 +2535,7 @@ int main() {
         testM28FullPrivatePhysicalStampLifetime();
         testM31ExplicitFirstOriginalIntentTransport();
         testM32ActivePhysicalOriginalTerminalPolicy();
+        testM33AuthenticatedQueuedOriginalExactUnion();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
