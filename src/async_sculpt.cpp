@@ -50,10 +50,13 @@ void AsyncSculptWorker::enqueue(Command command) {
     }
     ready_.notify_one();
 }
-void AsyncSculptWorker::begin(Vec3 point,double radius) {
+void AsyncSculptWorker::begin(
+    Vec3 point,double radius,std::vector<FaceId> intendedOriginals) {
     if(reserved_.exchange(true))
         throw std::logic_error("Previous sculpt stroke is still processing");
-    enqueue({Kind::Begin,point,0,radius});
+    Command command{Kind::Begin,point,0,radius};
+    command.intendedOriginals=std::move(intendedOriginals);
+    enqueue(std::move(command));
 }
 void AsyncSculptWorker::update(Vec3 point,double elapsedSeconds) {
     enqueue({Kind::Update,point,elapsedSeconds,0});
@@ -73,7 +76,7 @@ void AsyncSculptWorker::redo() {
 void AsyncSculptWorker::mergeExactContacts(
     std::shared_ptr<const RegionTopologyIndex> expected,
     std::vector<RegionTopologyIndex::CollisionPair> contacts,
-    ExactCutStepLimits limits) {
+    ExactCutStepLimits limits,std::vector<FaceId> intendedOriginals) {
     if(!expected||contacts.empty())
         throw std::invalid_argument(
             "Worker union requires original snapshot and explicit contacts");
@@ -84,6 +87,7 @@ void AsyncSculptWorker::mergeExactContacts(
     command.expected=std::move(expected);
     command.contacts=std::move(contacts);
     command.mergeLimits=std::move(limits);
+    command.intendedOriginals=std::move(intendedOriginals);
     enqueue(std::move(command));
 }
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
@@ -198,6 +202,7 @@ void AsyncSculptWorker::run(std::stop_token token) {
             if(command) {
                 switch(command->kind) {
                 case Kind::Begin: {
+                    brush_->setOriginalPatchIntent(std::move(command->intendedOriginals));
                     auto areas=std::vector<BrushArea>{{command->point,command->radius,.3}};
                     if(symmetric_)areas.push_back({{-command->point.x,
                         command->point.y,command->point.z},command->radius,.3});
@@ -244,7 +249,8 @@ void AsyncSculptWorker::run(std::stop_token token) {
                         throw std::logic_error(
                             "Serialized Boolean union reached an active stroke");
                     const auto merged=brush_->mergeExactContacts(
-                        command->expected,command->contacts,command->mergeLimits);
+                        command->expected,command->contacts,
+                        command->mergeLimits,command->intendedOriginals);
                     if(merged) {
                         const auto& dirty=brush_->lastDirtyPartitions();
                         unpublishedDirty_.insert(unpublishedDirty_.end(),
