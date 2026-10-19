@@ -1415,8 +1415,46 @@ universal import success or hard RSS bound is implied.
   Final exact-head PR and independent merged-main CI
   still mandatory before reporting merged-complete.
   ORIGINAL M14, M15, V18/V19 remain OPEN.
-- [ ] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
+- [x] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
   Fault-injected commit/history/mirror/dirty/checkpoint consistency; one visible final root and undo transition or safe, completely reported failure.
+  **M14 implemented, PR #99 — independent fault-injection gate:**
+  The real 72-original protected reflected M39 physical
+  original-root Step and independent asymmetric first-original
+  authenticated c1/c2/c3/M03/d2 queued two-tetra Boolean
+  each inject a deliberately thrown exception at four
+  genuinely POST-CAS boundaries: after indexed root CAS,
+  after mirror state changes, after M29 history append,
+  and after auxiliary mirror commit. An irrevocable CAS
+  is NEVER reported as a recoverable pre-CAS budget refusal,
+  and attempted M40 COW and M41–M45 source work are counted
+  separately from ZERO successful complete publications.
+  Rather than forge an undo/redo transition from partial
+  mirror/history/dirty updates, the affected controller is
+  explicitly terminal/quarantined and rejects every future
+  physical or queued Step, undo/redo, and checkpoint. Public
+  snapshot access is denied while auxiliary publication
+  is IN FLIGHT and afterward on failure. A real held-CAS
+  two-thread regression confirms concurrent readers cannot
+  obtain an intermediate root/checkpoint. Actual FIFO
+  command failure reports terminal reason and attempted
+  cost, drops uncertain renderer frames, and rejects
+  additional enqueue requests. Independently, invalid
+  checkpoint destination causes a genuinely FAILED async
+  disk write without damaging the accepted indexed root,
+  M29 source history or published resource totals; a
+  subsequent valid checkpoint succeeds and V13 disk
+  read-back still cannot fabricate opaque first-original
+  credentials. Fault callback is EMPTY BY DEFAULT and
+  never part of the desktop Merge policy. The fail-stop
+  alternative meets M14's *safe, completely reported
+  failure* criterion; no fictitious rollback of a
+  committed CAS or guarantee about process crashes is
+  claimed. Substantive [Actions #39340898434](https://github.com/logiclrd/Mesher/actions/runs/39340898434)
+  succeeded GCC, Clang, Windows MSVC /W4 /WX, all 23 CPU
+  suites, repeated checkpoint stress and applicable
+  benchmarks. See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.
+  Exact final-head and independent merged-main CI remain
+  separate mandatory release gates.
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 
