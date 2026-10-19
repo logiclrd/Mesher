@@ -967,7 +967,9 @@ void VersionedSculptBrush::stamp(
     removedMirrors.insert(removedMirrors.end(),repairedRemovedMirrors.begin(),
                           repairedRemovedMirrors.end());
     }
-    history_.append(updated,lastDirtyPartitions_,
+    // A conclusively unchanged stamp is not an external source Step and
+    // must not offer null credentials to tracked M29 history.
+    if(updated!=old)history_.append(updated,lastDirtyPartitions_,
                     std::move(addedMirrors),std::move(removedMirrors),
                     inflated.commitStatistics.clonedPartitionBytes+
                     refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
