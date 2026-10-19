@@ -3179,6 +3179,197 @@ void testM40AggregateWholePrivateStepResourceBudgets() {
              <<" (exact and one-under all categories)\n";
 }
 
+// M41: independent query-operation aggregate limits cover V13 source
+// discovery, repeated complete c1/c2/c3/M03 classification and M26
+// source replay. Calibration is from real SUCCESSFUL final-root unions;
+// one-under refusals are necessarily from the SAME supported candidate.
+void testM41ExactWholeStepQueryAccounting() {
+    const auto chosen=chooseM39FourDimensionalSource();
+    const auto input=std::array<BrushArea,2>{{
+        {chosen.source.input[0][0].center,6,.3},
+        {{-chosen.source.input[0][0].center.x,
+          chosen.source.input[0][0].center.y,
+          chosen.source.input[0][0].center.z},6,.3}
+    }};
+    Mesh dummy;
+    const auto original=chosen.original;
+    const auto opts=m11PhysicalExactSettings();
+    const auto makePhysical=[&](SculptCollisionSettings settings) {
+        return VersionedSculptBrush(
+            original,chosen.strength,{},{},{},256,{},std::move(settings));
+    };
+    auto baseline=makePhysical(opts);
+    baseline.setOriginalPatchIntent(chosen.deliberate);
+    baseline.stamp(dummy,input);
+    require(baseline.completedUnions()==1,
+            "M41 true physical 4D mirrored source union is positively accepted");
+    const auto physical=baseline.lastStepResourceWork().exactStage;
+    require(physical.collisionQueries>0&&
+            physical.collisionNarrowPhase>0&&
+            physical.windingQueries>0&&
+            physical.windingTriangles>0&&
+            physical.windingRays>0&&!physical.overflow,
+            "M41 physical authenticated final source measured repeated V13 collision and actual winding query work");
+    auto exact=opts;
+    exact.exactStageLimits.maxCollisionQueries=physical.collisionQueries;
+    exact.exactStageLimits.maxCollisionNarrowPhase=
+        physical.collisionNarrowPhase;
+    exact.exactStageLimits.maxWindingQueries=physical.windingQueries;
+    exact.exactStageLimits.maxWindingTriangles=physical.windingTriangles;
+    exact.exactStageLimits.maxWindingRays=physical.windingRays;
+    auto onBoundary=makePhysical(exact);
+    onBoundary.setOriginalPatchIntent(chosen.deliberate);
+    onBoundary.stamp(dummy,input);
+    const auto measured=onBoundary.lastStepResourceWork();
+    require(onBoundary.completedUnions()==1&&
+            measured.published&&measured.evaluated&&
+            measured.exactStage.collisionQueries==physical.collisionQueries&&
+            measured.exactStage.collisionNarrowPhase==
+                physical.collisionNarrowPhase&&
+            measured.exactStage.windingQueries==physical.windingQueries&&
+            measured.exactStage.windingTriangles==physical.windingTriangles&&
+            measured.exactStage.windingRays==physical.windingRays,
+            "M41 every finite query-operation category accepts exactly at genuine complete physical original-root Step cost");
+    for(std::size_t i=0;i<5;++i) {
+        auto deniedSettings=exact;
+        const char* category="";
+        switch(i) {
+        case 0:
+            --deniedSettings.exactStageLimits.maxCollisionQueries;
+            category="collision query budget";break;
+        case 1:
+            --deniedSettings.exactStageLimits.maxCollisionNarrowPhase;
+            category="collision narrow-phase budget";break;
+        case 2:
+            --deniedSettings.exactStageLimits.maxWindingQueries;
+            category="winding query budget";break;
+        case 3:
+            --deniedSettings.exactStageLimits.maxWindingTriangles;
+            category="winding triangle budget";break;
+        default:
+            --deniedSettings.exactStageLimits.maxWindingRays;
+            category="winding ray budget";break;
+        }
+        auto denied=makePhysical(deniedSettings);
+        denied.setOriginalPatchIntent(chosen.deliberate);
+        const auto old=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto after=denied.checkpoint();
+        const auto work=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.lastDirtyPartitions().empty()&&
+                denied.historyStatistics().undoDepth==0&&
+                after.index==old.index&&
+                after.mirrorPairs==old.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    old.verifiedOriginalFidelity&&
+                work.evaluated&&work.refused&&!work.published&&
+                work.exactStage.collisionQueries==
+                    physical.collisionQueries&&
+                work.exactStage.windingQueries==
+                    physical.windingQueries&&
+                work.refusal.find(category)!=std::string::npos,
+                "M41 category-specific physical one-under refuses BEFORE publication without source/mirror/history/dirty mutation");
+    }
+    // Independently stage a complete source-certified queued Boolean,
+    // not a preconstructed collision or a fabricated winding certificate.
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto sources=firstOriginalFaces(mesh);
+    const auto limits=supportedUnionLimits(false);
+    SculptCollisionSettings queuePolicy;
+    queuePolicy.physicalExact=true;
+    queuePolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto queued=[&](SculptCollisionSettings policy) {
+        return VersionedSculptBrush(
+            mesh,.006,{},{},{},false,256,{},std::move(policy));
+    };
+    auto queuePositive=queued(queuePolicy);
+    const auto firstQueue=queuePositive.snapshot();
+    require(queuePositive.mergeExactContacts(
+                firstQueue,fullOriginalContacts(*firstQueue),limits,
+                sources),
+            "M41 real source-authenticated queued original-root exact Boolean succeeds");
+    const auto authentic=queuePositive.lastStepResourceWork().exactStage;
+    require(authentic.collisionQueries>0&&
+            authentic.collisionNarrowPhase>0&&
+            authentic.windingQueries>0&&
+            authentic.windingTriangles>0&&
+            authentic.windingRays>0&&!authentic.overflow,
+            "M41 queued source certificate measured independent repeated collision and positive-winding queries");
+    queuePolicy.exactStageLimits.maxCollisionQueries=
+        authentic.collisionQueries;
+    queuePolicy.exactStageLimits.maxCollisionNarrowPhase=
+        authentic.collisionNarrowPhase;
+    queuePolicy.exactStageLimits.maxWindingQueries=
+        authentic.windingQueries;
+    queuePolicy.exactStageLimits.maxWindingTriangles=
+        authentic.windingTriangles;
+    queuePolicy.exactStageLimits.maxWindingRays=authentic.windingRays;
+    auto queueExactly=queued(queuePolicy);
+    const auto queueOld=queueExactly.snapshot();
+    require(queueExactly.mergeExactContacts(
+                queueOld,fullOriginalContacts(*queueOld),limits,sources)&&
+            queueExactly.lastStepResourceWork().exactStage.windingQueries==
+                authentic.windingQueries,
+            "M41 real queued source exact Boolean accepts full measured winding and collision work at equality");
+    for(std::size_t i=0;i<5;++i) {
+        auto oneUnder=queuePolicy;
+        const char* category="";
+        switch(i) {
+        case 0:
+            --oneUnder.exactStageLimits.maxCollisionQueries;
+            category="collision query budget";break;
+        case 1:
+            --oneUnder.exactStageLimits.maxCollisionNarrowPhase;
+            category="collision narrow-phase budget";break;
+        case 2:
+            --oneUnder.exactStageLimits.maxWindingQueries;
+            category="winding query budget";break;
+        case 3:
+            --oneUnder.exactStageLimits.maxWindingTriangles;
+            category="winding triangle budget";break;
+        default:
+            --oneUnder.exactStageLimits.maxWindingRays;
+            category="winding ray budget";break;
+        }
+        auto denied=queued(oneUnder);
+        const auto before=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    before.index,fullOriginalContacts(*before.index),
+                    limits,sources),
+                "M41 queued authentic one-under category must refuse");
+        const auto after=denied.checkpoint();
+        const auto work=denied.lastStepResourceWork();
+        require(after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                denied.publishedRevisions()==0&&
+                denied.rejectedUnions()==1&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                work.refused&&work.evaluated&&!work.published&&
+                work.exactStage.collisionQueries==
+                    authentic.collisionQueries&&
+                work.exactStage.windingQueries==
+                    authentic.windingQueries&&
+                work.refusal.find(category)!=std::string::npos,
+                "M41 independently one-under queued collision/winding category leaves original-root CAS, first-source, history, mirrors and dirty owners unchanged");
+    }
+    std::cout<<"[m41] real physical queries="<<physical.collisionQueries
+             <<" narrow="<<physical.collisionNarrowPhase
+             <<" winding="<<physical.windingQueries
+             <<" triangles="<<physical.windingTriangles
+             <<" rays="<<physical.windingRays
+             <<"; real queued queries="<<authentic.collisionQueries
+             <<" narrow="<<authentic.collisionNarrowPhase
+             <<" winding="<<authentic.windingQueries
+             <<" triangles="<<authentic.windingTriangles
+             <<" rays="<<authentic.windingRays<<"\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -5024,6 +5215,7 @@ int main() {
         testM36OriginalCombinedProtectedSamePatchPolicy();
         testM12OriginalFinalFirstReferenceAcceptance();
         testM40AggregateWholePrivateStepResourceBudgets();
+        testM41ExactWholeStepQueryAccounting();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
