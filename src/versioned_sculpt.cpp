@@ -465,9 +465,14 @@ VersionedSculptBrush::VersionedSculptBrush(
     SculptStepValidator validator,SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>(
          std::move(import.flatIndex))),
-     published_(RegionTopologyIndex::build(std::move(import.revision))),
+published_(RegionTopologyIndex::build(std::move(import.revision))),
+     firstOriginalAuthority_(collision.physicalExact?
+         std::make_shared<const OriginalPatchLifetime>(
+             beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+                 published_.snapshot(),flatOrder_->faceIds,
+                 collision.originalIntentInput.maxOriginalWitnesses))):nullptr),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
-              initialCount,flatOrder_->faceIds.size()),
+              initialCount,flatOrder_->faceIds.size(),firstOriginalAuthority_),
      inflate_(strength,curvature,makeMirrors(*flatOrder_,initialCount,symmetric)),
      refiner_(initialCount,refine,
               makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
@@ -484,15 +489,8 @@ VersionedSculptBrush::VersionedSculptBrush(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
-    if(collision_.physicalExact) {
-        // Only a genuinely new imported original may create M27's first
-        // anchors. Accepted later terminal revisions NEVER reset them.
-        firstOriginalAuthority_=std::make_shared<const OriginalPatchLifetime>(
-            beginOriginalPatchLifetime(captureOriginalSourceAnchors(
-                published_.snapshot(),flatOrder_->faceIds,
-                collision_.originalIntentInput.maxOriginalWitnesses)));
-        if(symmetric_)firstOriginalMirrors_=inflate_.mirrors();
-    }
+    if(collision_.physicalExact&&symmetric_)
+        firstOriginalMirrors_=inflate_.mirrors();
 }
 
 VersionedSculptBrush::VersionedSculptBrush(
@@ -502,6 +500,8 @@ VersionedSculptBrush::VersionedSculptBrush(
     SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>()),
      published_(recovered.index),
+     firstOriginalAuthority_(collision.physicalExact?
+         recovered.verifiedOriginalFidelity:nullptr),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
               elementCount(*recovered.index,true),
               elementCount(*recovered.index,false),
@@ -536,7 +536,6 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
         // A trusted recovery may retain opaque FIRST-root authority.
         // Never re-anchor a recovered later terminal, including V12/V13.
-        firstOriginalAuthority_=recovered.verifiedOriginalFidelity;
         auto originalPairs=recovered.verifiedFirstOriginalMirrorPairs;
         if(originalPairs.empty()&&firstOriginalAuthority_->acceptedTransitions==0&&
            firstOriginalAuthority_->anchors.original==published_.snapshot())
