@@ -1712,7 +1712,7 @@ preparation **before starting** any partial code work:
   separate from the overlapping-join brush influence; M39 must
   integrate true async FIFO episodes, and original M36/M12 remain
   distinct final integrated acceptance gates.
-- [ ] **V17-M39 — Protected overlapping-patch 4D episode and FIFO recovery.**
+- [x] **V17-M39 — Protected overlapping-patch 4D episode and FIFO recovery.**
   Use the genuine same-patch physical-positive fixture through actual
   asynchronous Begin/End 4D input; demonstrate Contact, two accepted
   Clean, interrupted Unknown, three NEW accepted Clean closure,
@@ -1721,6 +1721,25 @@ preparation **before starting** any partial code work:
   Keep X=0 fixed-point and independent coincident-owner cases independently
   evidenced; never claim second join reaches the same component without
   proof.
+  **Accepted in PR #86, substantive Actions #39263238193**:
+  GCC/Clang/MSVC warnings-as-errors, all 23 CPU suites and applicable
+  benchmarks green. Actual 4D Begin/End on ONE protected M37
+  source-proven multishell with two TRUE overlapping original
+  local contact brushes and 32 explicitly scoped / 40 protected
+  source FaceIds accepts two independent real physical exact
+  c1/c2/c3/M03/d2 unions, Contact, Clean, Clean, refused Unknown,
+  three NEW accepted Clean closure, second local recontact,
+  second refused Unknown and late valid scoped Clean FIFO recovery.
+  Eight accepted COW/dirty/history terminal root pointers restore
+  by exact full undo/redo; both refusals add NO roots or dirty owners,
+  and BEFORE/AFTER durable probes preserve mirror pairs, retired
+  FaceId/VertexIds and V13 provenance markers. Original remote/
+  exposed/reversed cavity owners and 0/+1/0 signed winding remain
+  unchanged. Protected disk-only restart cannot forge M29 first-source
+  proof. No source-owner matching by accidental coincident XYZ.
+  Distinct original M36 joint protected-policy and M12 standalone
+  final acceptance remain open. M39 does not claim arbitrary
+  same-component three-body Boolean.
 **Then execute ORIGINAL M36** as a separate criterion-by-criterion
 integrated combined-scenario acceptance (with any necessary new bounded
 test that proves the *simultaneous* policy) before checking ONLY M36.

@@ -1486,3 +1486,35 @@ brush footprints: M39 still owes combined real 4D episode/FIFO,
 and ORIGINAL M36 and ORIGINAL M12 retain separate integration
 acceptance. M13–M15, V18/V19 remain open. See
 `docs/V17_M38_SAME_PATCH_WORK_AND_DRIFT_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M39 real overlapping-patch 4D episodes accepted
+
+**PR #86**, substantive [Actions #39263238193](https://github.com/logiclrd/Mesher/actions/runs/39263238193)
+GREEN GCC/Clang/MSVC warnings-as-errors, 23 CPU suites and applicable
+benchmarks. One actual protected first-original 72-FaceId M37
+multishell source, 32 explicitly authorized first-root local faces,
+40 protected distant/mirrored outer/reversed-cavity owners and two
+TRUE source-contact bands inside overlapping live brush support
+completes REAL serialized asynchronous 4D
+Contact, Clean, Clean, UNKNOWN, Clean, Clean, Clean (first episode
+closes precisely now), second genuine source-certified local
+physical Contact union (second episode opens), another UNKNOWN,
+then valid well-scoped later Clean and final FIFO progress.
+The two true Boolean unions independently retire supported source
+owners; eight distinct accepted terminal M29 COW/dirty history
+roots undo/redo by exact pointer, two refused inputs add none.
+Each refusal preserves publisher/history and zero new dirty; durable
+before/after probes independently preserve EVERY reflected
+mirror pair, original retired FaceId/VertexId and V13 protected
+checkpoint marker. The terminal preserves all forty non-intended
+original source owners and both exact 0/+1/0 signed-winding
+cavities; full V13 disk re-entry refuses forged first-source
+provenance. No accidental coincident XYZ source substitution or
+relaxed Boolean proof.
+
+ORIGINAL M36 (the simultaneous M19–M23 plus M35–M39 combined
+protected policy gate) and ORIGINAL M12 (separate standalone final
+review) remain open, as do M13–M15 and V18/V19. The genuine local
+brush overlap does not establish a same already-joined-component
+three-body Boolean. See
+`docs/V17_M39_OVERLAPPING_LOCAL_4D_FIFO_ACCEPTANCE.md`.

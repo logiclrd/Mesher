@@ -1992,6 +1992,442 @@ void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
              <<" tolerance="<<tolerance<<'\n';
 }
 
+// M39 independently selects a bounded, real 4D-equivalent stimulus on the
+// TRUE M37 overlapping local source. Selection uses real normal-driven
+// stamps, never manufactured Boolean contacts or tracker observations.
+struct M39FourDimensionalSource {
+    M11TowerSource source;
+    DurableCheckpoint original;
+    std::vector<FaceId> deliberate;
+    double strength{};
+    Vec3 exterior{};
+};
+Vec3 m39LiveExterior(const RegionTopologyIndex& index) {
+    Vec3 exterior{};
+    bool selected=false;
+    index.revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                const auto v=vertex.position;
+                if(v.x<=0||v.y>=-12||std::abs(v.z)>2)continue;
+                if(!selected||v.x<exterior.x) {
+                    exterior=v;
+                    selected=true;
+                }
+            }
+        });
+    require(selected,
+            "M39 genuine joined root retains a live first-region exterior corner (not retired import XYZ)");
+    return exterior;
+}
+M39FourDimensionalSource chooseM39FourDimensionalSource() {
+    Mesh dummy;
+    std::string last;
+    // The 4D worker Begin supplies TWO reflected BrushAreas at .3 pressure
+    // rather than M37's direct .95 test pressure. Search complete actual
+    // physical Steps with this EXACT input before running the real FIFO.
+    for(const double separation:{5.0,5.5,6.0,6.5}) {
+        for(const double gap:{.15,.25,.35}) {
+            auto source=makeM11Towers(3,gap);
+            const double shift=(-14+separation)-14;
+            for(std::size_t i=16;i<32;++i)
+                source.mesh.vertices[i].y+=shift;
+            for(auto& area:source.input.at(1))
+                area.center.y+=shift;
+            addM37ProtectedMirroredCavity(source);
+            const auto original=checkpointM11Source(source);
+            require(original.index->triangleIntersections({},{}).empty(),
+                    "M39 M37 source has no initial interpenetrating triangles");
+            const auto a=original.index->querySphere(source.input[0][0].center,6);
+            const auto b=original.index->querySphere(source.input[1][0].center,6);
+            bool common=false;
+            for(const auto id:a)
+                if(std::find(b.begin(),b.end(),id)!=b.end())common=true;
+            require(common,
+                    "M39 both proposed actual 4D contacts share original live brush-support IDs");
+            const auto intended=m11RegionIntent(source,1);
+            const auto originalFaces=firstOriginalFaces(source.mesh);
+            require(originalFaces.size()==72&&intended.size()==32,
+                    "M39 32 scoped sources leave 40 protected cavity, outer wall and unmodified tower source faces");
+            const auto areaAt=[](Vec3 p,double radius) {
+                return std::array<BrushArea,2>{{
+                    {p,radius,.3},{{-p.x,p.y,p.z},radius,.3}
+                }};
+            };
+            for(const double strength:{.35,.55,.8,1.0,1.3,1.6,2.0}) {
+                VersionedSculptBrush trial(original,strength,{},{},{},256,{},
+                                           m11PhysicalExactSettings());
+                trial.setOriginalPatchIntent(intended);
+                const auto firstArea=areaAt(source.input[0][0].center,6);
+                trial.stamp(dummy,firstArea);
+                if(trial.completedUnions()!=1) {
+                    last="initial 4D-equivalent Contact: "+trial.lastRejection();
+                    continue;
+                }
+                const auto contactRoot=trial.snapshot();
+                const Vec3 exterior=m39LiveExterior(*contactRoot);
+                const auto cleanArea=areaAt(exterior,.5);
+                bool cleanAccepted=true;
+                for(std::size_t i=0;i<5;++i) {
+                    const auto old=trial.snapshot();
+                    trial.setOriginalPatchIntent(intended);
+                    trial.stamp(dummy,cleanArea);
+                    if(trial.snapshot()==old||trial.rejectedStamps()!=0||
+                       trial.contactStatistics().cleanChecks!=i+1||
+                       trial.completedUnions()!=1) {
+                        cleanAccepted=false;
+                        last="intermediate 4D-equivalent Clean: "+
+                            trial.lastRejection();
+                        break;
+                    }
+                }
+                if(!cleanAccepted)continue;
+                if(trial.contactStatistics().closedEpisodes!=1||
+                   trial.contactStatistics().episodes!=1) {
+                    last="five direct clean classifications cannot close first episode";
+                    continue;
+                }
+                trial.setOriginalPatchIntent(intended);
+                const auto secondArea=areaAt(source.input[1][0].center,6);
+                trial.stamp(dummy,secondArea);
+                if(trial.completedUnions()!=2||
+                   trial.contactStatistics().episodes!=2||
+                   trial.contactStatistics().active!=true) {
+                    last="later local 4D-equivalent recontact: "+
+                        trial.lastRejection();
+                    continue;
+                }
+                const auto afterSecond=trial.snapshot();
+                // A later correctly scoped FIFO command must truly
+                // publish one new source-certified clean successor.
+                const auto afterExterior=m39LiveExterior(*afterSecond);
+                trial.setOriginalPatchIntent(intended);
+                trial.stamp(dummy,areaAt(afterExterior,.5));
+                if(trial.snapshot()==afterSecond||
+                   trial.rejectedStamps()!=0||
+                   trial.contactStatistics().cleanChecks!=6||
+                   trial.completedUnions()!=2) {
+                    last="late scoped clean recovery: "+trial.lastRejection();
+                    continue;
+                }
+                return {std::move(source),original,intended,strength,exterior};
+            }
+        }
+    }
+    throw std::runtime_error(
+        "M39 no bounded REAL two-contact local source supports complete 4D Clean/closure/recontact/recovery: "+last);
+}
+
+void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
+    const auto selected=chooseM39FourDimensionalSource();
+    const auto& source=selected.source;
+    const auto starting=selected.original;
+    const auto original=starting.index;
+    const auto oldPicker=original->pickingRootIdentity();
+    const auto sourceFaces=firstOriginalFaces(source.mesh);
+    const auto settings=m11PhysicalExactSettings();
+    AsyncSculptWorker worker(starting,.025,selected.strength,.2,
+                             {},{},{},{},settings);
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> roots{original};
+    const auto stroke=[&](Vec3 p,double radius,std::vector<FaceId> intended) {
+        require(worker.canBegin(),
+                "M39 producer never overlaps an incomplete 4D Begin/End reservation");
+        worker.begin(p,radius,std::move(intended));
+        worker.end(p,0);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto status=worker.status();
+        require(worker.canBegin()&&!status.active&&
+                status.pendingSteps==0&&status.pendingSegments==0&&
+                status.inputCommands==0,
+                "M39 complete worker Begin/End drains all 4D input and publishes before producer reservation releases");
+        return status;
+    };
+    const auto accept=[&](const AsyncSculptWorker::Status& state,
+                          const char* label) {
+        const auto published=worker.takeSnapshot();
+        require(published&&published->index&&
+                published->index!=roots.back()&&
+                !published->dirtyPartitions.empty()&&
+                state.history.undoDepth==roots.size()&&
+                state.publishedRevisions==roots.size()&&
+                state.completedStamps==
+                    state.publishedRevisions+state.rejectedStamps,
+                label);
+        roots.push_back(published->index);
+        require(original->pickingRootIdentity()==oldPicker,
+                "M39 no accepted 4D stamp modifies retained first-original renderer/picker BVH");
+        return published->index;
+    };
+    const auto inspectCheckpoint=[&]() {
+        // A V13 disk snapshot is NOT a source certificate, but it must
+        // preserve the exact mirror/retirement map under refused commands.
+        const auto path=std::filesystem::temp_directory_path()/
+            "mesher-v17-m39-fifo-refusal-probe.mshr";
+        const auto previous=worker.checkpointStatistics();
+        try {
+            worker.saveCheckpoint(path);
+            const auto stop=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(25);
+            while(worker.checkpointStatistics().completed==previous.completed&&
+                  worker.checkpointStatistics().failed==previous.failed&&
+                  std::chrono::steady_clock::now()<stop)
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            const auto now=worker.checkpointStatistics();
+            require(now.completed==previous.completed+1&&
+                    now.failed==previous.failed,
+                    "M39 FIFO durable provenance probe finishes after actual command queue drain");
+            auto loaded=readCheckpoint(path);
+            require(loaded.index&&loaded.originalFidelityRequired&&
+                    !loaded.verifiedOriginalFidelity&&
+                    loaded.mirrorPairs.size()>=starting.mirrorPairs.size(),
+                    "M39 live protected 4D root saves proper V13 disk provenance without forged first root");
+            std::error_code ec;std::filesystem::remove(path,ec);
+            return loaded;
+        }catch(...) {
+            std::error_code ec;std::filesystem::remove(path,ec);throw;
+        }
+    };
+    const auto initialContact=stroke(source.input[0][0].center,6,
+                                     selected.deliberate);
+    if(initialContact.completedUnions!=1)
+        throw std::runtime_error("M39 FIRST overlapping physical FIFO union: "+
+                                 initialContact.lastRejection);
+    require(initialContact.contact.episodes==1&&
+            initialContact.contact.contactChecks==1&&
+            initialContact.contact.closedEpisodes==0&&
+            initialContact.contact.active&&
+            initialContact.history.undoDepth==1&&
+            initialContact.rejectedStamps==0,
+            "M39 genuine same-local 4D first certified c1/c2/c3/M03/d2 physical union opens Contact episode");
+    const auto firstUnion=accept(initialContact,
+                                "M39 initial Contact publishes only full first original-root terminal");
+    require(firstUnion->retiredFaceCount()>original->retiredFaceCount(),
+            "M39 first true local physical union permanently retires certified original FaceIds");
+    const auto clean=[&](Vec3 p,std::size_t count,std::size_t run,
+                         bool active) {
+        const auto state=stroke(p,.5,selected.deliberate);
+        if(state.contact.cleanChecks!=count||
+           state.contact.quietRun!=run||
+           state.contact.active!=active||
+           state.contact.episodes!=(count>5?2u:1u)||
+           state.contact.closedEpisodes!=(active&&count<=5?0u:1u)||
+           state.completedUnions!=(count>5?2u:1u)||
+           state.rejectedStamps!=(count>5?2u:(count>2?1u:0u)))
+            throw std::runtime_error(
+                "M39 real Clean misclassified: count="+std::to_string(count)+
+                " quiet="+std::to_string(state.contact.quietRun)+
+                " active="+std::to_string(state.contact.active)+
+                " contact="+std::to_string(state.contact.contactChecks)+
+                " rejected="+std::to_string(state.rejectedStamps)+
+                " last="+state.lastRejection);
+        (void)accept(state,
+            "M39 independent V13 conclusive accepted Clean 4D stamp publishes one dirty terminal M29 root");
+    };
+    clean(selected.exterior,1,1,true);
+    clean(selected.exterior,2,2,true);
+
+    // Refuse an explicitly foreign FIRST-original FaceId: no speculative
+    // contact or synthetic Clean may consume two quiet credits.
+    const auto beforeInvalid=worker.status();
+    const auto heldBeforeInvalid=roots.back();
+    const auto storedBeforeInvalid=inspectCheckpoint();
+    const auto invalid=stroke(selected.exterior,.28,{FaceId{99999999}});
+    require(invalid.rejectedStamps==beforeInvalid.rejectedStamps+1&&
+            invalid.contact.uncertainChecks==
+                beforeInvalid.contact.uncertainChecks+1&&
+            invalid.contact.quietRun==0&&invalid.contact.active&&
+            invalid.contact.closedEpisodes==0&&
+            invalid.contact.cleanChecks==beforeInvalid.contact.cleanChecks&&
+            invalid.contact.episodes==1&&
+            invalid.publishedRevisions==beforeInvalid.publishedRevisions&&
+            invalid.history.undoDepth==beforeInvalid.history.undoDepth&&
+            invalid.lastRejection.find("original")!=std::string::npos,
+            "M39 REAL invalid caller FaceId Unknown interrupts two Clean without closing Contact or publishing");
+    const auto noChange=worker.takeSnapshot();
+    require(noChange&&noChange->index==heldBeforeInvalid&&
+            noChange->dirtyPartitions.empty()&&
+            worker.initialRevision()==heldBeforeInvalid&&
+            original->pickingRootIdentity()==oldPicker,
+            "M39 refused 4D source request cannot expose a partial dirty renderer or altered old root");
+    const auto storedAfterInvalid=inspectCheckpoint();
+    require(storedAfterInvalid.mirrorPairs==storedBeforeInvalid.mirrorPairs&&
+            storedAfterInvalid.index->retiredFaceIds()==
+                storedBeforeInvalid.index->retiredFaceIds()&&
+            storedAfterInvalid.index->retiredVertexIds()==
+                storedBeforeInvalid.index->retiredVertexIds()&&
+            storedAfterInvalid.originalFidelityRequired==
+                storedBeforeInvalid.originalFidelityRequired,
+            "M39 first Unknown preserves EXACT durable reflected mirror, retired FaceId/VertexId and protected provenance marker");
+    clean(selected.exterior,3,1,true);
+    clean(selected.exterior,4,2,true);
+    clean(selected.exterior,5,0,false);
+    const auto closed=worker.status();
+    require(closed.contact.closedEpisodes==1&&
+            closed.contact.episodes==1&&
+            closed.contact.uncertainChecks==1&&
+            closed.contact.contactChecks==1,
+            "M39 precisely THREE new accepted real Clean after Unknown end one complete Contact episode");
+
+    // The second real physical source union must be IN THE SAME
+    // originally overlapping brush patch after all five Clean stamps.
+    const auto beforeSecond=roots.back();
+    const auto second=stroke(source.input[1][0].center,6,selected.deliberate);
+    if(second.completedUnions!=2)
+        throw std::runtime_error(
+            "M39 genuine overlapped later 4D recontact did not certify SECOND physical Boolean union: "+
+            second.lastRejection);
+    require(second.contact.contactChecks==2&&
+            second.contact.episodes==2&&
+            second.contact.closedEpisodes==1&&
+            second.contact.active&&second.contact.quietRun==0&&
+            second.history.undoDepth==roots.size()&&
+            second.rejectedStamps==1,
+            "M39 local actual 4D second independent certified source union reopens episode after real three-Clean closure");
+    const auto afterSecond=accept(second,
+        "M39 overlapping second union publishes exactly one new terminal with dirty partitions");
+    require(afterSecond->retiredFaceCount()>beforeSecond->retiredFaceCount(),
+            "M39 second actual physical contact owns NEW certified source retirement in same brush support");
+
+    // Another refused asynchronous command after recontact must not
+    // poison a LATER correctly scoped physical step in the FIFO.
+    const auto preRecovery=worker.status();
+    const auto storedBeforeRecoveryRefusal=inspectCheckpoint();
+    const auto refused=stroke(m39LiveExterior(*afterSecond),.28,
+                              {FaceId{99999998}});
+    require(refused.rejectedStamps==preRecovery.rejectedStamps+1&&
+            refused.contact.uncertainChecks==
+                preRecovery.contact.uncertainChecks+1&&
+            refused.contact.active&&refused.contact.episodes==2&&
+            refused.publishedRevisions==preRecovery.publishedRevisions&&
+            refused.history.undoDepth==preRecovery.history.undoDepth,
+            "M39 late Unknown after second physical union is a recoverable FIFO refusal");
+    const auto afterRefusal=worker.takeSnapshot();
+    require(afterRefusal&&afterRefusal->index==afterSecond&&
+            afterRefusal->dirtyPartitions.empty(),
+            "M39 late refused FIFO input retains exact old terminal and zero new dirty owners");
+    const auto storedAfterRecoveryRefusal=inspectCheckpoint();
+    require(storedAfterRecoveryRefusal.mirrorPairs==
+                storedBeforeRecoveryRefusal.mirrorPairs&&
+            storedAfterRecoveryRefusal.index->retiredFaceIds()==
+                storedBeforeRecoveryRefusal.index->retiredFaceIds()&&
+            storedAfterRecoveryRefusal.index->retiredVertexIds()==
+                storedBeforeRecoveryRefusal.index->retiredVertexIds()&&
+            storedAfterRecoveryRefusal.originalFidelityRequired==
+                storedBeforeRecoveryRefusal.originalFidelityRequired,
+            "M39 later refused FIFO input also leaves EXACT durable mirror, retirement and V13 source-required identity unchanged");
+    const auto finalExterior=m39LiveExterior(*afterSecond);
+    clean(finalExterior,6,1,true);
+    const auto final=roots.back();
+    require(worker.status().completedUnions==2&&
+            worker.status().publishedRevisions==roots.size()-1&&
+            original->pickingRootIdentity()==oldPicker,
+            "M39 valid late REAL 4D clean recovery advances one scoped source-certified physical successor");
+
+    // The terminal is still part of the ORIGINAL M37 multi-shell root.
+    // All far unscoped faces and original vertices remain unchanged.
+    for(std::size_t i=32;i<sourceFaces.size();++i) {
+        const auto a=original->maybeFace(sourceFaces[i]);
+        const auto b=final->maybeFace(sourceFaces[i]);
+        require(a&&b&&a->vertices==b->vertices,
+                "M39 all forty protected outer/cavity/tower source FaceIds retain original owner and incidence");
+        for(const auto id:a->vertices) {
+            const auto p=original->vertex(id).position;
+            const auto q=final->vertex(id).position;
+            require(p.x==q.x&&p.y==q.y&&p.z==q.z,
+                    "M39 all protected original outer and reversed cavity wall vertices retain first-root XYZ");
+        }
+    }
+    for(const double x:{5.0,-5.0}) {
+        const auto cavity=final->positiveWindingAt({x,80,0});
+        const auto shell=final->positiveWindingAt({
+            x+(x>0?1.5:-1.5),80,0});
+        const auto outside=final->positiveWindingAt({
+            x+(x>0?4.0:-4.0),80,0});
+        require(cavity.reliable&&shell.reliable&&outside.reliable&&
+                cavity.winding==0&&shell.winding==1&&outside.winding==0,
+                "M39 both protected reversed-cavity original shells retain signed-winding void/material/exterior after 4D local source unions");
+    }
+    const auto checkpointFile=std::filesystem::temp_directory_path()/
+        "mesher-v17-m39-local-4d-protected-fifo.mshr";
+    try {
+        const auto previousCheckpoint=worker.checkpointStatistics();
+        worker.saveCheckpoint(checkpointFile);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(25);
+        while(worker.checkpointStatistics().completed==
+                  previousCheckpoint.completed&&
+              worker.checkpointStatistics().failed==
+                  previousCheckpoint.failed&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto finalCheckpoint=worker.checkpointStatistics();
+        require(finalCheckpoint.completed==
+                    previousCheckpoint.completed+1&&
+                finalCheckpoint.failed==previousCheckpoint.failed,
+                "M39 actual final 4D FIFO terminal completed one MORE independent durable checkpoint write");
+        const auto loaded=readCheckpoint(checkpointFile);
+        require(loaded.index&&loaded.originalFidelityRequired&&
+                !loaded.verifiedOriginalFidelity&&
+                loaded.index->retiredFaceIds()==final->retiredFaceIds()&&
+                loaded.index->retiredVertexIds()==final->retiredVertexIds()&&
+                loaded.mirrorPairs.size()>=starting.mirrorPairs.size(),
+                "M39 protected V13 checkpoint records final-only geometry and honest non-recoverable first-source credential");
+        for(const auto& [a,b]:loaded.mirrorPairs) {
+            const auto p=loaded.index->vertex(a).position;
+            const auto q=loaded.index->vertex(b).position;
+            require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                    "M39 full durable final reflected mirror map has live reciprocal exact XYZ");
+        }
+        bool refusedMissingProof=false;
+        try {
+            (void)VersionedSculptBrush(loaded,selected.strength,
+                                      {},{},{},256,{},settings);
+        }catch(const std::logic_error&){refusedMissingProof=true;}
+        require(refusedMissingProof,
+                "M39 protected V13 disk-only restart refuses absent opaque first-original authority");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(checkpointFile,ec);throw;
+    }
+    std::error_code ec;std::filesystem::remove(checkpointFile,ec);
+
+    // Rejected Unknown commands add no history entries; all eight actual
+    // accepted published roots and their real rendered states are exact
+    // pointer identities over the whole FIFO undo/redo chain.
+    for(std::size_t n=roots.size()-1;n>0;--n) {
+        worker.undo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n-1&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.redoDepth==roots.size()-n,
+                "M39 actual prior immutable renderer and picker roots survive exact worker FIFO undo");
+    }
+    for(std::size_t n=1;n<roots.size();++n) {
+        worker.redo();
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n]&&
+                worker.status().history.redoDepth==roots.size()-1-n,
+                "M39 actual terminal source-authorized Contact/Clean history roots redo exactly");
+    }
+    require(roots.back()==final&&worker.initialRevision()==final,
+            "M39 final accepted COW terminal remains exact after complete eight-step history restoration");
+    std::cout<<"[m39] real same-overlap 4D Contact, C,C,Unknown,C,C,C,"
+             <<"recontact,Unknown,scoped recovery; strength="
+             <<selected.strength<<" and "<<roots.size()-1
+             <<" full immutable source-backed history Steps\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -3833,6 +4269,7 @@ int main() {
         testM35RepeatedPhysicalUnionsInOneOverlappingPatch();
         testM37ScopedSamePatchUnionsWithProtectedCavity();
         testM38CompletePostD2WorkAndCumulativeProtectedDrift();
+        testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
