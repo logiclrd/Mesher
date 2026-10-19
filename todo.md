@@ -1668,7 +1668,7 @@ M36 and M12 checkboxes and objectives are preserved. M36's coherent,
 simultaneous source/cavity/drift/FIFO scenario is too broad for one
 independently reviewable implementation. Record the complete ordered
 preparation **before starting** any partial code work:
-- [ ] **V17-M37 — Scoped same-patch physical positives with protected cavity/outer source.**
+- [x] **V17-M37 — Scoped same-patch physical positives with protected cavity/outer source.**
   Extend M35's two genuine positive local source unions with separate
   original mirrored outer and signed-winding reversed-cavity geometry;
   retain those sources OUTSIDE explicit FIRST-original FaceId intent.
@@ -1676,6 +1676,16 @@ preparation **before starting** any partial code work:
   original anchors, reflection identity and rejected unscoped wall
   deformation with exact COW/source/mirror/history rollback. Preserve
   both positive normal-driven joins and the original sixteen M11 joins.
+  **Accepted in PR #84, substantive Actions #39208440042**
+  GCC/Clang/MSVC all green (CPU suites and applicable benchmarks).
+  Verified two real normal-driven local symmetric source-certified
+  unions with a deliberately scoped 32/72 first-original FaceId intent;
+  40 unscoped original outer/cavity/remote-source faces and exact mirrored
+  vertices unchanged. Actual signed winding proves the nested cavity
+  and independent unscoped attempted outer and inward wall deformations
+  both refuse atomically with old COW pointer/certificate/mirrors/
+  dirty/history retained. Double undo/redo restores exact union roots.
+  M38/M39 and the ORIGINAL M36/M12 final acceptance remain OPEN.
 - [ ] **V17-M38 — Same-patch complete source work and cumulative protected drift.**
   Against accepted M37 terminal sources, audit all seven first-original
   witnesses for each authenticated living descendant, per-original
