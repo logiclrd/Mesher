@@ -1538,20 +1538,26 @@ bool VersionedSculptBrush::mergeExactContacts(
             return reject("Exact Boolean Step lost its original-root CAS");
         }
         didPublish=true;
+        injectPostCasFault(SculptPostCasFaultPoint::AfterRootCas);
         for(const auto& [a,b]:result.removedMirrors)
             inflate_.removeMirrorPair(a,b);
         for(const auto& [a,b]:result.addedMirrors)
             inflate_.addMirrorPair(a,b);
+        injectPostCasFault(SculptPostCasFaultPoint::AfterMirrorState);
         history_.append(result.final,result.dirtyPartitions,
             result.addedMirrors,result.removedMirrors,
             result.copiedPayloadBytes,newVertices,newFaces,
             std::move(finalFidelity));
+        injectPostCasFault(SculptPostCasFaultPoint::AfterHistoryAppend);
         refiner_.commitStep();
         collapser_.commitStep();
+        injectPostCasFault(SculptPostCasFaultPoint::AfterAuxCommit);
     }catch(...) {
-        // A post-CAS failure is fatal, as with the pre-existing sculpt
-        // publication path: it must NEVER be called a recoverable refusal.
-        if(!didPublish) {
+        if(didPublish) {
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(started,Clock::now())*1000;
+            markPostCasFailure(std::current_exception());
+        }else {
             collapser_.rollbackStep();
             refiner_.rollbackStep();
         }
