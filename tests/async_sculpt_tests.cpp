@@ -2161,7 +2161,10 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
     exact.physicalExact=true;
     exact.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
     exact.originalTerminal.maxDistanceTests=56;
-    exact.originalTerminal.maxLivingDescendants=8;
+    // A valid caller may permit more descendants than the immutable
+    // M29 history bound, but the physical gate MUST ALSO check M29's
+    // default before CAS (not discover a mismatch after publication).
+    exact.originalTerminal.maxLivingDescendants=32768;
     exact.originalTerminal.maxCumulativeFaceEvidence=128;
     exact.originalTerminal.maxInflateVertices=6;
     exact.originalTerminal.maxInflateFaces=8;
@@ -2189,6 +2192,12 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
             !brush.lastDirtyPartitions().empty()&&
             firstRoot->pickingRootIdentity()==oldPicker,
             "M32 one pre-CAS-certified physical Step publishes matching root, lifetime and dirty history");
+    // Independently apply the actual default M29 append contract to
+    // this REAL protected physical successor, even though the caller's
+    // configured M21 descendant budget is more permissive.
+    verifyOriginalPatchPublicationTransition(
+        *initialProof.verifiedOriginalFidelity,
+        *accepted.verifiedOriginalFidelity,firstRoot,accepted.index);
     brush.stamp(dummy,patch);
     const auto refused=brush.checkpoint();
     require(brush.rejectedStamps()==1&&
