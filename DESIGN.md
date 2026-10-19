@@ -5316,3 +5316,46 @@ remain mandatory before the milestone is reported as merged.
 M42 and the ORIGINAL M13 resource review remain OPEN,
 as do M14–M15/V18/V19; no universal triple-body geometry
 or peak RSS/time bounds are implied.
+
+## October 19, 2026 — M42 original flat rebaseline and V17-M43 source contour/closure work
+
+ORIGINAL M42 is broad but NOT rescoped or checked: its actual
+contour/closure, seam trace/join/refinement, protected-first-original
+feature and history evidence, and worker cumulative diagnostics were
+independently planned as flat peer M43 → M44 → M45 → M46 → original
+M42 integrated acceptance → ORIGINAL M13 integrated resource gate,
+before coding any M43 implementation. M14/M15/V18/V19 remain open.
+
+M43 adds SEVEN independently finite actual per-Step work categories:
+directed removed-face contour edge probes; true oriented
+retained/deleted boundary edges; actual traversed ring vertices;
+closed-ring geometry tests; potential pairwise cap/zipper candidates;
+actual 2 × all rotations × resampled arc-length distance checks;
+and evaluated cap/zipper subset-DP transitions. Counters sit at
+actual work sites, so interrupted/invalid returns do not invent a
+successful ready plan and repeated M03/c3/d2 revalidations are
+charged for genuinely repeated computation rather than terminal
+topology size. Existing M41 attempt-scoped per-thread meter/size_t
+overflow saturation covers all seven; separate caps refuse with
+named categories BEFORE CAS and deferred M23 Clean credit.
+The original closure planner's absolute arc-length correspondence
+and frustum-versus-two-caps choice remain unchanged; source
+deletion authority never comes from a measured contour cost.
+
+Substantive [PR #93 CI #39296825695](https://github.com/logiclrd/Mesher/actions/runs/39296825695)
+GREEN GCC/Clang/MSVC warnings-as-errors, all 23 CPU suites and
+applicable benchmarks. Genuine unequal-density original 2-ring
+zipper fixture measures ALL SEVEN nonzero categories with exact
+and one-under work on the unchanged picker root; true reflected
+physical protected 72-FaceId original union and independent queued
+certified c1/c2/c3/M03/d2 union each independently measure
+complete Step work and refuse one-under EVERY nonzero category
+while preserving source, mirrored IDs, dirty renderer, COW root
+and undo/redo history. No fabricated positive cost for a work
+category absent from an authentic source geometry.
+
+M43 is NOT final original M42/M13 or M44 seam/M45 feature/history/
+M46 worker diagnostics. M43 doc:
+`docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
+Final document-head and independent merged-main three-compiler CI
+are required before reporting it as merged-complete.
