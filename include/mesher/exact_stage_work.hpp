@@ -87,11 +87,21 @@ class ScopedExactStageWork {
 public:
     explicit ScopedExactStageWork(ExactStageWork& work) noexcept
         :previous_(std::exchange(executingExactStageWork,&work)) {}
-    ~ScopedExactStageWork() noexcept {executingExactStageWork=previous_;}
+    ~ScopedExactStageWork() noexcept {stop();}
+    // End the actual candidate's observation at its pre-CAS admission.
+    // Post-publication callbacks and history work cannot silently add
+    // to a previously approved finite source-query budget.
+    void stop() noexcept {
+        if(active_) {
+            executingExactStageWork=previous_;
+            active_=false;
+        }
+    }
     ScopedExactStageWork(const ScopedExactStageWork&)=delete;
     ScopedExactStageWork& operator=(const ScopedExactStageWork&)=delete;
 private:
     ExactStageWork* previous_;
+    bool active_=true;
 };
 
 // Records actual operations even when an individual local query throws.
