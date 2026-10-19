@@ -2429,6 +2429,19 @@ void testM33AuthenticatedQueuedOriginalExactUnion() {
             !evidenceLimited.takeSnapshot(),
             "M33 one-under complete M26 cut source-face evidence refuses before CAS");
 
+    auto inputBound=policy;
+    inputBound.originalIntentInput.maxDeclaredSources=sources.size()-1;
+    AsyncSculptWorker tooManySources(
+        mesh,.025,.006,.2,{},{},{},false,{},inputBound);
+    const auto sourceCapRoot=tooManySources.initialRevision();
+    tooManySources.mergeExactContacts(
+        sourceCapRoot,fullOriginalContacts(*sourceCapRoot),limits,sources);
+    waitForUnion(tooManySources,1);
+    require(tooManySources.status().rejectedUnions==1&&
+            tooManySources.status().history.undoDepth==0&&
+            tooManySources.status().publishedRevisions==0,
+            "M33 raw caller FaceId scope has a finite bound BEFORE retired-source filtering");
+
     // A plain V12 terminal-only checkpoint has no first-original
     // certificate. Selecting physicalExact MUST NOT let its explicit
     // queued union become a legacy untracked path.
