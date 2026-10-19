@@ -1144,6 +1144,11 @@ bool VersionedSculptBrush::mergeExactContacts(
     if(currentSource) {
         try {
             const auto& budget=collision_.originalTerminal;
+            if(!collision_.originalIntentInput.maxDeclaredSources||
+               intendedOriginals.size()>
+                   collision_.originalIntentInput.maxDeclaredSources)
+                throw std::length_error(
+                    "Queued original FaceId input exceeds finite declaration bound");
             if(currentSource!=history_.currentFidelity()||
                currentSource->lineage.terminal!=old||
                currentSource->anchors.original!=firstOriginalAuthority_->anchors.original)
