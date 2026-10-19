@@ -5568,3 +5568,73 @@ applicable stress/benchmarks. Exact documentation-final
 PR-head and independent merged-main three-compiler CI
 are also required before declaring original M42 merged.
 See `docs/V17_M42_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+
+## October 19, 2026 — ORIGINAL V17-M13 final whole-Step resource and diagnostic acceptance
+
+Following independently accepted M40/M41, M43/M44/M45/M46
+and ORIGINAL M42, the intact ORIGINAL M13 has its own
+`testOriginalM13WholeStepResourceAndTelemetryReconciliation`
+criterion-by-criterion final acceptance. No new source
+geometry acceptance authority was introduced. The test
+independently reconstructs cumulative source/geometry work
+for **all 35** exact-operation categories and **all three**
+M40 COW work-proxy/changed-ID/dirty-owner counts by summing
+the actual individual direct or queued `lastStepResourceWork`
+records. It compares every attempted and published category
+independently against `resourceTotals()`, including
+attempts/published/refused/unchanged, caller provenance,
+finite budget and stale original-root categorical refusals.
+Source stages and total elapsed monotonic milliseconds must
+be finite and nonnegative observations and must reconcile
+with that same session's per-attempt measurements; this
+does not imply a guaranteed deadline or limit on process RSS.
+
+On the real M39 72-FIRST-original protected reflected source,
+the physical Contact Step and two fully authenticated Clean
+history Steps each publish one complete original-root M29
+transaction under a common 38-category envelope that was
+calibrated from each Step actually executed. A fourth
+foreign-original FaceId refusal executes no COW or exact
+geometry, publishes nothing, and interrupts Clean quiet
+hysteresis without rebasing original authority. All actual
+counters including the retained three successful COW
+history copies are reconciled individually. An independent
+exactly calibrated first-Contact one-under original witness
+budget refuses pre-CAS after real complete private work,
+leaving attempted costs observable and published costs zero.
+Direct source undo/redo do not replay original geometry
+and must not inflate previous work totals.
+
+An unrelated genuine asymmetric two-tetra c1/c2/c3/M03/d2
+source-certified queued exact union independently accepts
+all 38 true work limits. A request with an obsolete
+expected original root fails before private geometry and
+adds zero witness, contour, seam or copy work, while a
+first-original witness one-under fully executed candidate
+retains actual attempted COW cost and never publishes. A
+real asynchronous queued worker reconstructs the same
+two-call accepted/stale ledger through `Status.resources`,
+then undoes/reapplies the history and saves a checkpoint
+without rebilling source geometry. A V13 disk checkpoint
+retains the *required* original-source marker only and
+cannot fabricate trusted sealed M29 provenance or
+persist transient accumulated CPU work.
+
+M13 acceptance neither changes default-OFF exact desktop
+merge policy nor handles deliberately injected exceptions
+between the indexed root CAS and auxiliary history/dirty/
+mirror side effects: those are STILL the separate M14
+post-CAS fault-injection and M15 desktop milestones.
+Neither exact continuous CCD, unconditional arbitrary
+multi-solid union, true process peak RSS nor bounded
+wall-time performance is claimed. Source X=0 fixed stable
+IDs, reciprocal off-plane mirror IDs, 0/+1/0 signed-winding
+cavity, and independent unrelated coincident originals
+remain fail-closed.
+
+Substantive [PR #98 Actions #39335754023](https://github.com/logiclrd/Mesher/actions/runs/39335754023)
+succeeded GCC, Clang, Windows MSVC warnings-as-errors,
+23 CPU suites and applicable stress/benchmarks.
+Exact final PR-head and separately merged-main green
+remain required; see
+`docs/V17_M13_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.

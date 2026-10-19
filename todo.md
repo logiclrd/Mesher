@@ -1374,8 +1374,47 @@ M15 desktop on-mode and V18/V19 remain separate and OPEN.
 No automatic same-component multi-body support, exact CCD,
 universal import success or hard RSS bound is implied.
 
-- [ ] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
+- [x] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
   Winding/collision/arrangement/contour/join/feature/resource budgets with exact-boundary refusals and honest completion, time, memory-proxy and rejection accounting.
+  **Original M13 separate integrated acceptance: PR #98,
+  substantive [Actions #39335754023](https://github.com/logiclrd/Mesher/actions/runs/39335754023)
+  GREEN GCC, Clang, Windows MSVC /W4 /WX, all 23 CPU suites,
+  repeated checkpoint/worker shutdown stress and applicable
+  benchmarks. A new independent per-attempt ledger reconciles
+  EVERY one of the 35 M41/M43/M44/M45 geometry/source work
+  counters and all M40 private COW-copied byte, stable-ID
+  reference and dirty-owner work *separately* for attempted
+  versus accepted publication. In a real reflected 72-original
+  protected 4D source Contact → Clean → Clean → invalid-
+  caller Unknown stream, all 38 limits are simultaneously
+  finite and calibrated to the greatest true executed Step.
+  Three original-root M29 Steps are genuinely published;
+  the fourth early refuse has zero phantom geometric work,
+  breaks Clean hysteresis, leaves root/mirrors/source and
+  undo/redo unchanged, and increments only provenance
+  refusal and attempted operation counts. The cumulative
+  counts reconcile exactly with four independently captured
+  true Step records, with observed whole and individual
+  phase milliseconds finite/nonnegative but NEVER asserted
+  as deterministic bounds. A separate genuinely computed
+  physical M45 original-witness one-under proves nonzero
+  attempted COW/geometry with zero published charge and
+  unchanged first-root source. Independent source-certified
+  queued c1/c2/c3/M03/d2 exact union accepts all 38
+  positive ceilings; a stale original-root request charges
+  zero private work, while a full candidate under one
+  original-witness limit retains real attempted work with
+  no source/history CAS. Actual FIFO queued accepted/stale,
+  undo/redo and completed V13 checkpoint file I/O reconcile
+  cumulative counters without duplicating expensive
+  geometry or inventing an opaque M29 credential on disk
+  restore. Copy-work bytes are NOT peak RSS; observed
+  milliseconds are NOT an enforceable CPU wall limit.
+  Source and geometry rules remain unchanged. See
+  `docs/V17_M13_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+  Final exact-head PR and independent merged-main CI
+  still mandatory before reporting merged-complete.
+  ORIGINAL M14, M15, V18/V19 remain OPEN.
 - [ ] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
   Fault-injected commit/history/mirror/dirty/checkpoint consistency; one visible final root and undo transition or safe, completely reported failure.
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**

@@ -1802,3 +1802,48 @@ mandatory. See `docs/V17_M42_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
 The **ORIGINAL M13** independent full Step resource/telemetry
 acceptance, M14 fault-injected post-CAS, M15 desktop opt-in
 default-off and V18/V19 remain OPEN.
+
+## October 19, 2026 — ORIGINAL V17-M13 full Step resource and diagnostic integration
+
+Original M13 is **not** a duplicate renaming of the original
+M42 same-transaction 38-category admission tests. It is the
+independent, final whole-session acceptance of **honest
+cumulative diagnostic accounting** across M40/M41/M42 in
+the presence of mixed genuine published/refused original-root
+operations, real worker history and checkpoint transitions.
+New `testOriginalM13WholeStepResourceAndTelemetryReconciliation`
+builds an independent complete per-Step ledger for every
+one of 35 exact source geometry counters and all three M40
+private COW/ID/dirty work counters. All independently
+recorded attempted/published total fields, refusal types,
+and actual finite monotonic time observations must agree
+with that ledger—never silently reestimate work from
+retained topology or call attempted copied bytes peak RSS.
+
+Real protected M39 72-first-original 4D mirrored source
+Contact → Clean → Clean publishes three original-root
+COW/history Steps under one 38-dimension finite policy.
+An invalid caller FIRST-original FaceId interrupts quiet
+hysteresis but does not invent a private COW edit, Clean
+classification, source certificate, dirty owner or history
+entry. Exact source physical original-witness one-under
+budget exercises expensive genuine work with zero published
+cost, independent from the early invalid input.
+Separate asymmetric source-certified queued exact Boolean
+accepts all simultaneously measured ceilings, stale
+original-root failure charges zero speculative work, and
+one-under original witness accepts actual attempted but
+not published costs. The real queued FIFO does accepted/
+stale and undo/redo/checkpoint without duplicate COW
+work. Durable V13 disk preserves source verification
+REQUIRED but never authenticates an opaque M29 source
+from disk or resurrects prior in-process resource telemetry.
+
+Substantive [PR #98 Actions #39335754023](https://github.com/logiclrd/Mesher/actions/runs/39335754023)
+was GREEN GCC/Clang/MSVC /W4 /WX, 23 CPU suites and
+checkpoint stress/benchmarks. Final documentation-head
+and separate merged-main three-compiler success remain
+independent gates. See
+`docs/V17_M13_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+M14 injected post-CAS exceptional consistency, M15
+default-off Vulkan Merge UI, V18 and V19 remain OPEN.
