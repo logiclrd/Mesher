@@ -1234,19 +1234,24 @@ bool VersionedSculptBrush::mergeExactContacts(
     lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
     ScopedExactStageWork countExactGeometry(
         lastStepResourceWork_.exactStage);
-    const auto reject=[&](const std::string& reason) {
+    const auto reject=[&](const std::string& reason,
+                          SculptRefusalCategory category=
+                              SculptRefusalCategory::GeometryOrTopology) {
         lastDirtyPartitions_.clear();
         lastRejection_=reason;
         ++rejectedUnions_;
         lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=category;
         lastStepResourceWork_.refusal=reason;
         lastStepResourceWork_.elapsedMilliseconds=
             seconds(started,Clock::now())*1000;
+        recordStepDiagnostics();
         return false;
     };
     const auto old=published_.snapshot();
     if(!expected||old!=expected)
-        return reject("Exact Boolean Step expected root is stale");
+        return reject("Exact Boolean Step expected root is stale",
+                      SculptRefusalCategory::StaleExpectedRoot);
     // A protected history MUST never be edited through a credential-free
     // command. An untracked legacy queue remains opt-in and unchanged.
     const auto currentSource=history_.currentFidelity();
@@ -1270,6 +1275,8 @@ bool VersionedSculptBrush::mergeExactContacts(
     limits.requireMirrors=symmetric_;
     const auto result=prepareExactCutStep(
         old,contacts,limits,symmetric_?&collapser_.mirrors():nullptr);
+    lastStepResourceWork_.stageWall.initialGeometryMs=
+        seconds(started,Clock::now())*1000;
     if(!result.complete||!result.final||
        result.expected!=old||result.commit.revision.get()!=
            &result.final->revision())
@@ -1339,6 +1346,10 @@ bool VersionedSculptBrush::mergeExactContacts(
     // terminal, not an intermediate cut root or an XYZ-matched bystander.
     // Nothing below this block (not even speculative controller maps)
     // may change until this proof and its finite work limits succeed.
+    lastStepResourceWork_.stageWall.sourceGeometryMs=
+        seconds(started,Clock::now())*1000-
+        lastStepResourceWork_.stageWall.initialGeometryMs;
+    const auto queuedProofStarted=Clock::now();
     std::shared_ptr<const OriginalPatchLifetime> finalFidelity;
     if(currentSource) {
         try {
@@ -1401,6 +1412,9 @@ bool VersionedSculptBrush::mergeExactContacts(
                 "Queued first-original exact terminal policy refused: ")+error.what());
         }
     }
+    lastStepResourceWork_.stageWall.originalProofMs=
+        seconds(queuedProofStarted,Clock::now())*1000;
+    const auto queuedAdmissionStarted=Clock::now();
     const auto countAfter=[&](std::size_t current,std::ptrdiff_t delta) {
         if(delta<0) {
             const auto decrement=static_cast<std::size_t>(-(delta+1))+1;
@@ -1430,9 +1444,9 @@ bool VersionedSculptBrush::mergeExactContacts(
         measured.evaluated=true;
         if(const auto reason=refuseExcessStepWork(
                measured,collision_.stepResources);!reason.empty())
-            return reject(reason);
+            return reject(reason,SculptRefusalCategory::FiniteWorkBudget);
     }catch(const std::length_error& e) {
-        return reject(e.what());
+        return reject(e.what(),SculptRefusalCategory::FiniteWorkBudget);
     }
     // M41–M45: the queued original-root source candidate has executed
     // geometry, source replay, original witness, protected-feature,
@@ -1441,8 +1455,11 @@ bool VersionedSculptBrush::mergeExactContacts(
     if(const auto reason=refuseExactStageWork(
            lastStepResourceWork_.exactStage,collision_.exactStageLimits);
        !reason.empty())
-        return reject(reason);
+        return reject(reason,SculptRefusalCategory::FiniteWorkBudget);
+    lastStepResourceWork_.stageWall.admissionMs=
+        seconds(queuedAdmissionStarted,Clock::now())*1000;
     countExactGeometry.stop();
+    const auto queuedPublicationStarted=Clock::now();
     // The worker is the only writer of the sculpt controller maps,
     // history, and snapshots. Begin both speculative mirror journals;
     // any prepublication failure rolls both back without changing the
@@ -1502,6 +1519,9 @@ bool VersionedSculptBrush::mergeExactContacts(
     lastStepResourceWork_.published=true;
     lastStepResourceWork_.elapsedMilliseconds=
         seconds(started,Clock::now())*1000;
+    lastStepResourceWork_.stageWall.publicationAndHistoryMs=
+        seconds(queuedPublicationStarted,Clock::now())*1000;
+    recordStepDiagnostics();
     return true;
 }
 
