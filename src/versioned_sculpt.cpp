@@ -1051,7 +1051,7 @@ bool VersionedSculptBrush::mergeExactContacts(
     // A protected history MUST never be edited through a credential-free
     // command. An untracked legacy queue remains opt-in and unchanged.
     const auto currentSource=history_.currentFidelity();
-    if(originalFidelityRequired_&&!currentSource)
+    if((collision_.physicalExact||originalFidelityRequired_)&&!currentSource)
         return reject("Protected exact union lacks authenticated first-original source history");
     if(currentSource&&(!collision_.physicalExact||!firstOriginalAuthority_))
         return reject("Protected exact union requires physicalExact first-original authority");
@@ -1181,6 +1181,11 @@ bool VersionedSculptBrush::mergeExactContacts(
             verifyOriginalPatchPublicationTransition(
                 *currentSource,next,old,result.final,
                 budget.maxLivingDescendants);
+            // M29's append uses its immutable default finite proof cap,
+            // even if a caller configured a more permissive M21 policy.
+            // Preflight BOTH before CAS to avoid a post-CAS proof failure.
+            verifyOriginalPatchPublicationTransition(
+                *currentSource,next,old,result.final);
             (void)evaluateOriginalPatchIntent(
                 *currentSource,next,declaration,
                 budget.maximumProtectedDeviationInEdges,
