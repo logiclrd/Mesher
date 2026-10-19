@@ -3273,6 +3273,68 @@ void testM41ExactWholeStepQueryAccounting() {
                 work.refusal.find(category)!=std::string::npos,
                 "M41 category-specific physical one-under refuses BEFORE publication without source/mirror/history/dirty mutation");
     }
+    // Separate BVH broad-phase accounting is independent of a
+    // successful narrow-phase/winding witness. Guard each actual
+    // box/partition/candidate bucket, including the signed ray work.
+    require(physical.collisionBoxes>0&&
+            physical.collisionPartitions>0&&
+            physical.collisionCandidates>0&&
+            physical.windingBoxes>0&&
+            physical.windingPartitions>0,
+            "M41 genuine original-root physical work exercises nonzero broad-phase BVH categories");
+    auto exactBroad=exact;
+    exactBroad.exactStageLimits.maxCollisionBoxes=physical.collisionBoxes;
+    exactBroad.exactStageLimits.maxCollisionPartitions=
+        physical.collisionPartitions;
+    exactBroad.exactStageLimits.maxCollisionCandidates=
+        physical.collisionCandidates;
+    exactBroad.exactStageLimits.maxWindingBoxes=physical.windingBoxes;
+    exactBroad.exactStageLimits.maxWindingPartitions=
+        physical.windingPartitions;
+    auto broadAccepted=makePhysical(exactBroad);
+    broadAccepted.setOriginalPatchIntent(chosen.deliberate);
+    broadAccepted.stamp(dummy,input);
+    require(broadAccepted.completedUnions()==1,
+            "M41 physical all true broad-phase per-category BVH caps accept at exact complete source cost");
+    for(std::size_t i=0;i<5;++i) {
+        auto oneUnder=exactBroad;
+        const char* name="";
+        switch(i) {
+        case 0:
+            --oneUnder.exactStageLimits.maxCollisionBoxes;
+            name="collision box budget";break;
+        case 1:
+            --oneUnder.exactStageLimits.maxCollisionPartitions;
+            name="collision partition budget";break;
+        case 2:
+            --oneUnder.exactStageLimits.maxCollisionCandidates;
+            name="collision candidate budget";break;
+        case 3:
+            --oneUnder.exactStageLimits.maxWindingBoxes;
+            name="winding box budget";break;
+        default:
+            --oneUnder.exactStageLimits.maxWindingPartitions;
+            name="winding partition budget";break;
+        }
+        auto denied=makePhysical(oneUnder);
+        denied.setOriginalPatchIntent(chosen.deliberate);
+        const auto prev=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto current=denied.checkpoint();
+        const auto work=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                current.index==prev.index&&
+                current.verifiedOriginalFidelity==
+                    prev.verifiedOriginalFidelity&&
+                current.mirrorPairs==prev.mirrorPairs&&
+                work.evaluated&&work.refused&&!work.published&&
+                work.refusal.find(name)!=std::string::npos,
+                "M41 actual per-category broad-phase one-under physical work refuses atomically, independently of other limits");
+    }
     // Independently stage a complete source-certified queued Boolean,
     // not a preconstructed collision or a fabricated winding certificate.
     const auto mesh=twoIntersectingTetrahedra();
@@ -3357,6 +3419,68 @@ void testM41ExactWholeStepQueryAccounting() {
                     authentic.windingQueries&&
                 work.refusal.find(category)!=std::string::npos,
                 "M41 independently one-under queued collision/winding category leaves original-root CAS, first-source, history, mirrors and dirty owners unchanged");
+    }
+    require(authentic.collisionBoxes>0&&
+            authentic.collisionPartitions>0&&
+            authentic.collisionCandidates>0&&
+            authentic.windingBoxes>0&&
+            authentic.windingPartitions>0,
+            "M41 queued genuinely source-revalidated exact Boolean uses measurable full BVH broad-phase");
+    auto allQueue=queuePolicy;
+    allQueue.exactStageLimits.maxCollisionBoxes=authentic.collisionBoxes;
+    allQueue.exactStageLimits.maxCollisionPartitions=
+        authentic.collisionPartitions;
+    allQueue.exactStageLimits.maxCollisionCandidates=
+        authentic.collisionCandidates;
+    allQueue.exactStageLimits.maxWindingBoxes=authentic.windingBoxes;
+    allQueue.exactStageLimits.maxWindingPartitions=
+        authentic.windingPartitions;
+    auto acceptedBroad=queued(allQueue);
+    const auto acceptedRoot=acceptedBroad.snapshot();
+    require(acceptedBroad.mergeExactContacts(
+                acceptedRoot,fullOriginalContacts(*acceptedRoot),
+                limits,sources),
+            "M41 queued all true broad-phase caps accept independently at exactly completed full source work");
+    for(std::size_t i=0;i<5;++i) {
+        auto oneUnder=allQueue;
+        const char* name="";
+        switch(i) {
+        case 0:
+            --oneUnder.exactStageLimits.maxCollisionBoxes;
+            name="collision box budget";break;
+        case 1:
+            --oneUnder.exactStageLimits.maxCollisionPartitions;
+            name="collision partition budget";break;
+        case 2:
+            --oneUnder.exactStageLimits.maxCollisionCandidates;
+            name="collision candidate budget";break;
+        case 3:
+            --oneUnder.exactStageLimits.maxWindingBoxes;
+            name="winding box budget";break;
+        default:
+            --oneUnder.exactStageLimits.maxWindingPartitions;
+            name="winding partition budget";break;
+        }
+        auto denied=queued(oneUnder);
+        const auto old=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    old.index,fullOriginalContacts(*old.index),limits,
+                    sources),
+                "M41 real queued one-under broad-phase source limit cannot publish");
+        const auto after=denied.checkpoint();
+        const auto work=denied.lastStepResourceWork();
+        require(after.index==old.index&&
+                after.verifiedOriginalFidelity==
+                    old.verifiedOriginalFidelity&&
+                after.mirrorPairs==old.mirrorPairs&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.rejectedUnions()==1&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                work.refused&&work.evaluated&&!work.published&&
+                work.refusal.find(name)!=std::string::npos,
+                "M41 separately metered queued original-source broad-phase one-under refuses atomically");
     }
     std::cout<<"[m41] real physical queries="<<physical.collisionQueries
              <<" narrow="<<physical.collisionNarrowPhase
