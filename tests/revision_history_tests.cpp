@@ -345,20 +345,28 @@ void testM29BoundedAuthenticatedLifetimeHistoryAndRecovery() {
         SculptCollisionSettings physical;
         physical.physicalExact=true;
         refused=false;
+        phase("M29 untrusted V13 constructor (expected refusal) BEGIN");
         try {(void)VersionedSculptBrush(
             loaded,.01,{},{},{},256,{},physical);}
         catch(const std::logic_error&){refused=true;}
+        phase("M29 untrusted V13 constructor (expected refusal) END");
         check(refused,
               "M29 protected physicalExact cannot reset original witnesses at recovered terminal root");
         // An explicitly trusted in-memory handoff DOES retain exactly
         // the original opaque first-root source certificate.
-        VersionedSculptBrush restored(
-            protectedSnapshot,.01,{},{},{},256,{},physical);
-        check(restored.snapshot()==tracked.current()&&
-              restored.checkpoint().originalFidelityRequired&&
-              restored.checkpoint().verifiedOriginalFidelity==
-                  tracked.currentFidelity(),
-              "M29 in-memory authenticated handoff preserves source identity and protected requirement");
+        phase("M29 trusted in-memory constructor BEGIN");
+        {
+            VersionedSculptBrush restored(
+                protectedSnapshot,.01,{},{},{},256,{},physical);
+            phase("M29 trusted in-memory constructor END");
+            check(restored.snapshot()==tracked.current()&&
+                  restored.checkpoint().originalFidelityRequired&&
+                  restored.checkpoint().verifiedOriginalFidelity==
+                      tracked.currentFidelity(),
+                  "M29 in-memory authenticated handoff preserves source identity and protected requirement");
+            phase("M29 trusted brush destructor BEGIN");
+        }
+        phase("M29 trusted brush destructor END");
     }catch(...) {
         std::error_code ec;std::filesystem::remove(file,ec);
         throw;
