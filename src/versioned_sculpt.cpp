@@ -602,6 +602,8 @@ void VersionedSculptBrush::stamp(
         timings_={};
         ++rejected_;
         ++completed_;
+        if(collision_.physicalExact||collision_.enabled)
+            contact_.observe(std::nullopt);
         return;
     }
     if(!physicalIntentRefusal_.empty()) {
@@ -614,6 +616,11 @@ void VersionedSculptBrush::stamp(
         timings_={};
         ++rejected_;
         ++completed_;
+        // An invalid caller scope is not an accepted Clean V13 result.
+        // It must interrupt the consecutive quiet sequence even though
+        // the invalid request is declined before private deformation.
+        if(collision_.physicalExact||collision_.enabled)
+            contact_.observe(std::nullopt);
         return;
     }
     const auto inflated=inflate_.stamp(old,areas,partitionCapacity_);
