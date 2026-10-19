@@ -136,6 +136,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_history_tests tests/revision_history_tests.cpp)
     target_link_libraries(mesher_history_tests PRIVATE mesher_mesh)
     add_test(NAME persistent_history_checkpoints COMMAND mesher_history_tests)
+    # A normal execution is ~0.01s. Bound intermittent hangs, so CTest
+    # records a failing diagnostic instead of blocking CI indefinitely.
+    set_tests_properties(persistent_history_checkpoints PROPERTIES TIMEOUT 90)
     add_executable(mesher_spatial_tests tests/spatial_tests.cpp)
     target_link_libraries(mesher_spatial_tests PRIVATE mesher_mesh)
     add_test(NAME spatial_queries COMMAND mesher_spatial_tests)

@@ -293,7 +293,13 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
 AsyncCheckpointWriter::AsyncCheckpointWriter()
     :worker_([this](std::stop_token token){run(token);}) {}
 AsyncCheckpointWriter::~AsyncCheckpointWriter() {
-    worker_.request_stop();
+    // ready_.wait() tests stop_requested() under mutex_. Synchronize
+    // cancellation with that lock so an idle writer cannot miss the
+    // wakeup between testing its predicate and sleeping.
+    {
+        std::lock_guard lock(mutex_);
+        worker_.request_stop();
+    }
     ready_.notify_all();
     worker_.join();
 }

@@ -1683,3 +1683,32 @@ single-component join. All earlier M40/M41/M43 tests preserved.
 Full post-documentation PR-head and merged-main CI remain gates.
 M45/M46, ORIGINAL M42, ORIGINAL M13, M14/M15/V18/V19 OPEN.
 `docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`.
+
+## October 19, 2026 — V17-M45 first-original feature/history operation work
+
+M45 is the third independent implemented peer in the precommitted
+M43 → M44 → M45 → M46 → ORIGINAL M42 → ORIGINAL M13 flat sequence.
+Nine independently finite checked-saturating real operation categories
+now observe immutable per-original anchor identity, living owned child
+proof, whole-source certified retirement, actual seven-first-original
+witness × owned child triangle distance work, caller intention and
+unscoped exposed/reversed-cavity protected decisions, original ID-based
+mirrored-orbit proof, M29 current root and authenticated transition
+rechecks across all real repeated private source verification.
+A local preflight refusal cannot claim distance comparisons; generic
+witness sampling and cached evidence cannot become false source work.
+
+Genuine protected 72-original reflected normal-driven source union and
+independent queued authenticated asymmetric c1/c2/c3/M03/d2 positive
+accept their calibrated exact all-category bounds; each genuinely
+nonzero category independently one-under refuses before root CAS
+without changing source proof, mirrors, immutable COW, dirty or history.
+The direct original lifetime audit is also reexecuted twice, proving
+twice actual nearest-triangle work and zero phantom comparison cost on
+a subsequent preflight refusal.
+
+Substantive PR #95 [run #39318060899](https://github.com/logiclrd/Mesher/actions/runs/39318060899)
+is GCC/Clang/MSVC warnings-as-errors GREEN, 23/23 CPU suites and
+applicable benchmarks. Exact final PR-head and separate merged-main
+CI still gate acceptance. See docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
+M46 and ORIGINAL M42/M13, M14, M15, V18/V19 remain unchecked.

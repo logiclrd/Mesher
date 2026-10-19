@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/versioned_refine.hpp"
 #include "mesher/versioned_collapse.hpp"
 #include "mesher/repair_intersection.hpp"
@@ -108,6 +109,9 @@ SurfaceWitnessAudit auditSurfaceWitnesses(
         double closest=std::numeric_limits<double>::infinity();
         for(const auto& triangle:triangles) {
             ++audit.distanceTests;
+            if(measuringFirstOriginalWitnesses&&executingExactStageWork)
+                executingExactStageWork->add(
+                    executingExactStageWork->originalWitnessTriangles,1);
             closest=std::min(closest,closestSquared(
                 witness,triangle[0],triangle[1],triangle[2]));
         }
