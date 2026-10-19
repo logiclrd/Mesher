@@ -4970,3 +4970,34 @@ Only the ORIGINAL M23 checkbox is closed; original
 M12 plus M13–M15, V18/V19 are still unchecked.
 No M14 exceptional post-CAS or desktop M15 opt-in
 claims are inferred.
+
+
+## October 19, 2026 — V17-M35 repeated local physically triggered source unions
+
+Original M12 was intentionally NOT checked after its M19–M23
+component acceptance. M35 adds the missing *positive* repeated
+actual-union evidence in overlapping sculpt support: two real
+closed reflected tetra contact bands, originally disjoint,
+whose local six-unit brush spheres select some of the SAME
+original stable source vertices. Two sequential physical
+normal-driven Steps on ONE authenticated `physicalExact`
+brush produce independently certified, source-owned full
+c1/c2/c3/M03/d2 exact joins with a cumulative first-original
+M21 post-terminal audit. Two distinct immutable published
+roots, two history entries, fully reflected live mirror
+identities, old BVH pointer stability, correct dirty
+partition publication and exact two-step undo/redo pass.
+Both Contacts belong to one active diagnostic episode.
+No source proximity fallback or classifier permission
+cache is introduced.
+
+[Substantive Actions #39204571996](https://github.com/logiclrd/Mesher/actions/runs/39204571996)
+passed GCC/Clang/MSVC and all 23 CPU suites plus applicable
+benchmarks. See `docs/V17_M35_REPEATED_LOCAL_PHYSICAL_UNIONS.md`.
+
+M35's local overlapping brush support is not yet a theorem of
+same-component 3-body joining. M36 still must combine deliberate
+deformation and first-original protected outer/reversed-cavity
+walls, finite exact/one-under budgets, actual episode
+Clean/Unknown and FIFO recovery with these real positives.
+**Original M12 is OPEN**; M13–M15 and V18–V19 remain untouched.

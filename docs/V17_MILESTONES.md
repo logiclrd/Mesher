@@ -1406,3 +1406,30 @@ OPEN**; original M12 is not implied by the M23
 diagnostic gate. Default-disabled desktop
 Merge geometry remains disabled; M14 post-CAS
 injected fault recovery is separate.
+
+
+## October 19, 2026 — V17-M35 overlapping local real physical union positives
+
+**M35 independently accepted in PR #83**, substantive
+[Actions #39204571996](https://github.com/logiclrd/Mesher/actions/runs/39204571996)
+GREEN GCC/Clang/MSVC, full 23 CPU suites and benchmarks. Unlike
+the distant paired-source M11 towers, two initially disjoint
+closed reflected contact bands now share ORIGINAL live vertex
+candidates within the same overlapping sculpt brush neighborhood.
+Two separate actual normal-driven physical stamps on one
+`physicalExact` source-anchored brush each pass complete
+original-source V13/c1/c2/c3/M03/d2 certified Boolean join,
+M21 finite post-d2 first-original descendant/edge-scale audit
+and M29 immutable history/publication. Two different final
+root IDs, increasing source retirements, exact mirrored IDs,
+dirty renderer owners, same still-active Contact episode, old
+picker/BVH readers and two-step undo/redo all pass.
+The fixture does not claim the two joins use one already welded
+component, or any arbitrary multi-shell Boolean. See
+`docs/V17_M35_REPEATED_LOCAL_PHYSICAL_UNIONS.md`.
+
+**M36 and original V17-M12 remain OPEN** for simultaneous
+protected exposed/reversed-cavity/outer walls, intentional
+physical movement, cumulative source drift, work budgets,
+Unknown/Clean episodes, late accepted FIFO recovery and
+independent final acceptance. M13–M15, V18–V19 are separate.
