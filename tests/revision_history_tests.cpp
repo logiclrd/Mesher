@@ -374,6 +374,18 @@ void testM29BoundedAuthenticatedLifetimeHistoryAndRecovery() {
     std::error_code ec;std::filesystem::remove(file,ec);
 }
 
+// Regress the idle-worker stop-notification race independently of disk
+// writes or any geometric data. Repeated near-immediate destruction used
+// to race between predicate=false and condition_variable::wait().
+void testRapidIdleWorkerShutdown() {
+    for(int i=0;i<32;++i) {
+        RevisionRetirementQueue retirement(2);
+        AsyncCheckpointWriter checkpoint;
+        // Both workers are immediately destroyed with empty queues.
+        // No arbitrary sleeps, randomized inputs, or timing assertions.
+    }
+}
+
 void testAsyncCheckpointCoalescing() {
     const auto dir=std::filesystem::temp_directory_path()/
         ("mesher-v12-async-"+std::to_string(
@@ -432,6 +444,7 @@ int main() {
         run("checkpoint roundtrip",testCheckpointRoundTripAndRecovery);
         run("M29 authenticated lifetime",testM29BoundedAuthenticatedLifetimeHistoryAndRecovery);
         run("async checkpoint coalescing",testAsyncCheckpointCoalescing);
+        run("rapid idle worker shutdown",testRapidIdleWorkerShutdown);
         std::cout<<"V12 history and checkpoint regressions passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"V12 history/checkpoint failure: "<<e.what()<<'\n';

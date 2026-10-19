@@ -11,7 +11,14 @@ RevisionRetirementQueue::RevisionRetirementQueue(std::size_t maxPending)
 RevisionRetirementQueue::~RevisionRetirementQueue() {
     // Stop means finish everything currently pending and then exit. A caller
     // can hold an old root beyond queue destruction: shared ownership works.
-    worker_.request_stop();
+    // The worker checks stop_requested() while holding mutex_.
+    // Publish cancellation under the SAME lock: otherwise the worker
+    // can check false, miss notify_all before entering wait(), and
+    // deadlock this join even when the retirement queue is empty.
+    {
+        std::lock_guard lock(mutex_);
+        worker_.request_stop();
+    }
     available_.notify_all();
     worker_.join();
 }
