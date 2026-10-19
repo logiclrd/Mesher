@@ -582,6 +582,43 @@ VersionedSculptBrush::VersionedSculptBrush(
     }
 }
 
+void VersionedSculptBrush::recordStepDiagnostics() noexcept {
+    auto& total=resourceTotals_;
+    const auto& step=lastStepResourceWork_;
+    const auto sum=[](std::size_t& dst,std::size_t n) {
+        if(n>std::numeric_limits<std::size_t>::max()-dst)
+            dst=std::numeric_limits<std::size_t>::max();
+        else dst+=n;
+    };
+    sum(total.attempts,1);
+    if(step.path==SculptStepResourcePath::PhysicalStamp)
+        sum(total.physicalAttempts,1);
+    else if(step.path==SculptStepResourcePath::QueuedExact)
+        sum(total.queuedExactAttempts,1);
+    sum(total.attemptedPrivateCopiedBytes,step.privateCopiedBytes);
+    sum(total.attemptedChangedIdReferences,step.changedIdReferences);
+    sum(total.attemptedDirtyPartitions,step.finalDirtyPartitions);
+    total.attemptedExact.accumulate(step.exactStage);
+    total.observedAttemptMilliseconds+=step.elapsedMilliseconds;
+    if(step.refused) {
+        sum(total.refused,1);
+        switch(step.refusalCategory) {
+        case SculptRefusalCategory::CallerOrProvenance:sum(total.provenanceRefusals,1);break;
+        case SculptRefusalCategory::GeometryOrTopology:sum(total.geometryRefusals,1);break;
+        case SculptRefusalCategory::FiniteWorkBudget:sum(total.budgetRefusals,1);break;
+        case SculptRefusalCategory::StaleExpectedRoot:sum(total.staleRefusals,1);break;
+        case SculptRefusalCategory::None:break;
+        }
+    }else if(step.published) {
+        sum(total.published,1);
+        sum(total.publishedPrivateCopiedBytes,step.privateCopiedBytes);
+        sum(total.publishedChangedIdReferences,step.changedIdReferences);
+        sum(total.publishedDirtyPartitions,step.finalDirtyPartitions);
+        total.publishedExact.accumulate(step.exactStage);
+        total.observedPublishedMilliseconds+=step.elapsedMilliseconds;
+    }else sum(total.unchanged,1);
+}
+
 std::string VersionedSculptBrush::validateOriginalIntentSources(
     const std::vector<FaceId>& originals) const {
     if(originals.empty())return {};
