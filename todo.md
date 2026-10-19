@@ -1099,8 +1099,30 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   merging of one already joined patch, universal N-way
   topology or live desktop activation.
   See docs/V17_M11_REPEATED_PHYSICAL_UNIONS.md.
-- [ ] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**
+- [x] **V17-M12 — Active original-anchored exposed-feature and hysteresis policy.**
   Cumulative geometry acceptance versus the first reference, intentional deformation exceptions, cavity protection, proven episode reset and stable repeated-contact decisions.
+  **Original M12 accepted in PR #88, substantive CI #39272006623**:
+  GCC/Clang/MSVC 23 CPU suites and applicable benchmarks green.
+  Independently accepted M19–M23 and M35–M39/original M36 genuine
+  local physicalExact and 4D protected policy reviewed criterion by
+  criterion. NEW final-root M12 test reproduces two true source-proven
+  same-neighborhood normal-driven joins and recaptures ALL 72 original
+  FaceId vertex incidences, original shortest edge and SEVEN immutable
+  witness XYZ; complete exact 7×living descendant post-d2 source work
+  accepts, one-under, stale intermediate reference and forged
+  accepted-transition certificate refuse. All forty first-root
+  unscoped original FaceIds/XYZ, mirrored signed-winding 0/+1/0
+  protected outer/cavity walls, original reflected source orbits and
+  immutable old/intermediate/final picker roots survive.
+  Original M36 independently proves ONE real async 4D worker history
+  of actual two local physical joins, first accepted protected drift,
+  cumulative second refusal, Unknown-interrupted Clean/three-NEW
+  Clean closure, later source-exact recontact and FIFO recovery,
+  atomic COW/mirror/dirty/history and pointer-exact undo/redo.
+  Evidence: `docs/V17_M12_ORIGINAL_FINAL_ACCEPTANCE.md`.
+  This is NOT universal three-body Boolean, two-sided continuous
+  Hausdorff, exact CCD, or enabled desktop UI; M13–M15/V18/V19
+  remain OPEN.
 - [ ] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
   Winding/collision/arrangement/contour/join/feature/resource budgets with exact-boundary refusals and honest completion, time, memory-proxy and rejection accounting.
 - [ ] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
