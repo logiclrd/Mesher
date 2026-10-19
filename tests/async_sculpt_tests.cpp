@@ -2878,7 +2878,7 @@ void testM12OriginalFinalFirstReferenceAcceptance() {
         }
         living+=entry.second.size();
         for(const auto child:entry.second)
-            require(final->maybeFace(child),
+            require(static_cast<bool>(final->maybeFace(child)),
                     "Original M12 every authenticated source living child really exists in exact terminal COW root");
     }
     const auto complete=auditOriginalPatchLifetime(
