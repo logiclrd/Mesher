@@ -45,6 +45,46 @@ struct ExactStageWork {
             overflow=true;
         }else target+=count;
     }
+    // Aggregate true performed counts per independent category; saturation
+    // prevents rollover. In particular, do not derive this from final topology.
+    void accumulate(const ExactStageWork& work) noexcept {
+        overflow=overflow||work.overflow;
+        add(collisionQueries,work.collisionQueries);
+        add(collisionBoxes,work.collisionBoxes);
+        add(collisionPartitions,work.collisionPartitions);
+        add(collisionCandidates,work.collisionCandidates);
+        add(collisionNarrowPhase,work.collisionNarrowPhase);
+        add(windingQueries,work.windingQueries);
+        add(windingBoxes,work.windingBoxes);
+        add(windingPartitions,work.windingPartitions);
+        add(windingTriangles,work.windingTriangles);
+        add(windingRays,work.windingRays);
+        add(arrangementPairTests,work.arrangementPairTests);
+        add(arrangementPredicates,work.arrangementPredicates);
+        add(contourEdgeProbes,work.contourEdgeProbes);
+        add(contourBoundaryEdges,work.contourBoundaryEdges);
+        add(contourLoopVisits,work.contourLoopVisits);
+        add(closureRingTests,work.closureRingTests);
+        add(closurePairCandidates,work.closurePairCandidates);
+        add(closureSampleTests,work.closureSampleTests);
+        add(closureDpTransitions,work.closureDpTransitions);
+        add(seamTraceProbes,work.seamTraceProbes);
+        add(seamMatchedIntervals,work.seamMatchedIntervals);
+        add(seamWeldComparisons,work.seamWeldComparisons);
+        add(seamRefinePredicates,work.seamRefinePredicates);
+        add(seamRefineMatches,work.seamRefineMatches);
+        add(seamMirrorOrbitChecks,work.seamMirrorOrbitChecks);
+        add(seamFaceRewires,work.seamFaceRewires);
+        add(originalAnchorProofs,work.originalAnchorProofs);
+        add(originalDescendantProofs,work.originalDescendantProofs);
+        add(originalRetirementProofs,work.originalRetirementProofs);
+        add(originalWitnessTriangles,work.originalWitnessTriangles);
+        add(originalIntentChecks,work.originalIntentChecks);
+        add(originalProtectedFeatures,work.originalProtectedFeatures);
+        add(originalMirrorOrbitChecks,work.originalMirrorOrbitChecks);
+        add(originalHistoryRoots,work.originalHistoryRoots);
+        add(originalHistoryTransitions,work.originalHistoryTransitions);
+    }
     void collision(std::size_t boxes,std::size_t partitions,
                    std::size_t candidates,std::size_t narrow) noexcept {
         add(collisionQueries,1);

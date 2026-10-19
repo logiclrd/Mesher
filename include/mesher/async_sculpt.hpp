@@ -46,6 +46,10 @@ public:
         StampTimings timings{};
         StampDetails details{};
         SculptStepResourceWork stepResources{};
+        SculptResourceTotals resources{}; // current live session, not disk telemetry
+        std::size_t completedUndos{},completedRedos{},checkpointCommands{};
+        std::size_t snapshotPublications{},lastSnapshotDirtyOwners{};
+        std::size_t totalSnapshotDirtyOwners{};
         double lastWorkerStampMs=0;
         std::size_t publishedRevisions=0;
         std::size_t modifiedPartitions=0;
@@ -137,6 +141,9 @@ private:
     // Worker-only accumulation between throttled publications.
     std::vector<PartitionId> unpublishedDirty_;
     std::chrono::steady_clock::time_point lastPublish_{};
+    std::size_t completedUndos_{},completedRedos_{},checkpointCommands_{};
+    std::size_t snapshotPublications_{},lastSnapshotDirtyOwners_{};
+    std::size_t totalSnapshotDirtyOwners_{};
     std::jthread worker_;
 };
 } // namespace mesher

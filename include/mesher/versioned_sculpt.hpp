@@ -115,6 +115,12 @@ struct SculptStepResourceLimits {
     std::size_t maxFinalDirtyPartitions=4096;
 };
 enum class SculptStepResourcePath {None, PhysicalStamp, QueuedExact};
+enum class SculptRefusalCategory {None,CallerOrProvenance,GeometryOrTopology,FiniteWorkBudget,StaleExpectedRoot};
+struct SculptStageWallObservations {
+    // Wall-clock OBSERVATIONS, not deterministic time upper bounds.
+    double initialGeometryMs{},sourceGeometryMs{},originalProofMs{};
+    double admissionMs{},publicationAndHistoryMs{};
+};
 struct SculptStepResourceWork {
     SculptStepResourcePath path{SculptStepResourcePath::None};
     bool evaluated{}; // a complete candidate was measured
@@ -125,7 +131,21 @@ struct SculptStepResourceWork {
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
     ExactStageWork exactStage{}; // all actual M41–M45 geometry and original-source proof operations
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
+    SculptStageWallObservations stageWall{};
+    SculptRefusalCategory refusalCategory{SculptRefusalCategory::None};
     std::string refusal; // empty on a published/accepted candidate
+};
+// Current in-memory worker or direct-brush session only. Disk checkpoints
+// never authenticate or restore these telemetry accumulators.
+struct SculptResourceTotals {
+    std::size_t attempts{},physicalAttempts{},queuedExactAttempts{};
+    std::size_t published{},refused{},unchanged{};
+    std::size_t provenanceRefusals{},geometryRefusals{},budgetRefusals{},staleRefusals{};
+    std::size_t attemptedPrivateCopiedBytes{},publishedPrivateCopiedBytes{};
+    std::size_t attemptedChangedIdReferences{},publishedChangedIdReferences{};
+    std::size_t attemptedDirtyPartitions{},publishedDirtyPartitions{};
+    ExactStageWork attemptedExact{},publishedExact{};
+    double observedAttemptMilliseconds{},observedPublishedMilliseconds{};
 };
 struct SculptCollisionSettings {
     bool enabled=false; // V16 approximate classifier; independent policy
@@ -265,6 +285,9 @@ public:
     const SculptStepResourceWork& lastStepResourceWork() const noexcept {
         return lastStepResourceWork_;
     }
+    SculptResourceTotals resourceTotals() const noexcept {
+        return resourceTotals_;
+    }
     const StampDetails& lastDetails() const noexcept {return details_;}
     std::size_t publishedRevisions() const noexcept {return publishedRevisions_;}
     std::size_t modifiedPartitions() const noexcept {return modifiedPartitions_;}
@@ -275,6 +298,7 @@ public:
     }
 
 private:
+    void recordStepDiagnostics() noexcept;
     std::string validateOriginalIntentSources(
         const std::vector<FaceId>& originals) const;
     VersionedSculptBrush(PartitionedMeshImport import,std::size_t initialCount,
@@ -309,6 +333,7 @@ private:
     StampTimings timings_{};
     StampDetails details_{};
     SculptStepResourceWork lastStepResourceWork_{};
+    SculptResourceTotals resourceTotals_{};
     // A checkpoint restored without an authenticated FIRST-original
     // certificate must never automatically restart fidelity at its
     // current terminal root. M30 installs the active pre-CAS guard.
