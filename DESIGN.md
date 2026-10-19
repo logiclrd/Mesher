@@ -5162,3 +5162,38 @@ multi-shell source and ONE actual live worker timeline. The
 ORIGINAL M12 final integrated review, M13, M14, M15, V18, V19
 are still OPEN. See
 `docs/V17_M36_ORIGINAL_COMBINED_PROTECTED_ACCEPTANCE.md`.
+
+## October 19, 2026 — ORIGINAL V17-M12 final active first-source exposed/cavity and Contact-episode policy
+
+Original M12 closes the SINGLE existing historical checkbox after
+independently verified M19–M23, M35–M39, and original M36.
+PR #88, substantive Actions #39272006623: GCC/Clang/MSVC
+warnings-as-errors all 23 CPU suites plus applicable benchmarks GREEN.
+A NEW standalone regression reproduces two real M37 original-root
+symmetric physical local unions, then recomputes all 72 original
+FaceIds, their first-original vertex incidences, own shortest-edge
+normalization and immutable seven XYZ witnesses. The complete
+post-d2 source-owned live-descendant audit requires precisely
+7 × sum(living descendants) work: exact allowed, ONE-under refused.
+Attempting to rebase to the intermediate root or forge an accepted
+source transition counter refuses; first/intermediate/terminal
+immutable COW pickers survive. All 40 unscoped original outer,
+third-tower and inward reversed-cavity face and vertex identities
+remain untouched, original 0/+1/0 winding on both reflected shells
+is preserved, and final original source mirror pairs remain exact.
+
+The original M36 separately verifies the stronger live SINGLE
+4D asynchronous history: two genuine local source-certified
+physical unions in overlapping brush support, explicitly scoped
+32-of-72 FIRST FaceId intent, first small allowed protected outer-wall
+movement, second cumulatively excessive original-edge drift refused
+specifically by terminal source policy (not work exhaustion),
+Contact/Clean/Clean/Unknown/Unknown/three NEW accepted Clean closure,
+new local physical Contact, late invalid scope Unknown, and valid
+source-scoped FIFO recovery; accepted and refused root/history/
+renderer dirty/checkpoint/mirror identities are authoritative.
+The original policy is now integrated, not universally generalized.
+No claim of same-component arbitrary three-body joins, whole imported
+mesh semantics, continuous Hausdorff or swept-volume CCD. Desktop
+Merge geometry stays default OFF. M13, M14, M15, V18, V19 OPEN.
+See `docs/V17_M12_ORIGINAL_FINAL_ACCEPTANCE.md`.
