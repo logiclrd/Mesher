@@ -5498,6 +5498,7 @@ void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
 // indexed root and submit it once, or refuse without any published owner.
 void testM47BoundedAuthenticatedLiveMergeDiscovery() {
     const auto mesh=twoIntersectingTetrahedra();
+    const auto originals=firstOriginalFaces(mesh);
     const auto limits=supportedUnionLimits(false);
     SculptCollisionSettings protectedPolicy;
     protectedPolicy.physicalExact=true;
@@ -5515,7 +5516,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
                                {},{},{},false,{},protectedPolicy);
     const auto before=accepted.initialRevision();
     const auto oldPicker=before->pickingRootIdentity();
-    accepted.mergeDiscoveredContacts(before,limits);
+    accepted.mergeDiscoveredContacts(before,originals,limits);
     wait(accepted,1);
     const auto good=accepted.status();
     require(good.liveMergeAccepted==1&&good.liveMergeRefusals==0&&
@@ -5532,7 +5533,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
             merged->index->retiredFaceCount()>0,
             "M47 renderer receives only one committed indexed root with correct COW dirty owner set");
     const auto rootAfter=accepted.initialRevision();
-    accepted.mergeDiscoveredContacts(before,limits);
+    accepted.mergeDiscoveredContacts(before,originals,limits);
     wait(accepted,2);
     const auto stale=accepted.status();
     require(stale.liveMergeAccepted==1&&stale.liveMergeRefusals==1&&
@@ -5573,7 +5574,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
     AsyncSculptWorker off(mesh,.025,.006,.2,
                           {},{},{},false);
     const auto offRoot=off.initialRevision();
-    off.mergeDiscoveredContacts(offRoot,limits);
+    off.mergeDiscoveredContacts(offRoot,originals,limits);
     wait(off,1);
     const auto offStatus=off.status();
     require(offStatus.liveMergeRefusals==1&&offStatus.liveMergeAccepted==0&&
@@ -5589,7 +5590,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
     auto narrow=SculptSourceContactLimits{};
     narrow.maxVertices=3;
     const auto boundedRoot=bounded.initialRevision();
-    bounded.mergeDiscoveredContacts(boundedRoot,limits,narrow);
+    bounded.mergeDiscoveredContacts(boundedRoot,originals,limits,narrow);
     wait(bounded,1);
     const auto budget=bounded.status();
     require(budget.liveMergeRefusals==1&&budget.liveMergeAccepted==0&&
@@ -5599,7 +5600,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
             bounded.initialRevision()==boundedRoot&&
             !bounded.takeSnapshot(),
             "M47 finite complete-root candidate work exhaustion refuses, never processes truncated contact subset");
-    bounded.mergeDiscoveredContacts(boundedRoot,limits);
+    bounded.mergeDiscoveredContacts(boundedRoot,originals,limits);
     wait(bounded,2);
     require(bounded.status().liveMergeAccepted==1&&
             bounded.status().liveMergeRefusals==1&&
@@ -5612,7 +5613,7 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
     AsyncSculptWorker clean(empty,.025,.006,.2,
                             {},{},{},false,{},protectedPolicy);
     const auto cleanRoot=clean.initialRevision();
-    clean.mergeDiscoveredContacts(cleanRoot,limits);
+    clean.mergeDiscoveredContacts(cleanRoot,firstOriginalFaces(empty),limits);
     wait(clean,1);
     const auto absent=clean.status();
     require(absent.liveMergeRefusals==1&&absent.liveMergeAccepted==0&&
