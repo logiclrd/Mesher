@@ -2411,6 +2411,39 @@ void testM33AuthenticatedQueuedOriginalExactUnion() {
     require(denial.lastRejection.find("original")!=std::string::npos,
             "M33 one-under original-witness rejection is diagnosable");
 
+    // The independent M26 complete child/source-face verification is
+    // cumulative: its exact demonstrated work succeeds above, but one
+    // fewer unit must refuse BEFORE any publication or undo cursor edit.
+    auto oneUnderSource=policy;
+    oneUnderSource.originalTerminal.maxCumulativeFaceEvidence=
+        checked.sourceFaceEvidence-1;
+    AsyncSculptWorker evidenceLimited(
+        mesh,.025,.006,.2,{},{},{},false,{},oneUnderSource);
+    const auto evidenceOld=evidenceLimited.initialRevision();
+    evidenceLimited.mergeExactContacts(
+        evidenceOld,fullOriginalContacts(*evidenceOld),limits,sources);
+    waitForUnion(evidenceLimited,1);
+    require(evidenceLimited.status().rejectedUnions==1&&
+            evidenceLimited.status().publishedRevisions==0&&
+            evidenceLimited.status().history.undoDepth==0&&
+            !evidenceLimited.takeSnapshot(),
+            "M33 one-under complete M26 cut source-face evidence refuses before CAS");
+
+    // A plain V12 terminal-only checkpoint has no first-original
+    // certificate. Selecting physicalExact MUST NOT let its explicit
+    // queued union become a legacy untracked path.
+    const auto raw=partitionFlatMesh(mesh,256);
+    VersionedSculptBrush sourceLess(
+        {RegionTopologyIndex::build(raw.revision),{},mesh.vertices.size()},
+        .006,{},{},{},256,{},policy);
+    const auto rawRoot=sourceLess.snapshot();
+    require(!sourceLess.mergeExactContacts(
+            rawRoot,fullOriginalContacts(*rawRoot),limits,
+            raw.flatIndex.faceIds)&&
+            sourceLess.snapshot()==rawRoot&&
+            sourceLess.historyStatistics().undoDepth==0,
+            "M33 opt-in physicalExact cannot bypass missing original proof on unprotected V12 recovery");
+
     AsyncSculptWorker worker(mesh,.025,.006,.2,{},{},{},false,{},policy);
     const auto before=worker.initialRevision();
     const auto picking=before->pickingRootIdentity();
