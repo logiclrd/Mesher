@@ -1595,3 +1595,23 @@ One real async worker transports the queued accepted measurements.
 
 Original M13 and flat remaining M41/M42, M14/M15, V18/V19 OPEN.
 See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
+
+## October 19, 2026 — V17-M41 aggregate winding/collision/arrangement implementation in review
+
+PR #91 implements per-attempt counted actual winding,
+collision and multi-section arrangement operations at their
+own work sites, including original M26 repeat certification,
+with separate finite pre-CAS category limits and honest
+attempted vs published async diagnostics. New regressions
+include actual symmetric protected M39 source physical
+Boolean, authenticated independent queued Boolean, and
+the original genuine two-curve three-solid arrangement
+plan. Exact-measured category budgets allow; one-under
+category refusals must leave COW/source/mirror/history/
+renderer unchanged. All 12 operation dimensions and
+noexcept overflow accounting are documented in
+`docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`.
+
+**Status is OPEN until full final PR-head GCC/Clang/MSVC and
+independent merged-main tests succeed**; M42, original
+M13, M14–M15, V18 and V19 remain OPEN.
