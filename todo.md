@@ -1131,7 +1131,7 @@ independently instead of leaving partially implemented M13 open or
 creating recursive subtasks. Record the COMPLETE ordered flat sequence
 before beginning code:
 
-- [ ] **V17-M40 — Whole-private-Step COW resource admission and attempt accounting.**
+- [x] **V17-M40 — Whole-private-Step COW resource admission and attempt accounting.**
   Establish one explicit conservative resource envelope across
   Inflate/refine/collapse, optional V13/c1/c2/c3/d2 exact operations
   and queued private exact operations (not merely a single internal
@@ -1143,6 +1143,19 @@ before beginning code:
   vs published counts and zero on unavailable evidence in both direct
   brush and async worker diagnostics. Opt-in policy only; no
   unbounded legacy default change, desktop still default off.
+  **M40 tested in PR #89, substantive Actions #39277749517**:
+  archived GCC/Clang/MSVC logs show 23/23 CPU tests passing,
+  applicable benchmarks and no compiler errors; exact final-head
+  and post-merge CI still gate merge. Physical original-source
+  certified mirrored normal-driven and genuine queued source-exact
+  union both accept all THREE resource caps exactly equal to actual
+  full private COW copy bytes, changed ID references and final dirty
+  owner counts. Each separate ONE-under physical and queued category
+  refuses BEFORE root CAS with old M29 source, mirrors, history and
+  renderer unchanged; early bad source intent reports no fabricated
+  work, complete rejected candidate retains attempted costs.
+  `Status.stepResources` forwards real FIFO accepted work.
+  See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
 - [ ] **V17-M41 — Combined finite winding/collision/arrangement work.**
   Trace actual preflight, c1/c2/c3 original and post-cut source work,
   uncut winding, final local collision and arrangement/junction
