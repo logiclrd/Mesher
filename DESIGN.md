@@ -4639,3 +4639,81 @@ See `docs/V17_M32_PHYSICAL_TERMINAL_POLICY.md`. Substantive
 passed GCC, Clang, MSVC warnings-as-errors, all 23 CPU test suites
 and applicable benchmarks. M33, M34, unchanged M30/M22, M23/M12,
 M13–M15, V18 and V19 remain open.
+
+
+## October 18, 2026 — V17-M33 exact queued original-source pre-CAS gate
+
+**Accepted PR #78**: the explicit `AsyncSculptWorker::mergeExactContacts`
+command already carries a complete explicit contact set, old immutable
+expected root and M31 FIRST-original FaceId nominations. Until M33,
+M32 necessarily refused such commands on authenticated M29 history,
+because a source-less append after CAS could not meet M29's immutable
+predecessor certification contract. M33 adds the missing full terminal
+source proof rather than weakening history.
+
+The exact queued worker still prepares all c1/c2/c3/M03/d2 local
+operations in ONE private `ExactCutStep`, with its final welded index
+the ONLY CAS target. It checks existing net original mirror
+retirement/insertion and caller validator before speculative changes.
+If the session is source-authenticated, it requires the actual
+M29 `currentFidelity()` and matching `expected` published COW
+root; they must retain the exact same FIRST-original anchor root as
+the session authority. The M26 `advanceOriginalPatchLifetime`
+recomputes complete cut child ancestry, classified source ownership,
+whole-source Buried/Outside retired originals, final d2 stable FaceId
+and mirror journals, and cumulative evidence against the exact old
+original source certificate. Current OLD-root live mirror IDs are
+supplied for exact-cut validation; the unchanged FIRST-original
+mirror map independently authenticates M21's caller declaration
+including X=0 self-mirror orbits. Never infer source from coincident
+XYZ or replace anchors with the terminal.
+
+The caller's raw original FaceId count is bounded BEFORE allocation
+or filtering. Duplicate/foreign IDs and missing active originals
+without independently M26-sealed whole-source retirement refuse.
+As with M32, caller scope for each Step must explicitly continue
+to name earlier intentionally moved still-live original faces; a
+now-certified entirely retired original may be excluded only from
+the active M21 declaration. `evaluateOriginalPatchIntent`
+checks the COMPLETE bounded seven-witness-per-certified-living-child
+surface against first-original local edge scales, with only
+explicitly named patches exempt from the *geometric* deviation
+threshold. All sources remain subject to ancestry, work, cavity and
+classification checks. A source-disabled/unverified V12 recovered
+root cannot be promoted to `physicalExact` via a queued union, and
+a V13 protected disk checkpoint cannot fabricate first-root proof.
+
+The NEXT sealed source successor is verified against BOTH the
+configured M21 lineage bound and the actual M29 append's immutable
+default proof cap BEFORE either controller mirror journal begins
+or the ONE expected-root CAS runs. Source, policy, malformed input,
+budget or stale refusal leaves the existing indexed root, undo/redo
+branch, mirror controllers, dirty partitions and checkpoint proof
+untouched. Only successful final publication updates Inflate's
+mirror net, appends the single source-matched M29 history entry,
+updates counts, and gives renderer/picker the terminal COW root
+rather than a private cut. Recovery of in-memory authenticated
+history preserves the immutable original certificate; V13 disk
+remains fail-closed for source-backed edit resumption.
+
+Real queued asymmetric supported original unions are accepted after
+an invalid source request; one-under FULL original descendant
+witness tests, one-under complete M26 cumulative face work,
+raw source nomination bound, and foreign/stale expected inputs
+refuse atomically. A complete THREE-source-contact protected X=0
+original input accepts one joined terminal with valid singleton and
+reciprocal mirrored orbits; partial contacts and half-orbit caller
+scope refuse privately. Undo/redo restores matching roots,
+original-source proof and mirror maps; a refused alternate union
+does not discard redo. The prior 23 CPU suites, untracked
+explicit-queue behavior, and sixteen M11 true physical unions
+remain green. See
+`docs/V17_M33_EXPLICIT_QUEUED_ORIGINAL_POLICY.md` and
+[Actions #39184683170](https://github.com/logiclrd/Mesher/actions/runs/39184683170)
+for full GCC/Clang/MSVC warnings-as-errors and applicable benchmarks.
+
+M34 remains the independent COMBINED physical-stamp/explicit
+queue 4D FIFO acceptance milestone. Original M30 and M22 are
+still NOT checked; M23, original M12, M13–M15, V18/V19
+and M14 injected post-CAS exceptional atomicity remain open.
+The desktop Merge geometry UI remains default disabled.
