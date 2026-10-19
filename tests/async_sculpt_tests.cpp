@@ -3820,6 +3820,221 @@ void testM44OriginalSeamTraceJoinWork() {
              <<" comparisons="<<queueTruth.seamWeldComparisons<<"\n";
 }
 
+// M45: real repeated FIRST-root evidence, protected Exposed/ReversedBoundary
+// feature decisions, verified source history and source-owned mirror orbits.
+// Each supported complete original-root physical/queued candidate accepts
+// at the exact measured per-category limit and one fewer refuses pre-CAS.
+void testM45FirstOriginalFeatureHistoryWork() {
+    struct Bucket {
+        std::size_t ExactStageWork::*actual;
+        std::size_t ExactStageWorkLimits::*ceiling;
+        const char* reason;
+    };
+    constexpr std::array<Bucket,9> categories{{
+        {&ExactStageWork::originalAnchorProofs,
+         &ExactStageWorkLimits::maxOriginalAnchorProofs,
+         "first-original anchor-proof budget"},
+        {&ExactStageWork::originalDescendantProofs,
+         &ExactStageWorkLimits::maxOriginalDescendantProofs,
+         "first-original descendant-proof budget"},
+        {&ExactStageWork::originalRetirementProofs,
+         &ExactStageWorkLimits::maxOriginalRetirementProofs,
+         "first-original retirement-proof budget"},
+        {&ExactStageWork::originalWitnessTriangles,
+         &ExactStageWorkLimits::maxOriginalWitnessTriangles,
+         "first-original witness-triangle budget"},
+        {&ExactStageWork::originalIntentChecks,
+         &ExactStageWorkLimits::maxOriginalIntentChecks,
+         "first-original intent-check budget"},
+        {&ExactStageWork::originalProtectedFeatures,
+         &ExactStageWorkLimits::maxOriginalProtectedFeatures,
+         "first-original protected-feature budget"},
+        {&ExactStageWork::originalMirrorOrbitChecks,
+         &ExactStageWorkLimits::maxOriginalMirrorOrbitChecks,
+         "first-original mirror-orbit budget"},
+        {&ExactStageWork::originalHistoryRoots,
+         &ExactStageWorkLimits::maxOriginalHistoryRoots,
+         "first-original history-root budget"},
+        {&ExactStageWork::originalHistoryTransitions,
+         &ExactStageWorkLimits::maxOriginalHistoryTransitions,
+         "first-original history-transition budget"}
+    }};
+    const auto setExact=[&](SculptCollisionSettings& limits,
+                            const ExactStageWork& measured) {
+        std::size_t nonzero=0;
+        for(const auto& kind:categories) {
+            const auto value=measured.*(kind.actual);
+            limits.exactStageLimits.*(kind.ceiling)=value;
+            if(value)++nonzero;
+        }
+        return nonzero;
+    };
+    const auto picked=chooseM39FourDimensionalSource();
+    const auto original=picked.original;
+    const auto input=std::array<BrushArea,2>{{
+        {picked.source.input[0][0].center,6,.3},
+        {{-picked.source.input[0][0].center.x,
+          picked.source.input[0][0].center.y,
+          picked.source.input[0][0].center.z},6,.3}
+    }};
+    const auto newPhysical=[&](SculptCollisionSettings settings) {
+        return VersionedSculptBrush(
+            original,picked.strength,{},{},{},256,{},std::move(settings));
+    };
+    Mesh dummy;
+    auto physical=m11PhysicalExactSettings();
+    auto reference=newPhysical(physical);
+    reference.setOriginalPatchIntent(picked.deliberate);
+    reference.stamp(dummy,input);
+    require(reference.completedUnions()==1&&
+            reference.lastStepResourceWork().published,
+            "M45 real normal-driven protected reflected 72-original source union accepts");
+    const auto actual=reference.lastStepResourceWork().exactStage;
+    require(actual.originalAnchorProofs>0&&
+            actual.originalDescendantProofs>0&&
+            actual.originalWitnessTriangles>0&&
+            actual.originalIntentChecks>0&&
+            actual.originalProtectedFeatures>0&&
+            actual.originalMirrorOrbitChecks>0&&
+            actual.originalHistoryRoots>0&&
+            actual.originalHistoryTransitions>=2&&
+            !actual.overflow,
+            "M45 physical first-original witnesses, intended/40 protected decisions, mirrored source orbits and repeated pre-CAS M29 proofs truly execute");
+    const auto active=setExact(physical,actual);
+    require(active>=8,
+            "M45 reflected protected physical Step measures at least eight genuine source/feature/history categories");
+    auto equal=newPhysical(physical);
+    equal.setOriginalPatchIntent(picked.deliberate);
+    equal.stamp(dummy,input);
+    require(equal.completedUnions()==1&&
+            equal.lastStepResourceWork().published&&
+            equal.lastStepResourceWork().exactStage.originalWitnessTriangles==
+                actual.originalWitnessTriangles,
+            "M45 exact full-source work ceilings preserve true protected physical positive");
+    for(const auto& kind:categories) {
+        if(!(actual.*(kind.actual)))continue;
+        auto under=physical;
+        --(under.exactStageLimits.*(kind.ceiling));
+        auto denied=newPhysical(under);
+        denied.setOriginalPatchIntent(picked.deliberate);
+        const auto before=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto after=denied.checkpoint();
+        const auto& attempted=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                after.index==before.index&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                after.mirrorPairs==before.mirrorPairs&&
+                attempted.evaluated&&attempted.refused&&!attempted.published&&
+                attempted.exactStage.originalWitnessTriangles==
+                    actual.originalWitnessTriangles&&
+                attempted.refusal.find(kind.reason)!=std::string::npos,
+                "M45 each genuinely measured physical source/feature/history one-under refusal is named and atomic");
+    }
+    // Reexecuting the seven-first-original witness audit on an unchanged
+    // authenticated root is REAL additional work; measuring a cached
+    // lifetime pointer alone performs no closest-triangle comparison.
+    const auto lifetime=reference.checkpoint().verifiedOriginalFidelity;
+    require(lifetime&&lifetime->anchors.original==original.index,
+            "M45 complete physical source keeps immutable FIRST reference");
+    ExactStageWork repeated;
+    {
+        ScopedExactStageWork meter(repeated);
+        const auto first=auditOriginalPatchLifetime(
+            *lifetime,original.index);
+        const auto second=auditOriginalPatchLifetime(
+            *lifetime,original.index);
+        require(first.total.distanceTests>0&&
+                first.total.distanceTests==second.total.distanceTests&&
+                repeated.originalWitnessTriangles==
+                    first.total.distanceTests+second.total.distanceTests,
+                "M45 two actual repeated immutable seven-point source audits charge BOTH complete closest-triangle passes");
+        try {
+            (void)auditOriginalPatchLifetime(
+                *lifetime,original.index,first.total.distanceTests-1);
+            throw std::runtime_error(
+                "M45 one-under local audit should refuse before witness comparisons");
+        }catch(const std::length_error&) {}
+        require(repeated.originalWitnessTriangles==
+                    first.total.distanceTests+second.total.distanceTests,
+                "M45 local preflight refusal must not charge phantom witness triangles");
+    }
+
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto originals=firstOriginalFaces(mesh);
+    const auto exactCutLimits=supportedUnionLimits(false);
+    SculptCollisionSettings queued;
+    queued.physicalExact=true;
+    queued.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto newQueued=[&](SculptCollisionSettings settings) {
+        return VersionedSculptBrush(
+            mesh,.006,{},{},{},false,256,{},std::move(settings));
+    };
+    auto source=newQueued(queued);
+    const auto root=source.snapshot();
+    require(source.mergeExactContacts(
+                root,fullOriginalContacts(*root),exactCutLimits,originals),
+            "M45 independent authenticated asymmetric queued c1/c2/c3/M03/d2 positive completes");
+    const auto queuedWork=source.lastStepResourceWork().exactStage;
+    require(queuedWork.originalAnchorProofs>0&&
+            queuedWork.originalDescendantProofs>0&&
+            queuedWork.originalWitnessTriangles>0&&
+            queuedWork.originalIntentChecks>0&&
+            queuedWork.originalHistoryRoots>0&&
+            queuedWork.originalHistoryTransitions>=2&&
+            !queuedWork.overflow,
+            "M45 independent queued Step performs authentic first-original/history source proof work");
+    const auto queuedActive=setExact(queued,queuedWork);
+    require(queuedActive>=6,
+            "M45 asymmetric queued proof exercises independently measured source categories");
+    auto accepted=newQueued(queued);
+    const auto old=accepted.snapshot();
+    require(accepted.mergeExactContacts(
+                old,fullOriginalContacts(*old),exactCutLimits,originals)&&
+            accepted.lastStepResourceWork().published,
+            "M45 authenticated queued candidate accepts exact original/history ceilings");
+    for(const auto& kind:categories) {
+        if(!(queuedWork.*(kind.actual)))continue;
+        auto under=queued;
+        --(under.exactStageLimits.*(kind.ceiling));
+        auto denied=newQueued(under);
+        const auto before=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    before.index,fullOriginalContacts(*before.index),
+                    exactCutLimits,originals),
+                "M45 queued exact one-under first-original work must refuse");
+        const auto after=denied.checkpoint();
+        const auto& attempted=denied.lastStepResourceWork();
+        require(after.index==before.index&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                after.mirrorPairs==before.mirrorPairs&&
+                denied.publishedRevisions()==0&&
+                denied.completedUnions()==0&&denied.rejectedUnions()==1&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                attempted.evaluated&&attempted.refused&&!attempted.published&&
+                attempted.exactStage.originalWitnessTriangles==
+                    queuedWork.originalWitnessTriangles&&
+                attempted.refusal.find(kind.reason)!=std::string::npos,
+                "M45 each actually executed queued source/history one-under category refuses before CAS without mutating source, mirror, dirty or history");
+    }
+    std::cout<<"[m45] protected physical witnesses="
+             <<actual.originalWitnessTriangles
+             <<" feature decisions="<<actual.originalProtectedFeatures
+             <<" mirror comparisons="<<actual.originalMirrorOrbitChecks
+             <<" history roots="<<actual.originalHistoryRoots
+             <<"; queued witnesses="<<queuedWork.originalWitnessTriangles
+             <<" history transitions="<<queuedWork.originalHistoryTransitions
+             <<"; repeated standalone witnesses="
+             <<repeated.originalWitnessTriangles<<"\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -5687,6 +5902,7 @@ int main() {
         testM41ExactWholeStepQueryAccounting();
         testM43WholeStepContourClosureAccounting();
         testM44OriginalSeamTraceJoinWork();
+        testM45FirstOriginalFeatureHistoryWork();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
