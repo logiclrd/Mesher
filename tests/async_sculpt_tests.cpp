@@ -2737,11 +2737,18 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
             "M34 valid later scoped 4D FIFO recovery refused: "+
             resumed.lastRejection);
     const auto recovered=worker.takeSnapshot();
-    require(recovered&&recovered->index!=allowed&&
-            !recovered->dirtyPartitions.empty()&&
-            resumed.history.undoDepth==3&&resumed.rejectedStamps==1&&
-            resumed.completedUnions==1,
-            "M34 valid deliberate source movement drains after protected refusal and stale queued union");
+    if(!(recovered&&recovered->index!=allowed&&
+         !recovered->dirtyPartitions.empty()&&
+         resumed.history.undoDepth==3&&resumed.rejectedStamps==1&&
+         resumed.completedUnions==1))
+        throw std::runtime_error(
+            "M34 subsequent 4D scope: snap="+std::to_string(bool(recovered))+
+            " dirty="+std::to_string(recovered?recovered->dirtyPartitions.size():0)+
+            " rootChanged="+std::to_string(recovered&&recovered->index!=allowed)+
+            " undo="+std::to_string(resumed.history.undoDepth)+
+            " stampsRefused="+std::to_string(resumed.rejectedStamps)+
+            " unionsCompleted="+std::to_string(resumed.completedUnions)+
+            " lastRefusal="+resumed.lastRejection);
     const auto final=recovered->index;
 
     const auto file=std::filesystem::temp_directory_path()/
