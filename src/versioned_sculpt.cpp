@@ -615,6 +615,11 @@ void VersionedSculptBrush::stamp(
     const auto start=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::PhysicalStamp;
+    // M41: the guard remains active through the entire private V13,
+    // c1/c2/c3/M03/d2 and M26/M21 source-replay work. Actual repeated
+    // queries cost work again; an immutable cached result costs nothing.
+    const ScopedExactStageWork countExactGeometry(
+        lastStepResourceWork_.exactStage);
     // Scope is resolved on the worker at Begin and is never filled from
     // candidate geometry. Bad source input must not terminate FIFO.
     if(!collision_.physicalExact&&history_.currentFidelity()) {
@@ -993,6 +998,14 @@ void VersionedSculptBrush::stamp(
                       e.what();
         }
     }
+    // M41: all actually executed collision queries, every signed
+    // winding witness, and multi-section arrangement predicates from
+    // the entire private candidate including source-authentication replay
+    // are charged separately BEFORE final-root CAS or quiet Clean credit.
+    if(rejection.empty()&&updated!=old&&collision_.physicalExact) {
+        rejection=refuseExactStageWork(lastStepResourceWork_.exactStage,
+                                      collision_.exactStageLimits);
+    }
     // M23: exactly ONE episode observation per classified full physical
     // proposal. A refused conclusive Contact remains known Contact;
     // a refused Clean is UNKNOWN rather than permission to advance the
@@ -1153,6 +1166,8 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto started=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
+    const ScopedExactStageWork countExactGeometry(
+        lastStepResourceWork_.exactStage);
     const auto reject=[&](const std::string& reason) {
         lastDirtyPartitions_.clear();
         lastRejection_=reason;
@@ -1353,6 +1368,14 @@ bool VersionedSculptBrush::mergeExactContacts(
     }catch(const std::length_error& e) {
         return reject(e.what());
     }
+    // M41: the complete source-certified queued private original-root
+    // candidate has already executed all its V13 and independent
+    // c1/c2/c3/M03/d2 replay; reject over-budget geometry before
+    // speculative mirror updates, history or the one final-root CAS.
+    if(const auto reason=refuseExactStageWork(
+           lastStepResourceWork_.exactStage,collision_.exactStageLimits);
+       !reason.empty())
+        return reject(reason);
     // The worker is the only writer of the sculpt controller maps,
     // history, and snapshots. Begin both speculative mirror journals;
     // any prepublication failure rolls both back without changing the
