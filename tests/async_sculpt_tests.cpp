@@ -2349,6 +2349,49 @@ void testM33ProtectedX0FixedPointQueuedUnion() {
     auto restored=worker.takeSnapshot();
     require(restored&&restored->index==final->index,
             "M33 X=0 tracked redo restores final reflected fixed-point root");
+
+    // M34: the exact reflected three-contact terminal itself becomes
+    // the predecessor of a REAL symmetric 4D physical Begin/End. The
+    // caller names original FaceIds, including M26-certified retired
+    // origins, rather than substituting coincident or reflected XYZ.
+    worker.begin({1,0,0},.3,imported.flatIndex.faceIds);
+    worker.end({1,0,0},0);
+    const auto physicalDeadline=std::chrono::steady_clock::now()+
+                                std::chrono::seconds(20);
+    while(!worker.canBegin()&&
+          std::chrono::steady_clock::now()<physicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    require(worker.canBegin(),
+            "M34 protected X=0 physical stamp drains after queued exact union");
+    const auto crossMode=worker.status();
+    if(crossMode.history.undoDepth!=2||crossMode.rejectedStamps!=0)
+        throw std::runtime_error(
+            "M34 protected X=0 post-exact physical stamp refused: "+
+            crossMode.lastRejection);
+    const auto crossSnapshot=worker.takeSnapshot();
+    require(crossSnapshot&&crossSnapshot->index!=restored->index&&
+            !crossSnapshot->dirtyPartitions.empty()&&
+            crossMode.completedStamps==1&&crossMode.completedUnions==1&&
+            crossMode.history.undoDepth==2,
+            "M34 reflected fixed-point queued exact terminal supports next 4D source-authenticated physical root");
+    const auto afterPhysical=crossSnapshot->index;
+    worker.undo();
+    const auto undoPhysicalDeadline=std::chrono::steady_clock::now()+
+                                    std::chrono::seconds(20);
+    while(worker.status().history.redoDepth!=1&&
+          std::chrono::steady_clock::now()<undoPhysicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto crossUndone=worker.takeSnapshot();
+    require(crossUndone&&crossUndone->index==restored->index,
+            "M34 mixed protected X=0 physical undo restores exact mirrored union root");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<undoPhysicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto crossRedone=worker.takeSnapshot();
+    require(crossRedone&&crossRedone->index==afterPhysical,
+            "M34 mixed protected X=0 physical redo restores the terminal mirrored COW root");
+
     VersionedSculptBrush direct(trusted,.006,{},{},{},256,{},config);
     require(direct.mergeExactContacts(root,contacts,limits,
                                       imported.flatIndex.faceIds)&&
