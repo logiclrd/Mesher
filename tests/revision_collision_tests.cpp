@@ -1,5 +1,6 @@
 #include "mesher/triangle_collision.hpp"
 #include "mesher/repair_intersection.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/repair_surgery.hpp"
 #include "mesher/versioned_refine.hpp"
 #include "mesher/mesh_partitioning.hpp"
@@ -1422,9 +1423,35 @@ void testCrossingMultipleSectionsPerOriginalTriangle() {
     const auto& faces=imported.flatIndex.faceIds;
     const std::vector<RegionTopologyIndex::CollisionPair> contacts{
         lookup(faces[0],faces[4]),lookup(faces[0],faces[8])};
-    const auto plan=buildConformingCutPlan(*baseline,contacts);
+    // M41 independently observes TRUE multi-section crossing predicates
+    // using the same source-owned V13 and planar arrangement fixture, not
+    // a synthetic counter. The readonly result has NO Boolean authority.
+    ExactStageWork arrangementWork;
+    const auto plan=[&] {
+        const ScopedExactStageWork meter(arrangementWork);
+        return buildConformingCutPlan(*baseline,contacts);
+    }();
     if(plan.status!=IntersectionSectionStatus::TransverseSegment)
         throw std::runtime_error("Multi-section arrangement: "+plan.refusal);
+    check(arrangementWork.arrangementPairTests>0&&
+          arrangementWork.arrangementPredicates>0&&
+          !arrangementWork.overflow,
+          "M41 genuine three-solid intersecting multiple-curve arrangement has actual measured pair and scaffold/triangulation predicate work");
+    ExactStageWorkLimits exact;
+    exact.maxArrangementPairTests=arrangementWork.arrangementPairTests;
+    exact.maxArrangementPredicates=arrangementWork.arrangementPredicates;
+    check(refuseExactStageWork(arrangementWork,exact).empty(),
+          "M41 authentic multi-curve arrangement full exact-work category caps accept");
+    auto tooFewPairs=exact;
+    --tooFewPairs.maxArrangementPairTests;
+    check(refuseExactStageWork(arrangementWork,tooFewPairs).find(
+              "arrangement pair-test budget")!=std::string::npos,
+          "M41 one-under real source arrangement pair test work refuses without any private edit");
+    auto tooFewPredicates=exact;
+    --tooFewPredicates.maxArrangementPredicates;
+    check(refuseExactStageWork(arrangementWork,tooFewPredicates).find(
+              "arrangement predicate budget")!=std::string::npos,
+          "M41 one-under real source arrangement scaffold/ear work refuses without any private edit");
     check(plan.segments.size()==2&&plan.faces.size()>3,
           "Crossing curves include both source sheets and incident face neighbors");
     std::optional<std::size_t> junction;
