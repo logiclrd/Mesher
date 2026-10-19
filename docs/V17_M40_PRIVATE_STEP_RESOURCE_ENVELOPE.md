@@ -1,7 +1,7 @@
 # V17-M40 — Aggregated private Step resource admission
 
 First independently complete prerequisite of original M13. **PR #89**.
-CI acceptance pending; original M13 remains open.
+Substantive [GitHub Actions #39277749517](https://github.com/logiclrd/Mesher/actions/runs/39277749517): GCC, Clang and MSVC job logs confirm 23/23 CPU tests passing and applicable benchmark stages, with no build errors. Final workflow conclusion and exact documentation-head CI remain merge gates. Original M13 remains open.
 
 ## Real work measured
 
