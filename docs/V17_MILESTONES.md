@@ -1595,3 +1595,45 @@ One real async worker transports the queued accepted measurements.
 
 Original M13 and flat remaining M41/M42, M14/M15, V18/V19 OPEN.
 See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
+
+## October 19, 2026 — V17-M41 aggregate winding/collision/arrangement implementation in review
+
+PR #91 implements per-attempt counted actual winding,
+collision and multi-section arrangement operations at their
+own work sites, including original M26 repeat certification,
+with separate finite pre-CAS category limits and honest
+attempted vs published async diagnostics. New regressions
+include actual symmetric protected M39 source physical
+Boolean, authenticated independent queued Boolean, and
+the original genuine two-curve three-solid arrangement
+plan. Exact-measured category budgets allow; one-under
+category refusals must leave COW/source/mirror/history/
+renderer unchanged. All 12 operation dimensions and
+noexcept overflow accounting are documented in
+`docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`.
+
+**Status is OPEN until full final PR-head GCC/Clang/MSVC and
+independent merged-main tests succeed**; M42, original
+M13, M14–M15, V18 and V19 remain OPEN.
+
+## October 19, 2026 — V17-M41 accepted on true full original-root query work
+
+**Substantive [Actions #39288853723](https://github.com/logiclrd/Mesher/actions/runs/39288853723),
+PR #92: GCC, Clang, Windows MSVC warnings-as-errors, all 23 CPU suites
+and applicable benchmarks GREEN.** First CI on PR #91 had only
+MSVC C4456 local variable name-shadow error, corrected without
+changes to geometry or budget predicates. Tests measure all 10
+BVH collision and signed-winding work dimensions for real mirrored
+72-source physical and independent authenticated queued complete
+c1/c2/c3/M03/d2 source union; exact-category caps allow, each
+one-under independently refuses with original COW, first source,
+mirrors, history and renderer unaffected. The other 2 dimensions,
+true multiple-curve arrangement pair tests and predicates,
+are calibrated on the independent real 3-closed-solid two-curve
+conforming-plan fixture, with exact and one-under proof.
+All actual attempted work remains diagnosable; collision/hysteresis
+and M40 COW work are protected.
+
+Original M13 and M42, M14/M15, V18/V19 remain OPEN.
+See `docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`.
+Exact documentation-head and merged-main CI still required.

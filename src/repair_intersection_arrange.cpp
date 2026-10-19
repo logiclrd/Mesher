@@ -1,4 +1,5 @@
 #include "mesher/repair_intersection.hpp"
+#include "mesher/exact_stage_work.hpp"
 
 #include <algorithm>
 #include <array>
@@ -566,6 +567,12 @@ ConformingCutPlan buildMultiSectionCutPlan(
     std::size_t newlyCreated=0,arrangementTests=0,
                 arrangementEdges=0,arrangementPredicates=0,
                 totalTriangles=0;
+    // Every actual arrangement invocation is charged, even if a later
+    // source, mirror or topology validation refuses this private plan.
+    const ScopedExactQueryAccounting queryAccounting([&]() noexcept {
+        if(auto* work=executingExactStageWork)
+            work->arrangement(arrangementTests,arrangementPredicates);
+    });
     const auto original=[&](VertexId id)->std::size_t {
         const auto it=originals.find(id);
         if(it!=originals.end())return it->second;
