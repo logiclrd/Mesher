@@ -1318,7 +1318,7 @@ resource/diagnostic acceptance. Original M13, M14/M15 and V18/V19
 remain separate, OPEN; no weakening of first-source provenance,
 exact interval/CCD promises or unsupported three-body welding.
 
-- [ ] **V17-M42 — Contour/join/feature bounds and full worker diagnostics.**
+- [x] **V17-M42 — Contour/join/feature bounds and full worker diagnostics.**
   Aggregate complete local contour/closure, seam trace/zipper/join,
   protected original feature/distance witness work, symmetric ID
   proof and history limits. Separately report measured stage timings,
@@ -1328,6 +1328,43 @@ exact interval/CCD promises or unsupported three-body welding.
   Exact vs one-under cases must fail for the intended category,
   not an incidental earlier stage. Never portray attempted copy bytes
   as peak RSS or CPU wall time as deterministic execution work.
+  **Original M42 integrated acceptance, PR #97:** the actual
+  M39 72-first-original reflected, protected-cavity normal-driven
+  4D Step and independent authenticated asymmetric queued
+  c1/c2/c3/M03/d2 two-tetra Boolean EACH calibrate all 35
+  independent M41/M43/M44/M45 operation categories AND all THREE
+  M40 private COW/changed-ID/final dirty-owner limits TOGETHER.
+  On the SAME real complete source candidate, exact 38-category
+  equality accepts one original-root CAS, while every genuinely
+  nonzero independent category lowered by ONE refuses its own named
+  category with all other 37 caps at exact equality. At the
+  substantive cross-compiler gate, 32/35 physical and 31/35
+  queued category counters were genuinely nonzero; absent optional
+  pair/refinement/closure categories are covered by existing
+  independently accepted M41/M43/M44 real-fixture regressions,
+  NOT fabricated as positive source work. Real rejected attempts
+  preserve immutable old COW/M29 first original, reflected stable
+  mirror IDs, picker, renderer dirty, bounded undo/redo and accepted
+  work totals; they still expose actually attempted work and
+  exact failure reasons. Genuine accepted worker FIFO repeats
+  calibrated physical and queued candidates; the protected
+  4D worker subsequently executes actual Contact → Clean →
+  Clean → Unknown hysteresis under simultaneously finite limits.
+  The Unknown invalid original-source intent clears the quiet
+  streak without a Clean credential, history append, dirty root
+  or accepted resource charge. Worker undo/redo restores real
+  original-root history without reexecuting work; stale queued
+  original-root union preserves all successful counters, and a
+  completed V13 disk checkpoint preserves provenance-REQUIRED
+  without fabricating M29 opaque authority or previously recorded
+  work. Stage times are observations; copied bytes are cumulative
+  private COW work, NEVER process peak RSS. Substantive
+  [Actions #39332363112](https://github.com/logiclrd/Mesher/actions/runs/39332363112)
+  GREEN Linux GCC/Clang and Windows MSVC /W4 /WX, 23 CPU suites,
+  repeated checkpoint stress and applicable benchmarks.
+  `docs/V17_M42_ORIGINAL_INTEGRATED_ACCEPTANCE.md` records
+  separate exact-head/merged-main gates. ORIGINAL M13 remains
+  UNCHECKED, then M14/M15 and V18/V19 remain OPEN.
 **Then execute ORIGINAL M13** as its own criterion-by-criterion
 integrated acceptance with all V17-M40/M41/M42 examples together
 in real 4D and queued one-root transactions, verified full

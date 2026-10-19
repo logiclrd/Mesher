@@ -5504,3 +5504,67 @@ merged-main CI are still required for final acceptance.
 ORIGINAL M42 remains open for a single simultaneous integrated
 M40/M41/M43/M44/M45/M46 gate; ORIGINAL M13 remains separately
 open thereafter, with M14/M15/V18/V19 still open.
+
+
+## October 19, 2026 — ORIGINAL V17-M42 criterion-by-criterion simultaneous integration
+
+The intact ORIGINAL M42 objective now has its OWN integrated
+acceptance after the independently completed M43, M44, M45
+and M46 peers (and prior M40/M41). No V17-M13 checkbox is
+implicitly resolved. New
+`testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance`
+uses the genuine 72-FIRST-original M39 reflected, protected
+reversed-cavity normal-driven 4D union and the unrelated
+authenticated asymmetric source-owned c1/c2/c3/M03/d2 queued
+two-tetra Boolean. Each real complete candidate measures
+and calibrates 35 actual per-operation M41/M43/M44/M45
+limits plus THREE M40 cumulative private copied-byte,
+changed-reference and final-dirty-owner limits **at once**.
+All 38 simultaneous EXACT ceilings accept one authenticated
+original-root CAS. Every category that truly executes
+(physical 32/35; queued 31/35 on cross-compiler substantive
+CI) independently refuses at ONE-under with the remaining
+37 equal to real completed work. A dimension that does not
+execute cannot be claimed as positively tested in that
+candidate; independently accepted conditional arrangement,
+unequal seam-refinement and closure fixtures remain responsible
+for those absent real work types.
+
+Refusals are specific to their single lowered category,
+not an earlier incidental budget. No original COW index,
+immutable seven-witness M29 proof/root identity, permanent
+mirrored source/original fixed-point IDs, picker tree,
+renderer dirty owner, undo/redo or accepted publication
+cost changes on refusal. Honest actually performed
+cumulative M40 copying work and all 35 operation counts
+remain in the attempted M46 telemetry; published work
+remains zero. Fresh accepted exact candidates publish
+one COW root and one M29 history transition, with
+observed positive time stages and COW work PROXY
+diagnostics (NOT process RSS or an execution deadline).
+
+True queued/directed source worker FIFO replays the
+same calibrated candidates, then performs a source-exact
+Contact → two genuinely accepted conclusive Clean
+original-root transactions → invalid-caller-source Unknown
+under 38 simultaneously finite work limits calibrated
+from each actually executed Step. The Unknown interrupts
+the quiet hysteresis count before it could close the episode,
+without converting a declined candidate into Clean or
+publishing any dirty/history state. Worker undo/redo
+restores historical roots without charging CPU/geometry
+work again; stale queued exact requests cannot redirect
+their authority to the new root or count phantom accepted
+copy-work. A checkpoint saved from an actual accepted
+source worker passes V13 on-disk provenance requirement,
+but cannot forge a sealed opaque M29 credential or
+retrospectively persist work totals. Preserve separate
+M14 post-CAS fault-injection and desktop default-OFF
+M15, and original M13 end-to-end resource acceptance.
+
+Substantive [PR #97 run #39332363112](https://github.com/logiclrd/Mesher/actions/runs/39332363112)
+passed GCC/Clang/MSVC /W4 /WX, all 23 CPU suites and
+applicable stress/benchmarks. Exact documentation-final
+PR-head and independent merged-main three-compiler CI
+are also required before declaring original M42 merged.
+See `docs/V17_M42_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.

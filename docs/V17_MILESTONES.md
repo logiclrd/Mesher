@@ -1753,3 +1753,52 @@ checkpoint stress and applicable benchmarks. Exact final
 head and separate merged-main CI remain required. See
 docs/V17_M46_WORKER_DIAGNOSTICS.md. Original M42, original
 M13, M14/M15 and V18/V19 remain unchecked.
+
+## October 19, 2026 — ORIGINAL V17-M42 simultaneous acceptance after M43–M46
+
+This is the ORIGINAL M42 independent integration review, NOT an
+incremental M43–M46 subtask and NOT original M13. Its complete
+38-dimensional admission includes all M40 private COW copying
+bytes, changed stable-ID references and final renderer owner
+partitions, plus every actual M41 collision/winding/arrangement,
+M43 source contour/closure, M44 certified seam and join, and
+M45 true first-original seven-witness, protected-feature,
+mirrored-orbit and repeatedly authenticated pre-CAS M29
+proof operation. Its M46 per-stage stopwatch, attempted vs
+published aggregate and async FIFO history/dirty/checkpoint
+diagnostics are simultaneous, not after-the-fact guesses.
+
+On the complete genuine protected 72-original reflected 4D
+source Step, 32/35 source operation dimensions actually run.
+On independent queued certified asymmetric two-tetra V17 exact
+Boolean, 31/35 execute. For each identical supported full
+positive candidate, all 38 ceilings set exactly to actual
+work still accept the one and only final-root CAS. EVERY
+NONZERO separately lowered limit deterministically rejects
+its own named category when every other ceiling is held
+at exact work: no source relabeling, mirror substitution,
+global XYZ weld, dirty owner, history, picker, or source
+original root changes. Never fabricate a missing optional
+category's operation count; M41 multi-curve arrangement,
+M43 unequal closure, and M44 conditional seam subdivision
+remain covered by independently accepted positive fixtures.
+
+Actual worker FIFO 4D source sequencing proves original
+Contact → two Clean source-certified protected history
+entries → false-intent Unknown that interrupts quiet run,
+with finite simultaneous work caps and honest attempted/
+published telemetry. Real undo/redo source history, stale
+queued expected root and V13 checkpoint fail-closed
+nonrecovery of unverified M29 credentials are also tested.
+M46 stopwatch observations are NOT deterministic upper
+bounds; copied COW bytes are NOT peak process RSS.
+
+Substantive PR #97
+[Actions #39332363112](https://github.com/logiclrd/Mesher/actions/runs/39332363112)
+was GCC/Clang/MSVC green for all 23 CPU suites and
+checkpoint stress plus applicable benchmarks. Complete
+final PR-head and separately merged-main CI remain
+mandatory. See `docs/V17_M42_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+The **ORIGINAL M13** independent full Step resource/telemetry
+acceptance, M14 fault-injected post-CAS, M15 desktop opt-in
+default-off and V18/V19 remain OPEN.
