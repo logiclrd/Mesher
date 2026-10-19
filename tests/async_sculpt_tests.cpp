@@ -2787,6 +2787,7 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
             stale.completedUnions==beforeStale.completedUnions&&
             stale.history.undoDepth==2&&
             stale.publishedRevisions==beforeStale.publishedRevisions&&
+            stale.lastRejection.find("stale")!=std::string::npos&&
             !worker.takeSnapshot(),
             "M34 actual completed stale expected-root Merge refuses atomically after physical stamp");
 
