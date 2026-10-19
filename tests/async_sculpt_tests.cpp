@@ -2353,16 +2353,21 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
     const auto checkpointFile=std::filesystem::temp_directory_path()/
         "mesher-v17-m39-local-4d-protected-fifo.mshr";
     try {
+        const auto previousCheckpoint=worker.checkpointStatistics();
         worker.saveCheckpoint(checkpointFile);
         const auto stop=std::chrono::steady_clock::now()+
                         std::chrono::seconds(25);
-        while(worker.checkpointStatistics().completed==0&&
-              worker.checkpointStatistics().failed==0&&
+        while(worker.checkpointStatistics().completed==
+                  previousCheckpoint.completed&&
+              worker.checkpointStatistics().failed==
+                  previousCheckpoint.failed&&
               std::chrono::steady_clock::now()<stop)
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        require(worker.checkpointStatistics().completed==1&&
-                worker.checkpointStatistics().failed==0,
-                "M39 actual final 4D FIFO terminal completed independent durable checkpoint write");
+        const auto finalCheckpoint=worker.checkpointStatistics();
+        require(finalCheckpoint.completed==
+                    previousCheckpoint.completed+1&&
+                finalCheckpoint.failed==previousCheckpoint.failed,
+                "M39 actual final 4D FIFO terminal completed one MORE independent durable checkpoint write");
         const auto loaded=readCheckpoint(checkpointFile);
         require(loaded.index&&loaded.originalFidelityRequired&&
                 !loaded.verifiedOriginalFidelity&&
