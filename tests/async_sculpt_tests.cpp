@@ -1660,6 +1660,28 @@ void testM37ScopedSamePatchUnionsWithProtectedCavity() {
                         brush.lastDirtyPartitions().empty()&&
                         final->pickingRootIdentity()==picker,
                         "M37 unscoped mirrored outer wall motion refuses before CAS with exact root, source, mirror, history and dirty rollback");
+
+                // The inward reversed-cavity surface is separately
+                // protected, not merely present as a passive bystander
+                // while an unrelated outer-wall stroke is refused.
+                const std::array<BrushArea,2> cavity{{
+                    {{5.7,80,0},1.2,.95},{{-5.7,80,0},1.2,.95}
+                }};
+                const auto secondRejectCount=brush.rejectedStamps();
+                brush.setOriginalPatchIntent(intent);
+                brush.stamp(dummy,cavity);
+                const auto cavityRefusal=brush.checkpoint();
+                require(brush.rejectedStamps()==secondRejectCount+1&&
+                        cavityRefusal.index==final&&
+                        cavityRefusal.verifiedOriginalFidelity==
+                            accepted.verifiedOriginalFidelity&&
+                        cavityRefusal.mirrorPairs==accepted.mirrorPairs&&
+                        brush.historyStatistics().undoDepth==history.undoDepth&&
+                        brush.historyStatistics().redoDepth==history.redoDepth&&
+                        brush.publishedRevisions()==2&&
+                        brush.lastDirtyPartitions().empty(),
+                        "M37 independently unscoped reversed-cavity wall motion cannot mutate COW/source/mirrors/dirty or history");
+
                 require(brush.undo()&&brush.snapshot()==firstJoined.index&&
                         brush.undo()&&brush.snapshot()==root&&
                         brush.redo()&&brush.snapshot()==firstJoined.index&&
