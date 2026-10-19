@@ -5252,7 +5252,7 @@ void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
         auto policy=m11PhysicalExactSettings();
         policy.postCasFaultInjection=fault(point);
         VersionedSculptBrush physical(
-            source.original,source.strength,{},{},{},true,256,{},policy);
+            source.original,source.strength,{},{},{},256,{},policy);
         const auto before=physical.checkpoint();
         physical.setOriginalPatchIntent(source.deliberate);
         bool thrown=false;
