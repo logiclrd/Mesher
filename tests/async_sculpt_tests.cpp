@@ -3078,9 +3078,6 @@ void testM40AggregateWholePrivateStepResourceBudgets() {
     // same envelope without an Inflate stamp or guessed COW data.
     const auto mesh=twoIntersectingTetrahedra();
     const auto sourceFaces=firstOriginalFaces(mesh);
-    const auto originalImport=partitionFlatMesh(mesh,256);
-    const auto expected=RegionTopologyIndex::build(originalImport.revision);
-    const auto contacts=fullOriginalContacts(*expected);
     const auto unionLimits=supportedUnionLimits(false);
     SculptCollisionSettings queued;
     queued.physicalExact=true;
