@@ -2771,13 +2771,24 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
             noChange->dirtyPartitions.empty()&&
             !refused.lastRejection.empty(),
             "M34 second individually small but cumulative protected original drift refuses atomically");
+    // A refused physicalExact stamp can also increment rejectedUnions.
+    // Consequently an absolute union total is NOT a completion fence
+    // after mixing physical and explicit queue operations: under MSVC
+    // it could already equal three before this Merge even ran.
+    // Require a NEW union outcome relative to the post-physical status.
+    const auto beforeStale=worker.status();
+    const auto previousUnionOutcomes=
+        beforeStale.completedUnions+beforeStale.rejectedUnions;
     worker.mergeExactContacts(welded,fullOriginalContacts(*original),
                               limits,tetraSources);
-    waitForUnion(worker,3);
-    require(worker.status().rejectedUnions==2&&
-            worker.status().history.undoDepth==2&&
+    waitForUnion(worker,previousUnionOutcomes+1);
+    const auto stale=worker.status();
+    require(stale.rejectedUnions==beforeStale.rejectedUnions+1&&
+            stale.completedUnions==beforeStale.completedUnions&&
+            stale.history.undoDepth==2&&
+            stale.publishedRevisions==beforeStale.publishedRevisions&&
             !worker.takeSnapshot(),
-            "M34 stale expected union root from BEFORE physical stamp cannot rebase or publish");
+            "M34 actual completed stale expected-root Merge refuses atomically after physical stamp");
 
     // Later correctly scoped physical input must still drain against the
     // accepted post-union, post-first-stamp direct predecessor certificate.
