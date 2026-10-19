@@ -5001,3 +5001,35 @@ deformation and first-original protected outer/reversed-cavity
 walls, finite exact/one-under budgets, actual episode
 Clean/Unknown and FIFO recovery with these real positives.
 **Original M12 is OPEN**; M13–M15 and V18–V19 remain untouched.
+
+## October 19, 2026 — V17-M37 protected inward cavity in true same-local physical unions
+
+M36 has been explicitly replanned **in advance** to independent flat
+M37 → M38 → M39 → ORIGINAL M36 → ORIGINAL M12 final acceptance.
+M37 (PR #84, substantive Actions #39208440042, GCC/Clang/MSVC green)
+extends the M35 physical-positive search, preserving its two genuinely
+normal-driven source-certified exact unions in one overlapping local
+brush influence neighborhood. The same first-authenticated source now
+contains three closed mirrored tetra bands plus a separate distant
+mirrored outward octahedral shell enclosing a real inward-wound
+tetrahedral cavity on each side. Source signed-winding queries prove
+the proper 0-void / +1-material / 0-outside cavity topology.
+The two actual local contacts are performed with explicit renewed
+caller original FaceId intent restricted to only 32 of 72 original
+faces. No nearest-XYZ or global mirror deduplication selects owners.
+Both c1/c2/c3/M03/d2 physically generated joins create distinct
+M29 COW/history terminals; forty unscope-protected original exterior
+and reversed-cavity FaceIds retain exact ordered incidences and
+vertex positions. Complete first-root living-descendant audit,
+authenticated certificates, reciprocal reflected live IDs, distinct
+dirty owners, old picker readers and exact double undo/redo pass.
+Separate attempted exterior and cavity-wall bilateral deformations
+both refuse without changing terminal COW pointer, sealed lifetime,
+full mirror pair map, history, publication or dirty owners.
+
+This is NOT a new universal same-component Boolean or an X=0 fixture.
+M38 has distinct complete/fenced source work plus cumulative first
+root drift, M39 true same-local 4D Contact/Clean/Unknown/FIFO recovery,
+and ORIGINAL M36 the simultaneous final combined policy. M12 remains
+open for its own separate acceptance; M13–M15 and V18/V19 are not
+claimed. See `docs/V17_M37_SCOPED_LOCAL_CAVITY_ACCEPTANCE.md`.

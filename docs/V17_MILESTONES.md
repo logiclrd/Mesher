@@ -1433,3 +1433,27 @@ protected exposed/reversed-cavity/outer walls, intentional
 physical movement, cumulative source drift, work budgets,
 Unknown/Clean episodes, late accepted FIFO recovery and
 independent final acceptance. M13–M15, V18–V19 are separate.
+
+## October 19, 2026 — V17-M37 first flat M36 prerequisite accepted
+
+**PR #84**, substantive [Actions #39208440042](https://github.com/logiclrd/Mesher/actions/runs/39208440042):
+full Linux GCC/Clang/Windows MSVC warnings-as-errors, all CPU tests
+and applicable benchmarks GREEN. On M35's true two-physical-union
+overlapping live original brush support, third protected mirrored
+source band plus genuine outward and inward-wound nested cavity
+closed shells retain 40 original FaceIds wholly outside explicit
+renewed first-original intended scope. Both local normal-driven
+joins remain independently positive, each retiring newly certified
+sources and publishing independent M29 authenticated COW history.
+Signed winding verifies legitimate reversed-cavity void and +1
+surrounding material. Full descendant audit, exact original source
+identity, protected vertices/face incidences, reciprocal mirror
+pairs, original pickable root, dirty owners and double undo/redo
+remain valid. Separate exterior and inverted cavity-wall attempted
+physical edits refuse atomically with NO change to exact source
+certificate, COW root, mirror pair map, history or dirty state.
+
+The proactively recorded flat next items remain **M38**, then
+**M39**, then ORIGINAL M36 combined final acceptance, followed by
+ORIGINAL M12 separate acceptance. M13–M15 and V18/V19 remain OPEN.
+See `docs/V17_M37_SCOPED_LOCAL_CAVITY_ACCEPTANCE.md`.

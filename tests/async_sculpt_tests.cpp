@@ -1498,6 +1498,208 @@ void testM35RepeatedPhysicalUnionsInOneOverlappingPatch() {
             "M35 no two genuine supported close-neighborhood physical joins: "+last);
 }
 
+// M37 retains M35's genuinely overlapping two physical source unions but
+// adds untouched FIRST-original reflected outer and inward cavity walls.
+// The cavity is real signed-winding geometry, not an intentionally selected
+// FaceId disguised as a protected wall or a coincident XYZ owner.
+void addM37ProtectedMirroredCavity(M11TowerSource& source) {
+    constexpr std::array<Vec3,10> local{{
+        {3,0,0},{0,3,0},{-3,0,0},{0,-3,0},{0,0,3},{0,0,-3},
+        {.7,0,0},{-.5,-.5,-.4},{-.5,.5,-.4},{0,0,.8}
+    }};
+    constexpr std::array<std::array<unsigned,3>,8> outer{{
+        {4,0,1},{4,1,2},{4,2,3},{4,3,0},
+        {5,1,0},{5,2,1},{5,3,2},{5,0,3}
+    }};
+    constexpr std::array<std::array<unsigned,3>,4> tetra{{
+        {0,1,2},{0,2,3},{0,3,1},{1,3,2}
+    }};
+    const auto positive=static_cast<std::uint32_t>(source.mesh.vertices.size());
+    for(const auto p:local)
+        source.mesh.vertices.push_back({p.x+5,p.y+80,p.z});
+    const auto negative=static_cast<std::uint32_t>(source.mesh.vertices.size());
+    for(std::size_t i=0;i<local.size();++i) {
+        const auto p=source.mesh.vertices[positive+static_cast<unsigned>(i)];
+        source.mesh.vertices.push_back({-p.x,p.y,p.z});
+        source.originalPairs.emplace_back(positive+i,negative+i);
+    }
+    const auto mirroredFace=[&](unsigned a,unsigned b,unsigned c) {
+        source.mesh.triangles.push_back({positive+a,positive+b,positive+c});
+        source.mesh.triangles.push_back({negative+a,negative+c,negative+b});
+    };
+    for(const auto t:outer)mirroredFace(t[0],t[1],t[2]);
+    // An inner negatively oriented closed tetra in each positive outer
+    // octahedron makes a genuine zero-winding cavity bounded by a wall.
+    for(const auto t:tetra)
+        mirroredFace(6+t[0],6+t[2],6+t[1]);
+}
+
+void testM37ScopedSamePatchUnionsWithProtectedCavity() {
+    Mesh dummy;
+    std::string last;
+    bool completed=false;
+    for(const double separation:{5.0,5.5,6.0,6.5}) {
+        if(completed)break;
+        for(const double gap:{.15,.25,.35}) {
+            if(completed)break;
+            auto source=makeM11Towers(3,gap);
+            const double shift=(-14+separation)-14;
+            for(std::size_t i=16;i<32;++i)
+                source.mesh.vertices[i].y+=shift;
+            for(auto& area:source.input.at(1))
+                area.center.y+=shift;
+            addM37ProtectedMirroredCavity(source);
+            const auto initial=checkpointM11Source(source);
+            const auto root=initial.index;
+            const auto originalFaces=firstOriginalFaces(source.mesh);
+            require(originalFaces.size()==72,
+                    "M37 three reflected tower bands plus both outer/cavity sources are complete");
+            require(root->triangleIntersections({},{}).empty(),
+                    "M37 nested inward cavity is disjoint from all original face intersections");
+            for(const double x:{5.0,-5.0}) {
+                const auto voidPoint=root->positiveWindingAt({x,80,0});
+                const auto materialPoint=root->positiveWindingAt({
+                    x+(x>0?1.5:-1.5),80,0});
+                const auto exteriorPoint=root->positiveWindingAt({
+                    x+(x>0?4.0:-4.0),80,0});
+                require(voidPoint.reliable&&materialPoint.reliable&&
+                        exteriorPoint.reliable&&
+                        voidPoint.winding==0&&
+                        materialPoint.winding==1&&exteriorPoint.winding==0,
+                        "M37 inward reversed cavity has actual positive signed-winding material shell");
+            }
+            const auto a=root->querySphere(source.input[0][0].center,6);
+            const auto b=root->querySphere(source.input[1][0].center,6);
+            bool overlap=false;
+            for(const auto id:a)
+                overlap|=std::find(b.begin(),b.end(),id)!=b.end();
+            require(overlap,
+                    "M37 two physical original patches overlap on a shared live source VertexId");
+            // Only the first TWO bands (32 FaceIds) may deliberately move
+            // or be certified Buried/Outside; the third far exterior band
+            // and all 24 original inward-cavity/outer faces stay protected.
+            const auto intent=m11RegionIntent(source,1);
+            require(intent.size()==32&&intent.back()==originalFaces[31],
+                    "M37 original caller scope is strictly narrower than first-root sources");
+            for(const double strength:{.35,.55,.8,1.0,1.3}) {
+                VersionedSculptBrush brush(initial,strength,
+                    {},{},{},256,{},m11PhysicalExactSettings());
+                brush.setOriginalPatchIntent(intent);
+                brush.stamp(dummy,source.input[0]);
+                if(brush.completedUnions()!=1) {
+                    last="M37 scoped first physical union: "+brush.lastRejection();
+                    continue;
+                }
+                const auto firstJoined=brush.checkpoint();
+                brush.setOriginalPatchIntent(intent);
+                brush.stamp(dummy,source.input[1]);
+                if(brush.completedUnions()!=2) {
+                    last="M37 scoped second physical union: "+brush.lastRejection();
+                    continue;
+                }
+                const auto accepted=brush.checkpoint();
+                const auto final=accepted.index;
+                require(accepted.verifiedOriginalFidelity&&
+                        accepted.verifiedOriginalFidelity->anchors.original==root&&
+                        firstJoined.verifiedOriginalFidelity&&
+                        firstJoined.verifiedOriginalFidelity->anchors.original==root&&
+                        final!=firstJoined.index&&
+                        final->retiredFaceCount()>firstJoined.index->retiredFaceCount()&&
+                        firstJoined.index->retiredFaceCount()>root->retiredFaceCount()&&
+                        brush.publishedRevisions()==2&&
+                        brush.historyStatistics().undoDepth==2&&
+                        brush.rejectedStamps()==0&&
+                        !brush.lastDirtyPartitions().empty()&&
+                        brush.contactStatistics().contactChecks==2&&
+                        brush.contactStatistics().active,
+                        "M37 two same-local REAL contact unions preserve first-origin proofs while protected walls remain unscoped");
+                const auto protectedAudit=auditOriginalPatchLifetime(
+                    *accepted.verifiedOriginalFidelity,root);
+                require(protectedAudit.originalSources==originalFaces.size()&&
+                        protectedAudit.total.distanceTests>=7*40,
+                        "M37 protected original FaceIds remain in complete first-reference descendant witness audit");
+                for(std::size_t i=32;i<originalFaces.size();++i) {
+                    const auto fid=originalFaces[i];
+                    const auto before=root->maybeFace(fid);
+                    const auto after=final->maybeFace(fid);
+                    require(before&&after&&before->vertices==after->vertices,
+                            "M37 protected exterior and reversed cavity wall FaceIds retain exact source ownership");
+                    for(const auto vid:before->vertices)
+                        { const auto p=root->vertex(vid).position;
+                          const auto q=final->vertex(vid).position;
+                          require(p.x==q.x&&p.y==q.y&&p.z==q.z,
+                                  "M37 protected first-original vertices never moved or changed identity"); }
+                }
+                for(const auto& [u,v]:accepted.mirrorPairs) {
+                    require(final->maybeVertex(u)&&final->maybeVertex(v),
+                            "M37 all original and newly certified reflected orbits remain live");
+                    const auto p=final->vertex(u).position;
+                    const auto q=final->vertex(v).position;
+                    require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                            "M37 certified mirror ids have exact reflection coordinates");
+                }
+                // An explicitly UNSCOPED exterior wall deformation is not
+                // made safe by proximity to the previous intended region.
+                const auto history=brush.historyStatistics();
+                const auto picker=final->pickingRootIdentity();
+                const auto rejectCount=brush.rejectedStamps();
+                const std::array<BrushArea,2> wall{{
+                    {{8,80,0},2,.95},{{-8,80,0},2,.95}
+                }};
+                brush.setOriginalPatchIntent(intent);
+                brush.stamp(dummy,wall);
+                const auto refused=brush.checkpoint();
+                require(brush.rejectedStamps()==rejectCount+1&&
+                        refused.index==final&&
+                        refused.verifiedOriginalFidelity==
+                            accepted.verifiedOriginalFidelity&&
+                        refused.mirrorPairs==accepted.mirrorPairs&&
+                        brush.historyStatistics().undoDepth==history.undoDepth&&
+                        brush.historyStatistics().redoDepth==history.redoDepth&&
+                        brush.publishedRevisions()==2&&
+                        brush.lastDirtyPartitions().empty()&&
+                        final->pickingRootIdentity()==picker,
+                        "M37 unscoped mirrored outer wall motion refuses before CAS with exact root, source, mirror, history and dirty rollback");
+
+                // The inward reversed-cavity surface is separately
+                // protected, not merely present as a passive bystander
+                // while an unrelated outer-wall stroke is refused.
+                const std::array<BrushArea,2> cavity{{
+                    {{5.7,80,0},1.2,.95},{{-5.7,80,0},1.2,.95}
+                }};
+                const auto secondRejectCount=brush.rejectedStamps();
+                brush.setOriginalPatchIntent(intent);
+                brush.stamp(dummy,cavity);
+                const auto cavityRefusal=brush.checkpoint();
+                require(brush.rejectedStamps()==secondRejectCount+1&&
+                        cavityRefusal.index==final&&
+                        cavityRefusal.verifiedOriginalFidelity==
+                            accepted.verifiedOriginalFidelity&&
+                        cavityRefusal.mirrorPairs==accepted.mirrorPairs&&
+                        brush.historyStatistics().undoDepth==history.undoDepth&&
+                        brush.historyStatistics().redoDepth==history.redoDepth&&
+                        brush.publishedRevisions()==2&&
+                        brush.lastDirtyPartitions().empty(),
+                        "M37 independently unscoped reversed-cavity wall motion cannot mutate COW/source/mirrors/dirty or history");
+
+                require(brush.undo()&&brush.snapshot()==firstJoined.index&&
+                        brush.undo()&&brush.snapshot()==root&&
+                        brush.redo()&&brush.snapshot()==firstJoined.index&&
+                        brush.redo()&&brush.snapshot()==final,
+                        "M37 separately accepted protected same-patch original-root histories undo/redo exactly");
+                std::cout<<"[m37] scoped true local two-union protected cavity, separation="
+                         <<separation<<" gap="<<gap
+                         <<" strength="<<strength<<'\n';
+                completed=true;
+                break;
+            }
+        }
+    }
+    if(!completed)
+        throw std::runtime_error(
+            "M37 could not find supported TWO real scoped local physical unions with protected cavity: "+last);
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -3337,6 +3539,7 @@ int main() {
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM23ConclusiveEpisodesAndReal4DFIFO();
         testM35RepeatedPhysicalUnionsInOneOverlappingPatch();
+        testM37ScopedSamePatchUnionsWithProtectedCavity();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
