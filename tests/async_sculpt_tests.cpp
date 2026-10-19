@@ -5492,6 +5492,170 @@ void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
              <<"worker fatal quarantine and independent failed/recovered durable I/O\\n";
 }
 
+// M47: a live Merge is never a render-thread all-pairs query or an
+// anonymous XYZ weld. The one worker command must discover a COMPLETE
+// bounded original-certified transverse contact set on the EXACT selected
+// indexed root and submit it once, or refuse without any published owner.
+void testM47BoundedAuthenticatedLiveMergeDiscovery() {
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto limits=supportedUnionLimits(false);
+    SculptCollisionSettings protectedPolicy;
+    protectedPolicy.physicalExact=true;
+    protectedPolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto wait=[&](AsyncSculptWorker& worker,std::size_t attempts) {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+        while(worker.status().liveMergeRequests<attempts&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.status().liveMergeRequests==attempts,
+                "M47 deferred discovery command must drain on FIFO worker");
+    };
+    AsyncSculptWorker accepted(mesh,.025,.006,.2,
+                               {},{},{},false,{},protectedPolicy);
+    const auto before=accepted.initialRevision();
+    const auto oldPicker=before->pickingRootIdentity();
+    accepted.mergeDiscoveredContacts(before,limits);
+    wait(accepted,1);
+    const auto good=accepted.status();
+    require(good.liveMergeAccepted==1&&good.liveMergeRefusals==0&&
+            good.liveMergeRefusal.empty()&&good.completedUnions==1&&
+            good.publishedRevisions==1&&good.history.undoDepth==1&&
+            good.resources.published==1&&
+            good.stepResources.exactStage.originalWitnessTriangles>0&&
+            before->pickingRootIdentity()==oldPicker&&
+            before->retiredFaceCount()==0,
+            "M47 certified original source, finite complete transverse discovery and original-root CAS merge once");
+    const auto merged=accepted.takeSnapshot();
+    require(merged&&merged->index&&merged->index!=before&&
+            !merged->dirtyPartitions.empty()&&
+            merged->index->retiredFaceCount()>0,
+            "M47 renderer receives only one committed indexed root with correct COW dirty owner set");
+    const auto rootAfter=accepted.initialRevision();
+    accepted.mergeDiscoveredContacts(before,limits);
+    wait(accepted,2);
+    const auto stale=accepted.status();
+    require(stale.liveMergeAccepted==1&&stale.liveMergeRefusals==1&&
+            stale.liveMergeRefusal.find("stale")!=std::string::npos&&
+            stale.completedUnions==1&&stale.history.undoDepth==1&&
+            stale.resources.published==1&&
+            accepted.initialRevision()==rootAfter&&
+            !accepted.takeSnapshot(),
+            "M47 stale UI-selected root does not redirect source intent to new terminal or publish phantom dirties");
+    accepted.undo();
+    {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(accepted.status().completedUndos==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto undone=accepted.takeSnapshot();
+    require(accepted.status().completedUndos==1&&
+            accepted.initialRevision()==before&&
+            undone&&undone->index==before&&
+            accepted.status().history.redoDepth==1,
+            "M47 accepted live Merge undo restores original immutable picking root and history in FIFO");
+    accepted.redo();
+    {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(accepted.status().completedRedos==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    require(accepted.status().completedRedos==1&&
+            accepted.initialRevision()==rootAfter&&
+            accepted.status().history.redoDepth==0&&
+            accepted.status().resources.published==1,
+            "M47 redo revives same certified union without a new work attempt");
+
+    AsyncSculptWorker off(mesh,.025,.006,.2,
+                          {},{},{},false);
+    const auto offRoot=off.initialRevision();
+    off.mergeDiscoveredContacts(offRoot,limits);
+    wait(off,1);
+    const auto offStatus=off.status();
+    require(offStatus.liveMergeRefusals==1&&offStatus.liveMergeAccepted==0&&
+            offStatus.liveMergeRefusal.find("trusted initial")!=
+                std::string::npos&&
+            offStatus.completedUnions==0&&offStatus.history.undoDepth==0&&
+            off.initialRevision()==offRoot&&
+            !off.takeSnapshot(),
+            "M47 legacy OFF-mode cannot be silently upgraded into authenticated original Boolean surgery");
+
+    AsyncSculptWorker bounded(mesh,.025,.006,.2,
+                              {},{},{},false,{},protectedPolicy);
+    auto narrow=SculptSourceContactLimits{};
+    narrow.maxVertices=3;
+    const auto boundedRoot=bounded.initialRevision();
+    bounded.mergeDiscoveredContacts(boundedRoot,limits,narrow);
+    wait(bounded,1);
+    const auto budget=bounded.status();
+    require(budget.liveMergeRefusals==1&&budget.liveMergeAccepted==0&&
+            budget.liveMergeRefusal.find("budget")!=std::string::npos&&
+            budget.completedUnions==0&&budget.resources.published==0&&
+            budget.history.undoDepth==0&&
+            bounded.initialRevision()==boundedRoot&&
+            !bounded.takeSnapshot(),
+            "M47 finite complete-root candidate work exhaustion refuses, never processes truncated contact subset");
+    bounded.mergeDiscoveredContacts(boundedRoot,limits);
+    wait(bounded,2);
+    require(bounded.status().liveMergeAccepted==1&&
+            bounded.status().liveMergeRefusals==1&&
+            bounded.status().completedUnions==1,
+            "M47 a refused bounded discovery cannot poison a subsequent valid authenticated queued request");
+
+    auto empty=twoIntersectingTetrahedra();
+    for(std::size_t i=4;i<8;++i)
+        empty.vertices[i].x+=50;
+    AsyncSculptWorker clean(empty,.025,.006,.2,
+                            {},{},{},false,{},protectedPolicy);
+    const auto cleanRoot=clean.initialRevision();
+    clean.mergeDiscoveredContacts(cleanRoot,limits);
+    wait(clean,1);
+    const auto absent=clean.status();
+    require(absent.liveMergeRefusals==1&&absent.liveMergeAccepted==0&&
+            absent.liveMergeRefusal.find("no intersecting")!=
+                std::string::npos&&
+            absent.completedUnions==0&&absent.history.undoDepth==0&&
+            clean.initialRevision()==cleanRoot&&
+            !clean.takeSnapshot(),
+            "M47 clean valid source is a reported no-contact refusal, not fabricated accepted union");
+
+    // A missing checkpoint opaque credential must not be resurrected by
+    // read-only discovery merely because its reconstructed XYZ matches.
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-m47-bounded-untrusted-source.mshr";
+    try {
+        accepted.saveCheckpoint(file);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(accepted.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(accepted.checkpointStatistics().completed==1,
+                "M47 complete merged root disk checkpoint must finish");
+        const auto restored=readCheckpoint(file);
+        require(restored.index&&restored.originalFidelityRequired&&
+                !restored.verifiedOriginalFidelity,
+                "M47 disk V13 persists source-authentication requirement but never creates trusted first-original credentials");
+        bool denied=false;
+        try {(void)AsyncSculptWorker(restored,.025,.006,.2,
+                                     {},{},{},{},protectedPolicy);}
+        catch(const std::logic_error&) {denied=true;}
+        require(denied,
+                "M47 untrusted V13 disk root cannot start protected live worker or mint new first-original source authority");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(file,ec);
+        throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+    std::cout<<"[m47] bounded certified original full-contact FIFO; accepted,"
+             <<" stale, OFF, zero contacts, one-under source work,"
+             <<" undo/redo, dirty/picker and V13 checkpoint refusal\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -7364,6 +7528,7 @@ int main() {
         testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance();
         testOriginalM13WholeStepResourceAndTelemetryReconciliation();
         testM14PostCasFaultQuarantineAndCheckpointIsolation();
+        testM47BoundedAuthenticatedLiveMergeDiscovery();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
