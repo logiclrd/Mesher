@@ -46,7 +46,7 @@ after the aggregate check.
 ## Individually finite aggregate category guards
 
 M41 adds opt-in original-root aggregate limits to
-`SculptCollisionSettings::exactStageLimits` for eleven distinct
+`SculptCollisionSettings::exactStageLimits` for twelve distinct
 work dimensions:
 
 - Collision: query count, BVH boxes, partitions, candidate triangles,
