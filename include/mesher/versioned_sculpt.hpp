@@ -95,12 +95,23 @@ struct SculptOriginalIntentInputLimits {
     std::size_t maxOriginalWitnesses=131072;
     std::size_t maxDeclaredSources=16384;
 };
+// M32: finite original-surface work and first-root protected-fidelity policy.
+// Intentionally separate from M17 contact limits and V16 anchoredSurface.
+struct SculptOriginalTerminalLimits {
+    double maximumProtectedDeviationInEdges=1e-7;
+    std::size_t maxDistanceTests=131072;
+    std::size_t maxLivingDescendants=16384;
+    std::size_t maxCumulativeFaceEvidence=16384;
+    std::size_t maxInflateVertices=16384;
+    std::size_t maxInflateFaces=32768;
+};
 struct SculptCollisionSettings {
     bool enabled=false; // V16 approximate classifier; independent policy
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
     SculptOriginalIntentInputLimits originalIntentInput{};
+    SculptOriginalTerminalLimits originalTerminal{};
     SculptSourceContactLimits physicalSourceLimits{};
     ExactCutStepLimits physicalExactLimits{};
     RepairSurgerySettings surgery{};
@@ -244,6 +255,9 @@ private:
     std::shared_ptr<const FlatMeshIndex> flatOrder_;
     IndexedMeshRepository published_;
     RevisionRetirementQueue historyRetirement_{64};
+    // Construct genuine first-root sealed authority BEFORE M29 history:
+    // tracked history must start at its original root, never retrofit.
+    std::shared_ptr<const OriginalPatchLifetime> firstOriginalAuthority_;
     RevisionHistory history_;
     VersionedInflateBrush inflate_;
     VersionedLocalRefiner refiner_;
@@ -268,7 +282,6 @@ private:
     // current terminal root. M30 installs the active pre-CAS guard.
     bool originalFidelityRequired_{};
     // Immutable FIRST-source authority and original reflected-ID involution.
-    std::shared_ptr<const OriginalPatchLifetime> firstOriginalAuthority_;
     std::unordered_map<VertexId,VertexId> firstOriginalMirrors_;
     std::vector<FaceId> physicalIntendedOriginals_;
     std::string physicalIntentRefusal_;

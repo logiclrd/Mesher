@@ -910,6 +910,11 @@ void testWorkerMirroredThreeBodyOneHistoryStep() {
     std::filesystem::remove(filename,ec);
 }
 
+// Deliberate test-only caller scope for positive source-exact physical edits.
+// The worker never chooses these FaceIds from the brush's candidate XYZ.
+std::vector<FaceId> firstOriginalFaces(const Mesh& mesh) {
+    return partitionFlatMesh(mesh,256).flatIndex.faceIds;
+}
 void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
     Mesh mesh;
     for(const auto p:std::array<Vec3,8>{{
@@ -961,6 +966,7 @@ void testExactPhysicalRemeshIsOneSpeculativeTransaction() {
             VersionedSculptBrush brush(mesh,strength,{},{},refine,
                                       false,256,{},opts);
             const auto before=brush.snapshot();
+            brush.setOriginalPatchIntent(firstOriginalFaces(mesh));
             brush.stamp(dummy,areas);
             if(brush.completedUnions()==1) {
                 require(brush.snapshot()!=before&&
@@ -1052,6 +1058,7 @@ void testPhysicallyCreatedContactCanPassExactSourcePlanner() {
             VersionedSculptBrush real(gap,strength,{},{},{},false,256,{},opts);
             const auto original=real.snapshot();
             Mesh dummy;
+            real.setOriginalPatchIntent(firstOriginalFaces(gap));
             real.stamp(dummy,areas);
             if(real.completedUnions()!=1) {
                 last=real.lastRejection();
@@ -1134,7 +1141,26 @@ DurableCheckpoint checkpointM11Source(const M11TowerSource& source) {
     for(const auto& [i,j]:source.originalPairs)
         out.mirrorPairs.emplace_back(
             imported.flatIndex.vertexIds[i],imported.flatIndex.vertexIds[j]);
+    // This is a freshly built ORIGINAL geometry source, not a terminal
+    // checkpoint replay. Explicitly retain trusted first-root authority.
+    out.verifiedOriginalFidelity=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            out.index,imported.flatIndex.faceIds,
+            7*imported.flatIndex.faceIds.size())));
+    out.verifiedFirstOriginalMirrorPairs=out.mirrorPairs;
+    out.originalFidelityRequired=true;
     return out;
+}
+// The caller continues to explicitly authorize previously sculpted
+// original towers as well as the new one. Future untouched towers remain
+// protected. M32 excludes ONLY independently certified wholly retired
+// origins from the subsequent M21 active intent declaration.
+std::vector<FaceId> m11RegionIntent(const M11TowerSource& source,
+                                  std::size_t region) {
+    if(region>=source.input.size())
+        throw std::out_of_range("Missing M11 original contact region");
+    const auto all=firstOriginalFaces(source.mesh);
+    return {all.begin(),all.begin()+static_cast<std::ptrdiff_t>(16*(region+1))};
 }
 SculptCollisionSettings m11PhysicalExactSettings() {
     SculptCollisionSettings result;
@@ -1163,6 +1189,7 @@ double chooseM11TowerStrength() {
     for(const double testStrength:{.35,.55,.8,1.0,1.3}) {
         VersionedSculptBrush one(initialTrial,testStrength,
             {},{},{},256,{},m11PhysicalExactSettings());
+        one.setOriginalPatchIntent(m11RegionIntent(trial,0));
         one.stamp(dummy,trial.input.front());
         if(one.completedUnions()==1&&one.publishedRevisions()==1) {
             strength=testStrength;
@@ -1201,6 +1228,7 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
         const auto previous=brush.historyStatistics();
         const auto previousMirror=brush.checkpoint().mirrorPairs;
         const auto oldPicking=before->pickingRootIdentity();
+        brush.setOriginalPatchIntent(m11RegionIntent(source,step));
         brush.stamp(dummy,source.input[step]);
         if(brush.completedUnions()!=unionCount+1)
             throw std::runtime_error(
@@ -1280,7 +1308,7 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
         require(worker.canBegin(),"M11 finite-source over-budget worker event drained");
         return worker.status();
     };
-    worker.begin({5,0,70},160);
+    worker.begin({5,0,70},160,firstOriginalFaces(source.mesh));
     worker.end({5,0,70},0);
     const auto rejected=wait();
     const auto refusedSnapshot=worker.takeSnapshot();
@@ -1297,7 +1325,8 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
             "Oversize contact query rolls back ALL physically moved sheets without a partial published union");
     // Identical original root and same worker now accept the ordinary
     // six-contact one-region physically triggered mirrored union.
-    worker.begin(source.input.front()[0].center,6);
+    worker.begin(source.input.front()[0].center,6,
+                 m11RegionIntent(source,0));
     worker.end(source.input.front()[0].center,0);
     const auto accepted=wait();
     const auto result=worker.takeSnapshot();
@@ -1341,8 +1370,13 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
                 "M11 4D worker consumes each queued input exactly once before next stroke");
         return current;
     };
+    std::size_t nextRegion=0;
     const auto stampAt=[&](Vec3 center,double radius) {
-        worker.begin(center,radius);
+        // A no-contact command is unscoped; a genuine tower command
+        // carries all caller-approved earlier original bands plus this one.
+        const bool isNoContact=center.z>9000;
+        worker.begin(center,radius,isNoContact?std::vector<FaceId>{}:
+                     m11RegionIntent(source,nextRegion));
         worker.end(center,0);
         return waitForDrain();
     };
@@ -1365,6 +1399,7 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
             // Next real positive candidate is VALID geometrically, but
             // the caller vetoes its terminal Step after exact staging.
             // This checks the entire speculative map/history rollback.
+            nextRegion=i;
             const auto refused=stampAt(center,6);
             const auto refusedSnapshot=worker.takeSnapshot();
             require(refused.rejectedStamps==1&&
@@ -1380,6 +1415,7 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
                     before->pickingRootIdentity()!=nullptr,
                     "Rejected physical Step preserves held immutable BVH readers");
         }
+        nextRegion=i;
         const auto current=stampAt(center,6);
         if(current.completedUnions!=i+1)
             throw std::runtime_error(
@@ -1671,6 +1707,7 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
         initial,.0005,{},{},{},false,256,{},configExact);
     const auto original=physical.snapshot();
     const auto oldPicker=original->pickingRootIdentity();
+    physical.setOriginalPatchIntent(firstOriginalFaces(initial));
     physical.stamp(dummy,stroke);
     if(physical.completedUnions()!=1)
         throw std::runtime_error(
@@ -1707,7 +1744,7 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     AsyncSculptWorker queued(initial,.025,.0005,.2,{},{},{},false,
                              {},config());
     const auto queuedOriginal=queued.initialRevision();
-    queued.begin({4,0,0},.5);
+    queued.begin({4,0,0},.5,firstOriginalFaces(initial));
     queued.end({4,0,0},0);
     const auto deadline=std::chrono::steady_clock::now()+
                         std::chrono::seconds(20);
@@ -1797,6 +1834,12 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
         source.mirrorPairs.emplace_back(
             imported.flatIndex.vertexIds[i],
             imported.flatIndex.vertexIds[n+i]);
+    source.verifiedOriginalFidelity=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            source.index,imported.flatIndex.faceIds,
+            7*imported.flatIndex.faceIds.size())));
+    source.verifiedFirstOriginalMirrorPairs=source.mirrorPairs;
+    source.originalFidelityRequired=true;
     std::size_t validationCount=0;
     SculptStepValidator deliberateRefusal=[&](const ProposedSculptStep& candidate) {
         require(candidate.before&&candidate.candidate&&
@@ -1815,6 +1858,7 @@ void testFirstPhysicalExactBooleanOneOriginalRootStep() {
     std::sort(expectedOriginalPairs.begin(),expectedOriginalPairs.end());
     const std::array<BrushArea,2> both{{
         {{4,0,0},.5,.9},{{-4,0,0},.5,.9}}};
+    symmetric.setOriginalPatchIntent(firstOriginalFaces(reflected));
     symmetric.stamp(dummy,both);
     require(symmetric.snapshot()==mirroredInitial&&
             symmetric.rejectedStamps()==1&&
@@ -2077,6 +2121,134 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     }
     std::error_code ec;std::filesystem::remove(file,ec);
 }
+
+void testM32ActivePhysicalOriginalTerminalPolicy() {
+    // The same actual two normal-driven stages are independently certified
+    // with M28 solely to choose a tolerance between genuine measurements.
+    // The production brush below must enforce it itself BEFORE publishing.
+    Mesh shape={{{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                 {0,0,1},{0,0,-1}},
+                {{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                 {5,1,0},{5,2,1},{5,3,2},{5,0,3}}};
+    const auto imported=partitionFlatMesh(shape,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    auto original=beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+        root,imported.flatIndex.faceIds,56));
+    VersionedInflateBrush physical(.035,{});
+    VersionedLocalRefiner refiner(6,{},{},256);
+    VersionedDirectionalCollapser collapser(6,{},{},256);
+    const std::array<BrushArea,1> patch{{{{1,0,0},.8,.9}}};
+    const auto inflated1=physical.stamp(root,patch,256);
+    const auto refined1=refiner.apply(inflated1.index,inflated1.baseline);
+    const auto collapsed1=collapser.apply(refined1.index,inflated1.baseline);
+    const auto first=advanceCertifiedPhysicalStampLifetime(
+        original,inflated1,refined1,collapsed1,nullptr,nullptr,128,128,6,8);
+    const auto inflated2=physical.stamp(first.lineage.terminal,patch,256);
+    const auto refined2=refiner.apply(inflated2.index,inflated2.baseline);
+    const auto collapsed2=collapser.apply(refined2.index,inflated2.baseline);
+    const auto second=advanceCertifiedPhysicalStampLifetime(
+        first,inflated2,refined2,collapsed2,nullptr,nullptr,128,128,6,8);
+    const auto one=auditOriginalPatchLifetime(first,root,56,128);
+    const auto two=auditOriginalPatchLifetime(second,root,56,128);
+    const double tolerance=(one.total.maximumDistanceInEdges+
+                            two.total.maximumDistanceInEdges)*.5;
+    require(two.total.maximumDistanceInEdges>
+            one.total.maximumDistanceInEdges+1e-6,
+            "M32 real second source displacement is cumulatively larger");
+
+    SculptCollisionSettings exact;
+    exact.physicalExact=true;
+    exact.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
+    exact.originalTerminal.maxDistanceTests=56;
+    exact.originalTerminal.maxLivingDescendants=8;
+    exact.originalTerminal.maxCumulativeFaceEvidence=128;
+    exact.originalTerminal.maxInflateVertices=6;
+    exact.originalTerminal.maxInflateFaces=8;
+    VersionedSculptBrush brush(shape,.035,{},{},{},false,256,{},exact);
+    const auto firstRoot=brush.snapshot();
+    const auto oldPicker=firstRoot->pickingRootIdentity();
+    const auto initialProof=brush.checkpoint();
+    require(initialProof.verifiedOriginalFidelity&&
+            initialProof.verifiedOriginalFidelity->lineage.terminal==firstRoot&&
+            initialProof.originalFidelityRequired&&
+            initialProof.verifiedOriginalFidelity->acceptedTransitions==0,
+            "M32 physicalExact history starts sealed at actual FIRST root");
+    Mesh dummy;
+    brush.stamp(dummy,patch);
+    if(brush.publishedRevisions()!=1)
+        throw std::runtime_error(
+            "M32 first small first-original physical stamp refused: "+
+            brush.lastRejection());
+    const auto accepted=brush.checkpoint();
+    require(accepted.index==brush.snapshot()&&accepted.index!=firstRoot&&
+            accepted.verifiedOriginalFidelity&&
+            accepted.verifiedOriginalFidelity->anchors.original==firstRoot&&
+            accepted.verifiedOriginalFidelity->acceptedTransitions==1&&
+            brush.historyStatistics().undoDepth==1&&
+            !brush.lastDirtyPartitions().empty()&&
+            firstRoot->pickingRootIdentity()==oldPicker,
+            "M32 one pre-CAS-certified physical Step publishes matching root, lifetime and dirty history");
+    brush.stamp(dummy,patch);
+    const auto refused=brush.checkpoint();
+    require(brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==1&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.lastDirtyPartitions().empty()&&
+            refused.index==accepted.index&&
+            refused.verifiedOriginalFidelity==accepted.verifiedOriginalFidelity&&
+            refused.verifiedOriginalFidelity->sourceFaceEvidence==
+                accepted.verifiedOriginalFidelity->sourceFaceEvidence&&
+            refused.verifiedOriginalFidelity->anchors.original==firstRoot,
+            "M32 individually small but cumulative second first-root erosion refuses atomically");
+    require(brush.undo()&&brush.snapshot()==firstRoot&&
+            brush.checkpoint().verifiedOriginalFidelity==
+                initialProof.verifiedOriginalFidelity&&
+            brush.redo()&&brush.snapshot()==accepted.index&&
+            brush.checkpoint().verifiedOriginalFidelity==
+                accepted.verifiedOriginalFidelity,
+            "M32 undo/redo reuses exact matching immutable original-source credentials");
+
+    // A one-under COMPLETE seven-witness cap rejects before source CAS.
+    auto low=exact;
+    low.originalTerminal.maxDistanceTests=55;
+    VersionedSculptBrush bounded(shape,.035,{},{},{},false,256,{},low);
+    const auto stable=bounded.snapshot();
+    bounded.stamp(dummy,patch);
+    require(bounded.rejectedStamps()==1&&bounded.snapshot()==stable&&
+            bounded.historyStatistics().undoDepth==0&&
+            bounded.checkpoint().verifiedOriginalFidelity->lineage.terminal==
+                stable&&bounded.lastDirtyPartitions().empty(),
+            "M32 one-below-complete 56 original-child witnesses refuses before CAS");
+    low=exact;
+    low.originalTerminal.maxInflateVertices=5;
+    VersionedSculptBrush vertexLimited(shape,.035,{},{},{},false,256,{},low);
+    const auto untouched=vertexLimited.snapshot();
+    vertexLimited.stamp(dummy,patch);
+    require(vertexLimited.rejectedStamps()==1&&
+            vertexLimited.snapshot()==untouched&&
+            vertexLimited.historyStatistics().undoDepth==0,
+            "M32 complete six-ID moved-source Inflate cap refuses at five");
+
+    // Explicit authenticated deliberate scope permits a real physical
+    // source deformation even when unscoped tolerance is zero.
+    auto intended=exact;
+    intended.originalTerminal.maximumProtectedDeviationInEdges=0;
+    VersionedSculptBrush scoped(shape,.035,{},{},{},false,256,{},intended);
+    scoped.setOriginalPatchIntent(imported.flatIndex.faceIds);
+    scoped.stamp(dummy,patch);
+    require(scoped.publishedRevisions()==1&&
+            scoped.checkpoint().verifiedOriginalFidelity->acceptedTransitions==1,
+            "M32 authenticated pre-edit caller scope exempts only geometric threshold");
+    const auto prior=scoped.checkpoint();
+    scoped.setOriginalPatchIntent({});
+    scoped.stamp(dummy,patch);
+    require(scoped.rejectedStamps()==1&&
+            scoped.checkpoint().index==prior.index&&
+            scoped.checkpoint().verifiedOriginalFidelity==
+                prior.verifiedOriginalFidelity,
+            "M32 unscoped later stamp does not inherit previous intended exemption");
+}
+
 void testM31ExplicitFirstOriginalIntentTransport() {
     // Input scope is the CALLER's permanent original FaceId set, captured
     // before the physical candidate exists; it is not proximity-discovered.
@@ -2104,6 +2276,7 @@ void testM31ExplicitFirstOriginalIntentTransport() {
     brush.setOriginalPatchIntent({ids.front()});
     require(brush.originalPatchIntent()==std::vector<FaceId>{ids.front()},
             "M31 caller's exact FaceId selection remains intact");
+    brush.setOriginalPatchIntent(ids);
     brush.stamp(dummy,area);
     require(brush.completedStamps()==2&&brush.rejectedStamps()==1&&
             brush.publishedRevisions()==1&&brush.snapshot()!=first&&
@@ -2151,7 +2324,7 @@ void testM31ExplicitFirstOriginalIntentTransport() {
             worker.status().publishedRevisions==0&&
             worker.initialRevision()==before,
             "M31 invalid queued original scope refuses without a geometric Step");
-    worker.begin({1,0,0},.8,{ids.front()});
+    worker.begin({1,0,0},.8,ids);
     worker.end({1,0,0},0);
     wait();
     require(worker.status().rejectedStamps==1&&
@@ -2176,13 +2349,12 @@ void testM31ExplicitFirstOriginalIntentTransport() {
                               {partitionFlatMesh(twoIntersectingTetrahedra(),256)
                                   .flatIndex.faceIds.front()});
     waitForUnion(merger,2);
-    if(merger.status().completedUnions!=1)
-        throw std::runtime_error(
-            "M31 valid queued scoped exact union refused: "+
-            merger.status().lastRejection);
-    require(merger.status().rejectedUnions==1&&
-            merger.status().history.undoDepth==1,
-            "M31 next valid explicitly scoped union executes in original FIFO order");
+    require(merger.status().completedUnions==0&&
+            merger.status().rejectedUnions==2&&
+            merger.status().publishedRevisions==0&&
+            merger.status().history.undoDepth==0&&
+            merger.status().lastRejection.find("M33")!=std::string::npos,
+            "M32 protected queued explicit union must refuse before CAS until separately certified M33");
 }
 }
 int main() {
@@ -2204,6 +2376,7 @@ int main() {
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testM28FullPrivatePhysicalStampLifetime();
         testM31ExplicitFirstOriginalIntentTransport();
+        testM32ActivePhysicalOriginalTerminalPolicy();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();

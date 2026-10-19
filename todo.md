@@ -1398,7 +1398,7 @@ documentation follows before the merge.
     benchmarks passed. Full terminal M28/M21 pre-CAS enforcement,
     M29 worker history lifetime publication, original M30 and M22
     stay UNCHECKED, alongside M32-M34.
-  - [ ] **V17-M32 — Certified physical-stamp terminal CAS gate.**
+  - [x] **V17-M32 — Certified physical-stamp terminal CAS gate.**
     Initialize source-authenticated M29 history from the actual original
     root; replay complete M28 Inflate/refine/collapse/optional d2 source
     evidence; evaluate predecessor-bound M21 intent and all original
@@ -1406,6 +1406,28 @@ documentation follows before the merge.
     Reject cumulative unscoped erosion and one-under budgets, with no
     partial history/mirror/dirty/checkpoint changes. Preserve real M18
     physical unions and M11 sixteen positive mirrored tower unions.
+    **Accepted in PR #77, substantive Actions #39182191436:** the
+    actual physicalExact M28 source bundle and M21 fully bounded
+    first-original seven-witness terminal test now run BEFORE the
+    one original-root CAS. Fresh original M27 certificates initialize
+    M29 history; each accepted stamp appends its one direct successor,
+    exact root and trusted checkpoint lifetime. Genuine first permitted
+    displacement then second cumulative unintended erosion refuse,
+    as do one-under full 7*descendant witnesses and Inflate IDs, with
+    same old indexed root, history/proof, dirty/mirrors and later FIFO.
+    Caller intent across genuine sequential unions must explicitly
+    continue naming earlier deliberately sculpted still-live original
+    FaceIds; only authenticated wholly c3/M03 retired origins can be
+    omitted from that active M21 scope. No proximity guessing, rebasing,
+    threshold loosening or permanent inferred exemption. The M18 real
+    physical source unions, M11 sixteen genuinely accepted mirrored
+    tower unions, physical worker refusal/recovery, cavity/mirror guards,
+    undo/redo, and protected V13 checkpoint boundary remain green
+    on GCC/Clang/MSVC with 23 CPU suites and applicable benchmarks.
+    Explicit protected queued source-exact CAS remains fail-closed
+    pending independent M33; M34, the original M30, M22, M23, M12
+    and unrelated later goals remain UNCHECKED. M14 exceptional
+    post-CAS atomicity is not falsely claimed complete.
   - [ ] **V17-M33 — Certified explicit queued source-exact CAS gate.**
     Bind explicit queued union intent to its actual expected previous
     published lifetime, independently certify genuine M26 cut/d2

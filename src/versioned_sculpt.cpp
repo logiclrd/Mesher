@@ -465,9 +465,14 @@ VersionedSculptBrush::VersionedSculptBrush(
     SculptStepValidator validator,SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>(
          std::move(import.flatIndex))),
-     published_(RegionTopologyIndex::build(std::move(import.revision))),
+published_(RegionTopologyIndex::build(std::move(import.revision))),
+     firstOriginalAuthority_(collision.physicalExact?
+         std::make_shared<const OriginalPatchLifetime>(
+             beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+                 published_.snapshot(),flatOrder_->faceIds,
+                 collision.originalIntentInput.maxOriginalWitnesses))):nullptr),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
-              initialCount,flatOrder_->faceIds.size()),
+              initialCount,flatOrder_->faceIds.size(),firstOriginalAuthority_),
      inflate_(strength,curvature,makeMirrors(*flatOrder_,initialCount,symmetric)),
      refiner_(initialCount,refine,
               makeMirrors(*flatOrder_,initialCount,symmetric),partitionCapacity),
@@ -484,15 +489,8 @@ VersionedSculptBrush::VersionedSculptBrush(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
-    if(collision_.physicalExact) {
-        // Only a genuinely new imported original may create M27's first
-        // anchors. Accepted later terminal revisions NEVER reset them.
-        firstOriginalAuthority_=std::make_shared<const OriginalPatchLifetime>(
-            beginOriginalPatchLifetime(captureOriginalSourceAnchors(
-                published_.snapshot(),flatOrder_->faceIds,
-                collision_.originalIntentInput.maxOriginalWitnesses)));
-        if(symmetric_)firstOriginalMirrors_=inflate_.mirrors();
-    }
+    if(collision_.physicalExact&&symmetric_)
+        firstOriginalMirrors_=inflate_.mirrors();
 }
 
 VersionedSculptBrush::VersionedSculptBrush(
@@ -502,6 +500,8 @@ VersionedSculptBrush::VersionedSculptBrush(
     SculptCollisionSettings collision)
     :flatOrder_(std::make_shared<const FlatMeshIndex>()),
      published_(recovered.index),
+     firstOriginalAuthority_(collision.physicalExact?
+         recovered.verifiedOriginalFidelity:nullptr),
      history_(published_.snapshot(),64,32*1024*1024,&historyRetirement_,
               elementCount(*recovered.index,true),
               elementCount(*recovered.index,false),
@@ -536,7 +536,6 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
         // A trusted recovery may retain opaque FIRST-root authority.
         // Never re-anchor a recovered later terminal, including V12/V13.
-        firstOriginalAuthority_=recovered.verifiedOriginalFidelity;
         auto originalPairs=recovered.verifiedFirstOriginalMirrorPairs;
         if(originalPairs.empty()&&firstOriginalAuthority_->acceptedTransitions==0&&
            firstOriginalAuthority_->anchors.original==published_.snapshot())
@@ -585,6 +584,20 @@ void VersionedSculptBrush::stamp(
     const auto start=Clock::now();
     // Scope is resolved on the worker at Begin and is never filled from
     // candidate geometry. Bad source input must not terminate FIFO.
+    if(!collision_.physicalExact&&history_.currentFidelity()) {
+        // Trusted protected history must not be mutated through a legacy
+        // proof-less stamp, which would otherwise fail M29 AFTER CAS.
+        lastDirtyPartitions_.clear();
+        lastRejection_="Authenticated source history needs a certified physicalExact Step";
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={};
+        ++rejected_;
+        ++completed_;
+        return;
+    }
     if(!physicalIntentRefusal_.empty()) {
         lastDirtyPartitions_.clear();
         lastRejection_=physicalIntentRefusal_;
@@ -819,6 +832,66 @@ void VersionedSculptBrush::stamp(
             rejection=error.what();
         }
     }
+    // M32: exact-final first-original policy. The old *PUBLISHED* root
+    // and its matching M29 certificate are the ONLY permissible predecessor.
+    // M28 validates every actual private source stage and seals ONE external
+    // successor. No intermediate Inflate/cut root is ever audited or published.
+    std::shared_ptr<const OriginalPatchLifetime> finalFidelity;
+    if(rejection.empty()&&collision_.physicalExact&&updated!=old) {
+        try {
+            const auto previous=history_.currentFidelity();
+            if(!previous||!firstOriginalAuthority_||
+               previous->lineage.terminal!=old||
+               previous->anchors.original!=firstOriginalAuthority_->anchors.original)
+                throw std::logic_error(
+                    "Physical source Step lacks current authenticated FIRST-original lifetime");
+            const auto& budget=collision_.originalTerminal;
+            verifyOriginalPatchPublicationRoot(
+                *previous,old,budget.maxLivingDescendants);
+            // A caller may continue naming an already intended original
+            // across successive independent stamps. Only sources with an
+            // M26-sealed WHOLE Buried/Outside retirement can be omitted;
+            // all other names must still be live, original and explicit.
+            // This never infers a new intention from XYZ or the brush area.
+            std::set<FaceId> liveOrigins;
+            for(const auto& [id,faces]:previous->lineage.living)
+                if(!faces.empty())liveOrigins.insert(id);
+            std::vector<FaceId> activeIntended;
+            activeIntended.reserve(physicalIntendedOriginals_.size());
+            for(const auto id:physicalIntendedOriginals_) {
+                if(liveOrigins.contains(id))
+                    activeIntended.push_back(id);
+                else if(!std::binary_search(
+                            previous->certifiedRetiredOriginals.begin(),
+                            previous->certifiedRetiredOriginals.end(),id))
+                    throw std::logic_error(
+                        "Physical intended original is absent without certified Buried/Outside retirement");
+            }
+            const auto declaration=declareOriginalPatchIntent(
+                *previous,activeIntended,
+                symmetric_?&firstOriginalMirrors_:nullptr,
+                collision_.originalIntentInput.maxDeclaredSources);
+            auto candidate=advanceCertifiedPhysicalStampLifetime(
+                *previous,inflated,refined,collapsed,
+                physicalExactUnion?&*physicalExactUnion:nullptr,
+                symmetric_?&firstOriginalMirrors_:nullptr,
+                budget.maxCumulativeFaceEvidence,budget.maxLivingDescendants,
+                budget.maxInflateVertices,budget.maxInflateFaces);
+            // Preflight history authentication, not just geometric policy:
+            // a source-invalid candidate must not throw after successful CAS.
+            verifyOriginalPatchPublicationTransition(
+                *previous,candidate,old,updated,budget.maxLivingDescendants);
+            (void)evaluateOriginalPatchIntent(
+                *previous,candidate,declaration,
+                budget.maximumProtectedDeviationInEdges,
+                budget.maxDistanceTests,budget.maxLivingDescendants);
+            finalFidelity=std::make_shared<const OriginalPatchLifetime>(
+                std::move(candidate));
+        }catch(const std::exception& error) {
+            rejection=std::string("Physical first-original terminal policy refused: ")+
+                      error.what();
+        }
+    }
     if(!rejection.empty()) {
         collapser_.rollbackStep();
         refiner_.rollbackStep();
@@ -929,14 +1002,16 @@ void VersionedSculptBrush::stamp(
     removedMirrors.insert(removedMirrors.end(),repairedRemovedMirrors.begin(),
                           repairedRemovedMirrors.end());
     }
-    history_.append(updated,lastDirtyPartitions_,
+    // A conclusively unchanged stamp is not an external source Step and
+    // must not offer null credentials to tracked M29 history.
+    if(updated!=old)history_.append(updated,lastDirtyPartitions_,
                     std::move(addedMirrors),std::move(removedMirrors),
                     inflated.commitStatistics.clonedPartitionBytes+
                     refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
                     (physicalExactUnion?physicalExactUnion->copiedPayloadBytes:0)+
                     (collisionRepair?
                      collisionRepair->commit.statistics.clonedPartitionBytes:0),
-                    vertices_,faces_);
+                    vertices_,faces_,std::move(finalFidelity));
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
@@ -973,6 +1048,11 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto old=published_.snapshot();
     if(!expected||old!=expected)
         return reject("Exact Boolean Step expected root is stale");
+    // M33 owns the separately queued protected exact-union successor. An
+    // authenticated history cannot accept a credential-free CAS: reject
+    // rather than publishing first and failing M29 append afterward.
+    if(history_.currentFidelity())
+        return reject("Protected explicit exact union awaits M33 source-certified terminal gate");
     if(const auto invalid=validateOriginalIntentSources(intendedOriginals);
        !invalid.empty())
         return reject(invalid);
