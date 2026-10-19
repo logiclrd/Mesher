@@ -2161,6 +2161,35 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
                 "M39 no accepted 4D stamp modifies retained first-original renderer/picker BVH");
         return published->index;
     };
+    const auto inspectCheckpoint=[&]() {
+        // A V13 disk snapshot is NOT a source certificate, but it must
+        // preserve the exact mirror/retirement map under refused commands.
+        const auto path=std::filesystem::temp_directory_path()/
+            "mesher-v17-m39-fifo-refusal-probe.mshr";
+        const auto previous=worker.checkpointStatistics();
+        try {
+            worker.saveCheckpoint(path);
+            const auto stop=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(25);
+            while(worker.checkpointStatistics().completed==previous.completed&&
+                  worker.checkpointStatistics().failed==previous.failed&&
+                  std::chrono::steady_clock::now()<stop)
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            const auto now=worker.checkpointStatistics();
+            require(now.completed==previous.completed+1&&
+                    now.failed==previous.failed,
+                    "M39 FIFO durable provenance probe finishes after actual command queue drain");
+            auto loaded=readCheckpoint(path);
+            require(loaded.index&&loaded.originalFidelityRequired&&
+                    !loaded.verifiedOriginalFidelity&&
+                    loaded.mirrorPairs.size()>=starting.mirrorPairs.size(),
+                    "M39 live protected 4D root saves proper V13 disk provenance without forged first root");
+            std::error_code ec;std::filesystem::remove(path,ec);
+            return loaded;
+        }catch(...) {
+            std::error_code ec;std::filesystem::remove(path,ec);throw;
+        }
+    };
     const auto initialContact=stroke(source.input[0][0].center,6,
                                      selected.deliberate);
     if(initialContact.completedUnions!=1)
@@ -2204,6 +2233,7 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
     // contact or synthetic Clean may consume two quiet credits.
     const auto beforeInvalid=worker.status();
     const auto heldBeforeInvalid=roots.back();
+    const auto storedBeforeInvalid=inspectCheckpoint();
     const auto invalid=stroke(selected.exterior,.28,{FaceId{99999999}});
     require(invalid.rejectedStamps==beforeInvalid.rejectedStamps+1&&
             invalid.contact.uncertainChecks==
@@ -2222,6 +2252,15 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
             worker.initialRevision()==heldBeforeInvalid&&
             original->pickingRootIdentity()==oldPicker,
             "M39 refused 4D source request cannot expose a partial dirty renderer or altered old root");
+    const auto storedAfterInvalid=inspectCheckpoint();
+    require(storedAfterInvalid.mirrorPairs==storedBeforeInvalid.mirrorPairs&&
+            storedAfterInvalid.index->retiredFaceIds()==
+                storedBeforeInvalid.index->retiredFaceIds()&&
+            storedAfterInvalid.index->retiredVertexIds()==
+                storedBeforeInvalid.index->retiredVertexIds()&&
+            storedAfterInvalid.originalFidelityRequired==
+                storedBeforeInvalid.originalFidelityRequired,
+            "M39 first Unknown preserves EXACT durable reflected mirror, retired FaceId/VertexId and protected provenance marker");
     clean(selected.exterior,3,1,true);
     clean(selected.exterior,4,2,true);
     clean(selected.exterior,5,0,false);
@@ -2255,6 +2294,7 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
     // Another refused asynchronous command after recontact must not
     // poison a LATER correctly scoped physical step in the FIFO.
     const auto preRecovery=worker.status();
+    const auto storedBeforeRecoveryRefusal=inspectCheckpoint();
     const auto refused=stroke(m39LiveExterior(*afterSecond),.28,
                               {FaceId{99999998}});
     require(refused.rejectedStamps==preRecovery.rejectedStamps+1&&
@@ -2268,6 +2308,16 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
     require(afterRefusal&&afterRefusal->index==afterSecond&&
             afterRefusal->dirtyPartitions.empty(),
             "M39 late refused FIFO input retains exact old terminal and zero new dirty owners");
+    const auto storedAfterRecoveryRefusal=inspectCheckpoint();
+    require(storedAfterRecoveryRefusal.mirrorPairs==
+                storedBeforeRecoveryRefusal.mirrorPairs&&
+            storedAfterRecoveryRefusal.index->retiredFaceIds()==
+                storedBeforeRecoveryRefusal.index->retiredFaceIds()&&
+            storedAfterRecoveryRefusal.index->retiredVertexIds()==
+                storedBeforeRecoveryRefusal.index->retiredVertexIds()&&
+            storedAfterRecoveryRefusal.originalFidelityRequired==
+                storedBeforeRecoveryRefusal.originalFidelityRequired,
+            "M39 later refused FIFO input also leaves EXACT durable mirror, retirement and V13 source-required identity unchanged");
     const auto finalExterior=m39LiveExterior(*afterSecond);
     clean(finalExterior,6,1,true);
     const auto final=roots.back();
