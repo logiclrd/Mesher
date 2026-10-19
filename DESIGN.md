@@ -4916,3 +4916,57 @@ recovery, M15 explicitly disabled-by-default
 desktop Merge geometry opt-in and V18/V19
 remain UNCHECKED. Do not read this as a continuous
 Hausdorff, all-mesh Boolean or CCD theorem.
+
+
+## October 18–19, 2026 — V17-M23 conclusive Contact/Clean episodes
+
+**M23 accepted in PR #82**, substantive
+[Actions #39200600909](https://github.com/logiclrd/Mesher/actions/runs/39200600909)
+green on GCC/Clang/MSVC warning-as-errors, 23 CPU suites and
+applicable benchmarks. The old diagnostic tracker could
+falsely close a contact episode after two valid Clean
+checks, an Unknown, and one more Clean, because Unknown
+did not reset `quietRun`. This is corrected: an unknown,
+exhausted or refused assessment resets the consecutive
+Clean and Contact streaks without falsely terminating
+the ACTIVE episode. Exactly three subsequent conclusive
+Clean decisions close it and increment a distinct
+`closedEpisodes` diagnostic count. New Contact
+before closure extends the same episode; Contact after
+closure starts a new one.
+
+The worker's physicalExact original-root V13 and legacy
+selected V16 full candidate assessment now stage one
+diagnostic observation until downstream candidate
+validation and FIRST-original M21/M29 terminal checks
+resolve. Only a fully classified, otherwise accepted
+Clean can advance `quietRun`; an independently proved
+Contact may remain informative even if its later weld
+fails. Rejected invalid caller FIRST-original FaceId
+input and V13 source budget exhaustion count Unknown,
+not Clean. This state NEVER authorizes a weld or omits
+a new V13/c1/c2/c3/M03/d2/final source/geometry audit.
+
+The regression performs ONE real 4D mirrored physical
+source union from clean separate M11 tetra towers,
+then TWO actual completed and clean V13 exterior
+deformations, rejects a foreign source scope as
+Unknown, then requires THREE more separately
+classified/published Clean deformations before
+the episode closes. A separate real second-tower
+physical union subsequently recontacts and opens
+episode two. Each dirty renderer mailbox is consumed
+between accepted Steps to distinguish coalesced
+prior dirty partitions from refusal-induced dirty
+changes. M11's actual finite-source budget exhaustion
+regression now checks unknown classification and
+proper recovery contact. The older V16 test was
+updated from its contradictory interrupted-quiet
+expectation. All sixteen actual M11 positive
+reflected source unions remain green.
+
+See `docs/V17_M23_CONCLUSIVE_CONTACT_EPISODES.md`.
+Only the ORIGINAL M23 checkbox is closed; original
+M12 plus M13–M15, V18/V19 are still unchecked.
+No M14 exceptional post-CAS or desktop M15 opt-in
+claims are inferred.

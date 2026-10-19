@@ -1577,13 +1577,49 @@ documentation follows before the merge.
   implements M23's three-conclusive-Clean episode state,
   asserts M14 injected post-CAS exceptional rollback, nor enables
   the default-disabled M15 desktop Merge geometry mode.
-- [ ] **V17-M23 — Conclusive contact-episode decisions.**
+- [x] **V17-M23 — Conclusive contact-episode decisions.**
   Three consecutive fully classified Clean checks end an episode;
   Contact starts/extends it; uncertain, refusal and budget exhaustion
   cannot invent Clean. Episode state informs policy/diagnostics without
   caching weld approval or skipping each original V13/c1/c2/c3/d2/final
   collision/anchor audit. Test real physical FIFO contact/clean/refusal/
   recontact and preserve M11 genuine sixteen unions.
+  **Accepted via PR #82; substantive CI #39200600909** passes
+  GCC/Clang/MSVC warnings-as-errors, all 23 CPU suites and applicable
+  benchmarks. Previous tracker improperly retained two Clean credits
+  through Unknown. M23 resets consecutive quiet/contact runs on
+  ambiguity, refusal or budget exhaustion; exactly three consecutive
+  fully classified and otherwise accepted Clean checks end an episode.
+  Contact starts/extends the episode even when a later Boolean weld
+  refuses; an uncertain/refused Step cannot be promoted to Clean.
+  PhysicalExact V13 and opt-in V16 complete-proposal observations
+  are staged until downstream candidate validator and original-source
+  M21/M29 terminal policy resolve. A proven Contact remains
+  informative on downstream refusal, while Clean is credited ONLY
+  when that proposed Step is otherwise accepted. Invalid caller
+  original FaceId scope produces Unknown and resets quiet streak,
+  never a guessed Clean. The tracker now exposes closedEpisodes
+  as a diagnostic; episode status NEVER authorizes a weld or bypasses
+  a future V13/c1/c2/c3/M03/d2/final collision/source/anchor audit.
+  The actual symmetric two-region M11 4D FIFO test performs one true
+  source-certified physical Contact union, two real separately
+  published and V13-certified Clean exterior-corner strokes,
+  a rejected foreign original FaceId scope (Unknown),
+  then exactly three more real Clean stamps before closing the
+  episode; the next real independently named tower union reopens
+  a second episode and publishes precisely one new terminal.
+  The live post-union vertex is selected by stable current
+  topology, not a retired import coordinate. All accepted
+  dirty renderer snapshots are consumed before testing the
+  later refusal's zero new dirty owners. Real broad-overbudget
+  M11 original source discovery reports Unknown, not Clean/Contact;
+  the next valid physical union still opens a real episode.
+  Original V16 hysteresis regression now enforces C,C,Unknown,
+  C,C,C closure and verifies exactly one closed episode.
+  All sixteen genuine M11 reflected physical unions remain green.
+  **Original M12 and M13–M15, V18/V19 remain OPEN;**
+  no desktop Merge Geometry mode was enabled, and M14
+  post-CAS injected exceptional atomicity is not claimed.
 **Final M12 integration (the ORIGINAL unchecked M12 checkbox above):**
   Close that existing checkbox only after M19–M23 pass together for
   same-patch repeated real physical unions, deliberate sculpt deformation,
