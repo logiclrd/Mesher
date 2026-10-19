@@ -5351,6 +5351,47 @@ void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
         require(blocked==4&&queued.resourceTotals().attempts==1,
                 "M14 queued failure after original-root CAS forbids all follow-up geometry/history/durable-authority operations");
     }
+    // Race the public snapshot reader against a deliberately held CAS.
+    // An indexed root already changed, but mirror/history/dirty authority
+    // has NOT completed: no reader may acquire the uncertain new root.
+    std::atomic<bool> insideCas{false},allowFailure{false};
+    auto heldPolicy=unionPolicy;
+    heldPolicy.postCasFaultInjection=[&](SculptPostCasFaultPoint at) {
+        if(at!=SculptPostCasFaultPoint::AfterRootCas)return;
+        insideCas.store(true,std::memory_order_release);
+        while(!allowFailure.load(std::memory_order_acquire))
+            std::this_thread::yield();
+        throw std::runtime_error("M14 deliberate held post-CAS reader race");
+    };
+    VersionedSculptBrush held(mesh,.006,{},{},{},false,256,{},heldPolicy);
+    const auto heldFirst=held.checkpoint();
+    std::exception_ptr heldException;
+    std::thread producer([&] {
+        try {
+            (void)held.mergeExactContacts(
+                heldFirst.index,fullOriginalContacts(*heldFirst.index),
+                limits,origins);
+        }catch(...) {heldException=std::current_exception();}
+    });
+    const auto enteredBy=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+    while(!insideCas.load(std::memory_order_acquire)&&
+          std::chrono::steady_clock::now()<enteredBy)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const bool entered=insideCas.load(std::memory_order_acquire);
+    const bool hidden=entered&&!held.snapshot();
+    bool checkpointBlocked=false;
+    if(entered) {
+        try {(void)held.checkpoint();}
+        catch(const std::logic_error&) {checkpointBlocked=true;}
+    }
+    allowFailure.store(true,std::memory_order_release);
+    producer.join();
+    require(entered&&hidden&&checkpointBlocked&&heldException&&
+            held.terminalFailure()&&!held.snapshot()&&
+            held.resourceTotals().postCasFailures==1,
+            "M14 a concurrent reader cannot obtain half-committed CAS root or checkpoint while auxiliary mirror/history publication is held");
+
     // The worker must publish an explicit terminal-state diagnostic and
     // must NEVER release an uncertain renderer/picker snapshot.
     auto workerPolicy=unionPolicy;
