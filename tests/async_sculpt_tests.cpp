@@ -1700,6 +1700,287 @@ void testM37ScopedSamePatchUnionsWithProtectedCavity() {
             "M37 could not find supported TWO real scoped local physical unions with protected cavity: "+last);
 }
 
+// M38: use the actual two certified M37 same-local physical joins as the
+// trusted predecessor of a new protected normal-driven stamp. Retain the
+// sealed FIRST original, not a fabricated or recovered last-root reanchor.
+struct M38ProtectedLocalFixture {
+    DurableCheckpoint terminal;
+    std::shared_ptr<const RegionTopologyIndex> firstOriginal;
+    std::shared_ptr<const RegionTopologyIndex> afterFirstUnion;
+    std::vector<FaceId> deliberate;
+    std::vector<FaceId> protectedSources;
+    std::size_t originalFaceCount{};
+};
+M38ProtectedLocalFixture makeM38ProtectedLocalFixture() {
+    Mesh dummy;
+    std::string last;
+    for(const double separation:{5.0,5.5,6.0,6.5}) {
+        for(const double gap:{.15,.25,.35}) {
+            auto source=makeM11Towers(3,gap);
+            const double shift=(-14+separation)-14;
+            for(std::size_t i=16;i<32;++i)
+                source.mesh.vertices[i].y+=shift;
+            for(auto& area:source.input.at(1))
+                area.center.y+=shift;
+            addM37ProtectedMirroredCavity(source);
+            const auto starting=checkpointM11Source(source);
+            const auto ids=firstOriginalFaces(source.mesh);
+            require(ids.size()==72,
+                    "M38 keeps the authenticated 72-original-FaceId M37 source");
+            const auto intended=m11RegionIntent(source,1);
+            for(const double strength:{.35,.55,.8,1.0,1.3}) {
+                VersionedSculptBrush physical(starting,strength,
+                    {},{},{},256,{},m11PhysicalExactSettings());
+                physical.setOriginalPatchIntent(intended);
+                physical.stamp(dummy,source.input[0]);
+                if(physical.completedUnions()!=1) {
+                    last=physical.lastRejection();
+                    continue;
+                }
+                const auto firstJoined=physical.snapshot();
+                physical.setOriginalPatchIntent(intended);
+                physical.stamp(dummy,source.input[1]);
+                if(physical.completedUnions()!=2) {
+                    last=physical.lastRejection();
+                    continue;
+                }
+                const auto final=physical.checkpoint();
+                require(final.index!=firstJoined&&
+                        final.verifiedOriginalFidelity&&
+                        final.verifiedOriginalFidelity->anchors.original==
+                            starting.index&&
+                        final.verifiedOriginalFidelity->lineage.terminal==
+                            final.index&&
+                        physical.historyStatistics().undoDepth==2&&
+                        physical.rejectedStamps()==0,
+                        "M38 predecessor contains TWO genuine M37 full physical exact unions");
+                return {final,starting.index,firstJoined,intended,
+                    {ids.begin()+32,ids.end()},ids.size()};
+            }
+        }
+    }
+    throw std::runtime_error(
+        "M38 failed to reproduce two M37 source-certified local physical joins: "+last);
+}
+
+void testM38CompletePostD2WorkAndCumulativeProtectedDrift() {
+    const auto joined=makeM38ProtectedLocalFixture();
+    const auto joinedRoot=joined.terminal.index;
+    const auto& lifetime=*joined.terminal.verifiedOriginalFidelity;
+    const auto firstRoot=joined.firstOriginal;
+    require(firstRoot==lifetime.anchors.original&&
+            lifetime.lineage.original==firstRoot&&
+            lifetime.lineage.terminal==joinedRoot&&
+            joined.protectedSources.size()==40,
+            "M38 cannot drift from any last-root-rebased or fabricated first source");
+    const auto audited=auditOriginalPatchLifetime(lifetime,firstRoot);
+    std::size_t liveChildren=0;
+    for(const auto& [_,children]:lifetime.lineage.living)
+        liveChildren+=children.size();
+    require(audited.total.distanceTests==7*liveChildren&&
+            audited.total.distanceTests>7*joined.originalFaceCount&&
+            audited.originalSources==joined.originalFaceCount,
+            "M38 real post-d2 TWO-union root audits seven immutable witnesses for EACH source-owned living descendant");
+    std::size_t accounted=0;
+    for(const auto& record:audited.perOriginal) {
+        const auto face=std::find_if(lifetime.anchors.faces.begin(),
+            lifetime.anchors.faces.end(),
+            [&](const OriginalSourceFaceAnchor& fixed) {
+                return fixed.face==record.original;
+            });
+        require(face!=lifetime.anchors.faces.end()&&
+                face->originalEdgeLength>0&&
+                record.sampled.witnessCount==7&&
+                record.sampled.distanceTests==7*record.livingDescendants,
+                "M38 full descendant work retains each own first-original seven XYZ samples and nonzero edge unit");
+        accounted+=record.sampled.distanceTests;
+    }
+    require(accounted==audited.total.distanceTests,
+            "M38 no unrelated XYZ or retired source is credited as preserved witness work");
+    bool auditDenied=false;
+    try {
+        (void)auditOriginalPatchLifetime(
+            lifetime,firstRoot,audited.total.distanceTests-1);
+    }catch(const std::length_error&){auditDenied=true;}
+    require(auditDenied,
+            "M38 one-under post-d2 authenticated living-descendant source audit fails BEFORE partial witness classification");
+    const auto exactly=auditOriginalPatchLifetime(
+        lifetime,firstRoot,audited.total.distanceTests);
+    require(exactly.total.distanceTests==audited.total.distanceTests,
+            "M38 EXACT full original witness work cap succeeds");
+
+    // Obtain both cumulative measurements from independently certified
+    // private real Inflate/refine/collapse stages, as M34 did. These
+    // measurements are NOT injected into the live publication path:
+    // the normal-driven VersionedSculptBrush must enforce the selected
+    // tolerance itself before its own root CAS and M29 history append.
+    constexpr double driftStrength=.035;
+    const std::array<BrushArea,2> wall{{
+        {{8,80,0},.8,.3},{{-8,80,0},.8,.3}
+    }};
+    VersionedInflateBrush inflator(driftStrength,{});
+    VersionedLocalRefiner refiner(joined.terminal.initialVertexCount,
+                                  {},{},256);
+    VersionedDirectionalCollapser collapser(
+        joined.terminal.initialVertexCount,{}, {},256);
+    const auto predict=[&](const OriginalPatchLifetime& previous) {
+        const auto moved=inflator.stamp(previous.lineage.terminal,wall,256);
+        require(moved.moved>0,
+                "M38 drift proposal must physically move source-owned vertices");
+        const auto refined=refiner.apply(moved.index,moved.baseline);
+        const auto collapsed=collapser.apply(refined.index,moved.baseline);
+        return advanceCertifiedPhysicalStampLifetime(
+            previous,moved,refined,collapsed,nullptr,nullptr,
+            16384,16384,16384,32768);
+    };
+    const auto predictedFirst=predict(lifetime);
+    const auto predictedSecond=predict(predictedFirst);
+    const auto protectedWorst=[&](const OriginalPatchLifetime& state) {
+        const auto audit=auditOriginalPatchLifetime(state,firstRoot);
+        double worst=0;
+        for(const auto& record:audit.perOriginal)
+            if(std::find(joined.protectedSources.begin(),
+                         joined.protectedSources.end(),record.original)!=
+                         joined.protectedSources.end())
+                worst=std::max(worst,
+                                record.sampled.maximumDistanceInEdges);
+        return worst;
+    };
+    const auto firstDrift=protectedWorst(predictedFirst);
+    const auto secondDrift=protectedWorst(predictedSecond);
+    require(firstDrift>0&&secondDrift>firstDrift+1e-8,
+            "M38 genuine second protected outer-wall physical movement increases cumulative FIRST-original edge-scaled drift");
+    const double tolerance=.5*(firstDrift+secondDrift);
+    const auto firstWork=auditOriginalPatchLifetime(
+        predictedFirst,firstRoot).total.distanceTests;
+    require(firstWork>0&&firstWork<=131072&&
+            firstWork==7*([&]{
+                std::size_t count=0;
+                for(const auto& [_,children]:predictedFirst.lineage.living)
+                    count+=children.size();
+                return count;
+            }()),
+            "M38 measured terminal proof cap includes every post-d2 descendant, not just old unsplit original triangles");
+
+    auto policy=m11PhysicalExactSettings();
+    policy.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
+    policy.originalTerminal.maxDistanceTests=firstWork;
+    const auto sealedBefore=joined.terminal;
+    const auto picker=joinedRoot->pickingRootIdentity();
+    Mesh dummy;
+
+    // Exact work-cap publication, against the genuine post-two-Boolean
+    // first-root certificate rather than a standalone octahedron.
+    VersionedSculptBrush permitted(sealedBefore,driftStrength,
+                                   {},{},{},256,{},policy);
+    permitted.setOriginalPatchIntent(joined.deliberate);
+    permitted.stamp(dummy,wall);
+    if(permitted.publishedRevisions()!=1)
+        throw std::runtime_error(
+            "M38 exact-cap protected physical successor refused: "+
+            permitted.lastRejection());
+    const auto accepted=permitted.checkpoint();
+    require(accepted.index!=joinedRoot&&
+            accepted.verifiedOriginalFidelity&&
+            accepted.verifiedOriginalFidelity->anchors.original==firstRoot&&
+            accepted.verifiedOriginalFidelity->lineage.terminal==
+                accepted.index&&
+            accepted.verifiedOriginalFidelity->acceptedTransitions==
+                lifetime.acceptedTransitions+1&&
+            permitted.historyStatistics().undoDepth==1&&
+            permitted.rejectedStamps()==0&&
+            !permitted.lastDirtyPartitions().empty()&&
+            joinedRoot->pickingRootIdentity()==picker,
+            "M38 EXACT measured post-d2 source work authorizes one real protected physical terminal CAS and M29 history");
+    const auto liveFirstAudit=auditOriginalPatchLifetime(
+        *accepted.verifiedOriginalFidelity,firstRoot,firstWork);
+    require(liveFirstAudit.total.distanceTests==firstWork,
+            "M38 live accepted physically produced terminal independently meets EXACT pre-CAS witness budget");
+    verifyOriginalPatchPublicationTransition(
+        lifetime,*accepted.verifiedOriginalFidelity,
+        joinedRoot,accepted.index);
+    for(const auto& [a,b]:accepted.mirrorPairs) {
+        const auto p=accepted.index->vertex(a).position;
+        const auto q=accepted.index->vertex(b).position;
+        require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                "M38 accepted physical source retains complete current reciprocal stable mirror identities");
+    }
+
+    auto tooLittle=policy;
+    tooLittle.originalTerminal.maxDistanceTests=firstWork-1;
+    VersionedSculptBrush overBudget(sealedBefore,driftStrength,
+                                    {},{},{},256,{},tooLittle);
+    overBudget.setOriginalPatchIntent(joined.deliberate);
+    const auto beforeLow=overBudget.checkpoint();
+    overBudget.stamp(dummy,wall);
+    const auto afterLow=overBudget.checkpoint();
+    require(overBudget.rejectedStamps()==1&&
+            overBudget.publishedRevisions()==0&&
+            overBudget.historyStatistics().undoDepth==0&&
+            overBudget.lastDirtyPartitions().empty()&&
+            afterLow.index==beforeLow.index&&
+            afterLow.verifiedOriginalFidelity==
+                beforeLow.verifiedOriginalFidelity&&
+            afterLow.mirrorPairs==beforeLow.mirrorPairs&&
+            !overBudget.lastRejection().empty(),
+            "M38 one-under same physical post-d2 source-proof work refuses atomically BEFORE publication");
+
+    const auto beforeSecond=accepted;
+    const auto priorHistory=permitted.historyStatistics();
+    permitted.setOriginalPatchIntent(joined.deliberate);
+    permitted.stamp(dummy,wall);
+    const auto refused=permitted.checkpoint();
+    require(permitted.rejectedStamps()==1&&
+            permitted.publishedRevisions()==1&&
+            permitted.historyStatistics().undoDepth==priorHistory.undoDepth&&
+            permitted.historyStatistics().redoDepth==priorHistory.redoDepth&&
+            refused.index==beforeSecond.index&&
+            refused.verifiedOriginalFidelity==
+                beforeSecond.verifiedOriginalFidelity&&
+            refused.mirrorPairs==beforeSecond.mirrorPairs&&
+            permitted.lastDirtyPartitions().empty()&&
+            firstRoot->pickingRootIdentity()!=nullptr&&
+            joinedRoot->pickingRootIdentity()==picker,
+            "M38 SECOND individually small but cumulatively excessive protected original drift refuses without COW/source/history/mirrors/dirty change");
+
+    // V13 disk marker is durable; opaque original provenance is not
+    // reconstructed from terminal XYZ or from a coalesced latest root.
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-v17-m38-protected-local-source.mshr";
+    try {
+        writeCheckpoint(file,refused);
+        const auto disk=readCheckpoint(file);
+        require(disk.originalFidelityRequired&&
+                !disk.verifiedOriginalFidelity&&
+                disk.index&&
+                disk.index->retiredFaceIds()==beforeSecond.index->retiredFaceIds()&&
+                disk.mirrorPairs==beforeSecond.mirrorPairs,
+                "M38 terminal V13 checkpoint retains root/mirrors/retirements but never fabricates opaque first-source authority");
+        bool rejectedDiskOnly=false;
+        try {
+            (void)VersionedSculptBrush(disk,driftStrength,
+                                       {},{},{},256,{},policy);
+        }catch(const std::logic_error&){rejectedDiskOnly=true;}
+        require(rejectedDiskOnly,
+                "M38 protected disk-only V13 restart fails closed without separately trusted original provenance");
+    }catch(...) {
+        std::error_code error;std::filesystem::remove(file,error);throw;
+    }
+    std::error_code error;std::filesystem::remove(file,error);
+    require(permitted.undo()&&permitted.snapshot()==joinedRoot&&
+            permitted.checkpoint().verifiedOriginalFidelity==
+                sealedBefore.verifiedOriginalFidelity&&
+            permitted.redo()&&permitted.snapshot()==accepted.index&&
+            permitted.checkpoint().verifiedOriginalFidelity==
+                accepted.verifiedOriginalFidelity,
+            "M38 exact original-root post-d2 successor and COW source lifetime undo/redo as matching pointers");
+    std::cout<<"[m38] 2 authentic local unions; post-d2 work="
+             <<audited.total.distanceTests<<" first successor work="
+             <<firstWork<<" first edge drift="<<firstDrift
+             <<" second edge drift="<<secondDrift
+             <<" tolerance="<<tolerance<<'\n';
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -3540,6 +3821,7 @@ int main() {
         testM23ConclusiveEpisodesAndReal4DFIFO();
         testM35RepeatedPhysicalUnionsInOneOverlappingPatch();
         testM37ScopedSamePatchUnionsWithProtectedCavity();
+        testM38CompletePostD2WorkAndCumulativeProtectedDrift();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
