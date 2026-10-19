@@ -5607,6 +5607,45 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
             bounded.status().completedUnions==1,
             "M47 a refused bounded discovery cannot poison a subsequent valid authenticated queued request");
 
+    // Deliberate source selection must be an immutable FIRST-original
+    // FaceId, never an arbitrary later/foreign XYZ-coincident face.
+    AsyncSculptWorker invalid(mesh,.025,.006,.2,
+                              {},{},{},false,{},protectedPolicy);
+    const auto invalidRoot=invalid.initialRevision();
+    invalid.mergeDiscoveredContacts(
+        invalidRoot,{FaceId{99999999}},limits);
+    wait(invalid,1);
+    require(invalid.status().liveMergeRefusals==1&&
+            invalid.status().liveMergeRefusal.find("selection invalid")!=
+                std::string::npos&&
+            invalid.status().history.undoDepth==0&&
+            invalid.initialRevision()==invalidRoot&&
+            !invalid.takeSnapshot(),
+            "M47 foreign original FaceId cannot be selected or substituted by coincident current topology");
+    bool emptySelectionRefused=false;
+    try {invalid.mergeDiscoveredContacts(invalidRoot,{},limits);}
+    catch(const std::invalid_argument&) {emptySelectionRefused=true;}
+    require(emptySelectionRefused&&invalid.status().liveMergeRequests==1,
+            "M47 no-source UI request must be rejected before enqueue");
+
+    // A genuinely reciprocal reflected double section is source-owned
+    // and can be assessed and joined ONLY with its certified involution.
+    const auto mirrorMesh=twoIntersectingTetrahedra(true);
+    AsyncSculptWorker reflected(mirrorMesh,.025,.006,.2,
+                                {},{},{},true,{},protectedPolicy);
+    const auto mirroredOriginal=reflected.initialRevision();
+    reflected.mergeDiscoveredContacts(
+        mirroredOriginal,firstOriginalFaces(mirrorMesh),
+        supportedUnionLimits(true));
+    wait(reflected,1);
+    const auto mirroredResult=reflected.status();
+    require(mirroredResult.liveMergeAccepted==1&&
+            mirroredResult.completedUnions==1&&
+            mirroredResult.history.undoDepth==1&&
+            reflected.initialRevision()!=mirroredOriginal&&
+            reflected.takeSnapshot().has_value(),
+            "M47 reflected source-owned original pair graph with reciprocal mirror IDs positively publishes one joined Step");
+
     auto empty=twoIntersectingTetrahedra();
     for(std::size_t i=4;i<8;++i)
         empty.vertices[i].x+=50;
