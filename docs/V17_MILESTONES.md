@@ -1573,3 +1573,25 @@ collision constraints and V19 broad robustness remain open.
 No universal coincident XYZ weld, same-component arbitrary
 three-body Boolean, exact continuous CCD or Hausdorff claim.
 See `docs/V17_M12_ORIGINAL_FINAL_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M40 bounded entire-private-Step COW accounting
+
+PR #89, substantive [Actions #39277749517](https://github.com/logiclrd/Mesher/actions/runs/39277749517):
+GCC/Clang/MSVC logs show all 23 CPU suites passing, with applicable
+benchmark stages and no compiler errors. Full run conclusion plus
+documentation-final and merged-main CI are still explicit merge
+gates. Independently scoped first peer of flat M13 plan adds checked
+aggregate copied partition bytes for ALL private physical exact
+Inflate/refine/collapse/V13 optional union edits or queued exact
+cut/refinement/join stages, changed stable-ID references, and
+ACTUAL final dirty renderer partitions. Exact boundary accepts;
+three distinct ONE-under budgets refuse the genuine otherwise-valid
+physically triggered mirrored source union and independent queued
+exact source union without COW/source/mirror/dirty/history change.
+Last-attempt per-Step diagnostics distinguish measured/early-invalid,
+published/refused, direct/queued, copied COW memory-work proxy, changed
+IDs, final dirty owners, observed elapsed and exact rejection reason.
+One real async worker transports the queued accepted measurements.
+
+Original M13 and flat remaining M41/M42, M14/M15, V18/V19 OPEN.
+See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.

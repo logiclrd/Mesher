@@ -105,6 +105,26 @@ struct SculptOriginalTerminalLimits {
     std::size_t maxInflateVertices=16384;
     std::size_t maxInflateFaces=32768;
 };
+// M40: ONE pre-publication resource envelope across every private COW
+// edit of an opt-in physical or queued exact Step. These are conservative
+// memory COPYING WORK proxies, not peak RSS or general process limits.
+struct SculptStepResourceLimits {
+    std::size_t maxPrivateCopiedBytes=1073741824;
+    std::size_t maxChangedIdReferences=131072;
+    std::size_t maxFinalDirtyPartitions=4096;
+};
+enum class SculptStepResourcePath {None, PhysicalStamp, QueuedExact};
+struct SculptStepResourceWork {
+    SculptStepResourcePath path{SculptStepResourcePath::None};
+    bool evaluated{}; // a complete candidate was measured
+    bool published{}; // exact final original-root CAS succeeded
+    bool refused{};   // no root CAS; budget or other source policy
+    std::size_t privateCopiedBytes{}; // all private edits, including intermediates
+    std::size_t changedIdReferences{}; // reference count, not unique stable IDs
+    std::size_t finalDirtyPartitions{}; // final renderer owner partitions
+    double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
+    std::string refusal; // empty on a published/accepted candidate
+};
 struct SculptCollisionSettings {
     bool enabled=false; // V16 approximate classifier; independent policy
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
@@ -112,6 +132,7 @@ struct SculptCollisionSettings {
     bool physicalExact=false;
     SculptOriginalIntentInputLimits originalIntentInput{};
     SculptOriginalTerminalLimits originalTerminal{};
+    SculptStepResourceLimits stepResources{};
     SculptSourceContactLimits physicalSourceLimits{};
     ExactCutStepLimits physicalExactLimits{};
     RepairSurgerySettings surgery{};
@@ -238,6 +259,9 @@ public:
     }
     const std::string& lastRejection() const noexcept {return lastRejection_;}
     StampTimings lastTimings() const noexcept {return timings_;}
+    const SculptStepResourceWork& lastStepResourceWork() const noexcept {
+        return lastStepResourceWork_;
+    }
     const StampDetails& lastDetails() const noexcept {return details_;}
     std::size_t publishedRevisions() const noexcept {return publishedRevisions_;}
     std::size_t modifiedPartitions() const noexcept {return modifiedPartitions_;}
@@ -281,6 +305,7 @@ private:
     std::size_t clonedPartitionBytes_{};
     StampTimings timings_{};
     StampDetails details_{};
+    SculptStepResourceWork lastStepResourceWork_{};
     // A checkpoint restored without an authenticated FIRST-original
     // certificate must never automatically restart fidelity at its
     // current terminal root. M30 installs the active pre-CAS guard.

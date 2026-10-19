@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 #include <map>
 #include <set>
@@ -19,6 +20,30 @@ namespace {
 using Clock=std::chrono::steady_clock;
 double seconds(Clock::time_point a,Clock::time_point b) {
     return std::chrono::duration<double>(b-a).count();
+}
+// An exact physical Step may clone the same partition in multiple PRIVATE
+// edits. All those copies cost work even though only ONE terminal CAS is
+// published. Refuse overflow rather than letting a wrapped size evade a cap.
+std::size_t checkedStepSum(std::initializer_list<std::size_t> values) {
+    std::size_t sum=0;
+    for(const auto value:values) {
+        if(value>std::numeric_limits<std::size_t>::max()-sum)
+            throw std::length_error(
+                "Aggregate private Step resource counter overflow");
+        sum+=value;
+    }
+    return sum;
+}
+std::string refuseExcessStepWork(
+    const SculptStepResourceWork& work,
+    const SculptStepResourceLimits& limit) {
+    if(work.privateCopiedBytes>limit.maxPrivateCopiedBytes)
+        return "Aggregate private Step COW payload byte budget exhausted";
+    if(work.changedIdReferences>limit.maxChangedIdReferences)
+        return "Aggregate private Step changed ID reference budget exhausted";
+    if(work.finalDirtyPartitions>limit.maxFinalDirtyPartitions)
+        return "Aggregate private Step final dirty partition budget exhausted";
+    return {};
 }
 std::size_t elementCount(const RegionTopologyIndex& index,bool vertices) {
     std::size_t count=0;
@@ -588,6 +613,8 @@ void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
     const auto start=Clock::now();
+    lastStepResourceWork_={};
+    lastStepResourceWork_.path=SculptStepResourcePath::PhysicalStamp;
     // Scope is resolved on the worker at Begin and is never filled from
     // candidate geometry. Bad source input must not terminate FIFO.
     if(!collision_.physicalExact&&history_.currentFidelity()) {
@@ -602,6 +629,10 @@ void VersionedSculptBrush::stamp(
         timings_={};
         ++rejected_;
         ++completed_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusal=lastRejection_;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(start,Clock::now())*1000;
         if(collision_.physicalExact||collision_.enabled)
             contact_.observe(std::nullopt);
         return;
@@ -616,6 +647,10 @@ void VersionedSculptBrush::stamp(
         timings_={};
         ++rejected_;
         ++completed_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusal=lastRejection_;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(start,Clock::now())*1000;
         // An invalid caller scope is not an accepted Clean V13 result.
         // It must interrupt the consecutive quiet sequence even though
         // the invalid request is declined before private deformation.
@@ -923,6 +958,41 @@ void VersionedSculptBrush::stamp(
                       error.what();
         }
     }
+    // M40: measure the ENTIRE would-be external Step, including cloned
+    // partitions from every private Inflate/refine/collapse, optional V13
+    // cut/refinement/seam join, and V16 repair. Never mistake the one final
+    // COW delta for all intermediate memory-copy work. This admission
+    // executes after candidate source validation, but before diagnostic
+    // Clean credit, the indexed-root CAS, and any durable mirror/history.
+    std::vector<PartitionId> finalDirty;
+    if(rejection.empty()&&updated!=old) {
+        try {
+            auto& measured=lastStepResourceWork_;
+            measured.privateCopiedBytes=checkedStepSum({
+                inflated.commitStatistics.clonedPartitionBytes,
+                refined.clonedPartitionBytes,
+                collapsed.clonedPartitionBytes,
+                physicalExactUnion?physicalExactUnion->copiedPayloadBytes:0,
+                collisionRepair?
+                    collisionRepair->commit.statistics.clonedPartitionBytes:0
+            });
+            measured.changedIdReferences=checkedStepSum({
+                changedVertices.size(),changedFaces.size()});
+            finalDirty=dirtyRenderPartitions(
+                *old,*updated,changedVertices,changedFaces);
+            measured.finalDirtyPartitions=finalDirty.size();
+            measured.evaluated=true;
+            if(collision_.physicalExact)
+                rejection=refuseExcessStepWork(
+                    measured,collision_.stepResources);
+        }catch(const std::length_error& e) {
+            rejection=std::string("Aggregate private Step resource refusal: ")+
+                      e.what();
+        }catch(const std::logic_error& e) {
+            rejection=std::string("Aggregate private Step resource refusal: ")+
+                      e.what();
+        }
+    }
     // M23: exactly ONE episode observation per classified full physical
     // proposal. A refused conclusive Contact remains known Contact;
     // a refused Clean is UNKNOWN rather than permission to advance the
@@ -947,10 +1017,13 @@ void VersionedSculptBrush::stamp(
         timings_={seconds(start,afterInflate),seconds(afterInflate,afterRefine),
                   seconds(afterRefine,afterCollapse),0};
         ++completed_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusal=lastRejection_;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(start,Clock::now())*1000;
         return;
     }
-    lastDirtyPartitions_=updated==old?std::vector<PartitionId>{}:
-        dirtyRenderPartitions(*old,*updated,changedVertices,changedFaces);
+    lastDirtyPartitions_=std::move(finalDirty);
 
     // All geometry and connectivity are already fully validated. Publish
     // the exact index + mesh revision pair atomically once per completed
@@ -1045,11 +1118,7 @@ void VersionedSculptBrush::stamp(
     // must not offer null credentials to tracked M29 history.
     if(updated!=old)history_.append(updated,lastDirtyPartitions_,
                     std::move(addedMirrors),std::move(removedMirrors),
-                    inflated.commitStatistics.clonedPartitionBytes+
-                    refined.clonedPartitionBytes+collapsed.clonedPartitionBytes+
-                    (physicalExactUnion?physicalExactUnion->copiedPayloadBytes:0)+
-                    (collisionRepair?
-                     collisionRepair->commit.statistics.clonedPartitionBytes:0),
+                    lastStepResourceWork_.privateCopiedBytes,
                     vertices_,faces_,std::move(finalFidelity));
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
@@ -1064,6 +1133,9 @@ void VersionedSculptBrush::stamp(
               seconds(afterRefine,afterCollapse),0};
     ++completed_;
     lastRejection_.clear();
+    lastStepResourceWork_.published=updated!=old;
+    lastStepResourceWork_.elapsedMilliseconds=
+        seconds(start,Clock::now())*1000;
     collapser_.commitStep();
     refiner_.commitStep();
     }catch(...) {
@@ -1078,10 +1150,17 @@ bool VersionedSculptBrush::mergeExactContacts(
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
     const ExactCutStepLimits& requested,
     const std::vector<FaceId>& intendedOriginals) {
+    const auto started=Clock::now();
+    lastStepResourceWork_={};
+    lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
     const auto reject=[&](const std::string& reason) {
         lastDirtyPartitions_.clear();
         lastRejection_=reason;
         ++rejectedUnions_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusal=reason;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(started,Clock::now())*1000;
         return false;
     };
     const auto old=published_.snapshot();
@@ -1256,6 +1335,24 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto newVertices=countAfter(vertices_,result.vertexCountDelta);
     const auto newFaces=countAfter(faces_,result.faceCountDelta);
 
+    // M40: a queued exact Step is already a complete private
+    // cut/refinement/join root. Its copiedPayloadBytes includes ALL
+    // intermediate COW edits; changed net stable-ID evidence and final
+    // render owner partitions are assessed independently of the
+    // per-stage V13 limits before any speculative mirror journal or CAS.
+    try {
+        auto& measured=lastStepResourceWork_;
+        measured.privateCopiedBytes=result.copiedPayloadBytes;
+        measured.changedIdReferences=checkedStepSum({
+            changedVertices.size(),changedFaces.size()});
+        measured.finalDirtyPartitions=result.dirtyPartitions.size();
+        measured.evaluated=true;
+        if(const auto reason=refuseExcessStepWork(
+               measured,collision_.stepResources);!reason.empty())
+            return reject(reason);
+    }catch(const std::length_error& e) {
+        return reject(e.what());
+    }
     // The worker is the only writer of the sculpt controller maps,
     // history, and snapshots. Begin both speculative mirror journals;
     // any prepublication failure rolls both back without changing the
@@ -1312,6 +1409,9 @@ bool VersionedSculptBrush::mergeExactContacts(
     clonedPartitionBytes_+=result.copiedPayloadBytes;
     ++publishedRevisions_;
     ++completedUnions_;
+    lastStepResourceWork_.published=true;
+    lastStepResourceWork_.elapsedMilliseconds=
+        seconds(started,Clock::now())*1000;
     return true;
 }
 

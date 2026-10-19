@@ -2964,6 +2964,221 @@ void testM12OriginalFinalFirstReferenceAcceptance() {
              <<"refusal, independent mirror and cavity verification\n";
 }
 
+// M40 independently limits all private COW copies and final-root
+// renderer/ID work for ONE genuine source-authenticated physical or
+// queued exact operation. The first run MEASURES actual finite costs;
+// the exact-bound rerun publishes; each one-under independently refuses
+// BEFORE CAS with unchanged source authority, mirrors, history and dirty.
+void testM40AggregateWholePrivateStepResourceBudgets() {
+    const auto selected=chooseM39FourDimensionalSource();
+    const auto input=std::array<BrushArea,2>{{
+        {selected.source.input[0][0].center,6,.3},
+        {{-selected.source.input[0][0].center.x,
+          selected.source.input[0][0].center.y,
+          selected.source.input[0][0].center.z},6,.3}
+    }};
+    const auto initial=selected.original;
+    const auto first=initial.index;
+    const auto picker=first->pickingRootIdentity();
+    Mesh dummy;
+    const auto settings=m11PhysicalExactSettings();
+    const auto makeBrush=[&](SculptCollisionSettings policy) {
+        return VersionedSculptBrush(initial,selected.strength,
+                                     {},{},{},256,{},std::move(policy));
+    };
+    auto measured=makeBrush(settings);
+    measured.setOriginalPatchIntent(selected.deliberate);
+    measured.stamp(dummy,input);
+    require(measured.completedUnions()==1&&
+            measured.publishedRevisions()==1&&
+            measured.historyStatistics().undoDepth==1,
+            "M40 actual symmetric source-owned full private physical Step independently completes before calibration");
+    const auto truth=measured.lastStepResourceWork();
+    require(truth.path==SculptStepResourcePath::PhysicalStamp&&
+            truth.evaluated&&truth.published&&!truth.refused&&
+            truth.privateCopiedBytes>0&&
+            truth.changedIdReferences>0&&
+            truth.finalDirtyPartitions>0&&
+            truth.finalDirtyPartitions==
+                measured.lastDirtyPartitions().size()&&
+            truth.elapsedMilliseconds>=0&&
+            truth.refusal.empty(),
+            "M40 all private Inflate/refine/collapse/Boolean COW copies, changed ID references and final dirty owners are measured honestly on successful original-root CAS");
+    auto exact=settings;
+    exact.stepResources.maxPrivateCopiedBytes=truth.privateCopiedBytes;
+    exact.stepResources.maxChangedIdReferences=truth.changedIdReferences;
+    exact.stepResources.maxFinalDirtyPartitions=truth.finalDirtyPartitions;
+    auto within=makeBrush(exact);
+    within.setOriginalPatchIntent(selected.deliberate);
+    within.stamp(dummy,input);
+    const auto accepted=within.checkpoint();
+    require(within.completedUnions()==1&&
+            accepted.verifiedOriginalFidelity&&
+            accepted.verifiedOriginalFidelity->anchors.original==first&&
+            within.lastStepResourceWork().privateCopiedBytes==
+                truth.privateCopiedBytes&&
+            within.lastStepResourceWork().changedIdReferences==
+                truth.changedIdReferences&&
+            within.lastStepResourceWork().finalDirtyPartitions==
+                truth.finalDirtyPartitions,
+            "M40 all three exact genuine physical Step aggregate resource caps accept, before any history append");
+    for(std::size_t dimension=0;dimension<3;++dimension) {
+        auto tooSmall=exact;
+        const char* name="";
+        if(dimension==0) {
+            --tooSmall.stepResources.maxPrivateCopiedBytes;
+            name="COW payload byte budget";
+        }else if(dimension==1) {
+            --tooSmall.stepResources.maxChangedIdReferences;
+            name="changed ID reference budget";
+        }else {
+            --tooSmall.stepResources.maxFinalDirtyPartitions;
+            name="final dirty partition budget";
+        }
+        auto denied=makeBrush(tooSmall);
+        denied.setOriginalPatchIntent(selected.deliberate);
+        const auto before=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto after=denied.checkpoint();
+        const auto telemetry=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&
+                denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.historyStatistics().redoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                after.index==before.index&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                after.mirrorPairs==before.mirrorPairs&&
+                first->pickingRootIdentity()==picker&&
+                telemetry.path==SculptStepResourcePath::PhysicalStamp&&
+                telemetry.evaluated&&telemetry.refused&&
+                !telemetry.published&&
+                telemetry.privateCopiedBytes==truth.privateCopiedBytes&&
+                telemetry.changedIdReferences==truth.changedIdReferences&&
+                telemetry.finalDirtyPartitions==truth.finalDirtyPartitions&&
+                telemetry.refusal.find(name)!=std::string::npos&&
+                denied.lastRejection()==telemetry.refusal,
+                "M40 physical Step ONE-under resource category refuses without CAS/source/mirror/dirty/history, with complete measured attempted work rather than zeroing refusal diagnostics");
+    }
+    auto invalid=makeBrush(settings);
+    invalid.setOriginalPatchIntent({FaceId{99999999}});
+    invalid.stamp(dummy,input);
+    const auto early=invalid.lastStepResourceWork();
+    require(early.path==SculptStepResourcePath::PhysicalStamp&&
+            early.refused&&!early.evaluated&&!early.published&&
+            early.privateCopiedBytes==0&&
+            early.changedIdReferences==0&&
+            early.finalDirtyPartitions==0&&
+            !early.refusal.empty(),
+            "M40 early refused input truthfully has NO measured candidate work and never reports fabricated memory or committed root");
+
+    // Independent queued source-owned exact Boolean Step exercises the
+    // same envelope without an Inflate stamp or guessed COW data.
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto sourceFaces=firstOriginalFaces(mesh);
+    const auto unionLimits=supportedUnionLimits(false);
+    SculptCollisionSettings queued;
+    queued.physicalExact=true;
+    queued.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto makeQueued=[&](SculptCollisionSettings limits) {
+        return VersionedSculptBrush(mesh,.006,{},{},{},false,
+                                     256,{},std::move(limits));
+    };
+    auto positive=makeQueued(queued);
+    require(positive.mergeExactContacts(
+                positive.snapshot(),
+                fullOriginalContacts(*positive.snapshot()),unionLimits,
+                sourceFaces),
+            "M40 real queued asymmetric original source c1/c2/c3/M03/d2 positive is separately complete");
+    const auto queuedTruth=positive.lastStepResourceWork();
+    require(queuedTruth.path==SculptStepResourcePath::QueuedExact&&
+            queuedTruth.evaluated&&queuedTruth.published&&
+            !queuedTruth.refused&&queuedTruth.refusal.empty()&&
+            queuedTruth.privateCopiedBytes>0&&
+            queuedTruth.changedIdReferences>0&&
+            queuedTruth.finalDirtyPartitions>0&&
+            queuedTruth.finalDirtyPartitions==
+                positive.lastDirtyPartitions().size(),
+            "M40 queued Step COW result reports all private cut/refine/join payload, net stable ID work and exact published owners");
+    queued.stepResources.maxPrivateCopiedBytes=queuedTruth.privateCopiedBytes;
+    queued.stepResources.maxChangedIdReferences=queuedTruth.changedIdReferences;
+    queued.stepResources.maxFinalDirtyPartitions=
+        queuedTruth.finalDirtyPartitions;
+    auto queuedExact=makeQueued(queued);
+    require(queuedExact.mergeExactContacts(
+                queuedExact.snapshot(),
+                fullOriginalContacts(*queuedExact.snapshot()),unionLimits,
+                sourceFaces)&&
+            queuedExact.lastStepResourceWork().published,
+            "M40 exact all-category queued source union resource caps allow one history-authorized CAS");
+    for(std::size_t dimension=0;dimension<3;++dimension) {
+        auto oneUnder=queued;
+        const char* name="";
+        if(dimension==0) {
+            --oneUnder.stepResources.maxPrivateCopiedBytes;
+            name="COW payload byte budget";
+        }else if(dimension==1) {
+            --oneUnder.stepResources.maxChangedIdReferences;
+            name="changed ID reference budget";
+        }else {
+            --oneUnder.stepResources.maxFinalDirtyPartitions;
+            name="final dirty partition budget";
+        }
+        auto denied=makeQueued(oneUnder);
+        const auto before=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    before.index,
+                    fullOriginalContacts(*before.index),unionLimits,
+                    sourceFaces),
+                "M40 queued one-under resource candidate MUST NOT publish");
+        const auto after=denied.checkpoint();
+        const auto status=denied.lastStepResourceWork();
+        require(after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.publishedRevisions()==0&&
+                denied.completedUnions()==0&&
+                denied.rejectedUnions()==1&&
+                denied.lastDirtyPartitions().empty()&&
+                status.path==SculptStepResourcePath::QueuedExact&&
+                status.refused&&status.evaluated&&!status.published&&
+                status.privateCopiedBytes==queuedTruth.privateCopiedBytes&&
+                status.changedIdReferences==queuedTruth.changedIdReferences&&
+                status.finalDirtyPartitions==queuedTruth.finalDirtyPartitions&&
+                status.refusal.find(name)!=std::string::npos,
+                "M40 queued exact one-under per-private-Step COW/ID/dirty refusal leaves authentic root, source, mirrors and history untouched");
+    }
+    // The published 4D status must not report an attempted queued
+    // resource workload as an accepted one, or omit successful costs.
+    AsyncSculptWorker worker(mesh,.025,.006,.2,{},{},{},false,{},queued);
+    const auto queueBase=worker.initialRevision();
+    worker.mergeExactContacts(
+        queueBase,fullOriginalContacts(*queueBase),unionLimits,sourceFaces);
+    waitForUnion(worker,1);
+    const auto stats=worker.status();
+    require(stats.completedUnions==1&&stats.publishedRevisions==1&&
+            stats.stepResources.path==SculptStepResourcePath::QueuedExact&&
+            stats.stepResources.published&&
+            stats.stepResources.privateCopiedBytes==
+                queuedTruth.privateCopiedBytes&&
+            stats.stepResources.changedIdReferences==
+                queuedTruth.changedIdReferences&&
+            stats.stepResources.finalDirtyPartitions==
+                queuedTruth.finalDirtyPartitions,
+            "M40 real FIFO worker status exports exact measured accepted queued Step resource statistics");
+    std::cout<<"[m40] complete physical bytes="<<truth.privateCopiedBytes
+             <<" changed refs="<<truth.changedIdReferences
+             <<" final dirty="<<truth.finalDirtyPartitions
+             <<"; queued bytes="<<queuedTruth.privateCopiedBytes
+             <<" changed refs="<<queuedTruth.changedIdReferences
+             <<" dirty="<<queuedTruth.finalDirtyPartitions
+             <<" (exact and one-under all categories)\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -4808,6 +5023,7 @@ int main() {
         testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO();
         testM36OriginalCombinedProtectedSamePatchPolicy();
         testM12OriginalFinalFirstReferenceAcceptance();
+        testM40AggregateWholePrivateStepResourceBudgets();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
