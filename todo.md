@@ -1123,6 +1123,54 @@ The old seven-level V17 task genealogy has been **retired as a planning hierarch
   This is NOT universal three-body Boolean, two-sided continuous
   Hausdorff, exact CCD, or enabled desktop UI; M13–M15/V18/V19
   remain OPEN.
+**M13 flat execution rebaseline — October 19, 2026.** The ORIGINAL
+M13 objective and checkbox are unchanged and remain OPEN. Aggregate
+per-Step resource admission, winding/collision/arrangement accounting,
+contour/join/feature budgets, and worker telemetry must be accepted
+independently instead of leaving partially implemented M13 open or
+creating recursive subtasks. Record the COMPLETE ordered flat sequence
+before beginning code:
+
+- [ ] **V17-M40 — Whole-private-Step COW resource admission and attempt accounting.**
+  Establish one explicit conservative resource envelope across
+  Inflate/refine/collapse, optional V13/c1/c2/c3/d2 exact operations
+  and queued private exact operations (not merely a single internal
+  RegionEdit). Aggregate ALL private cloned COW payload bytes with
+  checked overflow, net changed-ID evidence and exact final dirty
+  owner count before the ONE root CAS. Give success, one-under
+  failure, timed/untimed source-refusal and unchanged COW/history/
+  mirrored/checkpoint invariants. Expose honestly labeled attempted
+  vs published counts and zero on unavailable evidence in both direct
+  brush and async worker diagnostics. Opt-in policy only; no
+  unbounded legacy default change, desktop still default off.
+- [ ] **V17-M41 — Combined finite winding/collision/arrangement work.**
+  Trace actual preflight, c1/c2/c3 original and post-cut source work,
+  uncut winding, final local collision and arrangement/junction
+  predicates. Propagate complete measured per-category work across
+  private substeps of ONE original-root candidate without double
+  charging identical evidence. Enforce bounded aggregate caps
+  independent of local caps, including exact-pass vs one-under
+  real positive physical and queued candidates. Any incomplete,
+  ambiguous or exhausted category refuses atomically.
+- [ ] **V17-M42 — Contour/join/feature bounds and full worker diagnostics.**
+  Aggregate complete local contour/closure, seam trace/zipper/join,
+  protected original feature/distance witness work, symmetric ID
+  proof and history limits. Separately report measured stage timings,
+  attempted budget costs, copied memory-proxy, actual accepted
+  publication, refusal category and cumulative worker diagnostics,
+  including direct/queued FIFO and checkpoint preservation.
+  Exact vs one-under cases must fail for the intended category,
+  not an incidental earlier stage. Never portray attempted copy bytes
+  as peak RSS or CPU wall time as deterministic execution work.
+**Then execute ORIGINAL M13** as its own criterion-by-criterion
+integrated acceptance with all V17-M40/M41/M42 examples together
+in real 4D and queued one-root transactions, verified full
+GCC/Clang/MSVC CI, its own evidence and ONLY the original
+M13 checkbox checked. M14 fault-injected post-CAS consistency,
+M15 desktop on-mode and V18/V19 remain separate and OPEN.
+No automatic same-component multi-body support, exact CCD,
+universal import success or hard RSS bound is implied.
+
 - [ ] **V17-M13 — Aggregate per-Step work bounds and diagnostic telemetry.**
   Winding/collision/arrangement/contour/join/feature/resource budgets with exact-boundary refusals and honest completion, time, memory-proxy and rejection accounting.
 - [ ] **V17-M14 — Post-CAS failure and auxiliary-state transaction acceptance.**
