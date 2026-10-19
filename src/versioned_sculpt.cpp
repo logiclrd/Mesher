@@ -672,9 +672,11 @@ void VersionedSculptBrush::stamp(
         ++rejected_;
         ++completed_;
         lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=SculptRefusalCategory::CallerOrProvenance;
         lastStepResourceWork_.refusal=lastRejection_;
         lastStepResourceWork_.elapsedMilliseconds=
             seconds(start,Clock::now())*1000;
+        recordStepDiagnostics();
         if(collision_.physicalExact||collision_.enabled)
             contact_.observe(std::nullopt);
         return;
@@ -690,9 +692,11 @@ void VersionedSculptBrush::stamp(
         ++rejected_;
         ++completed_;
         lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=SculptRefusalCategory::CallerOrProvenance;
         lastStepResourceWork_.refusal=lastRejection_;
         lastStepResourceWork_.elapsedMilliseconds=
             seconds(start,Clock::now())*1000;
+        recordStepDiagnostics();
         // An invalid caller scope is not an accepted Clean V13 result.
         // It must interrupt the consecutive quiet sequence even though
         // the invalid request is declined before private deformation.
@@ -713,6 +717,8 @@ void VersionedSculptBrush::stamp(
     const auto afterRefine=Clock::now();
     const auto collapsed=collapser_.apply(refined.index,inflated.baseline);
     const auto afterCollapse=Clock::now();
+    lastStepResourceWork_.stageWall.initialGeometryMs=
+        seconds(start,afterCollapse)*1000;
     std::shared_ptr<const RegionTopologyIndex> updated=collapsed.index;
 
     // Identify every face-owner partition whose triangles, flat normals or
@@ -937,6 +943,9 @@ void VersionedSculptBrush::stamp(
     // and its matching M29 certificate are the ONLY permissible predecessor.
     // M28 validates every actual private source stage and seals ONE external
     // successor. No intermediate Inflate/cut root is ever audited or published.
+    lastStepResourceWork_.stageWall.sourceGeometryMs=
+        seconds(afterCollapse,Clock::now())*1000;
+    const auto proofStarted=Clock::now();
     std::shared_ptr<const OriginalPatchLifetime> finalFidelity;
     if(rejection.empty()&&collision_.physicalExact&&updated!=old) {
         try {
@@ -1000,6 +1009,9 @@ void VersionedSculptBrush::stamp(
                       error.what();
         }
     }
+    lastStepResourceWork_.stageWall.originalProofMs=
+        seconds(proofStarted,Clock::now())*1000;
+    const auto admissionStarted=Clock::now();
     // M40: measure the ENTIRE would-be external Step, including cloned
     // partitions from every private Inflate/refine/collapse, optional V13
     // cut/refinement/seam join, and V16 repair. Never mistake the one final
@@ -1048,6 +1060,8 @@ void VersionedSculptBrush::stamp(
     // a refused Clean is UNKNOWN rather than permission to advance the
     // consecutive quiet count. Any uncertain / exhausted classification
     // breaks the run, but never fabricates a Clean or ends the episode.
+    lastStepResourceWork_.stageWall.admissionMs=
+        seconds(admissionStarted,Clock::now())*1000;
     if(classifiedEpisodeStep)
         contact_.observe((!rejection.empty()&&episodeClassification==false)?
                          std::nullopt:episodeClassification);
@@ -1068,14 +1082,23 @@ void VersionedSculptBrush::stamp(
                   seconds(afterRefine,afterCollapse),0};
         ++completed_;
         lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=lastRejection_.find("budget")!=std::string::npos||
+            lastRejection_.find("exhaust")!=std::string::npos||
+            lastRejection_.find("limit")!=std::string::npos?
+                SculptRefusalCategory::FiniteWorkBudget:
+            lastRejection_.find("first-original")!=std::string::npos?
+                SculptRefusalCategory::CallerOrProvenance:
+                SculptRefusalCategory::GeometryOrTopology;
         lastStepResourceWork_.refusal=lastRejection_;
         lastStepResourceWork_.elapsedMilliseconds=
             seconds(start,Clock::now())*1000;
+        recordStepDiagnostics();
         return;
     }
     // Private verification and its bounded work have ended; nothing
     // after publication may be retroactively billed to this admission.
     countExactGeometry.stop();
+    const auto publicationStarted=Clock::now();
     lastDirtyPartitions_=std::move(finalDirty);
 
     // All geometry and connectivity are already fully validated. Publish
@@ -1189,6 +1212,9 @@ void VersionedSculptBrush::stamp(
     lastStepResourceWork_.published=updated!=old;
     lastStepResourceWork_.elapsedMilliseconds=
         seconds(start,Clock::now())*1000;
+    lastStepResourceWork_.stageWall.publicationAndHistoryMs=
+        seconds(publicationStarted,Clock::now())*1000;
+    recordStepDiagnostics();
     collapser_.commitStep();
     refiner_.commitStep();
     }catch(...) {
