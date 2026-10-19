@@ -1142,6 +1142,7 @@ void VersionedSculptBrush::stamp(
     // the exact index + mesh revision pair atomically once per completed
     // Step, never publishing partially refined intermediate topology.
     if(updated!=old) {
+        postCasInFlight_.store(true,std::memory_order_release);
         if(!published_.publishIfCurrent(old,updated))
             throw std::logic_error("Single writer lost indexed root");
         didPublish=true;
@@ -1263,6 +1264,7 @@ void VersionedSculptBrush::stamp(
     if(didPublish)
         injectPostCasFault(SculptPostCasFaultPoint::AfterAuxCommit);
     recordStepDiagnostics();
+    postCasInFlight_.store(false,std::memory_order_release);
     }catch(...) {
         if(didPublish) {
             lastStepResourceWork_.elapsedMilliseconds=
@@ -1272,6 +1274,7 @@ void VersionedSculptBrush::stamp(
             collapser_.rollbackStep();
             refiner_.rollbackStep();
         }
+        postCasInFlight_.store(false,std::memory_order_release);
         throw;
     }
 }
@@ -1532,7 +1535,9 @@ bool VersionedSculptBrush::mergeExactContacts(
         }
         // ONE original-root indexed CAS, with NO intermediate cut or
         // seam-only root ever visible to renderer/picker subscribers.
+        postCasInFlight_.store(true,std::memory_order_release);
         if(!published_.publishIfCurrent(old,result.final)) {
+            postCasInFlight_.store(false,std::memory_order_release);
             collapser_.rollbackStep();
             refiner_.rollbackStep();
             return reject("Exact Boolean Step lost its original-root CAS");
@@ -1561,6 +1566,7 @@ bool VersionedSculptBrush::mergeExactContacts(
             collapser_.rollbackStep();
             refiner_.rollbackStep();
         }
+        postCasInFlight_.store(false,std::memory_order_release);
         throw;
     }
     vertices_=newVertices;
@@ -1581,6 +1587,7 @@ bool VersionedSculptBrush::mergeExactContacts(
     lastStepResourceWork_.stageWall.publicationAndHistoryMs=
         seconds(queuedPublicationStarted,Clock::now())*1000;
     recordStepDiagnostics();
+    postCasInFlight_.store(false,std::memory_order_release);
     return true;
 }
 
@@ -1638,6 +1645,8 @@ bool VersionedSculptBrush::redo() {
 }
 DurableCheckpoint VersionedSculptBrush::checkpoint() const {
     ensureOperational();
+    if(postCasInFlight_.load(std::memory_order_acquire))
+        throw std::logic_error("Checkpoint forbidden during original-root auxiliary commit");
     DurableCheckpoint snapshot;
     snapshot.index=published_.snapshot();
     snapshot.initialVertexCount=initialVertexCount_;
