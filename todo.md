@@ -1243,7 +1243,7 @@ sequence NOW, before beginning M42 implementation:
   `docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`. M45/M46, ORIGINAL M42,
   ORIGINAL M13, M14/M15/V18/V19 still OPEN; exact final-head and
   merged-main CI remain mandatory.
-- [ ] **V17-M45 — Complete protected-original feature and pre-CAS history evidence.**
+- [x] **V17-M45 — Complete protected-original feature and pre-CAS history evidence.**
   Meter actual SEVEN-point × living-descendant closest-triangle
   checks across all repeated source proof audits and intended
   exposed/reversed cavity feature decisions (never infer from a
@@ -1251,6 +1251,23 @@ sequence NOW, before beginning M42 implementation:
   mirror/orbit verification work; individually exact-vs-one-under
   guard actual positive physical/queued original-root Steps, preserving
   first-reference lifetime and refusing before root CAS.
+  **M45 accepted substantive PR #95, Actions #39318060899:** Linux
+  GCC, Clang and Windows MSVC /W4 /WX passed all 23 CPU suites
+  and applicable benchmarks. Nine independent finite saturated
+  categories count actual first-original anchor, live descendant,
+  certified retirement, seven-point-to-owned-child closest-triangle,
+  explicit intent, protected Exposed/ReversedBoundary, original
+  reciprocal mirror orbit, and repeatedly executed PRE-CAS M29
+  publication root/transition work. Real 72-first-original
+  reflected protected normal-driven physical union and separate
+  authenticated asymmetric queued exact source union calibrate
+  exact limits and independent one-under refusal of each truly
+  nonzero category, without COW/source/mirror/dirty/history changes.
+  Repeated direct original audits charge each real reexecution;
+  failed local preflight creates no phantom witness tests.
+  See docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
+  M46, ORIGINAL M42/M13 and M14/M15/V18/V19 remain OPEN.
+  Final exact PR-head and independent merged-main CI required.
 - [ ] **V17-M46 — Honest direct and queued worker cumulative diagnostics.**
   Expose separately measured stage wall times (observations, not
   deterministic upper bounds), attempted vs published per-category

@@ -5399,3 +5399,46 @@ and applicable benchmarks. Full final-doc PR head and independent
 merged-main CI are still mandatory. Evidence:
 `docs/V17_M44_SEAM_TRACE_JOIN_WORK.md`.
 Original M42 and M13, plus M45/M46/M14/M15/V18/V19 remain OPEN.
+
+
+## October 19, 2026 — V17-M45 protected-original source witness, feature and history accounting
+
+On M44's verified immutable source geometry baseline, M45 extends the
+same thread-local nested-restoring finite original-root attempt meter
+with NINE actual source-proof categories: each reauthenticated FIRST
+original FaceId/ordered vertex/edge/witness anchor, inspected live
+certified child ID, whole-original authenticated retirement check,
+truly evaluated seven-witness to OWN living triangle closest-point
+comparison, caller intended FaceId decision, protected unscoped
+Exposed/ReversedBoundary first-reference deviation test, actual
+reciprocal original mirror VertexId/opposite-winding FaceId candidate
+check, and actual M29 publication-root or predecessor-transition check.
+
+A scoped witness-distance marker exists ONLY inside the real M27
+original lifetime audit; unrelated V16 or general surface sampling is
+not mislabeled as original-source distance work. Re-executing the
+audit charges each real triangle comparison again, while a local
+preflight failure never fabricates comparison work. Authentic M29
+pre-CAS source-transition verification is repeated for independent
+custom and default history caps; the post-CAS history append is not
+billed retroactively to work already admitted. Limits saturate and
+refuse by precise category before one original-root publish CAS.
+
+A real 72-FaceId protected reflected normal-driven union (32
+scoped and 40 protected cavity/outer originals) and independently
+authenticated asymmetric queued two-tetra exact union pass the
+measured exact per-category ceilings, with a separate one-under
+named pre-CAS atomic refusal for every truly exercised category.
+A repeated read-only original-lifetime audit proves two real
+distance passes, and preflight refusal adds zero phantom distance.
+Existing c1/c2/c3/M03/d2 source, 0/+1/0 cavity, permanent ID,
+M23 Contact/Clean/Unknown and no-fabricated V13 credential are
+unchanged. Measured source counters are not Boolean deletion
+authority and are neither peak process RSS nor hard wall-time limits.
+
+Substantive [PR #95 run #39318060899](https://github.com/logiclrd/Mesher/actions/runs/39318060899)
+passed full GCC/Clang/MSVC warnings-as-errors 23 CPU suites and
+applicable benchmarks. Exact final-head and independent merged-main
+CI gates remain mandatory. The original M42 and M13 checkboxes,
+M46, M14/M15/V18/V19 remain OPEN. See
+docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
