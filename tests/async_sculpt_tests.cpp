@@ -2346,15 +2346,16 @@ void testM31ExplicitFirstOriginalIntentTransport() {
             merger.status().history.undoDepth==0,
             "M31 foreign explicit-union source scope refuses before cut or CAS");
     merger.mergeExactContacts(initial,contacts,limits,
-                              {partitionFlatMesh(twoIntersectingTetrahedra(),256)
-                                  .flatIndex.faceIds.front()});
+                              firstOriginalFaces(twoIntersectingTetrahedra()));
     waitForUnion(merger,2);
-    require(merger.status().completedUnions==0&&
-            merger.status().rejectedUnions==2&&
-            merger.status().publishedRevisions==0&&
-            merger.status().history.undoDepth==0&&
-            merger.status().lastRejection.find("M33")!=std::string::npos,
-            "M32 protected queued explicit union must refuse before CAS until separately certified M33");
+    if(merger.status().completedUnions!=1)
+        throw std::runtime_error(
+            "M33 supported caller-scoped queued original union refused: "+
+            merger.status().lastRejection);
+    require(merger.status().rejectedUnions==1&&
+            merger.status().history.undoDepth==1&&
+            merger.status().publishedRevisions==1,
+            "M33 valid queued source-exact union succeeds after invalid original request");
 }
 }
 int main() {
