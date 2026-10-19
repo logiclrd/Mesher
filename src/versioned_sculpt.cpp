@@ -818,6 +818,45 @@ void VersionedSculptBrush::stamp(
             rejection=error.what();
         }
     }
+    // M32: exact-final first-original policy. The old *PUBLISHED* root
+    // and its matching M29 certificate are the ONLY permissible predecessor.
+    // M28 validates every actual private source stage and seals ONE external
+    // successor. No intermediate Inflate/cut root is ever audited or published.
+    std::shared_ptr<const OriginalPatchLifetime> finalFidelity;
+    if(rejection.empty()&&collision_.physicalExact&&updated!=old) {
+        try {
+            const auto previous=history_.currentFidelity();
+            if(!previous||!firstOriginalAuthority_||
+               previous->lineage.terminal!=old||
+               previous->anchors.original!=firstOriginalAuthority_->anchors.original)
+                throw std::logic_error(
+                    "Physical source Step lacks current authenticated FIRST-original lifetime");
+            const auto declaration=declareOriginalPatchIntent(
+                *previous,physicalIntendedOriginals_,
+                symmetric_?&firstOriginalMirrors_:nullptr,
+                collision_.originalIntentInput.maxDeclaredSources);
+            const auto& budget=collision_.originalTerminal;
+            auto candidate=advanceCertifiedPhysicalStampLifetime(
+                *previous,inflated,refined,collapsed,
+                physicalExactUnion?&*physicalExactUnion:nullptr,
+                symmetric_?&firstOriginalMirrors_:nullptr,
+                budget.maxCumulativeFaceEvidence,budget.maxLivingDescendants,
+                budget.maxInflateVertices,budget.maxInflateFaces);
+            // Preflight history authentication, not just geometric policy:
+            // a source-invalid candidate must not throw after successful CAS.
+            verifyOriginalPatchPublicationTransition(
+                *previous,candidate,old,updated,budget.maxLivingDescendants);
+            (void)evaluateOriginalPatchIntent(
+                *previous,candidate,declaration,
+                budget.maximumProtectedDeviationInEdges,
+                budget.maxDistanceTests,budget.maxLivingDescendants);
+            finalFidelity=std::make_shared<const OriginalPatchLifetime>(
+                std::move(candidate));
+        }catch(const std::exception& error) {
+            rejection=std::string("Physical first-original terminal policy refused: ")+
+                      error.what();
+        }
+    }
     if(!rejection.empty()) {
         collapser_.rollbackStep();
         refiner_.rollbackStep();
@@ -935,7 +974,7 @@ void VersionedSculptBrush::stamp(
                     (physicalExactUnion?physicalExactUnion->copiedPayloadBytes:0)+
                     (collisionRepair?
                      collisionRepair->commit.statistics.clonedPartitionBytes:0),
-                    vertices_,faces_);
+                    vertices_,faces_,std::move(finalFidelity));
     details_.areas.assign(areas.begin(),areas.end());
     details_.influenced=inflated.candidates;
     details_.moved=inflated.moved;
