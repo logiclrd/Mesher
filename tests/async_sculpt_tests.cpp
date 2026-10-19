@@ -1297,11 +1297,27 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
     // Localized exterior-corner input leaves other tower original
     // identities and contacts untouched; two Clean, a REFUSED bad scope,
     // then exactly three further Clean must be necessary to close.
-    const auto exterior=source.mesh.vertices.front();
+    // The initial exact join can retire original import VertexIds.
+    // Choose an ACTUALLY LIVE positive-X outer corner from the welded
+    // immutable root, never a possibly tombstoned imported XYZ point.
+    Vec3 exterior{};
+    bool selected=false;
+    joined->index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                const auto v=vertex.position;
+                if(v.x<=0||v.y>=-12||std::abs(v.z)>2)continue;
+                if(!selected||v.x<exterior.x) {
+                    exterior=v;
+                    selected=true;
+                }
+            }
+        });
+    require(selected,"M23 joined true tower has a live exterior positive-X vertex");
     const auto good=m11RegionIntent(source,0);
     const auto clean=[&](std::size_t expectedClean,
                          std::size_t expectedQuiet,bool active) {
-        const auto status=stroke(exterior,.28,good);
+        const auto status=stroke(exterior,.5,good);
         if(status.contact.cleanChecks!=expectedClean||
            status.contact.quietRun!=expectedQuiet||
            status.contact.active!=active||
@@ -1314,6 +1330,10 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
                 " contact="+std::to_string(status.contact.contactChecks)+
                 " uncertain="+std::to_string(status.contact.uncertainChecks)+
                 " rejected="+std::to_string(status.rejectedStamps)+
+                " completed="+std::to_string(status.completedStamps)+
+                " candidateVertices="+std::to_string(status.details.influenced)+
+                " moved="+std::to_string(status.details.moved)+
+                " collisionChecked="+std::to_string(status.collisionCheckedStamps)+
                 " reason="+status.lastRejection);
         require(status.contact.episodes==1&&
                 status.contact.closedEpisodes==(active?0u:1u),
