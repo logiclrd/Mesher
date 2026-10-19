@@ -1,5 +1,7 @@
 # V17-M31 — Caller-verified first-original intent transport
 
+**Accepted:** PR #76; substantive GCC/Clang/MSVC [Actions #39179461146](https://github.com/logiclrd/Mesher/actions/runs/39179461146), all 23 CPU tests and applicable benchmarks.
+
 **Flat peer of V17-M30, which remains open.** The implementation plan was
 recorded in `todo.md` before changing code. M32 physical pre-CAS,
 M33 explicit union pre-CAS, M34 integrated worker acceptance, the existing
