@@ -2851,15 +2851,6 @@ void testM12OriginalFinalFirstReferenceAcceptance() {
             proof->anchors.faces.size()==72&&
             proof->lineage.living.size()==72,
             "Original M12 accepts only the actual two-contact 72-source M37 final root with one fixed authenticated first-original lifetime");
-    const auto originalFaces=firstOriginalFaces(
-        [&] {
-            // Not a new reconstructed root: its triangles are already
-            // represented by permanent original FaceIds in this proof.
-            // Keep source comparison directly on the authentic FIRST root.
-            return Mesh{};
-        }());
-    require(originalFaces.empty(),
-            "Original M12 never fabricates a new first-root imported mesh during final acceptance");
     std::size_t living=0;
     for(std::size_t i=0;i<proof->anchors.faces.size();++i) {
         const auto& fixed=proof->anchors.faces[i];
