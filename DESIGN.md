@@ -5278,3 +5278,41 @@ Source implementation and open acceptance:
 CI and exact final-head/independent merged-main validation
 remain necessary before checking ONLY M41; original M13,
 M42, M14–M15 and V18/V19 are still OPEN.
+
+## October 19, 2026 — V17-M41 accepted aggregate winding/collision/arrangement work
+
+M41 is independently accepted on substantive [PR #92 Actions
+#39288853723](https://github.com/logiclrd/Mesher/actions/runs/39288853723):
+Linux GCC, Linux Clang and Windows MSVC warnings-as-errors
+builds, all 23 CPU suites and applicable benchmark stages GREEN.
+Earlier PR #91 had one MSVC-only C4456 shadowed local scope-guard
+name; renaming `record` to `queryAccounting` at the three
+meter sites resolved it without relaxing or altering any
+geometry algorithms.
+
+Complete true per-thread/private original-root attempt counters now
+charge EACH real BVH collision query's boxes, partitions, triangles
+and narrow-phase checks; signed-winding queries' boxes, partitions,
+candidate triangles and rays; and multi-section arrangement's pair
+tests and scaffold/ear/triangulation predicates. This includes
+genuinely reexecuted c1/c2/c3/M03/d2 original-source certificate
+checks, with direct and queued physical source originals. Checked
+size_t saturation refuses wrapped work. TWELVE individual finite
+aggregate operation ceilings are measured to precise exact-bound
+acceptance, with independently one-under refusal of real candidate
+work (10 winding/collision categories), plus a true three-body
+read-only planar arrangement pair and predicate positive/one-under.
+The meter terminates at PRE-CAS admission, before publication and
+history effects, and refused candidate work remains recorded as
+attempted diagnostic data, not a published-success counter.
+M40 COW copied bytes, permanent source and mirror ID proof, M21/M22
+first-original intended/protected cavity fidelity, M23 Unknown
+hysteresis, history/renderer COW atomic refusal and all prior
+regressions remain unchanged.
+
+Evidence: `docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`,
+PR #92. Final document-head and merged-main three-compiler CI
+remain mandatory before the milestone is reported as merged.
+M42 and the ORIGINAL M13 resource review remain OPEN,
+as do M14–M15/V18/V19; no universal triple-body geometry
+or peak RSS/time bounds are implied.
