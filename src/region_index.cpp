@@ -1,4 +1,5 @@
 #include "mesher/region_edit.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/revision_picking.hpp"
 #include "mesher/triangle_collision.hpp"
 
@@ -388,6 +389,11 @@ RegionTopologyIndex::triangleIntersections(
     CollisionStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
+    const ScopedExactQueryAccounting record([&]() noexcept {
+        if(auto* work=executingExactStageWork)
+            work->collision(stats.boxesTested,stats.partitionsTested,
+                            stats.candidateTriangles,stats.narrowPhaseTests);
+    });
     std::set<FaceId> affected;
     const auto addSeed=[&](FaceId id) {
         if(affected.contains(id))return;
