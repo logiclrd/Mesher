@@ -1378,7 +1378,7 @@ documentation follows before the merge.
     worker input boundary. Record the ENTIRE independently testable
     sequence before editing; never infer intent from candidate XYZ or
     silently make a new terminal root the first original:
-  - [ ] **V17-M31 — First-original intent transport and validation.**
+  - [x] **V17-M31 — First-original intent transport and validation.**
     Add deliberate FIRST-original FaceId selections to each physical
     stroke and explicit queued union request, preserving FIFO order and
     separate source identity. Keep an immutable original-source and
@@ -1386,6 +1386,18 @@ documentation follows before the merge.
     foreign, half-orbit or unverified recovered authority. Show the
     caller choices cannot be synthesized from displaced candidate geometry.
     This milestone installs INPUT CONTRACTS, not an active final CAS gate.
+    **Accepted PR #76, substantive Actions #39179461146:** exact
+    FIRST-original FaceId input is carried independently through Begin
+    and explicit queued Merge. Fresh opt-in source authority retains
+    immutable first-root witnesses and reflected ID map, while unverified
+    recovered terminal roots cannot create credentials. M21 prevalidates
+    nonempty original source scope and reflected partner completeness.
+    Invalid original/half-mirror inputs refuse privately, then valid
+    physical and queued exact unions drain on the same worker. The
+    23-suite GCC/Clang/MSVC warning-as-errors build and applicable
+    benchmarks passed. Full terminal M28/M21 pre-CAS enforcement,
+    M29 worker history lifetime publication, original M30 and M22
+    stay UNCHECKED, alongside M32-M34.
   - [ ] **V17-M32 — Certified physical-stamp terminal CAS gate.**
     Initialize source-authenticated M29 history from the actual original
     root; replay complete M28 Inflate/refine/collapse/optional d2 source
