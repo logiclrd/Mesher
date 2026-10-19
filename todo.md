@@ -1454,7 +1454,7 @@ documentation follows before the merge.
     suites and applicable benchmarks passed.
     **M34, original M30, original M22, M23 and original M12 remain OPEN.**
     No M14 post-CAS injected-fault or desktop M15 claims are made.
-  - [ ] **V17-M34 — Integrated protected worker FIFO acceptance.**
+  - [x] **V17-M34 — Integrated protected worker FIFO acceptance.**
     Combine M31-M33 under real asynchronous 4D begin/end and explicit
     union queues: accepted intended union, small allowed first movement,
     cumulative rejected second movement, later valid FIFO progress,
@@ -1462,6 +1462,34 @@ documentation follows before the merge.
     protection, exact terminal-only renderer/picker, dirty face owners,
     undo/redo/checkpoint requirement, finite caps, and M11 positives.
     Keep M14 post-CAS exception injection and M15 desktop UI separate.
+    **Accepted in PR #79, substantive Actions #39187712935:** A single
+    opt-in physicalExact asynchronous worker now proves a genuine
+    caller-intended full original-root queued c1/c2/c3/M03/d2 union,
+    recovers from a queued one-under exact budget refusal, then applies
+    the first limited physically small 4D displacement to the same
+    source-authenticated terminal. An equal individual second stroke
+    exceeds FIRST-original cumulative protected drift and refuses
+    without new CAS/history/dirty or partial mirror maps. A stale
+    expected queued root also refuses; a subsequent explicitly scoped
+    valid physical stroke still drains against the most recent accepted
+    certificate. Terminal-only renderer/picker, preserved older root,
+    three exact mixed-root undo/redo steps, and V13 disk checkpoint's
+    unforgeable original-source requirement pass. The separate
+    genuine three-contact protected X=0 queued exact Step now has a
+    real reflected physical 4D successor and matching mirror/undo/redo
+    acceptance. Existing independent coincident owner refusals,
+    reversed-cavity source protection and M11 SIXTEEN positive mirrored
+    physical unions remain green across all 23 CPU suites.
+    M34 uncovered and FIXED a real worker publication race: the
+    producer's atomic Begin reservation could previously be cleared
+    by an unrelated worker iteration BEFORE that Begin was consumed,
+    losing the pending terminal UI root after a rapid FIFO transition.
+    A worker-local begun-stroke token now authorizes release ONLY
+    after its real End, pending samples, and forced final publication.
+    GCC/Clang/MSVC warnings-as-errors and applicable benchmarks green.
+    **Original M30, M22, M23, M12 and M13-M15 remain OPEN**; M14
+    fault-injected post-CAS exception atomicity and desktop opt-in
+    were intentionally not claimed by this peer.
   - [ ] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
     Wire the M21 intent declaration and complete first-original M27
     sampled audit to BOTH actual stamped physical exact and explicitly

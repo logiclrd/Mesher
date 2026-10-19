@@ -4717,3 +4717,88 @@ queue 4D FIFO acceptance milestone. Original M30 and M22 are
 still NOT checked; M23, original M12, M13–M15, V18/V19
 and M14 injected post-CAS exceptional atomicity remain open.
 The desktop Merge geometry UI remains default disabled.
+
+
+## October 18, 2026 — V17-M34 integrated authenticated worker FIFO acceptance
+
+The first three independently complete flat peers of original M30
+delivered M31 caller FIRST-original FaceId intent, M32 certified
+physical exact final source/intent/history CAS, and M33 certified
+queued c1/c2/c3/M03/d2 exact terminal CAS. The M34 regression uses
+BOTH publication entry points on ONE real `AsyncSculptWorker`, not
+two stand-alone private simulations with fabricated publication.
+
+Its imported composite has genuinely intersecting tetrahedra plus
+an independent closed octahedron far from the intended union. A
+physical stamp against the unjoined tetra configuration correctly
+refuses: V13 sees genuine unresolved ORIGINAL source contacts, and
+the unrelated local stamp must not claim to make them clean. The
+integration consequently starts with an explicitly nominated
+FIRST-original tetra source set and TWO queued exact unions with the
+SAME expected root. The first has a genuine one-under transaction
+bound and refuses. The second performs the complete M26 certified
+source c1/c2/c3/M03/d2 join, followed by full M21 seven-witness
+terminal work and M29 direct history verification, yielding precisely
+one terminal COW root and one GPU dirty face-owner set. Older
+picker/BVH readers and original FaceIds remain immutable.
+
+From THAT accepted joined root, the test independently computes
+two normal-driven physical post-union proposals and audits their
+FIRST-original octa source descendants, using the complete
+seven-witness-per-LIVING-CHILD budget (which may exceed seven times
+the number of unsplit source faces). The protected threshold falls
+strictly between the two cumulative original edge-relative
+deviations. The actual worker's first 4D Begin/End nominates the
+still-intended tetra original source set but leaves the octa
+UNINTENDED, and passes within that threshold. The identical second
+physical stamp refuses cumulatively BEFORE CAS, without changing
+history/dirty/root. A stale prior queued-union expected pointer
+also refuses, and a later 4D Begin/End deliberately nominates the
+octa and previously intended source set to show real valid FIFO
+progress after both kinds of refusal. Undo/redo reverses and replays
+THREE exact root identities (source-exact / physical / physical);
+a checkpoint holds ONLY the terminal welded geometry while V13
+disk-only recovered edits remain fail-closed absent independent
+first-root source authentication.
+
+The M33 TRUE three-contact X=0 fixed-point protected queued original
+union was extended with a genuine symmetric physical 4D Step on the
+SAME worker and directly subsequent undo/redo. The original
+self-mirrored and reciprocal ID involutions remain separate from
+post-union live mirrors, so accepted and rejected input cannot
+manufacture a second coincident seam vertex. All prior M11 SIXTEEN
+positive physical reflected unions and source-proven independent
+coincident-sheet/reversed-cavity refusal regressions remain in the
+same 23-suite CI acceptance. This retains finite original source
+work, independent FaceId owners, actual full terminal d2 topology,
+and first-original edge-relative protected policy across both APIs.
+It does NOT assert a continuous Hausdorff bound or arbitrary
+coincident imported surface Boolean.
+
+**Actual discovered concurrency defect (M34 fix).** A producer's
+`begin()` reserves through `reserved_.exchange(true)` *before*
+its queued Begin is processed. The worker previously cleared
+`reserved_` at the end of ANY idle iteration where the flag
+happened to be true, even an unrelated queued Merge refusal.
+That raced with an arriving Begin and allowed an older forced
+snapshot to be mistaken for the completed NEW root, while the
+new stamp/history actually continued privately. The M34 integration
+caught `history.undoDepth=3` with a stale mailbox of
+`completedStamps=2`. A **worker-owned** `workerOwnsStartedStroke`
+token is now set only after the real `startTimed` has succeeded;
+the worker clears the reservation only once THAT stroke is
+inactive with no pending samples, **after** forced publication of
+its final COW root and accumulated dirty owner partitions. A
+not-yet-consumed Begin can no longer be released by some unrelated
+previous queue command. The test asserts snapshot.index matches
+the actual accepted next lifetime rather than weakening renderer
+acceptance to permit a stale frame.
+
+See `docs/V17_M34_INTEGRATED_PROTECTED_FIFO_ACCEPTANCE.md`.
+[Substantive Actions #39187712935](https://github.com/logiclrd/Mesher/actions/runs/39187712935)
+passed Linux GCC/Clang, Windows MSVC warnings-as-errors, all
+23 CPU test suites and applicable 100K benchmarks. M34 alone
+is checked; **original M30, original M22, M23, original M12,
+M13–M15, V18/V19 remain OPEN**. M14 post-CAS injected
+exception rollback and M15 desktop Merge geometry default-disabled
+opt-in are separate, not implicitly accepted here.
