@@ -1546,3 +1546,30 @@ join, continuous Hausdorff or CCD is claimed. ORIGINAL V17-M12
 requires its OWN standalone criterion audit and remains UNCHECKED;
 M13–M15/V18/V19 remain separately open. See
 `docs/V17_M36_ORIGINAL_COMBINED_PROTECTED_ACCEPTANCE.md`.
+
+## October 19, 2026 — ORIGINAL V17-M12 integrated final acceptance
+
+PR #88; substantive [Actions #39272006623](https://github.com/logiclrd/Mesher/actions/runs/39272006623)
+GCC/Clang/MSVC 23 CPU suites and applicable benchmarks green.
+Original M19 immutable FaceId/seven original witnesses/edge scales;
+M20 proven live split/flip/collapse/d2 descendants and source
+retirements; M21 explicit original FaceId intent and source-protected
+cavity/outer walls; M22 complete first-original cumulative
+physicalExact terminal pre-CAS work and real allowed/denied small
+protected drift; M23 conclusive three-fresh-Clean and Unknown episode
+rules are all independently verified and composed with M35–M39.
+Original M36's SINGLE protected async 4D worker history proves their
+simultaneous union/drift/refusal/episode/FIFO coexistence.
+The NEW standalone M12 regression independently verifies 72 fixed
+FIRST original sources, 40 unscoped exterior/cavity original
+FaceId/XYZ, exact/one-under full 7×living descendant work, stale
+root/forged certificate rejection, mirrored source pairs, signed
+0/+1/0 cavity winding and first/intermediate/final COW picking roots.
+
+Full PR-head and separate merged-main CI gate closure of the
+SINGLE M12 checkbox. M13 Step telemetry, M14 injected post-CAS
+failure guarantees, M15 actual opt-in Vulkan desktop use, V18 Off
+collision constraints and V19 broad robustness remain open.
+No universal coincident XYZ weld, same-component arbitrary
+three-body Boolean, exact continuous CCD or Hausdorff claim.
+See `docs/V17_M12_ORIGINAL_FINAL_ACCEPTANCE.md`.
