@@ -1151,6 +1151,16 @@ DurableCheckpoint checkpointM11Source(const M11TowerSource& source) {
     out.originalFidelityRequired=true;
     return out;
 }
+// Each M11 input owns an independent 16-face mirrored first-original
+// tower region. Never nominate originals already retired by earlier unions.
+std::vector<FaceId> m11RegionIntent(const M11TowerSource& source,
+                                  std::size_t region) {
+    if(region>=source.input.size())
+        throw std::out_of_range("Missing M11 original contact region");
+    const auto all=firstOriginalFaces(source.mesh);
+    const auto from=all.begin()+static_cast<std::ptrdiff_t>(16*region);
+    return {from,from+16};
+}
 SculptCollisionSettings m11PhysicalExactSettings() {
     SculptCollisionSettings result;
     result.physicalExact=true;
@@ -1178,7 +1188,7 @@ double chooseM11TowerStrength() {
     for(const double testStrength:{.35,.55,.8,1.0,1.3}) {
         VersionedSculptBrush one(initialTrial,testStrength,
             {},{},{},256,{},m11PhysicalExactSettings());
-        one.setOriginalPatchIntent(firstOriginalFaces(trial.mesh));
+        one.setOriginalPatchIntent(m11RegionIntent(trial,0));
         one.stamp(dummy,trial.input.front());
         if(one.completedUnions()==1&&one.publishedRevisions()==1) {
             strength=testStrength;
@@ -1209,7 +1219,6 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
             "All sixteen symmetric tower inputs start with distinct clean shells");
     VersionedSculptBrush brush(starting,strength,
         {},{},{},256,{},m11PhysicalExactSettings());
-    brush.setOriginalPatchIntent(firstOriginalFaces(source.mesh));
     std::vector<std::shared_ptr<const RegionTopologyIndex>> immutable{
         original};
     std::size_t unionCount=0;
@@ -1218,6 +1227,7 @@ void testM11SixteenAlternatingPhysicalTowerUnions() {
         const auto previous=brush.historyStatistics();
         const auto previousMirror=brush.checkpoint().mirrorPairs;
         const auto oldPicking=before->pickingRootIdentity();
+        brush.setOriginalPatchIntent(m11RegionIntent(source,step));
         brush.stamp(dummy,source.input[step]);
         if(brush.completedUnions()!=unionCount+1)
             throw std::runtime_error(
@@ -1315,7 +1325,7 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
     // Identical original root and same worker now accept the ordinary
     // six-contact one-region physically triggered mirrored union.
     worker.begin(source.input.front()[0].center,6,
-                 firstOriginalFaces(source.mesh));
+                 m11RegionIntent(source,0));
     worker.end(source.input.front()[0].center,0);
     const auto accepted=wait();
     const auto result=worker.takeSnapshot();
@@ -1359,9 +1369,13 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
                 "M11 4D worker consumes each queued input exactly once before next stroke");
         return current;
     };
-    const auto originalScope=firstOriginalFaces(source.mesh);
+    std::size_t nextRegion=0;
     const auto stampAt=[&](Vec3 center,double radius) {
-        worker.begin(center,radius,originalScope);
+        // A no-contact command is unscoped; real tower input selects
+        // its own immutable original source region.
+        const bool isNoContact=center.z>9000;
+        worker.begin(center,radius,isNoContact?std::vector<FaceId>{}:
+                     m11RegionIntent(source,nextRegion));
         worker.end(center,0);
         return waitForDrain();
     };
@@ -1384,6 +1398,7 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
             // Next real positive candidate is VALID geometrically, but
             // the caller vetoes its terminal Step after exact staging.
             // This checks the entire speculative map/history rollback.
+            nextRegion=i;
             const auto refused=stampAt(center,6);
             const auto refusedSnapshot=worker.takeSnapshot();
             require(refused.rejectedStamps==1&&
@@ -1399,6 +1414,7 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
                     before->pickingRootIdentity()!=nullptr,
                     "Rejected physical Step preserves held immutable BVH readers");
         }
+        nextRegion=i;
         const auto current=stampAt(center,6);
         if(current.completedUnions!=i+1)
             throw std::runtime_error(
