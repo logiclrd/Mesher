@@ -4035,6 +4035,236 @@ void testM45FirstOriginalFeatureHistoryWork() {
              <<repeated.originalWitnessTriangles<<"\n";
 }
 
+// M46: observe actual physical and queued source-certified operations through
+// the same bounded FIFO/history/checkpoint interface used by the viewport.
+// Attempted work is never equated with published work or with process RSS.
+void testM46CumulativeSourceWorkerDiagnostics() {
+    const auto chosen=chooseM39FourDimensionalSource();
+    const auto physical=m11PhysicalExactSettings();
+    const auto start=chosen.source.input[0][0].center;
+    const auto newPhysical=[&](SculptCollisionSettings policy) {
+        return VersionedSculptBrush(
+            chosen.original,chosen.strength,{},{},{},256,{},policy);
+    };
+    Mesh dummy;
+    auto direct=newPhysical(physical);
+    require(direct.resourceTotals().attempts==0&&
+            direct.resourceTotals().published==0,
+            "M46 newly constructed protected physical controller starts telemetry at zero");
+    direct.setOriginalPatchIntent(chosen.deliberate);
+    const std::array<BrushArea,2> area{{
+        {start,6,.3},{{-start.x,start.y,start.z},6,.3}
+    }};
+    direct.stamp(dummy,area);
+    require(direct.completedUnions()==1,"M46 genuine direct mirrored source union succeeds");
+    const auto dp=direct.lastStepResourceWork();
+    const auto sum=direct.resourceTotals();
+    require(dp.path==SculptStepResourcePath::PhysicalStamp&&
+            dp.published&&dp.evaluated&&
+            dp.stageWall.initialGeometryMs>=0&&
+            dp.stageWall.sourceGeometryMs>=0&&
+            dp.stageWall.originalProofMs>=0&&
+            dp.stageWall.admissionMs>=0&&
+            dp.stageWall.publicationAndHistoryMs>=0&&
+            dp.exactStage.originalWitnessTriangles>0&&
+            sum.attempts==1&&sum.physicalAttempts==1&&
+            sum.published==1&&sum.refused==0&&
+            sum.attemptedPrivateCopiedBytes==dp.privateCopiedBytes&&
+            sum.publishedPrivateCopiedBytes==dp.privateCopiedBytes&&
+            sum.attemptedExact.originalWitnessTriangles==
+                dp.exactStage.originalWitnessTriangles&&
+            sum.publishedExact.originalWitnessTriangles==
+                dp.exactStage.originalWitnessTriangles&&
+            sum.observedAttemptMilliseconds>=0,
+            "M46 true direct physical source work and timed stages split attempted/published categories");
+    auto physicalUnder=physical;
+    physicalUnder.exactStageLimits.maxOriginalWitnessTriangles=
+        dp.exactStage.originalWitnessTriangles-1;
+    auto directDenied=newPhysical(physicalUnder);
+    directDenied.setOriginalPatchIntent(chosen.deliberate);
+    const auto physicalRoot=directDenied.snapshot();
+    directDenied.stamp(dummy,area);
+    const auto refusal=directDenied.lastStepResourceWork();
+    const auto denied=directDenied.resourceTotals();
+    require(directDenied.snapshot()==physicalRoot&&
+            directDenied.historyStatistics().undoDepth==0&&
+            refusal.refused&&!refusal.published&&refusal.evaluated&&
+            refusal.refusalCategory==SculptRefusalCategory::FiniteWorkBudget&&
+            denied.attempts==1&&denied.refused==1&&denied.budgetRefusals==1&&
+            denied.published==0&&
+            denied.attemptedExact.originalWitnessTriangles==
+                dp.exactStage.originalWitnessTriangles&&
+            denied.publishedExact.originalWitnessTriangles==0&&
+            denied.publishedPrivateCopiedBytes==0&&
+            denied.attemptedPrivateCopiedBytes>0&&
+            directDenied.lastDirtyPartitions().empty(),
+            "M46 physical true M45 source limit one-under preserves immutable root and counts only attempted finite work");
+
+    const auto drain=[](AsyncSculptWorker& worker) {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(30);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.canBegin(),"M46 real source physical FIFO drains");
+    };
+    AsyncSculptWorker physicalWorker(chosen.original,.025,chosen.strength,.2,
+                                    {},{},{},{},physical);
+    physicalWorker.begin(start,6,chosen.deliberate);
+    physicalWorker.end(start,0);
+    drain(physicalWorker);
+    const auto pw=physicalWorker.status();
+    require(pw.completedUnions==1&&pw.resources.published==1&&
+            pw.resources.physicalAttempts==1&&
+            pw.resources.attemptedExact.originalWitnessTriangles>0&&
+            pw.stepResources.stageWall.originalProofMs>=0&&
+            pw.history.undoDepth==1&&pw.snapshotPublications>=1&&
+            pw.lastSnapshotDirtyOwners>0&&
+            pw.totalSnapshotDirtyOwners>=pw.lastSnapshotDirtyOwners&&
+            pw.resources.publishedPrivateCopiedBytes>0,
+            "M46 real 4D protected physical worker exports cumulative and last-Step phase/dirty/history facts");
+    const auto prior=pw.resources;
+    physicalWorker.undo();
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(physicalWorker.status().completedUndos==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto undone=physicalWorker.status();
+    require(undone.completedUndos==1&&undone.history.redoDepth==1&&
+            undone.resources.attempts==prior.attempts&&
+            undone.resources.published==prior.published,
+            "M46 undo changes published root/history but does not falsely charge a new sculpt attempt");
+    physicalWorker.redo();
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(physicalWorker.status().completedRedos==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto redone=physicalWorker.status();
+    require(redone.completedRedos==1&&redone.history.redoDepth==0&&
+            redone.resources.attempts==prior.attempts&&
+            redone.resources.published==prior.published,
+            "M46 redo keeps work telemetry historical, never replaying previous work counts");
+
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto originalSources=firstOriginalFaces(mesh);
+    const auto unionLimits=supportedUnionLimits(false);
+    SculptCollisionSettings queued;
+    queued.physicalExact=true;
+    queued.originalTerminal.maximumProtectedDeviationInEdges=0;
+    auto reference=VersionedSculptBrush(
+        mesh,.006,{},{},{},false,256,{},queued);
+    const auto first=reference.snapshot();
+    require(reference.mergeExactContacts(first,fullOriginalContacts(*first),
+                                         unionLimits,originalSources),
+            "M46 authenticated direct queued candidate accepted before FIFO calibration");
+    const auto qWork=reference.lastStepResourceWork();
+    const auto qTotals=reference.resourceTotals();
+    require(qWork.published&&qWork.stageWall.initialGeometryMs>=0&&
+            qWork.stageWall.sourceGeometryMs>=0&&
+            qWork.stageWall.originalProofMs>=0&&
+            qWork.stageWall.admissionMs>=0&&
+            qWork.stageWall.publicationAndHistoryMs>=0&&
+            qWork.exactStage.originalWitnessTriangles>0&&
+            qTotals.queuedExactAttempts==1&&qTotals.published==1&&
+            qTotals.publishedExact.originalWitnessTriangles==
+                qWork.exactStage.originalWitnessTriangles,
+            "M46 real queued exact direct path records separate measured proof phases and work");
+    AsyncSculptWorker queuedWorker(mesh,.025,.006,.2,
+                                   {},{},{},false,{},queued);
+    const auto queuedRoot=queuedWorker.initialRevision();
+    const auto contacts=fullOriginalContacts(*queuedRoot);
+    queuedWorker.mergeExactContacts(queuedRoot,contacts,
+                                    unionLimits,originalSources);
+    waitForUnion(queuedWorker,1);
+    const auto accepted=queuedWorker.status();
+    require(accepted.completedUnions==1&&accepted.resources.attempts==1&&
+            accepted.resources.published==1&&
+            accepted.resources.queuedExactAttempts==1&&
+            accepted.resources.publishedPrivateCopiedBytes>0&&
+            accepted.resources.publishedExact.originalWitnessTriangles>0&&
+            accepted.history.undoDepth==1&&
+            accepted.snapshotPublications>=1,
+            "M46 actual accepted queued original-root FIFO exports published exact work and bounded history");
+    queuedWorker.mergeExactContacts(queuedRoot,contacts,
+                                    unionLimits,originalSources);
+    waitForUnion(queuedWorker,2);
+    const auto stale=queuedWorker.status();
+    require(stale.rejectedUnions==1&&stale.resources.attempts==2&&
+            stale.resources.published==1&&stale.resources.refused==1&&
+            stale.resources.staleRefusals==1&&
+            stale.resources.attemptedPrivateCopiedBytes==
+                accepted.resources.attemptedPrivateCopiedBytes&&
+            stale.resources.publishedPrivateCopiedBytes==
+                accepted.resources.publishedPrivateCopiedBytes&&
+            stale.history.undoDepth==1,
+            "M46 stale queued source-root refusal increments only attempted and stale-category counters");
+    const auto checkpoint=std::filesystem::temp_directory_path()/
+        "mesher-v17-m46-live-cumulative-diagnostics.mshr";
+    try {
+        queuedWorker.saveCheckpoint(checkpoint);
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(queuedWorker.checkpointStatistics().completed==0&&
+              queuedWorker.checkpointStatistics().failed==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto saved=queuedWorker.status();
+        require(saved.checkpoints.completed==1&&
+                saved.checkpoints.failed==0,
+                "M46 durable checkpoint writer completes after genuine queued union");
+        const auto restored=readCheckpoint(checkpoint);
+        require(restored.index&&restored.originalFidelityRequired&&
+                !restored.verifiedOriginalFidelity&&
+                saved.resources.attempts==2,
+                "M46 disk restore preserves protected provenance marker but never invents M29 credentials or persisted work totals");
+        bool refused=false;
+        try {
+            (void)AsyncSculptWorker(restored,.025,.006,.2,{},{},{},{},queued);
+        }catch(const std::logic_error&) {refused=true;}
+        require(refused,
+                "M46 untrusted disk snapshot cannot restart a protected source worker with synthesized original lifetime");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(checkpoint,ec);throw;
+    }
+    std::error_code ec;std::filesystem::remove(checkpoint,ec);
+    auto queuedUnder=queued;
+    queuedUnder.exactStageLimits.maxOriginalWitnessTriangles=
+        qWork.exactStage.originalWitnessTriangles-1;
+    AsyncSculptWorker refusedWorker(mesh,.025,.006,.2,
+                                    {},{},{},false,{},queuedUnder);
+    const auto oldRefused=refusedWorker.initialRevision();
+    refusedWorker.mergeExactContacts(
+        oldRefused,fullOriginalContacts(*oldRefused),
+        unionLimits,originalSources);
+    waitForUnion(refusedWorker,1);
+    const auto bad=refusedWorker.status();
+    require(bad.rejectedUnions==1&&bad.completedUnions==0&&
+            bad.resources.attempts==1&&bad.resources.refused==1&&
+            bad.resources.budgetRefusals==1&&
+            bad.resources.published==0&&
+            bad.resources.attemptedExact.originalWitnessTriangles==
+                qWork.exactStage.originalWitnessTriangles&&
+            bad.resources.publishedExact.originalWitnessTriangles==0&&
+            bad.resources.attemptedPrivateCopiedBytes>0&&
+            bad.resources.publishedPrivateCopiedBytes==0&&
+            bad.history.undoDepth==0&&
+            refusedWorker.initialRevision()==oldRefused&&
+            bad.stepResources.refusalCategory==
+                SculptRefusalCategory::FiniteWorkBudget,
+            "M46 queued one-under true M45 work refuses atomically while diagnostics distinguish attempted cost from published revisions");
+    std::cout<<"[m46] physical attempted="<<sum.attempts
+             <<" protected witnesses="<<sum.attemptedExact.originalWitnessTriangles
+             <<"; FIFO published="<<pw.resources.published
+             <<" checkpoint histories="<<saved.checkpoints.completed
+             <<"; queued attempted="<<stale.resources.attempts
+             <<" refused="<<stale.resources.refused<<"\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -5903,6 +6133,7 @@ int main() {
         testM43WholeStepContourClosureAccounting();
         testM44OriginalSeamTraceJoinWork();
         testM45FirstOriginalFeatureHistoryWork();
+        testM46CumulativeSourceWorkerDiagnostics();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
