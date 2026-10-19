@@ -2631,8 +2631,11 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
         firstProof,inflated2,refined2,collapsed2,
         nullptr,nullptr,32768,32768,32768,32768);
     const auto protectedDeviation=[&](const OriginalPatchLifetime& lifetime) {
+        // Post-cut original FaceIds can each have multiple certified
+        // living children. The full witness bound is 7 per CHILD, not
+        // 7 per original triangle; never underbudget the reference audit.
         const auto audit=auditOriginalPatchLifetime(
-            lifetime,firstRoot,7*originalSources.size(),32768);
+            lifetime,firstRoot,131072,32768);
         double worst=0;
         for(const auto& record:audit.perOriginal)
             if(sculptSources.contains(record.original))
