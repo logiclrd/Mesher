@@ -1507,8 +1507,12 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
             rejected.history.undoDepth==0&&
             refusedSnapshot&&refusedSnapshot->index==old&&
             refusedSnapshot->dirtyPartitions.empty()&&
-            !rejected.lastRejection.empty(),
-            "Oversize contact query rolls back ALL physically moved sheets without a partial published union");
+            !rejected.lastRejection.empty()&&
+            rejected.contact.uncertainChecks==1&&
+            rejected.contact.cleanChecks==0&&
+            rejected.contact.contactChecks==0&&
+            rejected.contact.episodes==0,
+            "M23 actual source V13 section-budget exhaustion is UNKNOWN, never Clean, Contact or a published root");
     // Identical original root and same worker now accept the ordinary
     // six-contact one-region physically triggered mirrored union.
     worker.begin(source.input.front()[0].center,6,
@@ -1523,8 +1527,12 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
     require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
             accepted.publishedRevisions==1&&accepted.history.undoDepth==1&&
             result&&result->index!=old&&!result->dirtyPartitions.empty()&&
-            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0,
-            "Queued worker consumes refused large contact then correct physical symmetric union once");
+            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0&&
+            accepted.contact.uncertainChecks==1&&
+            accepted.contact.contactChecks==1&&
+            accepted.contact.episodes==1&&
+            accepted.contact.active,
+            "M23 actual work-exhausted physical FIFO recovers with a NEW fully proved Contact episode and valid source weld");
 }
 
 void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
