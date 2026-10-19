@@ -845,11 +845,32 @@ void VersionedSculptBrush::stamp(
                previous->anchors.original!=firstOriginalAuthority_->anchors.original)
                 throw std::logic_error(
                     "Physical source Step lacks current authenticated FIRST-original lifetime");
+            const auto& budget=collision_.originalTerminal;
+            verifyOriginalPatchPublicationRoot(
+                *previous,old,budget.maxLivingDescendants);
+            // A caller may continue naming an already intended original
+            // across successive independent stamps. Only sources with an
+            // M26-sealed WHOLE Buried/Outside retirement can be omitted;
+            // all other names must still be live, original and explicit.
+            // This never infers a new intention from XYZ or the brush area.
+            std::set<FaceId> liveOrigins;
+            for(const auto& [id,faces]:previous->lineage.living)
+                if(!faces.empty())liveOrigins.insert(id);
+            std::vector<FaceId> activeIntended;
+            activeIntended.reserve(physicalIntendedOriginals_.size());
+            for(const auto id:physicalIntendedOriginals_) {
+                if(liveOrigins.contains(id))
+                    activeIntended.push_back(id);
+                else if(!std::binary_search(
+                            previous->certifiedRetiredOriginals.begin(),
+                            previous->certifiedRetiredOriginals.end(),id))
+                    throw std::logic_error(
+                        "Physical intended original is absent without certified Buried/Outside retirement");
+            }
             const auto declaration=declareOriginalPatchIntent(
-                *previous,physicalIntendedOriginals_,
+                *previous,activeIntended,
                 symmetric_?&firstOriginalMirrors_:nullptr,
                 collision_.originalIntentInput.maxDeclaredSources);
-            const auto& budget=collision_.originalTerminal;
             auto candidate=advanceCertifiedPhysicalStampLifetime(
                 *previous,inflated,refined,collapsed,
                 physicalExactUnion?&*physicalExactUnion:nullptr,
