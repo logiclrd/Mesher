@@ -284,7 +284,14 @@ public:
     // Quarantine a half-committed original-root transaction. Never hand a
     // root with uncertain mirrors or history to a new reader.
     std::shared_ptr<const RegionTopologyIndex> snapshot() const noexcept {
-        return terminalFailure()?nullptr:published_.snapshot();
+        if(terminalFailure()||postCasInFlight_.load(std::memory_order_acquire))
+            return nullptr;
+        auto result=published_.snapshot();
+        // A reader racing the CAS must not acquire an unpublished auxiliary
+        // root even if it observed the gate open immediately beforehand.
+        if(terminalFailure()||postCasInFlight_.load(std::memory_order_acquire))
+            return nullptr;
+        return result;
     }
     std::shared_ptr<const FlatMeshIndex> originalOrder() const noexcept {
         return flatOrder_;
@@ -353,6 +360,7 @@ private:
     StampDetails details_{};
     SculptStepResourceWork lastStepResourceWork_{};
     SculptResourceTotals resourceTotals_{};
+    std::atomic<bool> postCasInFlight_{false};
     std::atomic<bool> terminalFailure_{false};
     std::string terminalFailureReason_;
     // A checkpoint restored without an authenticated FIRST-original
