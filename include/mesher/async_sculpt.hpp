@@ -50,6 +50,8 @@ public:
         std::size_t completedUndos{},completedRedos{},checkpointCommands{};
         std::size_t snapshotPublications{},lastSnapshotDirtyOwners{};
         std::size_t totalSnapshotDirtyOwners{};
+        bool terminalFailure=false;
+        std::string terminalFailureReason;
         double lastWorkerStampMs=0;
         std::size_t publishedRevisions=0;
         std::size_t modifiedPartitions=0;
