@@ -14,10 +14,18 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <vector>
 
 using namespace mesher;
 namespace {
+// No RNG is used by this suite. Its varying temporary directory name
+// only avoids collisions. Thread scheduling and filesystem I/O do vary.
+// Flushed progress stays visible with CTest --verbose during a hang.
+void phase(std::string_view name) {
+    std::cerr<<"[persistent_history_checkpoints] "<<name<<std::endl;
+}
 void check(bool ok,const char* message) {
     if(!ok)throw std::runtime_error(message);
 }
@@ -42,6 +50,8 @@ void testBoundedHistoryAndBranching() {
     const auto target=initial.flatIndex.vertexIds.front();
     std::vector<std::shared_ptr<const RegionTopologyIndex>> readers{before};
     for(int i=0;i<12;++i) {
+        std::cerr<<"[persistent_history_checkpoints] retired root append "
+                 <<i<<"/12"<<std::endl;
         auto prior=history.current();
         auto next=moved(prior,target,1.0+0.001);
         history.append(next,{0,1},{},{},128);
@@ -67,7 +77,9 @@ void testBoundedHistoryAndBranching() {
           "New edit after undo drops only the abandoned redo branch");
     check(history.statistics().discardedRedoRevisions>0,
           "History records discarded redo roots");
+    phase("retirement queue drain BEGIN");
     retired.drain();
+    phase("retirement queue drain END");
     for(const auto& held:readers) {
         check(bool(held->firstRayHit(viewportRay(640,360,1280,720))),
               "External snapshots survive bounded history eviction");
@@ -100,6 +112,7 @@ void testCheckpointRoundTripAndRecovery() {
     const auto dir=std::filesystem::temp_directory_path()/
         ("mesher-v12-"+std::to_string(
             std::chrono::steady_clock::now().time_since_epoch().count()));
+    phase("checkpoint roundtrip temporary directory setup");
     std::filesystem::create_directories(dir);
     const auto file=dir/"model.mshr";
     try {
@@ -121,8 +134,11 @@ void testCheckpointRoundTripAndRecovery() {
         check(collapsed.statistics.accepted==1,
               "Checkpoint fixture removes real stable IDs");
         const auto snapshot=DurableCheckpoint{collapsed.index,{},6};
+        phase("first checkpoint write BEGIN");
         writeCheckpoint(file,snapshot);
+        phase("first checkpoint write END; reload BEGIN");
         auto restored=readCheckpoint(file);
+        phase("first checkpoint reload END");
         check(restored.initialVertexCount==6,
               "Checkpoint preserves original remeshing reference density");
         check(restored.index->retiredVertex(b)&&
@@ -166,7 +182,9 @@ void testCheckpointRoundTripAndRecovery() {
               "Fresh vertex IDs after reload cannot reuse tombstoned IDs");
 
         auto second=DurableCheckpoint{before,{}};
+        phase("replacement checkpoint write BEGIN");
         writeCheckpoint(file,second);
+        phase("replacement checkpoint write END");
         check(readCheckpoint(file).index->retiredFaceCount()==0,
               "Subsequent complete checkpoint atomically replaces old version");
         // Force a failure BEFORE replace by obstructing the temporary path.
@@ -175,8 +193,10 @@ void testCheckpointRoundTripAndRecovery() {
         obstructed+=".tmp";
         std::filesystem::create_directory(obstructed);
         bool saveFailed=false;
+        phase("deliberately obstructed write BEGIN");
         try {writeCheckpoint(file,snapshot);}
         catch(const std::exception&) {saveFailed=true;}
+        phase("deliberately obstructed write END");
         check(saveFailed&&readCheckpoint(file).index->retiredFaceCount()==0,
               "Failed temp write preserves the preceding complete checkpoint");
         std::error_code cleanupError;
@@ -193,7 +213,9 @@ void testCheckpointRoundTripAndRecovery() {
             check(std::string(e.what())!="Trailing garbage was accepted",
                   "Checksum rejects appended bytes");
         }
+        phase("pre-truncation checkpoint write BEGIN");
         writeCheckpoint(file,snapshot);
+        phase("pre-truncation checkpoint write END");
         std::filesystem::resize_file(file,20);
         try {
             (void)readCheckpoint(file);
@@ -311,8 +333,11 @@ void testM29BoundedAuthenticatedLifetimeHistoryAndRecovery() {
     protectedSnapshot.verifiedOriginalFidelity=tracked.currentFidelity();
     protectedSnapshot.originalFidelityRequired=true;
     try {
+        phase("M29 protected checkpoint write BEGIN");
         writeCheckpoint(file,protectedSnapshot);
+        phase("M29 protected checkpoint write END; reload BEGIN");
         const auto loaded=readCheckpoint(file);
+        phase("M29 protected checkpoint reload END");
         check(loaded.index&&loaded.originalFidelityRequired&&
               !loaded.verifiedOriginalFidelity&&
               loaded.index->pickingRootIdentity()!=nullptr,
@@ -353,18 +378,28 @@ void testAsyncCheckpointCoalescing() {
         const auto first=index;
         auto next=moved(index,imported.flatIndex.vertexIds.front(),1.2);
         {
+            phase("async writer constructor BEGIN");
             AsyncCheckpointWriter writer;
-            for(int i=0;i<6;++i)
+            phase("async writer constructor END");
+            for(int i=0;i<6;++i) {
+                std::cerr<<"[persistent_history_checkpoints] checkpoint enqueue "
+                         <<i<<"/6"<<std::endl;
                 writer.request(file,{i==5?next:first,{}});
+            }
+            phase("async writer drain BEGIN");
             writer.drain();
+            phase("async writer drain END");
             const auto stats=writer.statistics();
             check(stats.requested==6&&stats.completed>=1&&
                   stats.completed+stats.coalesced+stats.failed==6,
                   "Latest-only checkpoint worker accounts for every request");
             check(stats.failed==0&&stats.lastError.empty()&&stats.lastBytes>0,
                   "Background writes complete without hidden exceptions");
+            phase("async writer destructor BEGIN");
         }
+        phase("async writer destructor END; reload BEGIN");
         auto loaded=readCheckpoint(file);
+        phase("async writer reload END");
         check(length(loaded.index->vertex(imported.flatIndex.vertexIds.front()).position-
                      next->vertex(imported.flatIndex.vertexIds.front()).position)==0,
               "Latest writer result wins over any superseded snapshots");
@@ -377,11 +412,18 @@ void testAsyncCheckpointCoalescing() {
 }
 int main() {
     try {
-        testBoundedHistoryAndBranching();
-        testUndoMirrorDelta();
-        testCheckpointRoundTripAndRecovery();
-        testM29BoundedAuthenticatedLifetimeHistoryAndRecovery();
-        testAsyncCheckpointCoalescing();
+        phase("START RNG=none; fixed octahedron and test inputs; "
+              "clock names temporary paths; thread scheduling varies");
+        const auto run=[](std::string_view name,auto&& operation) {
+            phase(std::string("BEGIN ")+std::string(name));
+            operation();
+            phase(std::string("END ")+std::string(name));
+        };
+        run("bounded history and retirement",testBoundedHistoryAndBranching);
+        run("undo mirror delta",testUndoMirrorDelta);
+        run("checkpoint roundtrip",testCheckpointRoundTripAndRecovery);
+        run("M29 authenticated lifetime",testM29BoundedAuthenticatedLifetimeHistoryAndRecovery);
+        run("async checkpoint coalescing",testAsyncCheckpointCoalescing);
         std::cout<<"V12 history and checkpoint regressions passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"V12 history/checkpoint failure: "<<e.what()<<'\n';

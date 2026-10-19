@@ -34,7 +34,150 @@ jobs:
       - name: Compile application and tests
         run: cmake --build build --parallel
       - name: Run CPU mesh tests
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --verbose
+      - name: Repeated history and checkpoint threading regression (GCC)
+        if: matrix.compiler == 'GCC'
+        run: ctest --test-dir build -R '^persistent_history_checkpoints
+        if: matrix.compiler == 'GCC'
+        run: |
+          cmake -S . -B build-noqhull -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=OFF -DMESHER_FIND_QHULL=OFF
+          cmake --build build-noqhull --target mesher_mesh_tests
+          ./build-noqhull/mesher_mesh_tests
+      - name: Benchmark 100,000-vertex generation and stamps
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/mesher_benchmark 100000 65 2>&1 | tee startup-benchmark.txt
+          grep 'hull=Qhull' startup-benchmark.txt
+
+      - name: Compare remeshing experiment (5000 vertices)
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/Mesher --compare-remesh > comparison.csv
+          python3 - <<'PY'
+          import csv
+          with open("comparison.csv") as f:
+              lines = f.readlines()
+          start = next(i for i,line in enumerate(lines) if line.startswith("mode,stamp,"))
+          rows = list(csv.DictReader(lines[start:]))
+          for name in ("baseline","collapse"):
+              data = [r for r in rows if r["mode"] == name]
+              first = lambda condition: next((r["stamp"] for r in data if condition(r)), "never")
+              print(f"{name}: {len(data)-1} stamps")
+              print(f"  first shrinking edge below limit: {first(lambda r: int(r['shortening_below_limit'])>0)}")
+              print(f"  first collapse: {first(lambda r: int(r['removed_vertices'])>0)}")
+              print(f"  first inverted triangle: {first(lambda r: int(r['inverted'])>0)}")
+              last=data[-1]
+              print(f"  final: vertices={last['vertices']}, inverted={last['inverted']}, "
+                    f"min_edge={last['min_edge']}, min_altitude={last['min_altitude']}")
+          PY
+
+      - name: Four-way curvature/collapse comparison
+        if: matrix.compiler == 'GCC'
+        run: |
+          for gain in 0.5 1.0 2.0; do
+            ./build/Mesher --compare-mitigations --curvature-strength "$gain" > "fourway-${gain}.csv"
+          done
+          python3 - <<'PY'
+          import csv
+          for gain in ("0.5", "1.0", "2.0"):
+              with open(f"fourway-{gain}.csv") as f:
+                  lines = f.readlines()
+              start = next(i for i, line in enumerate(lines) if line.startswith("mode,stamp,"))
+              rows = list(csv.DictReader(lines[start:]))
+              print(f"Curvature strength {gain}")
+              for mode in ("baseline", "curvature", "collapse", "both"):
+                  data = [row for row in rows if row["mode"] == mode]
+                  assert len(data) == 106, f"Wrong stamp count: {gain} {mode}"
+                  first = next((r["stamp"] for r in data if int(r["inverted"])>0), "never")
+                  final = data[-1]
+                  if mode == "both" or (mode == "curvature" and gain in ("0.5", "1.0")):
+                      assert all(int(r["inverted"]) == 0 for r in data), (gain, mode, "regressed")
+                  print(f"  {mode}: first inverted={first}, final inverted={final['inverted']}, "
+                        f"vertices={final['vertices']}, min altitude={final['min_altitude']}")
+          PY
+      - name: Compare local split, flip and collapse (curvature 0.25)
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/Mesher --compare-local-remesh --vertices 5000 --curvature-strength 0.25 \
+              --max-split-pairs 3 --max-flip-pairs 3 --max-collapse-pairs 3 > local-remesh.csv
+          python3 - <<'PY'
+          import csv
+          with open("local-remesh.csv") as f:
+              lines=f.readlines()
+          start=next(i for i,line in enumerate(lines) if line.startswith("mode,stamp,"))
+          rows=list(csv.DictReader(lines[start:]))
+          for mode in ("baseline","collapse","split","split_flip","all"):
+              data=[r for r in rows if r["mode"]==mode]
+              assert len(data)==106, (mode,len(data))
+              added=sum(int(r["added_vertices"]) for r in data)
+              flipped=sum(int(r["flip_pairs"]) for r in data)
+              removed=sum(int(r["collapsed_vertices"]) for r in data)
+              print(f"{mode}: vertices={data[-1]['vertices']}, first inversion="
+                    f"{next((r['stamp'] for r in data if int(r['inverted'])>0),'never')}, "
+                    f"final inversions={data[-1]['inverted']}, added={added}, "
+                    f"flipped={flipped}, removed={removed}")
+              if mode in ("split","split_flip","all"):
+                  assert added>0, f"Stretch refinement did not trigger: {mode}"
+              if mode=="baseline":
+                  assert added==0 and flipped==0 and removed==0
+          PY
+      - name: Save comparison CSV data
+        if: matrix.compiler == 'GCC'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesher-curvature-experiments
+          path: |
+            comparison.csv
+            fourway-*.csv
+            local-remesh.csv
+
+  windows-msvc:
+    name: Windows / MSVC
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.3.296.0
+          cache: true
+          stripdown: true
+      - name: Install Qhull and GLFW via vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install qhull:x64-windows glfw3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Configure full Vulkan build (MSVC)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile application and tests with /W4 /WX
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run CPU tests (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          ctest --test-dir build -C Release --output-on-failure --verbose
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Repeated history and checkpoint threading regression (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          ctest --test-dir build -C Release -R '^persistent_history_checkpoints
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          & ./build/Release/mesher_benchmark.exe 100000 65 2>&1 | Tee-Object -FilePath msvc-benchmark.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Path msvc-benchmark.txt -Pattern 'hull=Qhull')) {
+            throw 'MSVC must use Qhull for 100K vertices'
+          }
+ --repeat until-fail:100 --output-on-failure
       - name: Verify missing-Qhull builds fail fast for large spheres
         if: matrix.compiler == 'GCC'
         run: |
@@ -160,7 +303,155 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
-          ctest --test-dir build -C Release --output-on-failure
+          ctest --test-dir build -C Release --output-on-failure --verbose
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify 100K Quickhull and brush benchmark (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          & ./build/Release/mesher_benchmark.exe 100000 65 2>&1 | Tee-Object -FilePath msvc-benchmark.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Path msvc-benchmark.txt -Pattern 'hull=Qhull')) {
+            throw 'MSVC must use Qhull for 100K vertices'
+          }
+ --repeat until-fail:100 --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify 100K Quickhull and brush benchmark (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          & ./build/Release/mesher_benchmark.exe 100000 65 2>&1 | Tee-Object -FilePath msvc-benchmark.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Select-String -Path msvc-benchmark.txt -Pattern 'hull=Qhull')) {
+            throw 'MSVC must use Qhull for 100K vertices'
+          }
+ --repeat until-fail:100 --output-on-failure
+      - name: Verify missing-Qhull builds fail fast for large spheres
+        if: matrix.compiler == 'GCC'
+        run: |
+          cmake -S . -B build-noqhull -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=OFF -DMESHER_FIND_QHULL=OFF
+          cmake --build build-noqhull --target mesher_mesh_tests
+          ./build-noqhull/mesher_mesh_tests
+      - name: Benchmark 100,000-vertex generation and stamps
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/mesher_benchmark 100000 65 2>&1 | tee startup-benchmark.txt
+          grep 'hull=Qhull' startup-benchmark.txt
+
+      - name: Compare remeshing experiment (5000 vertices)
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/Mesher --compare-remesh > comparison.csv
+          python3 - <<'PY'
+          import csv
+          with open("comparison.csv") as f:
+              lines = f.readlines()
+          start = next(i for i,line in enumerate(lines) if line.startswith("mode,stamp,"))
+          rows = list(csv.DictReader(lines[start:]))
+          for name in ("baseline","collapse"):
+              data = [r for r in rows if r["mode"] == name]
+              first = lambda condition: next((r["stamp"] for r in data if condition(r)), "never")
+              print(f"{name}: {len(data)-1} stamps")
+              print(f"  first shrinking edge below limit: {first(lambda r: int(r['shortening_below_limit'])>0)}")
+              print(f"  first collapse: {first(lambda r: int(r['removed_vertices'])>0)}")
+              print(f"  first inverted triangle: {first(lambda r: int(r['inverted'])>0)}")
+              last=data[-1]
+              print(f"  final: vertices={last['vertices']}, inverted={last['inverted']}, "
+                    f"min_edge={last['min_edge']}, min_altitude={last['min_altitude']}")
+          PY
+
+      - name: Four-way curvature/collapse comparison
+        if: matrix.compiler == 'GCC'
+        run: |
+          for gain in 0.5 1.0 2.0; do
+            ./build/Mesher --compare-mitigations --curvature-strength "$gain" > "fourway-${gain}.csv"
+          done
+          python3 - <<'PY'
+          import csv
+          for gain in ("0.5", "1.0", "2.0"):
+              with open(f"fourway-{gain}.csv") as f:
+                  lines = f.readlines()
+              start = next(i for i, line in enumerate(lines) if line.startswith("mode,stamp,"))
+              rows = list(csv.DictReader(lines[start:]))
+              print(f"Curvature strength {gain}")
+              for mode in ("baseline", "curvature", "collapse", "both"):
+                  data = [row for row in rows if row["mode"] == mode]
+                  assert len(data) == 106, f"Wrong stamp count: {gain} {mode}"
+                  first = next((r["stamp"] for r in data if int(r["inverted"])>0), "never")
+                  final = data[-1]
+                  if mode == "both" or (mode == "curvature" and gain in ("0.5", "1.0")):
+                      assert all(int(r["inverted"]) == 0 for r in data), (gain, mode, "regressed")
+                  print(f"  {mode}: first inverted={first}, final inverted={final['inverted']}, "
+                        f"vertices={final['vertices']}, min altitude={final['min_altitude']}")
+          PY
+      - name: Compare local split, flip and collapse (curvature 0.25)
+        if: matrix.compiler == 'GCC'
+        run: |
+          ./build/Mesher --compare-local-remesh --vertices 5000 --curvature-strength 0.25 \
+              --max-split-pairs 3 --max-flip-pairs 3 --max-collapse-pairs 3 > local-remesh.csv
+          python3 - <<'PY'
+          import csv
+          with open("local-remesh.csv") as f:
+              lines=f.readlines()
+          start=next(i for i,line in enumerate(lines) if line.startswith("mode,stamp,"))
+          rows=list(csv.DictReader(lines[start:]))
+          for mode in ("baseline","collapse","split","split_flip","all"):
+              data=[r for r in rows if r["mode"]==mode]
+              assert len(data)==106, (mode,len(data))
+              added=sum(int(r["added_vertices"]) for r in data)
+              flipped=sum(int(r["flip_pairs"]) for r in data)
+              removed=sum(int(r["collapsed_vertices"]) for r in data)
+              print(f"{mode}: vertices={data[-1]['vertices']}, first inversion="
+                    f"{next((r['stamp'] for r in data if int(r['inverted'])>0),'never')}, "
+                    f"final inversions={data[-1]['inverted']}, added={added}, "
+                    f"flipped={flipped}, removed={removed}")
+              if mode in ("split","split_flip","all"):
+                  assert added>0, f"Stretch refinement did not trigger: {mode}"
+              if mode=="baseline":
+                  assert added==0 and flipped==0 and removed==0
+          PY
+      - name: Save comparison CSV data
+        if: matrix.compiler == 'GCC'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesher-curvature-experiments
+          path: |
+            comparison.csv
+            fourway-*.csv
+            local-remesh.csv
+
+  windows-msvc:
+    name: Windows / MSVC
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.3.296.0
+          cache: true
+          stripdown: true
+      - name: Install Qhull and GLFW via vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install qhull:x64-windows glfw3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Configure full Vulkan build (MSVC)
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile application and tests with /W4 /WX
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run CPU tests (MSVC)
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          ctest --test-dir build -C Release --output-on-failure --verbose
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify 100K Quickhull and brush benchmark (MSVC)
         shell: pwsh
