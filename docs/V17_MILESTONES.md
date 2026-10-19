@@ -1284,3 +1284,18 @@ M31 was accepted in PR #76 after [Actions #39179461146]
 passed the full Linux GCC/Clang and Windows MSVC warnings-as-errors
 jobs, 23 CPU tests and applicable benchmarks. See
 `docs/V17_M31_ORIGINAL_INTENT_TRANSPORT.md`.
+
+
+## October 18, 2026 — V17-M32 authenticated physicalExact full-terminal gate accepted
+
+**Accepted PR #77; substantive [Actions #39182191436](https://github.com/logiclrd/Mesher/actions/runs/39182191436):** full GCC, Clang, MSVC warnings-as-errors and 23 CPU suites plus applicable benchmarks passed, including all sixteen genuinely positive repeated physical mirrored M11 unions and a new first-root cumulative pre-CAS policy regression.
+
+At a **fresh opt-in physicalExact import**, the immutable first-original FaceId/seven-witness/edge-scale M27 lifetime now exists *before* M29 `RevisionHistory` is initialized. Every genuine moving physical stamp verifies the full M28 original-root Inflate→M24/M25 refine→protected collapse→optional physical c1/c2/c3/M03/d2 source join privately. Its ONE external direct predecessor remains the old published root and its final target is the actual post-d2 terminal revision. The private bounded full source census, evidence limits, source children/retirements and mirrors must succeed. M21 then binds the explicit caller FIRST-original scope to that old sealed lifetime and checks **all living source-owned descendant witnesses** in original per-source edge units before the one CAS. Any missing/stale/forged source credentials or complete-work/threshold refusal rolls back without changing persistent root/history/mirrors/dirty/checkpoint.
+
+The accepted physical root carries exactly its M29 successor lifetime with one history append; undo/redo recover the true historical source proof, checkpoint requires V13 provenance, and full no-op stamps do not offer null proof to tracked history. An authenticated history refuses credential-free legacy mutation before CAS rather than throwing on history append after CAS.
+
+Real M28-measured first and second small physical movements show a tolerance chosen strictly between their **FIRST-original** deviations: one accepted, next cumulative unintended refusal. Work 56 accepts and 55 refuses, full Inflate vertex count six accepts and five refuses; deliberate source scope can approve a real edit at zero protected tolerance but a later unscoped Step does not inherit that exemption. M18 authentic physical exact union/refinement, reflected M11 sixteen independent spatial bands, queued worker clean/refusal/recovery, dirty render owners, mirror journal/history/checkpoint and original picker permanence remain positive.
+
+For repeated intended unions, the caller deliberately **continues** the original FaceId scope of already edited still-live patches plus newly sculpted patches. After independently M26-certified whole-source Buried/Outside retirement, previously intended but now retired original FaceIds can be excluded from the active M21 declaration. Nothing inferred from XYZ or from a hypothetical brush region; future untouched sources remain protected. A previous still-live sculpted source omitted from a later declaration again becomes protected, and its cumulative original-edge drift can refuse.
+
+**Still open:** M33 certified explicit queued union terminal CAS (currently safely refused for tracked histories), M34 combined worker acceptance, the unchanged original M30 and M22 integration checkboxes, M23, original M12, M13–M15, V18/V19. M14 injected post-CAS exception recovery remains outside M32. Protected V13 disk provenance without an authentic first-original proof remains fail-closed; no UI Merge geometry switch is enabled. See `docs/V17_M32_PHYSICAL_TERMINAL_POLICY.md`.
