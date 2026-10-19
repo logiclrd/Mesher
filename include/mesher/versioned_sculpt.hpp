@@ -8,6 +8,7 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/repair_surgery.hpp"
 #include "mesher/repair_intersection.hpp"
+#include "mesher/exact_stage_work.hpp"
 
 #include <chrono>
 #include <functional>
@@ -122,6 +123,7 @@ struct SculptStepResourceWork {
     std::size_t privateCopiedBytes{}; // all private edits, including intermediates
     std::size_t changedIdReferences{}; // reference count, not unique stable IDs
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
+    ExactStageWork exactStage{}; // all actual winding/collision/arrangement queries
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
     std::string refusal; // empty on a published/accepted candidate
 };
@@ -133,6 +135,7 @@ struct SculptCollisionSettings {
     SculptOriginalIntentInputLimits originalIntentInput{};
     SculptOriginalTerminalLimits originalTerminal{};
     SculptStepResourceLimits stepResources{};
+    ExactStageWorkLimits exactStageLimits{}; // M41 original-root geometry work
     SculptSourceContactLimits physicalSourceLimits{};
     ExactCutStepLimits physicalExactLimits{};
     RepairSurgerySettings surgery{};
