@@ -3655,6 +3655,171 @@ void testM43WholeStepContourClosureAccounting() {
              <<" ring="<<queueTruth.closureRingTests<<"\n";
 }
 
+// M44: all actual joined original-root work, never just final seam size.
+// The real physical mirrored and independent queued source-certified
+// Booleans provide complete pre-CAS positive/one-under cost calibration.
+// Unequal source subdivision refinement is separately tested in the
+// genuine three-solid generic transverse graph collision suite.
+void testM44OriginalSeamTraceJoinWork() {
+    struct Bucket {
+        std::size_t ExactStageWork::*actual;
+        std::size_t ExactStageWorkLimits::*ceiling;
+        const char* reason;
+    };
+    constexpr std::array<Bucket,7> categories{{
+        {&ExactStageWork::seamTraceProbes,
+         &ExactStageWorkLimits::maxSeamTraceProbes,
+         "seam trace-probe budget"},
+        {&ExactStageWork::seamMatchedIntervals,
+         &ExactStageWorkLimits::maxSeamMatchedIntervals,
+         "seam matched-interval budget"},
+        {&ExactStageWork::seamWeldComparisons,
+         &ExactStageWorkLimits::maxSeamWeldComparisons,
+         "seam weld-comparison budget"},
+        {&ExactStageWork::seamRefinePredicates,
+         &ExactStageWorkLimits::maxSeamRefinePredicates,
+         "seam refinement predicate budget"},
+        {&ExactStageWork::seamRefineMatches,
+         &ExactStageWorkLimits::maxSeamRefineMatches,
+         "seam refinement match budget"},
+        {&ExactStageWork::seamMirrorOrbitChecks,
+         &ExactStageWorkLimits::maxSeamMirrorOrbitChecks,
+         "seam mirror-orbit budget"},
+        {&ExactStageWork::seamFaceRewires,
+         &ExactStageWorkLimits::maxSeamFaceRewires,
+         "seam face-rewire budget"}
+    }};
+    const auto setExact=[&](SculptCollisionSettings& limits,
+                            const ExactStageWork& measured) {
+        std::size_t nonzero=0;
+        for(const auto& kind:categories) {
+            const auto value=measured.*(kind.actual);
+            limits.exactStageLimits.*(kind.ceiling)=value;
+            if(value)++nonzero;
+        }
+        return nonzero;
+    };
+    const auto picked=chooseM39FourDimensionalSource();
+    const auto first=picked.original;
+    const auto input=std::array<BrushArea,2>{{
+        {picked.source.input[0][0].center,6,.3},
+        {{-picked.source.input[0][0].center.x,
+          picked.source.input[0][0].center.y,
+          picked.source.input[0][0].center.z},6,.3}
+    }};
+    const auto defaultPhysical=m11PhysicalExactSettings();
+    const auto newPhysical=[&](SculptCollisionSettings configuration) {
+        return VersionedSculptBrush(
+            first,picked.strength,{},{},{},256,{},std::move(configuration));
+    };
+    Mesh dummy;
+    auto reference=newPhysical(defaultPhysical);
+    reference.setOriginalPatchIntent(picked.deliberate);
+    reference.stamp(dummy,input);
+    require(reference.completedUnions()==1,
+            "M44 a genuine normal-driven 72-source mirrored final-root union completes before seam calibration");
+    const auto truth=reference.lastStepResourceWork().exactStage;
+    require(truth.seamTraceProbes>0&&truth.seamMatchedIntervals>0&&
+            truth.seamWeldComparisons>0&&truth.seamMirrorOrbitChecks>0&&
+            !truth.overflow,
+            "M44 physical exact original cut/join executes real source-aligned seam traces, certified intervals, original-ID weld and mirrored-orbit validation");
+    auto equal=defaultPhysical;
+    const auto active=setExact(equal,truth);
+    require(active>=4,"M44 positive mirrored source Step exercises 4+ seam categories");
+    auto accepted=newPhysical(equal);
+    accepted.setOriginalPatchIntent(picked.deliberate);
+    accepted.stamp(dummy,input);
+    require(accepted.completedUnions()==1&&
+            accepted.lastStepResourceWork().published,
+            "M44 true physical final original-root Step accepts every measured seam category at exact ceiling");
+    for(const auto& kind:categories) {
+        if(!(truth.*(kind.actual)))continue;
+        auto under=equal;
+        --(under.exactStageLimits.*(kind.ceiling));
+        auto denied=newPhysical(under);
+        denied.setOriginalPatchIntent(picked.deliberate);
+        const auto before=denied.checkpoint();
+        denied.stamp(dummy,input);
+        const auto after=denied.checkpoint();
+        const auto& attempted=denied.lastStepResourceWork();
+        require(denied.rejectedStamps()==1&&denied.completedUnions()==0&&
+                denied.publishedRevisions()==0&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                attempted.evaluated&&attempted.refused&&!attempted.published&&
+                attempted.exactStage.seamTraceProbes==truth.seamTraceProbes&&
+                attempted.refusal.find(kind.reason)!=std::string::npos,
+                "M44 each truly exercised physical source-seam one-under category refuses atomically with accurate attempted work");
+    }
+
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto sources=firstOriginalFaces(mesh);
+    const auto limits=supportedUnionLimits(false);
+    SculptCollisionSettings queued;
+    queued.physicalExact=true;
+    queued.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto newQueued=[&](SculptCollisionSettings configuration) {
+        return VersionedSculptBrush(
+            mesh,.006,{},{},{},false,256,{},std::move(configuration));
+    };
+    auto source=newQueued(queued);
+    const auto original=source.snapshot();
+    require(source.mergeExactContacts(
+                original,fullOriginalContacts(*original),limits,sources),
+            "M44 independently genuine c1/c2/c3/M03/d2 queued exact source-owned Boolean union completes");
+    const auto queueTruth=source.lastStepResourceWork().exactStage;
+    require(queueTruth.seamTraceProbes>0&&
+            queueTruth.seamMatchedIntervals>0&&
+            queueTruth.seamWeldComparisons>0&&!queueTruth.overflow,
+            "M44 source-certified queued exact union truly scans and joins the source-boundary intervals");
+    const auto queueActive=setExact(queued,queueTruth);
+    require(queueActive>=3,
+            "M44 authenticated queued original-root join contains at least 3 measured positive seam categories");
+    auto queueExact=newQueued(queued);
+    const auto q0=queueExact.snapshot();
+    require(queueExact.mergeExactContacts(
+                q0,fullOriginalContacts(*q0),limits,sources)&&
+            queueExact.lastStepResourceWork().published,
+            "M44 queued original-root complete measured seam categories accept at exact boundary");
+    for(const auto& kind:categories) {
+        if(!(queueTruth.*(kind.actual)))continue;
+        auto under=queued;
+        --(under.exactStageLimits.*(kind.ceiling));
+        auto denied=newQueued(under);
+        const auto before=denied.checkpoint();
+        require(!denied.mergeExactContacts(
+                    before.index,fullOriginalContacts(*before.index),
+                    limits,sources),
+                "M44 real queued one-under original seam work must refuse");
+        const auto after=denied.checkpoint();
+        const auto& attempted=denied.lastStepResourceWork();
+        require(after.index==before.index&&
+                after.mirrorPairs==before.mirrorPairs&&
+                after.verifiedOriginalFidelity==
+                    before.verifiedOriginalFidelity&&
+                denied.publishedRevisions()==0&&
+                denied.completedUnions()==0&&denied.rejectedUnions()==1&&
+                denied.historyStatistics().undoDepth==0&&
+                denied.lastDirtyPartitions().empty()&&
+                attempted.evaluated&&attempted.refused&&!attempted.published&&
+                attempted.exactStage.seamTraceProbes==
+                    queueTruth.seamTraceProbes&&
+                attempted.refusal.find(kind.reason)!=std::string::npos,
+                "M44 every independently exercised queued seam source category one-under refuses before root CAS, preserves source/mirrors/history/dirty");
+    }
+    std::cout<<"[m44] physical source seam probes="<<truth.seamTraceProbes
+             <<" intervals="<<truth.seamMatchedIntervals
+             <<" weld comparisons="<<truth.seamWeldComparisons
+             <<" mirrors="<<truth.seamMirrorOrbitChecks
+             <<"; queued seam probes="<<queueTruth.seamTraceProbes
+             <<" intervals="<<queueTruth.seamMatchedIntervals
+             <<" comparisons="<<queueTruth.seamWeldComparisons<<"\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -5521,6 +5686,7 @@ int main() {
         testM40AggregateWholePrivateStepResourceBudgets();
         testM41ExactWholeStepQueryAccounting();
         testM43WholeStepContourClosureAccounting();
+        testM44OriginalSeamTraceJoinWork();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
