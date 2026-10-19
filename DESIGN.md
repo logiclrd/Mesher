@@ -5240,3 +5240,41 @@ CI are separately required for merge. M41–M42 and original M13 remain
 open for cross-stage winding/collision/arrangement/contour/join/
 protected-feature accounting and final acceptance.
 See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
+
+## October 19, 2026 — V17-M41 private source-geometry operation meter (implementation pending acceptance)
+
+On the green PR #90 M40 baseline, M41 PR #91 introduces one
+attempt-scoped, thread-local, nested-restoring monotone counter across
+actual original-root physical/queued exact geometry work. Actual
+RegionTopologyIndex collision-query BVH boxes, partition visits,
+candidate triangles and narrow-phase tests; positive-winding
+query BVH traversal, triangle and ray work; and genuine
+multi-section arrangement pair and predicate evaluations are
+counted using each work-site's own counters, including failed
+or ambiguous returns. Repeated original M26 c1/c2/c3/M03 source
+revalidation is charged again when real queries rerun, never
+inferred from reused immutable certificate pointers.
+The meter stops at the PRE-CAS budget check, not after history
+or renderer publication. Its aggregate limits are twelve
+independent finite categories with exact-cap allowed and one-under
+refused, overflow guarded; the older local limits and M40 COW,
+stable-ID and dirty-owner caps remain independent.
+
+The regression drives real M37/M39 protected mirrored physical
+normal-driven unions, separately source-certified queued exact
+unions, and read-only genuine three-solid intersecting planar
+arrangements. Each independently calibrated nonzero budget
+permits complete known-positive candidate work exactly;
+one fewer unit must refuse for the NAMED category before
+CAS, preserving source lifetime, mirror journals, renderer
+dirty owners, first COW pointer and history. M23 gets Unknown
+instead of crediting a refused candidate Clean. Attempted
+query costs and reasons remain in worker status instead of
+fabricated successful publication. This is NOT universal
+three-body union nor a proof of peak RSS/time or exact CCD.
+
+Source implementation and open acceptance:
+`docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md` and PR #91.
+CI and exact final-head/independent merged-main validation
+remain necessary before checking ONLY M41; original M13,
+M42, M14–M15 and V18/V19 are still OPEN.
