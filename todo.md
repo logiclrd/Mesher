@@ -1188,7 +1188,7 @@ seam/join, protected-feature/history, and cumulative worker telemetry
 are separate independently complete categories. Plan the FULL flat
 sequence NOW, before beginning M42 implementation:
 
-- [ ] **V17-M43 — Actual original-root contour and closure selection work.**
+- [x] **V17-M43 — Actual original-root contour and closure selection work.**
   Meter real per-removed-face contour extraction/edge traversals,
   loop and cap/zipper selection predicates consumed by repeated
   private c3/uncut and d2 source reconfirmations. Add independently
@@ -1196,6 +1196,25 @@ sequence NOW, before beginning M42 implementation:
   original-root Step, exact-vs-one-under for actual supported physical
   and queued joins and independent read-only contour fixtures.
   Fail-closed atomic COW/source/mirror/dirty/history refusal.
+  **M43 independently accepted substantive PR #93,
+  Actions #39296825695:** Linux GCC, Linux Clang, Windows MSVC
+  /W4 /WX all 23 CPU suites and applicable benchmarks GREEN.
+  Seven actual source-contour/closure operation types, measured
+  across whole private original physical/queued exact Steps,
+  separately finite with checked saturating overflow. Genuine
+  unequal-density two-ring zipper proves all seven NONZERO
+  category counts, exact all-category bounds and independent
+  one-under categorical refusal without changing root.
+  True mirrored protected M39 source physical and real source-
+  authenticated asymmetric queued c1/c2/c3/M03/d2 complete
+  original-root unions independently verify exact-bound
+  acceptance and each actually nonzero one-under Step rejection
+  before CAS with source/M29 proof, mirrors, COW, dirty and
+  history unchanged. All seven attempted costs in worker
+  per-Step status, not peak RSS or deterministic wall time.
+  `docs/V17_M43_CONTOUR_CLOSURE_WORK.md`.
+  M44–M46, original M42, original M13, M14/M15, V18/V19
+  remain OPEN. Documentation-head and merged-main CI gate merge.
 - [ ] **V17-M44 — Combined source-certified seam tracing, zipper and join work.**
   Meter all actual original-root seam trace comparisons, matching
   intervals, source-owned join/weld predicates, asymmetric optional
