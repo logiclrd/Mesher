@@ -4561,3 +4561,81 @@ are accepted or refused without promoting a candidate root; bad
 physical and explicit union input is recoverable and later real work
 drains. M31 is DONE; M32–M34, original M30 and original M22 remain
 OPEN. It would be false to call M31 the active terminal fidelity gate.
+
+
+## October 18, 2026 — V17-M32 physicalExact original-root final gate
+
+The M31 original FaceId input channel and first-root authority alone did
+not protect actual published geometry: the real physical worker still
+appended untracked history without evaluating M21 on the terminal.
+M32 now constructs the true M27 sealed original lifetime **before** M29
+history initialization for a fresh `physicalExact` import, rather than
+attempting to retrofit a tracked history. A genuinely authenticated
+trusted in-memory checkpoint retains its sealed first-root reference
+without rebasing. A terminal-only protected V13 disk checkpoint cannot
+resume physicalExact without separately proven original ancestry.
+
+The physical worker first prepares normal-driven Inflate, authenticated
+M24/M25 local refine and collapse, V13 original source contacts and
+optional source-certified c1/c2/c3/M03/d2 TRUE Boolean union privately.
+After speculative mirror journal staging and after caller validation,
+but **before** the only old-root CAS, M28 independently checks this
+WHOLE private source chain, full Inflate FaceId/VertexId census, complete
+bounded source evidence and all source-owned surviving/retired final
+FaceIds. M28 compresses it to ONE sealed external certificate whose
+direct predecessor is the *previous published* root and whose terminal
+is the ACTUAL post-d2 COW index. M29 publication verification checks
+that direct transition before CAS. M21's previous-certificate-bound
+explicit original FaceId declaration then performs the complete bounded
+seven-witness-per-original-living-descendant fidelity decision in each
+original source's own original shortest-edge units. A caller exemption
+only excludes explicitly named originals from the *geometric threshold*,
+not from work, ancestry, complete classified c3/M03 retirement, final
+d2 weld identity, or protected original/cavity ownership.
+
+A real accepted first small stamp followed by a second individually
+small but first-original cumulatively excessive **unintended** stamp
+now refuses BEFORE CAS, leaving the last published root and sealed
+source counters untouched. One-under full witness and Inflate source
+census refuse. An explicit first-root intended scope permits deliberate
+movement even at zero protected tolerance, but omission of that scope
+on a subsequent stamp does NOT permanently exempt its living original
+FaceIds. A fully no-change Step does not append a null lifetime to the
+M29 tracked history. Accepted Steps append one exact COW index plus
+its sealed one-external-Step lifetime; undo/redo and trusted checkpoint
+observe matching certificates, dirty face owner/mirror net deltas and
+picker immutable roots.
+
+The genuine M11 sixteen mirrored unions revealed that **per-Step**
+intent scope must account for PREVIOUS deliberate deformation of the
+same immutable original source. If a former sculpted patch is omitted
+from a later request, its persistent earlier deviation from its first
+original rightly exceeds the unscoped protected tolerance. The caller
+therefore explicitly continues its former intended FIRST-original
+source set together with the next region. Before M21 declaration,
+a previously nominated original now wholly retired is omitted from
+the ACTIVE intent only when its authenticated lifetime explicitly
+carries an M26 c3/M03 Buried/Outside retirement; any uncertified
+disappearance refuses. The otherwise still-live previously intended
+patch must be explicitly re-declared on that Step. New future tower
+patches remain untouched and protected. No blanket proximity, global
+XYZ-matched lifetime, threshold inflation or implicit permanent scope
+union is used. This preserves all sixteen ACTUALLY JOINED tower Steps,
+their FIFO clean/refusal/recovery and mirrors while maintaining the
+first-original policy on all sources outside the caller's scope.
+
+M32 deliberately does NOT certify the independently queued explicit
+source-exact union (M33): a tracked history safely refuses that command
+BEFORE CAS rather than attempting a credential-free history append
+AFTER publication. Untracked existing explicit union paths remain
+unchanged. The old V16 `anchoredSurface` and diagnostic hysteresis are
+not substitutes for this terminal gate. M14 still owns exceptional
+post-CAS injected faults, and no desktop Merge geometry option is
+enabled before M15. The M32 policy is finite *one-sided* seven-witness
+evidence, not a globally exact CCD or continuous Hausdorff promise.
+
+See `docs/V17_M32_PHYSICAL_TERMINAL_POLICY.md`. Substantive
+[Actions #39182191436](https://github.com/logiclrd/Mesher/actions/runs/39182191436)
+passed GCC, Clang, MSVC warnings-as-errors, all 23 CPU test suites
+and applicable benchmarks. M33, M34, unchanged M30/M22, M23/M12,
+M13–M15, V18 and V19 remain open.
