@@ -5338,7 +5338,7 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
     // UI snapshot. Seeing the new undoDepth does NOT fence the snapshot
     // mailbox under MSVC (or Linux). Wait for the ACTUAL expected root
     // AND history depths instead; do not weaken exact-ID undo/redo proof.
-    const waitForHistorySnapshot=[&](
+    const auto waitForHistorySnapshot=[&](
         std::size_t undoDepth,std::size_t redoDepth,
         const std::shared_ptr<const RegionTopologyIndex>& target) {
         std::optional<AsyncSculptWorker::Snapshot> found;
