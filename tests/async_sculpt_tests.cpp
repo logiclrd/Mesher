@@ -2250,6 +2250,124 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
 }
 
 
+
+void testM33ProtectedX0FixedPointQueuedUnion() {
+    // THREE source-contact original X=0 fixed-point case, not a mirrored
+    // off-plane approximation or a coincidence-based source mapping.
+    Mesh mesh;
+    for(const auto p:std::array<Vec3,8>{{
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3},
+        {-.65,.1,.35},{.65,.1,.35},{0,.9,.35},{0,.3125,-.65}
+    }})mesh.vertices.push_back(p);
+    for(unsigned tetra=0;tetra<2;++tetra)
+        for(const auto t:std::array<std::array<unsigned,3>,4>{{
+            {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+        }})
+            mesh.triangles.push_back({
+                tetra*4+t[0],tetra*4+t[1],tetra*4+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    std::vector<MirrorPair> mirrorPairs;
+    std::unordered_map<VertexId,VertexId> mirrored;
+    for(unsigned body=0;body<2;++body) {
+        const auto k=body*4u;
+        const auto a=imported.flatIndex.vertexIds[k],
+                   b=imported.flatIndex.vertexIds[k+1],
+                   c=imported.flatIndex.vertexIds[k+2],
+                   d=imported.flatIndex.vertexIds[k+3];
+        for(const auto pair:std::array<MirrorPair,3>{{
+            {a,b},{c,c},{d,d}
+        }}) {
+            mirrorPairs.push_back(pair);
+            mirrored[pair.first]=pair.second;
+            mirrored[pair.second]=pair.first;
+        }
+    }
+    const auto rootCertificate=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            root,imported.flatIndex.faceIds,
+            7*imported.flatIndex.faceIds.size())));
+    DurableCheckpoint trusted(root,mirrorPairs,8,true,rootCertificate);
+    trusted.verifiedFirstOriginalMirrorPairs=mirrorPairs;
+    SculptCollisionSettings config;
+    config.physicalExact=true;
+    config.originalTerminal.maximumProtectedDeviationInEdges=0;
+    auto limits=supportedUnionLimits(true);
+    limits.join.removal.contours.maximumGapInEdges=2.5;
+    const auto contacts=fullOriginalContacts(*root);
+    require(contacts.size()==3,"M33 X=0 verified original contains all three contacts");
+    const auto exact=prepareExactCutStep(root,contacts,limits,&mirrored);
+    require(exact.complete&&exact.final&&exact.sourceEvidence,
+            "M33 X=0 real reflected c1/c2/c3/M03/d2 source evidence is complete");
+    const auto proof=advanceOriginalPatchLifetime(
+        *rootCertificate,exact,&mirrored,16384,16384);
+    require(proof.acceptedTransitions==1&&proof.sourceFaceEvidence>0,
+            "M33 X=0 fixed-point original source disposition has an authenticated direct successor");
+
+    AsyncSculptWorker worker(trusted,.025,.006,.2,{},{},{},{},config);
+    auto incomplete=contacts;
+    incomplete.pop_back();
+    worker.mergeExactContacts(root,incomplete,limits,imported.flatIndex.faceIds);
+    waitForUnion(worker,1);
+    require(worker.status().rejectedUnions==1&&
+            worker.status().completedUnions==0&&
+            worker.status().history.undoDepth==0&&
+            !worker.takeSnapshot(),
+            "M33 incomplete original X=0 contact set fails without a mirror or history mutation");
+    worker.mergeExactContacts(root,contacts,limits,
+                              {imported.flatIndex.faceIds.front()});
+    waitForUnion(worker,2);
+    require(worker.status().rejectedUnions==2&&
+            worker.status().history.undoDepth==0&&
+            !worker.takeSnapshot(),
+            "M33 half-original reflected FaceId intent fails the source-proven orbit test");
+    worker.mergeExactContacts(root,contacts,limits,imported.flatIndex.faceIds);
+    waitForUnion(worker,3);
+    if(worker.status().completedUnions!=1)
+        throw std::runtime_error(
+            "M33 fully authenticated protected X=0 exact union refused: "+
+            worker.status().lastRejection);
+    const auto final=worker.takeSnapshot();
+    require(final&&final->index&&final->index!=root&&
+            !final->dirtyPartitions.empty()&&
+            worker.status().history.undoDepth==1&&
+            worker.status().publishedRevisions==1,
+            "M33 X=0 protected union commits one final root after two refused inputs");
+    worker.undo();
+    const auto stop=std::chrono::steady_clock::now()+std::chrono::seconds(20);
+    while(worker.status().history.redoDepth==0&&
+          std::chrono::steady_clock::now()<stop)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto back=worker.takeSnapshot();
+    require(back&&back->index==root,
+            "M33 X=0 protected original COW root remains exact under undo");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<stop)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    auto restored=worker.takeSnapshot();
+    require(restored&&restored->index==final->index,
+            "M33 X=0 tracked redo restores final reflected fixed-point root");
+    VersionedSculptBrush direct(trusted,.006,{},{},{},256,{},config);
+    require(direct.mergeExactContacts(root,contacts,limits,
+                                      imported.flatIndex.faceIds)&&
+            direct.checkpoint().verifiedOriginalFidelity&&
+            direct.checkpoint().verifiedOriginalFidelity->anchors.original==root&&
+            direct.checkpoint().verifiedOriginalFidelity->lineage.terminal==
+                direct.snapshot()&&
+            direct.checkpoint().verifiedOriginalFidelity->sourceFaceEvidence==
+                proof.sourceFaceEvidence,
+            "M33 X=0 mirror singleton/paired source history carries exact matched immutable first root");
+    const auto originalMirrorCount=direct.checkpoint().mirrorPairs.size();
+    require(originalMirrorCount>mirrorPairs.size(),
+            "M33 X=0 protected union records net added fixed-point and reciprocal orbits");
+    require(direct.undo()&&direct.checkpoint().mirrorPairs.size()==
+                mirrorPairs.size()&&
+            direct.redo()&&direct.checkpoint().mirrorPairs.size()==
+                originalMirrorCount,
+            "M33 X=0 original singleton/reciprocal mirror journals survive protected undo/redo");
+}
+
 void testM33AuthenticatedQueuedOriginalExactUnion() {
     const auto mesh=twoIntersectingTetrahedra();
     const auto sources=firstOriginalFaces(mesh);
@@ -2536,6 +2654,7 @@ int main() {
         testM31ExplicitFirstOriginalIntentTransport();
         testM32ActivePhysicalOriginalTerminalPolicy();
         testM33AuthenticatedQueuedOriginalExactUnion();
+        testM33ProtectedX0FixedPointQueuedUnion();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
