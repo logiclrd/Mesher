@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <thread>
 
@@ -2348,6 +2349,49 @@ void testM33ProtectedX0FixedPointQueuedUnion() {
     auto restored=worker.takeSnapshot();
     require(restored&&restored->index==final->index,
             "M33 X=0 tracked redo restores final reflected fixed-point root");
+
+    // M34: the exact reflected three-contact terminal itself becomes
+    // the predecessor of a REAL symmetric 4D physical Begin/End. The
+    // caller names original FaceIds, including M26-certified retired
+    // origins, rather than substituting coincident or reflected XYZ.
+    worker.begin({1,0,0},.3,imported.flatIndex.faceIds);
+    worker.end({1,0,0},0);
+    const auto physicalDeadline=std::chrono::steady_clock::now()+
+                                std::chrono::seconds(20);
+    while(!worker.canBegin()&&
+          std::chrono::steady_clock::now()<physicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    require(worker.canBegin(),
+            "M34 protected X=0 physical stamp drains after queued exact union");
+    const auto crossMode=worker.status();
+    if(crossMode.history.undoDepth!=2||crossMode.rejectedStamps!=0)
+        throw std::runtime_error(
+            "M34 protected X=0 post-exact physical stamp refused: "+
+            crossMode.lastRejection);
+    const auto crossSnapshot=worker.takeSnapshot();
+    require(crossSnapshot&&crossSnapshot->index!=restored->index&&
+            !crossSnapshot->dirtyPartitions.empty()&&
+            crossMode.completedStamps==1&&crossMode.completedUnions==1&&
+            crossMode.history.undoDepth==2,
+            "M34 reflected fixed-point queued exact terminal supports next 4D source-authenticated physical root");
+    const auto afterPhysical=crossSnapshot->index;
+    worker.undo();
+    const auto undoPhysicalDeadline=std::chrono::steady_clock::now()+
+                                    std::chrono::seconds(20);
+    while(worker.status().history.redoDepth!=1&&
+          std::chrono::steady_clock::now()<undoPhysicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto crossUndone=worker.takeSnapshot();
+    require(crossUndone&&crossUndone->index==restored->index,
+            "M34 mixed protected X=0 physical undo restores exact mirrored union root");
+    worker.redo();
+    while(worker.status().history.redoDepth!=0&&
+          std::chrono::steady_clock::now()<undoPhysicalDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto crossRedone=worker.takeSnapshot();
+    require(crossRedone&&crossRedone->index==afterPhysical,
+            "M34 mixed protected X=0 physical redo restores the terminal mirrored COW root");
+
     VersionedSculptBrush direct(trusted,.006,{},{},{},256,{},config);
     require(direct.mergeExactContacts(root,contacts,limits,
                                       imported.flatIndex.faceIds)&&
@@ -2570,6 +2614,245 @@ void testM33AuthenticatedQueuedOriginalExactUnion() {
             "M33 redo after refused alternate branch reuses exact original-source certificate");
 }
 
+
+void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
+    // Two genuinely crossing closed tetrahedra, plus an entirely separate
+    // closed octahedron. First publish the explicitly intended exact union:
+    // until it is joined, the original tetra contact is NOT a clean state
+    // for the otherwise distant normal-driven physical stamp.
+    auto mesh=twoIntersectingTetrahedra();
+    const std::size_t offset=mesh.vertices.size();
+    for(const auto p:std::array<Vec3,6>{{
+        {1,0,0},{0,1,0},{-1,0},{0,-1,0},
+        {0,0,1},{0,0,-1}
+    }})mesh.vertices.push_back({p.x+21,p.y,p.z});
+    for(const auto t:std::array<std::array<unsigned,3>,8>{{
+        {4,0,1},{4,1,2},{4,2,3},{4,3,0},
+        {5,1,0},{5,2,1},{5,3,2},{5,0,3}
+    }})mesh.triangles.push_back({
+        static_cast<unsigned>(offset)+t[0],
+        static_cast<unsigned>(offset)+t[1],
+        static_cast<unsigned>(offset)+t[2]});
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto firstRoot=RegionTopologyIndex::build(imported.revision);
+    const auto originalSources=imported.flatIndex.faceIds;
+    require(originalSources.size()==16,
+            "M34 composite contains exactly sixteen independently owned original faces");
+    const std::vector<FaceId> tetraSources(
+        originalSources.begin(),originalSources.begin()+8);
+    const std::set<FaceId> sculptSources(
+        originalSources.begin()+8,originalSources.end());
+    const auto contacts=fullOriginalContacts(*firstRoot);
+    require(contacts.size()>=8,
+            "M34 baseline tetrahedra have genuine complete independent original contacts");
+    auto limits=supportedUnionLimits(false);
+    // Compute a first-original protected tolerance against the SAME
+    // M26-certified joined root as the real worker, never against an
+    // unjoined, inherently colliding interim candidate.
+    const auto firstOriginal=beginOriginalPatchLifetime(
+        captureOriginalSourceAnchors(firstRoot,originalSources,112));
+    const auto exact=prepareExactCutStep(firstRoot,contacts,limits);
+    require(exact.complete&&exact.final&&exact.sourceEvidence,
+            "M34 composite queued exact Step has complete c1/c2/c3/M03/d2 source evidence");
+    const auto joinedLifetime=advanceOriginalPatchLifetime(
+        firstOriginal,exact,nullptr,32768,32768);
+    const std::array<BrushArea,1> patch{{{{22,0,0},.8,.3}}};
+    VersionedInflateBrush inflator(.035,{});
+    VersionedLocalRefiner refiner(mesh.vertices.size(),{},{},256);
+    VersionedDirectionalCollapser collapser(mesh.vertices.size(),{},{},256);
+    const auto inflated1=inflator.stamp(exact.final,patch,256);
+    const auto refined1=refiner.apply(inflated1.index,inflated1.baseline);
+    const auto collapsed1=collapser.apply(refined1.index,inflated1.baseline);
+    const auto firstProof=advanceCertifiedPhysicalStampLifetime(
+        joinedLifetime,inflated1,refined1,collapsed1,
+        nullptr,nullptr,32768,32768,32768,32768);
+    const auto inflated2=inflator.stamp(
+        firstProof.lineage.terminal,patch,256);
+    const auto refined2=refiner.apply(inflated2.index,inflated2.baseline);
+    const auto collapsed2=collapser.apply(refined2.index,inflated2.baseline);
+    const auto secondProof=advanceCertifiedPhysicalStampLifetime(
+        firstProof,inflated2,refined2,collapsed2,
+        nullptr,nullptr,32768,32768,32768,32768);
+    const auto protectedDeviation=[&](const OriginalPatchLifetime& lifetime) {
+        // Post-cut original FaceIds can each have multiple certified
+        // living children. The full witness bound is 7 per CHILD, not
+        // 7 per original triangle; never underbudget the reference audit.
+        const auto audit=auditOriginalPatchLifetime(
+            lifetime,firstRoot,131072,32768);
+        double worst=0;
+        for(const auto& record:audit.perOriginal)
+            if(sculptSources.contains(record.original))
+                worst=std::max(worst,record.sampled.maximumDistanceInEdges);
+        return worst;
+    };
+    const auto firstDrift=protectedDeviation(firstProof);
+    const auto secondDrift=protectedDeviation(secondProof);
+    require(secondDrift>firstDrift+1e-6,
+            "M34 real second octahedral stamp accumulates additional first-original drift");
+    SculptCollisionSettings protectedMode;
+    protectedMode.physicalExact=true;
+    protectedMode.originalTerminal.maximumProtectedDeviationInEdges=
+        .5*(firstDrift+secondDrift);
+    AsyncSculptWorker worker(mesh,.025,.035,.2,{},{},{},
+                             false,{},protectedMode);
+    const auto original=worker.initialRevision();
+    const auto picker=original->pickingRootIdentity();
+
+    // Two commands queued together: a finite-work refusal must not
+    // poison the FIFO successor's expected root or consume its intent.
+    auto oneUnder=limits;
+    oneUnder.maxNetChangedIds=1;
+    worker.mergeExactContacts(original,fullOriginalContacts(*original),
+                              oneUnder,tetraSources);
+    worker.mergeExactContacts(original,fullOriginalContacts(*original),
+                              limits,tetraSources);
+    waitForUnion(worker,2);
+    const auto joined=worker.status();
+    if(joined.completedUnions!=1)
+        throw std::runtime_error(
+            "M34 complete original-root FIFO exact union refused: "+
+            joined.lastRejection);
+    const auto joinedSnapshot=worker.takeSnapshot();
+    require(joined.rejectedUnions==1&&
+            joined.publishedRevisions==1&&joined.history.undoDepth==1&&
+            joinedSnapshot&&joinedSnapshot->index!=original&&
+            !joinedSnapshot->dirtyPartitions.empty()&&
+            original->pickingRootIdentity()==picker,
+            "M34 denied exact command then valid queued cut has precisely one final renderer root");
+    const auto welded=joinedSnapshot->index;
+    require(welded->retiredFaceCount()>original->retiredFaceCount(),
+            "M34 accepted c3/M03 source-owner retirement is real");
+
+    const auto drain=[&]() {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(25);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(worker.canBegin(),"M34 physical 4D Begin/End drained");
+        const auto status=worker.status();
+        require(!status.active&&status.pendingSteps==0&&
+                status.pendingSegments==0&&status.inputCommands==0,
+                "M34 serialized 4D worker has no outstanding partial samples");
+        return status;
+    };
+    // Continue to DECLARE the tetra sources intentionally edited by
+    // the prior exact union; all eight octa faces remain unscoped and
+    // protected by first-original edge-relative finite witness evidence.
+    worker.begin({22,0,0},.8,tetraSources);
+    worker.end({22,0,0},0);
+    const auto first=drain();
+    if(first.publishedRevisions!=2)
+        throw std::runtime_error(
+            "M34 allowed first unscoped octa 4D stamp refused: "+
+            first.lastRejection);
+    const auto moved=worker.takeSnapshot();
+    require(moved&&moved->index!=welded&&
+            !moved->dirtyPartitions.empty()&&
+            first.history.undoDepth==2&&first.rejectedStamps==0&&
+            welded->pickingRootIdentity()!=nullptr,
+            "M34 permitted small first-original octa drift follows authentic queued exact predecessor");
+    const auto allowed=moved->index;
+    worker.begin({22,0,0},.8,tetraSources);
+    worker.end({22,0,0},0);
+    const auto refused=drain();
+    const auto noChange=worker.takeSnapshot();
+    require(refused.rejectedStamps==1&&refused.completedStamps==2&&
+            refused.publishedRevisions==2&&refused.history.undoDepth==2&&
+            noChange&&noChange->index==allowed&&
+            noChange->dirtyPartitions.empty()&&
+            !refused.lastRejection.empty(),
+            "M34 second individually small but cumulative protected original drift refuses atomically");
+    worker.mergeExactContacts(welded,fullOriginalContacts(*original),
+                              limits,tetraSources);
+    waitForUnion(worker,3);
+    require(worker.status().rejectedUnions==2&&
+            worker.status().history.undoDepth==2&&
+            !worker.takeSnapshot(),
+            "M34 stale expected union root from BEFORE physical stamp cannot rebase or publish");
+
+    // Later correctly scoped physical input must still drain against the
+    // accepted post-union, post-first-stamp direct predecessor certificate.
+    worker.begin({22,0,0},.8,originalSources);
+    worker.end({22,0,0},0);
+    const auto resumed=drain();
+    if(resumed.publishedRevisions!=3)
+        throw std::runtime_error(
+            "M34 valid later scoped 4D FIFO recovery refused: "+
+            resumed.lastRejection);
+    const auto recovered=worker.takeSnapshot();
+    if(!(recovered&&recovered->index!=allowed&&
+         !recovered->dirtyPartitions.empty()&&
+         resumed.history.undoDepth==3&&resumed.rejectedStamps==1&&
+         resumed.completedUnions==1))
+        throw std::runtime_error(
+            "M34 subsequent 4D scope: snap="+std::to_string(bool(recovered))+
+            " dirty="+std::to_string(recovered?recovered->dirtyPartitions.size():0)+
+            " rootChanged="+std::to_string(recovered&&recovered->index!=allowed)+
+            " liveChanged="+std::to_string(worker.initialRevision()!=allowed)+
+            " snapMatchesLive="+std::to_string(recovered&&recovered->index==worker.initialRevision())+
+            " snapStamps="+std::to_string(recovered?recovered->completedStamps:0)+
+            " completedStamps="+std::to_string(resumed.completedStamps)+
+            " undo="+std::to_string(resumed.history.undoDepth)+
+            " stampsRefused="+std::to_string(resumed.rejectedStamps)+
+            " unionsCompleted="+std::to_string(resumed.completedUnions)+
+            " lastRefusal="+resumed.lastRejection);
+    const auto final=recovered->index;
+
+    const auto file=std::filesystem::temp_directory_path()/
+        "mesher-v17-m34-mixed-original-fifo.mshr";
+    try {
+        worker.saveCheckpoint(file);
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(20);
+        while(worker.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.checkpointStatistics().completed==1,
+                "M34 mixed physical/union terminal durable checkpoint completed");
+        const auto loaded=readCheckpoint(file);
+        require(loaded.index&&loaded.originalFidelityRequired&&
+                !loaded.verifiedOriginalFidelity&&
+                loaded.index->retiredFaceIds()==final->retiredFaceIds(),
+                "M34 checkpoint contains only protected final root and no forged first-source proof");
+        bool missingProofRefused=false;
+        try {(void)VersionedSculptBrush(loaded,.035,{},{},{},
+                                         256,{},protectedMode);}
+        catch(const std::logic_error&){missingProofRefused=true;}
+        require(missingProofRefused,
+                "M34 disk-only V13 terminal refuses original-proof-less restart");
+    }catch(...) {
+        std::error_code ec;std::filesystem::remove(file,ec);throw;
+    }
+    std::error_code ec;std::filesystem::remove(file,ec);
+
+    const std::array<std::shared_ptr<const RegionTopologyIndex>,4>
+        roots{{original,welded,allowed,final}};
+    for(std::size_t n=3;n>0;--n) {
+        worker.undo();
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n-1&&
+              std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.redoDepth==4-n,
+                "M34 each mixed source-exact/physical COW root is individually undoable");
+    }
+    for(std::size_t n=1;n<=3;++n) {
+        worker.redo();
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n&&
+              std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n]&&
+                worker.status().history.redoDepth==3-n,
+                "M34 redo across exact and physical entries restores exact immutable history roots");
+    }
+}
+
 void testM31ExplicitFirstOriginalIntentTransport() {
     // Input scope is the CALLER's permanent original FaceId set, captured
     // before the physical candidate exists; it is not proximity-discovered.
@@ -2701,6 +2984,7 @@ int main() {
         testM32ActivePhysicalOriginalTerminalPolicy();
         testM33AuthenticatedQueuedOriginalExactUnion();
         testM33ProtectedX0FixedPointQueuedUnion();
+        testM34MixedProtectedPhysicalAndQueuedExactFIFO();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
