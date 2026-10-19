@@ -4260,7 +4260,7 @@ void testM46CumulativeSourceWorkerDiagnostics() {
     std::cout<<"[m46] physical attempted="<<sum.attempts
              <<" protected witnesses="<<sum.attemptedExact.originalWitnessTriangles
              <<"; FIFO published="<<pw.resources.published
-             <<" checkpoint histories="<<saved.checkpoints.completed
+             <<" checkpoint histories="<<queuedWorker.checkpointStatistics().completed
              <<"; queued attempted="<<stale.resources.attempts
              <<" refused="<<stale.resources.refused<<"\n";
 }
