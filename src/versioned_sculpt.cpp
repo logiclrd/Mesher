@@ -1011,6 +1011,11 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto old=published_.snapshot();
     if(!expected||old!=expected)
         return reject("Exact Boolean Step expected root is stale");
+    // M33 owns the separately queued protected exact-union successor. An
+    // authenticated history cannot accept a credential-free CAS: reject
+    // rather than publishing first and failing M29 append afterward.
+    if(history_.currentFidelity())
+        return reject("Protected explicit exact union awaits M33 source-certified terminal gate");
     if(const auto invalid=validateOriginalIntentSources(intendedOriginals);
        !invalid.empty())
         return reject(invalid);
