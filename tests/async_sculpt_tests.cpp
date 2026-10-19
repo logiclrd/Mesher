@@ -1389,6 +1389,115 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
             "M23 genuine second source-weld opens new contact episode WITHOUT caching earlier approval");
 }
 
+
+// M35: TWO positive physical Boolean unions in the SAME overlapping brush
+// neighborhood, not a second distant M11 tower. Each actual union is made
+// by a normal-driven physical Step and enters one immutable M29 history.
+void testM35RepeatedPhysicalUnionsInOneOverlappingPatch() {
+    // Each mirrored source pair is independently closed and disjoint.
+    // Move the second M11 source band into the first band's LOCAL brush
+    // footprint, while keeping distinct original FaceIds and mirror IDs.
+    // This does NOT introduce any initial contact or turn off provenance.
+    Mesh dummy;
+    std::string last;
+    bool completed=false;
+    for(const double separation:{5.0,5.5,6.0,6.5}) {
+        if(completed)break;
+        for(const double gap:{.15,.25,.35}) {
+            if(completed)break;
+            const auto base=makeM11Towers(2,gap);
+            auto source=base;
+            const double secondY=-14+separation;
+            const double shift=secondY-14;
+            for(std::size_t i=16;i<32;++i)
+                source.mesh.vertices[i].y+=shift;
+            for(auto& area:source.input.at(1))
+                area.center.y+=shift;
+            const auto starting=checkpointM11Source(source);
+            const auto first=starting.index;
+            const auto firstPicker=first->pickingRootIdentity();
+            require(first->triangleIntersections({},{}).empty(),
+                    "M35 original local multiple-shell source starts without intersections");
+            const auto nearA=first->querySphere(
+                source.input[0][0].center,6);
+            const auto nearB=first->querySphere(
+                source.input[1][0].center,6);
+            bool sharesLiveOriginalVertex=false;
+            for(const auto id:nearA)
+                if(std::find(nearB.begin(),nearB.end(),id)!=nearB.end())
+                    sharesLiveOriginalVertex=true;
+            require(sharesLiveOriginalVertex,
+                    "M35 both overlapping local brush patches influence at least one SAME original source vertex");
+            const auto intended=firstOriginalFaces(source.mesh);
+            for(const double strength:{.35,.55,.8,1.0,1.3}) {
+                auto opts=m11PhysicalExactSettings();
+                VersionedSculptBrush brush(starting,strength,
+                    {},{},{},256,{},opts);
+                brush.setOriginalPatchIntent(intended);
+                brush.stamp(dummy,source.input.at(0));
+                if(brush.completedUnions()!=1) {
+                    last="first local union: "+brush.lastRejection();
+                    continue;
+                }
+                const auto joined=brush.snapshot();
+                const auto firstMirrors=brush.checkpoint().mirrorPairs;
+                if(joined==first||brush.historyStatistics().undoDepth!=1) {
+                    last="first local source union missing published M29 root";
+                    continue;
+                }
+                brush.setOriginalPatchIntent(intended);
+                brush.stamp(dummy,source.input.at(1));
+                if(brush.completedUnions()!=2) {
+                    last="second local union at separation="+
+                         std::to_string(separation)+
+                         ", gap="+std::to_string(gap)+
+                         ", strength="+std::to_string(strength)+
+                         ": "+brush.lastRejection();
+                    continue;
+                }
+                const auto final=brush.snapshot();
+                const auto finalProof=brush.checkpoint();
+                require(final!=joined&&
+                        final->retiredFaceCount()>joined->retiredFaceCount()&&
+                        joined->retiredFaceCount()>first->retiredFaceCount()&&
+                        brush.rejectedStamps()==0&&
+                        brush.publishedRevisions()==2&&
+                        brush.historyStatistics().undoDepth==2&&
+                        brush.contactStatistics().contactChecks==2&&
+                        brush.contactStatistics().episodes==1&&
+                        brush.contactStatistics().active&&
+                        !brush.lastDirtyPartitions().empty()&&
+                        finalProof.verifiedOriginalFidelity&&
+                        finalProof.verifiedOriginalFidelity->anchors.original==first&&
+                        finalProof.mirrorPairs.size()>=firstMirrors.size()&&
+                        first->pickingRootIdentity()==firstPicker,
+                        "M35 TWO true local symmetric physical source joins publish distinct protected M29 terminal roots in one still-active Contact episode");
+                for(const auto& [a,b]:finalProof.mirrorPairs) {
+                    require(final->maybeVertex(a)&&final->maybeVertex(b),
+                            "M35 post-second local union preserves all live mirror IDs");
+                    const auto p=final->vertex(a).position,
+                               q=final->vertex(b).position;
+                    require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                            "M35 second local union preserves exact reflected XYZ");
+                }
+                require(brush.undo()&&brush.snapshot()==joined&&
+                        brush.undo()&&brush.snapshot()==first&&
+                        brush.redo()&&brush.snapshot()==joined&&
+                        brush.redo()&&brush.snapshot()==final,
+                        "M35 both same-local-patch physical source joins undo and redo as independent immutable history roots");
+                std::cout<<"[m35] genuine TWO overlapping-patch physical unions, separation="
+                         <<separation<<" gap="<<gap
+                         <<" strength="<<strength<<'\\n';
+                completed=true;
+                break;
+            }
+        }
+    }
+    if(!completed)
+        throw std::runtime_error(
+            "M35 no two genuine supported close-neighborhood physical joins: "+last);
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -3227,6 +3336,7 @@ int main() {
         testM34MixedProtectedPhysicalAndQueuedExactFIFO();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM23ConclusiveEpisodesAndReal4DFIFO();
+        testM35RepeatedPhysicalUnionsInOneOverlappingPatch();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
