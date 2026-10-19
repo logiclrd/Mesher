@@ -1156,7 +1156,7 @@ before beginning code:
   work, complete rejected candidate retains attempted costs.
   `Status.stepResources` forwards real FIFO accepted work.
   See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
-- [ ] **V17-M41 — Combined finite winding/collision/arrangement work.**
+- [x] **V17-M41 — Combined finite winding/collision/arrangement work.**
   Trace actual preflight, c1/c2/c3 original and post-cut source work,
   uncut winding, final local collision and arrangement/junction
   predicates. Propagate complete measured per-category work across
@@ -1165,6 +1165,23 @@ before beginning code:
   independent of local caps, including exact-pass vs one-under
   real positive physical and queued candidates. Any incomplete,
   ambiguous or exhausted category refuses atomically.
+  **M41 original flat peer accepted PR #92, substantive Actions
+  #39288853723**: all GCC/Clang/MSVC 23 CPU suites and benchmarks
+  GREEN at exact corrected source SHA `231915a6fc8d172889f742f066bf2720cd4e29b7`.
+  Count actual V13/M26 collision query/box/partition/candidate/narrow
+  work, actual original signed-winding query/box/partition/triangle/ray
+  work and genuine multi-section arrangement pair/predicate work.
+  All 10 winding/collision per-category measured exact-boundary
+  source-authenticated physical AND queued final-root union candidates
+  accept; each separate one-under limit rejects atomically BEFORE
+  CAS with unchanged old source/mirrors/dirty/history. Original
+  three-closed-solid multi-curve read-only arrangement independently
+  measures nonzero real pairs/predicates, exact-pass/one-under.
+  Checked overflow and pre-CAS meter end preserve honest attempted
+  diagnostics; no partial Boolean authority. Earlier PR #91 MSVC-only
+  C4456 guard-name shadow was corrected, not hidden. Evidence
+  `docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`; original M13, M42,
+  M14/M15/V18/V19 remain OPEN.
 - [ ] **V17-M42 — Contour/join/feature bounds and full worker diagnostics.**
   Aggregate complete local contour/closure, seam trace/zipper/join,
   protected original feature/distance witness work, symmetric ID
