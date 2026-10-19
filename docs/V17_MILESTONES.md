@@ -1248,3 +1248,39 @@ M30 still owns the active pre-CAS worker, mirrored collision,
 FIFO, final original witness and atomic refusal integration.
 The original M22, M23 and M12 remain open; desktop physicalExact
 remains default-off and the PR-only CI concurrency policy remains.
+
+
+## October 18, 2026 — V17-M30 flat implementation peers; M31 accepted
+
+Source inspection after authenticated-history M29 confirmed two distinct
+worker CAS paths with no active M28/M21 terminal-source audit and no
+per-command original FaceId scope. Rather than iteratively subdividing
+M30 while leaving an unfinished task, its entire remaining execution
+sequence was recorded FIRST in `todo.md` as four flat peers:
+
+- **M31 COMPLETE:** caller-supplied permanent first-original FaceId
+  scopes on the actual queued physical Begin and explicit union Merge;
+  genuine first-root witness/mirror authority; M21 original-source
+  ownership/reflection-closure validation; recoverable bad-scope
+  physical refusal and explicit union refusal; later valid worker FIFO.
+- **M32 OPEN:** authenticate real multi-private-stage physical root and
+  enforce cumulative M21 original-descendant terminal thresholds/work
+  before CAS, attach M29 lifetime history and trusted checkpoint.
+- **M33 OPEN:** independently certify and evaluate the queued explicit
+  M26 exact union, original-parent intent and history before CAS.
+- **M34 OPEN:** integrated mirrored 4D FIFO, protected cavity, cumulative
+  two-step refusal, one-under budgets, snapshots/undo/redo/checkpoint
+  and all sixteen M11 positive unions under both active paths.
+
+The **original M30 and original M22 acceptance gates remain OPEN**:
+M31 does NOT turn a valid input source nomination into proof that final
+post-d2 terminal geometry meets a first-original fidelity threshold,
+and production history does not yet attach the complete M28 successor.
+M23, original M12, M13–M15, V18/V19 also remain open. No desktop Merge
+geometry opt-in was enabled.
+
+M31 was accepted in PR #76 after [Actions #39179461146]
+(https://github.com/logiclrd/Mesher/actions/runs/39179461146)
+passed the full Linux GCC/Clang and Windows MSVC warnings-as-errors
+jobs, 23 CPU tests and applicable benchmarks. See
+`docs/V17_M31_ORIGINAL_INTENT_TRANSPORT.md`.
