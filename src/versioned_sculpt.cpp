@@ -49,7 +49,12 @@ SculptContactTracker::SculptContactTracker(std::size_t quietChecks)
 void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
     if(!contact) {
         ++stats_.uncertainChecks;
-        return; // Exhaustion or ambiguity can NEVER certify a clean interval.
+        // M23: the closure threshold is CONSECUTIVE conclusive Clean
+        // checks. Unknown, refusal, or exhaustion interrupts that
+        // sequence without either ending or starting an episode.
+        stats_.quietRun=0;
+        stats_.contactRun=0;
+        return;
     }
     if(*contact) {
         ++stats_.contactChecks;
@@ -68,6 +73,7 @@ void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
     stats_.contactRun=0;
     if(stats_.active&&++stats_.quietRun>=quietChecks_) {
         stats_.active=false;
+        ++stats_.closedEpisodes;
         stats_.quietRun=0;
     }
 }
@@ -641,6 +647,15 @@ void VersionedSculptBrush::stamp(
         collapsed.removedFaces.begin(),collapsed.removedFaces.end());
     changedFaces.insert(changedFaces.end(),
         collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+    // M23: collect the V13/V16 full-candidate classification, but
+    // defer recording a Clean until *all* subsequent validation of the
+    // proposed physical Step has succeeded. Even a fully classified
+    // Clean candidate can be vetoed later by M21 first-original policy.
+    // A conclusively proven Contact is still a Contact if a later
+    // source weld or intent validation refuses: it cannot end an
+    // existing contact episode or authorize a cached Boolean.
+    bool classifiedEpisodeStep=false;
+    std::optional<bool> episodeClassification;
     // M18: a physical stamp may choose the STRICT exact Boolean path.
     // Both the physical displacement/remesh and the certified cut/join
     // remain private. A single original-root CAS occurs only below.
@@ -654,13 +669,13 @@ void VersionedSculptBrush::stamp(
                 {old,updated,changedVertices,changedFaces},symmetric_,
                 collision_.physicalSourceLimits,
                 symmetric_?&collapser_.mirrors():nullptr);
+            classifiedEpisodeStep=true;
             if(discovered.status==SculptSourceContactStatus::Refused) {
                 physicalRefusal="Physical exact source refusal: "+discovered.refusal;
-                contact_.observe(std::nullopt);
             }else if(discovered.status==SculptSourceContactStatus::Clean) {
-                contact_.observe(false);
+                episodeClassification=false;
             }else {
-                contact_.observe(true);
+                episodeClassification=true;
                 auto limits=collision_.physicalExactLimits;
                 limits.requireMirrors=symmetric_;
                 auto exact=prepareExactCutStep(
@@ -777,10 +792,12 @@ void VersionedSculptBrush::stamp(
         // Hysteresis is diagnostic: the full V13-V16 decision still runs on
         // EVERY proposed Step; no previous refusal/approval is reused.
         const bool conclusive=collisionRefusal.empty()&&
+            judged.refusal.empty()&&
             (judged.plan.status==RepairPlanStatus::NoChanges||
              judged.plan.status==RepairPlanStatus::Ready);
-        contact_.observe(conclusive?
-            std::optional<bool>(judged.plan.intersections>0):std::nullopt);
+        classifiedEpisodeStep=true;
+        if(conclusive)
+            episodeClassification=judged.plan.intersections>0;
         if(collisionRefusal.empty())collisionRefusal=judged.refusal;
         if(collisionRefusal.empty()&&judged.repair) {
             // All changes to both speculative mirror maps are journaled.
@@ -899,6 +916,14 @@ void VersionedSculptBrush::stamp(
                       error.what();
         }
     }
+    // M23: exactly ONE episode observation per classified full physical
+    // proposal. A refused conclusive Contact remains known Contact;
+    // a refused Clean is UNKNOWN rather than permission to advance the
+    // consecutive quiet count. Any uncertain / exhausted classification
+    // breaks the run, but never fabricates a Clean or ends the episode.
+    if(classifiedEpisodeStep)
+        contact_.observe((!rejection.empty()&&episodeClassification==false)?
+                         std::nullopt:episodeClassification);
     if(!rejection.empty()) {
         collapser_.rollbackStep();
         refiner_.rollbackStep();
