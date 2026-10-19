@@ -268,6 +268,12 @@ public:
         const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
         const ExactCutStepLimits& limits={},
         const std::vector<FaceId>& intendedOriginals={});
+    // M47: bounded READ-ONLY complete source contact discovery. The
+    // worker calls this only on its serial edit thread for the exact
+    // original-root candidate; OFF-mode or unauthenticated disk state
+    // cannot obtain an accepted contact certificate. No partial contacts.
+    SculptSourceContactAssessment discoverLiveMergeContacts(
+        const SculptSourceContactLimits& limits={}) const;
     std::size_t completedUnions() const noexcept {return completedUnions_;}
     std::size_t rejectedUnions() const noexcept {return rejectedUnions_;}
     HistoryStatistics historyStatistics() const noexcept {
