@@ -4513,3 +4513,42 @@ M30 still owns the active pre-CAS worker, mirrored collision,
 FIFO, final original witness and atomic refusal integration.
 The original M22, M23 and M12 remain open; desktop physicalExact
 remains default-off and the PR-only CI concurrency policy remains.
+
+
+## October 18, 2026 — V17-M30 full flat implementation plan and M31 input contract
+
+Inspection after M29 found TWO distinct unprotected publication entry points:
+the complete private physical Inflate/refine/collapse/optional d2 stamp and
+the separately queued explicit source-exact union. Both still perform CAS
+then append history without M29 credentials. M21 has no authenticated
+caller-intent channel to those commands, and the M28 full source-bundle
+reader by itself does NOT make worker publication protected. The entire
+remaining V17-M30 sequence was therefore recorded in `todo.md` as FLAT
+independent M31 input authority -> M32 genuine physical final pre-CAS
+policy -> M33 explicit queued exact final pre-CAS policy -> M34 integrated
+worker FIFO acceptance -> unchanged original M30 gate -> original M22 gate,
+before any implementation edits. M23, M12, M13–M15 remain separately open.
+
+M31 supplies deliberate permanent first-original FaceId selections as
+literal FIFO Begin/explicit Merge command data, never guessed from brush
+proximity or from candidate geometry. A fresh opt-in exact session captures
+immutable M19/M27 seven-sample anchors once and keeps the ORIGINAL reflected
+ID involution separately from later live mirror pairs. Authenticated trusted
+in-memory handoff can retain that first original pairing; unverified
+terminal-only disk recovery cannot establish a new original reference.
+M21's private original-root declaration checks nonempty caller selection
+for original ownership, complete reflection closure, X=0 fixed points and
+finite scope work. Bad physical scope refuses the stamp and leaves the same
+worker usable; explicit bad union scope refuses before cut, separately from
+physical Begin state. Later queued valid commands can continue.
+
+**M31 is only an INPUT contract.** Source ownership is not equivalent to
+M28+M21 full-final cumulative protected surface fidelity; production
+terminal CAS/history/undo/checkpoint credentials still require M32/M33.
+No tolerance threshold, post-d2 final audit or history-proof guarantee
+is claimed for these pre-existing worker operations until later milestones
+actually wire them. Source-verified scope cannot excuse unclassified
+retirement, third-party coincident ownership or erased cavity walls.
+M11's sixteen physical positive unions and default-disabled desktop
+Merge geometry remain required. See
+`docs/V17_M31_ORIGINAL_INTENT_TRANSPORT.md`.
