@@ -389,7 +389,7 @@ RegionTopologyIndex::triangleIntersections(
     CollisionStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
-    const ScopedExactQueryAccounting record([&]() noexcept {
+    const ScopedExactQueryAccounting queryAccounting([&]() noexcept {
         if(auto* work=executingExactStageWork)
             work->collision(stats.boxesTested,stats.partitionsTested,
                             stats.candidateTriangles,stats.narrowPhaseTests);
