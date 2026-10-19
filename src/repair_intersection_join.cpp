@@ -1,4 +1,5 @@
 #include "mesher/repair_intersection.hpp"
+#include "mesher/exact_stage_work.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -64,6 +65,8 @@ std::vector<Arc> trace(
         if(tested>=maximum)
             throw std::length_error("V17 seam edge trace budget exhausted");
         ++tested;
+        if(auto* work=executingExactStageWork)
+            work->add(work->seamTraceProbes,1);
         const auto& b=boundary[i];
         if(b.source!=original)continue;
         const auto a=index.vertex(b.from).position,
@@ -115,15 +118,21 @@ std::map<VertexId,VertexId> mirrorMap(
         result[a]=b;result[b]=a;
     };
     for(const auto& [a,b]:original) {
+        if(auto* work=executingExactStageWork)
+            work->add(work->seamMirrorOrbitChecks,1);
         if(!original.contains(b)||original.at(b)!=a)
             throw std::logic_error("Historical mirror mapping is not reciprocal");
         add(a,b,true);
     }
     for(const auto& [a,b]:cut.mirroredVertices) {
+        if(auto* work=executingExactStageWork)
+            work->add(work->seamMirrorOrbitChecks,1);
         if(a==b)throw std::logic_error("Off-plane new cut orbit is self paired");
         add(a,b,false);
     }
     for(const auto id:cut.mirroredSeamVertices) {
+        if(auto* work=executingExactStageWork)
+            work->add(work->seamMirrorOrbitChecks,1);
         if(cut.index->vertex(id).position.x!=0)
             throw std::logic_error("New source-fixed vertex is not exactly on X=0");
         add(id,id,false);
@@ -243,6 +252,8 @@ ExactCutJoinResult joinCertifiedCutSections(
             return v;
         };
         const auto join=[&](VertexId a,VertexId b) {
+            if(auto* work=executingExactStageWork)
+                work->add(work->seamWeldComparisons,1);
             if(!exact(index.vertex(a).position,index.vertex(b).position))
                 throw std::logic_error("Certified section counterparts are not EXACTLY coincident");
             const auto x=root(a),y=root(b);
@@ -312,6 +323,8 @@ ExactCutJoinResult joinCertifiedCutSections(
                     equalAt(a.to,b.from);
                     equalAt(a.from,b.to);
                 }
+                if(auto* work=executingExactStageWork)
+                    work->add(work->seamMatchedIntervals,1);
                 if(++matchedPairs>limits.maxSeamPairs)
                     throw std::length_error("V17 joined seam segment budget exhausted");
             }
@@ -341,6 +354,8 @@ ExactCutJoinResult joinCertifiedCutSections(
                     // off-plane pair cannot be folded into one ID merely
                     // because its two members happen to meet on X=0.
                     for(const auto v:members) {
+                        if(auto* work=executingExactStageWork)
+                            work->add(work->seamMirrorOrbitChecks,1);
                         if(!mirrors.contains(v)||mirrors.at(v)!=v||
                            index.vertex(v).position.x!=0)
                             return refused("Nonfixed vertex in a self-reflected seam class");
@@ -379,9 +394,12 @@ ExactCutJoinResult joinCertifiedCutSections(
                 const auto& other=classes.at(mirroredLeader);
                 if(members.size()!=other.size())
                     return refused("Reflected seam classes have different cardinality");
-                for(const auto v:members)
+                for(const auto v:members) {
+                    if(auto* work=executingExactStageWork)
+                        work->add(work->seamMirrorOrbitChecks,1);
                     if(!mirrors.contains(v)||!other.contains(mirrors.at(v)))
                         return refused("A seam class is not closed under vertex reflection");
+                }
                 // Off-plane classes remain distinct and reciprocal.
                 if(first==mirrors.at(first)||mirrors.at(first)==first)
                     return refused("Fixed source seam class paired to an off-plane class");
@@ -467,7 +485,11 @@ ExactCutJoinResult joinCertifiedCutSections(
         RegionEdit edit(cut.index,{seeds.begin(),seeds.end()}, {},
                         limits.partitionCapacity);
         for(const auto face:deleted)edit.removeFace(face);
-        for(const auto& [face,tri]:rewritten)edit.replaceFace(face,tri);
+        for(const auto& [face,tri]:rewritten) {
+            if(auto* work=executingExactStageWork)
+                work->add(work->seamFaceRewires,1);
+            edit.replaceFace(face,tri);
+        }
         for(const auto v:removedVertices)edit.removeVertex(v);
         auto committed=edit.commit();
         auto final=edit.updatedIndex();
@@ -668,6 +690,8 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
             // MUST expose the same open intervals. A unilateral interval
             // cannot be repaired by adding faces or a nearby weld.
             for(std::size_t n=1;n<stops.size();++n) {
+                if(auto* work=executingExactStageWork)
+                    work->add(work->seamRefinePredicates,1);
                 if(++candidates>limits.maxCandidateTests)
                     throw std::length_error("Seam interval sweep budget");
                 if(stops[n]-stops[n-1]<=2*epsilon)continue;
@@ -686,7 +710,9 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
                 for(const auto& arc:own)
                     for(const auto& other:opposite)
                         for(const auto vertex:{other.from,other.to}) {
-                            if(++candidates>limits.maxCandidateTests)
+                            if(auto* work=executingExactStageWork)
+                    work->add(work->seamRefinePredicates,1);
+                if(++candidates>limits.maxCandidateTests)
                                 throw std::length_error("Seam split predicate budget");
                             const auto p=index.vertex(vertex).position;
                             if(!inspect(index,p,arc,begin,end))continue;
@@ -866,6 +892,8 @@ ExactSeamRefinementResult reconcileCertifiedSeamSubdivisions(
                         "Refined seam is ambiguously owned by multiple contacts");
                 matched[x.boundaryIndex].accounted=true;
                 matched[y.boundaryIndex].accounted=true;
+                if(auto* work=executingExactStageWork)
+                    work->add(work->seamRefineMatches,1);
                 if(++matches>limits.join.maxSeamPairs)
                     throw std::length_error("Refined seam match budget");
             }
