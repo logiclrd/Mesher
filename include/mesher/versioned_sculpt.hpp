@@ -123,7 +123,7 @@ struct SculptStepResourceWork {
     std::size_t privateCopiedBytes{}; // all private edits, including intermediates
     std::size_t changedIdReferences{}; // reference count, not unique stable IDs
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
-    ExactStageWork exactStage{}; // all actual winding/collision/arrangement queries
+    ExactStageWork exactStage{}; // all actual M41–M45 geometry and original-source proof operations
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
     std::string refusal; // empty on a published/accepted candidate
 };

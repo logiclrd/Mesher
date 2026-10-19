@@ -998,10 +998,10 @@ void VersionedSculptBrush::stamp(
                       e.what();
         }
     }
-    // M41: all actually executed collision queries, every signed
-    // winding witness, and multi-section arrangement predicates from
-    // the entire private candidate including source-authentication replay
-    // are charged separately BEFORE final-root CAS or quiet Clean credit.
+    // M41–M45: true geometry, contour/seam, original seven-witness,
+    // protected feature, reflected-source and authenticated history
+    // preflight work from the ENTIRE private candidate is admitted
+    // BEFORE final-root CAS or any quiet Clean credit.
     if(rejection.empty()&&updated!=old&&collision_.physicalExact) {
         rejection=refuseExactStageWork(lastStepResourceWork_.exactStage,
                                       collision_.exactStageLimits);
@@ -1371,9 +1371,9 @@ bool VersionedSculptBrush::mergeExactContacts(
     }catch(const std::length_error& e) {
         return reject(e.what());
     }
-    // M41: the complete source-certified queued private original-root
-    // candidate has already executed all its V13 and independent
-    // c1/c2/c3/M03/d2 replay; reject over-budget geometry before
+    // M41–M45: the queued original-root source candidate has executed
+    // geometry, source replay, original witness, protected-feature,
+    // mirror and M29 history preflight; refuse ALL operation costs before
     // speculative mirror updates, history or the one final-root CAS.
     if(const auto reason=refuseExactStageWork(
            lastStepResourceWork_.exactStage,collision_.exactStageLimits);
