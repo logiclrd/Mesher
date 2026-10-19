@@ -1048,14 +1048,18 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto old=published_.snapshot();
     if(!expected||old!=expected)
         return reject("Exact Boolean Step expected root is stale");
-    // M33 owns the separately queued protected exact-union successor. An
-    // authenticated history cannot accept a credential-free CAS: reject
-    // rather than publishing first and failing M29 append afterward.
-    if(history_.currentFidelity())
-        return reject("Protected explicit exact union awaits M33 source-certified terminal gate");
-    if(const auto invalid=validateOriginalIntentSources(intendedOriginals);
-       !invalid.empty())
-        return reject(invalid);
+    // A protected history MUST never be edited through a credential-free
+    // command. An untracked legacy queue remains opt-in and unchanged.
+    const auto currentSource=history_.currentFidelity();
+    if((collision_.physicalExact||originalFidelityRequired_)&&!currentSource)
+        return reject("Protected exact union lacks authenticated first-original source history");
+    if(currentSource&&(!collision_.physicalExact||!firstOriginalAuthority_))
+        return reject("Protected exact union requires physicalExact first-original authority");
+    if(!currentSource) {
+        if(const auto invalid=validateOriginalIntentSources(intendedOriginals);
+           !invalid.empty())
+            return reject(invalid);
+    }
     if(contacts.empty())
         return reject("Exact Boolean Step requires a complete explicit contact set");
     if(inflate_.mirrors()!=refiner_.mirrors()||
@@ -1128,6 +1132,76 @@ bool VersionedSculptBrush::mergeExactContacts(
         catch(const std::logic_error& e){reason=e.what();}
         if(!reason.empty())return reject(reason);
     }
+    // M33: the complete private c1/c2/c3/M03/d2 surgery is the ONE
+    // source-owned successor of the ACTUAL expected published M29 root.
+    // M26 independently replays the exact prepared children, mirrored
+    // source IDs, final d2 journals and wholly classified retirements.
+    // M21 checks ALL first-original live descendants against the final
+    // terminal, not an intermediate cut root or an XYZ-matched bystander.
+    // Nothing below this block (not even speculative controller maps)
+    // may change until this proof and its finite work limits succeed.
+    std::shared_ptr<const OriginalPatchLifetime> finalFidelity;
+    if(currentSource) {
+        try {
+            const auto& budget=collision_.originalTerminal;
+            if(!collision_.originalIntentInput.maxDeclaredSources||
+               intendedOriginals.size()>
+                   collision_.originalIntentInput.maxDeclaredSources)
+                throw std::length_error(
+                    "Queued original FaceId input exceeds finite declaration bound");
+            if(currentSource!=history_.currentFidelity()||
+               currentSource->lineage.terminal!=old||
+               currentSource->anchors.original!=firstOriginalAuthority_->anchors.original)
+                throw std::logic_error(
+                    "Queued source-exact union has stale or substituted original certificate");
+            verifyOriginalPatchPublicationRoot(
+                *currentSource,old,budget.maxLivingDescendants);
+            // The request may explicitly CONTINUE earlier sculpt intent.
+            // A named now-retired source is allowable ONLY if it was
+            // independently c3/M03-certified wholly Buried/Outside.
+            std::set<FaceId> activeOrigins,nominated;
+            for(const auto& [first,faces]:currentSource->lineage.living)
+                if(!faces.empty())activeOrigins.insert(first);
+            std::vector<FaceId> activeIntent;
+            activeIntent.reserve(intendedOriginals.size());
+            for(const auto id:intendedOriginals) {
+                if(!id||!nominated.insert(id).second)
+                    throw std::logic_error("Duplicated or null queued first-original FaceId intent");
+                if(activeOrigins.contains(id))
+                    activeIntent.push_back(id);
+                else if(!std::binary_search(
+                            currentSource->certifiedRetiredOriginals.begin(),
+                            currentSource->certifiedRetiredOriginals.end(),id))
+                    throw std::logic_error(
+                        "Queued original intent is foreign or lacks whole-source retirement");
+            }
+            const auto declaration=declareOriginalPatchIntent(
+                *currentSource,activeIntent,
+                symmetric_?&firstOriginalMirrors_:nullptr,
+                collision_.originalIntentInput.maxDeclaredSources);
+            auto next=advanceOriginalPatchLifetime(
+                *currentSource,result,
+                symmetric_?&collapser_.mirrors():nullptr,
+                budget.maxCumulativeFaceEvidence,budget.maxLivingDescendants);
+            verifyOriginalPatchPublicationTransition(
+                *currentSource,next,old,result.final,
+                budget.maxLivingDescendants);
+            // M29's append uses its immutable default finite proof cap,
+            // even if a caller configured a more permissive M21 policy.
+            // Preflight BOTH before CAS to avoid a post-CAS proof failure.
+            verifyOriginalPatchPublicationTransition(
+                *currentSource,next,old,result.final);
+            (void)evaluateOriginalPatchIntent(
+                *currentSource,next,declaration,
+                budget.maximumProtectedDeviationInEdges,
+                budget.maxDistanceTests,budget.maxLivingDescendants);
+            finalFidelity=std::make_shared<const OriginalPatchLifetime>(
+                std::move(next));
+        }catch(const std::exception& error) {
+            return reject(std::string(
+                "Queued first-original exact terminal policy refused: ")+error.what());
+        }
+    }
     const auto countAfter=[&](std::size_t current,std::ptrdiff_t delta) {
         if(delta<0) {
             const auto decrement=static_cast<std::size_t>(-(delta+1))+1;
@@ -1174,7 +1248,8 @@ bool VersionedSculptBrush::mergeExactContacts(
             inflate_.addMirrorPair(a,b);
         history_.append(result.final,result.dirtyPartitions,
             result.addedMirrors,result.removedMirrors,
-            result.copiedPayloadBytes,newVertices,newFaces);
+            result.copiedPayloadBytes,newVertices,newFaces,
+            std::move(finalFidelity));
         refiner_.commitStep();
         collapser_.commitStep();
     }catch(...) {

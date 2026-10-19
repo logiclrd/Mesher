@@ -1428,13 +1428,32 @@ documentation follows before the merge.
     pending independent M33; M34, the original M30, M22, M23, M12
     and unrelated later goals remain UNCHECKED. M14 exceptional
     post-CAS atomicity is not falsely claimed complete.
-  - [ ] **V17-M33 — Certified explicit queued source-exact CAS gate.**
+  - [x] **V17-M33 — Certified explicit queued source-exact CAS gate.**
     Bind explicit queued union intent to its actual expected previous
     published lifetime, independently certify genuine M26 cut/d2
     source-child survivors and retired Buried/Outside originals, enforce
     complete M21 terminal bounds and M29 matching history credentials
     before CAS; reject stale roots, missing/sibling/reflection or
     coincident owner substitutions without changing redo or maps.
+    **Accepted PR #78, substantive Actions #39184683170:** genuine
+    separately queued original-root exact c1/c2/c3/M03/d2 complete
+    M26 survivor/retirement lineage now binds the exact M29 current
+    published certificate and the explicit M21 original FaceId intent.
+    Full seven-witness FIRST-original lifetime audit and BOTH configured
+    and M29 append proof bounds execute before ANY mirror-controller
+    mutation or root CAS. Missing/foreign/half-reflected/doubled/stale
+    source inputs, incomplete X=0 contacts, bounded raw input,
+    one-under M26 cumulative source work and one-under full witness
+    work all refuse without publishing, evicting redo, changing mirrors,
+    or forging protected checkpoint provenance. Genuine asymmetric
+    and three-contact X=0 symmetric source-exact unions accept exactly
+    one terminal history/snapshot; their matching original-root proof,
+    dirty face-owner partitions, reflection orbits and undo/redo persist.
+    Original M31/M32 physical positives and legacy untracked queued
+    commands remain green. GCC/Clang/MSVC warnings-as-errors, 23 CPU
+    suites and applicable benchmarks passed.
+    **M34, original M30, original M22, M23 and original M12 remain OPEN.**
+    No M14 post-CAS injected-fault or desktop M15 claims are made.
   - [ ] **V17-M34 — Integrated protected worker FIFO acceptance.**
     Combine M31-M33 under real asynchronous 4D begin/end and explicit
     union queues: accepted intended union, small allowed first movement,
