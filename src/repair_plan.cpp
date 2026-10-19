@@ -1,4 +1,5 @@
 #include "mesher/repair_plan.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "repair_closure_internal.hpp"
 
 #include <algorithm>
@@ -95,6 +96,8 @@ RepairPlan planRemovalContours(const RegionTopologyIndex& index,
         const auto& face=index.face(id);
         const auto& tri=face.vertices;
         for(unsigned i=0;i<3;++i) {
+            if(auto* work=executingExactStageWork)
+                work->add(work->contourEdgeProbes,1);
             const auto a=tri[i],b=tri[(i+1)%3];
             plan.maximumRemovedEdgeLength=std::max(
                 plan.maximumRemovedEdgeLength,
@@ -120,6 +123,8 @@ RepairPlan planRemovalContours(const RegionTopologyIndex& index,
                                    "Cut boundary branches at a vertex");
                 found=true;
                 ++plan.boundaryEdges;
+                if(auto* work=executingExactStageWork)
+                    work->add(work->contourBoundaryEdges,1);
                 break;
             }
             if(!found)
@@ -153,6 +158,8 @@ RepairPlan planRemovalContours(const RegionTopologyIndex& index,
                                "Boundary loop has a missing successor");
             contour.vertexIds.push_back(current);
             contour.survivingFaces.push_back(it->second.survivor);
+            if(auto* work=executingExactStageWork)
+                work->add(work->contourLoopVisits,1);
             const auto next=it->second.to;
             const double segment=length(index.vertex(current).position-
                                         index.vertex(next).position);
