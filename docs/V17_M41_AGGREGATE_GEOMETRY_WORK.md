@@ -1,7 +1,11 @@
 # V17-M41 — whole-Step winding, collision and arrangement work accounting
 
-**Status: code and regressions implemented on PR #91; final GCC/Clang/MSVC
-CI and independent merged-main verification pending.** This is the
+**Status: accepted in PR #92 (CI recovery from PR #91).** Substantive
+[Actions #39288853723](https://github.com/logiclrd/Mesher/actions/runs/39288853723)
+passed Linux GCC, Linux Clang and Windows MSVC warning-as-error builds,
+all 23 CPU test suites and applicable benchmark stages. Exact
+documentation-final PR-head and independent merged-main CI are still
+required before reporting the milestone merged-complete. This is the
 second flat independently completable precursor to ORIGINAL M13,
 following M40 merged to main in [PR #90](https://github.com/logiclrd/Mesher/pull/90)
 (commit `3b596657d3c5f4703bfd681c6b4ff20eec9439fa`).
@@ -108,3 +112,28 @@ Once CI is green, final milestone evidence should record
 exact successful GCC/Clang/MSVC run SHAs and full CPU and
 benchmark results; check ONLY M41, leaving M42 and original
 M13, M14–M15, V18 and V19 open.
+
+## Accepted substantive evidence and no-scope-expansion boundary
+
+Original review [PR #91](https://github.com/logiclrd/Mesher/pull/91)
+exposed only MSVC warning C4456: a new scope accounting guard called
+`record` hid an existing local face `record`. The spelling was
+corrected consistently to `queryAccounting`, without modifying
+source predicates, work amounts or acceptance thresholds.
+[PR #92](https://github.com/logiclrd/Mesher/pull/92) repeats the
+FULL suite at exactly the corrected SHA
+`231915a6fc8d172889f742f066bf2720cd4e29b7`, with all three
+compilers green in [Actions #39288853723](https://github.com/logiclrd/Mesher/actions/runs/39288853723).
+The test includes genuine 72-source mirrored physical unions,
+independent authenticated queued c1/c2/c3/M03/d2, exact equality
+and separately rejected one-under each of the 10 collision/winding
+operation ceilings, plus original three-closed-solid multi-section
+conforming arrangement predicate and pair-test exact/one-under
+checks. M40 copied payload, source provenance, stable original
+FaceId intent, signed cavity/mirror proof, M23 hysteresis, original
+M12 and all 23 existing CPU suites are preserved.
+
+This second flat acceptance peer does not close M42
+contour/join/feature resource diagnostics, the ORIGINAL M13
+integrated resource review, M14 fault-injected post-CAS work,
+M15 actual desktop UI, V18 or V19.
