@@ -133,6 +133,13 @@ void AsyncSculptWorker::refreshStatus() {
     s.timings=brush_->lastTimings();
     s.details=brush_->lastDetails();
     s.stepResources=brush_->lastStepResourceWork();
+    s.resources=brush_->resourceTotals();
+    s.completedUndos=completedUndos_;
+    s.completedRedos=completedRedos_;
+    s.checkpointCommands=checkpointCommands_;
+    s.snapshotPublications=snapshotPublications_;
+    s.lastSnapshotDirtyOwners=lastSnapshotDirtyOwners_;
+    s.totalSnapshotDirtyOwners=totalSnapshotDirtyOwners_;
     s.publishedRevisions=brush_->publishedRevisions();
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
@@ -175,6 +182,9 @@ void AsyncSculptWorker::publish(bool force) {
         auto& all=snapshot.dirtyPartitions;
         std::sort(all.begin(),all.end());
         all.erase(std::unique(all.begin(),all.end()),all.end());
+        lastSnapshotDirtyOwners_=all.size();
+        ++snapshotPublications_;
+        totalSnapshotDirtyOwners_+=lastSnapshotDirtyOwners_;
         latest_=std::move(snapshot);
     }
     lastPublish_=now;
@@ -242,6 +252,8 @@ void AsyncSculptWorker::run(std::stop_token token) {
                         const bool restored=command->kind==Kind::Undo?
                             brush_->undo():brush_->redo();
                         if(restored) {
+                            if(command->kind==Kind::Undo)++completedUndos_;
+                            else ++completedRedos_;
                             const auto& dirty=brush_->lastDirtyPartitions();
                             unpublishedDirty_.insert(unpublishedDirty_.end(),
                                                       dirty.begin(),dirty.end());
@@ -252,6 +264,7 @@ void AsyncSculptWorker::run(std::stop_token token) {
                 case Kind::Checkpoint:
                     checkpoints_.request(command->checkpointPath,
                                          brush_->checkpoint());
+                    ++checkpointCommands_;
                     break;
                 case Kind::Merge: {
                     if(stroke_.active()||stroke_.pendingSamples()!=0)
