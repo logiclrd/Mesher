@@ -1518,3 +1518,31 @@ review) remain open, as do M13–M15 and V18/V19. The genuine local
 brush overlap does not establish a same already-joined-component
 three-body Boolean. See
 `docs/V17_M39_OVERLAPPING_LOCAL_4D_FIFO_ACCEPTANCE.md`.
+
+## October 19, 2026 — ORIGINAL V17-M36 final same-source combined acceptance
+
+**PR #87**, substantive [Actions #39268160154](https://github.com/logiclrd/Mesher/actions/runs/39268160154)
+GCC/Clang/MSVC warnings-as-errors, full 23 CPU suites and applicable
+benchmark checks GREEN. Original M36 no longer relies on separate
+M38 drift and M39 FIFO tests: ONE true 4D protected original-source
+worker processes genuine first overlapping local physical union,
+real permitted small protected mirrored wall drift, two Clean,
+invalid original FaceId Unknown and cumulative second protected wall
+erosion Unknown both without root/dirty/history pollution, THREE
+fresh accepted Clean closure, SECOND real local physical Boolean
+source union/recontact, another refused Unknown and a valid later
+scoped physical FIFO Clean recovery. Exactly full/one-under all
+source-owned descendant original seven-witness audit work on the
+genuine post-d2 positive root is enforced before CAS; cumulative
+second protected drift refusal is shown independent of source work
+exhaustion. All protected original walls/cavity face incidences and
+signed-winding 0/+1/0 topology, exact reflected IDs, previous and
+terminal picker/BVH/dirty, stable V13 checkpoint owner IDs,
+root-bound M29 proof and full pointer-exact undo/redo pass.
+
+The same-patch contacts share brush-support live original IDs, but
+are independent certified unions; no arbitrary connected three-body
+join, continuous Hausdorff or CCD is claimed. ORIGINAL V17-M12
+requires its OWN standalone criterion audit and remains UNCHECKED;
+M13–M15/V18/V19 remain separately open. See
+`docs/V17_M36_ORIGINAL_COMBINED_PROTECTED_ACCEPTANCE.md`.
