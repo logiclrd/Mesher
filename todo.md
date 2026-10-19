@@ -1620,6 +1620,43 @@ documentation follows before the merge.
   **Original M12 and M13–M15, V18/V19 remain OPEN;**
   no desktop Merge Geometry mode was enabled, and M14
   post-CAS injected exceptional atomicity is not claimed.
+**M12 integration rebaseline — October 19, 2026.** The original M12
+objective and ONLY its original checkbox remain unchanged and OPEN.
+Independent M19–M23 acceptance did not yet prove repeated TRUE physical
+source unions on the SAME local patch with simultaneous deliberate
+deformation, protected first-original exposed/reversed-cavity and mirrored
+outer-wall bounds, episode closure and recovery. Record this finite flat
+sequence BEFORE implementation:
+- [ ] **V17-M35 — Repeated genuinely physical same-patch source unions.**
+  Construct a reproducible, initially collision-free multi-shell source
+  in ONE overlapping local sculpt area, not the already accepted sixteen
+  spatially separated M11 tower contacts. Under one genuine
+  `physicalExact` brush/history, perform at least TWO independent
+  normal-driven input Steps that each certify a NEW original c1/c2/c3/M03/d2
+  Boolean union, with exact source ownership, one terminal CAS/history
+  per union, immutable previous picker roots, mirror orbits and dirty
+  partitions. Confirm the second contact actually shares the previously
+  edited local area or joined component, rather than another distant tower.
+  Keep complete finite work/refusal conditions; unsupported geometry must
+  fail closed without weakening production source predicates.
+- [ ] **V17-M36 — Same-patch M19–M23 combined protected policy.**
+  On the M35 positive sequence, preserve first-original FaceId/edge-scaled
+  seven-witness evidence and signed-winding cavity/outer-wall ownership,
+  explicitly scoped deliberate source movement, real symmetric orbits,
+  cumulative tolerance (first small permitted then second over-limit
+  refused), exact vs one-under bounded work, active 4D Contact/three
+  consecutive accepted Clean/Unknown episode behavior, and late valid
+  FIFO recovery. Require old root/source/history/mirrors/dirty unchanged
+  for refusals; checkpoint provenance and undo/redo stay authoritative.
+  Record independent positive and conservative refusal outcomes without
+  conflating source identity with coincident XYZ.
+Then execute **original V17-M12 integrated acceptance** as a standalone
+criterion-by-criterion review of M19–M23 plus M35–M36, with three-compiler
+full CI and its own evidence document. Check ONLY the original M12
+checkbox after final-root and post-merge verification. M13 telemetry,
+M14 fault-injected post-CAS atomicity, M15 default-disabled desktop
+switch, V18 and V19 remain independent and open.
+
 **Final M12 integration (the ORIGINAL unchecked M12 checkbox above):**
   Close that existing checkbox only after M19–M23 pass together for
   same-patch repeated real physical unions, deliberate sculpt deformation,
