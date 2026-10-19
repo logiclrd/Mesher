@@ -4552,3 +4552,12 @@ retirement, third-party coincident ownership or erased cavity walls.
 M11's sixteen physical positive unions and default-disabled desktop
 Merge geometry remain required. See
 `docs/V17_M31_ORIGINAL_INTENT_TRANSPORT.md`.
+
+
+**M31 acceptance checkpoint:** PR #76's substantive
+Actions #39179461146 passed the GCC, Clang and MSVC build/tests and
+applicable benchmarks. Explicit fresh first-original source scopes
+are accepted or refused without promoting a candidate root; bad
+physical and explicit union input is recoverable and later real work
+drains. M31 is DONE; M32–M34, original M30 and original M22 remain
+OPEN. It would be false to call M31 the active terminal fidelity gate.
