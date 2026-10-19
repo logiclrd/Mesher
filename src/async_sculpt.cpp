@@ -192,6 +192,11 @@ void AsyncSculptWorker::publish(bool force) {
         std::lock_guard guard(statusMutex_);
         status_.lastPublicationMs=std::chrono::duration<double,std::milli>(
             Clock::now()-started).count();
+        // refreshStatus runs before publish(). Keep snapshot telemetry
+        // coherent with the actual latest published status even at idle.
+        status_.snapshotPublications=snapshotPublications_;
+        status_.lastSnapshotDirtyOwners=lastSnapshotDirtyOwners_;
+        status_.totalSnapshotDirtyOwners=totalSnapshotDirtyOwners_;
     }
 }
 void AsyncSculptWorker::run(std::stop_token token) {
