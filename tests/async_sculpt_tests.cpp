@@ -1625,9 +1625,10 @@ void testM37ScopedSamePatchUnionsWithProtectedCavity() {
                     require(before&&after&&before->vertices==after->vertices,
                             "M37 protected exterior and reversed cavity wall FaceIds retain exact source ownership");
                     for(const auto vid:before->vertices)
-                        require(root->vertex(vid).position==
-                                final->vertex(vid).position,
-                                "M37 protected first-original vertices never moved or changed identity");
+                        { const auto p=root->vertex(vid).position;
+                          const auto q=final->vertex(vid).position;
+                          require(p.x==q.x&&p.y==q.y&&p.z==q.z,
+                                  "M37 protected first-original vertices never moved or changed identity"); }
                 }
                 for(const auto& [u,v]:accepted.mirrorPairs) {
                     require(final->maybeVertex(u)&&final->maybeVertex(v),
