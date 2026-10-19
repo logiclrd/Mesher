@@ -102,6 +102,7 @@ public:
     // No mutable worker mesh or unbounded collision scan on render thread.
     void mergeDiscoveredContacts(
         std::shared_ptr<const RegionTopologyIndex> expected,
+        std::vector<FaceId> explicitlySelectedFirstOriginals,
         ExactCutStepLimits limits={},
         SculptSourceContactLimits discovery={});
     void saveCheckpoint(std::filesystem::path destination);
