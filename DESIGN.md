@@ -5118,3 +5118,47 @@ ORIGINAL M36 still owes separate simultaneous combined
 policy acceptance; ORIGINAL M12 is its own later final review.
 M13–M15 and V18/V19 stay open. See
 `docs/V17_M39_OVERLAPPING_LOCAL_4D_FIFO_ACCEPTANCE.md`.
+
+## October 19, 2026 — ORIGINAL V17-M36 simultaneous protected same-patch policy accepted
+
+ORIGINAL M36 accepted in PR #87, substantive [Actions #39268160154](https://github.com/logiclrd/Mesher/actions/runs/39268160154)
+GCC/Clang/MSVC warnings-as-errors full 23 CPU suites and applicable
+benchmarks GREEN. This is NOT a new M36 checkbox and NOT original M12.
+
+A new **single** original-root 4D asynchronous worker integration joins
+all independent M19–M23/M35–M39 behavior in ONE serialized history:
+one genuine M37 source-owned local physical union, one permissible
+small protected reflected outer wall movement, two conclusive Clean
+observations total, a refused caller first-original FaceId and refused
+cumulative SECOND protected wall movement (both Unknown with no
+published root/dirty owner/history), THREE newly accepted Clean
+observations that close precisely one episode, a second real
+same-LOCAL-BRUSH-support source union reopening a second contact
+episode, another invalid first-source scope Unknown and later
+successful real scoped 4D Clean recovery. Both unions have complete
+original c1/c2/c3/M03/d2 source-certified geometry and distinct
+permanently retired source FaceIds. Exactly full vs ONE-UNDER
+seven-witness-per-living-descendant proof work is independently
+confirmed with real source-authenticated physical candidate and
+pre-CAS refusal; second cumulative protected drift fits the complete
+work budget but refuses specifically on ORIGINAL edge-scaled
+Exposed/ReversedBoundary drift. The first original 72-face source
+continues to own all derived geometry: 32 explicitly deliberate
+local original FaceIds; 40 unscoped original protected exterior
+third band/outer wall/reversed cavity FaceIds; reciprocal mirror
+identities, 0/+1/0 true signed-winding cavity and correct
+per-original sampled surface witnesses. Old picker/BVH COW readers,
+every accepted terminal dirty partition, exact matching source
+retirements/mirrors in before/after V13 checkpoint, zero dirty on
+refusal, final-only disk provenance and full FIFO pointer-exact
+undo/redo remain correct. M11's 16 genuine physical unions and
+X=0/coincident owner independent refusals remain green.
+
+This proves repeated independent physical contacts in one overlapping
+brush neighborhood, not arbitrary same-component multi-body joins
+or universal collision/continuous Hausdorff guarantees. The protected
+outer-wall drift is remote but part of the exact SAME original
+multi-shell source and ONE actual live worker timeline. The
+ORIGINAL M12 final integrated review, M13, M14, M15, V18, V19
+are still OPEN. See
+`docs/V17_M36_ORIGINAL_COMBINED_PROTECTED_ACCEPTANCE.md`.

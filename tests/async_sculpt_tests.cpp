@@ -2428,6 +2428,404 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
              <<" full immutable source-backed history Steps\n";
 }
 
+// ORIGINAL M36 final integrated gate: one real 4D FIFO owns the SAME
+// original protected multi-shell source and complete history throughout
+// contact, permitted drift, refused cumulative erosion, conclusive Clean,
+// Unknown, closure, second local source union, and late recovery.
+// Unlike separately accepted M38/M39, these occur IN ONE WORKER SESSION.
+void testM36OriginalCombinedProtectedSamePatchPolicy() {
+    const auto selected=chooseM39FourDimensionalSource();
+    const auto& source=selected.source;
+    const auto original=selected.original.index;
+    const auto faces=firstOriginalFaces(source.mesh);
+    require(faces.size()==72&&selected.deliberate.size()==32&&
+            selected.original.verifiedOriginalFidelity&&
+            selected.original.verifiedOriginalFidelity->anchors.original==original,
+            "M36 same actual M37 source and immutable first-authenticated 32/72 source intent");
+    const auto areaAt=[](Vec3 p,double radius) {
+        return std::array<BrushArea,2>{{
+            {p,radius,.3},{{-p.x,p.y,p.z},radius,.3}
+        }};
+    };
+    auto base=m11PhysicalExactSettings();
+    Mesh dummy;
+    VersionedSculptBrush calibrator(selected.original,selected.strength,
+                                    {},{},{},256,{},base);
+    calibrator.setOriginalPatchIntent(selected.deliberate);
+    calibrator.stamp(dummy,areaAt(source.input[0][0].center,6));
+    const auto firstContact=calibrator.checkpoint();
+    require(calibrator.completedUnions()==1&&
+            firstContact.verifiedOriginalFidelity&&
+            firstContact.index->retiredFaceCount()>original->retiredFaceCount(),
+            "M36 calibration begins with actual source-certified original-root physical contact");
+    const auto& firstProof=*firstContact.verifiedOriginalFidelity;
+    constexpr Vec3 protectedOuter{8,80,0};
+    constexpr double protectedRadius=.8;
+    const auto wall=areaAt(protectedOuter,protectedRadius);
+
+    // Measure the actual post-first-union protected tolerance using TWO
+    // certified private normal-driven physical stages. The complete
+    // default M29 source proof and first-reference history are untouched.
+    VersionedInflateBrush inflator(selected.strength,{});
+    VersionedLocalRefiner refiner(selected.original.initialVertexCount,
+                                  {},{},256);
+    VersionedDirectionalCollapser collapser(
+        selected.original.initialVertexCount,{},{},256);
+    const auto advance=[&](const OriginalPatchLifetime& earlier) {
+        const auto inflated=inflator.stamp(earlier.lineage.terminal,wall,256);
+        require(inflated.moved>0,
+                "M36 protected outer-wall proposals truly move original geometry");
+        const auto refined=refiner.apply(inflated.index,inflated.baseline);
+        const auto collapsed=collapser.apply(refined.index,inflated.baseline);
+        return advanceCertifiedPhysicalStampLifetime(
+            earlier,inflated,refined,collapsed,nullptr,nullptr,
+            16384,16384,16384,32768);
+    };
+    const auto predictedFirst=advance(firstProof);
+    const auto predictedSecond=advance(predictedFirst);
+    const auto protectedWorst=[&](const OriginalPatchLifetime& life) {
+        const auto audited=auditOriginalPatchLifetime(life,original);
+        double maximum=0;
+        for(const auto& face:audited.perOriginal)
+            if(std::find(faces.begin()+32,faces.end(),face.original)!=
+                         faces.end())
+                maximum=std::max(maximum,
+                    face.sampled.maximumDistanceInEdges);
+        return maximum;
+    };
+    const auto firstDeviation=protectedWorst(predictedFirst);
+    const auto secondDeviation=protectedWorst(predictedSecond);
+    require(firstDeviation>0&&secondDeviation>firstDeviation+1e-8,
+            "M36 two separate real protected movements accumulate against immutable original edge scales");
+    const auto exactWork=auditOriginalPatchLifetime(
+        predictedFirst,original).total.distanceTests;
+    const auto secondWork=auditOriginalPatchLifetime(
+        predictedSecond,original).total.distanceTests;
+    require(exactWork>0&&exactWork<=131072&&secondWork<=exactWork,
+            "M36 exact first-original witness limit includes all cut descendants and second drift is NOT merely over budget");
+    const double tolerance=.5*(firstDeviation+secondDeviation);
+    auto policy=base;
+    policy.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
+
+    // Separate exact/one-under verified source gates, on the SAME
+    // genuine physical first contact, not a guessed ancestor or a
+    // standalone easy source. This does not alter the live worker's
+    // independent finite V13 and full-history M29 source limits.
+    auto exact=policy;
+    exact.originalTerminal.maxDistanceTests=exactWork;
+    VersionedSculptBrush bounded(firstContact,selected.strength,
+                                  {},{},{},256,{},exact);
+    bounded.setOriginalPatchIntent(selected.deliberate);
+    bounded.stamp(dummy,wall);
+    if(bounded.publishedRevisions()!=1)
+        throw std::runtime_error(
+            "M36 exact full original-source witness budget unexpectedly refused: "+
+            bounded.lastRejection());
+    const auto boundedAccepted=bounded.checkpoint();
+    require(boundedAccepted.verifiedOriginalFidelity&&
+            boundedAccepted.verifiedOriginalFidelity->anchors.original==original&&
+            std::abs(protectedWorst(*boundedAccepted.verifiedOriginalFidelity)-
+                     firstDeviation)<1e-8&&
+            auditOriginalPatchLifetime(
+                *boundedAccepted.verifiedOriginalFidelity,original,exactWork)
+                  .total.distanceTests==exactWork,
+            "M36 exactly full seven-witness per living original child cap accepts genuine source-authenticated protected successor");
+    verifyOriginalPatchPublicationTransition(
+        firstProof,*boundedAccepted.verifiedOriginalFidelity,
+        firstContact.index,boundedAccepted.index);
+    auto oneUnder=exact;
+    oneUnder.originalTerminal.maxDistanceTests=exactWork-1;
+    VersionedSculptBrush denied(firstContact,selected.strength,
+                                 {},{},{},256,{},oneUnder);
+    denied.setOriginalPatchIntent(selected.deliberate);
+    const auto denialBefore=denied.checkpoint();
+    denied.stamp(dummy,wall);
+    const auto denialAfter=denied.checkpoint();
+    require(denied.rejectedStamps()==1&&
+            denied.publishedRevisions()==0&&
+            denied.historyStatistics().undoDepth==0&&
+            denied.lastDirtyPartitions().empty()&&
+            denialAfter.index==denialBefore.index&&
+            denialAfter.verifiedOriginalFidelity==
+                denialBefore.verifiedOriginalFidelity&&
+            denialAfter.mirrorPairs==denialBefore.mirrorPairs&&
+            denied.lastRejection().find(
+                "First-original witness audit distance budget exhausted")!=
+                std::string::npos,
+            "M36 one-under complete original child source work rejects BEFORE CAS with exact root/proof/mirror/history/dirty rollback");
+
+    // A single ACTUAL asynchronous 4D worker now carries the combined
+    // Contact/drift/Unknown/closure/recontact/recovery history.
+    AsyncSculptWorker worker(selected.original,.025,selected.strength,.2,
+                             {},{},{},{},policy);
+    const auto oldPicker=original->pickingRootIdentity();
+    std::vector<std::shared_ptr<const RegionTopologyIndex>> roots{original};
+    const auto stroke=[&](Vec3 center,double radius,
+                          std::vector<FaceId> intent) {
+        require(worker.canBegin(),
+                "M36 previous FIFO reservation fully consumed before new Begin");
+        worker.begin(center,radius,std::move(intent));
+        worker.end(center,0);
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(30);
+        while(!worker.canBegin()&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto state=worker.status();
+        require(worker.canBegin()&&!state.active&&
+                state.inputCommands==0&&state.pendingSteps==0&&
+                state.pendingSegments==0,
+                "M36 4D worker drains each reserved real Begin/End and publishes the full terminal");
+        return state;
+    };
+    const auto accepted=[&](const AsyncSculptWorker::Status& state,
+                            const char* label) {
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index&&
+                snapshot->index!=roots.back()&&
+                !snapshot->dirtyPartitions.empty()&&
+                state.history.undoDepth==roots.size()&&
+                state.publishedRevisions==roots.size()&&
+                state.completedStamps==
+                    state.publishedRevisions+state.rejectedStamps&&
+                original->pickingRootIdentity()==oldPicker,
+                label);
+        roots.push_back(snapshot->index);
+        return snapshot->index;
+    };
+    const auto refused=[&](const AsyncSculptWorker::Status& state,
+                           const AsyncSculptWorker::Status& before,
+                           const char* reason,const char* label) {
+        const auto snapshot=worker.takeSnapshot();
+        require(state.rejectedStamps==before.rejectedStamps+1&&
+                state.publishedRevisions==before.publishedRevisions&&
+                state.history.undoDepth==before.history.undoDepth&&
+                state.history.redoDepth==before.history.redoDepth&&
+                snapshot&&snapshot->index==roots.back()&&
+                snapshot->dirtyPartitions.empty()&&
+                worker.initialRevision()==roots.back()&&
+                original->pickingRootIdentity()==oldPicker&&
+                state.lastRejection.find(reason)!=std::string::npos,
+                label);
+    };
+    const auto checkpoint=[&]() {
+        const auto path=std::filesystem::temp_directory_path()/
+            "mesher-v17-m36-integrated-fifo-protected.mshr";
+        const auto prior=worker.checkpointStatistics();
+        try {
+            worker.saveCheckpoint(path);
+            const auto until=std::chrono::steady_clock::now()+
+                             std::chrono::seconds(25);
+            while(worker.checkpointStatistics().completed==prior.completed&&
+                  worker.checkpointStatistics().failed==prior.failed&&
+                  std::chrono::steady_clock::now()<until)
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            const auto next=worker.checkpointStatistics();
+            require(next.completed==prior.completed+1&&
+                    next.failed==prior.failed,
+                    "M36 each requested durable checkpoint waits for actual completed protected FIFO serialization");
+            auto snapshot=readCheckpoint(path);
+            std::error_code ec;std::filesystem::remove(path,ec);
+            require(snapshot.index&&snapshot.originalFidelityRequired&&
+                    !snapshot.verifiedOriginalFidelity,
+                    "M36 V13 disk provenance never invents a sealed M29 original lifetime");
+            return snapshot;
+        }catch(...) {
+            std::error_code ec;std::filesystem::remove(path,ec);
+            throw;
+        }
+    };
+    const auto initial=stroke(source.input[0][0].center,6,
+                              selected.deliberate);
+    if(initial.completedUnions!=1)
+        throw std::runtime_error(
+            "M36 real original-root 4D local first Contact refused: "+
+            initial.lastRejection);
+    const auto first=accepted(initial,
+        "M36 actual 4D first Contact publishes one authenticated terminal dirty/history root");
+    require(initial.contact.contactChecks==1&&
+            initial.contact.episodes==1&&
+            initial.contact.active&&
+            first->retiredFaceCount()>original->retiredFaceCount(),
+            "M36 original overlapping patch genuine source-exact contact starts an episode");
+
+    const auto firstMove=stroke(protectedOuter,protectedRadius,
+                                selected.deliberate);
+    if(firstMove.publishedRevisions!=2)
+        throw std::runtime_error(
+            "M36 genuine first remote protected outer-wall movement failed: "+
+            firstMove.lastRejection);
+    const auto firstMoved=accepted(firstMove,
+        "M36 first actual 4D protected outer-wall motion is accepted and dirty as ONE M29 successor");
+    require(firstMove.contact.cleanChecks==1&&
+            firstMove.contact.quietRun==1&&firstMove.contact.active&&
+            firstMove.completedUnions==1,
+            "M36 permitted first small protected movement receives one conclusive Clean without caching weld authority");
+    const auto priorAfterDrift=checkpoint();
+    for(const auto& [u,v]:priorAfterDrift.mirrorPairs) {
+        const auto p=priorAfterDrift.index->vertex(u).position;
+        const auto q=priorAfterDrift.index->vertex(v).position;
+        require(p.x==-q.x&&p.y==q.y&&p.z==q.z,
+                "M36 actual first physical drift retains live exact mirrored source ID orbits");
+    }
+
+    const auto clean1=stroke(selected.exterior,.5,selected.deliberate);
+    (void)accepted(clean1,
+        "M36 real 4D exterior Clean after first protected drift publishes another source-authenticated terminal");
+    require(clean1.contact.cleanChecks==2&&
+            clean1.contact.quietRun==2&&clean1.contact.active,
+            "M36 two consecutively accepted classified Clean observations do NOT prematurely end episode");
+
+    const auto beforeInvalid=worker.status();
+    const auto beforeInvalidDisk=checkpoint();
+    const auto foreign=stroke(selected.exterior,.28,{FaceId{99999999}});
+    refused(foreign,beforeInvalid,"original",
+            "M36 foreign first-original FaceId refuses atomically in the same protected FIFO");
+    require(foreign.contact.uncertainChecks==1&&
+            foreign.contact.quietRun==0&&foreign.contact.active&&
+            foreign.contact.closedEpisodes==0,
+            "M36 invalid source owner is UNKNOWN, destroys both Clean credits and preserves active Contact");
+    const auto afterInvalidDisk=checkpoint();
+    require(beforeInvalidDisk.mirrorPairs==afterInvalidDisk.mirrorPairs&&
+            beforeInvalidDisk.index->retiredFaceIds()==
+                afterInvalidDisk.index->retiredFaceIds()&&
+            beforeInvalidDisk.index->retiredVertexIds()==
+                afterInvalidDisk.index->retiredVertexIds(),
+            "M36 illegal source owner refusal preserves exact disk mirror/retirement identity");
+
+    const auto beforeErosion=worker.status();
+    const auto diskBeforeErosion=checkpoint();
+    const auto erosion=stroke(protectedOuter,protectedRadius,
+                              selected.deliberate);
+    refused(erosion,beforeErosion,
+        "Unintended exposed/reversed-cavity first-original surface drift",
+        "M36 real second individually small 4D protected wall stroke exceeds CUMULATIVE original tolerance, not source work, without CAS");
+    require(erosion.contact.uncertainChecks==2&&
+            erosion.contact.quietRun==0&&
+            erosion.contact.closedEpisodes==0&&
+            erosion.contact.active,
+            "M36 rejected would-be Clean cannot advance quiet streak after cumulative protected erosion");
+    const auto diskAfterErosion=checkpoint();
+    require(diskBeforeErosion.mirrorPairs==diskAfterErosion.mirrorPairs&&
+            diskBeforeErosion.index->retiredFaceIds()==
+                diskAfterErosion.index->retiredFaceIds()&&
+            diskBeforeErosion.index->retiredVertexIds()==
+                diskAfterErosion.index->retiredVertexIds(),
+            "M36 cumulative drift refusal preserves exact mirrored checkpoint and stable retired source IDs");
+
+    for(std::size_t i=0;i<3;++i) {
+        const auto state=stroke(selected.exterior,.5,selected.deliberate);
+        (void)accepted(state,
+            "M36 each NEW real 4D Clean after both Unknown refusals publishes one full dirty history root");
+        require(state.contact.cleanChecks==3+i&&
+                state.contact.quietRun==(i==2?0:i+1)&&
+                state.contact.active==(i!=2)&&
+                state.contact.closedEpisodes==(i==2?1u:0u)&&
+                state.contact.episodes==1,
+                "M36 ONLY third CONSECUTIVE downstream-accepted Clean after Unknown closes same first episode");
+    }
+    const auto beforeSecond=roots.back();
+    const auto secondContact=stroke(source.input[1][0].center,6,
+                                    selected.deliberate);
+    if(secondContact.completedUnions!=2)
+        throw std::runtime_error(
+            "M36 second real LOCAL source union after cumulative protected policy refused: "+
+            secondContact.lastRejection);
+    const auto twiceJoined=accepted(secondContact,
+        "M36 second genuine original-root same-patch Boolean recontact publishes ONE new terminal");
+    require(twiceJoined->retiredFaceCount()>beforeSecond->retiredFaceCount()&&
+            secondContact.contact.contactChecks==2&&
+            secondContact.contact.episodes==2&&
+            secondContact.contact.closedEpisodes==1&&
+            secondContact.contact.active,
+            "M36 after protected drift and three accepted Clean, SECOND local physical source-certified union reopens independent episode");
+    const auto beforeLateBad=worker.status();
+    const auto lateBad=stroke(m39LiveExterior(*twiceJoined),.28,
+                              {FaceId{99999998}});
+    refused(lateBad,beforeLateBad,"original",
+            "M36 late refused original source ownership cannot poison further actual 4D FIFO progress");
+    require(lateBad.contact.uncertainChecks==3&&lateBad.contact.active,
+            "M36 late illegal original scope is an interrupting Unknown after genuine recontact");
+    const auto recovered=stroke(m39LiveExterior(*twiceJoined),.5,
+                                selected.deliberate);
+    const auto final=accepted(recovered,
+        "M36 subsequent well-scoped real 4D Clean restores FIFO publication after THREE source-policy refusals");
+    require(recovered.contact.cleanChecks==6&&
+            recovered.contact.contactChecks==2&&
+            recovered.contact.closedEpisodes==1&&
+            recovered.contact.episodes==2&&
+            recovered.contact.active&&
+            recovered.history.undoDepth==roots.size()-1,
+            "M36 final integrated protected 4D source-policy and diagnostic counters remain coherent");
+
+    // The original geometry remains signed-winding valid even though
+    // permitted FIRST protected outer displacement was not bitwise zero.
+    // Source FaceId incidence and cavity vertices are never invented.
+    for(std::size_t i=32;i<faces.size();++i) {
+        const auto before=original->maybeFace(faces[i]);
+        const auto after=final->maybeFace(faces[i]);
+        require(before&&after&&before->vertices==after->vertices,
+                "M36 all unscoped original outer/cavity/remote sources retain their exact FaceId and incident vertex identities");
+    }
+    for(const double x:{5.0,-5.0}) {
+        const auto voidPoint=final->positiveWindingAt({x,80,0});
+        const auto shell=final->positiveWindingAt({
+            x+(x>0?1.5:-1.5),80,0});
+        const auto outside=final->positiveWindingAt({
+            x+(x>0?4.0:-4.0),80,0});
+        require(voidPoint.reliable&&shell.reliable&&outside.reliable&&
+                voidPoint.winding==0&&shell.winding==1&&
+                outside.winding==0,
+                "M36 actual protected post-drift mirrored outer and reversed-cavity walls retain 0/+1/0 signed occupancy");
+    }
+    const auto finalDisk=checkpoint();
+    require(finalDisk.index->retiredFaceIds()==final->retiredFaceIds()&&
+            finalDisk.index->retiredVertexIds()==final->retiredVertexIds()&&
+            finalDisk.mirrorPairs.size()>=selected.original.mirrorPairs.size(),
+            "M36 latest true FIFO protected terminal checkpoint retains complete source identities and mirror orbits");
+    bool diskOnlyRejected=false;
+    try {
+        (void)VersionedSculptBrush(finalDisk,selected.strength,
+                                   {},{},{},256,{},policy);
+    }catch(const std::logic_error&){diskOnlyRejected=true;}
+    require(diskOnlyRejected,
+            "M36 disk-only protected terminal cannot reauthenticate first-original source from coincident XYZ");
+
+    for(std::size_t n=roots.size()-1;n>0;--n) {
+        worker.undo();
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n-1&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.redoDepth==roots.size()-n,
+                "M36 all accepted mixed Contact/Clean/allowed drift COW history pointers undo EXACTLY after protected refusals");
+    }
+    for(std::size_t n=1;n<roots.size();++n) {
+        worker.redo();
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.status().history.undoDepth!=n&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto snapshot=worker.takeSnapshot();
+        require(snapshot&&snapshot->index==roots[n]&&
+                worker.status().history.redoDepth==roots.size()-1-n,
+                "M36 post-refusal 4D redo restores exact accepted original source roots one-by-one");
+    }
+    require(worker.initialRevision()==final&&
+            firstMoved->pickingRootIdentity()!=nullptr&&
+            original->pickingRootIdentity()==oldPicker,
+            "M36 original and intermediate picker/BVH snapshots still immutable after entire combined FIFO replay");
+    std::cout<<"[m36] original combined source-cavity policy: 2 true local "
+             <<"4D unions; exact full/one-under first-origin work="
+             <<exactWork<<"; cumulative protected edge drift "
+             <<firstDeviation<<"/"<<secondDeviation<<"; "
+             <<roots.size()-1<<" immutable accepted FIFO history roots\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -4270,6 +4668,7 @@ int main() {
         testM37ScopedSamePatchUnionsWithProtectedCavity();
         testM38CompletePostD2WorkAndCumulativeProtectedDrift();
         testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO();
+        testM36OriginalCombinedProtectedSamePatchPolicy();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();

@@ -1745,7 +1745,7 @@ integrated combined-scenario acceptance (with any necessary new bounded
 test that proves the *simultaneous* policy) before checking ONLY M36.
 Then the already planned ORIGINAL M12 final acceptance. M13–M15, V18/V19
 remain separate and open.
-- [ ] **V17-M36 — Same-patch M19–M23 combined protected policy.**
+- [x] **V17-M36 — Same-patch M19–M23 combined protected policy.**
   On the M35 positive sequence, preserve first-original FaceId/edge-scaled
   seven-witness evidence and signed-winding cavity/outer-wall ownership,
   explicitly scoped deliberate source movement, real symmetric orbits,
@@ -1756,6 +1756,28 @@ remain separate and open.
   for refusals; checkpoint provenance and undo/redo stay authoritative.
   Record independent positive and conservative refusal outcomes without
   conflating source identity with coincident XYZ.
+
+  **Original M36 accepted in PR #87, substantive Actions #39268160154**:
+  GCC/Clang/MSVC warnings-as-errors full 23 suites and applicable
+  benchmarks green. ONE protected M37 FIRST-source worker performs
+  genuine overlapping local physical first union, real SMALL accepted
+  unscoped original reflected outer-wall drift, two accepted Clean,
+  invalid original-source Unknown and cumulative SECOND protected wall
+  drift refusal Unknown, THREE new accepted Clean closing episode one,
+  another genuine local source-exact physical union reopening episode
+  two, a late refused Unknown and valid scoped Clean FIFO recovery.
+  Exact full and one-under 7x living original descendant witness work
+  independently exercises authentic original-root post-d2 physical
+  first-stamp source-proof pre-CAS; second drift fits work cap and
+  explicitly refuses on original-edge Exposed/ReversedBoundary
+  protected cumulative distance. All forty other first-original
+  FaceId/incidence owners, mirrored 0/+1/0 cavity topology, reciprocal
+  reflected live orbits, before/after V13 disk IDs, zero refused dirty,
+  old COW/picker roots and all accepted FIFO pointer-exact undo/redo
+  remain authoritative. One continuous actual 4D history; no source
+  by coincident XYZ. See
+  `docs/V17_M36_ORIGINAL_COMBINED_PROTECTED_ACCEPTANCE.md`.
+  **Original M12 and M13–M15/V18/V19 remain OPEN.**
 Then execute **original V17-M12 integrated acceptance** as a standalone
 criterion-by-criterion review of M19–M23 plus M35–M36, with three-compiler
 full CI and its own evidence document. Check ONLY the original M12
