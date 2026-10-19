@@ -45,6 +45,7 @@ public:
         bool active=false;
         StampTimings timings{};
         StampDetails details{};
+        SculptStepResourceWork stepResources{};
         double lastWorkerStampMs=0;
         std::size_t publishedRevisions=0;
         std::size_t modifiedPartitions=0;
