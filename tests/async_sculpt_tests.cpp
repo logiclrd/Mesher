@@ -2745,6 +2745,10 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
             "M34 subsequent 4D scope: snap="+std::to_string(bool(recovered))+
             " dirty="+std::to_string(recovered?recovered->dirtyPartitions.size():0)+
             " rootChanged="+std::to_string(recovered&&recovered->index!=allowed)+
+            " liveChanged="+std::to_string(worker.initialRevision()!=allowed)+
+            " snapMatchesLive="+std::to_string(recovered&&recovered->index==worker.initialRevision())+
+            " snapStamps="+std::to_string(recovered?recovered->completedStamps:0)+
+            " completedStamps="+std::to_string(resumed.completedStamps)+
             " undo="+std::to_string(resumed.history.undoDepth)+
             " stampsRefused="+std::to_string(resumed.rejectedStamps)+
             " unionsCompleted="+std::to_string(resumed.completedUnions)+
