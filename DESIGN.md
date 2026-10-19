@@ -5197,3 +5197,46 @@ No claim of same-component arbitrary three-body joins, whole imported
 mesh semantics, continuous Hausdorff or swept-volume CCD. Desktop
 Merge geometry stays default OFF. M13, M14, M15, V18, V19 OPEN.
 See `docs/V17_M12_ORIGINAL_FINAL_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M40 aggregate exact private Step resource admission
+
+ORIGINAL M13 is rebaselined **flat and in advance** to M40 (complete
+private COW/ID/dirty resource envelope) → M41 (winding/collision/
+arrangement aggregation) → M42 (contour/join/feature and detailed
+telemetry) → ORIGINAL M13 independent integrated acceptance. M13 and
+M14/M15/V18/V19 checkboxes remain open while these independently
+reviewable predecessors progress.
+
+M40 on PR #89 uses a bounded, opt-in `SculptStepResourceLimits` across
+the ENTIRE private physical candidate: every Inflate/refine/collapse
+COW clone and, where contact is genuinely classified, all V13
+cut/optional refinement/seam join private copy work. The separately
+queued exact command uses composed `ExactCutStep::copiedPayloadBytes`
+that already includes its private edits, never only the final revision
+payload. Both also count actual changed stable-ID REFERENCES (not
+unique IDs) and precisely the final dirty renderer face-owner
+partitions. Checked size_t addition refuses overflow. All three
+caps are tested EXACT equal against a REAL original-source certified
+normal-driven mirrored union and a genuine queued source union;
+each separate ONE-under byte/ID/dirty refusal takes place BEFORE
+source-root CAS and preserves old root, opaque M29 source,
+reciprocal mirrors, dirty owners and history. Budget-denied Clean is
+Unknown rather than credited M23 hysteresis. Legacy physicalExact
+OFF remains unchanged.
+
+Honest `SculptStepResourceWork` tracks physical vs queued attempt,
+measured versus unavailable candidate, published versus refused,
+complete attempted copied-byte/ID/dirty costs, actual refusal reason
+and observed monotonic wall milliseconds; it is accessible directly
+and through asynchronous `Status.stepResources`. An early invalid
+original FaceId scope reports zero measured work (not fabricated
+CPU/memory). Copied COW bytes are MEMORY COPY WORK PROXIES, never
+a peak RSS or general memory-hard upper bound.
+
+Substantive PR CI Actions #39277749517 job logs show GCC/Clang/MSVC
+23/23 tests passing and applicable benchmarks with no build errors;
+official workflow completion, documentation-final and merged-main
+CI are separately required for merge. M41–M42 and original M13 remain
+open for cross-stage winding/collision/arrangement/contour/join/
+protected-feature accounting and final acceptance.
+See `docs/V17_M40_PRIVATE_STEP_RESOURCE_ENVELOPE.md`.
