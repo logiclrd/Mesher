@@ -51,8 +51,13 @@ struct ExactStageWorkLimits {
     // Every category is independent. No counter may borrow spare work
     // from another; exact equality succeeds and one-under must refuse.
     std::size_t maxCollisionQueries=262144;
+    std::size_t maxCollisionBoxes=4194304;
+    std::size_t maxCollisionPartitions=1048576;
+    std::size_t maxCollisionCandidates=2097152;
     std::size_t maxCollisionNarrowPhase=1048576;
     std::size_t maxWindingQueries=262144;
+    std::size_t maxWindingBoxes=4194304;
+    std::size_t maxWindingPartitions=1048576;
     std::size_t maxWindingTriangles=4194304;
     std::size_t maxWindingRays=1048576;
     std::size_t maxArrangementPairTests=1048576;
@@ -64,10 +69,20 @@ inline std::string refuseExactStageWork(
     if(value.overflow)return "Aggregate source geometry work counter overflow";
     if(value.collisionQueries>limits.maxCollisionQueries)
         return "Aggregate source collision query budget exhausted";
+    if(value.collisionBoxes>limits.maxCollisionBoxes)
+        return "Aggregate source collision box budget exhausted";
+    if(value.collisionPartitions>limits.maxCollisionPartitions)
+        return "Aggregate source collision partition budget exhausted";
+    if(value.collisionCandidates>limits.maxCollisionCandidates)
+        return "Aggregate source collision candidate budget exhausted";
     if(value.collisionNarrowPhase>limits.maxCollisionNarrowPhase)
         return "Aggregate source collision narrow-phase budget exhausted";
     if(value.windingQueries>limits.maxWindingQueries)
         return "Aggregate source winding query budget exhausted";
+    if(value.windingBoxes>limits.maxWindingBoxes)
+        return "Aggregate source winding box budget exhausted";
+    if(value.windingPartitions>limits.maxWindingPartitions)
+        return "Aggregate source winding partition budget exhausted";
     if(value.windingTriangles>limits.maxWindingTriangles)
         return "Aggregate source winding triangle budget exhausted";
     if(value.windingRays>limits.maxWindingRays)
