@@ -5442,3 +5442,65 @@ applicable benchmarks. Exact final-head and independent merged-main
 CI gates remain mandatory. The original M42 and M13 checkboxes,
 M46, M14/M15/V18/V19 remain OPEN. See
 docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
+
+## October 19, 2026 — V17-M46 observed source-geometry work and worker diagnostics
+
+The fourth independently executable M42 prerequisite has been
+implemented after M45: `SculptStageWallObservations` publishes
+elapsed **observed** milliseconds for initial private physical
+Inflate/refine/collapse or queued exact Boolean geometry; further
+source geometry/intent and mirror certification; first-original
+lifetime/witness proof; final finite admission; and the actual
+post-admission original-root CAS/mirror/history publication.
+Each stage is measured at its actual decision site; a declined
+Step may have zero for unexecuted later stages. These are not
+deterministic wall-time caps, nor are they a substitute for
+M40/M41–M45 counted finite geometric operations.
+
+`SculptResourceTotals` aggregates attempted and published
+resource counts independently: total and physical/queued attempts,
+published/refused/unchanged candidates, coarse failure type
+(provenance, geometry, finite-budget and stale source root),
+M40 private cumulative COW copied-byte **work proxies** (not
+peak RSS), changed stable-ID references, final dirty owner
+partition count and the complete 35 real independently counted
+M41–M45 `ExactStageWork` categories including original-source
+witness comparisons and mirror/history proof replays. All
+individual count fields saturate rather than wrapping. A rejected
+private candidate retains its actually attempted work and cannot
+be credited to the published series. An unchanged Step is not
+a new root and undo/redo never re-bills historic private work.
+
+The synchronous brush and asynchronous source-authenticated
+worker share the same runtime counters. Worker status separately
+reports actually restored undo/redo roots, checkpoints enqueued,
+completed/coalesced/failed checkpoint file writes, latest
+observable snapshot publication and coalesced final dirty owners,
+alongside existing bounded live COW revision and history
+statistics. UI snapshot throttling and render-owner coalescing
+do not discard true worker attempted work. These values reset
+on a *new* in-memory session, including a trusted handoff:
+a disk V13 checkpoint contains provenance requirement but
+NEVER manufactures an opaque first-original M29 authority,
+nor does it serialize previously performed CPU/memory costs.
+
+`testM46CumulativeSourceWorkerDiagnostics` executes genuine
+72-original protected reflected M39 physical unions and
+independent asymmetric authenticated queued two-tetra c1/c2/c3/
+M03/d2 union, direct and via asynchronous FIFO. Both complete
+candidates accept genuine finite budgets and each original
+witness work one-under refuses before CAS with source, mirror,
+history and dirty root unchanged. It independently asserts
+attempted versus published operation category/COW byte totals,
+source/stale failure categories, FIFO dirty/history publication,
+undo/redo restoration without phantom reexecution, and durable
+checkpoint success/non-restoration of an unverifiable M29
+certificate.
+
+Substantive [PR #96 CI #39328566938](https://github.com/logiclrd/Mesher/actions/runs/39328566938)
+passed GCC/Clang/MSVC warnings-as-errors, all 23 CPU suites
+and applicable benchmarks. Exact final PR-head and separate
+merged-main CI are still required for final acceptance.
+ORIGINAL M42 remains open for a single simultaneous integrated
+M40/M41/M43/M44/M45/M46 gate; ORIGINAL M13 remains separately
+open thereafter, with M14/M15/V18/V19 still open.

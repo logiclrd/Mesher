@@ -1268,7 +1268,7 @@ sequence NOW, before beginning M42 implementation:
   See docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
   M46, ORIGINAL M42/M13 and M14/M15/V18/V19 remain OPEN.
   Final exact PR-head and independent merged-main CI required.
-- [ ] **V17-M46 — Honest direct and queued worker cumulative diagnostics.**
+- [x] **V17-M46 — Honest direct and queued worker cumulative diagnostics.**
   Expose separately measured stage wall times (observations, not
   deterministic upper bounds), attempted vs published per-category
   copy-work, source/geometry/category refusals, COW memory proxies,
@@ -1277,6 +1277,37 @@ sequence NOW, before beginning M42 implementation:
   checkpoint save/restore and undo/redo. Verified exact/one-under
   acceptance without treating attempted bytes as peak RSS, or
   an unverified persisted opaque credential as authenticated.
+  **M46 independently accepted substantive PR #96,
+  Actions #39328566938:** GCC, Clang and Windows MSVC /W4 /WX
+  all 23 CPU suites, checkpoint stress and applicable benchmarks
+  GREEN. Per-original-root Step observed wall stages separately
+  cover initial physical/remesh or queued exact geometry, source
+  topology/intent decisions, immutable original witness/lifetime
+  proof, finite admission and the actual history/publication
+  work; these are observations, NEVER hard runtime limits.
+  Genuine attempted and published M40 copying bytes (private
+  COW work proxy, NOT peak RSS), changed ID references, bounded
+  dirty partitions and ALL 35 independent saturated M41-M45
+  source/geometry counters accumulate separately. Outcome and
+  coarse failure categories distinguish provenance, geometry,
+  finite work and stale expected root. A refused Step cannot
+  earn published counters. Live FIFO also reports actual
+  snapshot publication/dirty owner events, undo and redo
+  restorations, checkpoint queue commands and asynchronous
+  completed/coalesced/failed writer totals alongside existing
+  bounded history. Trusted in-memory M29 provenance survives
+  read-only checkpoint handoff; V13 disk read-back carries only
+  the required-fidelity flag and NEVER fabricates an opaque
+  credential or previously attempted session telemetry.
+  Genuine mirrored 72-original protected physical Step and
+  separate asymmetric original-authenticated queued exact union
+  calibrate exact-vs-one-under M45 witness budget admission.
+  Stale queued root and async undo/redo/checkpoint across actual
+  immutable roots also tested. See
+  `docs/V17_M46_WORKER_DIAGNOSTICS.md`.
+  ORIGINAL M42 and ORIGINAL M13 still OPEN, as are M14/M15
+  and V18/V19. Exact final-head and independent merged-main
+  green still required before reporting M46 merged.
 **Then execute ORIGINAL M42** separately: simultaneous criterion-by-
 criterion integration of M43–M46 plus accepted M40/M41 on the SAME
 genuine direct and queued protected Step/hysteresis history, with
