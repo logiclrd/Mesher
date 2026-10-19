@@ -1,4 +1,5 @@
 #include "mesher/repair_surgery.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/repair_intersection.hpp"
 #include "mesher/versioned_collapse.hpp"
 #include "mesher/versioned_inflate.hpp"
@@ -92,6 +93,9 @@ SourceSplitLineage verifyLifetime(
     for(std::size_t i=0;i<lifetime.anchors.faces.size();++i) {
         const auto& anchor=lifetime.anchors.faces[i];
         const auto& [first,faces]=lifetime.lineage.living[i];
+        if(executingExactStageWork)
+            executingExactStageWork->add(
+                executingExactStageWork->originalAnchorProofs,1);
         if(!first||!originalIds.insert(first).second||
            first!=anchor.face)
             throw std::logic_error("First-original protected FaceIds no longer correspond");
@@ -104,6 +108,9 @@ SourceSplitLineage verifyLifetime(
             if(!same(recomputed.witnesses[j],anchor.witnesses[j]))
                 throw std::logic_error("First-original immutable witnesses were rewritten");
         if(faces.empty()) {
+            if(executingExactStageWork)
+                executingExactStageWork->add(
+                    executingExactStageWork->originalRetirementProofs,1);
             expectedRetired.push_back(first);
             if(lifetime.lineage.terminal->maybeFace(first))
                 throw std::logic_error("Certified retired original FaceId was resurrected");
@@ -113,11 +120,15 @@ SourceSplitLineage verifyLifetime(
             throw std::length_error("Lifetime protected descendant limit exhausted");
         liveCount+=faces.size();
         std::set<FaceId> within;
-        for(const auto id:faces)
+        for(const auto id:faces) {
+            if(executingExactStageWork)
+                executingExactStageWork->add(
+                    executingExactStageWork->originalDescendantProofs,1);
             if(!id||!within.insert(id).second||
                !liveIds.insert(id).second||
                !lifetime.lineage.terminal->maybeFace(id))
                 throw std::logic_error("Missing, duplicated or foreign live descendant ID");
+        }
         active.living.emplace_back(first,faces);
     }
     std::sort(expectedRetired.begin(),expectedRetired.end());
@@ -306,6 +317,7 @@ OriginalPatchLifetimeAudit auditOriginalPatchLifetime(
         if(descendants.empty())continue;
         const std::vector<Vec3> witnesses(
             fixed.witnesses.begin(),fixed.witnesses.end());
+        ScopedFirstOriginalWitnessMeasurement sourceWitnesses;
         const auto sample=auditSurfaceWitnesses(
             *lifetime.lineage.terminal,witnesses,descendants,
             fixed.originalEdgeLength,7*descendants.size());
@@ -463,6 +475,9 @@ void verifyOriginalPatchPublicationRoot(
     const OriginalPatchLifetime& lifetime,
     const std::shared_ptr<const RegionTopologyIndex>& expected,
     std::size_t maxLivingDescendants) {
+    if(executingExactStageWork)
+        executingExactStageWork->add(
+            executingExactStageWork->originalHistoryRoots,1);
     if(!expected||lifetime.lineage.terminal!=expected)
         throw std::logic_error("Publication source certificate is not for the exact current root");
     (void)verifyLifetime(lifetime,maxLivingDescendants);
@@ -473,6 +488,9 @@ void verifyOriginalPatchPublicationTransition(
     const std::shared_ptr<const RegionTopologyIndex>& before,
     const std::shared_ptr<const RegionTopologyIndex>& terminal,
     std::size_t maxLivingDescendants) {
+    if(executingExactStageWork)
+        executingExactStageWork->add(
+            executingExactStageWork->originalHistoryTransitions,1);
     verifyOriginalPatchPublicationRoot(previous,before,maxLivingDescendants);
     verifyOriginalPatchPublicationRoot(next,terminal,maxLivingDescendants);
     if(next.certificate->parent.lock()!=previous.certificate||
@@ -504,9 +522,13 @@ OriginalPatchIntentDeclaration declareOriginalPatchIntent(
         if(!living.empty())active.insert(first);
     }
     std::set<FaceId> requested;
-    for(const auto id:intendedSources)
+    for(const auto id:intendedSources) {
+        if(executingExactStageWork)
+            executingExactStageWork->add(
+                executingExactStageWork->originalIntentChecks,1);
         if(!id||!active.contains(id)||!requested.insert(id).second)
             throw std::logic_error("Intent is not a unique live first-original protected FaceId");
+    }
     if(originalMirrors) {
         // Every nominated original triangle must have its complete
         // reciprocal original VertexId orbit and an actual opposite
@@ -516,6 +538,9 @@ OriginalPatchIntentDeclaration declareOriginalPatchIntent(
         for(const auto& anchor:before.anchors.faces) {
             std::array<VertexId,3> reflected{};
             for(unsigned j=0;j<3;++j) {
+                if(executingExactStageWork)
+                    executingExactStageWork->add(
+                        executingExactStageWork->originalMirrorOrbitChecks,1);
                 const auto id=anchor.originalVertices[j];
                 const auto it=originalMirrors->find(id);
                 if(it==originalMirrors->end()||
@@ -536,7 +561,10 @@ OriginalPatchIntentDeclaration declareOriginalPatchIntent(
                 reflected[0],reflected[2],reflected[1]};
             FaceId partner=0;
             for(const auto& other:before.anchors.faces) {
-                for(unsigned shift=0;shift<3;++shift)
+                for(unsigned shift=0;shift<3;++shift) {
+                    if(executingExactStageWork)
+                        executingExactStageWork->add(
+                            executingExactStageWork->originalMirrorOrbitChecks,1);
                     if(other.originalVertices[shift]==reversed[0]&&
                        other.originalVertices[(shift+1)%3]==reversed[1]&&
                        other.originalVertices[(shift+2)%3]==reversed[2]) {
@@ -544,6 +572,7 @@ OriginalPatchIntentDeclaration declareOriginalPatchIntent(
                             throw std::logic_error("Ambiguous mirrored original FaceId owner");
                         partner=other.face;
                     }
+                }
             }
             if(!partner||!partners.emplace(anchor.face,partner).second)
                 throw std::logic_error("Missing opposite-winding first-original reflected FaceId");
@@ -602,7 +631,13 @@ OriginalPatchIntentDecision evaluateOriginalPatchIntent(
         if(!previouslyActive.contains(id))
             throw std::logic_error("Original intent named retired or foreign source FaceId");
     for(const auto& witness:audit.perOriginal) {
+        if(executingExactStageWork)
+            executingExactStageWork->add(
+                executingExactStageWork->originalIntentChecks,1);
         if(scoped.contains(witness.original))continue;
+        if(executingExactStageWork)
+            executingExactStageWork->add(
+                executingExactStageWork->originalProtectedFeatures,1);
         ++decision.protectedOriginals;
         decision.protectedWitnesses+=witness.sampled.witnessCount;
         decision.maximumProtectedDeviationInEdges=std::max(

@@ -29,6 +29,15 @@ struct ExactStageWork {
     std::size_t seamWeldComparisons{},seamRefinePredicates{};
     std::size_t seamRefineMatches{},seamMirrorOrbitChecks{};
     std::size_t seamFaceRewires{};
+    // M45: real first-root proof work, across every repeated private audit.
+    // Immutable-source checks, live child inspections and actual seven-
+    // witness/owned-triangle comparisons must never be inferred from the
+    // final authenticated descendant count alone.
+    std::size_t originalAnchorProofs{},originalDescendantProofs{};
+    std::size_t originalRetirementProofs{},originalWitnessTriangles{};
+    std::size_t originalIntentChecks{},originalProtectedFeatures{};
+    std::size_t originalMirrorOrbitChecks{};
+    std::size_t originalHistoryRoots{},originalHistoryTransitions{};
     bool overflow{};
     void add(std::size_t& target,std::size_t count) noexcept {
         if(count>std::numeric_limits<std::size_t>::max()-target) {
@@ -87,6 +96,15 @@ struct ExactStageWorkLimits {
     std::size_t maxSeamRefineMatches=1048576;
     std::size_t maxSeamMirrorOrbitChecks=4194304;
     std::size_t maxSeamFaceRewires=2097152;
+    std::size_t maxOriginalAnchorProofs=1048576;
+    std::size_t maxOriginalDescendantProofs=4194304;
+    std::size_t maxOriginalRetirementProofs=1048576;
+    std::size_t maxOriginalWitnessTriangles=16777216;
+    std::size_t maxOriginalIntentChecks=1048576;
+    std::size_t maxOriginalProtectedFeatures=1048576;
+    std::size_t maxOriginalMirrorOrbitChecks=4194304;
+    std::size_t maxOriginalHistoryRoots=65536;
+    std::size_t maxOriginalHistoryTransitions=65536;
 };
 
 inline std::string refuseExactStageWork(
@@ -144,6 +162,24 @@ inline std::string refuseExactStageWork(
         return "Aggregate source seam mirror-orbit budget exhausted";
     if(value.seamFaceRewires>limits.maxSeamFaceRewires)
         return "Aggregate source seam face-rewire budget exhausted";
+    if(value.originalAnchorProofs>limits.maxOriginalAnchorProofs)
+        return "Aggregate first-original anchor-proof budget exhausted";
+    if(value.originalDescendantProofs>limits.maxOriginalDescendantProofs)
+        return "Aggregate first-original descendant-proof budget exhausted";
+    if(value.originalRetirementProofs>limits.maxOriginalRetirementProofs)
+        return "Aggregate first-original retirement-proof budget exhausted";
+    if(value.originalWitnessTriangles>limits.maxOriginalWitnessTriangles)
+        return "Aggregate first-original witness-triangle budget exhausted";
+    if(value.originalIntentChecks>limits.maxOriginalIntentChecks)
+        return "Aggregate first-original intent-check budget exhausted";
+    if(value.originalProtectedFeatures>limits.maxOriginalProtectedFeatures)
+        return "Aggregate first-original protected-feature budget exhausted";
+    if(value.originalMirrorOrbitChecks>limits.maxOriginalMirrorOrbitChecks)
+        return "Aggregate first-original mirror-orbit budget exhausted";
+    if(value.originalHistoryRoots>limits.maxOriginalHistoryRoots)
+        return "Aggregate first-original history-root budget exhausted";
+    if(value.originalHistoryTransitions>limits.maxOriginalHistoryTransitions)
+        return "Aggregate first-original history-transition budget exhausted";
     return {};
 }
 
@@ -151,6 +187,24 @@ inline std::string refuseExactStageWork(
 // workers and offline test queries; nesting restores the preceding meter.
 // Counters are informational evidence, NEVER Boolean deletion authority.
 inline thread_local ExactStageWork* executingExactStageWork=nullptr;
+// Only the true M27 first-original witness-to-owned-living-child audit
+// charges this category. Generic legacy, V16 and unrelated sampled
+// surface distance queries are not mislabelled as source proof.
+inline thread_local bool measuringFirstOriginalWitnesses=false;
+class ScopedFirstOriginalWitnessMeasurement {
+public:
+    ScopedFirstOriginalWitnessMeasurement() noexcept
+        :previous_(std::exchange(measuringFirstOriginalWitnesses,true)) {}
+    ~ScopedFirstOriginalWitnessMeasurement() noexcept {
+        measuringFirstOriginalWitnesses=previous_;
+    }
+    ScopedFirstOriginalWitnessMeasurement(
+        const ScopedFirstOriginalWitnessMeasurement&)=delete;
+    ScopedFirstOriginalWitnessMeasurement& operator=(
+        const ScopedFirstOriginalWitnessMeasurement&)=delete;
+private:
+    bool previous_;
+};
 class ScopedExactStageWork {
 public:
     explicit ScopedExactStageWork(ExactStageWork& work) noexcept
