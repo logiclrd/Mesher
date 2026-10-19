@@ -2077,6 +2077,113 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     }
     std::error_code ec;std::filesystem::remove(file,ec);
 }
+void testM31ExplicitFirstOriginalIntentTransport() {
+    // Input scope is the CALLER's permanent original FaceId set, captured
+    // before the physical candidate exists; it is not proximity-discovered.
+    Mesh octa={{{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                {0,0,1},{0,0,-1}},
+               {{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                {5,1,0},{5,2,1},{5,3,2},{5,0,3}}};
+    const auto ids=partitionFlatMesh(octa,256).flatIndex.faceIds;
+    SculptCollisionSettings selected;
+    selected.physicalExact=true;
+    VersionedSculptBrush brush(octa,.035,{},{},{},false,256,{},selected);
+    const auto first=brush.snapshot();
+    const auto oldPicking=first->pickingRootIdentity();
+    require(brush.firstOriginalSourceRoot()==first,
+            "M31 fresh physical-exact root seals genuine first-original source authority");
+    Mesh dummy;
+    const std::array<BrushArea,1> area{{{{1,0,0},.8,.9}}};
+    brush.setOriginalPatchIntent({FaceId{99999999}});
+    brush.stamp(dummy,area);
+    require(brush.snapshot()==first&&brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==0&&
+            brush.historyStatistics().undoDepth==0&&
+            !brush.lastRejection().empty(),
+            "M31 foreign intended original refuses without modifying first root, picker or history");
+    brush.setOriginalPatchIntent({ids.front()});
+    require(brush.originalPatchIntent()==std::vector<FaceId>{ids.front()},
+            "M31 caller's exact FaceId selection remains intact");
+    brush.stamp(dummy,area);
+    require(brush.completedStamps()==2&&brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==1&&brush.snapshot()!=first&&
+            brush.firstOriginalSourceRoot()==first&&
+            first->pickingRootIdentity()==oldPicking,
+            "M31 valid new physical scope drains after refused input without rebasing original root");
+
+    SphereOptions options;
+    options.vertexCount=42;
+    options.relaxationIterations=3;
+    const auto sphere=generateSphere(options);
+    const auto faces=partitionFlatMesh(sphere,256).flatIndex.faceIds;
+    VersionedSculptBrush reflected(sphere,.006,{},{},{},true,256,{},selected);
+    const auto symmetricRoot=reflected.snapshot();
+    const std::array<BrushArea,2> bilateral{{
+        {{.25,.65,.70},.3,.3},{{-.25,.65,.70},.3,.3}}};
+    reflected.setOriginalPatchIntent({faces.front()});
+    reflected.stamp(dummy,bilateral);
+    require(reflected.rejectedStamps()==1&&
+            reflected.snapshot()==symmetricRoot&&
+            reflected.checkpoint().mirrorPairs.size()>0,
+            "M31 original reflection refuses a half-face source orbit without corrupting mirrors");
+    reflected.setOriginalPatchIntent(faces);
+    reflected.stamp(dummy,bilateral);
+    require(reflected.rejectedStamps()==1&&
+            reflected.publishedRevisions()==1&&
+            reflected.firstOriginalSourceRoot()==symmetricRoot,
+            "M31 complete caller-selected original mirror source orbits are permitted");
+
+    // The 4D FIFO transports each Begin scope separately; later requests
+    // cannot accidentally inherit the previous stroke's bad source input.
+    AsyncSculptWorker worker(octa,.025,.035,.2,{},{},{},false,{},selected);
+    const auto before=worker.initialRevision();
+    const auto wait=[&]() {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(15);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(worker.canBegin(),"M31 queued original-source Begin/End drained");
+    };
+    worker.begin({1,0,0},.8,{FaceId{99999999}});
+    worker.end({1,0,0},0);
+    wait();
+    require(worker.status().rejectedStamps==1&&
+            worker.status().publishedRevisions==0&&
+            worker.initialRevision()==before,
+            "M31 invalid queued original scope refuses without a geometric Step");
+    worker.begin({1,0,0},.8,{ids.front()});
+    worker.end({1,0,0},0);
+    wait();
+    require(worker.status().rejectedStamps==1&&
+            worker.status().publishedRevisions==1&&
+            worker.status().pendingSteps==0&&worker.status().pendingSegments==0,
+            "M31 subsequent genuinely valid queued physical request drains");
+
+    // Explicit source-exact union has a SEPARATE captured original scope
+    // on its own queued command, not a borrow from the prior stroke.
+    AsyncSculptWorker merger(twoIntersectingTetrahedra(),.025,.006,.2,
+                             {},{},{},false,{},selected);
+    const auto initial=merger.initialRevision();
+    const auto contacts=fullOriginalContacts(*initial);
+    const auto limits=supportedUnionLimits(false);
+    merger.mergeExactContacts(initial,contacts,limits,{FaceId{99999999}});
+    waitForUnion(merger,1);
+    require(merger.status().rejectedUnions==1&&
+            merger.status().publishedRevisions==0&&
+            merger.status().history.undoDepth==0,
+            "M31 foreign explicit-union source scope refuses before cut or CAS");
+    merger.mergeExactContacts(initial,contacts,limits,
+                              {partitionFlatMesh(twoIntersectingTetrahedra(),256)
+                                  .flatIndex.faceIds.front()});
+    waitForUnion(merger,2);
+    if(merger.status().completedUnions!=1)
+        throw std::runtime_error(
+            "M31 valid queued scoped exact union refused: "+
+            merger.status().lastRejection);
+    require(merger.status().rejectedUnions==1&&
+            merger.status().history.undoDepth==1,
+            "M31 next valid explicitly scoped union executes in original FIFO order");
+}
 }
 int main() {
     try {
@@ -2096,6 +2203,7 @@ int main() {
         testWorkerMirroredThreeBodyOneHistoryStep();
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testM28FullPrivatePhysicalStampLifetime();
+        testM31ExplicitFirstOriginalIntentTransport();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
