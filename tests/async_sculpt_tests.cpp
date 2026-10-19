@@ -2414,6 +2414,32 @@ void testM33ProtectedX0FixedPointQueuedUnion() {
     const auto originalMirrorCount=direct.checkpoint().mirrorPairs.size();
     require(originalMirrorCount>mirrorPairs.size(),
             "M33 X=0 protected union records net added fixed-point and reciprocal orbits");
+
+    // M22 independent final gate: after a REAL authenticated reflected
+    // d2 terminal, a later physical Begin scope containing only one
+    // original face of a mirrored orbit MUST be refused before CAS.
+    // Neither the live fixed-point/reciprocal mirrors nor the sealed
+    // first-original certificate may be mutated, evicted or rebased.
+    const auto protectedTerminal=direct.checkpoint();
+    const auto protectedHistory=direct.historyStatistics();
+    const auto rejectionCount=direct.rejectedStamps();
+    direct.setOriginalPatchIntent({imported.flatIndex.faceIds.front()});
+    Mesh dummy;
+    const std::array<BrushArea,1> patch{{{{1,0,0},.3,.3}}};
+    direct.stamp(dummy,patch);
+    const auto rejectedTerminal=direct.checkpoint();
+    require(direct.rejectedStamps()==rejectionCount+1&&
+            rejectedTerminal.index==protectedTerminal.index&&
+            rejectedTerminal.verifiedOriginalFidelity==
+                protectedTerminal.verifiedOriginalFidelity&&
+            rejectedTerminal.verifiedOriginalFidelity->anchors.original==root&&
+            rejectedTerminal.mirrorPairs==protectedTerminal.mirrorPairs&&
+            direct.lastDirtyPartitions().empty()&&
+            direct.historyStatistics().undoDepth==protectedHistory.undoDepth&&
+            direct.historyStatistics().redoDepth==protectedHistory.redoDepth&&
+            direct.lastRejection().find("original")!=std::string::npos,
+            "M22 half-orbit physical request after certified X=0 exact union refuses atomically without mirror, source, root, dirty or history changes");
+
     require(direct.undo()&&direct.checkpoint().mirrorPairs.size()==
                 mirrorPairs.size()&&
             direct.redo()&&direct.checkpoint().mirrorPairs.size()==

@@ -4871,3 +4871,48 @@ Only the original M30 checkbox is closed here.
 remain OPEN**, as do M13–M15, V18/V19 and M14
 fault-injected post-CAS guarantees. No desktop
 Merge geometry option has been enabled.
+
+
+## October 18, 2026 — Original V17-M22 joint cumulative terminal acceptance
+
+**The ORIGINAL M22 checkbox is now accepted as a separate
+criterion-by-criterion review of M28–M30**, not checked merely
+because its flat implementation peers were complete.
+The independently authenticated M28 complete PRIVATE source
+transition, M29 original-root/previous-published certificate,
+and M30 dual physical/queued original-source M21 complete
+seven-witness-per-living-descendant, original-edge-scaled
+terminal decision compose at the only actual root CAS.
+Both physical and queued paths also preflight the
+immutable default M29 proof limit before publishing.
+
+M32's actual allowed first physical drift and atomic
+rejected cumulative second drift; M33's complete
+source-owned queued union, original FaceId/retirement,
+one-under full work and stale-root refusals; M34's
+genuine single-FIFO exact→physical→refusal→physical
+history/snapshot/checkpoint and X=0 reflected successor;
+and all sixteen genuine M11 positive reflected unions
+remain green. M22 strengthened reflected original
+atomic refusal specifically: following an accepted
+THREE-contact X=0 queued original union, a deliberately
+HALF-orbit source-scoped physical command refuses
+without changing the welded COW root, current sealed
+source lifetime pointer, first original anchor,
+live singleton/paired mirror map, history depths
+or dirty owner set. The exact original/terminal
+reflected mirror history still undoes and redoes.
+
+Substantive [Actions #39197216458](https://github.com/logiclrd/Mesher/actions/runs/39197216458)
+passed GCC/Clang/MSVC warnings-as-errors, all 23
+CPU suites and applicable benchmarks. See
+`docs/V17_M22_FINAL_INTEGRATED_ACCEPTANCE.md`
+for the original M22 evidence matrix.
+
+M23 conclusive Clean/Contact episode decisions, original
+M12 combined exposed-feature/hysteresis acceptance,
+M13 telemetry, M14 post-CAS injected exception
+recovery, M15 explicitly disabled-by-default
+desktop Merge geometry opt-in and V18/V19
+remain UNCHECKED. Do not read this as a continuous
+Hausdorff, all-mesh Boolean or CCD theorem.

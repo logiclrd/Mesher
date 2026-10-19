@@ -1535,17 +1535,48 @@ documentation follows before the merge.
     **The original V17-M22, M23 and original V17-M12 remain OPEN;
     M14 post-CAS injected exception guarantees and M15 desktop
     Merge Geometry UI remain separate.**
-  - [ ] **V17-M22 final integrated acceptance (existing checkbox below).**
+  **V17-M22 final integrated acceptance plan (fulfilled; original checkbox below).**
     Verify M28–M30 jointly, warnings-as-errors GCC/Clang/MSVC with existing
     23 suites, preserve M23 and original M12 as open. Only then check the
     ORIGINAL M22 checkbox, not this explanatory plan.
-- [ ] **V17-M22 — Active cumulative final physicalExact preservation.**
+- [x] **V17-M22 — Active cumulative final physicalExact preservation.**
   Validate terminal post-remesh/post-d2 root before original-root CAS
   against first original-source witnesses and descendants in local
   edge units under shared finite audit cap. Prove accepted deliberate
   physical exact union, first permissible drift and atomic refusal of
   cumulative second erosion with unchanged previous pointer, histories,
   mirror map, dirty owners and FIFO; refuse one-under cap/stale root.
+  **Original M22 accepted via PR #81; substantive Actions #39197216458.**
+  Verified M28 private full original-source chain and exact post-d2 terminal,
+  immutable first-original seven-point per-living-descendant witnesses and
+  per-original local shortest-edge scale; M29 original lifetime/one direct
+  successor matched to actual published root; M30 M21 caller-scoped original
+  FaceId intent and BOTH configured and M29-default pre-CAS proof limits
+  on actual physical and queued exact source joins. The supported real M18
+  physical exact union and sixteen genuine M11 mirrored physical unions
+  remain accepted. M32 normal-driven first small movement is accepted,
+  identical second cumulative protected erosion refuses with unchanged
+  old COW root/source/history/dirty; full 56 witness/55 refusal and
+  complete six/one-under Inflate work are enforced. M33 true full
+  source-owned c1/c2/c3/M03/d2 queued union, bounded one-under work,
+  stale expected-root and unsupported original FaceId refusals remain
+  fail-closed. M34 one real asynchronous FIFO accepts deliberate exact
+  union, permissible protected physical movement, atomic cumulative
+  second refusal and later explicitly intended progress, preserving
+  original renderer/picker pointers, terminal-only dirty owners,
+  three exact mixed undo/redo steps and protected checkpoint provenance.
+  Dedicated M22 regression asserts a half-orbit physical command after
+  a TRUE authenticated X=0 fixed-point queued join leaves the EXACT
+  welded root, immutable original source certificate, reciprocal and
+  singleton live mirror pairs, dirty state and history unchanged;
+  normal protected union undo/redo still works afterwards.
+  All GCC/Clang/MSVC warnings-as-errors builds, 23 CPU suites and
+  applicable performance benchmarks are green. This is ONLY the
+  ORIGINAL M22 source-fidelity terminal acceptance: **M23,
+  original M12, M13–M15, V18/V19 remain OPEN**. It neither
+  implements M23's three-conclusive-Clean episode state,
+  asserts M14 injected post-CAS exceptional rollback, nor enables
+  the default-disabled M15 desktop Merge geometry mode.
 - [ ] **V17-M23 — Conclusive contact-episode decisions.**
   Three consecutive fully classified Clean checks end an episode;
   Contact starts/extends it; uncertain, refusal and budget exhaustion

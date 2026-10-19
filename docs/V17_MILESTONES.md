@@ -1332,3 +1332,36 @@ Original M30's pre-CAS scope was reviewed independently of merely checking its f
 M30 closed the last history-boundary mismatch: **physical M32 now preflights both configured M21 proof limits and M29's immutable default source proof limits before CAS**, just as M33 queued unions already did. The actual accepted physical history credential is independently validated under M29's default even when caller source work cap is more permissive. The Windows M30 rerun additionally identified and corrected a **test-only premature FIFO fence**: physicalExact refusal also contributes to `rejectedUnions`, so an absolute expected count could predate an enqueued stale Merge. The test now waits for one new union outcome relative to its post-physical baseline and requires the exact stale reason and no root/history/renderer change. Full final substantive CI is green.
 
 See `docs/V17_M30_ORIGINAL_TERMINAL_ACCEPTANCE.md`. **The original V17-M22, M23, original M12 and M13–M15 remain unchecked**; M14 injected post-CAS exceptional atomicity and M15 desktop UI opt-in are separate. No V18/V19 goal is auto-accepted.
+
+
+## October 18, 2026 — Original V17-M22 final joint M28–M30 acceptance
+
+**Original M22 accepted in PR #81** after independent review,
+with substantive [Actions #39197216458](https://github.com/logiclrd/Mesher/actions/runs/39197216458)
+green on GCC/Clang/MSVC warnings-as-errors, all 23 CPU
+suites and applicable benchmarks. The original-source
+anchor witnesses and edge scales are permanent; the
+complete real physical Inflate/refine/collapse/optional
+d2 and separate queued c1/c2/c3/M03/d2 each produce
+ONE final old-published-root successor certificate with
+full M21 source-descendant seven-witness work BEFORE CAS,
+preflighting BOTH configured limits and M29's actual
+default proof cap. M32 cumulative original-source
+drift, M33 genuine queued source-exact joins, M34
+true serialized mixed 4D worker/terminal renderer/
+picker/dirty/history/undo/redo/checkpoint, M11 sixteen
+positive mirrored unions, and the separately protected
+X=0 source/fan/reflected stable IDs remain green.
+M22 added an actual post-union X=0 half-original-orbit
+physical refusal test that verifies exact old welded
+root, original sealed source certificate, live fixed/
+paired mirrors, history and dirty state are unchanged.
+The explanatory M22 planning item is now prose, not a
+duplicate open checkbox; ONLY the original M22 is checked.
+
+**Still OPEN:** M23 fully classified three-Clean
+episode decisions, original M12 integrated cumulative
+feature/hysteresis, M13 telemetry, M14 post-CAS
+injected exception guarantees, M15 default-disabled
+desktop Merge mode, V18/V19. See
+`docs/V17_M22_FINAL_INTEGRATED_ACCEPTANCE.md`.
