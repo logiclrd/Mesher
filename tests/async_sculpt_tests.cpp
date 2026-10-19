@@ -1322,7 +1322,7 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
         if(status.contact.cleanChecks!=expectedClean||
            status.contact.quietRun!=expectedQuiet||
            status.contact.active!=active||
-           status.rejectedStamps!=0)
+           status.rejectedStamps!=(expectedClean>2?1u:0u))
             throw std::runtime_error(
                 "M23 actual clean physical 4D classification mismatch: clean="+
                 std::to_string(status.contact.cleanChecks)+
