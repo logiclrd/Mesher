@@ -185,6 +185,13 @@ void AsyncSculptWorker::publish(bool force) {
 }
 void AsyncSculptWorker::run(std::stop_token token) {
     using Clock=std::chrono::steady_clock;
+    // The UI can reserve and enqueue the NEXT Begin while this worker is
+    // completing an unrelated queued Merge/Undo/Checkpoint iteration.
+    // A raw reserved_ check at the end of THAT iteration must not clear
+    // a new reservation before the worker has even consumed its Begin.
+    // This flag is WORKER-owned: only a successfully started stroke may
+    // release its corresponding producer reservation on completion.
+    bool workerOwnsStartedStroke=false;
     try {
         while(!token.stop_requested()) {
             std::optional<Command> command;
@@ -207,6 +214,7 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     if(symmetric_)areas.push_back({{-command->point.x,
                         command->point.y,command->point.z},command->radius,.3});
                     stroke_.startTimed(std::move(areas),timeSpeed_);
+                    workerOwnsStartedStroke=true;
                     // startTimed synchronously applies the mouse-down stamp;
                     // it does not pass through pumpTimedRealtime(), so its
                     // dirty halo must be collected separately.
@@ -287,8 +295,15 @@ void AsyncSculptWorker::run(std::stop_token token) {
                 }
                 publish(idle || !stroke_.active());
             }
-            if(!stroke_.active() && reserved_.load()) {
+            if(workerOwnsStartedStroke&&!stroke_.active()&&
+               stroke_.pendingSamples()==0) {
+                // The final root and all accumulated dirty owners must be
+                // visible to renderer/picker BEFORE the UI can reserve the
+                // next 4D stroke. A queued-but-unprocessed Begin cannot
+                // satisfy workerOwnsStartedStroke, even if a previous
+                // unrelated command just finished while idle.
                 publish(true);
+                workerOwnsStartedStroke=false;
                 reserved_=false;
             }
         }
