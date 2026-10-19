@@ -29,6 +29,9 @@ struct DurableCheckpoint {
     // Only an IN-MEMORY trusted snapshot can hold this sealed certificate;
     // a binary checkpoint never synthesizes a trusted source proof.
     std::shared_ptr<const OriginalPatchLifetime> verifiedOriginalFidelity;
+    // Trusted in-memory FIRST-original reflection, not rebuilt on V12/V13
+    // disk read from a later terminal root.
+    std::vector<std::pair<VertexId,VertexId>> verifiedFirstOriginalMirrorPairs;
     DurableCheckpoint()=default;
     DurableCheckpoint(
         std::shared_ptr<const RegionTopologyIndex> root,
