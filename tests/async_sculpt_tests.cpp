@@ -5333,27 +5333,46 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
 
     const std::array<std::shared_ptr<const RegionTopologyIndex>,4>
         roots{{original,welded,allowed,final}};
-    for(std::size_t n=3;n>0;--n) {
-        worker.undo();
+    // M43 acceptance exposed a pre-existing M34 synchronization race:
+    // worker refreshStatus() runs BEFORE publish() installs the immutable
+    // UI snapshot. Seeing the new undoDepth does NOT fence the snapshot
+    // mailbox under MSVC (or Linux). Wait for the ACTUAL expected root
+    // AND history depths instead; do not weaken exact-ID undo/redo proof.
+    const waitForHistorySnapshot=[&](
+        std::size_t undoDepth,std::size_t redoDepth,
+        const std::shared_ptr<const RegionTopologyIndex>& target) {
+        std::optional<AsyncSculptWorker::Snapshot> found;
         const auto deadline=std::chrono::steady_clock::now()+
                             std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n-1&&
-              std::chrono::steady_clock::now()<deadline)
+        while(std::chrono::steady_clock::now()<deadline) {
+            const auto progress=worker.status();
+            if(progress.history.undoDepth==undoDepth&&
+               progress.history.redoDepth==redoDepth) {
+                auto candidate=worker.takeSnapshot();
+                if(candidate&&candidate->index==target) {
+                    found=std::move(candidate);
+                    break;
+                }
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        const auto snapshot=worker.takeSnapshot();
+        }
+        return found;
+    };
+    for(std::size_t n=3;n>0;--n) {
+        worker.undo();
+        const auto snapshot=waitForHistorySnapshot(
+            n-1,4-n,roots[n-1]);
         require(snapshot&&snapshot->index==roots[n-1]&&
+                worker.status().history.undoDepth==n-1&&
                 worker.status().history.redoDepth==4-n,
                 "M34 each mixed source-exact/physical COW root is individually undoable");
     }
     for(std::size_t n=1;n<=3;++n) {
         worker.redo();
-        const auto deadline=std::chrono::steady_clock::now()+
-                            std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n&&
-              std::chrono::steady_clock::now()<deadline)
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        const auto snapshot=worker.takeSnapshot();
+        const auto snapshot=waitForHistorySnapshot(
+            n,3-n,roots[n]);
         require(snapshot&&snapshot->index==roots[n]&&
+                worker.status().history.undoDepth==n&&
                 worker.status().history.redoDepth==3-n,
                 "M34 redo across exact and physical entries restores exact immutable history roots");
     }
