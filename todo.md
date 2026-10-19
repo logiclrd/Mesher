@@ -1182,6 +1182,54 @@ before beginning code:
   C4456 guard-name shadow was corrected, not hidden. Evidence
   `docs/V17_M41_AGGREGATE_GEOMETRY_WORK.md`; original M13, M42,
   M14/M15/V18/V19 remain OPEN.
+**M42 flat implementation rebaseline — October 19, 2026.** The
+original M42 objective remains fully intact and OPEN. Its contour,
+seam/join, protected-feature/history, and cumulative worker telemetry
+are separate independently complete categories. Plan the FULL flat
+sequence NOW, before beginning M42 implementation:
+
+- [ ] **V17-M43 — Actual original-root contour and closure selection work.**
+  Meter real per-removed-face contour extraction/edge traversals,
+  loop and cap/zipper selection predicates consumed by repeated
+  private c3/uncut and d2 source reconfirmations. Add independently
+  finite aggregate per-category admission in a single direct/queued
+  original-root Step, exact-vs-one-under for actual supported physical
+  and queued joins and independent read-only contour fixtures.
+  Fail-closed atomic COW/source/mirror/dirty/history refusal.
+- [ ] **V17-M44 — Combined source-certified seam tracing, zipper and join work.**
+  Meter all actual original-root seam trace comparisons, matching
+  intervals, source-owned join/weld predicates, asymmetric optional
+  seam refinement and net mirrored-orbit checks; enforce separately
+  finite aggregate caps on genuine direct and queued unions. Test
+  exact-bound positive and one-under category-specific refusal with
+  unchanged accepted source, mirror and checkpoint identity.
+- [ ] **V17-M45 — Complete protected-original feature and pre-CAS history evidence.**
+  Meter actual SEVEN-point × living-descendant closest-triangle
+  checks across all repeated source proof audits and intended
+  exposed/reversed cavity feature decisions (never infer from a
+  last revision). Meter authenticated history-transition and source
+  mirror/orbit verification work; individually exact-vs-one-under
+  guard actual positive physical/queued original-root Steps, preserving
+  first-reference lifetime and refusing before root CAS.
+- [ ] **V17-M46 — Honest direct and queued worker cumulative diagnostics.**
+  Expose separately measured stage wall times (observations, not
+  deterministic upper bounds), attempted vs published per-category
+  copy-work, source/geometry/category refusals, COW memory proxies,
+  completed/rejected worker cumulative counters and bounded
+  history/dirty evidence across real asynchronous FIFO including
+  checkpoint save/restore and undo/redo. Verified exact/one-under
+  acceptance without treating attempted bytes as peak RSS, or
+  an unverified persisted opaque credential as authenticated.
+**Then execute ORIGINAL M42** separately: simultaneous criterion-by-
+criterion integration of M43–M46 plus accepted M40/M41 on the SAME
+genuine direct and queued protected Step/hysteresis history, with
+its own regression/evidence, all 23 CPU suites, GCC/Clang/MSVC
+final-head and independently merged-main green. Check ONLY the
+original M42 checkbox after this, then ORIGINAL M13 integrated
+resource/diagnostic acceptance. Original M13, M14/M15 and V18/V19
+remain separate, OPEN; no weakening of first-source provenance,
+exact interval/CCD promises or unsupported three-body welding.
+
 - [ ] **V17-M42 — Contour/join/feature bounds and full worker diagnostics.**
   Aggregate complete local contour/closure, seam trace/zipper/join,
   protected original feature/distance witness work, symmetric ID
