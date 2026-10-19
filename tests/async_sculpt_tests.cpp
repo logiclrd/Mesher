@@ -2275,7 +2275,7 @@ void testM33ProtectedX0FixedPointQueuedUnion() {
                    b=imported.flatIndex.vertexIds[k+1],
                    c=imported.flatIndex.vertexIds[k+2],
                    d=imported.flatIndex.vertexIds[k+3];
-        for(const auto pair:std::array<MirrorPair,3>{{
+        for(const auto& pair:std::array<MirrorPair,3>{{
             {a,b},{c,c},{d,d}
         }}) {
             mirrorPairs.push_back(pair);
