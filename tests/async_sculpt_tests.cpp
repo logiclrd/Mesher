@@ -2290,6 +2290,16 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
                     "M39 all protected original outer and reversed cavity wall vertices retain first-root XYZ");
         }
     }
+    for(const double x:{5.0,-5.0}) {
+        const auto cavity=final->positiveWindingAt({x,80,0});
+        const auto shell=final->positiveWindingAt({
+            x+(x>0?1.5:-1.5),80,0});
+        const auto outside=final->positiveWindingAt({
+            x+(x>0?4.0:-4.0),80,0});
+        require(cavity.reliable&&shell.reliable&&outside.reliable&&
+                cavity.winding==0&&shell.winding==1&&outside.winding==0,
+                "M39 both protected reversed-cavity original shells retain signed-winding void/material/exterior after 4D local source unions");
+    }
     const auto checkpointFile=std::filesystem::temp_directory_path()/
         "mesher-v17-m39-local-4d-protected-fifo.mshr";
     try {
