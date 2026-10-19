@@ -484,6 +484,15 @@ VersionedSculptBrush::VersionedSculptBrush(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
+    if(collision_.physicalExact) {
+        // Only a genuinely new imported original may create M27's first
+        // anchors. Accepted later terminal revisions NEVER reset them.
+        firstOriginalAuthority_=std::make_shared<const OriginalPatchLifetime>(
+            beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+                published_.snapshot(),flatOrder_->faceIds,
+                collision_.originalIntentInput.maxOriginalWitnesses)));
+        if(symmetric_)firstOriginalMirrors_=inflate_.mirrors();
+    }
 }
 
 VersionedSculptBrush::VersionedSculptBrush(
@@ -524,12 +533,70 @@ VersionedSculptBrush::VersionedSculptBrush(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
     details_.vertices=vertices_;
     details_.triangles=faces_;
+    if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
+        // A trusted recovery may retain opaque FIRST-root authority.
+        // Never re-anchor a recovered later terminal, including V12/V13.
+        firstOriginalAuthority_=recovered.verifiedOriginalFidelity;
+        auto originalPairs=recovered.verifiedFirstOriginalMirrorPairs;
+        if(originalPairs.empty()&&firstOriginalAuthority_->acceptedTransitions==0&&
+           firstOriginalAuthority_->anchors.original==published_.snapshot())
+            originalPairs=recovered.mirrorPairs;
+        for(const auto& [a,b]:originalPairs) {
+            if(!a||!b||
+               (firstOriginalMirrors_.contains(a)&&firstOriginalMirrors_.at(a)!=b)||
+               (firstOriginalMirrors_.contains(b)&&firstOriginalMirrors_.at(b)!=a))
+                throw std::logic_error("Conflicting original reflected-source authority");
+            firstOriginalMirrors_[a]=b;
+            firstOriginalMirrors_[b]=a;
+        }
+    }
+}
+
+std::string VersionedSculptBrush::validateOriginalIntentSources(
+    const std::vector<FaceId>& originals) const {
+    if(originals.empty())return {};
+    if(!collision_.physicalExact)
+        return "Explicit first-original FaceId intent requires physicalExact mode";
+    if(!firstOriginalAuthority_)
+        return "No authenticated first-original source for explicit intended FaceIds";
+    try {
+        // This establishes caller provenance only, NOT a final terminal
+        // fidelity decision. M32/M33 will rebind to the DIRECT previous
+        // published lifetime and evaluate the actual finished candidate.
+        (void)declareOriginalPatchIntent(
+            *firstOriginalAuthority_,originals,
+            symmetric_?&firstOriginalMirrors_:nullptr,
+            collision_.originalIntentInput.maxDeclaredSources);
+    }catch(const std::exception& error) {
+        return std::string("Invalid first-original intent: ")+error.what();
+    }
+    return {};
+}
+void VersionedSculptBrush::setOriginalPatchIntent(
+    std::vector<FaceId> originals) {
+    physicalIntendedOriginals_=std::move(originals);
+    physicalIntentRefusal_=validateOriginalIntentSources(
+        physicalIntendedOriginals_);
 }
 
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
     const auto start=Clock::now();
+    // Scope is resolved on the worker at Begin and is never filled from
+    // candidate geometry. Bad source input must not terminate FIFO.
+    if(!physicalIntentRefusal_.empty()) {
+        lastDirtyPartitions_.clear();
+        lastRejection_=physicalIntentRefusal_;
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={};
+        ++rejected_;
+        ++completed_;
+        return;
+    }
     const auto inflated=inflate_.stamp(old,areas,partitionCapacity_);
     const auto afterInflate=Clock::now();
     refiner_.beginStep();
@@ -895,7 +962,8 @@ void VersionedSculptBrush::stamp(
 bool VersionedSculptBrush::mergeExactContacts(
     std::shared_ptr<const RegionTopologyIndex> expected,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
-    const ExactCutStepLimits& requested) {
+    const ExactCutStepLimits& requested,
+    const std::vector<FaceId>& intendedOriginals) {
     const auto reject=[&](const std::string& reason) {
         lastDirtyPartitions_.clear();
         lastRejection_=reason;
@@ -905,6 +973,9 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto old=published_.snapshot();
     if(!expected||old!=expected)
         return reject("Exact Boolean Step expected root is stale");
+    if(const auto invalid=validateOriginalIntentSources(intendedOriginals);
+       !invalid.empty())
+        return reject(invalid);
     if(contacts.empty())
         return reject("Exact Boolean Step requires a complete explicit contact set");
     if(inflate_.mirrors()!=refiner_.mirrors()||
@@ -1107,6 +1178,13 @@ DurableCheckpoint VersionedSculptBrush::checkpoint() const {
     snapshot.verifiedOriginalFidelity=history_.currentFidelity();
     snapshot.originalFidelityRequired=originalFidelityRequired_||
         static_cast<bool>(snapshot.verifiedOriginalFidelity);
+    // Trusted-only first-root mirrored identity travels separately from
+    // the current mirror map, which can have retired many original IDs.
+    if(firstOriginalAuthority_)
+        for(const auto& [a,b]:firstOriginalMirrors_)
+            if(a<=b)snapshot.verifiedFirstOriginalMirrorPairs.emplace_back(a,b);
+    std::sort(snapshot.verifiedFirstOriginalMirrorPairs.begin(),
+              snapshot.verifiedFirstOriginalMirrorPairs.end());
     for(const auto& [a,b]:inflate_.mirrors())
         if(a<=b)snapshot.mirrorPairs.push_back({a,b});
     std::sort(snapshot.mirrorPairs.begin(),snapshot.mirrorPairs.end());

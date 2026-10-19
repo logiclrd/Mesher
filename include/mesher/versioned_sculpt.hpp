@@ -90,11 +90,17 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
 
 // V17d1: opt-in private classified collision evaluation. The desktop
 // Merge geometry UI remains disabled, with current sculpt default unchanged.
+// M31: finite caller INPUT validation. The active terminal gate is M32/M33.
+struct SculptOriginalIntentInputLimits {
+    std::size_t maxOriginalWitnesses=131072;
+    std::size_t maxDeclaredSources=16384;
+};
 struct SculptCollisionSettings {
     bool enabled=false; // V16 approximate classifier; independent policy
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
+    SculptOriginalIntentInputLimits originalIntentInput{};
     SculptSourceContactLimits physicalSourceLimits{};
     ExactCutStepLimits physicalExactLimits{};
     RepairSurgerySettings surgery{};
@@ -174,6 +180,15 @@ public:
                          std::size_t partitionCapacity=256,
                          SculptStepValidator validator={},
                          SculptCollisionSettings collision={});
+    // Explicit FIRST-original FaceIds for this stroke; never proximity-guessed.
+    // Invalid scope is a recoverable Step refusal, not a worker exception.
+    void setOriginalPatchIntent(std::vector<FaceId> originals);
+    const std::vector<FaceId>& originalPatchIntent() const noexcept {
+        return physicalIntendedOriginals_;
+    }
+    std::shared_ptr<const RegionTopologyIndex> firstOriginalSourceRoot() const noexcept {
+        return firstOriginalAuthority_?firstOriginalAuthority_->anchors.original:nullptr;
+    }
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
@@ -184,7 +199,8 @@ public:
     bool mergeExactContacts(
         std::shared_ptr<const RegionTopologyIndex> expected,
         const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
-        const ExactCutStepLimits& limits={});
+        const ExactCutStepLimits& limits={},
+        const std::vector<FaceId>& intendedOriginals={});
     std::size_t completedUnions() const noexcept {return completedUnions_;}
     std::size_t rejectedUnions() const noexcept {return rejectedUnions_;}
     HistoryStatistics historyStatistics() const noexcept {
@@ -217,6 +233,8 @@ public:
     }
 
 private:
+    std::string validateOriginalIntentSources(
+        const std::vector<FaceId>& originals) const;
     VersionedSculptBrush(PartitionedMeshImport import,std::size_t initialCount,
                          double strength,CurvatureSettings curvature,
                          CollapseSettings collapse,RefineSettings refine,
@@ -249,6 +267,11 @@ private:
     // certificate must never automatically restart fidelity at its
     // current terminal root. M30 installs the active pre-CAS guard.
     bool originalFidelityRequired_{};
+    // Immutable FIRST-source authority and original reflected-ID involution.
+    std::shared_ptr<const OriginalPatchLifetime> firstOriginalAuthority_;
+    std::unordered_map<VertexId,VertexId> firstOriginalMirrors_;
+    std::vector<FaceId> physicalIntendedOriginals_;
+    std::string physicalIntentRefusal_;
     std::vector<PartitionId> lastDirtyPartitions_;
 };
 

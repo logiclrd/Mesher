@@ -72,7 +72,9 @@ public:
     AsyncSculptWorker(const AsyncSculptWorker&)=delete;
     AsyncSculptWorker& operator=(const AsyncSculptWorker&)=delete;
 
-    void begin(Vec3 point,double radius);
+    // First-source selection belongs to the queued Begin command.
+    void begin(Vec3 point,double radius,
+               std::vector<FaceId> intendedOriginals={});
     void update(Vec3 point,double elapsedSeconds);
     void end(Vec3 point,double elapsedSeconds);
     void setRadius(double radius);
@@ -84,7 +86,8 @@ public:
     void mergeExactContacts(
         std::shared_ptr<const RegionTopologyIndex> expected,
         std::vector<RegionTopologyIndex::CollisionPair> contacts,
-        ExactCutStepLimits limits={});
+        ExactCutStepLimits limits={},
+        std::vector<FaceId> intendedOriginals={});
     void saveCheckpoint(std::filesystem::path destination);
     CheckpointStatistics checkpointStatistics() const {
         return checkpoints_.statistics();
@@ -107,6 +110,7 @@ private:
         std::shared_ptr<const RegionTopologyIndex> expected{};
         std::vector<RegionTopologyIndex::CollisionPair> contacts{};
         ExactCutStepLimits mergeLimits{};
+        std::vector<FaceId> intendedOriginals{};
     };
     void enqueue(Command command);
     void run(std::stop_token token);
