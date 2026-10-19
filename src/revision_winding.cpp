@@ -1,4 +1,5 @@
 #include "mesher/region_edit.hpp"
+#include "mesher/exact_stage_work.hpp"
 #include "mesher/revision_picking.hpp"
 
 #include <algorithm>
@@ -84,6 +85,11 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
     WindingStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
+    const ScopedExactQueryAccounting record([&]() noexcept {
+        if(auto* work=executingExactStageWork)
+            work->winding(stats.boxesTested,stats.partitionsTested,
+                          stats.trianglesTested,stats.raysTested);
+    });
     // Detect a query ON the surface before counting crossings. A ray
     // departing precisely from a mesh vertex can otherwise miss every
     // triangle and incorrectly report a confident zero winding.
