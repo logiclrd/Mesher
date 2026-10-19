@@ -1315,6 +1315,7 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
         });
     require(selected,"M23 joined true tower has a live exterior positive-X vertex");
     const auto good=m11RegionIntent(source,0);
+    auto latestAccepted=joined->index;
     const auto clean=[&](std::size_t expectedClean,
                          std::size_t expectedQuiet,bool active) {
         const auto status=stroke(exterior,.5,good);
@@ -1338,6 +1339,15 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
         require(status.contact.episodes==1&&
                 status.contact.closedEpisodes==(active?0u:1u),
                 "M23 actual clean FIFO observations use one episode and only conclusive closure");
+        // The renderer MAY combine accepted dirty owners until they are
+        // consumed. Drain EACH accepted mailbox before asserting that a
+        // later rejected Step contributed no new dirty changes.
+        const auto published=worker.takeSnapshot();
+        require(published&&published->index!=latestAccepted&&
+                !published->dirtyPartitions.empty()&&
+                status.history.undoDepth==status.publishedRevisions,
+                "M23 each conclusive real Clean still publishes an independent full root and GPU dirty owners");
+        latestAccepted=published->index;
     };
     clean(1,1,true);
     clean(2,2,true);
@@ -1352,8 +1362,9 @@ void testM23ConclusiveEpisodesAndReal4DFIFO() {
             refused.publishedRevisions==beforeInvalid.publishedRevisions,
             "M23 rejected real FIFO source scope cannot finish two-Clean contact episode");
     const auto snap=worker.takeSnapshot();
-    require(snap&&snap->index&&snap->dirtyPartitions.empty(),
-            "M23 refused quiet candidate leaves renderer dirty set empty");
+    require(snap&&snap->index==latestAccepted&&
+            snap->dirtyPartitions.empty(),
+            "M23 refused quiet candidate leaves SAME last accepted root and adds no renderer dirty owners");
     clean(3,1,true);
     clean(4,2,true);
     clean(5,0,false);
