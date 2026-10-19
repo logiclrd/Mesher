@@ -2153,7 +2153,8 @@ void testM39ProtectedOverlappingPatchFourDContactEpisodesAndFIFO() {
                 !published->dirtyPartitions.empty()&&
                 state.history.undoDepth==roots.size()&&
                 state.publishedRevisions==roots.size()&&
-                state.completedStamps==roots.size(),
+                state.completedStamps==
+                    state.publishedRevisions+state.rejectedStamps,
                 label);
         roots.push_back(published->index);
         require(original->pickingRootIdentity()==oldPicker,
