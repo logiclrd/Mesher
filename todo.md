@@ -1663,6 +1663,41 @@ sequence BEFORE implementation:
   exposed/cavity, explicit-scope, budget/refusal/recovery and
   three-Clean integration is still OPEN. **Original M12 and M13–M15,
   V18/V19 remain unchecked.**
+**M36 flat execution prerequisites — October 19, 2026.** The original
+M36 and M12 checkboxes and objectives are preserved. M36's coherent,
+simultaneous source/cavity/drift/FIFO scenario is too broad for one
+independently reviewable implementation. Record the complete ordered
+preparation **before starting** any partial code work:
+- [ ] **V17-M37 — Scoped same-patch physical positives with protected cavity/outer source.**
+  Extend M35's two genuine positive local source unions with separate
+  original mirrored outer and signed-winding reversed-cavity geometry;
+  retain those sources OUTSIDE explicit FIRST-original FaceId intent.
+  Prove complete unchanged protected FaceIds, source descendants,
+  original anchors, reflection identity and rejected unscoped wall
+  deformation with exact COW/source/mirror/history rollback. Preserve
+  both positive normal-driven joins and the original sixteen M11 joins.
+- [ ] **V17-M38 — Same-patch complete source work and cumulative protected drift.**
+  Against accepted M37 terminal sources, audit all seven first-original
+  witnesses for each authenticated living descendant, per-original
+  edge scales, full and exactly one-under limits (distinct from
+  Inflate/source-evidence/history caps); measure the first acceptable
+  real protected drift and reject the individually small second
+  cumulative excess without any root/proof/mirror/history/dirty change.
+  Include checkpoint and exact undo/redo evidence.
+- [ ] **V17-M39 — Protected overlapping-patch 4D episode and FIFO recovery.**
+  Use the genuine same-patch physical-positive fixture through actual
+  asynchronous Begin/End 4D input; demonstrate Contact, two accepted
+  Clean, interrupted Unknown, three NEW accepted Clean closure,
+  renewed genuine Contact and later accepted well-scoped FIFO progress,
+  with source/mirror/renderer/history/checkpoint invariants on refusals.
+  Keep X=0 fixed-point and independent coincident-owner cases independently
+  evidenced; never claim second join reaches the same component without
+  proof.
+**Then execute ORIGINAL M36** as a separate criterion-by-criterion
+integrated combined-scenario acceptance (with any necessary new bounded
+test that proves the *simultaneous* policy) before checking ONLY M36.
+Then the already planned ORIGINAL M12 final acceptance. M13–M15, V18/V19
+remain separate and open.
 - [ ] **V17-M36 — Same-patch M19–M23 combined protected policy.**
   On the M35 positive sequence, preserve first-original FaceId/edge-scaled
   seven-witness evidence and signed-winding cavity/outer-wall ownership,
