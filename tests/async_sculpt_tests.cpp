@@ -5225,6 +5225,232 @@ void testOriginalM13WholeStepResourceAndTelemetryReconciliation() {
              <<"with strictly distinct attempted/published COW proxies\n";
 }
 
+// V17-M14: deliberately throw AFTER a real original-root CAS, at four
+// auxiliary transaction boundaries. Such failure is neither a rejected
+// private candidate nor a safely accepted history Step. Quarantine the
+// owner instead of exposing an inconsistent indexed root/checkpoint.
+void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
+    const std::array<SculptPostCasFaultPoint,4> points{{
+        SculptPostCasFaultPoint::AfterRootCas,
+        SculptPostCasFaultPoint::AfterMirrorState,
+        SculptPostCasFaultPoint::AfterHistoryAppend,
+        SculptPostCasFaultPoint::AfterAuxCommit
+    }};
+    const auto fault=[](SculptPostCasFaultPoint point) {
+        return [point](SculptPostCasFaultPoint at) {
+            if(at==point)
+                throw std::runtime_error("M14 deterministic post-CAS fault");
+        };
+    };
+    const auto source=chooseM39FourDimensionalSource();
+    const auto center=source.source.input[0][0].center;
+    const std::array<BrushArea,2> areas{{
+        {center,6,.3},{{-center.x,center.y,center.z},6,.3}
+    }};
+    Mesh dummy;
+    for(const auto point:points) {
+        auto policy=m11PhysicalExactSettings();
+        policy.postCasFaultInjection=fault(point);
+        VersionedSculptBrush physical(
+            source.original,source.strength,{},{},{},true,256,{},policy);
+        const auto before=physical.checkpoint();
+        physical.setOriginalPatchIntent(source.deliberate);
+        bool thrown=false;
+        try {physical.stamp(dummy,areas);}
+        catch(const std::runtime_error& e) {
+            thrown=std::string_view(e.what())=="M14 deterministic post-CAS fault";
+        }
+        const auto& work=physical.lastStepResourceWork();
+        const auto totals=physical.resourceTotals();
+        require(thrown&&physical.terminalFailure()&&
+                physical.terminalFailureReason().find("post-CAS fault")!=
+                    std::string::npos&&
+                !physical.snapshot()&&
+                work.path==SculptStepResourcePath::PhysicalStamp&&
+                work.postCasFailed&&!work.refused&&!work.published&&
+                work.privateCopiedBytes>0&&work.evaluated&&
+                work.exactStage.originalWitnessTriangles>0&&
+                totals.attempts==1&&totals.postCasFailures==1&&
+                totals.published==0&&totals.refused==0&&
+                totals.unchanged==0&&
+                totals.attemptedPrivateCopiedBytes==work.privateCopiedBytes&&
+                totals.attemptedExact.originalWitnessTriangles==
+                    work.exactStage.originalWitnessTriangles&&
+                totals.publishedPrivateCopiedBytes==0&&
+                totals.publishedExact.originalWitnessTriangles==0&&
+                physical.firstOriginalSourceRoot()==
+                    before.verifiedOriginalFidelity->anchors.original&&
+                physical.lastDirtyPartitions().empty(),
+                "M14 injected protected physical post-CAS fault is terminal, quarantines uncertain root, and accounts only attempted COW and source work");
+        unsigned blocked=0;
+        try {(void)physical.checkpoint();}
+        catch(const std::logic_error&) {++blocked;}
+        try {(void)physical.undo();}
+        catch(const std::logic_error&) {++blocked;}
+        try {(void)physical.redo();}
+        catch(const std::logic_error&) {++blocked;}
+        try {physical.setOriginalPatchIntent(source.deliberate);}
+        catch(const std::logic_error&) {++blocked;}
+        try {physical.stamp(dummy,areas);}
+        catch(const std::logic_error&) {++blocked;}
+        require(blocked==5&&physical.resourceTotals().attempts==1,
+                "M14 post-CAS quarantined physical controller forbids further original-source Step, undo/redo or forged checkpoint");
+    }
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto origins=firstOriginalFaces(mesh);
+    const auto limits=supportedUnionLimits(false);
+    SculptCollisionSettings unionPolicy;
+    unionPolicy.physicalExact=true;
+    unionPolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    for(const auto point:points) {
+        auto policy=unionPolicy;
+        policy.postCasFaultInjection=fault(point);
+        VersionedSculptBrush queued(
+            mesh,.006,{},{},{},false,256,{},policy);
+        const auto before=queued.checkpoint();
+        bool thrown=false;
+        try {
+            (void)queued.mergeExactContacts(
+                before.index,fullOriginalContacts(*before.index),
+                limits,origins);
+        }catch(const std::runtime_error& e) {
+            thrown=std::string_view(e.what())=="M14 deterministic post-CAS fault";
+        }
+        const auto& work=queued.lastStepResourceWork();
+        const auto totals=queued.resourceTotals();
+        require(thrown&&queued.terminalFailure()&&!queued.snapshot()&&
+                work.path==SculptStepResourcePath::QueuedExact&&
+                work.evaluated&&work.postCasFailed&&
+                !work.refused&&!work.published&&
+                work.privateCopiedBytes>0&&
+                work.exactStage.originalWitnessTriangles>0&&
+                totals.queuedExactAttempts==1&&
+                totals.attempts==1&&totals.postCasFailures==1&&
+                totals.published==0&&totals.refused==0&&
+                totals.unchanged==0&&
+                totals.attemptedPrivateCopiedBytes==work.privateCopiedBytes&&
+                totals.attemptedExact.originalWitnessTriangles==
+                    work.exactStage.originalWitnessTriangles&&
+                totals.publishedPrivateCopiedBytes==0&&
+                totals.publishedExact.originalWitnessTriangles==0&&
+                queued.firstOriginalSourceRoot()==
+                    before.verifiedOriginalFidelity->anchors.original&&
+                queued.lastDirtyPartitions().empty(),
+                "M14 injected original-source queued exact post-CAS failure cannot be treated as safe refusal or accepted union and quarantines source and history");
+        unsigned blocked=0;
+        try {(void)queued.checkpoint();}
+        catch(const std::logic_error&) {++blocked;}
+        try {(void)queued.undo();}
+        catch(const std::logic_error&) {++blocked;}
+        try {(void)queued.redo();}
+        catch(const std::logic_error&) {++blocked;}
+        try {(void)queued.mergeExactContacts(
+                 before.index,fullOriginalContacts(*before.index),
+                 limits,origins);}
+        catch(const std::logic_error&) {++blocked;}
+        require(blocked==4&&queued.resourceTotals().attempts==1,
+                "M14 queued failure after original-root CAS forbids all follow-up geometry/history/durable-authority operations");
+    }
+    // The worker must publish an explicit terminal-state diagnostic and
+    // must NEVER release an uncertain renderer/picker snapshot.
+    auto workerPolicy=unionPolicy;
+    workerPolicy.postCasFaultInjection=fault(
+        SculptPostCasFaultPoint::AfterHistoryAppend);
+    AsyncSculptWorker worker(mesh,.025,.006,.2,
+                             {},{},{},false,{},workerPolicy);
+    const auto original=worker.initialRevision();
+    worker.mergeExactContacts(original,fullOriginalContacts(*original),
+                              limits,origins);
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+    AsyncSculptWorker::Status final{};
+    do {
+        final=worker.status();
+        if(final.terminalFailure)break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }while(std::chrono::steady_clock::now()<deadline);
+    require(final.terminalFailure&&
+            final.terminalFailureReason.find("post-CAS fault")!=
+                std::string::npos&&
+            final.stepResources.postCasFailed&&
+            final.resources.postCasFailures==1&&
+            final.resources.published==0&&
+            final.resources.refused==0&&
+            final.resources.attemptedPrivateCopiedBytes>0&&
+            !worker.initialRevision()&&
+            !worker.takeSnapshot().has_value()&&
+            final.snapshotPublications==0&&
+            final.history.undoDepth==0 /* untrusted on terminal failure */,
+            "M14 actual FIFO worker reports fatal post-CAS source fault, charges attempted work and suppresses all uncertain frame publication");
+    unsigned blocked=0;
+    try {worker.saveCheckpoint(
+        std::filesystem::temp_directory_path()/"mesher-m14-no-checkpoint.mshr");}
+    catch(const std::runtime_error&) {++blocked;}
+    try {worker.mergeExactContacts(original,fullOriginalContacts(*original),
+                                  limits,origins);}
+    catch(const std::runtime_error&) {++blocked;}
+    require(blocked==2,
+            "M14 fatal worker cannot enqueue a durable save or a new merge after ambiguous root CAS");
+
+    // File-system I/O failure occurs OUTSIDE the indexed root CAS. The
+    // asynchronous writer must report failure while retaining a previously
+    // validated root and permitting a subsequent legitimate checkpoint.
+    AsyncSculptWorker safe(mesh,.025,.006,.2,
+                           {},{},{},false,{},unionPolicy);
+    const auto initial=safe.initialRevision();
+    safe.mergeExactContacts(initial,fullOriginalContacts(*initial),
+                            limits,origins);
+    waitForUnion(safe,1);
+    const auto safeRoot=safe.initialRevision();
+    require(safe.status().completedUnions==1&&safeRoot!=initial,
+            "M14 independent worker has one valid exact original-root history before forcing checkpoint I/O error");
+    const auto rootDir=std::filesystem::temp_directory_path()/
+        "mesher-v17-m14-checkpoint-isolation";
+    std::error_code ec;
+    std::filesystem::remove_all(rootDir,ec);
+    const auto impossible=rootDir/"missing-subdir"/"failure.mshr";
+    safe.saveCheckpoint(impossible);
+    {
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(safe.checkpointStatistics().failed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    require(safe.checkpointStatistics().failed==1&&
+            safe.status().resources.published==1&&
+            safe.initialRevision()==safeRoot&&
+            safe.status().history.undoDepth==1&&
+            !safe.status().terminalFailure,
+            "M14 failed filesystem checkpoint is explicitly reported while accepted indexed root, M29 source and history stay coherent");
+    std::filesystem::create_directories(rootDir);
+    const auto legitimate=rootDir/"valid.mshr";
+    try {
+        safe.saveCheckpoint(legitimate);
+        const auto stop=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(20);
+        while(safe.checkpointStatistics().completed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto status=safe.status();
+        require(status.checkpoints.completed==1&&
+                status.checkpoints.failed==1&&
+                safe.initialRevision()==safeRoot&&
+                status.resources.published==1,
+                "M14 independent successful post-error durable checkpoint does not double-publish or reexecute geometry");
+        const auto saved=readCheckpoint(legitimate);
+        require(saved.index&&saved.originalFidelityRequired&&
+                !saved.verifiedOriginalFidelity,
+                "M14 durable checkpoint after disk error is final source root without invented opaque M29 credentials");
+    }catch(...) {
+        std::filesystem::remove_all(rootDir,ec);
+        throw;
+    }
+    std::filesystem::remove_all(rootDir,ec);
+    std::cout<<"[m14] injected 4 physical and 4 queued true post-CAS failures, "
+             <<"worker fatal quarantine and independent failed/recovered durable I/O\\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -7096,6 +7322,7 @@ int main() {
         testM46CumulativeSourceWorkerDiagnostics();
         testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance();
         testOriginalM13WholeStepResourceAndTelemetryReconciliation();
+        testM14PostCasFaultQuarantineAndCheckpointIsolation();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
