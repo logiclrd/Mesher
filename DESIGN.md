@@ -5077,3 +5077,44 @@ episode/FIFO recovery; ORIGINAL M36 then owes simultaneous joint
 acceptance; original M12 remains a separate final criterion review.
 No post-CAS M14 exceptional fault, desktop M15, V18 or V19 promise.
 See `docs/V17_M38_SAME_PATCH_WORK_AND_DRIFT_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M39 real same-local 4D Contact episode and FIFO
+
+M39 (PR #86, substantive Actions #39263238193 green
+GCC/Clang/MSVC, all 23 CPU suites and applicable benchmarks)
+closes the third flat prerequisite to ORIGINAL M36. Against the
+real M37 72-original-source multishell with two original tetra
+contact bands IN THE SAME overlapping live six-unit brush support,
+40 protected mirrored remote/exposed/negative-wound cavity FaceIds
+remain non-intended. A finite independent normal-driven trial
+selects genuinely supported worker .3-pressure input, but NEVER
+substitutes synthetic contacts or a manufactured episode outcome
+for actual asynchronous serialized 4D Begin/End execution.
+
+One source-proven 4D first Contact union, two independently
+accepted Clean strokes, FOREIGN original-FaceId Unknown, three
+NEW independently accepted Clean for precisely one closed
+episode, one MORE real physically generated c1/c2/c3/M03/d2
+source union in that same original local brush support (reopens
+episode two), a second refused Unknown and one permitted late
+scoped Clean all pass. Every accepted Step produces ONE
+root-matched M29 COW/history entry and dirty renderer snapshot;
+every declined Step leaves the exact root/history and zero dirty.
+The same eight immutable accepted roots undo/redo in exact
+pointer order. Durable snapshots on BOTH sides of EACH refusal
+check full reflected mirror mapping, retired source FaceIds and
+VertexIds and original-fidelity-required V13 marker. Correct
+checkpoint-writer fencing uses NEXT completed save, not absolute
+one. The final 40 originally unscoped FaceIds and their
+ordered source incidence/XYZ remain unchanged, both physical
+cavities retain 0/+1/0 signed winding, all live mirror IDs
+remain exact reflected pairs, and disk-only protected restart
+cannot invent opaque original proof.
+
+This DOES NOT assert that the second Boolean joins the same
+previously welded component, nor that M38 protected drift and
+all M39 episodes occurred as one unbroken worker history.
+ORIGINAL M36 still owes separate simultaneous combined
+policy acceptance; ORIGINAL M12 is its own later final review.
+M13–M15 and V18/V19 stay open. See
+`docs/V17_M39_OVERLAPPING_LOCAL_4D_FIFO_ACCEPTANCE.md`.
