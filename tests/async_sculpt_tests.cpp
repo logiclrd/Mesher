@@ -4766,6 +4766,465 @@ void testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance() {
              <<"independently one-under refused with full M46 source and worker diagnostics\n";
 }
 
+// Original M13 is an INDEPENDENT whole-session resource and diagnostic
+// reconciliation, NOT a relabeling of M42's per-category one-under test.
+// Here M40–M46 source geometry and COW facts are accumulated across real
+// published, refused, stale, undo/redo and worker checkpoint transitions.
+void testOriginalM13WholeStepResourceAndTelemetryReconciliation() {
+    struct Bucket {
+        std::size_t ExactStageWork::*count;
+        std::size_t ExactStageWorkLimits::*ceiling;
+    };
+    constexpr std::array<Bucket,35> buckets{{
+        {&ExactStageWork::collisionQueries,&ExactStageWorkLimits::maxCollisionQueries},
+        {&ExactStageWork::collisionBoxes,&ExactStageWorkLimits::maxCollisionBoxes},
+        {&ExactStageWork::collisionPartitions,&ExactStageWorkLimits::maxCollisionPartitions},
+        {&ExactStageWork::collisionCandidates,&ExactStageWorkLimits::maxCollisionCandidates},
+        {&ExactStageWork::collisionNarrowPhase,&ExactStageWorkLimits::maxCollisionNarrowPhase},
+        {&ExactStageWork::windingQueries,&ExactStageWorkLimits::maxWindingQueries},
+        {&ExactStageWork::windingBoxes,&ExactStageWorkLimits::maxWindingBoxes},
+        {&ExactStageWork::windingPartitions,&ExactStageWorkLimits::maxWindingPartitions},
+        {&ExactStageWork::windingTriangles,&ExactStageWorkLimits::maxWindingTriangles},
+        {&ExactStageWork::windingRays,&ExactStageWorkLimits::maxWindingRays},
+        {&ExactStageWork::arrangementPairTests,&ExactStageWorkLimits::maxArrangementPairTests},
+        {&ExactStageWork::arrangementPredicates,&ExactStageWorkLimits::maxArrangementPredicates},
+        {&ExactStageWork::contourEdgeProbes,&ExactStageWorkLimits::maxContourEdgeProbes},
+        {&ExactStageWork::contourBoundaryEdges,&ExactStageWorkLimits::maxContourBoundaryEdges},
+        {&ExactStageWork::contourLoopVisits,&ExactStageWorkLimits::maxContourLoopVisits},
+        {&ExactStageWork::closureRingTests,&ExactStageWorkLimits::maxClosureRingTests},
+        {&ExactStageWork::closurePairCandidates,&ExactStageWorkLimits::maxClosurePairCandidates},
+        {&ExactStageWork::closureSampleTests,&ExactStageWorkLimits::maxClosureSampleTests},
+        {&ExactStageWork::closureDpTransitions,&ExactStageWorkLimits::maxClosureDpTransitions},
+        {&ExactStageWork::seamTraceProbes,&ExactStageWorkLimits::maxSeamTraceProbes},
+        {&ExactStageWork::seamMatchedIntervals,&ExactStageWorkLimits::maxSeamMatchedIntervals},
+        {&ExactStageWork::seamWeldComparisons,&ExactStageWorkLimits::maxSeamWeldComparisons},
+        {&ExactStageWork::seamRefinePredicates,&ExactStageWorkLimits::maxSeamRefinePredicates},
+        {&ExactStageWork::seamRefineMatches,&ExactStageWorkLimits::maxSeamRefineMatches},
+        {&ExactStageWork::seamMirrorOrbitChecks,&ExactStageWorkLimits::maxSeamMirrorOrbitChecks},
+        {&ExactStageWork::seamFaceRewires,&ExactStageWorkLimits::maxSeamFaceRewires},
+        {&ExactStageWork::originalAnchorProofs,&ExactStageWorkLimits::maxOriginalAnchorProofs},
+        {&ExactStageWork::originalDescendantProofs,&ExactStageWorkLimits::maxOriginalDescendantProofs},
+        {&ExactStageWork::originalRetirementProofs,&ExactStageWorkLimits::maxOriginalRetirementProofs},
+        {&ExactStageWork::originalWitnessTriangles,&ExactStageWorkLimits::maxOriginalWitnessTriangles},
+        {&ExactStageWork::originalIntentChecks,&ExactStageWorkLimits::maxOriginalIntentChecks},
+        {&ExactStageWork::originalProtectedFeatures,&ExactStageWorkLimits::maxOriginalProtectedFeatures},
+        {&ExactStageWork::originalMirrorOrbitChecks,&ExactStageWorkLimits::maxOriginalMirrorOrbitChecks},
+        {&ExactStageWork::originalHistoryRoots,&ExactStageWorkLimits::maxOriginalHistoryRoots},
+        {&ExactStageWork::originalHistoryTransitions,&ExactStageWorkLimits::maxOriginalHistoryTransitions}
+    }};
+    const auto calibrate=[&](SculptCollisionSettings& setting,
+                             const SculptStepResourceWork& step) {
+        setting.stepResources.maxPrivateCopiedBytes=std::max(
+            setting.stepResources.maxPrivateCopiedBytes,
+            step.privateCopiedBytes);
+        setting.stepResources.maxChangedIdReferences=std::max(
+            setting.stepResources.maxChangedIdReferences,
+            step.changedIdReferences);
+        setting.stepResources.maxFinalDirtyPartitions=std::max(
+            setting.stepResources.maxFinalDirtyPartitions,
+            step.finalDirtyPartitions);
+        for(const auto& bucket:buckets) {
+            auto& max=setting.exactStageLimits.*(bucket.ceiling);
+            max=std::max(max,step.exactStage.*(bucket.count));
+        }
+    };
+    const auto atExactLimits=[&](SculptCollisionSettings& setting,
+                                  const SculptStepResourceWork& step) {
+        setting.stepResources.maxPrivateCopiedBytes=step.privateCopiedBytes;
+        setting.stepResources.maxChangedIdReferences=step.changedIdReferences;
+        setting.stepResources.maxFinalDirtyPartitions=step.finalDirtyPartitions;
+        for(const auto& bucket:buckets)
+            setting.exactStageLimits.*(bucket.ceiling)=
+                step.exactStage.*(bucket.count);
+    };
+    const auto stageIsMeasured=[](const SculptStepResourceWork& step) {
+        return std::isfinite(step.elapsedMilliseconds)&&
+            step.elapsedMilliseconds>=0&&
+            std::isfinite(step.stageWall.initialGeometryMs)&&
+            step.stageWall.initialGeometryMs>=0&&
+            std::isfinite(step.stageWall.sourceGeometryMs)&&
+            step.stageWall.sourceGeometryMs>=0&&
+            std::isfinite(step.stageWall.originalProofMs)&&
+            step.stageWall.originalProofMs>=0&&
+            std::isfinite(step.stageWall.admissionMs)&&
+            step.stageWall.admissionMs>=0&&
+            std::isfinite(step.stageWall.publicationAndHistoryMs)&&
+            step.stageWall.publicationAndHistoryMs>=0;
+    };
+    const auto checkLedger=[&](const std::vector<SculptStepResourceWork>&
+                                  witnessed,
+                               const SculptResourceTotals& actual) {
+        std::size_t published=0,refused=0;
+        std::size_t copied=0,acceptedCopied=0;
+        std::size_t changed=0,acceptedChanged=0;
+        std::size_t dirty=0,acceptedDirty=0;
+        std::size_t provenance=0,budget=0,stale=0,geometry=0;
+        double elapsed=0,acceptedElapsed=0;
+        for(const auto& step:witnessed) {
+            require(stageIsMeasured(step),
+                    "original M13 real attempted Step timings must be finite nonnegative observations, never estimated budget work");
+            if(step.published) {
+                ++published;
+                acceptedCopied+=step.privateCopiedBytes;
+                acceptedChanged+=step.changedIdReferences;
+                acceptedDirty+=step.finalDirtyPartitions;
+                acceptedElapsed+=step.elapsedMilliseconds;
+            }else if(step.refused) {
+                ++refused;
+                switch(step.refusalCategory) {
+                case SculptRefusalCategory::CallerOrProvenance:++provenance;break;
+                case SculptRefusalCategory::FiniteWorkBudget:++budget;break;
+                case SculptRefusalCategory::StaleExpectedRoot:++stale;break;
+                case SculptRefusalCategory::GeometryOrTopology:++geometry;break;
+                case SculptRefusalCategory::None:break;
+                }
+            }
+            copied+=step.privateCopiedBytes;
+            changed+=step.changedIdReferences;
+            dirty+=step.finalDirtyPartitions;
+            elapsed+=step.elapsedMilliseconds;
+        }
+        if(actual.attempts!=witnessed.size()||
+           actual.published!=published||actual.refused!=refused||
+           actual.unchanged!=witnessed.size()-published-refused||
+           actual.provenanceRefusals!=provenance||
+           actual.budgetRefusals!=budget||
+           actual.staleRefusals!=stale||
+           actual.geometryRefusals!=geometry||
+           actual.attemptedPrivateCopiedBytes!=copied||
+           actual.publishedPrivateCopiedBytes!=acceptedCopied||
+           actual.attemptedChangedIdReferences!=changed||
+           actual.publishedChangedIdReferences!=acceptedChanged||
+           actual.attemptedDirtyPartitions!=dirty||
+           actual.publishedDirtyPartitions!=acceptedDirty||
+           actual.observedAttemptMilliseconds<0||
+           actual.observedPublishedMilliseconds<0||
+           !std::isfinite(actual.observedAttemptMilliseconds)||
+           !std::isfinite(actual.observedPublishedMilliseconds))
+            return false;
+        // Time is observed independently on each execution. Compare only
+        // with the ledger of THESE SAME calls; there is no timing threshold.
+        const auto within=[](double lhs,double rhs) {
+            return std::abs(lhs-rhs)<=std::max(1e-6,
+                1e-10*std::max(std::abs(lhs),std::abs(rhs)));
+        };
+        if(!within(actual.observedAttemptMilliseconds,elapsed)||
+           !within(actual.observedPublishedMilliseconds,acceptedElapsed))
+            return false;
+        for(const auto& bucket:buckets) {
+            std::size_t attempts=0,publishes=0;
+            for(const auto& step:witnessed) {
+                const auto n=step.exactStage.*(bucket.count);
+                attempts+=n;
+                if(step.published)publishes+=n;
+            }
+            if(actual.attemptedExact.*(bucket.count)!=attempts||
+               actual.publishedExact.*(bucket.count)!=publishes)
+                return false;
+        }
+        return !actual.attemptedExact.overflow&&!actual.publishedExact.overflow;
+    };
+    const auto checkSameWork=[&](const SculptStepResourceWork& a,
+                                 const SculptStepResourceWork& b) {
+        if(a.privateCopiedBytes!=b.privateCopiedBytes||
+           a.changedIdReferences!=b.changedIdReferences||
+           a.finalDirtyPartitions!=b.finalDirtyPartitions)
+            return false;
+        for(const auto& bucket:buckets)
+            if(a.exactStage.*(bucket.count)!=
+               b.exactStage.*(bucket.count))return false;
+        return true;
+    };
+    const auto chosen=chooseM39FourDimensionalSource();
+    const auto first=chosen.original;
+    const Vec3 origin=chosen.source.input[0][0].center;
+    const std::array<BrushArea,2> physicalAreas{{
+        {origin,6,.3},{{-origin.x,origin.y,origin.z},6,.3}
+    }};
+    const std::array<BrushArea,2> cleanAreas{{
+        {chosen.exterior,.5,.3},
+        {{-chosen.exterior.x,chosen.exterior.y,chosen.exterior.z},.5,.3}
+    }};
+    const auto makePhysical=[&](const SculptCollisionSettings& config) {
+        return VersionedSculptBrush(
+            first,chosen.strength,{},{},{},256,{},config);
+    };
+    auto physicalSettings=m11PhysicalExactSettings();
+    Mesh dummy;
+    auto calibration=makePhysical(physicalSettings);
+    std::array<SculptStepResourceWork,3> trueSteps{};
+    calibration.setOriginalPatchIntent(chosen.deliberate);
+    calibration.stamp(dummy,physicalAreas);
+    trueSteps[0]=calibration.lastStepResourceWork();
+    require(calibration.completedUnions()==1&&trueSteps[0].published&&
+            trueSteps[0].privateCopiedBytes>0&&
+            trueSteps[0].exactStage.originalWitnessTriangles>0,
+            "original M13 first genuine M39 4D protected source Contact is an accepted original-root COW Step");
+    for(std::size_t i=1;i<trueSteps.size();++i) {
+        calibration.setOriginalPatchIntent(chosen.deliberate);
+        calibration.stamp(dummy,cleanAreas);
+        trueSteps[i]=calibration.lastStepResourceWork();
+        require(trueSteps[i].published&&!trueSteps[i].refused&&
+                calibration.completedUnions()==1&&
+                calibration.contactStatistics().quietRun==i&&
+                calibration.historyStatistics().undoDepth==i+1,
+                "original M13 second and third source-authorized protected 4D Steps are genuinely Clean and append real COW history");
+    }
+    atExactLimits(physicalSettings,trueSteps[0]);
+    for(std::size_t i=1;i<trueSteps.size();++i)
+        calibrate(physicalSettings,trueSteps[i]);
+
+    auto physical=makePhysical(physicalSettings);
+    std::vector<SculptStepResourceWork> witnessed;
+    const auto stampPhysical=[&](const auto& area) {
+        physical.setOriginalPatchIntent(chosen.deliberate);
+        physical.stamp(dummy,area);
+        const auto work=physical.lastStepResourceWork();
+        witnessed.push_back(work);
+        return work;
+    };
+    require(checkSameWork(trueSteps[0],stampPhysical(physicalAreas)),
+            "original M13 simultaneously calibrated 38 finite Step caps accept one genuine first-root physical Contact");
+    for(std::size_t i=1;i<trueSteps.size();++i)
+        require(checkSameWork(trueSteps[i],stampPhysical(cleanAreas)),
+                "original M13 actual subsequent protected Clean Step admits all 38 caps without previous-root reanchoring");
+    const auto acceptedRoot=physical.snapshot();
+    const auto acceptedHistory=physical.historyStatistics();
+    const auto acceptedCertificate=physical.checkpoint();
+    const auto beforeRefusal=physical.resourceTotals();
+    physical.setOriginalPatchIntent({FaceId{99999999}});
+    physical.stamp(dummy,cleanAreas);
+    const auto invalid=physical.lastStepResourceWork();
+    witnessed.push_back(invalid);
+    const auto finalPhysical=physical.resourceTotals();
+    require(invalid.refused&&!invalid.evaluated&&!invalid.published&&
+            invalid.refusalCategory==SculptRefusalCategory::CallerOrProvenance&&
+            invalid.privateCopiedBytes==0&&
+            invalid.changedIdReferences==0&&
+            invalid.finalDirtyPartitions==0&&
+            physical.snapshot()==acceptedRoot&&
+            physical.historyStatistics().undoDepth==
+                acceptedHistory.undoDepth&&
+            physical.historyStatistics().redoDepth==
+                acceptedHistory.redoDepth&&
+            physical.lastDirtyPartitions().empty()&&
+            physical.checkpoint().verifiedOriginalFidelity==
+                acceptedCertificate.verifiedOriginalFidelity&&
+            physical.checkpoint().mirrorPairs==
+                acceptedCertificate.mirrorPairs&&
+            physical.contactStatistics().quietRun==0&&
+            physical.contactStatistics().uncertainChecks>=1&&
+            finalPhysical.physicalAttempts==4&&
+            finalPhysical.published==3&&
+            finalPhysical.provenanceRefusals==1&&
+            finalPhysical.publishedPrivateCopiedBytes==
+                beforeRefusal.publishedPrivateCopiedBytes&&
+            checkLedger(witnessed,finalPhysical),
+            "original M13 independently reconciles every real M40-M46 attempted/published category over 3 protected roots plus early Unknown without phantom COW/first-source work");
+    for(const auto& bucket:buckets)
+        require(invalid.exactStage.*(bucket.count)==0,
+                "original M13 invalid-first-original caller request before private candidate charges ZERO unexecuted geometry work");
+    require(physical.undo()&&physical.redo()&&
+            physical.snapshot()==acceptedRoot&&
+            checkLedger(witnessed,physical.resourceTotals()),
+            "original M13 genuine direct history undo/redo changes the displayed root, NOT the cumulative private work already executed");
+
+    // Exactly one lowered genuine work limit, with the remaining 37
+    // at the first Step's measured true work, must record expensive
+    // ATTEMPTED work but zero published work or root authority.
+    auto physicalUnder=m11PhysicalExactSettings();
+    atExactLimits(physicalUnder,trueSteps[0]);
+    --physicalUnder.exactStageLimits.maxOriginalWitnessTriangles;
+    auto denied=makePhysical(physicalUnder);
+    denied.setOriginalPatchIntent(chosen.deliberate);
+    const auto deniedOriginal=denied.checkpoint();
+    denied.stamp(dummy,physicalAreas);
+    const auto deniedWork=denied.lastStepResourceWork();
+    require(deniedWork.refused&&deniedWork.evaluated&&!deniedWork.published&&
+            deniedWork.refusalCategory==SculptRefusalCategory::FiniteWorkBudget&&
+            deniedWork.refusal.find("first-original witness-triangle budget")!=
+                std::string::npos&&
+            checkSameWork(trueSteps[0],deniedWork)&&
+            denied.checkpoint().index==deniedOriginal.index&&
+            denied.checkpoint().mirrorPairs==deniedOriginal.mirrorPairs&&
+            denied.historyStatistics().undoDepth==0&&
+            denied.lastDirtyPartitions().empty()&&
+            checkLedger({deniedWork},denied.resourceTotals())&&
+            denied.resourceTotals().published==0&&
+            denied.resourceTotals().attemptedPrivateCopiedBytes>0,
+            "original M13 whole private physical M45 one-under budget charges genuine attempted work but cannot claim M29 published cost or source");
+
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto originalSources=firstOriginalFaces(mesh);
+    const auto fullLimits=supportedUnionLimits(false);
+    SculptCollisionSettings queuedPolicy;
+    queuedPolicy.physicalExact=true;
+    queuedPolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    const auto newQueued=[&](const SculptCollisionSettings& setting) {
+        return VersionedSculptBrush(
+            mesh,.006,{},{},{},false,256,{},setting);
+    };
+    auto queueReference=newQueued(queuedPolicy);
+    const auto originalQueue=queueReference.snapshot();
+    require(queueReference.mergeExactContacts(
+                originalQueue,fullOriginalContacts(*originalQueue),
+                fullLimits,originalSources),
+            "original M13 independent fully authenticated queued c1/c2/c3/M03/d2 Step is supported before 38-resource calibration");
+    const auto queuedTrue=queueReference.lastStepResourceWork();
+    atExactLimits(queuedPolicy,queuedTrue);
+    auto boundedQueue=newQueued(queuedPolicy);
+    const auto q0=boundedQueue.snapshot();
+    require(boundedQueue.mergeExactContacts(
+                q0,fullOriginalContacts(*q0),fullLimits,originalSources),
+            "original M13 true queued Step accepts exact limits across ALL 38 resource categories");
+    const auto qAccepted=boundedQueue.lastStepResourceWork();
+    require(checkSameWork(queuedTrue,qAccepted)&&qAccepted.published,
+            "original M13 queued genuine source payload and all 35 exact counters match independent prior physical-class calibration");
+    const auto qPublished=boundedQueue.checkpoint();
+    require(!boundedQueue.mergeExactContacts(
+                q0,fullOriginalContacts(*q0),fullLimits,originalSources),
+            "original M13 stale source expected-root request MUST fail before any speculative private work");
+    const auto qStale=boundedQueue.lastStepResourceWork();
+    require(qStale.refused&&!qStale.evaluated&&!qStale.published&&
+            qStale.refusalCategory==SculptRefusalCategory::StaleExpectedRoot&&
+            qStale.privateCopiedBytes==0&&
+            qStale.changedIdReferences==0&&
+            qStale.finalDirtyPartitions==0&&
+            boundedQueue.checkpoint().index==qPublished.index&&
+            boundedQueue.checkpoint().verifiedOriginalFidelity==
+                qPublished.verifiedOriginalFidelity&&
+            boundedQueue.checkpoint().mirrorPairs==qPublished.mirrorPairs&&
+            boundedQueue.historyStatistics().undoDepth==1&&
+            boundedQueue.resourceTotals().queuedExactAttempts==2&&
+            checkLedger({qAccepted,qStale},boundedQueue.resourceTotals()),
+            "original M13 cumulative queued telemetry excludes all phantom previous-root COW work on stale source request");
+    for(const auto& bucket:buckets)
+        require(qStale.exactStage.*(bucket.count)==0,
+                "original M13 stale original-root queued proposal never charges unexecuted source proof");
+
+    auto queueUnder=queuedPolicy;
+    --queueUnder.exactStageLimits.maxOriginalWitnessTriangles;
+    auto queuedDenied=newQueued(queueUnder);
+    const auto qDeniedRoot=queuedDenied.checkpoint();
+    require(!queuedDenied.mergeExactContacts(
+                qDeniedRoot.index,
+                fullOriginalContacts(*qDeniedRoot.index),
+                fullLimits,originalSources),
+            "original M13 genuine source queued exact one-under must refuse before one CAS");
+    const auto qBad=queuedDenied.lastStepResourceWork();
+    require(qBad.evaluated&&qBad.refused&&!qBad.published&&
+            qBad.refusalCategory==SculptRefusalCategory::FiniteWorkBudget&&
+            qBad.refusal.find("first-original witness-triangle budget")!=
+                std::string::npos&&
+            checkSameWork(queuedTrue,qBad)&&
+            queuedDenied.checkpoint().index==qDeniedRoot.index&&
+            queuedDenied.checkpoint().verifiedOriginalFidelity==
+                qDeniedRoot.verifiedOriginalFidelity&&
+            queuedDenied.historyStatistics().undoDepth==0&&
+            queuedDenied.lastDirtyPartitions().empty()&&
+            checkLedger({qBad},queuedDenied.resourceTotals())&&
+            queuedDenied.resourceTotals().publishedExact.originalWitnessTriangles==0,
+            "original M13 independent queued true one-under budget retains all attempted resource work with ZERO published original-source history");
+
+    // The worker's FIFO view must be a real cumulative source of truth,
+    // not a last-Step-only proxy. Use one genuine accepted queued root,
+    // a stale source-root refusal, restore its history, and durable I/O.
+    AsyncSculptWorker queueWorker(mesh,.025,.006,.2,
+                                 {},{},{},false,{},queuedPolicy);
+    const auto workerRoot=queueWorker.initialRevision();
+    const auto workerContacts=fullOriginalContacts(*workerRoot);
+    queueWorker.mergeExactContacts(workerRoot,workerContacts,
+                                   fullLimits,originalSources);
+    waitForUnion(queueWorker,1);
+    const auto workerAccepted=queueWorker.status();
+    require(workerAccepted.completedUnions==1&&
+            checkSameWork(queuedTrue,workerAccepted.stepResources)&&
+            checkLedger({workerAccepted.stepResources},
+                        workerAccepted.resources)&&
+            workerAccepted.history.undoDepth==1,
+            "original M13 genuine queued FIFO accounting reconciles same actual source work in worker status");
+    queueWorker.mergeExactContacts(workerRoot,workerContacts,
+                                   fullLimits,originalSources);
+    waitForUnion(queueWorker,2);
+    const auto workerStale=queueWorker.status();
+    require(workerStale.rejectedUnions==1&&
+            workerStale.resources.staleRefusals==1&&
+            workerStale.resources.published==1&&
+            workerStale.resources.queuedExactAttempts==2&&
+            checkLedger({workerAccepted.stepResources,workerStale.stepResources},
+                        workerStale.resources)&&
+            workerStale.resources.publishedPrivateCopiedBytes==
+                workerAccepted.resources.publishedPrivateCopiedBytes,
+            "original M13 FIFO current-session attempted and published totals exactly match independent source Step ledger");
+    queueWorker.undo();
+    {
+        const auto stop=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(queueWorker.status().completedUndos==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto undoStatus=queueWorker.status();
+    require(undoStatus.completedUndos==1&&
+            undoStatus.history.redoDepth==1&&
+            checkLedger({workerAccepted.stepResources,workerStale.stepResources},
+                        undoStatus.resources),
+            "original M13 worker actual undo restores history without pretending to rerun expensive protected-source Boolean work");
+    queueWorker.redo();
+    {
+        const auto stop=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(queueWorker.status().completedRedos==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto redoStatus=queueWorker.status();
+    require(redoStatus.completedRedos==1&&redoStatus.history.redoDepth==0&&
+            redoStatus.resources.published==1&&
+            checkLedger({workerAccepted.stepResources,workerStale.stepResources},
+                        redoStatus.resources),
+            "original M13 worker redo recovers accepted original-root history with no duplicate COW cost");
+
+    const auto temp=std::filesystem::temp_directory_path()/
+        "mesher-v17-m13-original-telemetry-acceptance.mshr";
+    try {
+        queueWorker.saveCheckpoint(temp);
+        const auto stop=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(queueWorker.checkpointStatistics().completed==0&&
+              queueWorker.checkpointStatistics().failed==0&&
+              std::chrono::steady_clock::now()<stop)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto saved=queueWorker.status();
+        require(saved.checkpoints.completed==1&&saved.checkpoints.failed==0&&
+                saved.checkpointCommands==1&&
+                checkLedger({workerAccepted.stepResources,workerStale.stepResources},
+                            saved.resources),
+                "original M13 real asynchronous checkpoint command reports only actual disk I/O, never extra geometry or unreported work");
+        const auto disk=readCheckpoint(temp);
+        require(disk.index&&disk.originalFidelityRequired&&
+                !disk.verifiedOriginalFidelity,
+                "original M13 disk provenance does NOT serialize a forged M29 original-source credential or historic per-CPU-attempt measurements");
+        bool refused=false;
+        try {
+            (void)AsyncSculptWorker(disk,.025,.006,.2,{},{},{},{},queuedPolicy);
+        }catch(const std::logic_error&) {refused=true;}
+        require(refused,
+                "original M13 new controller cannot authenticate protected first original from an untrusted V13 disk snapshot");
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(temp,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(temp,ec);
+    std::cout<<"[original m13] 35 independently reconciled categories over "
+             <<witnessed.size()<<" direct 4D attempts ("
+             <<finalPhysical.published<<" published), genuine queued "
+             <<"accepted/stale/budget refusals and FIFO history/checkpoint "
+             <<"with strictly distinct attempted/published COW proxies\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -6636,6 +7095,7 @@ int main() {
         testM45FirstOriginalFeatureHistoryWork();
         testM46CumulativeSourceWorkerDiagnostics();
         testOriginalM42IntegratedBoundedSourceAndWorkerAcceptance();
+        testOriginalM13WholeStepResourceAndTelemetryReconciliation();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
