@@ -1712,3 +1712,44 @@ is GCC/Clang/MSVC warnings-as-errors GREEN, 23/23 CPU suites and
 applicable benchmarks. Exact final PR-head and separate merged-main
 CI still gate acceptance. See docs/V17_M45_ORIGINAL_FEATURE_HISTORY_WORK.md.
 M46 and ORIGINAL M42/M13, M14, M15, V18/V19 remain unchecked.
+
+## October 19, 2026 — V17-M46 cumulative worker/durable diagnostic semantics
+
+M46 implements the final peer in the preplanned flat prerequisite
+series M43 → M44 → M45 → M46; it does NOT execute or check
+ORIGINAL M42 or ORIGINAL M13. Observed individual stage
+milliseconds now distinguish true initial physical/queued
+geometry, source/mirror/intent evaluation, authenticated M29
+original witness proof, pre-CAS finite budget admission, and
+actual post-CAS history/publication. Attempted vs published
+work is separately accumulated for all 35 independent M41–M45
+source and geometric categories plus M40 copied COW payload
+work proxies, changed ID references and dirty partition
+owners, with saturated category totals and explicit refusal
+diagnostics. Observed wall times are NOT hard run-time caps
+and copy bytes are NOT measured peak RSS. Every rejected
+original-root proposal exposes its attempted work without
+crediting a successful publication.
+
+The FIFO status now contains runtime-only cumulative Step
+totals, undo/redo restorations, checkpoint command counts,
+completed/failed/coalesced disk writer stats and actual
+published coalesced dirty-owner set sizes, while keeping
+original bounded immutable history statistics. Disk-reloaded
+V13 roots carry only a first-original provenance obligation,
+never an authenticated opaque M29 lifetime nor earlier
+session work totals.
+
+The real M39 72-first-original reflected physical union
+and independent source-certified queued two-tetra Boolean
+union exercise exact and one-under original-witness budgets,
+real attempted/published work accounting and stale/refused
+source history. Actual asynchronous worker FIFO undo/redo
+and durable checkpoint save/reload probe reinforce those
+runtime semantics. Substantive
+[PR #96 Actions #39328566938](https://github.com/logiclrd/Mesher/actions/runs/39328566938)
+passed GCC/Clang/MSVC all 23 CPU suites, warnings-as-errors,
+checkpoint stress and applicable benchmarks. Exact final
+head and separate merged-main CI remain required. See
+docs/V17_M46_WORKER_DIAGNOSTICS.md. Original M42, original
+M13, M14/M15 and V18/V19 remain unchecked.
