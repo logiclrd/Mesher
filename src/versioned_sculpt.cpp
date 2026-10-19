@@ -881,6 +881,13 @@ void VersionedSculptBrush::stamp(
             // a source-invalid candidate must not throw after successful CAS.
             verifyOriginalPatchPublicationTransition(
                 *previous,candidate,old,updated,budget.maxLivingDescendants);
+            // M30 final pre-CAS acceptance: the actual M29 history append
+            // always revalidates its immutable default proof-work bound.
+            // A caller may configure a larger M21 audit budget, but must
+            // NEVER make a successful CAS depend on a post-CAS source
+            // certification that the history's bound will reject.
+            verifyOriginalPatchPublicationTransition(
+                *previous,candidate,old,updated);
             (void)evaluateOriginalPatchIntent(
                 *previous,candidate,declaration,
                 budget.maximumProtectedDeviationInEdges,
