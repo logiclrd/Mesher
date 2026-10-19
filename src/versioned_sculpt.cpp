@@ -618,7 +618,7 @@ void VersionedSculptBrush::stamp(
     // M41: the guard remains active through the entire private V13,
     // c1/c2/c3/M03/d2 and M26/M21 source-replay work. Actual repeated
     // queries cost work again; an immutable cached result costs nothing.
-    const ScopedExactStageWork countExactGeometry(
+    ScopedExactStageWork countExactGeometry(
         lastStepResourceWork_.exactStage);
     // Scope is resolved on the worker at Begin and is never filled from
     // candidate geometry. Bad source input must not terminate FIFO.
@@ -1036,6 +1036,9 @@ void VersionedSculptBrush::stamp(
             seconds(start,Clock::now())*1000;
         return;
     }
+    // Private verification and its bounded work have ended; nothing
+    // after publication may be retroactively billed to this admission.
+    countExactGeometry.stop();
     lastDirtyPartitions_=std::move(finalDirty);
 
     // All geometry and connectivity are already fully validated. Publish
@@ -1166,7 +1169,7 @@ bool VersionedSculptBrush::mergeExactContacts(
     const auto started=Clock::now();
     lastStepResourceWork_={};
     lastStepResourceWork_.path=SculptStepResourcePath::QueuedExact;
-    const ScopedExactStageWork countExactGeometry(
+    ScopedExactStageWork countExactGeometry(
         lastStepResourceWork_.exactStage);
     const auto reject=[&](const std::string& reason) {
         lastDirtyPartitions_.clear();
@@ -1376,6 +1379,7 @@ bool VersionedSculptBrush::mergeExactContacts(
            lastStepResourceWork_.exactStage,collision_.exactStageLimits);
        !reason.empty())
         return reject(reason);
+    countExactGeometry.stop();
     // The worker is the only writer of the sculpt controller maps,
     // history, and snapshots. Begin both speculative mirror journals;
     // any prepublication failure rolls both back without changing the
