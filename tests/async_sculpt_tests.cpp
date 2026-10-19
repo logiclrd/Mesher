@@ -2161,7 +2161,10 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
     exact.physicalExact=true;
     exact.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
     exact.originalTerminal.maxDistanceTests=56;
-    exact.originalTerminal.maxLivingDescendants=8;
+    // A valid caller may permit more descendants than the immutable
+    // M29 history bound, but the physical gate MUST ALSO check M29's
+    // default before CAS (not discover a mismatch after publication).
+    exact.originalTerminal.maxLivingDescendants=32768;
     exact.originalTerminal.maxCumulativeFaceEvidence=128;
     exact.originalTerminal.maxInflateVertices=6;
     exact.originalTerminal.maxInflateFaces=8;
@@ -2189,6 +2192,12 @@ void testM32ActivePhysicalOriginalTerminalPolicy() {
             !brush.lastDirtyPartitions().empty()&&
             firstRoot->pickingRootIdentity()==oldPicker,
             "M32 one pre-CAS-certified physical Step publishes matching root, lifetime and dirty history");
+    // Independently apply the actual default M29 append contract to
+    // this REAL protected physical successor, even though the caller's
+    // configured M21 descendant budget is more permissive.
+    verifyOriginalPatchPublicationTransition(
+        *initialProof.verifiedOriginalFidelity,
+        *accepted.verifiedOriginalFidelity,firstRoot,accepted.index);
     brush.stamp(dummy,patch);
     const auto refused=brush.checkpoint();
     require(brush.rejectedStamps()==1&&
@@ -2762,13 +2771,25 @@ void testM34MixedProtectedPhysicalAndQueuedExactFIFO() {
             noChange->dirtyPartitions.empty()&&
             !refused.lastRejection.empty(),
             "M34 second individually small but cumulative protected original drift refuses atomically");
+    // A refused physicalExact stamp can also increment rejectedUnions.
+    // Consequently an absolute union total is NOT a completion fence
+    // after mixing physical and explicit queue operations: under MSVC
+    // it could already equal three before this Merge even ran.
+    // Require a NEW union outcome relative to the post-physical status.
+    const auto beforeStale=worker.status();
+    const auto previousUnionOutcomes=
+        beforeStale.completedUnions+beforeStale.rejectedUnions;
     worker.mergeExactContacts(welded,fullOriginalContacts(*original),
                               limits,tetraSources);
-    waitForUnion(worker,3);
-    require(worker.status().rejectedUnions==2&&
-            worker.status().history.undoDepth==2&&
+    waitForUnion(worker,previousUnionOutcomes+1);
+    const auto stale=worker.status();
+    require(stale.rejectedUnions==beforeStale.rejectedUnions+1&&
+            stale.completedUnions==beforeStale.completedUnions&&
+            stale.history.undoDepth==2&&
+            stale.publishedRevisions==beforeStale.publishedRevisions&&
+            stale.lastRejection.find("stale")!=std::string::npos&&
             !worker.takeSnapshot(),
-            "M34 stale expected union root from BEFORE physical stamp cannot rebase or publish");
+            "M34 actual completed stale expected-root Merge refuses atomically after physical stamp");
 
     // Later correctly scoped physical input must still drain against the
     // accepted post-union, post-first-stamp direct predecessor certificate.

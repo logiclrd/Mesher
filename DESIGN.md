@@ -4802,3 +4802,72 @@ is checked; **original M30, original M22, M23, original M12,
 M13–M15, V18/V19 remain OPEN**. M14 post-CAS injected
 exception rollback and M15 desktop Merge geometry default-disabled
 opt-in are separate, not implicitly accepted here.
+
+
+## October 18, 2026 — Original V17-M30 final full-terminal pre-CAS acceptance
+
+**Original M30 is accepted, not merely the four M31–M34 flat
+implementation peers.** Fresh genuine FIRST-original FaceId
+authority, exact immutable source anchors and per-face
+original edge scales are carried across BOTH real worker
+publication paths. The physical M28 private Inflate/
+refine/collapse/optional c1/c2/c3/M03/d2 chain yields ONE
+external original-root successor; the independently queued
+exact-cut M26 c1/c2/c3/M03/d2 path yields another. Both
+authenticate the precise previous M29 source certificate
+and apply the full M21 bounded seven-per-living-descendant
+first-original terminal audit *before* CAS. Intent is a
+deliberate caller-scoped FIRST-original FaceId declaration:
+only the geometric threshold is waived for explicitly
+named original owners. Whole-source retirement still
+needs certified Buried/Outside classification, no
+coincident XYZ owner inference, and intact X=0
+self-mirror/reciprocal orbits.
+
+M30 inspection closed one final mismatch: M29 history
+append itself always verifies the immutable DEFAULT
+source-lifetime bound, whereas physical M32 had previously
+preflighted only the caller CONFIGURED bound. M30 adds
+the same default transition verifier before physical
+root CAS that M33 already runs for queued exact unions.
+An accepted genuine physical transition now verifies
+the actual M29 default proof even with a larger allowed
+caller descendant bound. This avoids the known class
+of history-proof failure after a source-accepted CAS.
+General injected post-CAS exception atomicity remains
+the separate open M14 goal.
+
+M30 CI also exposed an intermittent false-positive
+in M34's mixed-worker wait: physicalExact refusals may
+increment `rejectedUnions`, so an absolute
+`waitForUnion(worker,3)` was not a fence for an
+*additional* queued stale-root Merge. The revised
+test captures the outcome baseline after the
+physical refusal, waits for ONE further explicit
+result, and checks the specific stale-root reason,
+unchanged history/publication and empty renderer
+mailbox before the next physical Begin. This is
+a test-harness synchronization fix, not a delay
+or a relaxation of the worker acceptance contract.
+
+Evidence: M32 first permissible normal-driven movement,
+cumulative rejected second, full/one-under M21 and
+Inflate evidence, explicit zero-threshold intended
+movement; M33 true queued asymmetric and three-contact
+mirrored X=0 source-proof unions, one-under M26/
+M21 work, stale roots, history/checkpoint; M34
+single-worker real mixed exact/physical FIFO, true
+terminal dirty mailboxes, X=0 successor, and
+three exact undo/redo roots; M11 sixteen genuine
+mirrored physical unions, independent coincident
+FaceId and protected reversed-cavity tests.
+[Actions #39192742674](https://github.com/logiclrd/Mesher/actions/runs/39192742674)
+passed Linux GCC/Clang and Windows MSVC warnings-as-errors,
+the full 23 CPU suites and applicable benchmarks.
+See `docs/V17_M30_ORIGINAL_TERMINAL_ACCEPTANCE.md`.
+
+Only the original M30 checkbox is closed here.
+**The original M22 joint acceptance, M23 and original M12
+remain OPEN**, as do M13–M15, V18/V19 and M14
+fault-injected post-CAS guarantees. No desktop
+Merge geometry option has been enabled.

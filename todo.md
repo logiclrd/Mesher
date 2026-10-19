@@ -1490,7 +1490,7 @@ documentation follows before the merge.
     **Original M30, M22, M23, M12 and M13-M15 remain OPEN**; M14
     fault-injected post-CAS exception atomicity and desktop opt-in
     were intentionally not claimed by this peer.
-  - [ ] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
+  - [x] **V17-M30 — Active full-terminal pre-CAS policy on physicalExact.**
     Wire the M21 intent declaration and complete first-original M27
     sampled audit to BOTH actual stamped physical exact and explicitly
     queued source-exact union worker paths, after final d2/remesh. Test a
@@ -1499,6 +1499,42 @@ documentation follows before the merge.
     original pointer, checkpoint/undo history, mirror maps, dirty
     partitions and serialized work while later valid requests drain.
     Default-disabled UI and prior M11 sixteen real unions must remain green.
+    **Original V17-M30 accepted in PR #80; substantive Actions
+    #39192742674 passed all GCC/Clang/MSVC warning-as-errors builds,
+    23 CPU suites, and applicable benchmarks.** Full M31 first-root
+    caller FaceId intent reaches BOTH actual protected CAS paths; M32
+    authenticates the entire Inflate -> M24/M25 refinement/collapse ->
+    optional exact d2 physical chain and M33 authenticates complete
+    queued c1/c2/c3/M03/d2 source-owned union, always measuring ALL
+    surviving first-original living descendants in local first-edge
+    units AFTER the final terminal is constructed. No private stage is
+    separately published. The original-source certificate and true
+    published predecessor remain immutable and history/checkpoint-bound.
+    M34 demonstrates real accepted intended union on a single worker,
+    finite one-under refusal followed by success, the first permissible
+    physical drift and atomic rejection of cumulative second erosion,
+    genuine stale queued root refusal, later scoped FIFO progress,
+    dirty terminal renderer/picker, protected X=0 mirror identities,
+    V13 disk provenance refusal and exact mixed undo/redo COW roots.
+    Existing M11 sixteen genuine positive mirrored physical unions
+    and independent coincident/cavity source refusals remain green.
+    **Final M30 audit fix:** the physical path now preflights BOTH
+    caller-configured M21 and actual default M29 history source-proof
+    bounds BEFORE CAS, matching M33's queued path, so a caller override
+    cannot create a post-CAS history proof failure. A real accepted
+    physical Step verifies the immutable default M29 transition even
+    under an intentionally more permissive M21 work limit.
+    **Final M30 test fix:** M34's mixed worker failed intermittently
+    on MSVC because rejected physicalExact stamps also increment the
+    rejectedUnion counter; an absolute union-outcome wait could return
+    BEFORE the stale Merge was processed. The corrected assertion
+    waits for one ADDITIONAL outcome after the post-physical baseline,
+    verifies the exact stale-root rejection, and retains the same
+    old root/history/renderer mailbox. This catches genuine ordering
+    regressions rather than merely extending a timeout.
+    **The original V17-M22, M23 and original V17-M12 remain OPEN;
+    M14 post-CAS injected exception guarantees and M15 desktop
+    Merge Geometry UI remain separate.**
   - [ ] **V17-M22 final integrated acceptance (existing checkbox below).**
     Verify M28–M30 jointly, warnings-as-errors GCC/Clang/MSVC with existing
     23 suites, preserve M23 and original M12 as open. Only then check the
