@@ -132,6 +132,7 @@ void AsyncSculptWorker::refreshStatus() {
     s.active=stroke_.active();
     s.timings=brush_->lastTimings();
     s.details=brush_->lastDetails();
+    s.stepResources=brush_->lastStepResourceWork();
     s.publishedRevisions=brush_->publishedRevisions();
     s.modifiedPartitions=brush_->modifiedPartitions();
     s.copiedDirectoryNodes=brush_->copiedDirectoryNodes();
