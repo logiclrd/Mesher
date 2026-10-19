@@ -1456,17 +1456,23 @@ void testContactEpisodeHysteresisNeverCachesApproval() {
     tracker.observe(std::nullopt);
     tracker.observe(false);
     require(tracker.statistics().active&&
+            tracker.statistics().quietRun==1&&
+            tracker.statistics().closedEpisodes==0,
+            "M23 uncertain BVH/classification interrupts two prior Clean credits");
+    tracker.observe(false);
+    require(tracker.statistics().active&&
             tracker.statistics().quietRun==2,
-            "Uncertain BVH/classification result cannot certify contact separation");
+            "M23 two post-uncertainty consecutive Clean do not end episode");
     tracker.observe(false);
     require(!tracker.statistics().active&&
-            tracker.statistics().episodes==1,
-            "Three conclusive clean samples terminate one diagnostic episode");
+            tracker.statistics().episodes==1&&
+            tracker.statistics().closedEpisodes==1,
+            "M23 third consecutive conclusive Clean ends one diagnostic episode");
     tracker.observe(true);
     report=tracker.statistics();
     require(report.active&&report.episodes==2&&report.contactChecks==4&&
-            report.cleanChecks==4,
-            "New contact after separation starts a new diagnostic episode");
+            report.cleanChecks==5&&report.closedEpisodes==1,
+            "M23 recontact after three Clean opens fresh episode without caching approval");
     bool invalid=false;
     try {(void)SculptContactTracker(0);}
     catch(const std::invalid_argument&) {invalid=true;}

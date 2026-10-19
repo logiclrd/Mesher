@@ -1365,3 +1365,44 @@ feature/hysteresis, M13 telemetry, M14 post-CAS
 injected exception guarantees, M15 default-disabled
 desktop Merge mode, V18/V19. See
 `docs/V17_M22_FINAL_INTEGRATED_ACCEPTANCE.md`.
+
+
+## October 18–19, 2026 — V17-M23 conclusive contact-episode diagnostics accepted
+
+**Accepted PR #82, substantive [Actions #39200600909](https://github.com/logiclrd/Mesher/actions/runs/39200600909):**
+GCC, Clang, MSVC warnings-as-errors, 23 CPU suites and
+applicable benchmarks GREEN. Three CONSECUTIVE fully
+classified and downstream-accepted Clean decisions,
+not merely three cumulative checks, terminate an
+active contact episode. Unknown, source budget
+exhaustion, invalid caller intent and rejected Clean
+stages interrupt the quiet streak but do not invent
+Clean or close an episode; independently proved
+Contact starts/extends it even if a later Boolean
+weld refuses. `closedEpisodes` records real closure.
+V13 and V16 observations happen after the proposed
+Step's complete terminal acceptance/refusal decision;
+episode state never shortcuts source validation.
+
+A real two-tower symmetrical M11 physical FIFO
+makes its first genuine exact source weld, accepts
+two actual separately classified exterior Clean
+4D stamps, refuses a foreign original FaceId
+(Unknown), then requires three more accepted Clean
+stamps to close episode one. A second genuine
+source-owned tower weld opens episode two. The
+older V16 hysteresis test now asserts
+`Clean, Clean, Unknown, Clean, Clean, Clean`
+rather than retaining interrupted quiet credit;
+the real M11 V13 over-budget source query produces
+Unknown and next good Contact. All sixteen actual
+M11 mirrored unions, original M22 terminal
+source protection, history, checkpoint and FIFO
+acceptance remain green. See
+`docs/V17_M23_CONCLUSIVE_CONTACT_EPISODES.md`.
+
+**Original V17-M12 and M13–M15, V18/V19 remain
+OPEN**; original M12 is not implied by the M23
+diagnostic gate. Default-disabled desktop
+Merge geometry remains disabled; M14 post-CAS
+injected fault recovery is separate.

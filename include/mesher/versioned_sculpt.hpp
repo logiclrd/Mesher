@@ -126,18 +126,22 @@ struct SculptCollisionSettings {
     // Optional cumulative erosion guard, not required for legacy callers.
     std::optional<SculptAnchoredSurfaceGuard> anchoredSurface;
 };
-// Hysteresis groups a run of contact attempts for diagnostics. It does
-// NOT cache geometry decisions or skip expensive V13/V14 verification.
+// A fully classified Contact starts/extends an episode, and only three
+// CONSECUTIVE fully accepted Clean decisions close it. Rejected, ambiguous
+// or budget-exhausted checks reset the Clean streak without forging a Clean.
+// This diagnostic state NEVER caches weld approval or skips V13/c1/c2/c3/d2
+// or first-original M21/M29 terminal verification on the next Step.
 struct SculptContactStatistics {
     std::size_t episodes{},contactChecks{},cleanChecks{},uncertainChecks{};
+    std::size_t closedEpisodes{};
     std::size_t quietRun{},contactRun{},longestContactRun{};
     bool active{};
 };
 class SculptContactTracker {
 public:
     explicit SculptContactTracker(std::size_t quietChecks=3);
-    // nullopt means classification could not establish clean/contact;
-    // unknown does not terminate an active episode.
+    // nullopt is an uncertain/refused/exhausted check. It interrupts
+    // consecutive Clean or Contact streaks, but never ends an episode.
     void observe(std::optional<bool> contact) noexcept;
     const SculptContactStatistics& statistics() const noexcept {
         return stats_;

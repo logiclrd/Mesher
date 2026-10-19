@@ -1204,6 +1204,191 @@ double chooseM11TowerStrength() {
 
     return strength;
 }
+
+void testM23ConclusiveEpisodesAndReal4DFIFO() {
+    // M23's exact state-machine contract. An uncertain classification,
+    // refused input or exhausted work limit is neither Contact nor Clean.
+    // In particular C,C,?,C must NOT close a three-consecutive-C episode.
+    SculptContactTracker check;
+    check.observe(true);
+    require(check.statistics().active&&check.statistics().episodes==1&&
+            check.statistics().contactRun==1&&
+            check.statistics().closedEpisodes==0,
+            "M23 first conclusive contact opens one episode");
+    check.observe(false);
+    check.observe(false);
+    require(check.statistics().active&&check.statistics().quietRun==2,
+            "M23 two conclusive Clean checks keep the episode open");
+    check.observe(std::nullopt);
+    check.observe(false);
+    require(check.statistics().active&&check.statistics().quietRun==1&&
+            check.statistics().uncertainChecks==1&&
+            check.statistics().closedEpisodes==0,
+            "M23 unknown breaks consecutive Clean run rather than preserving two credits");
+    check.observe(true);
+    require(check.statistics().episodes==1&&check.statistics().quietRun==0&&
+            check.statistics().active&&check.statistics().contactRun==1,
+            "M23 recontact before closure extends SAME episode and resets quiet");
+    check.observe(false);
+    check.observe(false);
+    check.observe(std::nullopt);
+    require(check.statistics().active&&check.statistics().quietRun==0,
+            "M23 uncertain after two Clean prevents false closure");
+    check.observe(false);
+    check.observe(false);
+    require(check.statistics().active&&check.statistics().quietRun==2,
+            "M23 two new consecutive Clean are still insufficient");
+    check.observe(false);
+    require(!check.statistics().active&&check.statistics().quietRun==0&&
+            check.statistics().closedEpisodes==1&&check.statistics().episodes==1,
+            "M23 precisely third successive conclusive Clean ends first episode");
+    check.observe(true);
+    require(check.statistics().episodes==2&&check.statistics().closedEpisodes==1&&
+            check.statistics().active,
+            "M23 first new conclusive recontact opens fresh episode");
+    bool threw=false;
+    try {(void)SculptContactTracker(0);}
+    catch(const std::invalid_argument&){threw=true;}
+    require(threw,"M23 refuses zero-length quiet hysteresis");
+
+    // Physical FIFO, not fabricated Contact/Clean observations. Start
+    // with a genuine symmetric original-source M11 exact union from
+    // disconnected solids, then move the untouched EXTERIOR corner of
+    // one already joined band to obtain independently V13-classified
+    // actual Clean proposals without additional unions.
+    const auto source=makeM11Towers(2,.15);
+    const auto starting=checkpointM11Source(source);
+    const auto strength=chooseM11TowerStrength();
+    AsyncSculptWorker worker(starting,.025,strength,.2,{},{},{},
+                             {},m11PhysicalExactSettings());
+    const auto original=worker.initialRevision();
+    const auto stroke=[&](Vec3 p,double radius,
+                          std::vector<FaceId> intended) {
+        require(worker.canBegin(),
+                "M23 FIFO producer reservation clear before new real stroke");
+        worker.begin(p,radius,std::move(intended));
+        worker.end(p,0);
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(25);
+        while(!worker.canBegin()&&
+              std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(worker.canBegin(),
+                "M23 real physical Begin/End fully drained before contact status inspection");
+        return worker.status();
+    };
+    const auto contact=stroke(source.input[0][0].center,6,
+                              m11RegionIntent(source,0));
+    if(contact.completedUnions!=1)
+        throw std::runtime_error(
+            "M23 initial true physical M11 Contact did not source-weld: "+
+            contact.lastRejection);
+    require(contact.contact.episodes==1&&
+            contact.contact.contactChecks==1&&contact.contact.active&&
+            contact.contact.cleanChecks==0&&
+            contact.contact.closedEpisodes==0&&
+            contact.publishedRevisions==1,
+            "M23 genuine physical FIFO contact starts active episode and one exact terminal CAS");
+    const auto joined=worker.takeSnapshot();
+    require(joined&&joined->index!=original&&
+            !joined->dirtyPartitions.empty(),
+            "M23 original-to-contact terminal only reaches renderer/picker once");
+
+    // Localized exterior-corner input leaves other tower original
+    // identities and contacts untouched; two Clean, a REFUSED bad scope,
+    // then exactly three further Clean must be necessary to close.
+    // The initial exact join can retire original import VertexIds.
+    // Choose an ACTUALLY LIVE positive-X outer corner from the welded
+    // immutable root, never a possibly tombstoned imported XYZ point.
+    Vec3 exterior{};
+    bool selected=false;
+    joined->index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                const auto v=vertex.position;
+                if(v.x<=0||v.y>=-12||std::abs(v.z)>2)continue;
+                if(!selected||v.x<exterior.x) {
+                    exterior=v;
+                    selected=true;
+                }
+            }
+        });
+    require(selected,"M23 joined true tower has a live exterior positive-X vertex");
+    const auto good=m11RegionIntent(source,0);
+    auto latestAccepted=joined->index;
+    const auto clean=[&](std::size_t expectedClean,
+                         std::size_t expectedQuiet,bool active) {
+        const auto status=stroke(exterior,.5,good);
+        if(status.contact.cleanChecks!=expectedClean||
+           status.contact.quietRun!=expectedQuiet||
+           status.contact.active!=active||
+           status.rejectedStamps!=(expectedClean>2?1u:0u))
+            throw std::runtime_error(
+                "M23 actual clean physical 4D classification mismatch: clean="+
+                std::to_string(status.contact.cleanChecks)+
+                " quiet="+std::to_string(status.contact.quietRun)+
+                " active="+std::to_string(status.contact.active)+
+                " contact="+std::to_string(status.contact.contactChecks)+
+                " uncertain="+std::to_string(status.contact.uncertainChecks)+
+                " rejected="+std::to_string(status.rejectedStamps)+
+                " completed="+std::to_string(status.completedStamps)+
+                " candidateVertices="+std::to_string(status.details.influenced)+
+                " moved="+std::to_string(status.details.moved)+
+                " collisionChecked="+std::to_string(status.collisionCheckedStamps)+
+                " reason="+status.lastRejection);
+        require(status.contact.episodes==1&&
+                status.contact.closedEpisodes==(active?0u:1u),
+                "M23 actual clean FIFO observations use one episode and only conclusive closure");
+        // The renderer MAY combine accepted dirty owners until they are
+        // consumed. Drain EACH accepted mailbox before asserting that a
+        // later rejected Step contributed no new dirty changes.
+        const auto published=worker.takeSnapshot();
+        require(published&&published->index!=latestAccepted&&
+                !published->dirtyPartitions.empty()&&
+                status.history.undoDepth==status.publishedRevisions,
+                "M23 each conclusive real Clean still publishes an independent full root and GPU dirty owners");
+        latestAccepted=published->index;
+    };
+    clean(1,1,true);
+    clean(2,2,true);
+    const auto beforeInvalid=worker.status();
+    const auto refused=stroke(exterior,.28,{FaceId{99999999}});
+    require(refused.rejectedStamps==beforeInvalid.rejectedStamps+1&&
+            refused.contact.uncertainChecks==
+                beforeInvalid.contact.uncertainChecks+1&&
+            refused.contact.quietRun==0&&refused.contact.active&&
+            refused.contact.cleanChecks==beforeInvalid.contact.cleanChecks&&
+            refused.contact.episodes==1&&
+            refused.publishedRevisions==beforeInvalid.publishedRevisions,
+            "M23 rejected real FIFO source scope cannot finish two-Clean contact episode");
+    const auto snap=worker.takeSnapshot();
+    require(snap&&snap->index==latestAccepted&&
+            snap->dirtyPartitions.empty(),
+            "M23 refused quiet candidate leaves SAME last accepted root and adds no renderer dirty owners");
+    clean(3,1,true);
+    clean(4,2,true);
+    clean(5,0,false);
+    const auto closed=worker.status();
+    require(closed.contact.closedEpisodes==1&&
+            closed.contact.episodes==1&&
+            closed.contact.cleanChecks==5&&
+            closed.contact.uncertainChecks==1,
+            "M23 actual third-after-refusal consecutive Clean closes one active episode");
+    const auto recontact=stroke(source.input[1][0].center,6,
+                                m11RegionIntent(source,1));
+    if(recontact.completedUnions!=2)
+        throw std::runtime_error(
+            "M23 recontact after three Clean refused actual second tower source union: "+
+            recontact.lastRejection);
+    require(recontact.contact.episodes==2&&
+            recontact.contact.closedEpisodes==1&&
+            recontact.contact.contactChecks==2&&
+            recontact.contact.active&&
+            recontact.contact.quietRun==0&&
+            recontact.history.undoDepth==recontact.publishedRevisions,
+            "M23 genuine second source-weld opens new contact episode WITHOUT caching earlier approval");
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -1322,8 +1507,12 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
             rejected.history.undoDepth==0&&
             refusedSnapshot&&refusedSnapshot->index==old&&
             refusedSnapshot->dirtyPartitions.empty()&&
-            !rejected.lastRejection.empty(),
-            "Oversize contact query rolls back ALL physically moved sheets without a partial published union");
+            !rejected.lastRejection.empty()&&
+            rejected.contact.uncertainChecks==1&&
+            rejected.contact.cleanChecks==0&&
+            rejected.contact.contactChecks==0&&
+            rejected.contact.episodes==0,
+            "M23 actual source V13 section-budget exhaustion is UNKNOWN, never Clean, Contact or a published root");
     // Identical original root and same worker now accept the ordinary
     // six-contact one-region physically triggered mirrored union.
     worker.begin(source.input.front()[0].center,6,
@@ -1338,8 +1527,12 @@ void testM11OversizedPhysicalContactRefusesThenValidDrains() {
     require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
             accepted.publishedRevisions==1&&accepted.history.undoDepth==1&&
             result&&result->index!=old&&!result->dirtyPartitions.empty()&&
-            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0,
-            "Queued worker consumes refused large contact then correct physical symmetric union once");
+            old->retiredFaceCount()==0&&result->index->retiredFaceCount()>0&&
+            accepted.contact.uncertainChecks==1&&
+            accepted.contact.contactChecks==1&&
+            accepted.contact.episodes==1&&
+            accepted.contact.active,
+            "M23 actual work-exhausted physical FIFO recovers with a NEW fully proved Contact episode and valid source weld");
 }
 
 void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
@@ -3033,6 +3226,7 @@ int main() {
         testM33ProtectedX0FixedPointQueuedUnion();
         testM34MixedProtectedPhysicalAndQueuedExactFIFO();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
+        testM23ConclusiveEpisodesAndReal4DFIFO();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();
