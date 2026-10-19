@@ -569,7 +569,7 @@ ConformingCutPlan buildMultiSectionCutPlan(
                 totalTriangles=0;
     // Every actual arrangement invocation is charged, even if a later
     // source, mirror or topology validation refuses this private plan.
-    const ScopedExactQueryAccounting record([&]() noexcept {
+    const ScopedExactQueryAccounting queryAccounting([&]() noexcept {
         if(auto* work=executingExactStageWork)
             work->arrangement(arrangementTests,arrangementPredicates);
     });
