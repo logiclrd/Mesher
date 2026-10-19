@@ -2104,6 +2104,134 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     }
     std::error_code ec;std::filesystem::remove(file,ec);
 }
+
+void testM32ActivePhysicalOriginalTerminalPolicy() {
+    // The same actual two normal-driven stages are independently certified
+    // with M28 solely to choose a tolerance between genuine measurements.
+    // The production brush below must enforce it itself BEFORE publishing.
+    Mesh shape={{{1,0,0},{0,1,0},{-1,0,0},{0,-1,0},
+                 {0,0,1},{0,0,-1}},
+                {{4,0,1},{4,1,2},{4,2,3},{4,3,0},
+                 {5,1,0},{5,2,1},{5,3,2},{5,0,3}}};
+    const auto imported=partitionFlatMesh(shape,256);
+    const auto root=RegionTopologyIndex::build(imported.revision);
+    auto original=beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+        root,imported.flatIndex.faceIds,56));
+    VersionedInflateBrush physical(.035,{});
+    VersionedLocalRefiner refiner(6,{},{},256);
+    VersionedDirectionalCollapser collapser(6,{},{},256);
+    const std::array<BrushArea,1> patch{{{{1,0,0},.8,.9}}};
+    const auto inflated1=physical.stamp(root,patch,256);
+    const auto refined1=refiner.apply(inflated1.index,inflated1.baseline);
+    const auto collapsed1=collapser.apply(refined1.index,inflated1.baseline);
+    const auto first=advanceCertifiedPhysicalStampLifetime(
+        original,inflated1,refined1,collapsed1,nullptr,nullptr,128,128,6,8);
+    const auto inflated2=physical.stamp(first.lineage.terminal,patch,256);
+    const auto refined2=refiner.apply(inflated2.index,inflated2.baseline);
+    const auto collapsed2=collapser.apply(refined2.index,inflated2.baseline);
+    const auto second=advanceCertifiedPhysicalStampLifetime(
+        first,inflated2,refined2,collapsed2,nullptr,nullptr,128,128,6,8);
+    const auto one=auditOriginalPatchLifetime(first,root,56,128);
+    const auto two=auditOriginalPatchLifetime(second,root,56,128);
+    const double tolerance=(one.total.maximumDistanceInEdges+
+                            two.total.maximumDistanceInEdges)*.5;
+    require(two.total.maximumDistanceInEdges>
+            one.total.maximumDistanceInEdges+1e-6,
+            "M32 real second source displacement is cumulatively larger");
+
+    SculptCollisionSettings exact;
+    exact.physicalExact=true;
+    exact.originalTerminal.maximumProtectedDeviationInEdges=tolerance;
+    exact.originalTerminal.maxDistanceTests=56;
+    exact.originalTerminal.maxLivingDescendants=8;
+    exact.originalTerminal.maxCumulativeFaceEvidence=128;
+    exact.originalTerminal.maxInflateVertices=6;
+    exact.originalTerminal.maxInflateFaces=8;
+    VersionedSculptBrush brush(shape,.035,{},{},{},false,256,{},exact);
+    const auto firstRoot=brush.snapshot();
+    const auto oldPicker=firstRoot->pickingRootIdentity();
+    const auto initialProof=brush.checkpoint();
+    require(initialProof.verifiedOriginalFidelity&&
+            initialProof.verifiedOriginalFidelity->lineage.terminal==firstRoot&&
+            initialProof.originalFidelityRequired&&
+            initialProof.verifiedOriginalFidelity->acceptedTransitions==0,
+            "M32 physicalExact history starts sealed at actual FIRST root");
+    Mesh dummy;
+    brush.stamp(dummy,patch);
+    if(brush.publishedRevisions()!=1)
+        throw std::runtime_error(
+            "M32 first small first-original physical stamp refused: "+
+            brush.lastRejection());
+    const auto accepted=brush.checkpoint();
+    require(accepted.index==brush.snapshot()&&accepted.index!=firstRoot&&
+            accepted.verifiedOriginalFidelity&&
+            accepted.verifiedOriginalFidelity->anchors.original==firstRoot&&
+            accepted.verifiedOriginalFidelity->acceptedTransitions==1&&
+            brush.historyStatistics().undoDepth==1&&
+            !brush.lastDirtyPartitions().empty()&&
+            firstRoot->pickingRootIdentity()==oldPicker,
+            "M32 one pre-CAS-certified physical Step publishes matching root, lifetime and dirty history");
+    brush.stamp(dummy,patch);
+    const auto refused=brush.checkpoint();
+    require(brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==1&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.lastDirtyPartitions().empty()&&
+            refused.index==accepted.index&&
+            refused.verifiedOriginalFidelity==accepted.verifiedOriginalFidelity&&
+            refused.verifiedOriginalFidelity->sourceFaceEvidence==
+                accepted.verifiedOriginalFidelity->sourceFaceEvidence&&
+            refused.verifiedOriginalFidelity->anchors.original==firstRoot,
+            "M32 individually small but cumulative second first-root erosion refuses atomically");
+    require(brush.undo()&&brush.snapshot()==firstRoot&&
+            brush.checkpoint().verifiedOriginalFidelity==
+                initialProof.verifiedOriginalFidelity&&
+            brush.redo()&&brush.snapshot()==accepted.index&&
+            brush.checkpoint().verifiedOriginalFidelity==
+                accepted.verifiedOriginalFidelity,
+            "M32 undo/redo reuses exact matching immutable original-source credentials");
+
+    // A one-under COMPLETE seven-witness cap rejects before source CAS.
+    auto low=exact;
+    low.originalTerminal.maxDistanceTests=55;
+    VersionedSculptBrush bounded(shape,.035,{},{},{},false,256,{},low);
+    const auto stable=bounded.snapshot();
+    bounded.stamp(dummy,patch);
+    require(bounded.rejectedStamps()==1&&bounded.snapshot()==stable&&
+            bounded.historyStatistics().undoDepth==0&&
+            bounded.checkpoint().verifiedOriginalFidelity->lineage.terminal==
+                stable&&bounded.lastDirtyPartitions().empty(),
+            "M32 one-below-complete 56 original-child witnesses refuses before CAS");
+    low=exact;
+    low.originalTerminal.maxInflateVertices=5;
+    VersionedSculptBrush vertexLimited(shape,.035,{},{},{},false,256,{},low);
+    const auto untouched=vertexLimited.snapshot();
+    vertexLimited.stamp(dummy,patch);
+    require(vertexLimited.rejectedStamps()==1&&
+            vertexLimited.snapshot()==untouched&&
+            vertexLimited.historyStatistics().undoDepth==0,
+            "M32 complete six-ID moved-source Inflate cap refuses at five");
+
+    // Explicit authenticated deliberate scope permits a real physical
+    // source deformation even when unscoped tolerance is zero.
+    auto intended=exact;
+    intended.originalTerminal.maximumProtectedDeviationInEdges=0;
+    VersionedSculptBrush scoped(shape,.035,{},{},{},false,256,{},intended);
+    scoped.setOriginalPatchIntent(imported.flatIndex.faceIds);
+    scoped.stamp(dummy,patch);
+    require(scoped.publishedRevisions()==1&&
+            scoped.checkpoint().verifiedOriginalFidelity->acceptedTransitions==1,
+            "M32 authenticated pre-edit caller scope exempts only geometric threshold");
+    const auto prior=scoped.checkpoint();
+    scoped.setOriginalPatchIntent({});
+    scoped.stamp(dummy,patch);
+    require(scoped.rejectedStamps()==1&&
+            scoped.checkpoint().index==prior.index&&
+            scoped.checkpoint().verifiedOriginalFidelity==
+                prior.verifiedOriginalFidelity,
+            "M32 unscoped later stamp does not inherit previous intended exemption");
+}
+
 void testM31ExplicitFirstOriginalIntentTransport() {
     // Input scope is the CALLER's permanent original FaceId set, captured
     // before the physical candidate exists; it is not proximity-discovered.
@@ -2231,6 +2359,7 @@ int main() {
         testWorkerInvariantX0OneOriginalRootHistoryAndCheckpoint();
         testM28FullPrivatePhysicalStampLifetime();
         testM31ExplicitFirstOriginalIntentTransport();
+        testM32ActivePhysicalOriginalTerminalPolicy();
         testFirstPhysicalExactBooleanOneOriginalRootStep();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
