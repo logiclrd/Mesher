@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <set>
 #include <utility>
 
 namespace mesher {
@@ -97,7 +98,10 @@ void AsyncSculptWorker::mergeExactContacts(
 }
 void AsyncSculptWorker::mergeDiscoveredContacts(
     std::shared_ptr<const RegionTopologyIndex> expected,
+    std::vector<FaceId> explicitlySelectedFirstOriginals,
     ExactCutStepLimits limits,SculptSourceContactLimits discovery) {
+    if(explicitlySelectedFirstOriginals.empty())
+        throw std::invalid_argument("Live Merge requires explicit first-original FaceId selection");
     if(!expected)
         throw std::invalid_argument("Live Merge needs selected immutable expected root");
     if(reserved_.load())
@@ -106,6 +110,7 @@ void AsyncSculptWorker::mergeDiscoveredContacts(
     command.expected=std::move(expected);
     command.mergeLimits=std::move(limits);
     command.discoveryLimits=std::move(discovery);
+    command.intendedOriginals=std::move(explicitlySelectedFirstOriginals);
     enqueue(std::move(command));
 }
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
@@ -314,6 +319,21 @@ void AsyncSculptWorker::run(std::stop_token token) {
                         refuse("Live Merge requires the trusted initial first-original FaceId source, not a disk-only or OFF-mode root");
                         break;
                     }
+                    // The UI must explicitly name the ORIGINAL features
+                    // intended for surgery. No blanket-all-originals or
+                    // current-terminal XYZ lookup can elevate consent.
+                    const std::set<FaceId> allowed(
+                        order->faceIds.begin(),order->faceIds.end());
+                    std::set<FaceId> unique;
+                    bool validIntent=!command->intendedOriginals.empty()&&
+                                     command->intendedOriginals.size()<=16384;
+                    for(const auto id:command->intendedOriginals)
+                        if(!id||!allowed.contains(id)||!unique.insert(id).second)
+                            validIntent=false;
+                    if(!validIntent) {
+                        refuse("Live Merge first-original FaceId selection invalid, duplicated or outside immutable initial source");
+                        break;
+                    }
                     // No selection fallback to XYZ coincidence, and no
                     // expensive whole-root scan on the Vulkan thread.
                     const auto assessed=brush_->discoverLiveMergeContacts(
@@ -328,7 +348,7 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     }
                     const bool merged=brush_->mergeExactContacts(
                         selected,assessed.contacts,command->mergeLimits,
-                        order->faceIds);
+                        command->intendedOriginals);
                     if(!merged) {
                         refuse(brush_->lastRejection());
                         break;
