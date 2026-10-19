@@ -85,7 +85,7 @@ RegionTopologyIndex::WindingSample RegionTopologyIndex::positiveWindingAt(
     WindingStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
-    const ScopedExactQueryAccounting record([&]() noexcept {
+    const ScopedExactQueryAccounting queryAccounting([&]() noexcept {
         if(auto* work=executingExactStageWork)
             work->winding(stats.boxesTested,stats.partitionsTested,
                           stats.trianglesTested,stats.raysTested);
