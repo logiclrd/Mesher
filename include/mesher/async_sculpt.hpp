@@ -36,6 +36,8 @@ public:
         std::size_t collisionRepairedStamps=0;
         std::size_t completedUnions=0;
         std::size_t rejectedUnions=0;
+        std::size_t liveMergeRequests=0,liveMergeRefusals=0,liveMergeAccepted=0;
+        std::string liveMergeRefusal;
         SculptContactStatistics contact{};
         std::string lastRejection;
         std::size_t totalQueuedSteps=0;
@@ -95,6 +97,13 @@ public:
         std::vector<RegionTopologyIndex::CollisionPair> contacts,
         ExactCutStepLimits limits={},
         std::vector<FaceId> intendedOriginals={});
+    // M47 opt-in: snapshot token selected on the UI; the worker itself
+    // performs the BOUNDED complete original-contact query after dequeue.
+    // No mutable worker mesh or unbounded collision scan on render thread.
+    void mergeDiscoveredContacts(
+        std::shared_ptr<const RegionTopologyIndex> expected,
+        ExactCutStepLimits limits={},
+        SculptSourceContactLimits discovery={});
     void saveCheckpoint(std::filesystem::path destination);
     CheckpointStatistics checkpointStatistics() const {
         return checkpoints_.statistics();
@@ -108,7 +117,7 @@ public:
     }
 
 private:
-    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint,Merge};
+    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint,Merge,DiscoverMerge};
     struct Command {
         Kind kind;
         Vec3 point{};
@@ -117,6 +126,7 @@ private:
         std::shared_ptr<const RegionTopologyIndex> expected{};
         std::vector<RegionTopologyIndex::CollisionPair> contacts{};
         ExactCutStepLimits mergeLimits{};
+        SculptSourceContactLimits discoveryLimits{};
         std::vector<FaceId> intendedOriginals{};
     };
     void enqueue(Command command);
@@ -144,6 +154,8 @@ private:
     std::vector<PartitionId> unpublishedDirty_;
     std::chrono::steady_clock::time_point lastPublish_{};
     std::size_t completedUndos_{},completedRedos_{},checkpointCommands_{};
+    std::size_t liveMergeRequests_{},liveMergeRefusals_{},liveMergeAccepted_{};
+    std::string liveMergeRefusal_;
     std::size_t snapshotPublications_{},lastSnapshotDirtyOwners_{};
     std::size_t totalSnapshotDirtyOwners_{};
     std::jthread worker_;
