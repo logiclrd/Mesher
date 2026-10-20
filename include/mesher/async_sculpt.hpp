@@ -113,7 +113,9 @@ public:
         return checkpoints_.statistics();
     }
 
-    bool canBegin() const noexcept {return !reserved_.load();}
+    bool canBegin() const noexcept {
+        return !reserved_.load()&&!brush_->terminalFailure();
+    }
     Status status() const;
     std::optional<Snapshot> takeSnapshot();
     std::shared_ptr<const RegionTopologyIndex> initialRevision() const noexcept {

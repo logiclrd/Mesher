@@ -47,6 +47,12 @@ struct ViewportInteraction {
     std::function<void()> undo;
     std::function<void()> redo;
     std::function<void()> checkpoint;
+    // M48: strictly opt-in desktop contract. The user selects actual stable
+    // FaceIds from this exact immutable displayed root; the host queues the
+    // M47 bounded discovery, never a render-thread collision traversal.
+    std::function<void(std::shared_ptr<const RegionTopologyIndex>,
+                       std::vector<FaceId>)> mergeSelected;
+    std::function<std::string()> mergeStatus;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;
     std::function<std::size_t()> inputCommands;
