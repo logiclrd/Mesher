@@ -65,8 +65,12 @@ public:
                             Vec3 geometryCentroid) noexcept {
         if(pickedSurface)return *pickedSurface;
         if(std::abs(sourceRay.direction.y)>1e-12) {
+            // MSVC /W4 sees the separate constant-zero test ray in
+            // inline calls; make the divisor nonzero even on dead paths.
+            const double divisor=sourceRay.direction.y==0.0
+                ? 1.0 : sourceRay.direction.y;
             const double t=(geometryCentroid.y-sourceRay.origin.y)/
-                            sourceRay.direction.y;
+                            divisor;
             if(std::isfinite(t)&&t>0)
                 return sourceRay.origin+sourceRay.direction*t;
         }
