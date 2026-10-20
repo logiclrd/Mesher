@@ -108,9 +108,9 @@ struct ViewportCursorStep {
 };
 class ViewportCursorWrap {
 public:
-    void begin(double x,double y) noexcept {
-        x_=x;y_=y;active_=true;awaiting_=false;
-        width_=0;height_=0;
+    void begin(double x,double y,double width,double height) noexcept {
+        x_=x;y_=y;width_=width;height_=height;
+        active_=true;allowWarp_=true;awaiting_=false;
     }
     void stop() noexcept {active_=false;awaiting_=false;}
     void disableWarp() noexcept {allowWarp_=false;awaiting_=false;}
