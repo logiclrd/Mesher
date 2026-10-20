@@ -823,3 +823,51 @@ geometry/topology and stamp totals, and verifies that all work completes
 **even if no rendering thread consumes snapshots**. It also covers
 back-to-back strokes and orderly worker cancellation. The scripted demo,
 comparison benchmarks and synchronous `BrushStroke` interface are unchanged.
+
+## Experimental live Merge geometry — explicitly authorized, default OFF (V17-M48)
+
+The standard Mesher Vulkan launch still uses the existing **Mouse Inflate**
+worker. No background geometric union is performed. For an *experimental*
+first-original-authenticated, finite-budget Merge-capable session, launch
+a **fresh** in-memory mesh using `Mesher --merge-geometry`.
+This flag explicitly provisions the protected original-source worker;
+the visible Merge editing **mode still starts OFF**. Attempts to combine
+`--merge-geometry` with demo/comparison or `--recover` are rejected:
+a disk V13 recovery cannot silently invent the opaque M29
+first-original source certificate. Unlike an unarmed normal launch,
+even Inflate in this specially provisioned session uses the opt-in
+protected original-source physics policy.
+
+While in that authorized session:
+
+- **M** toggles Merge mode ON/OFF. The GPU HUD and window title show it.
+- **OFF:** normal left mouse strokes select Inflate rather than Merge.
+  A launch *without* `--merge-geometry` retains the original legacy path.
+- **ON:** left-click an indexed surface to nominate the stable
+  `FaceId` returned by the currently displayed immutable revision.
+  These are explicit *first-original* nominations, not coordinate-nearest
+  equivalence; unknown/retired/or non-original IDs are refused by the
+  worker. Up to 32 distinct IDs may be nominated from one revision.
+  Left mouse selection never generates an Inflate stroke in ON mode.
+- **Backspace** clears selected FaceIds, **Enter** submits the
+  explicitly nominated root and IDs to the FIFO worker, and toggling
+  OFF clears the selection. A rendered new indexed revision clears
+  old selections; expected-root checks independently refuse stale
+  asynchronous input.
+- Worker-side M47 checks *complete*, finite and source-certified
+  transverse original contacts before invoking the existing exact
+  Boolean. No all-geometry contact discovery occurs on the
+  rendering thread. Valid operations create one COW root, dirty
+  renderer owner snapshot and undoable history step. Unsupported
+  source/tangent/ambiguous or over-budget input **refuses**; there
+  is no guarantee that arbitrary user-selected shapes can be joined.
+  Terminal post-CAS failure stops all subsequent operations.
+  Accepted, refused and pending counts and fatal diagnostics are
+  surfaced through title/HUD and console.
+
+The three-compiler Actions build verifies full Vulkan compilation,
+not an actual graphical interactive test. User-observed Linux/Windows
+window placement, picking, source selection, and live Merge behavior
+are separate V17-M49 / original M15 acceptance tasks. V18's
+**Merge Off** collision constraints and V19's broader robustness
+remain deferred.

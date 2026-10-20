@@ -1942,3 +1942,47 @@ and independent merged-main CI are required
 before the M47 merged-complete report.
 **M48, M49, ORIGINAL M15, V18, V19 OPEN.**
 See `docs/V17_M47_BOUNDED_LIVE_MERGE_DISCOVERY.md`.
+
+## October 19, 2026 — V17-M48 protected desktop authoring mode (default OFF)
+
+The existing flat M47→M48→M49→original M15 sequence
+remains intact. After separately merging M47 bounded
+and first-original-authenticated worker discovery,
+M48 exposes a USER-CONFIRMED Vulkan input route only.
+
+Normal launch remains legacy Inflate (no source
+credential upgrade); `--merge-geometry` explicitly
+arms an immutable first-original protected M29
+worker only for fresh interactive sessions and
+refuses unverified disk/V13 recovery. The visible
+UI mode starts **OFF** even when armed. M toggles
+it, LMB in ON selects up to 32 distinct **stable**
+indexed FaceIds on the exact immutable displayed
+revision instead of stamping, Backspace clears,
+Enter explicitly submits selected root+FaceIds
+to M47's bounded FIFO discovery. New renderer
+revision, mode OFF and explicit clear discard
+selection; stale worker root checks still refuse.
+
+`RegionTopologyIndex::firstRayFaceHit` obtains
+the stable ID and XYZ point from the same
+path-shared BVH as legacy position picking,
+without global XYZ heuristics or full-mesh
+coordinate matching. Typed vs position ray
+regressions are in the original 23 CPU suites.
+GPU HUD, window title and console report
+visible ON/OFF/DISABLED state, selected count,
+real outstanding pending count, accepted and
+refused outcomes and M14 fatal terminal cause.
+Worker still owns any contact traversal,
+M29 original proof, COW and history publication;
+no Vulkan callbacks from background threads.
+
+The default unarmed worker is unchanged,
+while Inflate within an explicitly armed but
+UI-OFF protected session uses the opted-in
+`physicalExact` source constraints. A real
+rendered Linux/Windows GUI verification is
+not implied by headless CI. M49 and ORIGINAL
+M15 stay unchecked, as do V18/V19.
+See `docs/V17_M48_DESKTOP_OPT_IN_ACCEPTANCE.md`.

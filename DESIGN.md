@@ -5784,3 +5784,73 @@ NO new Merge entrypoint.
 Substantive PR #100 [Actions #39345076059](https://github.com/logiclrd/Mesher/actions/runs/39345076059)
 GREEN GCC/Clang/MSVC /W4 /WX all 23 tests and
 applicable stress/benchmarks.
+
+## October 19, 2026 — V17-M48 Vulkan opt-in mode and immutable FaceId selection
+
+M48 is the SECOND separately accepted precursor of the unchanged
+original V17-M15: M47 worker finite, original-authenticated
+source contact discovery precedes this explicit desktop input
+gate, followed by independently planned M49 state-machine/runtime
+integration acceptance and ORIGINAL M15 review.
+
+Normal desktop startup STILL constructs the old unprotected
+Inflate worker. Only an explicit `--merge-geometry` launch
+for a fresh interactive source constructs a protected M29
+`physicalExact` worker; V13 disk recovery, comparison
+and demo modes must not be automatically upgraded. Even
+in an authorized session the Vulkan **Merge edit mode** is
+initially OFF, and the normal Inflate mouse path is chosen.
+Protected-mode OFF strokes in an explicitly armed session
+still have the user's opted-in strict source/fidelity policy;
+the default unarmed launch has no behavioral change.
+
+Within that session, an explicit M key changes mode;
+left-click in ON performs exactly ONE persistent
+`RegionTopologyIndex::firstRayFaceHit` ray test and
+captures the live stable FaceId from the VERY SAME
+two-level persistent BVH and immutable renderer root
+used for `firstRayHit`. This new typed hit shares the
+existing ray/triangle numerical predicate, nearest-depth
+comparison and per-query statistics; the ordinary
+position-only picking API is a wrapper preserving
+old observable behavior. It does NOT scan the mesh
+for nearest-coordinate face IDs or match arbitrary
+coincident 3D vertices. Distinct original FaceIds
+are selected explicitly, at most 32, and bound to
+ONE displayed immutable revision. A published
+renderer root, Backspace or mode-off clears them.
+An Enter key with a nonempty still-current selection
+queues only that root+IDs into M47's serial worker.
+No triangle-pair collision discovery, original
+source ancestry scan or candidate surgery is run on
+the Vulkan/picking thread. The worker independently
+checks the exact expected current root and required
+sealed FIRST original FaceIds; unsupported, empty
+or stale input fails closed.
+
+The HUD has a visible MERGE OFF/ON/DISABLED third
+status line. Title/console expose selection count,
+accepted/refused and REAL queued/executing pending
+requests, and the M14 terminal-failure reason. The
+separate outstanding-command atomic is incremented
+on enqueue, decremented on **every** completed or
+throwing work path (and failed enqueue), and can
+block user strokes while a live Merge request is
+pending. It is NOT a count of accepted geometry or
+a new M40–M46 performance metric.
+
+`tests/revision_picking_tests.cpp` independently
+compares typed nearest FaceId+position to the old
+BVH position-only hit and confirms the FaceId
+belongs to the exact indexed source revision;
+the original suite is retained unchanged.
+All geometry correctness and refused original
+path tests remain covered by M47 and earlier
+M12/M13/M14. The full Linux/Windows Vulkan
+compile gate is distinct from any manual GUI
+operation: M49 owns a CPU-testable keyboard
+mode/input model and targeted desktop integration,
+then ORIGINAL M15 requires end-to-end acceptance.
+No general XYZ coincidence dedup, arbitrary
+multi-body union, guaranteed acceptance of every
+selected first FaceId or exact swept CCD is claimed.
