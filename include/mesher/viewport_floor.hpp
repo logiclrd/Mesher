@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <limits>
 
 namespace mesher {
 
@@ -14,7 +15,7 @@ namespace mesher {
 inline double viewportWorkFloorZ(const Mesh& initial) {
     constexpr double legacySphereFloor=-1.22;
     constexpr double clearance=.5;
-    double minimum=legacySphereFloor+clearance;
+    double minimum=std::numeric_limits<double>::infinity();
     for(const auto p:initial.vertices) {
         if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z))
             throw std::invalid_argument("Nonfinite viewport initial mesh vertex");
@@ -22,7 +23,7 @@ inline double viewportWorkFloorZ(const Mesh& initial) {
     }
     // Preserve the legacy unit-sphere view exactly; move the plane ONLY
     // when the real startup geometry would otherwise intersect it.
-    return std::min(legacySphereFloor,minimum-clearance);
+    return minimum<legacySphereFloor?minimum-clearance:legacySphereFloor;
 }
 
 } // namespace mesher
