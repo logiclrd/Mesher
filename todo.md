@@ -1699,7 +1699,7 @@ faces, bypass original intent, or widen source geometry authorization:
   `docs/V17_M51_REFLECTED_DESKTOP_AND_NOMINATION.md`. Real
   *observed* Windows/Linux rendered GUI remains exclusively M52.
   Recheck the final documentation-head and independent merged-main CI.
-- [ ] **V17-M53 — Right-drag rigid viewport orbit with geometry-hit or centroid-Y-plane pivot.**
+- [x] **V17-M53 — Right-drag rigid viewport orbit with geometry-hit or centroid-Y-plane pivot.**
   Before M52 GPU observation, provide a production GLFW right-button
   drag without editing source geometry. At mouse-down ray-pick the
   *currently displayed immutable surface* using the inverse of the
@@ -1716,6 +1716,17 @@ faces, bypass original intent, or widen source geometry authorization:
   CPU-only orbit/ray/pivot mathematical regression, Linux GCC/
   Clang and Windows MSVC full CTest matrix; M52 separately
   observes actual GPU/desktop ergonomics.
+  Accepted: PR #106 substantive head `e64d739a`,
+  [Actions #39455771691](https://github.com/logiclrd/Mesher/actions/runs/39455771691)
+  SUCCESS Linux GCC, Linux Clang and Windows MSVC Vulkan-enabled
+  /W4 /WX full CTest, threading/checkpoint stress and applicable
+  benchmarks. Actual production GLFW RMB input uses exact indexed
+  surface or current displayed vertex-centroid Y-plane pivot,
+  source-inverse typed picker rays and render matrix. The new
+  independent CPU ray/pivot tests all pass. Fixed both A-key
+  literal-escaped newline diagnostics. Details:
+  `docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md`.
+  Do NOT check M52 or M54 from this evidence.
 - [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
   Investigate the reported reflected union where triangle edges
   visually plunge into its surface even though M51 worker reports
