@@ -1656,7 +1656,7 @@ Complete the following independent peers in order; do not misrepresent
 headless tests as GPU observations or automatically nominate all source
 faces, bypass original intent, or widen source geometry authorization:
 
-- [ ] **V17-M50 — Explicit asymmetric source-positive desktop fixture.**
+- [x] **V17-M50 — Explicit asymmetric source-positive desktop fixture.**
   Add a command-line-only, deliberately labeled supported asymmetric
   two-tetra FIRST-original fixture, *requiring* `--merge-geometry` and
   asymmetric mode. Use identical independently source-certified geometry
@@ -1667,6 +1667,12 @@ faces, bypass original intent, or widen source geometry authorization:
   shared-fixture CPU positive worker/protected-root regression and
   reproducible interactive instructions. This peer does NOT claim that
   a human has observed a Vulkan render.
+  Accepted source and regression evidence: PR #104 substantive head
+  `826cfba0` Actions #39375926773 SUCCESS GCC/Clang/Windows MSVC,
+  29 viewport-enabled CTests, 100-repeat checkpoint-history stress
+  and applicable benchmarks. No rendered GPU acceptance is claimed.
+  Dedicated record: `docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`.
+  Recheck the exact final doc-head and independent merged-main CI.
 - [ ] **V17-M51 — Mirrored positive fixture and complete explicit source
   nomination from the rendered desktop.** Independently construct the
   test's reciprocal, original-proven reflected two-tetra source (not a
