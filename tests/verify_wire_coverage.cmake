@@ -19,7 +19,8 @@ foreach(needle
     "result.wireRaster={float(width),float(height),kWireOuterHalfWidthPixels,0.0f};"
     "depth.depthWriteEnable=(wire||hudOverlay)?VK_FALSE:VK_TRUE;"
     "depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;"
-    "if(wireVisible_) {"
+    "if(wireVisible_&&floorVisible_) {"
+    "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
     "if(floorVisible_) {")
     # First include guard is in the actual source as \"mesher/wire_appearance.hpp\".
     if(needle STREQUAL "include/mesher/wire_appearance.hpp")
