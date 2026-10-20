@@ -57,28 +57,101 @@ public:
         translation_=anchor+rotate(translation_-anchor,az,ax);
     }
 
-    // The miss fallback is specifically the XZ plane at centroid.y,
-    // *not* a z=0 ground plane. A parallel/behind ray has no valid
-    // forward intersection; use the current centroid deterministically.
-    static Vec3 choosePivot(Ray sourceRay,
-                            std::optional<Vec3> pickedSurface,
-                            Vec3 geometryCentroid) noexcept {
-        if(pickedSurface)return *pickedSurface;
-        if(std::abs(sourceRay.direction.y)>1e-12) {
-            // MSVC /W4 sees the separate constant-zero test ray in
-            // inline calls; make the divisor nonzero even on dead paths.
-            const double divisor=sourceRay.direction.y==0.0
-                ? 1.0 : sourceRay.direction.y;
-            const double t=(geometryCentroid.y-sourceRay.origin.y)/
-                            divisor;
-            if(std::isfinite(t)&&t>0)
-                return sourceRay.origin+sourceRay.direction*t;
-        }
-        return geometryCentroid;
+    // The background pivot lies in a DISPLAY-space plane parallel to the
+    // viewport, through the *transformed* current geometry centroid.
+    // The exact original-source surface hit wins if the cursor is on a face.
+    // Convert any plane hit back into original space for fixed-source orbit.
+    Vec3 choosePivot(Ray visualRay,std::optional<Vec3> pickedSource,
+                     Vec3 sourceCentroid,Vec3 viewForward) const noexcept {
+        if(pickedSource)return *pickedSource;
+        const Vec3 displayCentroid=displayed(sourceCentroid);
+        const double denominator=dot(visualRay.direction,viewForward);
+        if(!std::isfinite(denominator)||std::abs(denominator)<1e-12)
+            return sourceCentroid;
+        // A nonzero divisor on all paths avoids MSVC /W4 C4723 in
+        // constant-folded parallel-ray regression inputs.
+        const double safe=denominator==0.0?1.0:denominator;
+        const double t=dot(displayCentroid-visualRay.origin,viewForward)/
+                       safe;
+        if(!std::isfinite(t)||t<=0)return sourceCentroid;
+        return inverseVector(visualRay.origin+visualRay.direction*t-
+                             translation_);
     }
+
+    // Alt-RMB: positive mouse-X walks the *viewer* forward along the
+    // current centre ray, i.e. shifts the visually displayed scene in
+    // the opposite direction. This is the camera-translation equivalent
+    // of the existing scene model translation, not a mesh edit.
+    void dolly(Vec3 cameraForward,double dxPixels,double framebufferSpan,
+               double eyeDistance) noexcept {
+        if(!(std::isfinite(dxPixels)&&std::isfinite(framebufferSpan)&&
+             std::isfinite(eyeDistance)&&framebufferSpan>0&&
+             eyeDistance>0))return;
+        const double unitsPerPixel=2.0*eyeDistance*
+                                   std::tan(std::numbers::pi/8.0)/
+                                   framebufferSpan;
+        translation_=translation_-cameraForward*(dxPixels*unitsPerPixel);
+    }
+
 private:
     std::array<Vec3,3> basis_{{{1,0,0},{0,1,0},{0,0,1}}};
     Vec3 translation_{};
+};
+
+
+// Pure cursor-wrap planning, independent of GLFW/Vulkan. Coordinates are
+// GLFW window-client coordinates; the caller performs platform cursor warp
+// only during an active RMB gesture and only while the window is focused.
+struct ViewportCursorStep {
+    double dx{},dy{},warpX{},warpY{};
+    bool warp{};
+};
+class ViewportCursorWrap {
+public:
+    void begin(double x,double y,double width,double height) noexcept {
+        x_=x;y_=y;width_=width;height_=height;
+        active_=true;allowWarp_=true;awaiting_=false;
+    }
+    void stop() noexcept {active_=false;awaiting_=false;}
+    void disableWarp() noexcept {allowWarp_=false;awaiting_=false;}
+    bool active() const noexcept {return active_;}
+    ViewportCursorStep sample(double x,double y,double width,
+                              double height) noexcept {
+        if(!active_||!std::isfinite(x)||!std::isfinite(y)||
+           !(width>12&&height>12))return {};
+        if(width!=width_||height!=height_) {
+            width_=width;height_=height;x_=x;y_=y;
+            return {};
+        }
+        if(awaiting_) {
+            // The OS can deliver a stale pre-warp position after
+            // glfwSetCursorPos. Wait for its discontinuous warp; never
+            // interpret that synthetic jump as rotation/dolly motion.
+            if(std::abs(x-warpX_)>std::max(8.0,width*.20)||
+               std::abs(y-warpY_)>std::max(8.0,height*.20))
+                return {};
+            awaiting_=false;
+            x_=warpX_;y_=warpY_;
+        }
+        ViewportCursorStep move;
+        move.dx=x-x_;
+        move.dy=y-y_;
+        x_=x;y_=y;
+        if(!allowWarp_)return move;
+        move.warpX=x;move.warpY=y;
+        constexpr double edge=2.0,inset=5.0;
+        if(x<=edge) {move.warpX=width-inset;move.warp=true;}
+        else if(x>=width-edge) {move.warpX=inset;move.warp=true;}
+        if(y<=edge) {move.warpY=height-inset;move.warp=true;}
+        else if(y>=height-edge) {move.warpY=inset;move.warp=true;}
+        return move;
+    }
+    void didWarp(double x,double y) noexcept {
+        warpX_=x;warpY_=y;awaiting_=true;
+    }
+private:
+    double x_{},y_{},width_{},height_{},warpX_{},warpY_{};
+    bool active_=false,allowWarp_=true,awaiting_=false;
 };
 
 } // namespace mesher

@@ -16,20 +16,104 @@ int main() {
         auto nearEnough=[](Vec3 a,Vec3 b,double tolerance=1e-9) {
             return length(a-b)<=tolerance;
         };
-        const Ray forward{{0,-3,1},{0,1,0}};
         const Vec3 centroid{.25,.5,-.125};
-        check(nearEnough(ViewportOrbit::choosePivot(forward,std::nullopt,centroid),
-                         {0,.5,1}),
-              "M53 background RMB hits centroid-Y XZ plane, not world Z plane");
-        check(nearEnough(ViewportOrbit::choosePivot(forward,Vec3{1,2,3},centroid),
-                         {1,2,3}),
-              "M53 surface hit outranks background plane");
-        check(nearEnough(ViewportOrbit::choosePivot(
-                {{0,0,0},{1,0,0}},std::nullopt,centroid),centroid),
-              "M53 parallel background ray uses finite centroid fallback");
-        check(nearEnough(ViewportOrbit::choosePivot(
-                {{0,1,0},{0,1,0}},std::nullopt,centroid),centroid),
-              "M53 behind-eye plane intersection uses finite centroid fallback");
+        ViewportOrbit startView;
+        const Vec3 centerForward=normalized(
+            Vec3{}-viewportCameraEye(1280,720));
+        const auto visual=viewportRay(790,415,1280,720);
+        const auto picked=startView.choosePivot(
+            visual,Vec3{1,2,3},centroid,centerForward);
+        check(nearEnough(picked,{1,2,3}),
+              "M55 exact foreground source hit outranks background plane");
+        const auto background=startView.choosePivot(
+            visual,std::nullopt,centroid,centerForward);
+        check(std::abs(dot(startView.displayed(background)-
+                               startView.displayed(centroid),
+                           centerForward))<1e-9,
+              "M55 background plane is truly perpendicular to centre ray");
+        check(length(cross(startView.displayed(background)-visual.origin,
+                           visual.direction))<1e-8,
+              "M55 background pivot also lies on the visual pointer ray");
+        const Ray parallel{{0,-3,1},normalized(
+            cross(centerForward,{1,0,0}))};
+        check(nearEnough(startView.choosePivot(
+                parallel,std::nullopt,centroid,centerForward),centroid),
+              "M55 screen-parallel plane refusal falls back to source centroid");
+        const Ray behind{{0,10,1},centerForward};
+        check(nearEnough(startView.choosePivot(
+                behind,std::nullopt,centroid,centerForward),centroid),
+              "M55 plane behind eye falls back to source centroid");
+
+        ViewportOrbit movedAndRotated;
+        movedAndRotated.drag({-.25,.125,.5},135,80,720);
+        movedAndRotated.dolly(centerForward,50,720,12);
+        const auto rotatedPivot=movedAndRotated.choosePivot(
+            visual,std::nullopt,centroid,centerForward);
+        const auto displayPivot=movedAndRotated.displayed(rotatedPivot);
+        check(std::abs(dot(displayPivot-
+                           movedAndRotated.displayed(centroid),
+                           centerForward))<1e-8,
+              "M55 rotated and translated background pivot stays SCREEN-parallel");
+        check(length(cross(displayPivot-visual.origin,
+                           visual.direction))<1e-7,
+              "M55 rotated background pivot is still on pointer visual ray");
+        check(std::abs(rotatedPivot.y-centroid.y)>1e-4,
+              "M55 rotated screen-parallel plane is not original-world Y constant");
+
+        ViewportOrbit dolly;
+        dolly.dolly(centerForward,25,720,12);
+        const Vec3 delta=dolly.translation();
+        check(dot(delta,centerForward)<0&&
+              length(cross(delta,centerForward))<1e-9,
+              "M55 Alt-right positive X moves camera forward (scene backward) along centre ray");
+        const Vec3 position=dolly.displayed({1,2,3});
+        const Ray dollyPick=dolly.pickingRay(visual);
+        check(nearEnough(dolly.displayed(dollyPick.origin),visual.origin)&&
+              nearEnough(position,Vec3{1,2,3}+delta),
+              "M55 dolly only updates visual translation and inverse source picking");
+        dolly.dolly(centerForward,-25,720,12);
+        check(nearEnough(dolly.translation(),Vec3{}),
+              "M55 reverse dolly traverses back to original camera location");
+        const auto frozen=dolly.translation();
+        dolly.dolly(centerForward,25,0,12);
+        check(nearEnough(dolly.translation(),frozen),
+              "M55 invalid frame size leaves scene transform unchanged");
+
+        ViewportCursorWrap wrap;
+        wrap.begin(90,50,100,100);
+        auto one=wrap.sample(99,50,100,100);
+        check(one.warp&&one.warpX==5&&one.warpY==50&&
+              std::abs(one.dx-9)<1e-9,
+              "M55 right edge wraps cursor to left after real motion");
+        wrap.didWarp(one.warpX,one.warpY);
+        auto stale=wrap.sample(99,50,100,100);
+        check(stale.dx==0&&!stale.warp,
+              "M55 queued stale pre-warp callback makes NO giant reverse drag");
+        auto fromLeft=wrap.sample(6,50,100,100);
+        check(fromLeft.dx==1&&!fromLeft.warp,
+              "M55 first actual post-warp movement continues smoothly");
+        auto left=wrap.sample(1,50,100,100);
+        check(left.warp&&left.warpX==95&&left.dx==-5,
+              "M55 left edge wraps back to right with correct drag sign");
+        wrap.didWarp(left.warpX,left.warpY);
+        auto next=wrap.sample(94,50,100,100);
+        check(next.dx==-1&&!next.warp,
+              "M55 reverse long gesture has no synthetic cursor delta");
+        auto top=wrap.sample(94,1,100,100);
+        check(top.warp&&top.warpY==95&&top.dy==-49,
+              "M55 vertical crossing wraps to opposite edge");
+        wrap.didWarp(top.warpX,top.warpY);
+        check(wrap.sample(94,94,100,100).dy==-1,
+              "M55 vertical post-warp motion remains continuous");
+        check(wrap.sample(60,60,120,120).dx==0,
+              "M55 client resize resets baseline, not a spurious giant drag");
+        wrap.disableWarp();
+        check(!wrap.sample(119,119,120,120).warp,
+              "M55 platform-refused GLFW cursor wrapping degrades safely");
+        wrap.stop();
+        check(wrap.sample(119,119,120,120).dx==0,
+              "M55 ordinary mouse movement after release never wraps");
+
 
         ViewportOrbit orbit;
         const Vec3 pivot{.375,-.75,1.125};
