@@ -1699,6 +1699,37 @@ faces, bypass original intent, or widen source geometry authorization:
   `docs/V17_M51_REFLECTED_DESKTOP_AND_NOMINATION.md`. Real
   *observed* Windows/Linux rendered GUI remains exclusively M52.
   Recheck the final documentation-head and independent merged-main CI.
+- [ ] **V17-M53 — Right-drag rigid viewport orbit with geometry-hit or centroid-Y-plane pivot.**
+  Before M52 GPU observation, provide a production GLFW right-button
+  drag without editing source geometry. At mouse-down ray-pick the
+  *currently displayed immutable surface* using the inverse of the
+  rendered scene transform; use the exact hit as the fixed pivot.
+  If the ray misses geometry, intersect that ray with the XZ plane
+  at the current geometry's centroid Y (handle parallel/no-forward
+  intersection deterministically). Horizontal mouse delta rotates
+  the scene about world Z; vertical delta about world X; sign chosen
+  so nearest visible material follows cursor motion. Persist
+  accumulated rotation and pivot across frames, freeze at release;
+  handle resize, high-DPI, changed COW root, picking, Vulkan wire/
+  shaded frame, grid and ordinary left Inflate/ON Merge without
+  ever changing worker geometry/FaceIds or checkpoints. Shared
+  CPU-only orbit/ray/pivot mathematical regression, Linux GCC/
+  Clang and Windows MSVC full CTest matrix; M52 separately
+  observes actual GPU/desktop ergonomics.
+- [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
+  Investigate the reported reflected union where triangle edges
+  visually plunge into its surface even though M51 worker reports
+  `A 1 R 0 P 0`. Add an independent bounded CPU diagnostic on
+  the actual accepted fixture roots, before/after and undo/redo:
+  per-undirected-edge opposite-directed two-face incidence,
+  component count and connected shells, orientability, residual
+  nonadjacent triangle crossings / internal overlapping fragments,
+  and evidence against false-positive edge-wire occlusion. Separate
+  observed failure from presentation artifact; if structural defects
+  exist, record independently completable follow-on repairs in
+  todo.md BEFORE beginning any partial repair and keep original
+  M52/M15 acceptance open until the defect is solved. Never treat
+  worker acceptance counters as manifold proof.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
