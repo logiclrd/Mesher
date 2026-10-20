@@ -6056,3 +6056,28 @@ and pipeline source with CTest; M54 still checks triangle
 incidence/closedness/residual crossings and M52 still requires
 human Linux/Windows Vulkan observation. Detail:
 `docs/V17_M56_WIRE_DEPTH_OCCLUSION.md`.
+
+## V17-M54 — Verified source-positive manifold union, separate fixed-floor rendering defect
+
+The independent actual desktop `M→A→Enter` asymmetric/reflected
+worker audit on all three CI platforms verifies original/accepted
+immutable source/root history, correct two-opposite-face edge incidence,
+zero boundary or nonmanifold edges, Euler V−E+F=2 for each component,
+positive finite signed shell volume, zero accepted triangle
+intersections/ambiguities, and zero CPU renderer-staged ghost,
+missing or duplicate wires. Reflected: four original closed
+components with 18 transverse triangle contacts become exactly
+two closed, symmetric components (V32/E84/F56), each of
+volume approximately 2.3434; undo/redo return those exact roots.
+See `docs/V17_M54_ACCEPTED_UNION_AUDIT.md` and
+[Actions #39471107991](https://github.com/logiclrd/Mesher/actions/runs/39471107991).
+
+This establishes the finite named fixture Boolean as structurally
+correct, NOT rendered correctly. Independently, the original
+unit-sphere Z=−1.22 **depth-writing work floor** is drawn through
+the Z=−3 tetrahedral fixtures. Its model-space placement and
+a way to hide it for inspection are planned in **M57** before
+M52 genuinely observed GPU acceptance. Do not mischaracterize
+a validated manifold as a corrupt mesh simply because unrelated
+grid geometry intersects it, nor claim all GPU line/depth behavior
+is cured before real device testing.
