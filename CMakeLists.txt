@@ -97,6 +97,20 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
+    # M49: run real desktop argument parsing WITHOUT creating Vulkan or a
+    # window. These checks are additive to the 23 existing CPU suites.
+    # Invalid combinations must fail closed before GPU initialization.
+    if(MESHER_BUILD_VIEWPORT)
+        add_test(NAME desktop_merge_default_off_help COMMAND Mesher --help)
+        set_tests_properties(desktop_merge_default_off_help PROPERTIES
+            PASS_REGULAR_EXPRESSION "Mouse Inflate by default")
+        add_test(NAME desktop_merge_reject_demo COMMAND Mesher --merge-geometry --demo)
+        set_tests_properties(desktop_merge_reject_demo PROPERTIES WILL_FAIL TRUE)
+        add_test(NAME desktop_merge_reject_recovery COMMAND Mesher --merge-geometry --recover m49-not-a-real-checkpoint.mshr)
+        set_tests_properties(desktop_merge_reject_recovery PROPERTIES WILL_FAIL TRUE)
+        add_test(NAME desktop_merge_reject_noninteractive COMMAND Mesher --merge-geometry --no-inflate)
+        set_tests_properties(desktop_merge_reject_noninteractive PROPERTIES WILL_FAIL TRUE)
+    endif()
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
     add_test(NAME mesh_generation COMMAND mesher_mesh_tests)
