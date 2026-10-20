@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <set>
 #include <utility>
 
 namespace mesher {
@@ -24,7 +25,8 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
 AsyncSculptWorker::AsyncSculptWorker(
     DurableCheckpoint recovered,double step,double strength,double timeSpeed,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
-    SculptStepValidator validator,SculptCollisionSettings collision)
+    SculptStepValidator validator,SculptCollisionSettings collision,
+    std::vector<FaceId> trustedFirstOriginalFaces)
     :brush_(std::make_unique<VersionedSculptBrush>(
          recovered,strength,curvature,collapse,refine,256,
          std::move(validator),std::move(collision))),
@@ -33,7 +35,27 @@ AsyncSculptWorker::AsyncSculptWorker(
             throw std::invalid_argument("Sculpt time speed must be positive");
         return t;
      }(timeSpeed)),symmetric_(!recovered.mirrorPairs.empty()),
-     worker_([this](std::stop_token token){run(token);}) {}
+     trustedFirstOriginalFaces_(std::move(trustedFirstOriginalFaces)),
+     worker_([this](std::stop_token token){run(token);}) {
+    if(!trustedFirstOriginalFaces_.empty()) {
+        const auto& proof=recovered.verifiedOriginalFidelity;
+        if(!proof||!proof->certificate||!proof->anchors.original||
+           proof->anchors.original!=recovered.index||
+           proof->lineage.terminal!=recovered.index||
+           proof->acceptedTransitions!=0)
+            throw std::logic_error(
+                "Trusted recovered live Merge FaceId set requires sealed unadvanced in-memory FIRST-original certificate");
+        std::set<FaceId> supplied(trustedFirstOriginalFaces_.begin(),
+                                  trustedFirstOriginalFaces_.end());
+        std::set<FaceId> verified;
+        for(const auto& a:proof->anchors.faces)
+            verified.insert(a.face);
+        if(supplied.empty()||supplied.size()!=trustedFirstOriginalFaces_.size()||
+           supplied!=verified)
+            throw std::logic_error(
+                "Trusted recovered live Merge source FaceIds do not match the actual sealed original anchors");
+    }
+}
 AsyncSculptWorker::~AsyncSculptWorker() {
     worker_.request_stop();
     ready_.notify_all();
@@ -95,6 +117,23 @@ void AsyncSculptWorker::mergeExactContacts(
     command.intendedOriginals=std::move(intendedOriginals);
     enqueue(std::move(command));
 }
+void AsyncSculptWorker::mergeDiscoveredContacts(
+    std::shared_ptr<const RegionTopologyIndex> expected,
+    std::vector<FaceId> explicitlySelectedFirstOriginals,
+    ExactCutStepLimits limits,SculptSourceContactLimits discovery) {
+    if(explicitlySelectedFirstOriginals.empty())
+        throw std::invalid_argument("Live Merge requires explicit first-original FaceId selection");
+    if(!expected)
+        throw std::invalid_argument("Live Merge needs selected immutable expected root");
+    if(reserved_.load())
+        throw std::logic_error("Live Merge cannot overtake an active sculpt stroke");
+    Command command{Kind::DiscoverMerge};
+    command.expected=std::move(expected);
+    command.mergeLimits=std::move(limits);
+    command.discoveryLimits=std::move(discovery);
+    command.intendedOriginals=std::move(explicitlySelectedFirstOriginals);
+    enqueue(std::move(command));
+}
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
     Command command{Kind::Checkpoint};
@@ -129,6 +168,10 @@ void AsyncSculptWorker::refreshStatus() {
     s.collisionRepairedStamps=brush_->collisionRepairedStamps();
     s.completedUnions=brush_->completedUnions();
     s.rejectedUnions=brush_->rejectedUnions();
+    s.liveMergeRequests=liveMergeRequests_;
+    s.liveMergeRefusals=liveMergeRefusals_;
+    s.liveMergeAccepted=liveMergeAccepted_;
+    s.liveMergeRefusal=liveMergeRefusal_;
     s.contact=brush_->contactStatistics();
     s.lastRejection=brush_->lastRejection();
     s.totalQueuedSteps=stroke_.totalQueuedSteps();
@@ -276,6 +319,71 @@ void AsyncSculptWorker::run(std::stop_token token) {
                                          brush_->checkpoint());
                     ++checkpointCommands_;
                     break;
+                case Kind::DiscoverMerge: {
+                    ++liveMergeRequests_;
+                    auto refuse=[&](std::string reason) {
+                        ++liveMergeRefusals_;
+                        liveMergeRefusal_=std::move(reason);
+                    };
+                    if(stroke_.active()||stroke_.pendingSamples()!=0) {
+                        refuse("Live Merge requires idle source worker");
+                        break;
+                    }
+                    const auto selected=brush_->snapshot();
+                    if(!selected||selected!=command->expected) {
+                        refuse("Live Merge selected root is stale");
+                        break;
+                    }
+                    const auto firstRoot=brush_->firstOriginalSourceRoot();
+                    const auto order=brush_->originalOrder();
+                    const auto& originals=order&&!order->faceIds.empty()?
+                        order->faceIds:trustedFirstOriginalFaces_;
+                    if(!firstRoot||originals.empty()) {
+                        refuse("Live Merge requires the trusted initial first-original FaceId source, not a disk-only or OFF-mode root");
+                        break;
+                    }
+                    // The UI must explicitly name the ORIGINAL features
+                    // intended for surgery. No blanket-all-originals or
+                    // current-terminal XYZ lookup can elevate consent.
+                    const std::set<FaceId> allowed(
+                        originals.begin(),originals.end());
+                    std::set<FaceId> unique;
+                    bool validIntent=!command->intendedOriginals.empty()&&
+                                     command->intendedOriginals.size()<=16384;
+                    for(const auto id:command->intendedOriginals)
+                        if(!id||!allowed.contains(id)||!unique.insert(id).second)
+                            validIntent=false;
+                    if(!validIntent) {
+                        refuse("Live Merge first-original FaceId selection invalid, duplicated or outside immutable initial source");
+                        break;
+                    }
+                    // No selection fallback to XYZ coincidence, and no
+                    // expensive whole-root scan on the Vulkan thread.
+                    const auto assessed=brush_->discoverLiveMergeContacts(
+                        command->discoveryLimits);
+                    if(!assessed.ready()||assessed.originalCandidate!=selected) {
+                        refuse(assessed.status==SculptSourceContactStatus::Clean?
+                               "Live Merge found no intersecting source contacts":
+                               assessed.refusal.empty()?
+                               "Live Merge source contact discovery refused":
+                               assessed.refusal);
+                        break;
+                    }
+                    const bool merged=brush_->mergeExactContacts(
+                        selected,assessed.contacts,command->mergeLimits,
+                        command->intendedOriginals);
+                    if(!merged) {
+                        refuse(brush_->lastRejection());
+                        break;
+                    }
+                    liveMergeRefusal_.clear();
+                    ++liveMergeAccepted_;
+                    const auto& dirty=brush_->lastDirtyPartitions();
+                    unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                              dirty.begin(),dirty.end());
+                    changed=true;
+                    break;
+                }
                 case Kind::Merge: {
                     if(stroke_.active()||stroke_.pendingSamples()!=0)
                         throw std::logic_error(

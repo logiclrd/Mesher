@@ -1455,6 +1455,101 @@ universal import success or hard RSS bound is implied.
   benchmarks. See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.
   Exact final-head and independent merged-main CI remain
   separate mandatory release gates.
+**V17-M15 desktop integration — flat planned prerequisites (October 19, 2026).**
+The intact ORIGINAL M15 checkbox above stays OPEN until these are all
+independently accepted. Unlike already verified headless queued
+contacts, GLFW has no source-preserving input route or worker-side
+bounded contact discovery. Do not route the UI through anonymous
+unbounded `triangleIntersections`, silently infer arbitrary
+first-original FaceIds from a later terminal, make an unverified
+disk checkpoint an opaque M29 authority, or activate protected
+source surgery in the default OFF sculpt path. Complete this
+sequence in order; if unsupported geometry is encountered,
+report a refusal rather than asserting universal Boolean support.
+
+- [x] **V17-M47 — Bounded and source-authenticated desktop Merge request.**
+  Introduce a worker-side, serialized discovery command with a
+  finite candidate/query work budget and explicit source capture
+  from the *initial trusted original*, not the mutable renderer
+  or a later published root. Require a complete nonempty
+  independently checked contact set, current expected root
+  and valid M16/M29 original lineage before dispatching to the
+  existing c1/c2/c3/M03/d2 exact Boolean. Reject empty, stale,
+  over-budget, ambiguous, out-of-support and disk-unverified
+  requests fail-closed with CPU regressions for real supported
+  asymmetric and reflected sources, stale source, undo/redo
+  and no geometry/picker/dirty/history mutation on refusal.
+  **V17-M47 independently implemented PR #100:** an EXPLICIT
+  `mergeDiscoveredContacts(expected,selectedFirstOriginalFaceIds,...)`
+  command carries one immutable UI-selected current indexed root.
+  After FIFO serialization, the worker first verifies the exact
+  current root (stale requests refuse), validates every unique
+  nonzero user-nominated FIRST-original FaceId against the
+  immutable initial import (not any coincident later XYZ face),
+  requires sealed in-memory M29 original-source authority, then
+  performs an independently bounded COMPLETE read-only
+  V13/M16 transverse contact assessment over ALL faces and
+  vertices of the exact chosen root. The caller can only
+  tighten the six query bounds, source face/vertex limits
+  and section-work ceiling. Missing/ambiguous/no-contact,
+  misnominated, exceeded-budget, unprotected OFF-mode,
+  stale, or unverified V13 disk source refuses entirely;
+  no truncated contact subset or speculative renderer
+  dirty/history is published. Only fully certified contacts
+  reach the existing original-root queued c1/c2/c3/M03/d2
+  Boolean, original lineage/feature verifier and M40–M46
+  finite work budget. True 2-tetra asymmetric and reflected
+  (explicitly sealed original mirror maps, NOT the sphere
+  vertex-order convention) source unions both publish one
+  fully committed COW history root and source-authenticated
+  renderer dirty partition revision. Stale source, deliberately
+  invalid FaceId, missing source, small query allowance,
+  clean no-contact source, OFF source and untrusted disk
+  checkpoint all refuse; a refused budget query is followed
+  by a positive request on the SAME worker. Actual undo/redo
+  restores original picker root and one history entry without
+  executing a second Boolean. The separately authenticated
+  in-memory checkpoint constructor verifies supplied original
+  FaceIds against its original sealed anchor set and
+  acceptedTransitions==0; disk V13 can never supply it.
+  No desktop mode is enabled yet: M48/M49 and original M15
+  remain OPEN. Substantive [Actions #39345076059](https://github.com/logiclrd/Mesher/actions/runs/39345076059)
+  passed GCC, Clang, Windows MSVC /W4 /WX, 23 CPU suites,
+  repeated checkpoint stress and applicable benchmarks.
+  See `docs/V17_M47_BOUNDED_LIVE_MERGE_DISCOVERY.md`.
+  Exact final PR-head and separate merged-main CI remain
+  mandatory before reporting this prerequisite merged-complete.
+- [ ] **V17-M48 — Explicit default-OFF Vulkan desktop Merge input and mode.**
+  Extend the viewport interaction contract with a visible
+  default-OFF, user-toggled Merge geometry mode and bounded
+  async request route, without an invisible automatic union
+  on ordinary mouse-down. Pick/capture the requested
+  source from an immutable indexed revision and execute
+  only after idle; OFF preserves legacy mouse Inflate
+  semantics and no protected-source work. ON uses trusted
+  source authority and refuses rather than substituting
+  arbitrary XYZ-coincident faces. Show accepted/refused/
+  pending and fatal-terminal status in title/HUD/console;
+  no callbacks to Vulkan from worker or blocking full
+  geometry traversals on the render/picking thread.
+- [ ] **V17-M49 — Targeted desktop integration and compiler acceptance.**
+  Exercise a CPU-testable representation of the exact
+  GLFW input/mode state machine, default OFF and
+  enable-disable, current-root stale behavior, unsupported/
+  ambiguous/no-contact refusal, symmetric/self-mirrored
+  fixed-point, asymmetry, picking and dirty-owner render
+  handoff, bounded undo/redo and V13 save/recover
+  fail-closed provenance. Confirm full Linux GCC/Clang
+  and Windows MSVC Vulkan build, 23 CPU suites and
+  checkpoint stress. No claim of user-observed rendered
+  Vulkan runtime validation from headless CI.
+  Preserve separate V18 off-mode collision control and
+  V19 broader human-observed end-to-end acceptance.
+
+**Then execute ORIGINAL V17-M15** integrated criterion-by-criterion
+review only after M47–M49 have independent acceptance. Keep M15,
+V18 and V19 unchecked until their own gates are satisfied.
+
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 

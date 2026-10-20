@@ -1279,6 +1279,48 @@ void VersionedSculptBrush::stamp(
     }
 }
 
+SculptSourceContactAssessment VersionedSculptBrush::discoverLiveMergeContacts(
+    const SculptSourceContactLimits& requested) const {
+    ensureOperational();
+    SculptSourceContactAssessment refused;
+    const auto fail=[&](std::string reason) {
+        refused.refusal=std::move(reason);
+        return refused;
+    };
+    // A live discovery is NOT a way to upgrade an unprotected OFF-mode
+    // session or a recovered V13 disk-only root to a new first original.
+    if(!collision_.physicalExact||!firstOriginalAuthority_)
+        return fail("Live Merge requires previously sealed first-original authority");
+    const auto current=history_.currentFidelity();
+    const auto root=published_.snapshot();
+    if(!current||!root||current->lineage.terminal!=root||
+       current->anchors.original!=firstOriginalAuthority_->anchors.original)
+        return fail("Live Merge source certificate is missing or not current");
+    // A UI caller may request TIGHTER bounds, never raise any default
+    // finite original-source query budget or suppress whole-root coverage.
+    SculptSourceContactLimits limits;
+    limits.maxVertices=std::min(limits.maxVertices,requested.maxVertices);
+    limits.maxFaces=std::min(limits.maxFaces,requested.maxFaces);
+    limits.maxSectionTests=std::min(limits.maxSectionTests,requested.maxSectionTests);
+    auto& q=limits.query;
+    const auto& r=requested.query;
+    q.maxSeedFaces=std::min(q.maxSeedFaces,r.maxSeedFaces);
+    q.maxBoxTests=std::min(q.maxBoxTests,r.maxBoxTests);
+    q.maxPartitionTests=std::min(q.maxPartitionTests,r.maxPartitionTests);
+    q.maxCandidateTriangles=std::min(q.maxCandidateTriangles,r.maxCandidateTriangles);
+    q.maxNarrowPhaseTests=std::min(q.maxNarrowPhaseTests,r.maxNarrowPhaseTests);
+    q.maxReportedContacts=std::min(q.maxReportedContacts,r.maxReportedContacts);
+    try {
+        verifyOriginalPatchPublicationRoot(
+            *current,root,collision_.originalTerminal.maxLivingDescendants);
+        return assessPostSculptOriginalContacts(
+            {root,root,{},{}},symmetric_,limits,
+            symmetric_?&collapser_.mirrors():nullptr);
+    }catch(const std::exception& e) {
+        return fail(std::string("Live Merge source-provenance refusal: ")+e.what());
+    }
+}
+
 bool VersionedSculptBrush::mergeExactContacts(
     std::shared_ptr<const RegionTopologyIndex> expected,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
