@@ -2354,3 +2354,14 @@ triangle-barycentric mesh wires remain independent; a
 floor triangulation diagonal must never appear. W/G stay
 independent; obsolete GPU wire uploads/pipelines are still
 retained until M69 cleanup. See [M68](V17_M68_VISIBLE_FLOOR_GRID.md).
+
+## V17-M69 — Remove detached GPU wire resources
+
+M67 and M68 shade mesh edges and floor grid inside their true
+visible solid fragments. M69 removes the now-unused GPU wire
+buffer uploads, retirement, old wire graphics pipeline and
+standalone shaders from the compiled Vulkan target. Retain CPU
+canonical topology-edge staging used by immutable audits.
+Update historic M56–M62 source contracts to assert current stronger
+surface-depth ownership and preserve M59 empty-buffer startup.
+See [M69 acceptance](V17_M69_WIRE_GPU_CLEANUP.md).

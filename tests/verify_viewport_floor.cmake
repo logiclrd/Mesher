@@ -8,9 +8,8 @@ foreach(needle
     "floorZ_=viewportWorkFloorZ(mesh_);"
     "const auto scenery=buildWorkFloor(floorZ_);"
     "floorSolid=upload(scenery.solid);"
-    "floorLines=uploadWire(scenery.lines);"
-    "Buffer solid{},lines{},floorSolid{},floorLines{},hud{};"
-    "destroyBuffer(floorSolid);destroyBuffer(floorLines);"
+    "Buffer solid{},floorSolid{},hud{};"
+    "destroyBuffer(floorSolid);"
     "if(justPressed(GLFW_KEY_G,floorKeyWasDown_))"
     "if(floorVisible_) {")
     string(FIND "${source}" "${needle}" at)
