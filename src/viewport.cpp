@@ -4,7 +4,6 @@
 #include "mesher/picking.hpp"
 #include "mesher/viewport_orbit.hpp"
 #include "mesher/viewport_floor.hpp"
-#include "mesher/wire_quads.hpp"
 #include "mesher/wire_appearance.hpp"
 
 #define GLFW_INCLUDE_VULKAN
@@ -47,24 +46,11 @@ using Vertex=PartitionRenderVertex;
 Vertex makeVertex(Vec3 p, Vec3 n={}, float material=0) {
     return {float(p.x),float(p.y),float(p.z),float(n.x),float(n.y),float(n.z),material};
 }
-struct Drawing {
-    std::vector<Vertex> solid;
-    std::vector<Vertex> lines;
-};
-struct Edge {
-    std::uint32_t a,b;
-    bool operator==(const Edge&) const = default;
-};
-struct EdgeHash {
-    std::size_t operator()(Edge e) const noexcept {return (std::uint64_t(e.a)<<32)|e.b;}
-};
+struct Drawing {std::vector<Vertex> solid;};
 
 Drawing buildDrawing(const Mesh& mesh) {
     Drawing out;
     out.solid.reserve(mesh.triangles.size()*3);
-    out.lines.reserve(mesh.triangles.size()*3);
-    std::unordered_set<Edge,EdgeHash> unique;
-    unique.reserve(mesh.triangles.size()*2);
     for(const auto& t:mesh.triangles) {
         const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
         const Vec3 rawNormal=cross(b-a,c-a);
@@ -72,14 +58,6 @@ Drawing buildDrawing(const Mesh& mesh) {
         out.solid.push_back(makeVertex(a,normal));
         out.solid.push_back(makeVertex(b,normal));
         out.solid.push_back(makeVertex(c,normal));
-        auto edge=[&](std::uint32_t i,std::uint32_t j) {
-            Edge e{std::min(i,j),std::max(i,j)};
-            if(unique.insert(e).second) {
-                out.lines.push_back(makeVertex(mesh.vertices[i]));
-                out.lines.push_back(makeVertex(mesh.vertices[j]));
-            }
-        };
-        edge(t.a,t.b);edge(t.b,t.c);edge(t.c,t.a);
     }
     return out;
 }
@@ -90,16 +68,10 @@ Drawing buildDrawing(const Mesh& mesh) {
 Drawing buildWorkFloor(double z) {
     Drawing out;
     out.solid.reserve(6);
-    out.lines.reserve(68);
     const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};
     for(const auto p:{a,b,c,a,c,d})
         out.solid.push_back(makeVertex(p,{0,0,1},1));
-    for(int i=-8;i<=8;++i) {
-        out.lines.push_back(makeVertex({double(i),-8,z}));
-        out.lines.push_back(makeVertex({double(i),8,z}));
-        out.lines.push_back(makeVertex({-8,double(i),z}));
-        out.lines.push_back(makeVertex({8,double(i),z}));
-    }
+    // Unit XY grid now shaded on actual floor fragments (M68).
     return out;
 }
 
@@ -435,7 +407,7 @@ class VulkanViewport {
     std::vector<VkFramebuffer> framebuffers;
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
-    VkPipeline solidPipeline=VK_NULL_HANDLE,wirePipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
+    VkPipeline solidPipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
     VkImageView depthView=VK_NULL_HANDLE;
@@ -446,8 +418,8 @@ class VulkanViewport {
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
-    Buffer solid{},lines{},floorSolid{},floorLines{},hud{};
-    struct PartitionBuffers {Buffer solid,wire;};
+    Buffer solid{},floorSolid{},hud{};
+    struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
     std::size_t lastDirtyBytes_=0;
@@ -624,18 +596,11 @@ class VulkanViewport {
         std::memcpy(data,vertices.data(),static_cast<std::size_t>(size));
         vkUnmapMemory(device,buffer.memory);
     }
-    Buffer uploadWire(const std::vector<Vertex>& edges) {
-        return upload(expandWireQuads(edges));
-    }
-    void replaceWire(Buffer& buffer,const std::vector<Vertex>& edges) {
-        replaceBuffer(buffer,expandWireQuads(edges));
-    }
     void initializePartitions() {
         partitionCache_.initialize(displayedIndex_);
         for(const auto& [id,geometry]:partitionCache_.partitions()) {
             auto& dst=partitionBuffers_[id];
             if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
-            if(!geometry->wire.empty())dst.wire=uploadWire(geometry->wire);
         }
     }
     void refreshPartitions(
@@ -658,14 +623,12 @@ class VulkanViewport {
                 const auto old=partitionBuffers_.find(id);
                 if(old!=partitionBuffers_.end()) {
                     retireGpuBuffer(old->second.solid);
-                    retireGpuBuffer(old->second.wire);
                     partitionBuffers_.erase(old);
                 }
                 continue;
             }
             auto& dst=partitionBuffers_[id];
             replaceBuffer(dst.solid,found->second->solid);
-            replaceWire(dst.wire,found->second->wire);
         }
         auto oldDisplayed=std::move(displayedIndex_);
         displayedIndex_=std::move(next);
@@ -683,7 +646,6 @@ class VulkanViewport {
               "Wait before updating legacy geometry");
         const auto drawing=buildDrawing(currentMesh());
         replaceBuffer(solid,drawing.solid);
-        replaceWire(lines,drawing.lines);
         lastUploadMs_=(glfwGetTime()-started)*1000;
     }
 
@@ -1377,9 +1339,9 @@ class VulkanViewport {
         check(vkCreateShaderModule(device,&info,nullptr,&result),"Create shader module");
         return result;
     }
-    VkPipeline makePipeline(bool wire, bool hudOverlay=false) {
-        auto vert=shader(hudOverlay?"hud.vert":wire?"wire.vert":"mesh.vert");
-        auto frag=shader(hudOverlay?"hud.frag":wire?"wire.frag":"mesh.frag");
+    VkPipeline makePipeline(bool hudOverlay=false) {
+        auto vert=shader(hudOverlay?"hud.vert":"mesh.vert");
+        auto frag=shader(hudOverlay?"hud.frag":"mesh.frag");
         VkPipelineShaderStageCreateInfo vs{}; vs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         vs.stage=VK_SHADER_STAGE_VERTEX_BIT;vs.module=vert;vs.pName="main";
         VkPipelineShaderStageCreateInfo fs{}; fs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1392,11 +1354,11 @@ class VulkanViewport {
         attrs[2]={2,0,VK_FORMAT_R32_SFLOAT,offsetof(Vertex,material)};
         VkPipelineVertexInputStateCreateInfo input{}; input.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         input.vertexBindingDescriptionCount=1;input.pVertexBindingDescriptions=&binding;
-        // Wire quads use the same 7-float position+endpoint+corner binding.
+        // Original seven-float mesh/HUD vertex binding.
         input.vertexAttributeDescriptionCount=static_cast<std::uint32_t>(attrs.size());
         input.pVertexAttributeDescriptions=attrs.data();
         VkPipelineInputAssemblyStateCreateInfo assembly{}; assembly.sType=VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        // Six-vertex triangle quads, not device-dependent 1px LINE_LIST.
+        // Solid triangles are emitted as nonindexed three-vertex groups.
         assembly.topology=VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         VkPipelineViewportStateCreateInfo viewport{}; viewport.sType=VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewport.viewportCount=1;viewport.scissorCount=1;
@@ -1413,15 +1375,14 @@ class VulkanViewport {
         multi.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
         VkPipelineDepthStencilStateCreateInfo depth{}; depth.sType=VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;
-        depth.depthWriteEnable=(wire||hudOverlay)?VK_FALSE:VK_TRUE;
+        depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;
         depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
         VkPipelineColorBlendStateCreateInfo blend{}; blend.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        if(wire||hudOverlay) {
-            // AA coverage from wire.frag is smoothly composited over the
-            // already depth-written solid. Wire quads never write depth.
+        if(hudOverlay) {
+            // Only HUD blends; mesh and floor AA are in opaque solid fragments.
             blendAttachment.blendEnable=VK_TRUE;
             blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
             blendAttachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -1506,9 +1467,8 @@ class VulkanViewport {
         VkPipelineLayoutCreateInfo layout{}; layout.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
-        solidPipeline=makePipeline(false);
-        wirePipeline=makePipeline(true);
-        hudPipeline=makePipeline(false,true);
+        solidPipeline=makePipeline();
+        hudPipeline=makePipeline(true);
         for(auto view:views) {
             const std::array attachments{view,depthView};
             VkFramebufferCreateInfo fb{}; fb.sType=VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1527,9 +1487,8 @@ class VulkanViewport {
         for(auto semaphore:finishedForImage)vkDestroySemaphore(device,semaphore,nullptr);
         finishedForImage.clear();
         if(solidPipeline)vkDestroyPipeline(device,solidPipeline,nullptr);
-        if(wirePipeline)vkDestroyPipeline(device,wirePipeline,nullptr);
         if(hudPipeline)vkDestroyPipeline(device,hudPipeline,nullptr);
-        solidPipeline=wirePipeline=hudPipeline=VK_NULL_HANDLE;
+        solidPipeline=hudPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
@@ -1686,12 +1645,10 @@ public:
         floorZ_=viewportWorkFloorZ(mesh_);
         const auto scenery=buildWorkFloor(floorZ_);
         floorSolid=upload(scenery.solid);
-        floorLines=uploadWire(scenery.lines);
         auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
         // Indexed COW startup intentionally has no legacy flat model;
         // do not upload its zero-byte arrays (M59), including AA wires.
         if(!drawing.solid.empty())solid=upload(drawing.solid);
-        if(!drawing.lines.empty())lines=uploadWire(drawing.lines);
         if(displayedIndex_)initializePartitions();
         std::cout<<"[view] grid plane Z="<<floorZ_
                  <<" (startup source bounds); G hides/shows grid\n";
@@ -1718,13 +1675,12 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
-            destroyBuffer(solid);destroyBuffer(lines);
-            destroyBuffer(floorSolid);destroyBuffer(floorLines);
+            destroyBuffer(solid);
+            destroyBuffer(floorSolid);
             destroyBuffer(hud);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
-                destroyBuffer(buffers.wire);
             }
             partitionBuffers_.clear();
             vkDestroyDevice(device,nullptr);
