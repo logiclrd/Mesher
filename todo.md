@@ -1673,7 +1673,7 @@ faces, bypass original intent, or widen source geometry authorization:
   and applicable benchmarks. No rendered GPU acceptance is claimed.
   Dedicated record: `docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`.
   Recheck the exact final doc-head and independent merged-main CI.
-- [ ] **V17-M51 — Mirrored positive fixture and complete explicit source
+- [x] **V17-M51 — Mirrored positive fixture and complete explicit source
   nomination from the rendered desktop.** Independently construct the
   test's reciprocal, original-proven reflected two-tetra source (not a
   synthetic sphere mirror map); provide a deliberate bounded user
@@ -1685,6 +1685,20 @@ faces, bypass original intent, or widen source geometry authorization:
   limits. Independently CPU-test complete asymmetric AND reflected
   UI-to-worker positive selection, no-hit/foreign/duplicate/refusal
   and real renderer mailbox/history/undo.
+  Independently accepted in PR #105 on substantive source
+  `073763fc`: [Actions #39378257678](https://github.com/logiclrd/Mesher/actions/runs/39378257678)
+  SUCCESS full GCC, Clang, Windows MSVC /W4 /WX Vulkan builds, all
+  32 viewport-enabled CTests (23 CPU and 9 real headless executable CLI),
+  repeated checkpoint-history synchronization and applicable benchmarks.
+  The runtime uses independently certified mirrored first-original
+  stable IDs, ON-only rising-edge A selection of 8/16 exact original
+  FaceIds, atomic <=32 quota and expected initial displayed root,
+  same camera-scale Vulkan projection/CPU picking, and actual
+  protected queued positive asymmetric/reflected unions with one
+  dirty immutable frame and pointer-exact undo/redo. Full details:
+  `docs/V17_M51_REFLECTED_DESKTOP_AND_NOMINATION.md`. Real
+  *observed* Windows/Linux rendered GUI remains exclusively M52.
+  Recheck the final documentation-head and independent merged-main CI.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
