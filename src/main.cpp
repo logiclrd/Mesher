@@ -22,6 +22,7 @@
 int main(int argc, char** argv) {
     mesher::SphereOptions options;
     bool inflate = true, demoMode = false, verboseInput = false;
+    bool allowMergeGeometry = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
     mesher::CollapseSettings collapseSettings;
@@ -45,6 +46,7 @@ int main(int argc, char** argv) {
             else if(arg=="--no-inflate") inflate=false;
             else if(arg=="--demo") demoMode=true;
             else if(arg=="--verbose-input") verboseInput=true;
+            else if(arg=="--merge-geometry")allowMergeGeometry=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
                 if(++i>=argc)throw std::invalid_argument("Missing checkpoint filename");
                 if(arg=="--checkpoint")checkpointPath=argv[i];
@@ -131,6 +133,7 @@ int main(int argc, char** argv) {
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
+                         <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -141,6 +144,13 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
+        if(allowMergeGeometry&&(demoMode||compareLocalRemesh||
+           compareRemesh||compareMitigations||!inflate))
+            throw std::invalid_argument(
+                "--merge-geometry only supports interactive, non-demo sculpt mode");
+        if(allowMergeGeometry&&!recoverPath.empty())
+            throw std::invalid_argument(
+                "--merge-geometry refuses V13 disk recovery without sealed first-original M29 authority");
         mesher::Mesh mesh;
         std::optional<mesher::DurableCheckpoint> recovered;
         if(!recoverPath.empty()) {
@@ -283,10 +293,40 @@ int main(int argc, char** argv) {
                 liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
                     curvatureSettings,collapseSettings,refineSettings);
-            else
+            else {
+                mesher::SculptCollisionSettings mergePolicy;
+                mergePolicy.physicalExact=allowMergeGeometry;
+                // The global OFF startup remains bit-for-bit the previous
+                // legacy worker construction. Only --merge-geometry explicitly
+                // authorizes the sealed original-source worker at launch.
                 liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                     mesh,step,strength,timeSpeed,curvatureSettings,
-                    collapseSettings,refineSettings,options.symmetric);
+                    collapseSettings,refineSettings,options.symmetric,
+                    mesher::SculptStepValidator{},mergePolicy);
+            }
+            if(allowMergeGeometry) {
+                interaction.mergeSelected=[&](
+                    std::shared_ptr<const mesher::RegionTopologyIndex> root,
+                    std::vector<mesher::FaceId> nominated) {
+                    liveWorker->mergeDiscoveredContacts(
+                        std::move(root),std::move(nominated));
+                };
+                interaction.mergeStatus=[&] {
+                    const auto status=liveWorker->status();
+                    const auto pending=status.liveMergeRequests>=
+                         status.liveMergeAccepted+status.liveMergeRefusals
+                        ?status.liveMergeRequests-
+                         status.liveMergeAccepted-status.liveMergeRefusals:0;
+                    std::string text="A "+std::to_string(status.liveMergeAccepted)+
+                        " R "+std::to_string(status.liveMergeRefusals)+
+                        " P "+std::to_string(pending);
+                    if(status.terminalFailure)
+                        text+=" TERMINAL "+status.terminalFailureReason;
+                    else if(!status.liveMergeRefusal.empty())
+                        text+=" REFUSED "+status.liveMergeRefusal;
+                    return text;
+                };
+            }
             interaction.undo=[&]{liveWorker->undo();};
             interaction.redo=[&]{liveWorker->redo();};
             interaction.checkpoint=[&]{
@@ -376,6 +416,13 @@ int main(int argc, char** argv) {
                        " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric");
             };
+            if(allowMergeGeometry)
+                std::cout<<"Merge geometry: explicitly authorized protected original-root worker; "
+                         <<"desktop starts OFF. Press M to toggle Merge selection, "
+                         <<"left-click indexed faces to nominate stable first-original FaceIds, "
+                         <<"Enter to submit, Backspace to clear. The worker may reject "
+                         <<"unsupported, stale, no-contact or unverified sources. "
+                         <<"Regular startup without --merge-geometry remains unchanged.\n";
             std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
