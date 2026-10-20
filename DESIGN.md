@@ -5988,3 +5988,19 @@ functions scale their eye origins together. The default camera
 remains scale 1; this is display framing only, with no geometry,
 FaceId, proof, worker, operation-limit or M15 observed-GPU permission
 change.
+
+
+## V17-M53 — Read-only rigid visual orbit and source-space picker
+
+RMB drag composes rigid scene transforms about exact immutable-hit
+source coordinates or a current-root centroid-Y XZ-ray background
+intersection. Horizontal moves around Z and vertical around X in
+sign-selected world directions. It only multiplies the actual Vulkan
+geometry projection and inversely transforms both source-picking paths;
+the model, first-original lineage, symmetry, history, fences and
+worker budgets are never transformed. A centroid scan is allowed
+only on the RMB down background miss, and never in the render loop.
+M52 owns human-observed Vulkan behavior. M54 owns accepted-union
+topology/residual-overlap auditing and may not be inferred from
+\`A 1 R 0 P 0\` or screenshots. Details:
+\`docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md\`.
