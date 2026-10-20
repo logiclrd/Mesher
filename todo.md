@@ -2036,7 +2036,7 @@ faces, bypass original intent, or widen source geometry authorization:
   surface-aware silhouette work would require separate proof and
   planning, not removal of LEQUAL occlusion. Final PR-head and
   independently merged-main CI required.
-- [ ] **V17-M63 — Reverse Ctrl+LMB strafe to grab-and-drag the world.**
+- [x] **V17-M63 — Reverse Ctrl+LMB strafe to grab-and-drag the world.**
   Actual Linux desktop observation after M61: user expects Ctrl+LMB
   right/down movement to move visible world right/down, rather than
   dragging the camera right/down. Reverse both screen-relative
@@ -2049,6 +2049,14 @@ faces, bypass original intent, or widen source geometry authorization:
   Boolean, history, or source certification. Check exact PR-head
   and independently merged-main Vulkan-enabled Linux GCC/Clang
   and Windows MSVC tests, stresses and benchmarks.
+  PR #116 implementation `f3be09a5` passed
+  [Actions #39506698986](https://github.com/logiclrd/Mesher/actions/runs/39506698986)
+  on Vulkan-enabled Linux GCC, Clang, and Windows MSVC /W4 /WX,
+  including **41/41 CTests** (mouse_picking updated world-grab
+  signs, roundtrip, HiDPI and exact inverse source-space picker),
+  repeated worker history/checkpoint stress and benchmarks.
+  Exact documentation-head PR and merged-main CI remain
+  independent gates; actual new polarity on Linux remains M52.
 - [ ] **V17-M64 — Pole-dependent wire visibility/width root cause and depth-safe solution.**
   User's real Linux near-top and exactly-top screenshots show both
   geometry wires and planar floor grid suddenly appear thicker

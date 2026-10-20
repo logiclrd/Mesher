@@ -32,3 +32,14 @@ required on the exact final PR head and independently merged
 `main` on Vulkan-enabled Linux GCC/Clang and Windows MSVC.
 Visual feel on real driver remains for user confirmation in
 M52; a compiled test is not a physical mouse-gesture proof.
+
+## Automated implementation acceptance
+
+Initial PR #116 implementation head `f3be09a5` passed
+[Actions #39506698986](https://github.com/logiclrd/Mesher/actions/runs/39506698986)
+on Linux GCC, Linux Clang, and Windows MSVC /W4 /WX, all
+**41 CTests** on GCC including `mouse_picking`, repeated
+history/checkpoint threading regressions and relevant benchmarks.
+The exact documented PR head and independently merged main
+are separately checked; graphical Linux/Windows approval remains
+an explicit M52 human observation.
