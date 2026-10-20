@@ -853,7 +853,7 @@ not source auto-detection, geometry scanning, or automatic merging.
 
 For the genuinely reciprocal reflected two-group developer positive use
 `Mesher --merge-geometry --symmetric --merge-test-reflected-tetra`.
-The 16 source vertices and 16 source faces represent two independent
+The fixture-only camera frames both source groups using exactly the same scale\nfor Vulkan drawing and immutable-root ray picking; normal sphere startup\nretains the existing unit camera. The 16 source vertices and 16 source faces represent two independent
 positive-X tetrahedra and their separate negative-X mirrored partners,
 with reversed winding. The worker consumes a genuinely sealed
 FIRST-original root and eight independently constructed reciprocal
