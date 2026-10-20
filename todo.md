@@ -1727,7 +1727,7 @@ faces, bypass original intent, or widen source geometry authorization:
   literal-escaped newline diagnostics. Details:
   `docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md`.
   Do NOT check M52 or M54 from this evidence.
-- [ ] **V17-M55 — Screen-parallel background pivot, Alt+RMB view-direction dolly, and drag-edge cursor wrapping.**
+- [x] **V17-M55 — Screen-parallel background pivot, Alt+RMB view-direction dolly, and drag-edge cursor wrapping.**
   Refine the production M53 viewport without changing its original-source
   mesh/CAS/history contracts. For a background RMB gesture, intersect the
   current *display-space* mouse ray with the plane through the
@@ -1750,6 +1750,20 @@ faces, bypass original intent, or widen source geometry authorization:
   represent a headless test as observed Windows/Linux graphics runtime.
   After acceptance resume M54 actual reflected-union topology audit,
   then M52 human-observed GPU acceptance and original M15.
+  Accepted independently in PR #107 on substantive head `763573d9`:
+  [Actions #39460369523](https://github.com/logiclrd/Mesher/actions/runs/39460369523)
+  SUCCESS full Linux GCC, Linux Clang and Windows MSVC /W4 /WX
+  Vulkan-enabled CI, 32 viewport-enabled CTests, repeated
+  history/checkpoint threaded regression and applicable benchmarks.
+  The actual viewport uses transformed-centroid screen-normal
+  visual-ray background pivot, latched Alt-RMB centre-ray camera
+  translation, and synthetic-delta-safe client-edge GLFW warp with
+  optional compositor refusal fallback. Ordinary immutable original
+  FaceId/worker paths remain unchanged. Detailed acceptance:
+  `docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md`.
+  Final documentation PR-head and independently merged-main CI
+  still gate repository integration; actual GPU host observation
+  remains strictly M52, and suspected internal union edges M54.
 - [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
   Investigate the reported reflected union where triangle edges
   visually plunge into its surface even though M51 worker reports
