@@ -2306,3 +2306,16 @@ with the cursor; nothing changes for dolly, RMB orbit, brush and
 Merge FaceId selection, or authenticated original/history data.
 CPU sign/round-trip/HiDPI/picking regression and full CI required.
 See [M63 details](V17_M63_WORLD_GRAB_STRAFE.md).
+
+## V17-M65 — M11 async FIFO undo/redo status/frame observer synchronization
+
+Independent merged-`main` MSVC CI after the isolated M63 Ctrl-pan
+polarity change exposed a race in the **existing** M11 sixteen
+physical-tower FIFO undo/redo test. Undo/redo history depths are
+published separately from `takeSnapshot()`'s immutable renderer
+mailbox; the test waited for history then immediately consumed a
+possibly stale frame. M65 bounds the observer wait on exact
+immutable root, authoritative worker current root and BOTH undo/redo
+depths on each of all sixteen transitions. This is a test-only fix:
+no production worker, topology, renderer or committed history logic
+changes. See [M65 regression](V17_M65_M11_ASYNC_SNAPSHOT_RACE.md).

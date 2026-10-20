@@ -6279,28 +6279,48 @@ void testM11QueuedPhysicalTowersRefusalCleanAndRecovery() {
     }
     std::error_code ec;
     std::filesystem::remove(checkpointFile,ec);
+    // M65 (observed on independently merged-main Windows CI): history
+    // depth can be published before the coalesced renderer Snapshot.
+    // Status-only polling followed by a single takeSnapshot() is an
+    // observer race, NOT evidence of a lost physical undo. Do not drop
+    // any of the 16 exact immutable-root identity assertions.
+    const auto waitForExactHistoryFrame=[&](
+            const std::shared_ptr<const RegionTopologyIndex>& expected,
+            std::size_t undoDepth,std::size_t redoDepth,
+            const char* action,std::size_t step) {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(30);
+        std::optional<AsyncSculptWorker::Snapshot> observed;
+        while(std::chrono::steady_clock::now()<until) {
+            if(auto candidate=worker.takeSnapshot()) {
+                if(candidate->index==expected)
+                    observed=std::move(candidate);
+            }
+            const auto status=worker.status();
+            if(observed&&observed->index==expected&&
+               worker.initialRevision()==expected&&
+               status.history.undoDepth==undoDepth&&
+               status.history.redoDepth==redoDepth)
+                return;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto status=worker.status();
+        throw std::runtime_error(
+            std::string("M11 4D FIFO ")+action+
+            " exact root/history frame timed out at step "+
+            std::to_string(step)+" (expected depths "+
+            std::to_string(undoDepth)+"/"+std::to_string(redoDepth)+
+            ", observed "+std::to_string(status.history.undoDepth)+
+            "/"+std::to_string(status.history.redoDepth)+
+            ", expected frame "+(observed?"seen":"not seen")+")");
+    };
     for(std::size_t n=16;n>0;--n) {
         worker.undo();
-        const auto stop=std::chrono::steady_clock::now()+
-                        std::chrono::seconds(30);
-        while(worker.status().history.redoDepth!=17-n&&
-              std::chrono::steady_clock::now()<stop)
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        const auto snapshot=worker.takeSnapshot();
-        require(snapshot&&snapshot->index==roots[n-1]&&
-                worker.status().history.undoDepth==n-1,
-                "M11 each real FIFO physical union is independently undoable");
+        waitForExactHistoryFrame(roots[n-1],n-1,17-n,"undo",n);
     }
     for(std::size_t n=1;n<=16;++n) {
         worker.redo();
-        const auto stop=std::chrono::steady_clock::now()+
-                        std::chrono::seconds(30);
-        while(worker.status().history.undoDepth!=n&&
-              std::chrono::steady_clock::now()<stop)
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        const auto snapshot=worker.takeSnapshot();
-        require(snapshot&&snapshot->index==roots[n],
-                "M11 4D FIFO redo restores exact immutable terminal root identity");
+        waitForExactHistoryFrame(roots[n],n,16-n,"redo",n);
     }
 }
 
