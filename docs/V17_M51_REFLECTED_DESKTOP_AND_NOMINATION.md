@@ -89,10 +89,15 @@ Three additional real `Mesher` executable CLI CTests reject unarmed
 reflected source, asymmetric conflict and simultaneous test-fixture
 flags *before* the Vulkan/GLFW window. The viewport-enabled suite is
 now **32 CTests** (23 CPU + 9 headless executable CLI).
-GCC, Clang and Windows MSVC warning-clean Vulkan-enabled CI, the
-checkpoint/history stress and applicable benchmarks must pass on
-the exact final PR head and independently on merged main before M51 is
-marked fully accepted.
+**Substantive implementation PR head `073763fc`:**
+[Actions #39378257678](https://github.com/logiclrd/Mesher/actions/runs/39378257678)
+completed **SUCCESS** on Linux GCC, Linux Clang and Windows MSVC
+full Vulkan-enabled /W4 /WX configurations, including all 32
+registered CTests, repeated history/checkpoint threading and applicable
+benchmarks. This is acceptance of the independently tested M51 source,
+input, UI controller and worker path, *not* rendered GPU observation.
+Final documentation-exact-head CI and independently merged-main CI
+are still required as separate release gates.
 
 **Still NOT proven by M51:** actual visible rendering/picking/dirty
 partition lifetime, graphics-host responsive keys, Linux/Windows
