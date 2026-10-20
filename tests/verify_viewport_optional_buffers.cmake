@@ -11,7 +11,7 @@ foreach(required
     "if(!drawing.lines.empty())lines=uploadWire(drawing.lines);"
     "if(displayedIndex_)initializePartitions();"
     "if(solid.vertexCount) {"
-    "if(lines.vertexCount) {"
+    "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
     "if(!geometry->solid.empty())dst.solid=upload(geometry->solid);"
     "if(!geometry->wire.empty())dst.wire=uploadWire(geometry->wire);"
     "if(vertices.empty())throw std::runtime_error(\"Empty vertex buffer\");")

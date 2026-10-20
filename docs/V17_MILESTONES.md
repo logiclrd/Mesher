@@ -2335,3 +2335,12 @@ M67 visible triangle-edge coverage, M68 floor's unit XY grid
 coverage (not a floor triangulation diagonal) and M69 old
 GPU quad retirement/test integration. Preserve all M56
 no-hidden-line guarantees. See [M64 diagnosis](V17_M64_POLE_WIRE_DEPTH_DIAGNOSIS.md).
+
+## V17-M67 — Surface-attached mesh edge color
+
+M64's self-masking source is removed for mesh: noperspective
+triangle barycentric pixel coverage is blended into the
+actual depth-tested filled face, never from a displaced
+edge's constant-depth quad. Floor grid retains the old path
+until M68; mesh wire GPU buffers are temporary dead allocations
+until M69. See [M67](V17_M67_SURFACE_MESH_EDGES.md).
