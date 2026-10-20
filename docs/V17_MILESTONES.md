@@ -2066,3 +2066,50 @@ problem. M50 source/acceptance details are in
 `docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`. M50 must not be checked
 before final-head and merged-main GCC/Clang/MSVC CI are verified;
 original M15 and V17 remain unchecked regardless.
+
+
+## October 20, 2026 — V17-M51 reflected first-original fixture and deliberate occluded FaceId nomination
+
+After M50 established the real GUI startup from the same source-positive
+asymmetric two-tetra geometry as M47/M49, M51 supplies a separately
+reciprocal reflected fixture (16 independently owned original vertices,
+16 wound faces, eight actual source-proven mirrored vertex pairs) and
+deliberate ON-mode **A** keyboard nomination of all original fixture
+FaceIds, including occluded triangles. The worker receives the sealed
+fresh in-memory M29 first original with the exact partition-imported
+reciprocal vertex map; it **never** treats a sphere mirror order, XYZ
+proximity, untrusted V13 disk snapshot, or post-sculpt descendant as
+a new first-original certificate.
+
+A is one **rising-edge** GUI input, ON and idle only, authenticated to the
+exact initially displayed fixture indexed root. It nominates only the
+fixed eight asymmetric / sixteen reflected source FaceIds supplied
+by the named startup, no inferred all-mesh root scan or phantom
+automatic surgery. The shared `DesktopMergeInput` validates EVERY
+nonzero living nominated face, uniqueness and <=32 final selections,
+and rejects stale, busy, foreign, malformed or over-budget requests
+*before mutating* its existing selection. Ordinary generated spheres
+cannot invoke this fixture-only list. One explicit Enter still requests
+the M47 bounded complete original contact source proof and fully
+pre-CAS M21/M29/M40–M46 exact union. Default legacy OFF, ordinary
+left-click picking, one-step history and source fail-stop are unchanged.
+
+Actual CPU tests cover asymmetric AND reflected A/Enter positive
+live worker cases with exact immutable dirty frame/history, old root,
+one-Step undo/redo and explicit refusal/key hold. Three more real
+headless executable CLI refusal gates bring viewport-enabled CTest
+to 32. All compiler checks and remaining human-rendered desktop
+limitations are recorded in
+`docs/V17_M51_REFLECTED_DESKTOP_AND_NOMINATION.md`.
+Original M15, M52 and V18/V19 remain separately unaccepted until
+their own observable acceptance.
+
+**M51 fixture camera:** Reflected source groups centered near X=±5
+would be off-screen under the ordinary unit-sphere camera. Named
+developer fixtures alone set `ViewportInteraction::cameraScale`
+to 2 (asymmetric) or 4 (reflected), and the actual Vulkan
+`makeConstants` camera and both CPU immutable indexed ray-picking
+functions scale their eye origins together. The default camera
+remains scale 1; this is display framing only, with no geometry,
+FaceId, proof, worker, operation-limit or M15 observed-GPU permission
+change.

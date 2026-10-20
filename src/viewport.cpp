@@ -271,10 +271,10 @@ struct PushConstants {
     std::array<float,4> light1;
 };
 static_assert(sizeof(PushConstants)==96);
-PushConstants makeConstants(int width,int height) {
+PushConstants makeConstants(int width,int height,double cameraScale) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
-    const Vec3 eye=viewportCameraEye(double(width),double(height));
+    const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
     PushConstants result;
     result.viewProjection=multiply(perspective(aspect),cameraView(eye));
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
@@ -672,7 +672,8 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
-        const auto ray=viewportRay(px,py,double(fw),double(fh));
+        auto ray=viewportRay(px,py,double(fw),double(fh));
+        ray.origin=ray.origin*interaction_.cameraScale;
         lastPickStats_={};
         return displayedIndex_?displayedIndex_->firstRayHit(ray,&lastPickStats_):
                firstMeshHit(currentMesh(),ray);
@@ -688,14 +689,16 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
-        return displayedIndex_->firstRayFaceHit(
-            viewportRay(px,py,double(fw),double(fh)),&lastPickStats_);
+        auto ray=viewportRay(px,py,double(fw),double(fh));
+        ray.origin=ray.origin*interaction_.cameraScale;
+        return displayedIndex_->firstRayFaceHit(ray,&lastPickStats_);
     }
     void updateMergeKeyboard() {
         const auto edges=mergeKeys_.sample(
             glfwGetKey(window,GLFW_KEY_M)==GLFW_PRESS,
             glfwGetKey(window,GLFW_KEY_ENTER)==GLFW_PRESS,
-            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS);
+            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS,
+            glfwGetKey(window,GLFW_KEY_A)==GLFW_PRESS);
         const bool ready=!interaction_.canBegin||interaction_.canBegin();
         if(edges.toggle) {
             const auto result=mergeInput_.toggle(
@@ -704,7 +707,7 @@ class VulkanViewport {
             case DesktopMergeInput::Result::ModeOn:
             case DesktopMergeInput::Result::ModeOff:
                 std::cout<<"[merge] mode="<<(mergeInput_.enabled()?"ON":"OFF")
-                         <<" (M toggles, LMB selects FaceIds, Enter submits, Backspace clears)\n";
+                         <<" (M toggles, LMB selects FaceIds, fixture A nominates, Enter submits, Backspace clears)\n";
                 break;
             case DesktopMergeInput::Result::Unavailable:
                 std::cout<<"[merge] unavailable: launch with --merge-geometry to authorize sealed original-root worker\n";
@@ -714,6 +717,20 @@ class VulkanViewport {
                 break;
             default:break;
             }
+            refreshHud();
+            updateTitle();
+        }
+        if(edges.nominate&&mergeInput_.enabled()) {
+            const auto result=mergeInput_.nominateFixtureOriginals(
+                displayedIndex_,interaction_.mergeFixtureOriginal,
+                interaction_.mergeFixtureOriginals,ready);
+            if(result==DesktopMergeInput::Result::Selected)
+                std::cout<<"[merge] explicit A nominated "
+                         <<mergeInput_.selectedCount()
+                         <<" first-original FaceIds on exact fixture root\\n";
+            else
+                std::cout<<"[merge] A nomination refused (no current authorized "
+                           "fixture, stale root, invalid identity, or selection limit)\\n";
             refreshHud();
             updateTitle();
         }
@@ -1398,7 +1415,8 @@ class VulkanViewport {
         const VkRect2D scissor{{0,0},extent};
         vkCmdSetViewport(commandBuffer,0,1,&viewport);
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
-        const auto constants=makeConstants(int(extent.width),int(extent.height));
+        const auto constants=makeConstants(int(extent.width),int(extent.height),
+                                           interaction_.cameraScale);
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
                            0,sizeof(constants),&constants);
         VkDeviceSize offset=0;

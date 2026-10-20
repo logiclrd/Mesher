@@ -839,9 +839,29 @@ regressions. It is a deliberately labeled developer test fixture, **not an
 importer or a claim of general mesh support**. This requires both flags:
 ordinary startup cannot select this source accidentally. The graphical Merge
 mode still starts OFF, source FaceIds are never auto-nominated and no Boolean
-occurs until an explicit user selection and Enter. Some original tetrahedral
-faces are occluded from a single view; independently useful full-source
-nomination and reflected source tests are planned separately in M51.
+occurs until an explicit user selection and Enter. Some original tetrahedral faces are occluded from a single view.
+In these **explicitly named fixtures only**, press **M** to enter Merge ON,
+then press **A** *once* to deliberately nominate the complete finite
+FIRST-original stable FaceId list (8 asymmetric faces or 16 reflected).
+Review the HUD selected count, then press **Enter** to request the
+single bounded worker Merge. You can still click visible faces separately;
+A adds only missing IDs without duplicating a clicked source.
+It is only available while the exact *initial immutable test-fixture*
+revision is displayed; subsequent roots, normal generated spheres and
+unarmed sessions cannot use this shortcut. A is a deliberate user action,
+not source auto-detection, geometry scanning, or automatic merging.
+
+For the genuinely reciprocal reflected two-group developer positive use
+`Mesher --merge-geometry --symmetric --merge-test-reflected-tetra`.
+The fixture-only camera frames both source groups using exactly the same scale\nfor Vulkan drawing and immutable-root ray picking; normal sphere startup\nretains the existing unit camera. The 16 source vertices and 16 source faces represent two independent
+positive-X tetrahedra and their separate negative-X mirrored partners,
+with reversed winding. The worker consumes a genuinely sealed
+FIRST-original root and eight independently constructed reciprocal
+stable-ID mirror pairs, not a sphere-specific nearest-vertex map.
+Press **M**, **A**, then **Enter**; wait for actual accepted/refused
+worker diagnostics. **Ctrl+Z** and **Ctrl+Y** undo/redo its one
+original-root accepted Step. Real Linux/Windows GPU observations remain
+an M52 requirement, not evidence obtained from a CPU-only test.
 This flag explicitly provisions the protected original-source worker;
 the visible Merge editing **mode still starts OFF**. Attempts to combine
 `--merge-geometry` with demo/comparison or `--recover` are rejected:

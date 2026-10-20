@@ -563,28 +563,10 @@ void testVersionedWorkerWithRemeshingEnabled() {
 // are worker commands carrying the EXACT historical root and full V13
 // contact graph. The existing stamp/history/checkpoint mailbox is reused.
 Mesh twoIntersectingTetrahedra(bool reflected=false) {
-    // M50: positive worker tests use the EXACT source of a real
-    // explicitly armed desktop, not an independently drifted copy.
-    if(!reflected)return desktopMergeAsymmetricTetraFixture();
-    Mesh mesh;
-    const std::array<Vec3,8> coords{{
-        {0,0,0},{2,0,0},{0,2,0},
-        {.75,-.5,-1},{.75,1.75,1},{.75,.25,-1},
-        {.5,.5,-3},{3,.5,0}
-    }};
-    const std::array<std::array<std::uint32_t,3>,8> faces{{
-        {0,1,2},{1,0,6},{2,1,6},{0,2,6},
-        {3,4,5},{4,3,7},{5,4,7},{3,5,7}
-    }};
-    for(const auto p:coords)
-        mesh.vertices.push_back(reflected?Vec3{p.x+5,p.y,p.z}:p);
-    if(reflected)for(const auto p:coords)
-        mesh.vertices.push_back({-p.x-5,p.y,p.z});
-    for(const auto face:faces)
-        mesh.triangles.push_back({face[0],face[1],face[2]});
-    if(reflected)for(const auto face:faces)
-        mesh.triangles.push_back({face[0]+8,face[2]+8,face[1]+8});
-    return mesh;
+    // Both authentic production developer fixtures and every older
+    // M47/M49 positive use the EXACT same original coordinates/face winding.
+    return reflected?desktopMergeReflectedTetraFixture()
+                    :desktopMergeAsymmetricTetraFixture();
 }
 // Two disjoint transverse four-section loops in ONE original triangle.
 // Every face of each small protrusion crosses the top of the large closed
@@ -7912,6 +7894,204 @@ void testM50DesktopAsymmetricFixtureAndProtectedWorker() {
             observedDirty&&first->pickingRootIdentity()==oldPicking,
             "M50 shared desktop source succeeds only on explicit worker Merge with exact renderer frame");
 }
+void testM51DeliberateFixtureNominationAndReflectedWorker() {
+    const auto mirrorMesh=desktopMergeReflectedTetraFixture();
+    require(mirrorMesh.vertices.size()==16&&mirrorMesh.triangles.size()==16,
+            "M51 reflected fixture has 16 independently owned original faces and vertices");
+    for(std::size_t i=0;i<8;++i) {
+        const auto a=mirrorMesh.vertices[i],b=mirrorMesh.vertices[i+8];
+        require(a.x==-b.x&&a.y==b.y&&a.z==b.z,
+                "M51 mirrored source coordinates have separate exact reciprocal vertices");
+        const auto f=mirrorMesh.triangles[i],g=mirrorMesh.triangles[i+8];
+        require(g.a==f.a+8&&g.b==f.c+8&&g.c==f.b+8,
+                "M51 mirrored face winding is reversed under physical reflection");
+    }
+    auto source=desktopMergeReflectedFirstOriginal();
+    const auto originalFaces=source.firstFaces;
+    const auto originalRoot=source.checkpoint.index;
+    require(source.checkpoint.originalFidelityRequired&&
+            source.checkpoint.verifiedOriginalFidelity&&
+            source.checkpoint.verifiedFirstOriginalMirrorPairs.size()==8&&
+            originalFaces.size()==16,
+            "M51 reflected fixture carries a first-original sealed history and eight actual stable mirror orbits");
+    SculptCollisionSettings protectedPolicy;
+    protectedPolicy.physicalExact=true;
+    protectedPolicy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    AsyncSculptWorker worker(std::move(source.checkpoint),.025,.006,.2,
+                             {},{},{},{},protectedPolicy,originalFaces);
+    const auto before=worker.initialRevision();
+    require(before==originalRoot&&
+            worker.status().liveMergeRequests==0&&
+            worker.status().history.undoDepth==0,
+            "M51 explicitly authorized source still starts WITHOUT automatic surgery");
+    DesktopMergeInput ui;
+    DesktopMergeKeyEdges keys;
+    require(ui.nominateFixtureOriginals(before,before,originalFaces,true)==
+                DesktopMergeInput::Result::Ignored&&
+            !ui.enabled()&&ui.selectedCount()==0,
+            "M51 A key is inert while Merge mode remains default OFF");
+    auto first=keys.sample(false,false,false,true);
+    auto held=keys.sample(false,false,false,true);
+    keys.sample(false,false,false,false);
+    auto repeated=keys.sample(false,false,false,true);
+    require(first.nominate&&!held.nominate&&repeated.nominate&&
+            !first.toggle&&!first.submit&&!first.clear,
+            "M51 actual GLFW A-key signal uses a rising edge only");
+    require(ui.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn,
+            "M51 M-mode remains required before the deliberate A selection");
+    require(ui.nominateFixtureOriginals(before,{},originalFaces,true)==
+                DesktopMergeInput::Result::Stale&&
+            ui.nominateFixtureOriginals(before,before,{},true)==
+                DesktopMergeInput::Result::NoSelection&&
+            ui.nominateFixtureOriginals(before,before,originalFaces,false)==
+                DesktopMergeInput::Result::Busy&&
+            ui.selectedCount()==0,
+            "M51 invalid authority, empty candidate and busy action cannot nominate");
+    auto duplicated=originalFaces;
+    duplicated.push_back(originalFaces.front());
+    require(ui.nominateFixtureOriginals(before,before,duplicated,true)==
+                DesktopMergeInput::Result::InvalidFace&&
+            ui.selectedCount()==0,
+            "M51 duplicated fixture authorization refuses as a whole");
+    auto forged=originalFaces;
+    forged.back()=FaceId{99999999};
+    require(ui.nominateFixtureOriginals(before,before,forged,true)==
+                DesktopMergeInput::Result::InvalidFace&&
+            ui.selectedCount()==0,
+            "M51 a foreign source ID cannot be coerced into an apparent root member");
+    auto tooMany=originalFaces;
+    for(std::size_t i=0;i<17;++i)
+        tooMany.push_back(FaceId{static_cast<std::uint64_t>(100+i)});
+    require(ui.nominateFixtureOriginals(before,before,tooMany,true)==
+                DesktopMergeInput::Result::Full&&
+            ui.selectedCount()==0,
+            "M51 a 33-face nomination refuses before modifying any selected original");
+    require(ui.pick(before,originalFaces.front(),true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.nominateFixtureOriginals(before,before,originalFaces,true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.selectedCount()==16&&
+            ui.nominateFixtureOriginals(before,before,originalFaces,true)==
+                DesktopMergeInput::Result::Duplicate&&
+            ui.selectedCount()==16,
+            "M51 explicit full-source key combines with already clicked face without duplicate IDs");
+    auto submitted=ui.submit(before,true,true);
+    require(submitted.result==DesktopMergeInput::Result::Queued&&
+            submitted.expected==before&&
+            submitted.originals.size()==originalFaces.size()&&
+            ui.selectedCount()==0,
+            "M51 Enter submits all and only the deliberate first-original IDs with same immutable root");
+    worker.mergeDiscoveredContacts(std::move(submitted.expected),
+                                   std::move(submitted.originals),
+                                   desktopMergeExactLimits(true));
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(30);
+    std::shared_ptr<const RegionTopologyIndex> merged;
+    bool dirty=false;
+    while(std::chrono::steady_clock::now()<deadline) {
+        if(auto snapshot=worker.takeSnapshot()) {
+            if(snapshot->index&&snapshot->index!=before) {
+                merged=snapshot->index;
+                dirty=!snapshot->dirtyPartitions.empty();
+            }
+        }
+        const auto status=worker.status();
+        if(merged&&dirty&&merged==worker.initialRevision()&&
+           status.liveMergeAccepted==1&&status.history.undoDepth==1&&
+           status.pendingLiveMergeRequests==0)break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto success=worker.status();
+    require(success.liveMergeRequests==1&&success.liveMergeAccepted==1&&
+            success.liveMergeRefusals==0&&success.history.undoDepth==1&&
+            success.publishedRevisions==1&&
+            success.resources.published==1&&dirty&&merged&&
+            merged==worker.initialRevision()&&merged!=before,
+            "M51 reflected A/Enter through actual controller performs one authenticated Boolean and terminal dirty frame");
+    require(ui.nominateFixtureOriginals(merged,before,originalFaces,true)==
+                DesktopMergeInput::Result::Stale&&
+            ui.selectedCount()==0,
+            "M51 an old fixture A-key authority cannot rebind to a subsequent rendered COW root");
+    const auto awaitFrame=[&](const std::shared_ptr<const RegionTopologyIndex>& root,
+                              std::size_t undo,std::size_t redo) {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(std::chrono::steady_clock::now()<until) {
+            const auto snapshot=worker.takeSnapshot();
+            const auto status=worker.status();
+            if(snapshot&&snapshot->index==root&&
+               worker.initialRevision()==root&&
+               status.history.undoDepth==undo&&status.history.redoDepth==redo)
+                return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        }
+        return false;
+    };
+    worker.undo();
+    require(awaitFrame(before,0,1),
+            "M51 reflected one-step undo restores exact original indexed rendered root");
+    worker.redo();
+    require(awaitFrame(merged,1,0),
+            "M51 reflected one-step redo restores exactly the same accepted indexed root");
+
+    // A separate supported asymmetric fixture uses precisely the same
+    // explicit input controller, no symmetry-only surrogate.
+    const auto asym=desktopMergeAsymmetricTetraFixture();
+    SculptCollisionSettings policy;
+    policy.physicalExact=true;
+    policy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    AsyncSculptWorker asymmetric(asym,.025,.006,.2,
+                                  {},{},{},false,{},policy);
+    const auto asymRoot=asymmetric.initialRevision();
+    const auto asymFaces=firstOriginalFaces(asym);
+    DesktopMergeInput asymUi;
+    require(asymUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn&&
+            asymUi.nominateFixtureOriginals(asymRoot,asymRoot,asymFaces,true)==
+                DesktopMergeInput::Result::Selected&&
+            asymUi.selectedCount()==8,
+            "M51 explicit A nominates eight genuine asymmetric FIRST-original faces");
+    const auto asymSubmission=asymUi.submit(asymRoot,true,true);
+    require(asymSubmission.result==DesktopMergeInput::Result::Queued&&
+            asymSubmission.originals==asymFaces,
+            "M51 asymmetric A/Enter passes unaltered original source IDs");
+    asymmetric.mergeDiscoveredContacts(asymSubmission.expected,
+                                        asymSubmission.originals,
+                                        desktopMergeExactLimits(false));
+    const auto asymEnd=std::chrono::steady_clock::now()+
+                       std::chrono::seconds(30);
+    std::shared_ptr<const RegionTopologyIndex> asymFinal;
+    while(std::chrono::steady_clock::now()<asymEnd) {
+        if(auto frame=asymmetric.takeSnapshot())
+            if(frame->index&&frame->index!=asymRoot&&
+               !frame->dirtyPartitions.empty())asymFinal=frame->index;
+        const auto s=asymmetric.status();
+        if(asymFinal&&asymFinal==asymmetric.initialRevision()&&
+           s.liveMergeAccepted==1&&s.history.undoDepth==1)break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    require(asymFinal&&asymFinal==asymmetric.initialRevision()&&
+            asymmetric.status().liveMergeAccepted==1,
+            "M51 asymmetric named fixture A/Enter produces real source-positive merged dirty root");
+
+    DesktopMergeInput refusalUi;
+    require(refusalUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn,
+            "M51 refusal setup permits only deliberate ON selection");
+    require(refusalUi.pick(asymRoot,asymFaces.front(),true)==
+                DesktopMergeInput::Result::Selected,
+            "M51 refusal tests establish a single exact initial-root pick");
+    auto foreignRoot=std::shared_ptr<const RegionTopologyIndex>{};
+    require(refusalUi.nominateFixtureOriginals(asymRoot,foreignRoot,asymFaces,true)==
+                DesktopMergeInput::Result::Stale&&
+            refusalUi.selectedCount()==1,
+            "M51 invalid batch does not discard a valid independently picked face");
+    require(refusalUi.clear()==DesktopMergeInput::Result::Cleared&&
+            refusalUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOff&&
+            refusalUi.nominateFixtureOriginals(asymRoot,asymRoot,asymFaces,true)==
+                DesktopMergeInput::Result::Ignored,
+            "M51 Backspace/M-OFF clear selection and explicitly disable hidden nomination");
+    std::cout<<"M51 complete explicit asymmetric and reflected original-source selection, "
+                "refusal, CAS, exact render root, undo/redo\\n";
+}
 }
 int main() {
     try {
@@ -7956,6 +8136,7 @@ int main() {
         testM47BoundedAuthenticatedLiveMergeDiscovery();
         testM49DesktopModeSelectionAndBoundedWorkerIntegration();
         testM50DesktopAsymmetricFixtureAndProtectedWorker();
+        testM51DeliberateFixtureNominationAndReflectedWorker();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();

@@ -86,6 +86,36 @@ public:
         selected_.push_back(*face);
         return Result::Selected;
     }
+    // M51 explicit user A-key nomination. The caller supplies a finite
+    // named FIRST-original list ONLY for a deliberate test fixture and
+    // its exact initial immutable indexed root. No coordinate guess,
+    // scene-wide candidate scan, inferred mirror partner or automatic
+    // expansion of ordinary mouse picks. Preflight the ENTIRE list
+    // before modifying the existing selection.
+    Result nominateFixtureOriginals(
+            const std::shared_ptr<const RegionTopologyIndex>& displayed,
+            const std::shared_ptr<const RegionTopologyIndex>& fixtureOriginal,
+            const std::vector<FaceId>& originals,bool idle) {
+        if(!enabled_)return Result::Ignored;
+        if(!idle)return Result::Busy;
+        if(!displayed||!fixtureOriginal||displayed!=fixtureOriginal||
+           (root_&&root_!=displayed))return Result::Stale;
+        if(originals.empty())return Result::NoSelection;
+        if(originals.size()>maximumSelection)return Result::Full;
+        std::vector<FaceId> extras;
+        for(const FaceId id:originals) {
+            if(!id||!displayed->maybeFace(id))return Result::InvalidFace;
+            if(std::find(extras.begin(),extras.end(),id)!=extras.end())
+                return Result::InvalidFace;
+            if(std::find(selected_.begin(),selected_.end(),id)==selected_.end())
+                extras.push_back(id);
+        }
+        if(extras.size()>maximumSelection-selected_.size())return Result::Full;
+        if(extras.empty())return Result::Duplicate;
+        if(!root_)root_=displayed;
+        selected_.insert(selected_.end(),extras.begin(),extras.end());
+        return Result::Selected;
+    }
     Submission submit(const std::shared_ptr<const RegionTopologyIndex>& displayed,
                       bool authorized,bool idle) {
         if(!enabled_)return {Result::Ignored,{},{}};
@@ -118,17 +148,18 @@ private:
 // held keys cannot toggle/submit/clear repeatedly across rendered frames.
 class DesktopMergeKeyEdges {
 public:
-    struct Edges {bool toggle{},submit{},clear{};};
-    Edges sample(bool m,bool enter,bool backspace) noexcept {
+    struct Edges {bool toggle{},submit{},clear{},nominate{};};
+    Edges sample(bool m,bool enter,bool backspace,bool a=false) noexcept {
         const Edges edges{m&&!previousM_,enter&&!previousEnter_,
-                          backspace&&!previousBackspace_};
+                          backspace&&!previousBackspace_,a&&!previousA_};
         previousM_=m;
         previousEnter_=enter;
         previousBackspace_=backspace;
+        previousA_=a;
         return edges;
     }
 private:
-    bool previousM_{},previousEnter_{},previousBackspace_{};
+    bool previousM_{},previousEnter_{},previousBackspace_{},previousA_{};
 };
 
 } // namespace mesher
