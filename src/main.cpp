@@ -4,6 +4,7 @@
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
 #include "mesher/desktop_merge_input.hpp"
+#include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
 
 #include <array>
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
     mesher::SphereOptions options;
     bool inflate = true, demoMode = false, verboseInput = false;
     bool allowMergeGeometry = false;
+    bool mergeTestTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
     mesher::CollapseSettings collapseSettings;
@@ -48,6 +50,7 @@ int main(int argc, char** argv) {
             else if(arg=="--demo") demoMode=true;
             else if(arg=="--verbose-input") verboseInput=true;
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
+            else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
                 if(++i>=argc)throw std::invalid_argument("Missing checkpoint filename");
                 if(arg=="--checkpoint")checkpointPath=argv[i];
@@ -135,6 +138,7 @@ int main(int argc, char** argv) {
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
+                         <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -145,6 +149,9 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
+        if(mergeTestTetra&&(!allowMergeGeometry||options.symmetric))
+            throw std::invalid_argument(
+                "--merge-test-tetra requires explicit --merge-geometry --asymmetric");
         if(allowMergeGeometry&&(demoMode||compareLocalRemesh||
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
@@ -169,6 +176,17 @@ int main(int argc, char** argv) {
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
                      <<" retired vertices from "<<recoverPath.string()<<"\n";
+        }else if(mergeTestTetra) {
+            // Deliberate, separately authorized supported-domain source;
+            // never constructed in a normal interactive desktop launch.
+            // The ordinary protected worker below independently verifies
+            // complete contacts, exact old-root identity and source proof.
+            mesh=mesher::desktopMergeAsymmetricTetraFixture();
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            std::cout<<"M50 experimental desktop fixture: "
+                     <<mesh.vertices.size()<<" independent original vertices, "
+                     <<mesh.triangles.size()<<" faces, two contacting asymmetric "
+                     <<"tetrahedral shells. Merge selection remains OFF.\n";
         }else {
             std::cout<<"Generating "<<options.vertexCount
                      <<(options.symmetric?" symmetric":" asymmetric")
