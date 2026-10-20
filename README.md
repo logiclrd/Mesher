@@ -855,6 +855,31 @@ True Vulkan-driver interaction on both OS families remains M52;
 the suspected accepted-union interior edges remain M54 and are
 not deemed clean by UI or worker accepted counters.
 
+## Correct hidden-edge wireframe occlusion and W solid-only view (V17-M56)
+
+The previous wireframe shader intentionally moved every line toward
+the camera by a large fixed clip-depth offset. This could let edges
+from surfaces *behind* the visible volume pass the Vulkan depth test,
+as observed in the reflected Merge fixture. The fix removes that
+offset; solid triangles still write the depth buffer first, and
+wireframe lines must pass the same `LESS_OR_EQUAL` depth test
+without writing depth. The depth attachment already prefers
+32-bit float (24-bit fixed fallback), so this was a biased-line
+problem, not intrinsically an 8- or 16-bit Z-buffer.
+
+Press **W** to toggle the wire overlay while keeping the solid
+geometry, viewport orientation, immutable source revision,
+history and protected Merge operation untouched. The window
+title and console indicate the current wire state. This helps
+distinguish display-only edges from real source surfaces.
+
+M54 separately audits whether the accepted reflected union is
+actually manifold and has no interior fragments. M52 still owns
+actual Linux/Windows Vulkan host rendering acceptance, including
+possible rasterization differences for coplanar edges now that
+the excessive shader depth pull is gone. See
+`docs/V17_M56_WIRE_DEPTH_OCCLUSION.md`.
+
 ## Experimental live Merge geometry — explicitly authorized, default OFF (V17-M48)
 
 The standard Mesher Vulkan launch still uses the existing **Mouse Inflate**
