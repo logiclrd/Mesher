@@ -2106,6 +2106,36 @@ faces, bypass original intent, or widen source geometry authorization:
   stress and relevant benchmarks. Production code remains untouched.
   Final documentation-exact head and merged-main CI remain separate
   gates; M64 and M52 stay open.
+- [ ] **V17-M66 — Optional backface culling with retained two-sided interior inspection (DEFERRED).**
+  Real Linux desktop evidence (2026-10-20): when the camera is inside
+  the sculpted intersecting arm, currently rendered backfaces reveal
+  a surface protruding through the opposite wall, which is useful for
+  auditing forthcoming interior fragment excision, ladder stitching
+  and cavity closure. Preserve this two-sided inspection behavior by
+  default: current Vulkan solid pipeline uses VK_CULL_MODE_NONE and
+  CCW front-face winding. Future optional display-only toggle may
+  cull backfaces (VK_CULL_MODE_BACK_BIT) to reduce raster/fragment work
+  for some outside views, but NO claimed factor-of-two frame-time
+  improvement without actual CPU/GPU measurements.
+  Before implementing, plan solid pipeline state selection or
+  portable non-extension-dependent variants; decide whether the
+  floor/grid are independently culled, how AA wire quads remain
+  visible only with their intended owning/visible surfaces, and
+  how depth occlusion behaves on camera-inside and near-pole views.
+  Do NOT directly apply triangle culling to orientation-dependent
+  screen-space wire quads, expose rear wires after their occluding
+  backfaces disappear, or reinstate blanket clip-depth bias.
+  Verify original and reflected manifold winding (including symmetry),
+  closed outside/inside fixture views, W/G independent controls,
+  near/far occlusion, exact source-face picking and post-Boolean
+  interior inspection. No permanent MeshRevision topology, source
+  FaceId, GPU upload/cache identity, history or worker changes.
+  Real Linux and Windows GPU visual/benchmark comparisons plus
+  Vulkan-enabled GCC/Clang/MSVC CTest/stress/benchmark acceptance
+  required when intentionally scheduled. NON-BLOCKING future UX:
+  not a prerequisite for M64 wire-depth diagnosis, M52 physical
+  acceptance, original M15/V17 completion, or V18/V19; implement
+  only when explicitly prioritized.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
