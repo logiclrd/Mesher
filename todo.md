@@ -1975,7 +1975,7 @@ faces, bypass original intent, or widen source geometry authorization:
   and applicable benchmarks. Source geometry/worker remain unchanged.
   Final documented PR-head and independently merged-main CI are
   separate acceptance gates, and real GPU observation remains M52.
-- [ ] **V17-M61 — Ctrl-modified view-relative pan/dolly and exact upright pole views.**
+- [x] **V17-M61 — Ctrl-modified view-relative pan/dolly and exact upright pole views.**
   User requested Ctrl+LMB view-relative strafe (camera translation
   along displayed screen-right/up), move Alt+RMB dolly to Ctrl+RMB,
   reserve Alt for later inverse brush without activating brush today,
@@ -1994,6 +1994,14 @@ faces, bypass original intent, or widen source geometry authorization:
   wiring. Verify full Vulkan GCC/Clang/Windows MSVC /W4 /WX CI at
   exact PR head and independent merged main. Real visual input on
   Linux/Windows Vulkan remains M52, original M15 and V17 open.
+  PR #114 implementation `6a7f2535` passed
+  [Actions #39503101018](https://github.com/logiclrd/Mesher/actions/runs/39503101018):
+  full Vulkan-enabled Linux GCC/Clang and Windows MSVC /W4 /WX,
+  all 40 registered CPU/CLI/source-contract CTests, history/checkpoint
+  threading stress and applicable benchmarks. The initial X11 build
+  found a colliding `None` macro; renamed enum to `Inactive` and
+  reran the complete compiler matrix GREEN. Actual visual tests
+  remain M52; final exact-head and merged-main CI separately required.
 - [ ] **V17-M62 — Calibrate AA stroke thickness and diagnose occlusion-side asymmetry.**
   User's real Linux screenshot confirms M58 removed subpixel gaps and
   preserves occlusion, but the presently 2-pixel HALFwidth with a

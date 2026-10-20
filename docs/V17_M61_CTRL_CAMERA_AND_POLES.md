@@ -73,3 +73,17 @@ Three-platform Vulkan-enabled GitHub Actions CI on the final PR
 head and independently merged main is required. Actual observed
 Linux/Windows native graphics input and cursor wrapping remain
 part of M52; original M15, V17 and V18/V19 remain open.
+
+## Three-platform implementation evidence (October 20, 2026)
+
+On [PR #114](https://github.com/logiclrd/Mesher/pull/114), the initial
+Vulkan-enabled GCC/Clang build caught an X11 macro named `None`
+colliding with the gesture enum. The enum member was renamed
+`Inactive` (purely mechanical, no gesture-state changes).
+Exact corrected implementation commit `6a7f2535` passed full
+[GitHub Actions #39503101018](https://github.com/logiclrd/Mesher/actions/runs/39503101018)
+Linux GCC, Linux Clang, and Windows MSVC /W4 /WX with all 40
+registered Vulkan-enabled CTests and applicable worker stress
+and benchmarks. Final documentation-exact PR head and separately
+merged main must be checked independently. Real GUI visual and
+input feel are not asserted by this compiled acceptance.
