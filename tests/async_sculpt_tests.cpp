@@ -5488,7 +5488,7 @@ void testM14PostCasFaultQuarantineAndCheckpointIsolation() {
     }
     std::filesystem::remove_all(rootDir,ec);
     std::cout<<"[m14] injected 4 physical and 4 queued true post-CAS failures, "
-             <<"worker fatal quarantine and independent failed/recovered durable I/O\\n";
+             <<"worker fatal quarantine and independent failed/recovered durable I/O\n";
 }
 
 // M47: a live Merge is never a render-thread all-pairs query or an
@@ -8100,7 +8100,7 @@ void testM51DeliberateFixtureNominationAndReflectedWorker() {
                 DesktopMergeInput::Result::Ignored,
             "M51 Backspace/M-OFF clear selection and explicitly disable hidden nomination");
     std::cout<<"M51 complete explicit asymmetric and reflected original-source selection, "
-                "refusal, CAS, exact render root, undo/redo\\n";
+                "refusal, CAS, exact render root, undo/redo\n";
 }
 }
 int main() {
