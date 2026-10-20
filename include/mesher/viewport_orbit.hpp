@@ -76,3 +76,5 @@ private:
     std::array<Vec3,3> basis_{{{1,0,0},{0,1,0},{0,0,1}}};
     Vec3 translation_{};
 };
+
+} // namespace mesher
