@@ -1876,6 +1876,31 @@ faces, bypass original intent, or widen source geometry authorization:
   Human-observed actual Vulkan screen pixel behavior still M52,
   original M15 remains OPEN. Final PR-head and independently
   merged-main CI are separate integration gates.
+- [ ] **V17-M58 — Antialiased perceptibly thick mesh/grid wires without hidden-edge leak.**
+  Real Linux post-M56 screenshot confirms correct depth ordering but
+  native Vulkan 1-pixel LINE_LIST edges alias to broken subpixel
+  segments in both COW mesh and G-controlled floor grid. Replace
+  the device-dependent thin native line raster with a deterministic
+  screen-space widened segment quad, smooth alpha coverage using
+  fragment blending and physical framebuffer dimensions, with a
+  consistent 2+ pixel nominal stroke across viewport DPI/resize.
+  Preserve identical true projected vertex depth, existing solid
+  depth-write and wire LEQUAL depth-test/no-write ordering; **never**
+  restore M56's globally shifted clip Z or display rear hidden
+  geometry over solid. Expand existing canonical owner wire segments
+  only at bounded GPU upload/dirty-replacement time, not via a
+  live full-revision scan; do not change stable FaceIds, immutable
+  source mesh, cut geometry, original lifetime, mirror or work
+  limits. Make G scenic grid and W wire-hide continue to operate
+  independently. Handle zero-length, near-clip and direction
+  degeneracies in shader without stretched screen artifacts.
+  CPU test precise per-original-segment six-vertex quad encoding
+  and source-buffer immutability, validate shader and Vulkan
+  depth/blend/pipeline contract, and gate exact final PR head plus
+  independent merged-main Vulkan-enabled GCC, Clang and Windows
+  MSVC /W4 /WX full CPU/CLI/stress/benchmark CI. Real X11/Wayland
+  and Windows driver pixel appearance still requires M52 observed
+  acceptance; original M15 stays open.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
