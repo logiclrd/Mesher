@@ -56,6 +56,8 @@ public:
             std::optional<std::array<VertexId,3>>>& faceChanges,
         std::size_t& touchedPartitions,std::size_t& copiedNodes);
 
+    std::optional<RegionTopologyIndex::FaceRayHit> firstRayFaceHit(
+        Ray ray,RegionTopologyIndex::PickStatistics* statistics) const;
     std::optional<Vec3> firstRayHit(Ray ray,
                                     RegionTopologyIndex::PickStatistics* statistics) const;
     const void* identity() const noexcept {return root_.get();}

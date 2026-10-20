@@ -57,7 +57,7 @@ bool rayBounds(const Bounds& box,Ray ray,double maximum) {
     }
     return high>=0;
 }
-void intersect(Triangle t,Ray ray,double& best,
+void intersect(Triangle t,Ray ray,double& best,FaceId& nearest,
                RegionTopologyIndex::PickStatistics& stats) {
     ++stats.trianglesTested;
     const auto& [a,b,c]=t.vertices;
@@ -73,7 +73,11 @@ void intersect(Triangle t,Ray ray,double& best,
     const double v=dot(ray.direction,q)*inverse;
     if(v<-1e-12||u+v>1.0+1e-12)return;
     const double distance=dot(ac,q)*inverse;
-    if(distance>1e-8&&distance<best)best=distance;
+    if(distance>1e-8&&(distance<best||
+       (distance==best&&(!nearest||t.id<nearest)))) {
+        best=distance;
+        nearest=t.id;
+    }
 }
 std::int32_t createNode(Partition& part,std::size_t start,std::size_t end) {
     const auto id=static_cast<std::int32_t>(part.nodes.size());
@@ -238,7 +242,7 @@ void crossingDirectory(
     for(const auto& child:directory->children)
         if(child)crossingDirectory(child,ray,stats,winding,ambiguous,limits);
 }
-void hitPartition(const Partition& part,Ray ray,double& best,
+void hitPartition(const Partition& part,Ray ray,double& best,FaceId& nearest,
                   RegionTopologyIndex::PickStatistics& stats) {
     ++stats.partitionsTested;
     std::vector<std::int32_t> stack{0};
@@ -249,7 +253,7 @@ void hitPartition(const Partition& part,Ray ray,double& best,
         if(!rayBounds(node.bounds,ray,best))continue;
         if(node.count) {
             for(std::size_t j=node.begin;j<node.begin+node.count;++j)
-                intersect(part.triangles[j],ray,best,stats);
+                intersect(part.triangles[j],ray,best,nearest,stats);
         }else {
             if(node.left>=0)stack.push_back(node.left);
             if(node.right>=0)stack.push_back(node.right);
@@ -257,14 +261,14 @@ void hitPartition(const Partition& part,Ray ray,double& best,
     }
 }
 void hitDirectory(const std::shared_ptr<const RevisionPickingIndex::Directory>& directory,
-                  Ray ray,double& best,
+                  Ray ray,double& best,FaceId& nearest,
                   RegionTopologyIndex::PickStatistics& stats) {
     if(!directory)return;
     ++stats.boxesTested;
     if(!rayBounds(directory->bounds,ray,best))return;
-    if(directory->partition)hitPartition(*directory->partition,ray,best,stats);
+    if(directory->partition)hitPartition(*directory->partition,ray,best,nearest,stats);
     for(const auto& child:directory->children)
-        if(child)hitDirectory(child,ray,best,stats);
+        if(child)hitDirectory(child,ray,best,nearest,stats);
 }
 }
 std::shared_ptr<const RevisionPickingIndex::Partition>
@@ -372,14 +376,22 @@ int RevisionPickingIndex::signedRayCrossings(
     crossingDirectory(root_,ray,stats,winding,ambiguous,limits);
     return winding;
 }
-std::optional<Vec3> RevisionPickingIndex::firstRayHit(
+std::optional<RegionTopologyIndex::FaceRayHit>
+RevisionPickingIndex::firstRayFaceHit(
     Ray ray,RegionTopologyIndex::PickStatistics* measured) const {
     RegionTopologyIndex::PickStatistics local;
     auto& stats=measured?*measured:local;
     stats={};
     double best=std::numeric_limits<double>::infinity();
-    hitDirectory(root_,ray,best,stats);
-    if(!std::isfinite(best))return std::nullopt;
-    return ray.origin+ray.direction*best;
+    FaceId nearest{};
+    hitDirectory(root_,ray,best,nearest,stats);
+    if(!std::isfinite(best)||!nearest)return std::nullopt;
+    return RegionTopologyIndex::FaceRayHit{
+        ray.origin+ray.direction*best,nearest};
+}
+std::optional<Vec3> RevisionPickingIndex::firstRayHit(
+    Ray ray,RegionTopologyIndex::PickStatistics* measured) const {
+    const auto hit=firstRayFaceHit(ray,measured);
+    return hit?std::optional<Vec3>{hit->point}:std::nullopt;
 }
 } // namespace mesher
