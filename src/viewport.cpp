@@ -727,8 +727,10 @@ class VulkanViewport {
             if(const auto ray=cursorSourceRay()) {
                 const auto picked=displayedIndex_?
                     displayedIndex_->firstRayHit(*ray):firstMeshHit(mesh_,*ray);
-                orbitPivotSource_=ViewportOrbit::choosePivot(
-                    *ray,picked,currentGeometryCentroid());
+                // A hit already gives a stable source-space pivot: avoid
+                // even the one-time centroid traversal unless RMB misses.
+                orbitPivotSource_=picked?*picked:ViewportOrbit::choosePivot(
+                    *ray,std::nullopt,currentGeometryCentroid());
                 orbitPreviousX_=x;
                 orbitPreviousY_=y;
                 orbitDragging_=true;
