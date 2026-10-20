@@ -2218,3 +2218,33 @@ See `docs/V17_M57_FLOOR_CLEARANCE.md`.
 M52 still requires real human-observed Linux and Windows
 Vulkan behavior; floor relocation is not a blanket proof
 of correct GPU depth rasterization or freeform UI quality.
+
+## V17-M58 — Smooth antialiased physical-pixel wireframe
+
+Native Vulkan one-pixel `LINE_LIST` without multisampling
+made the formerly depth-correct edge overlay extremely thin and
+aliased on real Linux screenshots. M58 changes **only** the
+visible wire render path. Each canonical two-endpoint model edge
+(or grid segment) remains unchanged in the immutable CPU
+partition renderer; at GPU upload only it expands to a
+two-triangle screen-space quad. Vertex/fragment shaders use
+the actual framebuffer size, a two-pixel halfwidth, one-pixel
+coverage falloff and ordinary alpha blending so diagonals
+remain perceptibly continuous. Solid depth is written first;
+AA quads still read with LEQUAL and do not write depth.
+Their clip Z is **not** pulled forward, retaining M56's
+rear-edge occlusion. Near-camera and zero-projection segments
+fail safely rather than streaking across the screen.
+
+W still hides wire overlay; G independently hides M57
+floor and grid. M54's positive reflected manifold union
+and immutable source identity are unchanged. New
+`screen_space_aa_wire_quad_encoding` and
+`viewport_aa_wire_quad_pipeline_contract` CTests guard
+GPU staging and source-level shader/depth state. The
+formerly flaky asynchronous-test observer now waits for
+both matching accepted root and history before asserting
+(no worker production modifications).
+See `docs/V17_M58_ANTIALIASED_WIRES.md`.
+As with M55–M57, real Vulkan graphics appearance on
+Linux/Windows remains M52 and original M15 stays open.

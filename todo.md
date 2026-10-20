@@ -1906,6 +1906,43 @@ faces, bypass original intent, or widen source geometry authorization:
   Final documentation-exact PR head and independent merged-main
   builds remain separate gates; real GPU launch must be
   rechecked by the user and is not proved by this headless test.
+- [x] **V17-M58 — Antialiased perceptibly thick mesh/grid wires without hidden-edge leak.**
+  Real Linux post-M56 screenshot confirms correct depth ordering but
+  native Vulkan 1-pixel LINE_LIST edges alias to broken subpixel
+  segments in both COW mesh and G-controlled floor grid. Replace
+  the device-dependent thin native line raster with a deterministic
+  screen-space widened segment quad, smooth alpha coverage using
+  fragment blending and physical framebuffer dimensions, with a
+  consistent 2+ pixel nominal stroke across viewport DPI/resize.
+  Preserve identical true projected vertex depth, existing solid
+  depth-write and wire LEQUAL depth-test/no-write ordering; **never**
+  restore M56's globally shifted clip Z or display rear hidden
+  geometry over solid. Expand existing canonical owner wire segments
+  only at bounded GPU upload/dirty-replacement time, not via a
+  live full-revision scan; do not change stable FaceIds, immutable
+  source mesh, cut geometry, original lifetime, mirror or work
+  limits. Make G scenic grid and W wire-hide continue to operate
+  independently. Handle zero-length, near-clip and direction
+  degeneracies in shader without stretched screen artifacts.
+  CPU test precise per-original-segment six-vertex quad encoding
+  and source-buffer immutability, validate shader and Vulkan
+  depth/blend/pipeline contract, and gate exact final PR head plus
+  independent merged-main Vulkan-enabled GCC, Clang and Windows
+  MSVC /W4 /WX full CPU/CLI/stress/benchmark CI. Real X11/Wayland
+  and Windows driver pixel appearance still requires M52 observed
+  acceptance; original M15 stays open.
+  M58 reconciled on PR #111 against M59 startup fix and the
+  user's independent literal-newline correction, preserving
+  guarded indexed-COW empty legacy allocations and null draws.
+  The exact integrated implementation head `f7308822` passed
+  [Actions #39491852308](https://github.com/logiclrd/Mesher/actions/runs/39491852308):
+  Linux GCC, Linux Clang and Windows MSVC /W4 /WX, Vulkan shader
+  compilation, **39/39 desktop CTests** on GCC, repeated
+  checkpoint/history stress and applicable benchmarks. The CPU
+  six-corner AA endpoint encoding, M56 depth ordering, M57 floor
+  separation and M59 optional-buffer startup source contracts pass.
+  Independent merged-main CI is required after PR merge;
+  real Linux/Windows visible GPU acceptance remains M52.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI

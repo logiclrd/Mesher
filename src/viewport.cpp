@@ -4,6 +4,7 @@
 #include "mesher/picking.hpp"
 #include "mesher/viewport_orbit.hpp"
 #include "mesher/viewport_floor.hpp"
+#include "mesher/wire_quads.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -278,8 +279,10 @@ struct PushConstants {
     Matrix viewProjection;
     std::array<float,4> light0;
     std::array<float,4> light1;
+    // Actual framebuffer width/height; edge quad outer halfwidth in px.
+    std::array<float,4> wireRaster;
 };
-static_assert(sizeof(PushConstants)==96);
+static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
                             const ViewportOrbit& orbit) {
     const float aspect=float(width)/float(height);
@@ -303,6 +306,10 @@ PushConstants makeConstants(int width,int height,double cameraScale,
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
+    // The default 1px Vulkan LINE_LIST alias is replaced by a nominal
+    // 2+px opaque-centered line, with a 1px smooth alpha falloff at edges.
+    // Pixel dimensions track the actual HiDPI framebuffer every frame.
+    result.wireRaster={float(width),float(height),2.0f,0.0f};
     return result;
 }
 
@@ -615,12 +622,18 @@ class VulkanViewport {
         std::memcpy(data,vertices.data(),static_cast<std::size_t>(size));
         vkUnmapMemory(device,buffer.memory);
     }
+    Buffer uploadWire(const std::vector<Vertex>& edges) {
+        return upload(expandWireQuads(edges));
+    }
+    void replaceWire(Buffer& buffer,const std::vector<Vertex>& edges) {
+        replaceBuffer(buffer,expandWireQuads(edges));
+    }
     void initializePartitions() {
         partitionCache_.initialize(displayedIndex_);
         for(const auto& [id,geometry]:partitionCache_.partitions()) {
             auto& dst=partitionBuffers_[id];
             if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
-            if(!geometry->wire.empty())dst.wire=upload(geometry->wire);
+            if(!geometry->wire.empty())dst.wire=uploadWire(geometry->wire);
         }
     }
     void refreshPartitions(
@@ -650,7 +663,7 @@ class VulkanViewport {
             }
             auto& dst=partitionBuffers_[id];
             replaceBuffer(dst.solid,found->second->solid);
-            replaceBuffer(dst.wire,found->second->wire);
+            replaceWire(dst.wire,found->second->wire);
         }
         auto oldDisplayed=std::move(displayedIndex_);
         displayedIndex_=std::move(next);
@@ -668,7 +681,7 @@ class VulkanViewport {
               "Wait before updating legacy geometry");
         const auto drawing=buildDrawing(currentMesh());
         replaceBuffer(solid,drawing.solid);
-        replaceBuffer(lines,drawing.lines);
+        replaceWire(lines,drawing.lines);
         lastUploadMs_=(glfwGetTime()-started)*1000;
     }
 
@@ -1364,10 +1377,12 @@ class VulkanViewport {
         attrs[2]={2,0,VK_FORMAT_R32_SFLOAT,offsetof(Vertex,material)};
         VkPipelineVertexInputStateCreateInfo input{}; input.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         input.vertexBindingDescriptionCount=1;input.pVertexBindingDescriptions=&binding;
-        input.vertexAttributeDescriptionCount=wire?1:static_cast<std::uint32_t>(attrs.size());
+        // Wire quads use the same 7-float position+endpoint+corner binding.
+        input.vertexAttributeDescriptionCount=static_cast<std::uint32_t>(attrs.size());
         input.pVertexAttributeDescriptions=attrs.data();
         VkPipelineInputAssemblyStateCreateInfo assembly{}; assembly.sType=VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        assembly.topology=wire?VK_PRIMITIVE_TOPOLOGY_LINE_LIST:VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        // Six-vertex triangle quads, not device-dependent 1px LINE_LIST.
+        assembly.topology=VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         VkPipelineViewportStateCreateInfo viewport{}; viewport.sType=VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewport.viewportCount=1;viewport.scissorCount=1;
         const std::array<VkDynamicState,2> dynamics{VK_DYNAMIC_STATE_VIEWPORT,VK_DYNAMIC_STATE_SCISSOR};
@@ -1389,7 +1404,9 @@ class VulkanViewport {
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
         VkPipelineColorBlendStateCreateInfo blend{}; blend.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        if(hudOverlay) {
+        if(wire||hudOverlay) {
+            // AA coverage from wire.frag is smoothly composited over the
+            // already depth-written solid. Wire quads never write depth.
             blendAttachment.blendEnable=VK_TRUE;
             blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
             blendAttachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -1668,14 +1685,12 @@ public:
         floorZ_=viewportWorkFloorZ(mesh_);
         const auto scenery=buildWorkFloor(floorZ_);
         floorSolid=upload(scenery.solid);
-        floorLines=upload(scenery.lines);
+        floorLines=uploadWire(scenery.lines);
         auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
-        // COW mode intentionally has NO legacy triangles/edges. Those
-        // empty arrays are valid optional data, not Vulkan allocations:
-        // upload() correctly rejects a zero-byte vertex buffer.
-        // Rebuild the real COW geometry exclusively from live partitions.
+        // Indexed COW startup intentionally has no legacy flat model;
+        // do not upload its zero-byte arrays (M59), including AA wires.
         if(!drawing.solid.empty())solid=upload(drawing.solid);
-        if(!drawing.lines.empty())lines=upload(drawing.lines);
+        if(!drawing.lines.empty())lines=uploadWire(drawing.lines);
         if(displayedIndex_)initializePartitions();
         std::cout<<"[view] grid plane Z="<<floorZ_
                  <<" (startup source bounds); G hides/shows grid\n";
