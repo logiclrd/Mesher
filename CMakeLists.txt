@@ -122,6 +122,16 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(desktop_merge_reject_recovery PROPERTIES WILL_FAIL TRUE)
         add_test(NAME desktop_merge_reject_noninteractive COMMAND Mesher --merge-geometry --no-inflate)
         set_tests_properties(desktop_merge_reject_noninteractive PROPERTIES WILL_FAIL TRUE)
+        # M50: source-positive fixture requires BOTH deliberate protected
+        # authorization and asymmetric mode, without starting any GPU.
+        add_test(NAME desktop_merge_fixture_reject_unarmed
+                 COMMAND Mesher --merge-test-tetra --asymmetric)
+        set_tests_properties(desktop_merge_fixture_reject_unarmed PROPERTIES
+            WILL_FAIL TRUE)
+        add_test(NAME desktop_merge_fixture_reject_symmetric
+                 COMMAND Mesher --merge-geometry --merge-test-tetra --symmetric)
+        set_tests_properties(desktop_merge_fixture_reject_symmetric PROPERTIES
+            WILL_FAIL TRUE)
     endif()
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
