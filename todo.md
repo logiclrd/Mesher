@@ -2057,7 +2057,7 @@ faces, bypass original intent, or widen source geometry authorization:
   repeated worker history/checkpoint stress and benchmarks.
   Exact documentation-head PR and merged-main CI remain
   independent gates; actual new polarity on Linux remains M52.
-- [ ] **V17-M64 — Diagnose the pole-dependent wire width and specify a depth-safe renderer replacement (planned prerequisite).**
+- [x] **V17-M64 — Diagnose the pole-dependent wire width and specify a depth-safe renderer replacement (planned prerequisite).**
   User's real Linux near-top and exactly-top screenshots show both
   geometry wires and planar floor grid suddenly appear thicker
   at the camera's +90-degree pole. The fixed 1.5px shader
@@ -2090,7 +2090,18 @@ faces, bypass original intent, or widen source geometry authorization:
   across this explicit sequence. A source-contract/CPU analytic
   regression and document are M64 deliverables, not a claim of
   Vulkan visual correction.
-- [ ] **V17-M67 — Face-anchored antialiased mesh wires with correct per-fragment depth.**
+  M64 analytical/source-contract implementation at `bcd1c86b`
+  passed [Actions #39514057701](https://github.com/logiclrd/Mesher/actions/runs/39514057701):
+  Vulkan-enabled Linux GCC, Linux Clang, Windows MSVC /W4 /WX
+  full CPU test, history stress and benchmark workflows GREEN.
+  The CPU tests explicitly establish 2px zero-slope vs ~1px
+  nonzero-slope ink, reversed normal-gradient masking, and
+  preservation of genuine closer occlusion. No runtime shader,
+  Vulkan draw, source geometry or worker code was changed.
+  Next implementation peers M67, M68 and M69 remain OPEN until
+  independently verified; M52 human observation remains OPEN.
+
+- [x] **V17-M67 — Face-anchored antialiased mesh wires with correct per-fragment depth.**
   Derive screen-space triangle barycentric distance from the actual
   solid triangle raster (non-indexed 3-vertex mesh triangles), so
   edges shade only fragments of the DEPTH-VISIBLE owning solid face.
@@ -2105,6 +2116,16 @@ faces, bypass original intent, or widen source geometry authorization:
   rendering the floor's internal triangulation diagonal. Add
   mathematically grounded shader/C++ contract and three-platform
   Vulkan-enabled CI, plus independent merged-main verification.
+  M67 implementation head `f4a94ae4` passed
+  [Actions #39515294505](https://github.com/logiclrd/Mesher/actions/runs/39515294505):
+  full Vulkan Linux GCC/Clang and Windows MSVC /W4 /WX GREEN,
+  including **45 CTests** on GCC and the new barycentric edge
+  gradient/actual draw-path contracts. Historical M56/M57/M58/M62
+  tests were deliberately updated to certify the split mesh
+  surface/floor grid without weakening LEQUAL or W/G semantics.
+  Floor still uses legacy quads until M68; real Linux/Windows
+  device visual approval is M52, and M69 GPU cleanup remains open.
+  Final documented-head and independent merged-main CI required.
 - [ ] **V17-M68 — Surface-anchored floor grid coverage at arbitrary camera elevation.**
   Replace the floor's independent clip-depth-flat AA quad overlay
   with view-projected distance to integer XY grid lines evaluated

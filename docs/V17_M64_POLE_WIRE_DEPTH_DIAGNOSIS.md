@@ -97,3 +97,15 @@ FaceId, source-original proof, worker queue, persistent checkpoint
 and selection behavior are unaffected. Three-compiler CI verifies
 the independent analytic tests and source assumptions, not
 physical Vulkan appearance.
+
+## Automated analytic acceptance — October 20, 2026
+
+M64 implementation head `bcd1c86b` passed full
+[GitHub Actions #39514057701](https://github.com/logiclrd/Mesher/actions/runs/39514057701)
+on Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX,
+including the new analytic diagnosis CPU test and real source
+staging contract, repeated history/checkpoint stress and the
+applicable benchmarks. The final documentation-exact head and
+independent merged-main CI are separate gates. This is a
+verified mathematical reproduction, **not** a screenshot of a
+corrected GPU renderer. M67/M68/M69 implement the full fix.
