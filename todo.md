@@ -1876,6 +1876,23 @@ faces, bypass original intent, or widen source geometry authorization:
   Human-observed actual Vulkan screen pixel behavior still M52,
   original M15 remains OPEN. Final PR-head and independently
   merged-main CI are separate integration gates.
+- [ ] **V17-M59 — Restore viewport startup for indexed COW meshes after scenic floor separation.**
+  User-reported regression immediately after merged M57: opening normal Mesher
+  throws `Empty vertex buffer` before drawing a frame. M57 correctly removed
+  duplicated legacy geometry when `displayedIndex_` exists, but the Vulkan
+  constructor still unconditionally calls `upload()` for the resulting
+  empty legacy solid/wire arrays; `upload()` properly rejects zero-byte
+  vertex buffers. Preserve the user's intervening independent
+  literal-newline fix (main `18ed1278`) and isolate the solution from the
+  ongoing V17-M58 antialiased wireframe PR. Guard optional legacy uploads,
+  leave immutable partition initialization and real floor buffers untouched,
+  and never bind the resulting null Vulkan buffer handles in the renderer.
+  Add a real registered Vulkan-enabled CTest source-contract guard covering
+  indexed startup, zero-count vertex draws, and the preserved strict upload
+  API; run GCC, Clang and Windows MSVC /W4 /WX full CTest, stress and
+  benchmark matrix on the final PR head and independently on merged main.
+  This prevents the proven immediate exception; a true GPU runtime smoke
+  test still requires human-observed M52, not unsupported headless claims.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
