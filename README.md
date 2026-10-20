@@ -824,6 +824,25 @@ geometry/topology and stamp totals, and verifies that all work completes
 back-to-back strokes and orderly worker cancellation. The scripted demo,
 comparison benchmarks and synchronous `BrushStroke` interface are unchanged.
 
+## Viewport rotation — hold right mouse button (V17-M53)
+
+Hold **right mouse** and drag to rotate the displayed scene. Horizontal
+movement rotates around world **Z**; vertical movement rotates around
+world **X**, with the nearest material initially moving in the
+same direction as the pointer. When RMB starts over an indexed
+surface, the exact BVH ray hit is the fixed pivot for that gesture.
+When RMB starts over background, the ray intersects the **XZ plane
+at the current mesh vertex-centroid's Y**. A near-parallel or
+behind-eye plane uses the centroid directly. Releasing RMB keeps the
+new orientation. This is a display-only rigid transform: sculpt and
+Merge picking use the inverse to return unmodified source coordinates
+and stable FaceIds; no mesh edit, checkpoint or undo action is created.
+RMB interaction suppresses new LMB strokes. See
+`docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md`.
+This feature's true Vulkan-driver ergonomics and the previously
+reported potentially penetrating edges of a reflected accepted union
+are **not yet certified** (M52 and M54 respectively).
+
 ## Experimental live Merge geometry — explicitly authorized, default OFF (V17-M48)
 
 The standard Mesher Vulkan launch still uses the existing **Mouse Inflate**
