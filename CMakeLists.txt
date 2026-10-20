@@ -132,6 +132,20 @@ if(MESHER_BUILD_TESTS)
                  COMMAND Mesher --merge-geometry --merge-test-tetra --symmetric)
         set_tests_properties(desktop_merge_fixture_reject_symmetric PROPERTIES
             WILL_FAIL TRUE)
+        # M51: a reflected fixture is only an explicitly protected and
+        # symmetric fresh ORIGINAL, never an arbitrary recovered mesh.
+        add_test(NAME desktop_merge_reflected_reject_unarmed
+                 COMMAND Mesher --merge-test-reflected-tetra)
+        set_tests_properties(desktop_merge_reflected_reject_unarmed PROPERTIES
+            WILL_FAIL TRUE)
+        add_test(NAME desktop_merge_reflected_reject_asymmetric
+                 COMMAND Mesher --merge-geometry --asymmetric --merge-test-reflected-tetra)
+        set_tests_properties(desktop_merge_reflected_reject_asymmetric PROPERTIES
+            WILL_FAIL TRUE)
+        add_test(NAME desktop_merge_reflected_reject_conflicting_fixture
+                 COMMAND Mesher --merge-geometry --merge-test-tetra --merge-test-reflected-tetra)
+        set_tests_properties(desktop_merge_reflected_reject_conflicting_fixture PROPERTIES
+            WILL_FAIL TRUE)
     endif()
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
