@@ -91,3 +91,28 @@ not a claim of human-observed appearance on all drivers.**
 M52 must still inspect real X11/Wayland and Windows Vulkan
 rendering at representative DPI, orbits, wire on/off, grid
 and signed source-positive Merge. Original M15 remains open.
+
+## Reconciliation and automated acceptance (October 20, 2026)
+
+PR [#111](https://github.com/logiclrd/Mesher/pull/111) was updated to
+include latest M59 merged `main` and the user's independent console
+newline correction. The M58 wire expansion now preserves M59's
+intentional empty indexed-COW legacy upload/draw guards, while AA
+wires are uploaded for nonempty legacy, floor and partition data.
+The M57 floor and M59 optional-buffer source-contract tests were
+updated to assert the *combined* renderer rather than obsolete
+LINE_LIST-era calls. The source-owned CPU fixture test iterates
+meshes by const reference to satisfy GCC/Clang `-Werror`; the
+mirrored-worker exact-root/history observer fix remains test-only.
+
+The exact integrated implementation at `f7308822` passed
+[GitHub Actions #39491852308](https://github.com/logiclrd/Mesher/actions/runs/39491852308)
+on Vulkan-enabled Linux GCC, Linux Clang and Windows MSVC /W4 /WX.
+GCC registered and passed **all 39 CTests**, including both M58
+AA tests and M59's optional-buffer startup guard. Each platform
+passed its full workflow, including threaded checkpoint/history
+stress and applicable benchmarks. This proves compiled contract
+and CPU correctness on the supported fixtures; **not** actual
+rendered line appearance on a physical Vulkan device. An independent
+merged-`main` CI run is the final integration gate, and M52's
+human-observed Linux/Windows graphics acceptance remains open.
