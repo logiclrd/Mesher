@@ -1876,7 +1876,7 @@ faces, bypass original intent, or widen source geometry authorization:
   Human-observed actual Vulkan screen pixel behavior still M52,
   original M15 remains OPEN. Final PR-head and independently
   merged-main CI are separate integration gates.
-- [ ] **V17-M59 — Restore viewport startup for indexed COW meshes after scenic floor separation.**
+- [x] **V17-M59 — Restore viewport startup for indexed COW meshes after scenic floor separation.**
   User-reported regression immediately after merged M57: opening normal Mesher
   throws `Empty vertex buffer` before drawing a frame. M57 correctly removed
   duplicated legacy geometry when `displayedIndex_` exists, but the Vulkan
@@ -1893,6 +1893,19 @@ faces, bypass original intent, or widen source geometry authorization:
   benchmark matrix on the final PR head and independently on merged main.
   This prevents the proven immediate exception; a true GPU runtime smoke
   test still requires human-observed M52, not unsupported headless claims.
+  Accepted source and registered regression on PR #112 implementation
+  head `286d46a5`:
+  [Actions #39482201808](https://github.com/logiclrd/Mesher/actions/runs/39482201808)
+  SUCCESS Linux GCC, Linux Clang and Windows MSVC /W4 /WX full
+  Vulkan-enabled compilation, 37 registered CTests,
+  repeated history/checkpoint stress and applicable benchmarks.
+  Empty flat legacy arrays are skipped at both allocation and
+  draw-time while real COW partitions still initialize and render.
+  Strict empty `upload()` refusal remains intact. See
+  `docs/V17_M59_EMPTY_OPTIONAL_GPU_BUFFERS.md`.
+  Final documentation-exact PR head and independent merged-main
+  builds remain separate gates; real GPU launch must be
+  rechecked by the user and is not proved by this headless test.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
