@@ -6896,21 +6896,31 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
     require(joined&&joined->index&&joined->index!=original&&
             worker.status().history.undoDepth==1,
             "Mirrored union publishes one immutable root and one history transition");
+    // M57 CI exposed the old test's status-only observer race on MSVC:
+    // history.redoDepth can advance BEFORE the worker publishes its
+    // coalesced immutable renderer Snapshot. Never mistake the absence
+    // of that still-pending frame for a worker undo/redo defect.
+    const auto awaitHistoryFrame=[&](
+            const std::shared_ptr<const RegionTopologyIndex>& expected,
+            std::size_t undoDepth,std::size_t redoDepth) {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(15);
+        while(std::chrono::steady_clock::now()<until) {
+            const auto frame=worker.takeSnapshot();
+            const auto status=worker.status();
+            if(frame&&frame->index==expected&&
+               worker.initialRevision()==expected&&
+               status.history.undoDepth==undoDepth&&
+               status.history.redoDepth==redoDepth)return true;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return false;
+    };
     worker.undo();
-    const auto deadline=std::chrono::steady_clock::now()+
-                        std::chrono::seconds(15);
-    while(worker.status().history.redoDepth==0&&
-          std::chrono::steady_clock::now()<deadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    const auto undone=worker.takeSnapshot();
-    require(undone&&undone->index==original,
+    require(awaitHistoryFrame(original,0,1),
             "Mirrored worker undo restores original root and reciprocal old mirrors");
     worker.redo();
-    while(worker.status().history.redoDepth!=0&&
-          std::chrono::steady_clock::now()<deadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    auto redone=worker.takeSnapshot();
-    require(redone&&redone->index==joined->index,
+    require(awaitHistoryFrame(joined->index,1,0),
             "Mirrored worker redo restores both final welded components");
     const auto file=std::filesystem::temp_directory_path()/
                     "mesher-worker-v17-reflected-union.mshr";
