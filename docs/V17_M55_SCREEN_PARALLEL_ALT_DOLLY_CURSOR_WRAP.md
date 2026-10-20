@@ -81,9 +81,14 @@ dolly/reverse and no-effect invalid span, wrap in both axes, stale
 pre-warp suppression, repeated reverse crossings, resize, compositor
 warp refusal and release.
 
-Full Vulkan-enabled GCC, Clang, MSVC /W4 /WX with all registered CPU
-and executable CLI tests, repeated history/checkpoint stress and
-benchmarks are required before M55 is checked. The exact PR head and
+Substantive PR head `763573d9` passed full Linux GCC, Linux Clang
+and Windows MSVC /W4 /WX Vulkan-enabled CI, 32 registered desktop-
+enabled CTests, repeated history/checkpoint threading stress and
+applicable benchmarks:
+[Actions #39460369523](https://github.com/logiclrd/Mesher/actions/runs/39460369523).
+This establishes the source-preserving mathematical and compiled
+runtime path, **not** observed physical cursor wrapping or Windows/
+Linux input feel. No human GPU run is asserted. The exact PR head and
 independently merged-main verification are separate gates. The M54
 manifold audit, M52 actual GPU observations and original M15 checkbox
 stay open.
