@@ -2078,7 +2078,7 @@ faces, bypass original intent, or widen source geometry authorization:
   follow-on milestones before coding; do not substitute a
   depth-bias shortcut. CPU/GLSL/Vulkan contracts and full
   three-platform CI, real Linux/Windows visual acceptance M52.
-- [ ] **V17-M65 — Correct M11 asynchronous 16-undo/redo renderer snapshot observer race.**
+- [x] **V17-M65 — Correct M11 asynchronous 16-undo/redo renderer snapshot observer race.**
   Independent merged-main MSVC Actions #39508068531 failed 1/41
   at `M11 each real FIFO physical union is independently undoable`,
   while the same unchanged M11 code passed on exact PR head,
@@ -2098,6 +2098,14 @@ faces, bypass original intent, or widen source geometry authorization:
   this as an unrelated test observer regression, not proof
   that a failed merged-main CI was successful. M64 wire issue,
   M52 real GPU observations and original M15 stay open.
+  PR #117 implementation head `5b6d003e` passed
+  [Actions #39509119650](https://github.com/logiclrd/Mesher/actions/runs/39509119650)
+  on Vulkan-enabled Linux GCC/Clang and Windows MSVC /W4 /WX,
+  **41/41 CTests** on all platforms including Windows' formerly
+  flaky M11 `asynchronous_sculpting`, repeated thread/history
+  stress and relevant benchmarks. Production code remains untouched.
+  Final documentation-exact head and merged-main CI remain separate
+  gates; M64 and M52 stay open.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI

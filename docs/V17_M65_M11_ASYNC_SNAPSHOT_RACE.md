@@ -48,3 +48,15 @@ stress, benchmarks on exact PR head and independently merged
 `main`. The original M64 pole-wire depth investigation and
 M52 Linux/Windows physical GUI observations remain open,
 as does original M15.
+
+## Reproduction acceptance (October 20, 2026)
+
+The exact M65 implementation PR #117 head `5b6d003e` passed
+[Actions #39509119650](https://github.com/logiclrd/Mesher/actions/runs/39509119650):
+full Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX build/test,
+**41/41 CTests** including Windows CTest #31 `asynchronous_sculpting`
+(the previously observed failure, now passed in 29.02 seconds),
+repeated worker history/checkpoint tests and applicable benchmarks.
+Subsequent documentation-exact PR-head and merged-`main` CI
+are independent integration gates. No source, render or physical
+worker behavior changed.
