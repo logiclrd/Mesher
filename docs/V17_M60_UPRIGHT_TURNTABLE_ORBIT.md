@@ -56,3 +56,16 @@ including history/checkpoint stress, followed by a separate
 green merged-main run. CPU/CLI CI does **not** establish real
 Linux/Windows Vulkan movement feel or cursor-wrapping behavior;
 that remains M52, with original M15/parent V17 open.
+
+## Implementation CI (October 20, 2026)
+
+The substantive PR [#113](https://github.com/logiclrd/Mesher/pull/113)
+head `3c596743` passed
+[Actions #39498850898](https://github.com/logiclrd/Mesher/actions/runs/39498850898):
+full Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX jobs green.
+The GCC job registered and passed **all 39 CTests** including
+`mouse_picking` with M60 circular path, no-roll and clamp scenarios,
+and retained M59 startup and M58 AA tests. Repeated original
+checkpoint/history threading stress and applicable benchmarks passed.
+The final documentation-exact PR head and post-merge main CI are
+checked separately; this is not real GPU appearance observation.
