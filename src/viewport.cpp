@@ -370,6 +370,7 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool wireVisible_=true,wireKeyWasDown_=false;
     bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
     double lastGpuFenceWaitMs_=0;
@@ -1228,6 +1229,7 @@ class VulkanViewport {
                 lastInvertedCount_ = inverted;
             }
         }
+        title+=wireVisible_?" | W: hide edges":" | W: show edges";
         glfwSetWindowTitle(window, title.c_str());
     }
 
@@ -1555,14 +1557,18 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
         }
-        vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
-        vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
-        vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
-        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
-            (void)id;
-            if(!buffers.wire.vertexCount)continue;
-            vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.buffer,&offset);
-            vkCmdDraw(commandBuffer,buffers.wire.vertexCount,1,0,0);
+        if(wireVisible_) {
+            // Wire only overlays previously depth-written solids. Never
+            // draw rear/interior edges through the nearest solid surface.
+            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
+            vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+            if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+                (void)id;
+                if(!buffers.wire.vertexCount)continue;
+                vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.buffer,&offset);
+                vkCmdDraw(commandBuffer,buffers.wire.vertexCount,1,0,0);
+            }
         }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
@@ -1702,6 +1708,15 @@ public:
             const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
             const bool y=justPressed(GLFW_KEY_Y,redoWasDown_);
             const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
+            // Deliberate solid-only visual diagnostic. This does not edit
+            // source triangles, select FaceIds or affect history.
+            if(justPressed(GLFW_KEY_W,wireKeyWasDown_)) {
+                wireVisible_=!wireVisible_;
+                std::cout<<"[view] wireframe "
+                         <<(wireVisible_?"ON (depth-tested overlay)":
+                                        "OFF (solid-only)")<<"\n";
+                updateTitle();
+            }
             if(ctrl&&!sculpting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
