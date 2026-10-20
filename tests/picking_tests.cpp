@@ -69,7 +69,7 @@ int main() {
         const Vec3 position=dolly.displayed({1,2,3});
         const Ray dollyPick=dolly.pickingRay(visual);
         check(nearEnough(dolly.displayed(dollyPick.origin),visual.origin)&&
-              nearEnough(position,{1,2,3}+delta),
+              nearEnough(position,Vec3{1,2,3}+delta),
               "M55 dolly only updates visual translation and inverse source picking");
         dolly.dolly(centerForward,-25,720,12);
         check(nearEnough(dolly.translation(),Vec3{}),
