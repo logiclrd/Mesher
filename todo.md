@@ -2078,6 +2078,26 @@ faces, bypass original intent, or widen source geometry authorization:
   follow-on milestones before coding; do not substitute a
   depth-bias shortcut. CPU/GLSL/Vulkan contracts and full
   three-platform CI, real Linux/Windows visual acceptance M52.
+- [ ] **V17-M65 — Correct M11 asynchronous 16-undo/redo renderer snapshot observer race.**
+  Independent merged-main MSVC Actions #39508068531 failed 1/41
+  at `M11 each real FIFO physical union is independently undoable`,
+  while the same unchanged M11 code passed on exact PR head,
+  Linux GCC and Clang. The M11 asynchronous regression presently
+  waits only for a history depth, then immediately calls
+  `takeSnapshot()`. Worker history/status and renderer mailbox
+  publication are distinct asynchronously ordered observables.
+  Replace both M11 undo and redo history-only waits with bounded
+  exact immutable-root, worker current-root and BOTH history depths
+  synchronization; retain all sixteen positive physical unions,
+  exact root equality per Step, and refusal/undo invariants.
+  No production worker, queue, Boolean or geometry changes. Add
+  per-step timeout diagnostics and verify complete Vulkan-enabled
+  GCC/Clang/Windows MSVC /W4 /WX CTest, checkpoint stress and
+  benchmarks at exact PR-head and independently merged-main SHA.
+  M63's sign-only camera milestone is already merged; treat
+  this as an unrelated test observer regression, not proof
+  that a failed merged-main CI was successful. M64 wire issue,
+  M52 real GPU observations and original M15 stay open.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
