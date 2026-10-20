@@ -5807,7 +5807,8 @@ void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
             ui.selectedCount()==0&&!ui.selectedRoot(),
             "M49 Enter atomically packages exactly one root and nominated FaceIds then clears on-screen selection");
     worker.mergeDiscoveredContacts(std::move(submission.expected),
-                                   std::move(submission.originals));
+                                   std::move(submission.originals),
+                                   desktopMergeExactLimits(false));
     const auto stop=std::chrono::steady_clock::now()+
                     std::chrono::seconds(30);
     while((worker.status().liveMergeRequests<1||
@@ -5817,18 +5818,6 @@ void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
     const auto mergedStatus=worker.status();
     auto mergedFrame=worker.takeSnapshot();
     const auto mergedRoot=worker.initialRevision();
-    std::cout<<"[m49 diagnostic] requests="<<mergedStatus.liveMergeRequests
-             <<" accepted="<<mergedStatus.liveMergeAccepted
-             <<" refused="<<mergedStatus.liveMergeRefusals
-             <<" pending="<<mergedStatus.pendingLiveMergeRequests
-             <<" completedUnions="<<mergedStatus.completedUnions
-             <<" history="<<mergedStatus.history.undoDepth
-             <<" publishedWork="<<mergedStatus.resources.published
-             <<" snapshotPublications="<<mergedStatus.snapshotPublications
-             <<" frame="<<bool(mergedFrame)
-             <<" dirty="<<(mergedFrame?mergedFrame->dirtyPartitions.size():0)
-             <<" retired="<<mergedRoot->retiredFaceCount()
-             <<" reason="<<mergedStatus.liveMergeRefusal<<"\n"<<std::flush;
     require(mergedStatus.liveMergeRequests==1&&
             mergedStatus.liveMergeAccepted==1&&
             mergedStatus.liveMergeRefusals==0&&
@@ -5918,7 +5907,8 @@ void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
     require(bad.result==DesktopMergeInput::Result::Queued,
             "M49 source selection transport is distinct from M47 source authorization");
     refused.mergeDiscoveredContacts(std::move(bad.expected),
-                                    std::move(bad.originals));
+                                    std::move(bad.originals),
+                                    desktopMergeExactLimits(false));
     {
         const auto until=std::chrono::steady_clock::now()+
                          std::chrono::seconds(20);
