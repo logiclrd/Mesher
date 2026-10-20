@@ -115,6 +115,10 @@ if(MESHER_BUILD_TESTS)
     if(MESHER_BUILD_VIEWPORT)
         # M56: real shader text/pipeline invariants in addition to GLSL
         # compilation and full Vulkan-enabled desktop builds.
+        add_test(NAME viewport_floor_vulkan_separation_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_viewport_floor.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -168,6 +172,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_picking_tests tests/picking_tests.cpp)
     target_link_libraries(mesher_picking_tests PRIVATE mesher_mesh)
     add_test(NAME mouse_picking COMMAND mesher_picking_tests)
+    add_executable(mesher_viewport_floor_tests tests/viewport_floor_tests.cpp)
+    target_link_libraries(mesher_viewport_floor_tests PRIVATE mesher_mesh)
+    add_test(NAME viewport_floor_fixture_clearance COMMAND mesher_viewport_floor_tests)
     add_executable(mesher_revision_picking_tests tests/revision_picking_tests.cpp)
     target_link_libraries(mesher_revision_picking_tests PRIVATE mesher_mesh)
     add_test(NAME revision_bvh_picking COMMAND mesher_revision_picking_tests)
