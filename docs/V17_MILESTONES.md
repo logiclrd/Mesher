@@ -2319,3 +2319,19 @@ immutable root, authoritative worker current root and BOTH undo/redo
 depths on each of all sixteen transitions. This is a test-only fix:
 no production worker, topology, renderer or committed history logic
 changes. See [M65 regression](V17_M65_M11_ASYNC_SNAPSHOT_RACE.md).
+
+## V17-M64 — Root-cause proof for +90° AA wire jump; implementation peers M67–M69
+
+Linux screenshots show suddenly thicker edges and grid at the exact
+turntable pole. A GPU AA quad preserves mathematical edge depth
+while projecting wider x/y; its owning sloped solid face stores
+different depths to either side, so LEQUAL can self-mask half the
+wire just shy of the pole. A coplanar top-down floor has no depth
+slope and both halves pass. M64 supplies a CPU analytic
+positive/negative-gradient and independent source-contract
+regression plus a bounded surface-attached replacement design.
+The scope is explicitly replanned BEFORE implementation into
+M67 visible triangle-edge coverage, M68 floor's unit XY grid
+coverage (not a floor triangulation diagonal) and M69 old
+GPU quad retirement/test integration. Preserve all M56
+no-hidden-line guarantees. See [M64 diagnosis](V17_M64_POLE_WIRE_DEPTH_DIAGNOSIS.md).

@@ -2057,7 +2057,7 @@ faces, bypass original intent, or widen source geometry authorization:
   repeated worker history/checkpoint stress and benchmarks.
   Exact documentation-head PR and merged-main CI remain
   independent gates; actual new polarity on Linux remains M52.
-- [ ] **V17-M64 — Pole-dependent wire visibility/width root cause and depth-safe solution.**
+- [x] **V17-M64 — Diagnose the pole-dependent wire width and specify a depth-safe renderer replacement (planned prerequisite).**
   User's real Linux near-top and exactly-top screenshots show both
   geometry wires and planar floor grid suddenly appear thicker
   at the camera's +90-degree pole. The fixed 1.5px shader
@@ -2078,6 +2078,66 @@ faces, bypass original intent, or widen source geometry authorization:
   follow-on milestones before coding; do not substitute a
   depth-bias shortcut. CPU/GLSL/Vulkan contracts and full
   three-platform CI, real Linux/Windows visual acceptance M52.
+  REPLANNED as a flat prerequisite after source audit: no single
+  globally shifted edge quad can correct both genuine hidden-surface
+  occlusion and incorrect self-masking by its owning sloped face.
+  M64 now independently proves depth-slope asymmetry (including
+  near-pole and exactly-pole, front/rear and other occluders), audits
+  solid triangle and floor grid staging and selects a no-depth-bias
+  face-/surface-anchored coverage design. Implement and cleanly
+  integrate through M67, M68 and M69 below, all planned BEFORE
+  renderer modifications; preserve M64's original full objectives
+  across this explicit sequence. A source-contract/CPU analytic
+  regression and document are M64 deliverables, not a claim of
+  Vulkan visual correction.
+  M64 analytical/source-contract implementation at `bcd1c86b`
+  passed [Actions #39514057701](https://github.com/logiclrd/Mesher/actions/runs/39514057701):
+  Vulkan-enabled Linux GCC, Linux Clang, Windows MSVC /W4 /WX
+  full CPU test, history stress and benchmark workflows GREEN.
+  The CPU tests explicitly establish 2px zero-slope vs ~1px
+  nonzero-slope ink, reversed normal-gradient masking, and
+  preservation of genuine closer occlusion. No runtime shader,
+  Vulkan draw, source geometry or worker code was changed.
+  Next implementation peers M67, M68 and M69 remain OPEN until
+  independently verified; M52 human observation remains OPEN.
+
+- [ ] **V17-M67 — Face-anchored antialiased mesh wires with correct per-fragment depth.**
+  Derive screen-space triangle barycentric distance from the actual
+  solid triangle raster (non-indexed 3-vertex mesh triangles), so
+  edges shade only fragments of the DEPTH-VISIBLE owning solid face.
+  No global line clip-Z pull, no shader interpolation of source
+  edge-center depth outside the face; preserve original triangle
+  COW staging, dirty partitions, reflected winding, source IDs,
+  two-sided interior inspection, and source picking. Match M62's
+  ~2px full/1px silhouette effective ink, W toggling, exact
+  noperspective pixel coverage under near/pole obliquity, backface
+  and occluding solid surfaces. Keep floor grid on legacy path
+  until independently replaced by M68; avoid accidentally
+  rendering the floor's internal triangulation diagonal. Add
+  mathematically grounded shader/C++ contract and three-platform
+  Vulkan-enabled CI, plus independent merged-main verification.
+- [ ] **V17-M68 — Surface-anchored floor grid coverage at arbitrary camera elevation.**
+  Replace the floor's independent clip-depth-flat AA quad overlay
+  with view-projected distance to integer XY grid lines evaluated
+  ON the visible floor fragment at its actual surface depth.
+  Keep the same 1-unit grid and z-plane bounds, no diagonal
+  from the floor's triangulation, G whole-floor visibility,
+  W independent grid visibility, HiDPI consistency and M57
+  source-relative floor clearance. Reject hidden floor through
+  nearer mesh. CPU analytic shader/source contracts and full
+  three-platform Vulkan-enabled CI plus independent merged-main.
+- [ ] **V17-M69 — Retire obsolete clip-depth-flat wire quads and certify whole viewport.**
+  Only after M67 mesh AND M68 floor have independently passed,
+  remove dead AA wire vertex buffers, uploads and pipelines;
+  reconcile M56/M58/M59/M62 regression source contracts, COW
+  cache/dirty owner behavior, indexed empty-startup guard,
+  renderer performance/memory overhead and unchanged W/G input.
+  Revalidate dense/sparse surfaces, manifold/interior arms,
+  genuine hidden occlusion, oblique-to-90-degree continuity and
+  reflected tetrahedral fixtures. Full three-platform compiler,
+  CTest, stress/benchmark and independent merged-main CI;
+  reserve final real Linux/Windows screenshots and visual
+  approval for M52, original M15/V17 still open.
 - [x] **V17-M65 — Correct M11 asynchronous 16-undo/redo renderer snapshot observer race.**
   Independent merged-main MSVC Actions #39508068531 failed 1/41
   at `M11 each real FIFO physical union is independently undoable`,
