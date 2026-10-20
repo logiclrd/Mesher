@@ -1764,7 +1764,7 @@ faces, bypass original intent, or widen source geometry authorization:
   Final documentation PR-head and independently merged-main CI
   still gate repository integration; actual GPU host observation
   remains strictly M52, and suspected internal union edges M54.
-- [ ] **V17-M56 — Correct depth-biased wireframe leakage and expose solid-only diagnostic.**
+- [x] **V17-M56 — Correct depth-biased wireframe leakage and expose solid-only diagnostic.**
   The user's second Linux reflected original/accepted screenshots and
   rotated observation identify apparent rear-surface edges passing in
   front of nearer solid. Source inspection reveals actual Vulkan
@@ -1786,6 +1786,19 @@ faces, bypass original intent, or widen source geometry authorization:
   on exact PR head and independently merged main. **Do not** infer
   M51 accepted union is manifold; proceed with original M54
   independent edge-incidence/residual-geometry audit afterwards.
+  Independently passed substantive PR #108 head `d788ce87`:
+  [Actions #39464142614](https://github.com/logiclrd/Mesher/actions/runs/39464142614)
+  SUCCESS full Vulkan-enabled Linux GCC, Linux Clang and Windows
+  MSVC /W4 /WX tests (33 viewport-enabled CTests), repeated
+  checkpoint/history stress and benchmarks.
+  Wire clip-Z pull removed; solid-written depth and LEQUAL wire
+  read-only comparison retained; W toggles solid-only/edges with
+  window title and console diagnostics. Shader/pipeline regression
+  CTest and detailed analysis:
+  `docs/V17_M56_WIRE_DEPTH_OCCLUSION.md`.
+  Does NOT satisfy M54 manifold or M52 observed GPU acceptance.
+  Final documentation-head and independent merged-main CI remain
+  separate repository integration gates.
 - [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
   Investigate the reported reflected union where triangle edges
   visually plunge into its surface even though M51 worker reports
