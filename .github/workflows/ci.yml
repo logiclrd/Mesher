@@ -152,7 +152,10 @@ jobs:
       - name: Configure full Vulkan build (MSVC)
         shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON
+          # Each test .exe shares build/Release; vcpkg's parallel z-applocal
+          # copying can race over the same DLL. Test PATH below supplies
+          # these runtime dependencies without per-target copies.
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON -DVCPKG_APPLOCAL_DEPS=OFF
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile application and tests with /W4 /WX
         shell: pwsh
@@ -162,7 +165,13 @@ jobs:
       - name: Run CPU tests (MSVC)
         shell: pwsh
         run: |
-          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          # M49 executable-level argument tests return before Vulkan use.
+          # The stripped CI SDK lacks vulkan-1.dll; MSVC Mesher uses
+          # /DELAYLOAD:vulkan-1.dll so actual Vulkan remains required ONLY
+          # when the interactive viewport first makes a Vulkan API call.
+          # Keep vcpkg DLLs in PATH for GLFW and Qhull test dependencies.
+          $env:PATH = "$env:VULKAN_SDK/Bin;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          Write-Host "Vulkan SDK loader present: $(Test-Path "$env:VULKAN_SDK/Bin/vulkan-1.dll")"
           ctest --test-dir build -C Release --output-on-failure --verbose
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Repeated history and checkpoint threading regression (MSVC)

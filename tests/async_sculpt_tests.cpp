@@ -1,4 +1,5 @@
 #include "mesher/async_sculpt.hpp"
+#include "mesher/desktop_merge_input.hpp"
 #include "mesher/partition_render.hpp"
 
 #include <chrono>
@@ -5711,6 +5712,306 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
              <<" undo/redo, dirty/picker and V13 checkpoint refusal\n";
 }
 
+// M49: the EXACT state machine used by VulkanViewport, with no shadow
+// reimplementation in tests. Drive key repeat, mode switches, source
+// selection, stale root, worker dispatch, renderer and history handoff.
+void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
+    DesktopMergeKeyEdges keyboard;
+    const auto firstKey=keyboard.sample(true,false,false);
+    const auto heldKey=keyboard.sample(true,false,false);
+    const auto release=keyboard.sample(false,false,false);
+    const auto secondKey=keyboard.sample(true,false,false);
+    require(firstKey.toggle&&!heldKey.toggle&&!release.toggle&&
+            secondKey.toggle&&!secondKey.submit&&!secondKey.clear,
+            "M49 real viewport M-key edge detector toggles only once per key press");
+    keyboard.sample(false,false,false);
+    const auto enter=keyboard.sample(false,true,true);
+    const auto heldEnter=keyboard.sample(false,true,true);
+    keyboard.sample(false,false,false);
+    const auto reenter=keyboard.sample(false,true,false);
+    require(enter.submit&&enter.clear&&!heldEnter.submit&&
+            !heldEnter.clear&&reenter.submit,
+            "M49 actual Enter/Backspace edge state cannot duplicate a queued merge or clear on key-repeat");
+
+    const auto mesh=twoIntersectingTetrahedra();
+    const auto originals=firstOriginalFaces(mesh);
+    SculptCollisionSettings policy;
+    policy.physicalExact=true;
+    policy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    AsyncSculptWorker worker(mesh,.025,.006,.2,
+                             {},{},{},false,{},policy);
+    const auto original=worker.initialRevision();
+    DesktopMergeInput ui;
+    require(!ui.enabled()&&ui.inflatesOnLeftClick()&&
+            ui.selectedCount()==0&&
+            ui.toggle(false,true,false)==DesktopMergeInput::Result::Unavailable&&
+            !ui.enabled()&&ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Ignored&&
+            ui.submit(original,false,true).result==
+                DesktopMergeInput::Result::Ignored&&
+            worker.status().liveMergeRequests==0,
+            "M49 ordinary OFF launch has no selected source or hidden union command");
+    require(ui.toggle(true,false,false)==DesktopMergeInput::Result::Busy&&
+            ui.toggle(true,true,true)==DesktopMergeInput::Result::Ignored&&
+            !ui.enabled()&&
+            ui.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn&&
+            ui.enabled()&&!ui.inflatesOnLeftClick(),
+            "M49 protected authorization is explicit, M starts OFF, and busy/sculpting cannot toggle into source selection");
+    require(ui.pick(original,std::nullopt,true)==
+                DesktopMergeInput::Result::NoHit&&
+            ui.pick(original,FaceId{},true)==
+                DesktopMergeInput::Result::InvalidFace&&
+            ui.selectedCount()==0&&
+            ui.submit(original,true,true).result==
+                DesktopMergeInput::Result::NoSelection,
+            "M49 no-hit, zero FaceId and empty Enter never create a Boolean command");
+    require(ui.pick(original,originals.front(),false)==
+                DesktopMergeInput::Result::Busy&&
+            ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Duplicate&&
+            ui.selectedCount()==1,
+            "M49 mouse-down selection uses stable original FaceId, rejects busy and suppresses duplicate click");
+    require(ui.clear()==DesktopMergeInput::Result::Cleared&&
+            ui.selectedCount()==0&&
+            !ui.selectedRoot()&&
+            ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.toggle(true,true,false)==DesktopMergeInput::Result::ModeOff&&
+            !ui.enabled()&&ui.selectedCount()==0&&
+            ui.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn,
+            "M49 Backspace and M OFF clear the entire root-bound selection before a later ON session");
+
+    // Selection cap uses the SAME pure UI logic, not a worker geometry
+    // approximation. These synthetic FaceIds are never submitted.
+    for(std::size_t n=1;n<=DesktopMergeInput::maximumSelection;++n)
+        require(ui.pick(original,FaceId{static_cast<std::uint64_t>(n)},true)==
+                    DesktopMergeInput::Result::Selected,
+                "M49 strict 32 FaceId selection quota admits only unique clicks");
+    require(ui.pick(original,FaceId{200},true)==
+                DesktopMergeInput::Result::Full&&
+            ui.selectedCount()==DesktopMergeInput::maximumSelection&&
+            ui.clear()==DesktopMergeInput::Result::Cleared,
+            "M49 33rd source click is bounded and cannot implicitly enter a second transaction");
+
+    // Route a genuine multi-face nomination through the SAME UI
+    // controller and M47 worker command used by VulkanViewport.
+    for(const auto id:originals)
+        require(ui.pick(original,id,true)==DesktopMergeInput::Result::Selected,
+                "M49 real source selection captures each immutable original face once");
+    auto submission=ui.submit(original,true,true);
+    require(submission.result==DesktopMergeInput::Result::Queued&&
+            submission.expected==original&&
+            submission.originals==originals&&
+            ui.selectedCount()==0&&!ui.selectedRoot(),
+            "M49 Enter atomically packages exactly one root and nominated FaceIds then clears on-screen selection");
+    worker.mergeDiscoveredContacts(std::move(submission.expected),
+                                   std::move(submission.originals),
+                                   desktopMergeExactLimits(false));
+    const auto stop=std::chrono::steady_clock::now()+
+                    std::chrono::seconds(30);
+    while((worker.status().liveMergeRequests<1||
+           worker.status().pendingLiveMergeRequests>0)&&
+          std::chrono::steady_clock::now()<stop)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const auto mergedStatus=worker.status();
+    auto mergedFrame=worker.takeSnapshot();
+    const auto mergedRoot=worker.initialRevision();
+    require(mergedStatus.liveMergeRequests==1&&
+            mergedStatus.liveMergeAccepted==1&&
+            mergedStatus.liveMergeRefusals==0&&
+            mergedStatus.pendingLiveMergeRequests==0&&
+            mergedStatus.completedUnions==1&&
+            mergedStatus.history.undoDepth==1&&
+            mergedStatus.resources.published==1&&
+            mergedStatus.snapshotPublications>=1&&
+            mergedFrame&&mergedFrame->index==mergedRoot&&
+            mergedFrame->index!=original&&
+            !mergedFrame->dirtyPartitions.empty()&&
+            mergedRoot->retiredFaceCount()>0,
+            "M49 explicit ON selection queues one genuine bounded union and publishes correct indexed picker and dirty renderer owners");
+
+    // A new committed displayed root invalidates a previous immutable
+    // token BEFORE any request can reach the worker.
+    require(ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.submit(mergedRoot,true,true).result==
+                DesktopMergeInput::Result::Stale&&
+            ui.selectedCount()==0&&
+            worker.status().liveMergeRequests==1,
+            "M49 Enter with obsolete displayed revision refuses stale without enqueueing a replacement-root union");
+    require(ui.pick(original,originals.front(),true)==
+                DesktopMergeInput::Result::Selected,
+            "M49 a fresh selection remains tied to the original revision token");
+    ui.revisionChanged(mergedRoot);
+    require(!ui.selectedRoot()&&ui.selectedCount()==0&&
+            ui.submit(mergedRoot,true,true).result==
+                DesktopMergeInput::Result::NoSelection,
+            "M49 published dirty revision immediately clears previous source nominations");
+    require(ui.pick(mergedRoot,originals.front(),true)==
+                DesktopMergeInput::Result::Selected&&
+            ui.submit(mergedRoot,true,false).result==
+                DesktopMergeInput::Result::Busy&&
+            !ui.selectedRoot()&&ui.selectedCount()==0,
+            "M49 pending worker command refuses and clears selection without accidental queued sculpt request");
+    require(ui.toggle(true,true,false)==DesktopMergeInput::Result::ModeOff&&
+            ui.inflatesOnLeftClick()&&
+            ui.pick(mergedRoot,originals.front(),true)==
+                DesktopMergeInput::Result::Ignored&&
+            worker.status().liveMergeRequests==1,
+            "M49 OFF mode restores legacy LMB Inflate semantics with no implicit new Merge");
+
+    worker.undo();
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.status().completedUndos==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto undoFrame=worker.takeSnapshot();
+    require(worker.status().completedUndos==1&&
+            worker.status().history.redoDepth==1&&
+            worker.initialRevision()==original&&
+            undoFrame&&undoFrame->index==original&&
+            worker.status().resources.published==1,
+            "M49 viewport/indexed picker handoff after Undo restores exact original without charging more geometry");
+    worker.redo();
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.status().completedRedos==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    auto redoFrame=worker.takeSnapshot();
+    require(worker.status().completedRedos==1&&
+            worker.status().history.redoDepth==0&&
+            worker.initialRevision()==mergedRoot&&
+            redoFrame&&redoFrame->index==mergedRoot&&
+            worker.status().resources.published==1,
+            "M49 desktop redo publishes same certified joined root/dirty owner without rerunning Boolean");
+
+    // Rejection flows through the SAME UI submission path, not a
+    // direct test-only invocation of the worker's Boolean API.
+    AsyncSculptWorker refused(mesh,.025,.006,.2,
+                              {},{},{},false,{},policy);
+    DesktopMergeInput refusalUi;
+    const auto refusalRoot=refused.initialRevision();
+    require(refusalUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn&&
+            refusalUi.pick(refusalRoot,FaceId{99999999},true)==
+                DesktopMergeInput::Result::Selected,
+            "M49 displayed stable picker IDs are not silently reinterpreted as original credentials on UI thread");
+    auto bad=refusalUi.submit(refusalRoot,true,true);
+    require(bad.result==DesktopMergeInput::Result::Queued,
+            "M49 source selection transport is distinct from M47 source authorization");
+    refused.mergeDiscoveredContacts(std::move(bad.expected),
+                                    std::move(bad.originals),
+                                    desktopMergeExactLimits(false));
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(refused.status().liveMergeRequests<1&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    require(refused.status().liveMergeRefusals==1&&
+            refused.status().liveMergeAccepted==0&&
+            refused.status().liveMergeRefusal.find("selection invalid")!=
+                std::string::npos&&
+            refused.initialRevision()==refusalRoot&&
+            refused.status().history.undoDepth==0&&
+            !refused.takeSnapshot(),
+            "M49 invalid source FaceId refuses in authenticated worker with zero dirty/history/picker mutation");
+
+    // The same UI controller must also preserve source nomination for
+    // a true reflected involution; the sphere-only vertex order cannot
+    // be substituted for this non-spherical source.
+    const auto mirrorMesh=twoIntersectingTetrahedra(true);
+    const auto partitioned=partitionFlatMesh(mirrorMesh,256);
+    const auto initialMirror=RegionTopologyIndex::build(partitioned.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirrorPairs;
+    for(std::size_t i=0;i<8;++i)
+        mirrorPairs.emplace_back(partitioned.flatIndex.vertexIds[i],
+                                 partitioned.flatIndex.vertexIds[i+8]);
+    auto lifetime=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            initialMirror,partitioned.flatIndex.faceIds,
+            7*partitioned.flatIndex.faceIds.size())));
+    DurableCheckpoint trustedMirror(initialMirror,mirrorPairs,16,true,lifetime);
+    trustedMirror.verifiedFirstOriginalMirrorPairs=mirrorPairs;
+    AsyncSculptWorker reflected(std::move(trustedMirror),.025,.006,.2,
+                                {},{},{},{},policy,
+                                partitioned.flatIndex.faceIds);
+    DesktopMergeInput reflectedUi;
+    const auto reflectedRoot=reflected.initialRevision();
+    require(!reflectedUi.enabled()&&
+            reflectedUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn,
+            "M49 even explicitly sealed reflected worker starts desktop selection OFF");
+    for(const auto id:partitioned.flatIndex.faceIds)
+        require(reflectedUi.pick(reflectedRoot,id,true)==
+                    DesktopMergeInput::Result::Selected,
+                "M49 reflected UI nominations retain first-original stable IDs from reciprocal mirror source");
+    auto mirrorSubmission=reflectedUi.submit(reflectedRoot,true,true);
+    require(mirrorSubmission.result==DesktopMergeInput::Result::Queued&&
+            mirrorSubmission.originals==partitioned.flatIndex.faceIds,
+            "M49 reflected Enter transports the complete original mirror-owned FaceId set unmodified");
+    reflected.mergeDiscoveredContacts(std::move(mirrorSubmission.expected),
+                                      std::move(mirrorSubmission.originals),
+                                      desktopMergeExactLimits(true));
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(30);
+        while((reflected.status().liveMergeRequests<1||
+               reflected.status().pendingLiveMergeRequests>0)&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto mirroredStatus=reflected.status();
+    auto mirroredFrame=reflected.takeSnapshot();
+    require(mirroredStatus.liveMergeAccepted==1&&
+            mirroredStatus.liveMergeRefusals==0&&
+            mirroredStatus.history.undoDepth==1&&
+            mirroredStatus.resources.published==1&&
+            mirroredFrame&&mirroredFrame->index!=reflectedRoot&&
+            !mirroredFrame->dirtyPartitions.empty(),
+            "M49 genuine explicit reflected Vulkan-mode submission accepts reciprocal mirror source and publishes one renderer/picking root");
+
+    // V13 storage cannot recreate a sealed M29 first-root certificate.
+    const auto storage=std::filesystem::temp_directory_path()/
+        "mesher-v17-m49-desktop-recovery.mshr";
+    try {
+        worker.saveCheckpoint(storage);
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(20);
+        while(worker.checkpointStatistics().completed==0&&
+              worker.checkpointStatistics().failed==0&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        const auto durable=readCheckpoint(storage);
+        require(durable.index&&durable.originalFidelityRequired&&
+                !durable.verifiedOriginalFidelity,
+                "M49 displayed joined root persists only protected requirement, not forged first-original auth");
+        bool rejected=false;
+        try {
+            (void)AsyncSculptWorker(durable,.025,.006,.2,
+                                    {},{},{},{},policy);
+        }catch(const std::logic_error&) {rejected=true;}
+        require(rejected,
+                "M49 desktop recovery cannot silently re-enable protected Merge with disk-only V13 credentials");
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(storage,ec);
+        throw;
+    }
+    std::error_code ec;
+    std::filesystem::remove(storage,ec);
+    std::cout<<"[m49] actual viewport state default OFF; M/Enter/Backspace edges;"
+             <<" bounded original FaceId selection; genuine queued merge,"
+             <<" stale and worker source refusal; dirty/picker history and V13 storage\n";
+}
+
 void testM11SixteenAlternatingPhysicalTowerUnions() {
     constexpr double halfGap=.15;
     const double strength=chooseM11TowerStrength();
@@ -7584,6 +7885,7 @@ int main() {
         testOriginalM13WholeStepResourceAndTelemetryReconciliation();
         testM14PostCasFaultQuarantineAndCheckpointIsolation();
         testM47BoundedAuthenticatedLiveMergeDiscovery();
+        testM49DesktopModeSelectionAndBoundedWorkerIntegration();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();

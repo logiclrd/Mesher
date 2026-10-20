@@ -1986,3 +1986,50 @@ rendered Linux/Windows GUI verification is
 not implied by headless CI. M49 and ORIGINAL
 M15 stay unchecked, as do V18/V19.
 See `docs/V17_M48_DESKTOP_OPT_IN_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M49 targeted desktop input/worker/compiler integration
+
+The third flat prerequisite M49 after M47/M48 tests
+the *actual* `DesktopMergeInput` and
+`DesktopMergeKeyEdges` that the Vulkan viewport uses.
+It proves default OFF both for ordinary legacy
+and explicitly authorized protected launch,
+M/Enter/Backspace rising-edge handling, bounded
+root-bound source FaceId selection, no-hit,
+empty, repeated or >32 selections, interrupted,
+stale and changed-root behavior. UI Enter sends
+the exact indexed root and strictly nominated
+first-original IDs through authenticated bounded
+M47 `DiscoverMerge`. Genuine asymmetric and
+explicitly sealed reciprocally mirrored source
+intersections yield ONE authentic COW CAS,
+bounded history, dirty-owner renderer frame
+and stable picking. Forged first-original source
+refuses with no renderer/history mutation;
+undo/redo do not rebill geometry. V13 disk
+cannot become an opaque M29 source credential.
+
+Four extra no-window `Mesher` command-line tests
+verify default OFF help and early rejection of
+invalid demo/recovery/noninteractive Merge
+authorizations. They execute the REAL desktop
+executable, not an invented test stub. The
+Windows CI Vulkan SDK is intentionally stripped
+of `vulkan-1.dll`: MSVC imports the actual
+Vulkan library with delay-load so `--help`
+and invalid argument rejection can finish
+without running Vulkan. Interactive rendering
+still needs the real driver/runtime and is
+NOT human-validated by these headless tests.
+
+Substantive final-code [PR #102 Actions #39365774949](https://github.com/logiclrd/Mesher/actions/runs/39365774949)
+passed Linux GCC/Clang and Windows MSVC
+warnings-as-errors with 27/27 CTest suites
+(including four executable CLI gates),
+100 repeated checkpoint history worker
+tests and applicable Vulkan build/benchmark
+acceptance. Exact documented PR head and
+independent merged-main CI are still
+additional mandatory gates. ORIGINAL M15,
+V18 and V19 remain separately OPEN.
+See `docs/V17_M49_DESKTOP_INTEGRATION_ACCEPTANCE.md`.

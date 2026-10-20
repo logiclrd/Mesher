@@ -3,6 +3,7 @@
 #include "mesher/brush_radius.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
+#include "mesher/desktop_merge_input.hpp"
 #include "mesher/durable_checkpoint.hpp"
 
 #include <array>
@@ -309,7 +310,8 @@ int main(int argc, char** argv) {
                     std::shared_ptr<const mesher::RegionTopologyIndex> root,
                     std::vector<mesher::FaceId> nominated) {
                     liveWorker->mergeDiscoveredContacts(
-                        std::move(root),std::move(nominated));
+                        std::move(root),std::move(nominated),
+                        mesher::desktopMergeExactLimits(options.symmetric));
                 };
                 interaction.mergeStatus=[&] {
                     const auto status=liveWorker->status();

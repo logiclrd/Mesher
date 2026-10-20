@@ -5854,3 +5854,64 @@ then ORIGINAL M15 requires end-to-end acceptance.
 No general XYZ coincidence dedup, arbitrary
 multi-body union, guaranteed acceptance of every
 selected first FaceId or exact swept CCD is claimed.
+
+## October 19, 2026 — V17-M49 exact desktop-input integration acceptance
+
+After completed M47 bounded first-original worker contact discovery
+and M48 explicitly provisioned, default-OFF Vulkan mode, M49
+tests the **identical desktop input control class** consumed by
+the real GLFW viewport: `DesktopMergeInput` and its
+`DesktopMergeKeyEdges` rising-edge keyboard handler.
+With ordinary unarmed launch, mode is OFF and no source
+Boolean can be triggered. Even in an explicitly authorized
+fresh in-memory `--merge-geometry` session it starts OFF;
+M toggles only while idle, ON suppresses ordinary Inflate
+LMB and captures unique stable indexed FaceIds bound
+to ONE displayed immutable root (max 32). Backspace,
+M OFF, new revision, busy state, no-hit, invalid face,
+duplicate or stale root all have explicit audited
+transitions. Enter sends only the exact original-root
+token and nominated immutable source IDs to the
+**already existing** worker-side fully finite and
+M29 authenticated M47 discovery; never run an all-face
+intersection scan on Vulkan input or infer authority
+from coincident world XYZ.
+
+A real worker routed through this same tested state
+controller publishes one bounded source-certified
+asymmetric Boolean union and separately one properly
+reciprocal reflected source union. Both produce
+immutable revision/dirty-owner picker handoff and
+one bounded undo history entry. True source-nomination
+refusal leaves root, renderer mailbox, and history
+untouched; undo/redo restore the exact previous/new
+root without replaying source proof. Checkpoint
+write/read leaves only V13 original-fidelity REQUIRED
+on disk, not an invented sealed opaque M29 credential.
+
+Four additional `Mesher` executable-level CTest cases
+exercise actual argument parsing without opening GLFW
+or instantiating Vulkan: default-off `--help`, and
+early refusal of `--merge-geometry` with `--demo`,
+`--recover`, or `--no-inflate`. Windows CI uses a
+stripped-down Vulkan SDK missing `vulkan-1.dll`;
+the linked import library is present. Earlier PR
+head Windows tests crashed before `main()` with
+`0xc0000135`; linking the MSVC desktop executable
+with `/DELAYLOAD:vulkan-1.dll` and `delayimp`
+allows these intentionally GPU-free parsing paths
+to return normally. Actual Vulkan rendering is
+**still** dependent on the genuine runtime loader
+and must not be claimed by CI as human-observed
+rendering acceptance. No test mocks the runtime,
+and source/mirror admission remains fail-closed.
+
+The substantive final-code [PR #102 Actions #39365774949](https://github.com/logiclrd/Mesher/actions/runs/39365774949)
+passed GCC, Clang, MSVC with warnings-as-errors,
+all **27** CPU+desktop CTest suites, 100-repeat
+checkpoint/history worker stress and applicable
+benchmarks. Separate documentation-final exact-head
+and merged-main three-compiler runs remain mandatory.
+The intact ORIGINAL M15 integrated review and
+V18/V19 remain open; see
+`docs/V17_M49_DESKTOP_INTEGRATION_ACCEPTANCE.md`.

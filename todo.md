@@ -1574,7 +1574,7 @@ report a refusal rather than asserting universal Boolean support.
   started after the precise outstanding-command fix;
   exact documentation-final and independent merged-main
   full compiler matrix remain mandatory.
-- [ ] **V17-M49 — Targeted desktop integration and compiler acceptance.**
+- [x] **V17-M49 — Targeted desktop integration and compiler acceptance.**
   Exercise a CPU-testable representation of the exact
   GLFW input/mode state machine, default OFF and
   enable-disable, current-root stale behavior, unsupported/
@@ -1588,6 +1588,58 @@ report a refusal rather than asserting universal Boolean support.
   Preserve separate V18 off-mode collision control and
   V19 broader human-observed end-to-end acceptance.
 
+  **M49 separately implemented and validated, PR #102:**
+  `DesktopMergeInput` and `DesktopMergeKeyEdges` are the
+  EXACT testable C++ controllers called by the GLFW/Vulkan
+  viewport—not an independent test-only surrogate. The
+  editor always starts Merge mode OFF, including explicit
+  `--merge-geometry` protected-authority sessions. An
+  absent startup opt-in can never authorize mode ON.
+  Real M-key rising edges toggle ON/OFF only while idle;
+  held M/Enter/Backspace cannot toggle, submit or clear
+  repeatedly. The ON-mode LMB source choice binds up
+  to 32 UNIQUE FaceIds to one displayed immutable root;
+  no-hit, zero/duplicate, busy, 33rd selection, toggle
+  OFF, clear, new displayed revision and stale submit
+  cases are CPU tested. Enter assembles one exact root
+  and explicitly nominated immutable FaceIds and queues
+  the actual M47 whole-root bounded source checker;
+  none of these input cases scans all geometry on the
+  Vulkan thread, auto-welds XYZ coincidences or changes
+  the default OFF Inflate behavior. Genuine supported
+  asymmetric and reciprocal reflected source unions
+  via this same input controller and serialized FIFO
+  each publish one source-authenticated COW root,
+  history entry and bounded dirty-owner renderer
+  snapshot. First-original FaceId outside the initial
+  sealed source refuses atomically. Real undo/redo
+  restores the prior indexed picker and accepted
+  source without rebilling geometry. V13 saved/reloaded
+  checkpoint preserves protected-source REQUIRED
+  state but never forges sealed opaque M29 authority.
+  Four additional REAL `Mesher` executable-level
+  no-Vulkan-instance CI checks cover `--help`
+  default OFF and three incompatible `--merge-geometry`
+  combinations (demo, disk recovery, noninteractive).
+  Windows hosted CI deliberately installs a stripped
+  Vulkan SDK with no vulkan-1.dll; MSVC `Mesher`
+  now delay-loads Vulkan so CLI argument refusal
+  executes without a GPU/runtime, while actual
+  interactive Vulkan rendering still requires a
+  genuine Vulkan loader. This fixes the earlier
+  Windows loader exception 0xc0000135, NOT by
+  making a fake Vulkan runtime or weakening policy.
+  Substantive [Actions #39365774949](https://github.com/logiclrd/Mesher/actions/runs/39365774949)
+  GREEN Linux GCC, Linux Clang, Windows MSVC
+  /W4 /WX, ALL **27/27 CPU+desktop CLI tests**,
+  repeated 100-run checkpoint stress and applicable
+  benchmarks. No headless CI run proves user-observed
+  rendered desktop interaction. See
+  `docs/V17_M49_DESKTOP_INTEGRATION_ACCEPTANCE.md`.
+  The exact documentation-final PR-head CI and
+  separate merged-main push CI remain required.
+  ORIGINAL M15 is STILL UNCHECKED, followed
+  separately by V18/V19.
 **Then execute ORIGINAL V17-M15** integrated criterion-by-criterion
 review only after M47–M49 have independent acceptance. Keep M15,
 V18 and V19 unchecked until their own gates are satisfied.

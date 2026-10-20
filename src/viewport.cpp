@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
 
@@ -368,10 +369,8 @@ class VulkanViewport {
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
-    bool mergeWasDown_=false,mergeSubmitWasDown_=false,mergeClearWasDown_=false;
-    bool mergeOn_=false;
-    std::shared_ptr<const RegionTopologyIndex> mergeSelectionRoot_;
-    std::vector<FaceId> mergeSelectedFaces_;
+    DesktopMergeKeyEdges mergeKeys_;
+    DesktopMergeInput mergeInput_;
     std::string lastMergeStatus_;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
@@ -652,7 +651,7 @@ class VulkanViewport {
             : std::nullopt;
         const std::string mergeText=interaction_.begin?
             !interaction_.mergeSelected?"MERGE: DISABLED":
-            mergeOn_?"MERGE: ON SEL "+std::to_string(mergeSelectedFaces_.size()):
+            mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
                      "MERGE: OFF":"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius);
@@ -692,47 +691,52 @@ class VulkanViewport {
         return displayedIndex_->firstRayFaceHit(
             viewportRay(px,py,double(fw),double(fh)),&lastPickStats_);
     }
-    void resetMergeSelection() {
-        mergeSelectedFaces_.clear();
-        mergeSelectionRoot_.reset();
-    }
     void updateMergeKeyboard() {
-        const bool change=justPressed(GLFW_KEY_M,mergeWasDown_);
-        const bool submit=justPressed(GLFW_KEY_ENTER,mergeSubmitWasDown_);
-        const bool clear=justPressed(GLFW_KEY_BACKSPACE,mergeClearWasDown_);
-        if(change&&!sculpting_) {
-            if(!interaction_.mergeSelected)
-                std::cout<<"[merge] unavailable: launch with --merge-geometry to authorize sealed original-root worker\n";
-            else if(!interaction_.canBegin||interaction_.canBegin()) {
-                mergeOn_=!mergeOn_;
-                resetMergeSelection();
-                std::cout<<"[merge] mode="<<(mergeOn_?"ON":"OFF")
+        const auto edges=mergeKeys_.sample(
+            glfwGetKey(window,GLFW_KEY_M)==GLFW_PRESS,
+            glfwGetKey(window,GLFW_KEY_ENTER)==GLFW_PRESS,
+            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS);
+        const bool ready=!interaction_.canBegin||interaction_.canBegin();
+        if(edges.toggle) {
+            const auto result=mergeInput_.toggle(
+                bool(interaction_.mergeSelected),ready,sculpting_);
+            switch(result) {
+            case DesktopMergeInput::Result::ModeOn:
+            case DesktopMergeInput::Result::ModeOff:
+                std::cout<<"[merge] mode="<<(mergeInput_.enabled()?"ON":"OFF")
                          <<" (M toggles, LMB selects FaceIds, Enter submits, Backspace clears)\n";
-            }else std::cout<<"[merge] toggle refused: worker busy or terminal\n";
-            refreshHud();
-            updateTitle();
-        }
-        if(clear&&mergeOn_) {
-            resetMergeSelection();
-            refreshHud();
-            updateTitle();
-        }
-        if(submit&&mergeOn_&&interaction_.mergeSelected) {
-            if(mergeSelectedFaces_.empty()||!mergeSelectionRoot_) {
-                std::cout<<"[merge] refusal: no explicitly selected original FaceIds\n";
-            }else if(!interaction_.canBegin||!interaction_.canBegin()||
-                     mergeSelectionRoot_!=displayedIndex_) {
-                std::cout<<"[merge] refusal: busy or selected immutable root is stale\n";
-                resetMergeSelection();
-            }else {
-                // Strictly one selected immutable root. Never query
-                // triangle contacts or original lifetime on Vulkan thread.
-                interaction_.mergeSelected(mergeSelectionRoot_,
-                                           mergeSelectedFaces_);
-                std::cout<<"[merge] queued "<<mergeSelectedFaces_.size()
-                         <<" explicitly nominated first-original FaceIds\n";
-                resetMergeSelection();
+                break;
+            case DesktopMergeInput::Result::Unavailable:
+                std::cout<<"[merge] unavailable: launch with --merge-geometry to authorize sealed original-root worker\n";
+                break;
+            case DesktopMergeInput::Result::Busy:
+                std::cout<<"[merge] toggle refused: worker busy or terminal\n";
+                break;
+            default:break;
             }
+            refreshHud();
+            updateTitle();
+        }
+        if(edges.clear&&mergeInput_.enabled()) {
+            mergeInput_.clear();
+            refreshHud();
+            updateTitle();
+        }
+        if(edges.submit&&mergeInput_.enabled()&&interaction_.mergeSelected) {
+            auto result=mergeInput_.submit(
+                displayedIndex_,bool(interaction_.mergeSelected),ready);
+            if(result.result==DesktopMergeInput::Result::Queued) {
+                const auto count=result.originals.size();
+                // This exact root+FaceId pair is the bounded M47 worker
+                // contract; no source scan occurs on the render thread.
+                interaction_.mergeSelected(std::move(result.expected),
+                                           std::move(result.originals));
+                std::cout<<"[merge] queued "<<count
+                         <<" explicitly nominated first-original FaceIds\n";
+            }else if(result.result==DesktopMergeInput::Result::NoSelection)
+                std::cout<<"[merge] refusal: no explicitly selected original FaceIds\n";
+            else
+                std::cout<<"[merge] refusal: busy or selected immutable root is stale\n";
             refreshHud();
             updateTitle();
         }
@@ -838,25 +842,32 @@ class VulkanViewport {
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
         const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
-        if(mergeOn_) {
+        if(mergeInput_.enabled()) {
             if(down&&!mouseWasDown_) {
-                if(!interaction_.canBegin||!interaction_.canBegin())
+                const bool ready=!interaction_.canBegin||interaction_.canBegin();
+                std::optional<FaceId> face;
+                if(ready) {
+                    if(const auto picked=pickCursorSourceFace())
+                        face=picked->face;
+                }
+                const auto result=mergeInput_.pick(displayedIndex_,face,ready);
+                switch(result) {
+                case DesktopMergeInput::Result::Busy:
                     std::cout<<"[merge] pick refused: worker busy or terminal\n";
-                else if(const auto picked=pickCursorSourceFace()) {
-                    if(!mergeSelectionRoot_||mergeSelectionRoot_!=displayedIndex_) {
-                        resetMergeSelection();
-                        mergeSelectionRoot_=displayedIndex_;
-                    }
-                    if(std::find(mergeSelectedFaces_.begin(),
-                                 mergeSelectedFaces_.end(),
-                                 picked->face)==mergeSelectedFaces_.end()) {
-                        if(mergeSelectedFaces_.size()<32) {
-                            mergeSelectedFaces_.push_back(picked->face);
-                            std::cout<<"[merge] select immutable FaceId "<<picked->face
-                                     <<" total="<<mergeSelectedFaces_.size()<<"\n";
-                        }else std::cout<<"[merge] selection limit 32; submit or clear\n";
-                    }
-                }else std::cout<<"[merge] no indexed surface face under pointer\n";
+                    break;
+                case DesktopMergeInput::Result::Selected:
+                    std::cout<<"[merge] select immutable FaceId "<<*face
+                             <<" total="<<mergeInput_.selectedCount()<<"\n";
+                    break;
+                case DesktopMergeInput::Result::Full:
+                    std::cout<<"[merge] selection limit 32; submit or clear\n";
+                    break;
+                case DesktopMergeInput::Result::NoHit:
+                case DesktopMergeInput::Result::InvalidFace:
+                    std::cout<<"[merge] no indexed surface face under pointer\n";
+                    break;
+                default:break;
+                }
                 refreshHud();
                 updateTitle();
             }
@@ -985,7 +996,8 @@ class VulkanViewport {
             // Intermediate completed states coalesce into the newest
             // snapshot; every brush stamp itself has still been applied.
             if(auto snapshot=interaction_.takeSnapshot()) {
-                if(snapshot->index!=displayedIndex_)resetMergeSelection();
+                if(snapshot->index!=displayedIndex_)
+                    mergeInput_.revisionChanged(snapshot->index);
                 const auto previous=displayedStamps_;
                 displayedStamps_=snapshot->completedStamps;
                 refreshPartitions(std::move(snapshot->index),
@@ -1052,9 +1064,9 @@ class VulkanViewport {
         std::string title = "Mesher";
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
-            if(mergeOn_)
+            if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
-                       std::to_string(mergeSelectedFaces_.size())+" faces)";
+                       std::to_string(mergeInput_.selectedCount())+" faces)";
             else title+=sculpting_ ? " | Sculpting" :
                 interaction_.mergeSelected?
                 " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
