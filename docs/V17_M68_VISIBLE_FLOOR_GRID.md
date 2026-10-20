@@ -36,3 +36,15 @@ tests are reconciled to preserve their core invariants,
 not outdated pipeline syntax. Full Vulkan-enabled
 GCC/Clang/MSVC CI and independent merged-main required.
 Actual Linux/Windows appearance remains M52.
+
+## Full implementation matrix — October 20, 2026
+
+M68 implementation at `b00067ee` passed
+[Actions #39515619434](https://github.com/logiclrd/Mesher/actions/runs/39515619434)
+on Linux GCC, Linux Clang and Windows MSVC /W4 /WX with
+Vulkan GLSL compilation, 47 registered CTests on GCC,
+threaded history/checkpoint stress and applicable benchmarks.
+The M67 independently merged-main acceptance has been folded
+into the integration branch. Final documentation-exact PR head
+and independently merged main are checked separately. Real
+Linux/Windows visual smoothness is not claimed by CPU tests.

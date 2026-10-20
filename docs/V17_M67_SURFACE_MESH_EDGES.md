@@ -33,3 +33,15 @@ triangles; a viewport source contract checks true GLSL/COW
 and W/floor routing, and forbids legacy mesh-wire draws.
 Full compiler CI and independent merged-main run are required;
 physical Linux/Windows visual appearance remains M52.
+
+## Implementation acceptance (October 20, 2026)
+
+The corrected implementation at `f4a94ae4` passed full
+[Actions #39515294505](https://github.com/logiclrd/Mesher/actions/runs/39515294505)
+on Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX,
+with **45 CTests** on GCC, threaded history/checkpoint stress,
+benchmarks, and compilation of the new mesh shader on supported
+GLSL toolchains. Early source contracts expected the old two-draw
+layout and were updated to enforce actual new W/G/depth semantics;
+the final implementation rerun passed. M64's independently accepted
+main is integrated with this branch. Device screenshots remain M52.
