@@ -165,9 +165,11 @@ jobs:
       - name: Run CPU tests (MSVC)
         shell: pwsh
         run: |
-          # The four M49 executable-level argument checks start Mesher.exe
-          # without creating a Vulkan instance, but dynamic linking still
-          # requires vulkan-1.dll from the installed SDK at process load.
+          # M49 executable-level argument tests return before Vulkan use.
+          # The stripped CI SDK lacks vulkan-1.dll; MSVC Mesher uses
+          # /DELAYLOAD:vulkan-1.dll so actual Vulkan remains required ONLY
+          # when the interactive viewport first makes a Vulkan API call.
+          # Keep vcpkg DLLs in PATH for GLFW and Qhull test dependencies.
           $env:PATH = "$env:VULKAN_SDK/Bin;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
           Write-Host "Vulkan SDK loader present: $(Test-Path "$env:VULKAN_SDK/Bin/vulkan-1.dll")"
           ctest --test-dir build -C Release --output-on-failure --verbose
