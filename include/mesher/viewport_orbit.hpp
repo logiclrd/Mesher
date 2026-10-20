@@ -110,8 +110,9 @@ public:
            std::isfinite(displacement.z))translation_=translation_-displacement;
     }
 
-    // Ctrl-LMB: move the camera along CURRENT screen-right/up axes.
-    // Right/down pointer travel moves the camera right/down (scene left/up).
+    // Ctrl-LMB: grab the displayed WORLD in the current view plane.
+    // Right/down pointer movement pulls the visible world right/down,
+    // equivalent to moving the camera left/up (reverse of M61).
     // The 45-degree vertical FOV gives DPI-independent world-unit scaling.
     void strafe(Vec3 viewRight,Vec3 viewUp,double dxPixels,
                 double dyPixels,double framebufferHeight,
@@ -122,7 +123,7 @@ public:
         const double unit=2.0*eyeDistance*
                           std::tan(std::numbers::pi/8.0)/framebufferHeight;
         const Vec3 movement=viewRight*(dxPixels*unit)-viewUp*(dyPixels*unit);
-        const Vec3 next=translation_-movement;
+        const Vec3 next=translation_+movement;
         if(std::isfinite(next.x)&&std::isfinite(next.y)&&
            std::isfinite(next.z))translation_=next;
     }

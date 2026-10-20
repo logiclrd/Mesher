@@ -845,9 +845,9 @@ the finite centroid as a fallback.
 Hold **Ctrl when first pressing RMB** to dolly instead of orbit:
 horizontal mouse movement shifts the camera forward/back along
 the **centre-viewport** direction; vertical movement does nothing.
-Hold **Ctrl when first pressing LMB** to strafe the camera in the
-screen-right/up plane: mouse movement right/down moves the camera
-right/down, so the displayed scene moves left/up. Normal LMB
+Hold **Ctrl when first pressing LMB** to grab-and-drag the **world**
+in the screen plane: moving the mouse right/down pulls the displayed
+scene right/down (the camera moves oppositely). Normal LMB
 continues to sculpt or nominate Merge original faces. The modifier
 and gesture mode are latched at mouse-down; pressing Ctrl partway
 through an ordinary brush stroke or orbit does not switch action.

@@ -2296,3 +2296,13 @@ or source geometry changes. CPU integration and Vulkan source
 contracts distinguish genuine mathematical stroke uniformity
 from visibility-masked one-sided fragments; real driver approval
 remains M52. See [M62 acceptance](V17_M62_WIRE_COVERAGE.md).
+
+## V17-M63 — World-grab polarity for Ctrl+LMB viewport strafing
+
+Actual Linux desktop review of M61 led to a user-requested
+polarity reversal. Ctrl+LMB moves visible geometry and floor with
+the cursor in screen-right/up space instead of moving the viewer
+with the cursor; nothing changes for dolly, RMB orbit, brush and
+Merge FaceId selection, or authenticated original/history data.
+CPU sign/round-trip/HiDPI/picking regression and full CI required.
+See [M63 details](V17_M63_WORLD_GRAB_STRAFE.md).

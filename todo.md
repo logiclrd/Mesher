@@ -2036,6 +2036,48 @@ faces, bypass original intent, or widen source geometry authorization:
   surface-aware silhouette work would require separate proof and
   planning, not removal of LEQUAL occlusion. Final PR-head and
   independently merged-main CI required.
+- [x] **V17-M63 — Reverse Ctrl+LMB strafe to grab-and-drag the world.**
+  Actual Linux desktop observation after M61: user expects Ctrl+LMB
+  right/down movement to move visible world right/down, rather than
+  dragging the camera right/down. Reverse both screen-relative
+  translation signs in the UI-only ViewportOrbit strafe helper,
+  update CPU sign, axis, round-trip, HiDPI, invalid-input and
+  orbit/dolly/inverse-picking regressions plus developer README.
+  Preserve all modifier latching and Ctrl+RMB dolly, ordinary RMB
+  yaw/pitch and unmodified LMB brush/FaceId selection. No mesh
+  changes, no persistent camera state, and never alter worker,
+  Boolean, history, or source certification. Check exact PR-head
+  and independently merged-main Vulkan-enabled Linux GCC/Clang
+  and Windows MSVC tests, stresses and benchmarks.
+  PR #116 implementation `f3be09a5` passed
+  [Actions #39506698986](https://github.com/logiclrd/Mesher/actions/runs/39506698986)
+  on Vulkan-enabled Linux GCC, Clang, and Windows MSVC /W4 /WX,
+  including **41/41 CTests** (mouse_picking updated world-grab
+  signs, roundtrip, HiDPI and exact inverse source-space picker),
+  repeated worker history/checkpoint stress and benchmarks.
+  Exact documentation-head PR and merged-main CI remain
+  independent gates; actual new polarity on Linux remains M52.
+- [ ] **V17-M64 — Pole-dependent wire visibility/width root cause and depth-safe solution.**
+  User's real Linux near-top and exactly-top screenshots show both
+  geometry wires and planar floor grid suddenly appear thicker
+  at the camera's +90-degree pole. The fixed 1.5px shader
+  halfwidth does NOT change with pitch. Hypothesis: M58 GPU wire
+  quads preserve the edge's centerline depth even where the quad
+  is laterally displaced in screen space. At oblique angles an
+  actual filled face has a depth gradient across the expanded
+  footprint, so one side of the wire fails LEQUAL; exactly
+  top-down the horizontal floor has zero depth slope and both
+  sides pass. First reproduce/refute analytically with distinct
+  sloped-plane/front-face and coplanar/backface controls, then
+  design a certified visibility-aware correction that keeps
+  consistently narrow antialiased strokes across pole entry,
+  handles scene/world/floor and dirty COW partitions, and never
+  globally pulls clip-Z forward or leaks hidden/rear wires.
+  If safe fix requires new per-face GPU ownership/visibility or
+  additional pipeline resources, preplan bounded independent
+  follow-on milestones before coding; do not substitute a
+  depth-bias shortcut. CPU/GLSL/Vulkan contracts and full
+  three-platform CI, real Linux/Windows visual acceptance M52.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
