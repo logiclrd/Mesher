@@ -81,9 +81,18 @@ triangles and grid wires. Other source-positive,
 renderer-staging and entire CI history/checkpoint tests
 remain unchanged.
 
-All Linux GCC, Linux Clang and Windows MSVC Vulkan-enabled
-warning-clean CTest matrices, original PR-head and
-independently merged-main builds must succeed.
+The substantive implementation head `2a42f65f` passed the
+full Vulkan-enabled Linux GCC, Linux Clang, and Windows MSVC
+/W4 /WX matrix, **all 36 CTests**, history/checkpoint stress
+and benchmarks:
+[Actions #39474626696](https://github.com/logiclrd/Mesher/actions/runs/39474626696).
+The initial Windows PR-head run passed the new floor tests but
+failed the older mirrored worker undo test due to a known style
+of status-vs-snapshot observation race; the test now waits for
+the exact root and matching history concurrently, without
+any production worker change. The succeeding Windows CI run
+verified the corrected assertion. The final documentation-head
+and independent merged-main runs are separately required.
 M54's real geometric proof stays complete, while M52
 and original M15 remain explicitly open. This milestone
 does **not** claim to have human-observed actual GPU/driver
