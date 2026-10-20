@@ -5978,3 +5978,13 @@ limitations are recorded in
 `docs/V17_M51_REFLECTED_DESKTOP_AND_NOMINATION.md`.
 Original M15, M52 and V18/V19 remain separately unaccepted until
 their own observable acceptance.
+
+**M51 fixture camera:** Reflected source groups centered near X=±5
+would be off-screen under the ordinary unit-sphere camera. Named
+developer fixtures alone set `ViewportInteraction::cameraScale`
+to 2 (asymmetric) or 4 (reflected), and the actual Vulkan
+`makeConstants` camera and both CPU immutable indexed ray-picking
+functions scale their eye origins together. The default camera
+remains scale 1; this is display framing only, with no geometry,
+FaceId, proof, worker, operation-limit or M15 observed-GPU permission
+change.
