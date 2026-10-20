@@ -1975,6 +1975,45 @@ faces, bypass original intent, or widen source geometry authorization:
   and applicable benchmarks. Source geometry/worker remain unchanged.
   Final documented PR-head and independently merged-main CI are
   separate acceptance gates, and real GPU observation remains M52.
+- [ ] **V17-M61 — Ctrl-modified view-relative pan/dolly and exact upright pole views.**
+  User requested Ctrl+LMB view-relative strafe (camera translation
+  along displayed screen-right/up), move Alt+RMB dolly to Ctrl+RMB,
+  reserve Alt for later inverse brush without activating brush today,
+  and extend M60 turntable to full top/bottom 90-degree camera
+  elevations. Preserve ordinary RMB orbit, unmodified LMB
+  sculpt/first-original Merge FaceId selection, M55 background/
+  surface pivots, existing cursor wrap, mode latching at button-down
+  and no view gesture ever enqueuing worker strokes or Merge. Avoid
+  toggling modalities mid-drag, preserve inverse source picking
+  across arbitrary orbit/pan/dolly sequences, use real framebuffer
+  pixels for stable DPI scale, clamp camera elevation at poles while
+  never inverting the up vector, and reject invalid motion inputs.
+  Unit tests must exercise axes, sign, original immutable pivot,
+  near/at both poles and reverse, round trips, inverse picking,
+  modifier latching/precedence, invalid input, and viewport source
+  wiring. Verify full Vulkan GCC/Clang/Windows MSVC /W4 /WX CI at
+  exact PR head and independent merged main. Real visual input on
+  Linux/Windows Vulkan remains M52, original M15 and V17 open.
+- [ ] **V17-M62 — Calibrate AA stroke thickness and diagnose occlusion-side asymmetry.**
+  User's real Linux screenshot confirms M58 removed subpixel gaps and
+  preserves occlusion, but the presently 2-pixel HALFwidth with a
+  one-pixel alpha ramp produces heavy/uneven strokes. Independently
+  distinguish central pixel coverage and depth occlusion of widened
+  quads (near an adjacent reversed-facing triangle), avoid naive
+  globally halving width, and choose perceptually lighter physically
+  pixel-based AA coverage while retaining sufficiently readable
+  silhouette/cropped half-strokes. Add independent analytic coverage
+  tests and shader/real Vulkan depth contract gates; explicitly
+  document intrinsic one-sided depth occlusion vs a genuine stroke
+  rasterization defect. Do NOT reintroduce the M56 unconditional
+  clip-depth pull, expose backface/hidden edges, change permanent
+  FaceId geometry, or replace source-certified topology. W/G remain
+  independent, M59 startup regression protected, and genuine
+  visual cross-driver approval remains M52; full PR-head and merged
+  GCC/Clang/Windows Vulkan CI required. If exact symmetry on
+  silhouette needs a separate renderer design, keep M62's acceptance
+  strictly to proven improvement and pre-plan any necessary peer
+  milestone before proceeding, rather than silently weakening safety.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
