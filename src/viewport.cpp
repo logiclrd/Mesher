@@ -405,10 +405,10 @@ class VulkanViewport {
     DesktopMergeKeyEdges mergeKeys_;
     DesktopMergeInput mergeInput_;
     ViewportOrbit orbit_;
-    bool rightMouseWasDown_=false,orbitDragging_=false;
+    bool orbitDragging_=false;
     Vec3 orbitPivotSource_{};
+    ViewportCameraGestures cameraGestures_;
     ViewportCursorWrap orbitCursor_;
-    bool orbitDolly_=false;
     std::string lastMergeStatus_;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
@@ -749,59 +749,78 @@ class VulkanViewport {
     }
 
     void updateMouseOrbit() {
-        const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+        const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+        const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        const bool ctrl=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS||
+                        glfwGetKey(window,GLFW_KEY_RIGHT_CONTROL)==GLFW_PRESS;
+        const auto gesture=cameraGestures_.sample(
+            left,right,ctrl,!sculpting_&&!radiusDragging_);
         double x=0,y=0;
         glfwGetCursorPos(window,&x,&y);
         int ww=0,wh=0,fw=0,fh=0;
         glfwGetWindowSize(window,&ww,&wh);
         glfwGetFramebufferSize(window,&fw,&fh);
-        if(down&&!rightMouseWasDown_&&!sculpting_&&!radiusDragging_&&
-           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS) {
-            if(const auto visual=cursorVisualRay()) {
-                orbitDolly_=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
-                            glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
-                if(!orbitDolly_) {
+        if(gesture.ended) {
+            orbitDragging_=false;
+            orbitCursor_.stop();
+            if(gesture.endedMode==ViewportCameraMode::Strafe)
+                std::cout<<"[view] Ctrl+LMB strafe end\n";
+            else if(gesture.endedMode==ViewportCameraMode::Dolly)
+                std::cout<<"[view] Ctrl+RMB dolly end\n";
+            else std::cout<<"[view] RMB orbit end\n";
+        }else if(gesture.started) {
+            if(gesture.mode==ViewportCameraMode::Orbit) {
+                if(const auto visual=cursorVisualRay()) {
                     const auto source=orbit_.pickingRay(*visual);
                     const auto picked=displayedIndex_?
                         displayedIndex_->firstRayHit(source):
                         firstMeshHit(mesh_,source);
                     const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
                                    interaction_.cameraScale;
-                    const Vec3 centerForward=normalized(Vec3{}-eye);
-                    // Only sample the full immutable root on a deliberate
-                    // background click, never per frame or surface click.
+                    const Vec3 forward=normalized(Vec3{}-eye);
+                    // Background centroid scan only on this real RMB press.
                     orbitPivotSource_=picked?*picked:orbit_.choosePivot(
-                        *visual,std::nullopt,currentGeometryCentroid(),
-                        centerForward);
+                        *visual,std::nullopt,currentGeometryCentroid(),forward);
                     std::cout<<"[view] RMB orbit start pivot="
                              <<(picked?"surface":"screen-parallel centroid")
                              <<" ("<<orbitPivotSource_.x<<","
                              <<orbitPivotSource_.y<<","
                              <<orbitPivotSource_.z<<")\n";
                 }else {
-                    std::cout<<"[view] Alt+RMB view-direction dolly start\n";
+                    cameraGestures_.cancel();
+                    return;
                 }
-                orbitCursor_.begin(x,y,double(ww),double(wh));
-                orbitDragging_=true;
+            }else if(gesture.mode==ViewportCameraMode::Dolly) {
+                std::cout<<"[view] Ctrl+RMB view-direction dolly start\n";
+            }else {
+                std::cout<<"[view] Ctrl+LMB view-relative strafe start\n";
             }
-        } else if(down&&orbitDragging_) {
-            const auto motion=orbitCursor_.sample(
-                x,y,double(ww),double(wh));
+            orbitCursor_.begin(x,y,double(ww),double(wh));
+            orbitDragging_=true;
+        }else if(orbitDragging_&&gesture.mode!=ViewportCameraMode::None) {
+            const auto motion=orbitCursor_.sample(x,y,double(ww),double(wh));
             if(ww>0&&wh>0&&fw>0&&fh>0) {
                 const double dx=motion.dx*double(fw)/ww;
                 const double dy=motion.dy*double(fh)/wh;
                 const double span=double(std::min(fw,fh));
-                if(orbitDolly_) {
+                if(gesture.mode==ViewportCameraMode::Dolly||
+                   gesture.mode==ViewportCameraMode::Strafe) {
                     const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
                                    interaction_.cameraScale;
-                    orbit_.dolly(normalized(Vec3{}-eye),dx,span,length(eye));
+                    const Vec3 forward=normalized(Vec3{}-eye);
+                    if(gesture.mode==ViewportCameraMode::Dolly)
+                        orbit_.dolly(forward,dx,span,length(eye));
+                    else {
+                        const Vec3 viewRight=normalized(cross(forward,{0,0,1}));
+                        const Vec3 viewUp=cross(viewRight,forward);
+                        orbit_.strafe(viewRight,viewUp,dx,dy,double(fh),length(eye));
+                    }
                 }else
                     orbit_.drag(orbitPivotSource_,dx,dy,span);
             }
             if(motion.warp&&glfwGetWindowAttrib(window,GLFW_FOCUSED)) {
-                // GLFW window-client pixel coordinates, not framebuffer
-                // coordinates. Never let the synthetic edge-to-edge warp
-                // become a huge physical drag increment on the next frame.
+                // Window-client coordinates; never interpret a synthetic
+                // GLFW edge warp as a giant orbit, strafe, or dolly delta.
                 (void)glfwGetError(nullptr);
                 glfwSetCursorPos(window,motion.warpX,motion.warpY);
                 const int error=glfwGetError(nullptr);
@@ -810,17 +829,11 @@ class VulkanViewport {
                 else {
                     orbitCursor_.disableWarp();
                     std::cout<<"[view] cursor wrap unavailable on this "
-                                "windowing platform; continuous drag "
-                                "still works without wrapping\n";
+                                "windowing platform; camera gesture "
+                                "continues without wrapping\n";
                 }
             }
-        } else if(!down&&rightMouseWasDown_&&orbitDragging_) {
-            orbitDragging_=false;
-            orbitCursor_.stop();
-            std::cout<<(orbitDolly_?"[view] Alt+RMB dolly end\n":
-                                    "[view] RMB orbit end\n");
         }
-        rightMouseWasDown_=down;
     }
 
     std::optional<Vec3> pickCursor() const {
@@ -1003,7 +1016,7 @@ class VulkanViewport {
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
         if(orbitDragging_) {
-            // The view-only RMB gesture never admits a sculpt stroke.
+            // View-only RMB and Ctrl+LMB never sculpt or nominate Merge faces.
             mouseWasDown_=glfwGetMouseButton(
                 window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
             return;
