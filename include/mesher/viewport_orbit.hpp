@@ -37,7 +37,9 @@ public:
     // transformed Z-up axis always has zero screen-right component.
     // A left-to-right drag moves near (-Y) geometry right; downward
     // movement pitches it down. Camera elevation is atan(0.33) ~= 18deg;
-    // clamp to 65deg so Z-up cannot project upside down on this camera.
+    // clamp the VIEWING elevation to +/-90deg instead of clamping extra
+    // scene rotation. The poles have no projected world-Z-up direction;
+    // yaw stays defined and moving away never inverts the view.
     // The pivot stays in ORIGINAL source coordinates for the RMB gesture.
     void drag(Vec3 pivotSource,double dxPixels,double dyPixels,
               double framebufferSpan) noexcept {
@@ -48,14 +50,16 @@ public:
         const double deltaYaw=dxPixels*radiansPerPixel;
         const double deltaPitch=dyPixels*radiansPerPixel;
         if(!std::isfinite(deltaYaw)||!std::isfinite(deltaPitch))return;
-        constexpr double maxPitch=65.0*std::numbers::pi/180.0;
+        const double elevation=std::atan(0.33);
+        const double maxPitch=std::numbers::pi/2.0-elevation;
+        const double minPitch=-std::numbers::pi/2.0-elevation;
         const double newYaw=std::remainder(
             yaw_+std::remainder(deltaYaw,2.0*std::numbers::pi),
             2.0*std::numbers::pi);
         const double newPitch=std::clamp(pitch_+deltaPitch,
-                                       -maxPitch,maxPitch);
+                                       minPitch,maxPitch);
         if(newYaw==yaw_&&newPitch==pitch_)return;
-        // Anchor the currently displayed pivot, including any Alt+RMB
+        // Anchor the currently displayed pivot, including any Ctrl+RMB
         // dolly accumulated before this gesture, across the new rotation.
         const Vec3 anchor=displayed(pivotSource);
         yaw_=newYaw;
@@ -89,7 +93,7 @@ public:
                              translation_);
     }
 
-    // Alt-RMB: positive mouse-X walks the *viewer* forward along the
+    // Ctrl-RMB: positive mouse-X walks the *viewer* forward along the
     // current centre ray, i.e. shifts the visually displayed scene in
     // the opposite direction. This is the camera-translation equivalent
     // of the existing scene model translation, not a mesh edit.
@@ -101,7 +105,26 @@ public:
         const double unitsPerPixel=2.0*eyeDistance*
                                    std::tan(std::numbers::pi/8.0)/
                                    framebufferSpan;
-        translation_=translation_-cameraForward*(dxPixels*unitsPerPixel);
+        const Vec3 displacement=cameraForward*(dxPixels*unitsPerPixel);
+        if(std::isfinite(displacement.x)&&std::isfinite(displacement.y)&&
+           std::isfinite(displacement.z))translation_=translation_-displacement;
+    }
+
+    // Ctrl-LMB: move the camera along CURRENT screen-right/up axes.
+    // Right/down pointer travel moves the camera right/down (scene left/up).
+    // The 45-degree vertical FOV gives DPI-independent world-unit scaling.
+    void strafe(Vec3 viewRight,Vec3 viewUp,double dxPixels,
+                double dyPixels,double framebufferHeight,
+                double eyeDistance) noexcept {
+        if(!(std::isfinite(dxPixels)&&std::isfinite(dyPixels)&&
+             std::isfinite(framebufferHeight)&&framebufferHeight>0&&
+             std::isfinite(eyeDistance)&&eyeDistance>0))return;
+        const double unit=2.0*eyeDistance*
+                          std::tan(std::numbers::pi/8.0)/framebufferHeight;
+        const Vec3 movement=viewRight*(dxPixels*unit)-viewUp*(dyPixels*unit);
+        const Vec3 next=translation_-movement;
+        if(std::isfinite(next.x)&&std::isfinite(next.y)&&
+           std::isfinite(next.z))translation_=next;
     }
 
 private:
@@ -111,9 +134,46 @@ private:
 };
 
 
+// Latch all REAL desktop camera gestures at mouse-button-down, not at
+// modifier changes in mid-stroke. Suppress starts with both buttons down.
+enum class ViewportCameraMode {None,Orbit,Dolly,Strafe};
+struct ViewportCameraGestureStep {
+    ViewportCameraMode mode=ViewportCameraMode::None;
+    ViewportCameraMode endedMode=ViewportCameraMode::None;
+    bool started=false,ended=false;
+};
+class ViewportCameraGestures {
+public:
+    ViewportCameraGestureStep sample(bool left,bool right,bool ctrl,
+                                     bool allowed) noexcept {
+        ViewportCameraGestureStep out;
+        if(mode_!=ViewportCameraMode::None) {
+            if(!(mode_==ViewportCameraMode::Strafe?left:right)) {
+                out.ended=true;out.endedMode=mode_;
+                mode_=ViewportCameraMode::None;
+            }
+        }else if(allowed) {
+            if(right&&!wasRight_&&!left) {
+                mode_=ctrl?ViewportCameraMode::Dolly:ViewportCameraMode::Orbit;
+                out.started=true;
+            }else if(left&&!wasLeft_&&!right&&ctrl) {
+                mode_=ViewportCameraMode::Strafe;
+                out.started=true;
+            }
+        }
+        wasLeft_=left;wasRight_=right;
+        out.mode=mode_;
+        return out;
+    }
+    void cancel() noexcept {mode_=ViewportCameraMode::None;}
+private:
+    ViewportCameraMode mode_=ViewportCameraMode::None;
+    bool wasLeft_=false,wasRight_=false;
+};
+
 // Pure cursor-wrap planning, independent of GLFW/Vulkan. Coordinates are
 // GLFW window-client coordinates; the caller performs platform cursor warp
-// only during an active RMB gesture and only while the window is focused.
+// only during an active view gesture and only while the window is focused.
 struct ViewportCursorStep {
     double dx{},dy{},warpX{},warpY{};
     bool warp{};
