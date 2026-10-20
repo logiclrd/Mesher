@@ -60,7 +60,7 @@ void compare(const RegionTopologyIndex& index,Ray ray) {
     check(bool(tagged)==bool(fast),
           "M48 typed immutable nearest FaceId picker agrees with legacy ray result");
     if(tagged) {
-        check(tagged->face!=0&&index.maybeFace(tagged->face).has_value()&&
+        check(tagged->face!=0&&bool(index.maybeFace(tagged->face))&&
               length(tagged->point-*fast)<2e-9,
               "M48 source FaceId is live in exactly same indexed root and hit location");
     }
