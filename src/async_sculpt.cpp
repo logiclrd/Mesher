@@ -25,7 +25,8 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
 AsyncSculptWorker::AsyncSculptWorker(
     DurableCheckpoint recovered,double step,double strength,double timeSpeed,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
-    SculptStepValidator validator,SculptCollisionSettings collision)
+    SculptStepValidator validator,SculptCollisionSettings collision,
+    std::vector<FaceId> trustedFirstOriginalFaces)
     :brush_(std::make_unique<VersionedSculptBrush>(
          recovered,strength,curvature,collapse,refine,256,
          std::move(validator),std::move(collision))),
@@ -34,7 +35,27 @@ AsyncSculptWorker::AsyncSculptWorker(
             throw std::invalid_argument("Sculpt time speed must be positive");
         return t;
      }(timeSpeed)),symmetric_(!recovered.mirrorPairs.empty()),
-     worker_([this](std::stop_token token){run(token);}) {}
+     trustedFirstOriginalFaces_(std::move(trustedFirstOriginalFaces)),
+     worker_([this](std::stop_token token){run(token);}) {
+    if(!trustedFirstOriginalFaces_.empty()) {
+        const auto& proof=recovered.verifiedOriginalFidelity;
+        if(!proof||!proof->certificate||!proof->anchors.original||
+           proof->anchors.original!=recovered.index||
+           proof->lineage.terminal!=recovered.index||
+           proof->acceptedTransitions!=0)
+            throw std::logic_error(
+                "Trusted recovered live Merge FaceId set requires sealed unadvanced in-memory FIRST-original certificate");
+        std::set<FaceId> supplied(trustedFirstOriginalFaces_.begin(),
+                                  trustedFirstOriginalFaces_.end());
+        std::set<FaceId> verified;
+        for(const auto& a:proof->anchors.faces)
+            verified.insert(a.face);
+        if(supplied.empty()||supplied.size()!=trustedFirstOriginalFaces_.size()||
+           supplied!=verified)
+            throw std::logic_error(
+                "Trusted recovered live Merge source FaceIds do not match the actual sealed original anchors");
+    }
+}
 AsyncSculptWorker::~AsyncSculptWorker() {
     worker_.request_stop();
     ready_.notify_all();
@@ -315,7 +336,9 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     }
                     const auto firstRoot=brush_->firstOriginalSourceRoot();
                     const auto order=brush_->originalOrder();
-                    if(!firstRoot||!order||order->faceIds.empty()) {
+                    const auto& originals=order&&!order->faceIds.empty()?
+                        order->faceIds:trustedFirstOriginalFaces_;
+                    if(!firstRoot||originals.empty()) {
                         refuse("Live Merge requires the trusted initial first-original FaceId source, not a disk-only or OFF-mode root");
                         break;
                     }
@@ -323,7 +346,7 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     // intended for surgery. No blanket-all-originals or
                     // current-terminal XYZ lookup can elevate consent.
                     const std::set<FaceId> allowed(
-                        order->faceIds.begin(),order->faceIds.end());
+                        originals.begin(),originals.end());
                     std::set<FaceId> unique;
                     bool validIntent=!command->intendedOriginals.empty()&&
                                      command->intendedOriginals.size()<=16384;
