@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
     bool inflate = true, demoMode = false, verboseInput = false;
     bool allowMergeGeometry = false;
     bool mergeTestTetra = false;
+    bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
     mesher::CollapseSettings collapseSettings;
@@ -51,6 +52,7 @@ int main(int argc, char** argv) {
             else if(arg=="--verbose-input") verboseInput=true;
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
+            else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
                 if(++i>=argc)throw std::invalid_argument("Missing checkpoint filename");
                 if(arg=="--checkpoint")checkpointPath=argv[i];
@@ -139,6 +141,7 @@ int main(int argc, char** argv) {
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
+                         <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
@@ -149,6 +152,11 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
+        if(mergeTestTetra&&mergeTestReflectedTetra)
+            throw std::invalid_argument("Choose only one experimental Merge fixture");
+        if(mergeTestReflectedTetra&&(!allowMergeGeometry||!options.symmetric))
+            throw std::invalid_argument(
+                "--merge-test-reflected-tetra requires --merge-geometry --symmetric");
         if(mergeTestTetra&&(!allowMergeGeometry||options.symmetric))
             throw std::invalid_argument(
                 "--merge-test-tetra requires explicit --merge-geometry --asymmetric");
@@ -176,6 +184,13 @@ int main(int argc, char** argv) {
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
                      <<" retired vertices from "<<recoverPath.string()<<"\n";
+        }else if(mergeTestReflectedTetra) {
+            mesh=mesher::desktopMergeReflectedTetraFixture();
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            std::cout<<"M51 sealed reflected desktop fixture: "
+                     <<mesh.vertices.size()<<" independently owned original vertices, "
+                     <<mesh.triangles.size()<<" faces; two reciprocal source-positive "
+                     <<"groups. Merge starts OFF.\\n";
         }else if(mergeTestTetra) {
             // Deliberate, separately authorized supported-domain source;
             // never constructed in a normal interactive desktop launch.
@@ -296,6 +311,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
         std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
+        std::vector<mesher::FaceId> fixtureFirstFaces;
 
         if(inflate && !demoMode) {
             const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
@@ -315,13 +331,34 @@ int main(int argc, char** argv) {
             else {
                 mesher::SculptCollisionSettings mergePolicy;
                 mergePolicy.physicalExact=allowMergeGeometry;
-                // The global OFF startup remains bit-for-bit the previous
-                // legacy worker construction. Only --merge-geometry explicitly
-                // authorizes the sealed original-source worker at launch.
-                liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
-                    mesh,step,strength,timeSpeed,curvatureSettings,
-                    collapseSettings,refineSettings,options.symmetric,
-                    mesher::SculptStepValidator{},mergePolicy);
+                if(mergeTestReflectedTetra) {
+                    // The ordinary symmetric sphere constructor cannot
+                    // authenticate this separate pair of original tetra
+                    // components. Use the independently source-sealed
+                    // original indexed root with exact stable reciprocal IDs.
+                    auto source=mesher::desktopMergeReflectedFirstOriginal();
+                    fixtureFirstFaces=source.firstFaces;
+                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                        std::move(source.checkpoint),step,strength,timeSpeed,
+                        curvatureSettings,collapseSettings,refineSettings,
+                        mesher::SculptStepValidator{},mergePolicy,
+                        std::move(source.firstFaces));
+                } else {
+                    // The global OFF startup remains bit-for-bit the previous
+                    // legacy worker construction. Only --merge-geometry
+                    // authorizes the sealed first-original worker.
+                    if(mergeTestTetra)
+                        fixtureFirstFaces=mesher::partitionFlatMesh(mesh,256)
+                                              .flatIndex.faceIds;
+                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                        mesh,step,strength,timeSpeed,curvatureSettings,
+                        collapseSettings,refineSettings,options.symmetric,
+                        mesher::SculptStepValidator{},mergePolicy);
+                }
+            }
+            if(mergeTestTetra||mergeTestReflectedTetra) {
+                interaction.mergeFixtureOriginal=liveWorker->initialRevision();
+                interaction.mergeFixtureOriginals=std::move(fixtureFirstFaces);
             }
             if(allowMergeGeometry) {
                 interaction.mergeSelected=[&](
@@ -433,6 +470,11 @@ int main(int argc, char** argv) {
                        " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric");
             };
+            if(mergeTestTetra||mergeTestReflectedTetra)
+                std::cout<<"[merge] This named developer fixture permits "
+                            "explicit A-key nomination of all its ORIGINAL "
+                            "FaceIds while ON and displaying the INITIAL root. "
+                            "A is disabled on other sources and later roots.\\n";
             if(allowMergeGeometry)
                 std::cout<<"Merge geometry: explicitly authorized protected original-root worker; "
                          <<"desktop starts OFF. Press M to toggle Merge selection, "
