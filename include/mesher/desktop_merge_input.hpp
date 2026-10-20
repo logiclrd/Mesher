@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/partition_render.hpp"
+#include "mesher/repair_intersection.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -9,6 +10,24 @@
 #include <vector>
 
 namespace mesher {
+
+// Intentional *bounded* contour admission for explicitly armed desktop
+// Merge. This is the existing c1/c2/c3/M03/d2-tested two-tetra policy,
+// not a relaxation of original witness, history, mirror or work limits.
+// Legacy OFF desktop does not construct or invoke this policy.
+inline ExactCutStepLimits desktopMergeExactLimits(bool symmetric) {
+    ExactCutStepLimits limits;
+    auto& contours=limits.join.removal.contours;
+    contours.maximumPlanarityInRadii=4;
+    contours.maximumSingleCapPlanarityInRadii=4;
+    contours.maximumIsoperimetricRatio=20;
+    contours.maximumSingleCapIsoperimetricRatio=20;
+    contours.maximumPerimeterRatio=20;
+    contours.maximumGapInEdges=symmetric?2.5:20;
+    contours.minimumNormalAlignment=0;
+    limits.requireMirrors=symmetric; // strict certified reciprocal involution
+    return limits;
+}
 
 // M49: these transitions ARE the desktop mode/selection rules used by
 // VulkanViewport. They require no GLFW, Vulkan, wall clock or mutable mesh.
