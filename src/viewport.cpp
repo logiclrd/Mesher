@@ -797,7 +797,7 @@ class VulkanViewport {
             }
             orbitCursor_.begin(x,y,double(ww),double(wh));
             orbitDragging_=true;
-        }else if(orbitDragging_&&gesture.mode!=ViewportCameraMode::None) {
+        }else if(orbitDragging_&&gesture.mode!=ViewportCameraMode::Inactive) {
             const auto motion=orbitCursor_.sample(x,y,double(ww),double(wh));
             if(ww>0&&wh>0&&fw>0&&fh>0) {
                 const double dx=motion.dx*double(fw)/ww;

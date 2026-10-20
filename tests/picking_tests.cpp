@@ -263,7 +263,7 @@ int main() {
         // modifier switches, no accidental Ctrl+LMB brush/FaceId intent.
         ViewportCameraGestures buttons;
         using Mode=ViewportCameraMode;
-        check(buttons.sample(false,false,false,true).mode==Mode::None,
+        check(buttons.sample(false,false,false,true).mode==Mode::Inactive,
               "M61 idle pointer has no camera gesture");
         auto gesture=buttons.sample(false,true,false,true);
         check(gesture.started&&gesture.mode==Mode::Orbit,
@@ -282,10 +282,10 @@ int main() {
               "M61 releasing Ctrl while RMB held keeps latched dolly");
         buttons.sample(false,false,false,true);
         gesture=buttons.sample(true,false,false,true);
-        check(gesture.mode==Mode::None,
+        check(gesture.mode==Mode::Inactive,
               "M61 ordinary LMB is left to sculpt/merge selection");
         gesture=buttons.sample(true,false,true,true);
-        check(gesture.mode==Mode::None,
+        check(gesture.mode==Mode::Inactive,
               "M61 Ctrl pressed after LMB down cannot hijack brush stroke");
         buttons.sample(false,false,true,true);
         gesture=buttons.sample(true,false,true,true);
@@ -299,14 +299,14 @@ int main() {
               "M61 second button does not change an active pan");
         buttons.sample(false,false,false,true);
         gesture=buttons.sample(true,true,true,true);
-        check(gesture.mode==Mode::None,
+        check(gesture.mode==Mode::Inactive,
               "M61 both buttons simultaneously cannot start a gesture");
         buttons.sample(false,false,false,true);
         gesture=buttons.sample(true,false,true,false);
-        check(gesture.mode==Mode::None,
+        check(gesture.mode==Mode::Inactive,
               "M61 busy sculptor cannot start Ctrl+LMB strafe");
         buttons.sample(true,false,true,true);
-        check(buttons.sample(true,false,true,true).mode==Mode::None,
+        check(buttons.sample(true,false,true,true).mode==Mode::Inactive,
               "M61 pressing Ctrl after a blocked down cannot start late");
         buttons.sample(false,false,false,true);
 

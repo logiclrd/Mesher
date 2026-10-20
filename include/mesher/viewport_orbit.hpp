@@ -136,10 +136,10 @@ private:
 
 // Latch all REAL desktop camera gestures at mouse-button-down, not at
 // modifier changes in mid-stroke. Suppress starts with both buttons down.
-enum class ViewportCameraMode {None,Orbit,Dolly,Strafe};
+enum class ViewportCameraMode {Inactive,Orbit,Dolly,Strafe};
 struct ViewportCameraGestureStep {
-    ViewportCameraMode mode=ViewportCameraMode::None;
-    ViewportCameraMode endedMode=ViewportCameraMode::None;
+    ViewportCameraMode mode=ViewportCameraMode::Inactive;
+    ViewportCameraMode endedMode=ViewportCameraMode::Inactive;
     bool started=false,ended=false;
 };
 class ViewportCameraGestures {
@@ -147,10 +147,10 @@ public:
     ViewportCameraGestureStep sample(bool left,bool right,bool ctrl,
                                      bool allowed) noexcept {
         ViewportCameraGestureStep out;
-        if(mode_!=ViewportCameraMode::None) {
+        if(mode_!=ViewportCameraMode::Inactive) {
             if(!(mode_==ViewportCameraMode::Strafe?left:right)) {
                 out.ended=true;out.endedMode=mode_;
-                mode_=ViewportCameraMode::None;
+                mode_=ViewportCameraMode::Inactive;
             }
         }else if(allowed) {
             if(right&&!wasRight_&&!left) {
@@ -165,9 +165,9 @@ public:
         out.mode=mode_;
         return out;
     }
-    void cancel() noexcept {mode_=ViewportCameraMode::None;}
+    void cancel() noexcept {mode_=ViewportCameraMode::Inactive;}
 private:
-    ViewportCameraMode mode_=ViewportCameraMode::None;
+    ViewportCameraMode mode_=ViewportCameraMode::Inactive;
     bool wasLeft_=false,wasRight_=false;
 };
 
