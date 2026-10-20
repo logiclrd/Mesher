@@ -2033,3 +2033,36 @@ independent merged-main CI are still
 additional mandatory gates. ORIGINAL M15,
 V18 and V19 remain separately OPEN.
 See `docs/V17_M49_DESKTOP_INTEGRATION_ACCEPTANCE.md`.
+
+## October 20, 2026 — Original M15 reproducibility gap and flat M50–M52 sequence
+
+After accepted M47/M48/M49 actual controller/CLI/worker gates, original
+M15 remains **open**. The executable previously launched its experimental
+protected desktop worker only on a freshly generated sphere; positive
+bounded source-certified original Merge regression geometry existed only
+inside CPU test functions. Thus the actual binary lacked an independently
+repeatable positive desktop start case. Before implementation, the complete
+remaining flat plan was recorded in `todo.md`: M50 reproducible asymmetric
+test source → M51 reflected original and fully explicit occluded-face
+nomination → M52 genuinely observed Linux/Windows Vulkan acceptance →
+unchanged original M15 integrated review. All are separate from V18/V19.
+
+M50 introduces `--merge-test-tetra` only alongside both explicit
+`--merge-geometry` and `--asymmetric`. The same eight-source-vertex,
+eight-original-face asymmetric two-tetra model is now shared by
+`src/main.cpp` and the actual M47/M49 authenticated live worker tests.
+Fixture construction neither opts the GUI into ON, selects first-original
+FaceIds, nor requests any surgery; it simply makes already tested complete
+transverse source geometry reproducible in an interactive executable.
+Two new executable CLI argument refusal cases preserve pre-GPU validation;
+an independent CPU source-positive test checks the protected fresh-root,
+one admitted worker CAS/history and final immutable dirty root. With viewport
+enabled, the complete CTest set is 29 (23 CPU plus 6 headless CLI).
+
+**Limit:** no Linux/Windows live Vulkan drawing was observed by these
+code/CPU/CLI checks, no automatic blanket original-source nomination was
+introduced, and hidden tetra faces remain an explicit M51 UI nomination
+problem. M50 source/acceptance details are in
+`docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`. M50 must not be checked
+before final-head and merged-main GCC/Clang/MSVC CI are verified;
+original M15 and V17 remain unchecked regardless.
