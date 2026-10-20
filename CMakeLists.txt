@@ -128,6 +128,10 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_aa_wire_quads.cmake")
+        add_test(NAME viewport_wire_coverage_calibration_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_wire_coverage.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"

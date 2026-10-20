@@ -1056,3 +1056,17 @@ both matching accepted root and history before asserting
 See `docs/V17_M58_ANTIALIASED_WIRES.md`.
 As with M55–M57, real Vulkan graphics appearance on
 Linux/Windows remains M52 and original M15 stays open.
+
+
+## V17-M62 — Lighter, smoothly antialiased model and grid lines
+
+Following the user's physical Linux observation of continuous but
+over-heavy M58 edges, M62 calibrates the existing depth-correct
+screen-space overlay to a **1.5-pixel outer halfwidth** with
+smoothstep antialiasing (a roughly 2-pixel effective stroke, down
+from 3). If a nearer face masks half of a widened edge, only that
+side remains visible; this **correct depth clipping** can
+legitimately make a geometric silhouette look narrower, and is
+not remedied by a global wire Z-offset. It remains important
+to compare W-on/off and G floor visibility in real Vulkan
+M52 observations. See `docs/V17_M62_WIRE_COVERAGE.md`.

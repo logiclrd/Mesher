@@ -2283,3 +2283,16 @@ inverse brush work (not implemented by M61). The elevated camera
 reaches exact +/-90-degree viewing elevation without crossing
 a pole or rolling world Z-up, preserving pivot/inverse source picking.
 See [M61 acceptance](V17_M61_CTRL_CAMERA_AND_POLES.md).
+
+## V17-M62 — Calibrate depth-tested AA wire coverage and report clipping limits
+
+User-observed M58 fixed wire continuity/rear occlusion but produces
+excessively dark strokes and variable apparent half-width where
+closer adjacent surfaces mask part of the extruded quad. Use
+1.5px outer halfwidth + symmetric smoothstep shoulder with
+2px full and 1px depth-clipped half integrated ink, instead
+of M58 3px/1.5px; keep exact LEQUAL depth, no bias, no ID
+or source geometry changes. CPU integration and Vulkan source
+contracts distinguish genuine mathematical stroke uniformity
+from visibility-masked one-sided fragments; real driver approval
+remains M52. See [M62 acceptance](V17_M62_WIRE_COVERAGE.md).
