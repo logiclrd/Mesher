@@ -2057,7 +2057,7 @@ faces, bypass original intent, or widen source geometry authorization:
   repeated worker history/checkpoint stress and benchmarks.
   Exact documentation-head PR and merged-main CI remain
   independent gates; actual new polarity on Linux remains M52.
-- [ ] **V17-M64 — Diagnose the pole-dependent wire width and specify a depth-safe renderer replacement (planned prerequisite).**
+- [x] **V17-M64 — Diagnose the pole-dependent wire width and specify a depth-safe renderer replacement (planned prerequisite).**
   User's real Linux near-top and exactly-top screenshots show both
   geometry wires and planar floor grid suddenly appear thicker
   at the camera's +90-degree pole. The fixed 1.5px shader
@@ -2090,6 +2090,17 @@ faces, bypass original intent, or widen source geometry authorization:
   across this explicit sequence. A source-contract/CPU analytic
   regression and document are M64 deliverables, not a claim of
   Vulkan visual correction.
+  M64 analytical/source-contract implementation at `bcd1c86b`
+  passed [Actions #39514057701](https://github.com/logiclrd/Mesher/actions/runs/39514057701):
+  Vulkan-enabled Linux GCC, Linux Clang, Windows MSVC /W4 /WX
+  full CPU test, history stress and benchmark workflows GREEN.
+  The CPU tests explicitly establish 2px zero-slope vs ~1px
+  nonzero-slope ink, reversed normal-gradient masking, and
+  preservation of genuine closer occlusion. No runtime shader,
+  Vulkan draw, source geometry or worker code was changed.
+  Next implementation peers M67, M68 and M69 remain OPEN until
+  independently verified; M52 human observation remains OPEN.
+
 - [ ] **V17-M67 — Face-anchored antialiased mesh wires with correct per-fragment depth.**
   Derive screen-space triangle barycentric distance from the actual
   solid triangle raster (non-indexed 3-vertex mesh triangles), so
