@@ -1688,7 +1688,7 @@ faces, bypass original intent, or widen source geometry authorization:
   one-Step undo/redo, checkpoint recovery's V13 source refusal and
   failed-save diagnostics. Keep raw OS/GPU/build/commands, actual
   observed outcomes and limitations; never mark passed by assumption.
-- [ ] **Then ORIGINAL V17-M15:** Independently reconcile all previously
+**Then ORIGINAL V17-M15:** Independently reconcile all previously
   stated physical source/first-original/winding/cavity, 38 resource
   limits, M23 episodes, M14 quarantine, immutable history and
   source-certification acceptance against M47–M52 evidence; document
