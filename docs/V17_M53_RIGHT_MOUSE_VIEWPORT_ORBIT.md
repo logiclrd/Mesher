@@ -53,8 +53,15 @@ old literal \`\\n\` A-key text is corrected.
 precedence, correct centroid-Y XZ intersection, parallel and
 behind-eye fallback, matrix/ray inverse, multiple frames, long
 repeated orthogonal rotations, fixed pivot, mouse-direction sign
-and nonfinite/zero-framebuffer refusal. GCC, Clang and MSVC full
-Vulkan-enabled CI still gates PR merge and independently merged main.
+and nonfinite/zero-framebuffer refusal. The substantive implementation head `e64d739a` passed all
+three full Vulkan-enabled GCC, Clang and MSVC /W4 /WX CI jobs
+([Actions #39455771691](https://github.com/logiclrd/Mesher/actions/runs/39455771691)),
+including the complete CPU test suite, repeated history/checkpoint
+stress and applicable benchmarks. This is source-picking/rigid scene
+acceptance, **not** observed Linux/Windows GPU movement nor a
+structural verification of the M51 Boolean result. Final
+documentation-head and independent merged-main CI remain distinct
+release gates.
 
 **Not certified here:** the actual user's rotated Vulkan frames,
 GLFW/driver feel or Windows input (M52); the internal/hidden edge
