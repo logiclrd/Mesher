@@ -1894,3 +1894,51 @@ independent merged-main CI remain mandatory.
 See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.
 M15 desktop default-OFF live Merge opt-in and
 V18/V19 remain OPEN.
+
+## October 19, 2026 — V17-M47, first independently accepted M15 prerequisite
+
+Original V17-M15 remains an independent unchecked
+default-off live desktop mode milestone; its flat
+prerequisite sequence M47→M48→M49 was planned up
+front and inserted into `todo.md` BEFORE new code.
+M47 adds only bounded, source-authenticated, worker
+FIFO exact contact discovery. A UI-selected immutable
+root and separately explicit FIRST-original FaceId
+nominations are mandatory. A current-root identity
+check and initial-import/fully sealed in-memory source
+face evidence check precede finite full-root contact
+assessment. All `SculptSourceContactLimits` counters
+are capped to their default finite ceilings; the
+complete graph must be unambiguous and transverse
+before existing fully guarded queued M03/d2 source
+Boolean is invoked. No stale root rebase, anonymous
+coincident XYZ root substitution, whole-mesh
+automatic original FaceId nomination, partial
+intersection graph, or Vulkan-thread source scan.
+
+A positive asymmetric and distinct authenticated
+reciprocal reflected source creates one original-root
+COW CAS, history and dirty renderer mailbox. Genuine
+stale, legacy OFF, invalid/absent first-original
+nomination, query-limit exhaustion, clean source and
+untrusted V13 disk source refuse without any
+new mutable history or picker frame. Exactly the
+same worker can follow budget refusal with later
+accepted work, and undo/redo restores the initial
+original-root picker without recomputing Boolean.
+The explicit in-memory trusted checkpoint source
+constructor matches all face IDs to its sealed
+original anchors and refuses unverified or advanced
+lineages. A mirror map specific to a two-tetra
+source is not incorrectly guessed by a symmetric
+sphere indexing convention.
+
+Substantive [PR #100 Actions #39345076059](https://github.com/logiclrd/Mesher/actions/runs/39345076059)
+passed Linux GCC, Linux Clang and Windows MSVC
+full Vulkan compilation /W4 /WX, 23 CPU suites,
+repeated checkpoint/worker-stress and applicable
+benchmarks. Documentation-final exact PR-head
+and independent merged-main CI are required
+before the M47 merged-complete report.
+**M48, M49, ORIGINAL M15, V18, V19 OPEN.**
+See `docs/V17_M47_BOUNDED_LIVE_MERGE_DISCOVERY.md`.

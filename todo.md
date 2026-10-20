@@ -1467,7 +1467,7 @@ source surgery in the default OFF sculpt path. Complete this
 sequence in order; if unsupported geometry is encountered,
 report a refusal rather than asserting universal Boolean support.
 
-- [ ] **V17-M47 — Bounded and source-authenticated desktop Merge request.**
+- [x] **V17-M47 — Bounded and source-authenticated desktop Merge request.**
   Introduce a worker-side, serialized discovery command with a
   finite candidate/query work budget and explicit source capture
   from the *initial trusted original*, not the mutable renderer
@@ -1479,6 +1479,46 @@ report a refusal rather than asserting universal Boolean support.
   requests fail-closed with CPU regressions for real supported
   asymmetric and reflected sources, stale source, undo/redo
   and no geometry/picker/dirty/history mutation on refusal.
+  **V17-M47 independently implemented PR #100:** an EXPLICIT
+  `mergeDiscoveredContacts(expected,selectedFirstOriginalFaceIds,...)`
+  command carries one immutable UI-selected current indexed root.
+  After FIFO serialization, the worker first verifies the exact
+  current root (stale requests refuse), validates every unique
+  nonzero user-nominated FIRST-original FaceId against the
+  immutable initial import (not any coincident later XYZ face),
+  requires sealed in-memory M29 original-source authority, then
+  performs an independently bounded COMPLETE read-only
+  V13/M16 transverse contact assessment over ALL faces and
+  vertices of the exact chosen root. The caller can only
+  tighten the six query bounds, source face/vertex limits
+  and section-work ceiling. Missing/ambiguous/no-contact,
+  misnominated, exceeded-budget, unprotected OFF-mode,
+  stale, or unverified V13 disk source refuses entirely;
+  no truncated contact subset or speculative renderer
+  dirty/history is published. Only fully certified contacts
+  reach the existing original-root queued c1/c2/c3/M03/d2
+  Boolean, original lineage/feature verifier and M40–M46
+  finite work budget. True 2-tetra asymmetric and reflected
+  (explicitly sealed original mirror maps, NOT the sphere
+  vertex-order convention) source unions both publish one
+  fully committed COW history root and source-authenticated
+  renderer dirty partition revision. Stale source, deliberately
+  invalid FaceId, missing source, small query allowance,
+  clean no-contact source, OFF source and untrusted disk
+  checkpoint all refuse; a refused budget query is followed
+  by a positive request on the SAME worker. Actual undo/redo
+  restores original picker root and one history entry without
+  executing a second Boolean. The separately authenticated
+  in-memory checkpoint constructor verifies supplied original
+  FaceIds against its original sealed anchor set and
+  acceptedTransitions==0; disk V13 can never supply it.
+  No desktop mode is enabled yet: M48/M49 and original M15
+  remain OPEN. Substantive [Actions #39345076059](https://github.com/logiclrd/Mesher/actions/runs/39345076059)
+  passed GCC, Clang, Windows MSVC /W4 /WX, 23 CPU suites,
+  repeated checkpoint stress and applicable benchmarks.
+  See `docs/V17_M47_BOUNDED_LIVE_MERGE_DISCOVERY.md`.
+  Exact final PR-head and separate merged-main CI remain
+  mandatory before reporting this prerequisite merged-complete.
 - [ ] **V17-M48 — Explicit default-OFF Vulkan desktop Merge input and mode.**
   Extend the viewport interaction contract with a visible
   default-OFF, user-toggled Merge geometry mode and bounded

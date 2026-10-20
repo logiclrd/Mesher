@@ -5717,3 +5717,70 @@ and applicable checkpoint stress/benchmarks.
 Final documentation-exact-head and independently merged-main
 three-compiler tests are still required to close this gate.
 See `docs/V17_M14_POST_CAS_FAULT_ACCEPTANCE.md`.
+
+## October 19, 2026 — V17-M47 bounded authenticated deferred live Merge source
+
+The ORIGINAL V17-M15 desktop goal was planned BEFORE
+implementation as three independently completable, flat
+M47/M48/M49 prerequisites followed by ORIGINAL M15
+integrated acceptance. M47 is the worker-side authority
+and finite contact discovery only, NOT a user-visible
+desktop mode, and M15 remains unchecked.
+
+The UI supplies a specific immutable expected indexed root
+and nonempty explicitly nominated **FIRST-original FaceIds**.
+M47 `AsyncSculptWorker::mergeDiscoveredContacts` queues
+a separate `DiscoverMerge` command without scanning
+geometry on the Vulkan thread. The one worker thread
+first verifies exact expected-root identity and all
+named FaceIds against the INITIAL authenticated immutable
+`FlatMeshIndex` first original. It never substitutes
+nearest/coincident world-space vertices or silently treats
+ALL original faces as selected. In a trusted in-memory
+recovered source with a non-sphere mirrored map, explicit
+first-original FaceIds may instead come from an independently
+sealed first-original checkpoint with identical source
+anchor faces, acceptedTransitions==0 and original==current
+root; a disk-only V13 source cannot provide opaque authority.
+
+`VersionedSculptBrush::discoverLiveMergeContacts` refuses
+unless an unbroken, sealed `physicalExact` M29 source
+history is current and original anchored. It tightens
+ALL caller-supplied discovery limits to default finite
+`SculptSourceContactLimits` (vertices, faces, six
+collision-query counters, sections); then uses the
+existing COMPLETE original-post-state transverse section
+assessor. The original physical-root symmetric mirror
+involution must be reciprocal and exact—including
+zero-plane fixed points—not a coordinate weld heuristic.
+If discovery returns CLEAN, incomplete, ambiguous,
+unbounded or unsupported contacts, M47 reports one
+explicit refusal with NO failed partial `mergeExactContacts`
+CAS and NO phantom renderer dirty, history or witness
+cost. A complete source-qualified contact graph is
+forwarded with the original selected FaceIds to the
+existing c1/c2/c3/M03/d2 `mergeExactContacts` path
+on the SAME immutable expected root. Its M21/M29 source
+proof and M40-M46 resource/geometry caps remain intact.
+Worker `Status` distinguishes live Merge requests,
+refusals, positive accepted merges and last discovery
+refusal reason without treating preflight diagnostics
+as unperformed source proof work.
+
+`testM47BoundedAuthenticatedLiveMergeDiscovery` exercises
+genuine asymmetric and independently authenticated
+reflected joined two-tetra sources with one COW root,
+dirty-owner snapshot, picker root and bounded undo/redo.
+It separately asserts stale expected root, unknown
+source, blank/foreign initial FaceId, bounded source
+work exhaustion followed by valid request, clean root
+and V13 disk-unverified first-original refusal. The
+reflected fixture supplies its explicit true mirror
+pairs; it is NOT accidentally passed to the symmetric
+sphere indexing convention. M48 must provide actual
+desktop user selection, and M49 its input/runtime
+acceptance. The default OFF desktop path still has
+NO new Merge entrypoint.
+Substantive PR #100 [Actions #39345076059](https://github.com/logiclrd/Mesher/actions/runs/39345076059)
+GREEN GCC/Clang/MSVC /W4 /WX all 23 tests and
+applicable stress/benchmarks.
