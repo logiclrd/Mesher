@@ -6032,3 +6032,27 @@ still requires *observed* M52 acceptance. M54 separately audits
 the alleged internal penetrating edge geometry; a successful worker
 Merge counter is not manifold proof. Details:
 \`docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md\`.
+
+## V17-M56 — Removed globally biased wire Z: hidden edges stay behind solid
+
+The Vulkan pipeline was never configured with a low bit-depth Z
+attachment: `D32_SFLOAT` is preferred and `D24_UNORM_S8_UINT`
+is the fallback. Solid geometry depth-tests and writes depth, and
+the wire overlay depth-tests without writing. However, the
+wire vertex shader used to subtract `0.00012 * gl_Position.w`,
+a large normalized-depth offset affecting **all** wire lines,
+not only their immediately underlying triangles. This could
+visually project hidden rear-face edges through nearer front
+solids, and was particularly conspicuous on the reflected
+positive Boolean fixture.
+
+Remove the unconditional clip-Z shift, leave wire `LESS_OR_EQUAL`
+with no depth writes and solid-first ordering. Provide rising-edge
+**W** to show/hide wire lines while preserving the same solid,
+COW/FaceIds, worker, source lifetime, reflection and history
+state. This is a diagnostic for comparing exact GPU viewpoints,
+not proof of manifold geometry. Guard the actual Vulkan shader
+and pipeline source with CTest; M54 still checks triangle
+incidence/closedness/residual crossings and M52 still requires
+human Linux/Windows Vulkan observation. Detail:
+`docs/V17_M56_WIRE_DEPTH_OCCLUSION.md`.
