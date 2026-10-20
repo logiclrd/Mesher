@@ -1727,6 +1727,29 @@ faces, bypass original intent, or widen source geometry authorization:
   literal-escaped newline diagnostics. Details:
   `docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md`.
   Do NOT check M52 or M54 from this evidence.
+- [ ] **V17-M55 — Screen-parallel background pivot, Alt+RMB view-direction dolly, and drag-edge cursor wrapping.**
+  Refine the production M53 viewport without changing its original-source
+  mesh/CAS/history contracts. For a background RMB gesture, intersect the
+  current *display-space* mouse ray with the plane through the
+  scene-transformed CURRENT geometry centroid and perpendicular to
+  the current centre-screen viewing direction; inverse-transform the
+  resulting fixed pivot to original source coordinates. Preserve exact
+  immutable BVH hits for foreground clicks, and finite parallel/behind
+  ray refusals. At RMB press, latch Alt to select a different gesture:
+  horizontal cursor delta moves the view forward/backward along the
+  central viewing ray (no implicit lateral pan or geometry changes),
+  rather than yaw/pitch. While either RMB gesture is active, wrap
+  cursor crossings at the GLFW client-area edges to the opposite edge,
+  with no synthetic giant movement from the warp, support DPI/resize,
+  leave normal mouse motion untouched outside gestures, and degrade
+  safely where the compositor refuses cursor warping. Independently
+  CPU-test rotated/translated screen-parallel pivot geometry,
+  unchanged source-pick inverse, dolly sign and magnitude,
+  gesture latched behavior, and repeated boundary-wrap delta
+  continuity. Full Vulkan-enabled GCC, Clang and MSVC matrix; do not
+  represent a headless test as observed Windows/Linux graphics runtime.
+  After acceptance resume M54 actual reflected-union topology audit,
+  then M52 human-observed GPU acceptance and original M15.
 - [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
   Investigate the reported reflected union where triangle edges
   visually plunge into its surface even though M51 worker reports
