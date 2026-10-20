@@ -359,6 +359,10 @@ int main(int argc, char** argv) {
             if(mergeTestTetra||mergeTestReflectedTetra) {
                 interaction.mergeFixtureOriginal=liveWorker->initialRevision();
                 interaction.mergeFixtureOriginals=std::move(fixtureFirstFaces);
+                // Keep the positive source actually on-screen for targeted
+                // rendered acceptance. Default unit-sphere camera is
+                // untouched; both Vulkan projection and CPU rays scale.
+                interaction.cameraScale=mergeTestReflectedTetra?4.0:2.0;
             }
             if(allowMergeGeometry) {
                 interaction.mergeSelected=[&](
