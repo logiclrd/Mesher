@@ -824,24 +824,36 @@ geometry/topology and stamp totals, and verifies that all work completes
 back-to-back strokes and orderly worker cancellation. The scripted demo,
 comparison benchmarks and synchronous `BrushStroke` interface are unchanged.
 
-## Viewport rotation — hold right mouse button (V17-M53)
+## Viewport rotation and translation (V17-M53/M55)
 
-Hold **right mouse** and drag to rotate the displayed scene. Horizontal
-movement rotates around world **Z**; vertical movement rotates around
-world **X**, with the nearest material initially moving in the
-same direction as the pointer. When RMB starts over an indexed
-surface, the exact BVH ray hit is the fixed pivot for that gesture.
-When RMB starts over background, the ray intersects the **XZ plane
-at the current mesh vertex-centroid's Y**. A near-parallel or
-behind-eye plane uses the centroid directly. Releasing RMB keeps the
-new orientation. This is a display-only rigid transform: sculpt and
-Merge picking use the inverse to return unmodified source coordinates
-and stable FaceIds; no mesh edit, checkpoint or undo action is created.
-RMB interaction suppresses new LMB strokes. See
-`docs/V17_M53_RIGHT_MOUSE_VIEWPORT_ORBIT.md`.
-This feature's true Vulkan-driver ergonomics and the previously
-reported potentially penetrating edges of a reflected accepted union
-are **not yet certified** (M52 and M54 respectively).
+Hold **right mouse** to rotate the displayed scene. Horizontal
+movement rotates about world **Z** and vertical movement about
+world **X**; release freezes the view. If the RMB gesture begins over
+a source surface, the exact immutable-BVH hit is the fixed pivot.
+If it begins over background, the ray instead intersects a plane
+**parallel to the screen**, through the **currently displayed,
+rotated/translated mesh centroid**. This replaces the M53
+unrotated fixed-world-Y plane. Parallel/behind-eye ray misses use
+the finite centroid as a fallback.
+
+Hold **Alt when first pressing RMB** to dolly rather than rotate:
+moving the mouse horizontally moves the viewer forward/backward
+along the **centre-viewport** direction. The mode is latched for
+the whole right-button gesture. Vertical movement has no action
+in dolly mode. At viewport edges while either RMB gesture is held,
+the cursor wraps to the opposite edge for long uninterrupted
+motions, suppressing synthetic warp deltas. On platforms refusing
+GLFW cursor warps (some Wayland compositors), the drag still works
+without wrapping and prints a diagnostic. Normal mouse use is
+never wrapped.
+
+All transforms are visual only, and inverse-transform the
+ordinary sculpt/Merge picking rays: no source FaceIds, worker
+mesh or checkpoint are changed. See
+\`docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md\`.
+True Vulkan-driver interaction on both OS families remains M52;
+the suspected accepted-union interior edges remain M54 and are
+not deemed clean by UI or worker accepted counters.
 
 ## Experimental live Merge geometry — explicitly authorized, default OFF (V17-M48)
 
