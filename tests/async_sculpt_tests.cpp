@@ -1,5 +1,6 @@
 #include "mesher/async_sculpt.hpp"
 #include "mesher/desktop_merge_input.hpp"
+#include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/partition_render.hpp"
 
 #include <chrono>
@@ -562,6 +563,9 @@ void testVersionedWorkerWithRemeshingEnabled() {
 // are worker commands carrying the EXACT historical root and full V13
 // contact graph. The existing stamp/history/checkpoint mailbox is reused.
 Mesh twoIntersectingTetrahedra(bool reflected=false) {
+    // M50: positive worker tests use the EXACT source of a real
+    // explicitly armed desktop, not an independently drifted copy.
+    if(!reflected)return desktopMergeAsymmetricTetraFixture();
     Mesh mesh;
     const std::array<Vec3,8> coords{{
         {0,0,0},{2,0,0},{0,2,0},
@@ -7855,6 +7859,59 @@ void testM31ExplicitFirstOriginalIntentTransport() {
             merger.status().publishedRevisions==1,
             "M33 valid queued source-exact union succeeds after invalid original request");
 }
+void testM50DesktopAsymmetricFixtureAndProtectedWorker() {
+    const Mesh source=desktopMergeAsymmetricTetraFixture();
+    require(source.vertices.size()==8&&source.triangles.size()==8,
+            "M50 live asymmetric test source is two four-face tetrahedra");
+    require(source.vertices[0].x==0&&source.vertices[7].x==3&&
+            source.triangles[0].a==0&&source.triangles[7].a==3,
+            "M50 desktop source matches accepted M47 two-tetra geometry");
+    SculptCollisionSettings policy;
+    policy.physicalExact=true;
+    policy.originalTerminal.maximumProtectedDeviationInEdges=0;
+    AsyncSculptWorker worker(source,.025,.006,.2,
+                             {},{},{},false,{},policy);
+    const auto first=worker.initialRevision();
+    const auto oldPicking=first->pickingRootIdentity();
+    require(worker.status().liveMergeRequests==0&&
+            worker.status().publishedRevisions==0&&
+            worker.status().history.undoDepth==0&&
+            !worker.takeSnapshot(),
+            "M50 fixture construction never secretly selects or joins sheets");
+    worker.mergeDiscoveredContacts(first,firstOriginalFaces(source),
+                                   desktopMergeExactLimits(false));
+    // M36/#103: history status can precede the actual renderer mailbox.
+    // Require both exact terminal immutable frame AND matching history;
+    // do not sample the mailbox once after only status has advanced.
+    const auto end=std::chrono::steady_clock::now()+
+                   std::chrono::seconds(30);
+    std::shared_ptr<const RegionTopologyIndex> observedFinal;
+    bool observedDirty=false;
+    while(std::chrono::steady_clock::now()<end) {
+        const auto frame=worker.takeSnapshot();
+        if(frame&&frame->index&&frame->index!=first&&
+           frame->index==worker.initialRevision()) {
+            observedFinal=frame->index;
+            observedDirty=!frame->dirtyPartitions.empty();
+        }
+        const auto progress=worker.status();
+        if(observedFinal&&observedDirty&&
+           observedFinal==worker.initialRevision()&&
+           progress.liveMergeRequests==1&&
+           progress.pendingLiveMergeRequests==0&&
+           progress.liveMergeAccepted==1&&
+           progress.history.undoDepth==1)
+            break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto status=worker.status();
+    require(status.liveMergeRequests==1&&status.liveMergeAccepted==1&&
+            status.liveMergeRefusals==0&&status.history.undoDepth==1&&
+            status.completedUnions==1&&status.publishedRevisions==1&&
+            observedFinal&&observedFinal==worker.initialRevision()&&
+            observedDirty&&first->pickingRootIdentity()==oldPicking,
+            "M50 shared desktop source succeeds only on explicit worker Merge with exact renderer frame");
+}
 }
 int main() {
     try {
@@ -7898,6 +7955,7 @@ int main() {
         testM14PostCasFaultQuarantineAndCheckpointIsolation();
         testM47BoundedAuthenticatedLiveMergeDiscovery();
         testM49DesktopModeSelectionAndBoundedWorkerIntegration();
+        testM50DesktopAsymmetricFixtureAndProtectedWorker();
         testM11SixteenAlternatingPhysicalTowerUnions();
         testM11QueuedPhysicalTowersRefusalCleanAndRecovery();
         testM11OversizedPhysicalContactRefusesThenValidDrains();

@@ -5915,3 +5915,29 @@ and merged-main three-compiler runs remain mandatory.
 The intact ORIGINAL M15 integrated review and
 V18/V19 remain open; see
 `docs/V17_M49_DESKTOP_INTEGRATION_ACCEPTANCE.md`.
+
+## October 20, 2026 — V17-M50 planned supported desktop source fixture
+
+The independent original M15 integrated acceptance is still open after
+M47–M49. The live `Mesher --merge-geometry` executable previously
+started only with a generated sphere, so the true M47/M49 source-positive
+two-tetra worker regression had no repeatable desktop source input.
+The entire flat plan M50→M51→M52→unchanged original M15 was recorded
+in `todo.md` before the first fixture change.
+
+M50 shares the exact asymmetric intersecting two-tetra source between
+the real executable's explicitly named `--merge-test-tetra` mode and
+actual M47/M49 worker regressions. The new option requires both
+`--merge-geometry` and `--asymmetric`. No change to default legacy
+startup, first-original source authority, 32-ID UI selection,
+finite complete contact proof, CAS/history, default OFF mode or disk-V13
+trust policy is permitted. CPU regression proves no phantom publish
+before explicit selected-worker Merge and one authentic accepted
+source-positive result thereafter. Additional headless executable CLI
+refusals raise the viewport-enabled CTest count from 27 to 29.
+
+See `docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`. The user-observed
+Linux/Windows GPU gate is **not** achieved by this test fixture.
+M51 (real reflected fixture and deliberate hidden first-original
+nomination), M52 (observed desktop acceptance) and original M15
+integrated review all remain independently open until accepted.

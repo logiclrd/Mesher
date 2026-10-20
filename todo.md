@@ -1644,6 +1644,64 @@ report a refusal rather than asserting universal Boolean support.
 review only after M47–M49 have independent acceptance. Keep M15,
 V18 and V19 unchecked until their own gates are satisfied.
 
+**October 20 original M15 integrated acceptance replan (flat peers, before implementation).**
+The M47→M48→M49 implementation and headless CI gates are complete. A
+new reproducibility gap remains: the actual `Mesher --merge-geometry`
+desktop begins with a generated sphere, whereas supported positive
+explicit live Merge regression sources are constructed only in CPU
+tests. Visible FaceId selection alone does not provide a reproducible
+source-positive Vulkan session. Retain the **unchanged original M15**
+checkbox and ALL Linux/Windows rendered desktop acceptance objectives.
+Complete the following independent peers in order; do not misrepresent
+headless tests as GPU observations or automatically nominate all source
+faces, bypass original intent, or widen source geometry authorization:
+
+- [x] **V17-M50 — Explicit asymmetric source-positive desktop fixture.**
+  Add a command-line-only, deliberately labeled supported asymmetric
+  two-tetra FIRST-original fixture, *requiring* `--merge-geometry` and
+  asymmetric mode. Use identical independently source-certified geometry
+  as the tested M47/M49 exact Boolean positive; give it a real sealed
+  protected worker and render/pick through the ordinary production
+  GLFW/Vulkan path. Legacy launch, disk recovery, unrelated modes and
+  selection semantics stay unchanged. Add headless gate refusals,
+  shared-fixture CPU positive worker/protected-root regression and
+  reproducible interactive instructions. This peer does NOT claim that
+  a human has observed a Vulkan render.
+  Accepted source and regression evidence: PR #104 substantive head
+  `826cfba0` Actions #39375926773 SUCCESS GCC/Clang/Windows MSVC,
+  29 viewport-enabled CTests, 100-repeat checkpoint-history stress
+  and applicable benchmarks. No rendered GPU acceptance is claimed.
+  Dedicated record: `docs/V17_M50_DESKTOP_ASYMMETRIC_FIXTURE.md`.
+  Recheck the exact final doc-head and independent merged-main CI.
+- [ ] **V17-M51 — Mirrored positive fixture and complete explicit source
+  nomination from the rendered desktop.** Independently construct the
+  test's reciprocal, original-proven reflected two-tetra source (not a
+  synthetic sphere mirror map); provide a deliberate bounded user
+  mechanism to nominate otherwise occluded first-original faces
+  without automatically interpreting coordinate proximity as source
+  identity. Preserve 32-ID cap, immutable displayed-root binding,
+  root stale checks, ON input suppression, worker-only whole-contact
+  discovery and all original mirror, protected intent and budget
+  limits. Independently CPU-test complete asymmetric AND reflected
+  UI-to-worker positive selection, no-hit/foreign/duplicate/refusal
+  and real renderer mailbox/history/undo.
+- [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
+  Execute and record reproducible **actual human-observed** Linux and
+  Windows runtime acceptance on real Vulkan hosts (not headless CLI
+  or mocked GPU), covering normal and explicitly armed default OFF,
+  ON selection, asymmetric and reciprocal reflected source-positive
+  full joins, visible rejection, roots/picking/dirt, physical strokes,
+  one-Step undo/redo, checkpoint recovery's V13 source refusal and
+  failed-save diagnostics. Keep raw OS/GPU/build/commands, actual
+  observed outcomes and limitations; never mark passed by assumption.
+**Then ORIGINAL V17-M15:** Independently reconcile all previously
+  stated physical source/first-original/winding/cavity, 38 resource
+  limits, M23 episodes, M14 quarantine, immutable history and
+  source-certification acceptance against M47–M52 evidence; document
+  supported and refused cases. Only check original M15/parent V17
+  after every genuinely rendered targeted criterion has been
+  observed, and leave V18/V19 separately open.
+
 - [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
 

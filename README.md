@@ -830,6 +830,18 @@ The standard Mesher Vulkan launch still uses the existing **Mouse Inflate**
 worker. No background geometric union is performed. For an *experimental*
 first-original-authenticated, finite-budget Merge-capable session, launch
 a **fresh** in-memory mesh using `Mesher --merge-geometry`.
+
+For repeatable **experimental source-positive acceptance**, launch
+`Mesher --merge-geometry --asymmetric --merge-test-tetra`.
+This explicitly replaces the generated sphere with the same two intersecting,
+first-original independent asymmetric tetrahedra used in M47/M49/M50 CPU
+regressions. It is a deliberately labeled developer test fixture, **not an
+importer or a claim of general mesh support**. This requires both flags:
+ordinary startup cannot select this source accidentally. The graphical Merge
+mode still starts OFF, source FaceIds are never auto-nominated and no Boolean
+occurs until an explicit user selection and Enter. Some original tetrahedral
+faces are occluded from a single view; independently useful full-source
+nomination and reflected source tests are planned separately in M51.
 This flag explicitly provisions the protected original-source worker;
 the visible Merge editing **mode still starts OFF**. Attempts to combine
 `--merge-geometry` with demo/comparison or `--recover` are rejected:
@@ -868,6 +880,6 @@ While in that authorized session:
 The three-compiler Actions build verifies full Vulkan compilation,
 not an actual graphical interactive test. User-observed Linux/Windows
 window placement, picking, source selection, and live Merge behavior
-are separate V17-M49 / original M15 acceptance tasks. V18's
+remain separate M52 / original M15 acceptance tasks. V18's
 **Merge Off** collision constraints and V19's broader robustness
 remain deferred.
