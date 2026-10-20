@@ -1722,7 +1722,7 @@ public:
             if(justPressed(GLFW_KEY_W,wireKeyWasDown_)) {
                 wireVisible_=!wireVisible_;
                 std::cout<<"[view] wireframe "
-                         <<(wireVisible_?"ON (depth-tested overlay)":
+                         <<(wireVisible_?"ON (depth-owned mesh and grid AA)":
                                         "OFF (solid-only)")<<"\n";
                 updateTitle();
             }
