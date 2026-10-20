@@ -5925,6 +5925,59 @@ void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
             !refused.takeSnapshot(),
             "M49 invalid source FaceId refuses in authenticated worker with zero dirty/history/picker mutation");
 
+    // The same UI controller must also preserve source nomination for
+    // a true reflected involution; the sphere-only vertex order cannot
+    // be substituted for this non-spherical source.
+    const auto mirrorMesh=twoIntersectingTetrahedra(true);
+    const auto partitioned=partitionFlatMesh(mirrorMesh,256);
+    const auto initialMirror=RegionTopologyIndex::build(partitioned.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirrorPairs;
+    for(std::size_t i=0;i<8;++i)
+        mirrorPairs.emplace_back(partitioned.flatIndex.vertexIds[i],
+                                 partitioned.flatIndex.vertexIds[i+8]);
+    auto lifetime=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            initialMirror,partitioned.flatIndex.faceIds,
+            7*partitioned.flatIndex.faceIds.size())));
+    DurableCheckpoint trustedMirror(initialMirror,mirrorPairs,16,true,lifetime);
+    trustedMirror.verifiedFirstOriginalMirrorPairs=mirrorPairs;
+    AsyncSculptWorker reflected(std::move(trustedMirror),.025,.006,.2,
+                                {},{},{},{},policy,
+                                partitioned.flatIndex.faceIds);
+    DesktopMergeInput reflectedUi;
+    const auto reflectedRoot=reflected.initialRevision();
+    require(!reflectedUi.enabled()&&
+            reflectedUi.toggle(true,true,false)==DesktopMergeInput::Result::ModeOn,
+            "M49 even explicitly sealed reflected worker starts desktop selection OFF");
+    for(const auto id:partitioned.flatIndex.faceIds)
+        require(reflectedUi.pick(reflectedRoot,id,true)==
+                    DesktopMergeInput::Result::Selected,
+                "M49 reflected UI nominations retain first-original stable IDs from reciprocal mirror source");
+    auto mirrorSubmission=reflectedUi.submit(reflectedRoot,true,true);
+    require(mirrorSubmission.result==DesktopMergeInput::Result::Queued&&
+            mirrorSubmission.originals==partitioned.flatIndex.faceIds,
+            "M49 reflected Enter transports the complete original mirror-owned FaceId set unmodified");
+    reflected.mergeDiscoveredContacts(std::move(mirrorSubmission.expected),
+                                      std::move(mirrorSubmission.originals),
+                                      desktopMergeExactLimits(true));
+    {
+        const auto until=std::chrono::steady_clock::now()+
+                         std::chrono::seconds(30);
+        while((reflected.status().liveMergeRequests<1||
+               reflected.status().pendingLiveMergeRequests>0)&&
+              std::chrono::steady_clock::now()<until)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    const auto mirroredStatus=reflected.status();
+    auto mirroredFrame=reflected.takeSnapshot();
+    require(mirroredStatus.liveMergeAccepted==1&&
+            mirroredStatus.liveMergeRefusals==0&&
+            mirroredStatus.history.undoDepth==1&&
+            mirroredStatus.resources.published==1&&
+            mirroredFrame&&mirroredFrame->index!=reflectedRoot&&
+            !mirroredFrame->dirtyPartitions.empty(),
+            "M49 genuine explicit reflected Vulkan-mode submission accepts reciprocal mirror source and publishes one renderer/picking root");
+
     // V13 storage cannot recreate a sealed M29 first-root certificate.
     const auto storage=std::filesystem::temp_directory_path()/
         "mesher-v17-m49-desktop-recovery.mshr";
