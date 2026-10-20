@@ -1975,7 +1975,7 @@ faces, bypass original intent, or widen source geometry authorization:
   and applicable benchmarks. Source geometry/worker remain unchanged.
   Final documented PR-head and independently merged-main CI are
   separate acceptance gates, and real GPU observation remains M52.
-- [ ] **V17-M61 — Ctrl-modified view-relative pan/dolly and exact upright pole views.**
+- [x] **V17-M61 — Ctrl-modified view-relative pan/dolly and exact upright pole views.**
   User requested Ctrl+LMB view-relative strafe (camera translation
   along displayed screen-right/up), move Alt+RMB dolly to Ctrl+RMB,
   reserve Alt for later inverse brush without activating brush today,
@@ -1994,7 +1994,15 @@ faces, bypass original intent, or widen source geometry authorization:
   wiring. Verify full Vulkan GCC/Clang/Windows MSVC /W4 /WX CI at
   exact PR head and independent merged main. Real visual input on
   Linux/Windows Vulkan remains M52, original M15 and V17 open.
-- [ ] **V17-M62 — Calibrate AA stroke thickness and diagnose occlusion-side asymmetry.**
+  PR #114 implementation `6a7f2535` passed
+  [Actions #39503101018](https://github.com/logiclrd/Mesher/actions/runs/39503101018):
+  full Vulkan-enabled Linux GCC/Clang and Windows MSVC /W4 /WX,
+  all 40 registered CPU/CLI/source-contract CTests, history/checkpoint
+  threading stress and applicable benchmarks. The initial X11 build
+  found a colliding `None` macro; renamed enum to `Inactive` and
+  reran the complete compiler matrix GREEN. Actual visual tests
+  remain M52; final exact-head and merged-main CI separately required.
+- [x] **V17-M62 — Calibrate AA stroke thickness and diagnose occlusion-side asymmetry.**
   User's real Linux screenshot confirms M58 removed subpixel gaps and
   preserves occlusion, but the presently 2-pixel HALFwidth with a
   one-pixel alpha ramp produces heavy/uneven strokes. Independently
@@ -2014,6 +2022,20 @@ faces, bypass original intent, or widen source geometry authorization:
   silhouette needs a separate renderer design, keep M62's acceptance
   strictly to proven improvement and pre-plan any necessary peer
   milestone before proceeding, rather than silently weakening safety.
+  PR #115 implementation `dbf45018` passed
+  [Actions #39503750610](https://github.com/logiclrd/Mesher/actions/runs/39503750610):
+  full Vulkan-enabled Linux GCC, Linux Clang, and Windows MSVC /W4
+  /WX build/test/stress/benchmark GREEN; **41/41 CTests** on GCC.
+  Includes 1.5px halfwidth smooth coverage integration vs M58's
+  2.0px baseline, rigorous CPU symmetric/full/half ink bounds,
+  independent Vulkan source/depth contract, and intact M59 startup.
+  The user's observed asymmetric *visible* width near adjacent
+  nearer faces can be physically correct depth masking, so this
+  peer does not claim unsupported exact silhouette symmetry.
+  Full real Vulkan display confirmation remains M52; future
+  surface-aware silhouette work would require separate proof and
+  planning, not removal of LEQUAL occlusion. Final PR-head and
+  independently merged-main CI required.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI

@@ -68,3 +68,15 @@ to judge preference for the narrower width and screen-space
 coverage at representative scales. No CI test proves all
 driver-specific raster appearance or eliminates the legitimate
 depth-clipped half-line phenomenon. M15 and V17 remain open.
+
+## Initial implementation verification and integration
+
+PR [#115](https://github.com/logiclrd/Mesher/pull/115) head `dbf45018`
+passed [Actions #39503750610](https://github.com/logiclrd/Mesher/actions/runs/39503750610)
+on Linux GCC, Linux Clang and Windows MSVC /W4 /WX,
+including all 41 registered CTests on GCC, the new shader/Vulkan
+coverage contract, all existing historical proof/safety tests,
+threaded history/checkpoint regressions and applicable benchmarks.
+The branch is reconciled with M61's merged-main source and accepted
+work; exact final PR-head and merged-main CI are separately checked.
+No driver appearance is claimed without physical host testing.
