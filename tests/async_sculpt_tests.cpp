@@ -6892,8 +6892,24 @@ void testWorkerMirroredUnionMirrorHistoryAndCheckpoint() {
         throw std::runtime_error(
             "Mirrored worker refused complete exact union: "+
             worker.status().lastRejection);
-    const auto joined=worker.takeSnapshot();
+    // The command's completed-union counter is published separately
+    // from its coalesced renderer frame and history snapshot. Never
+    // assume the first takeSnapshot() immediately after status has
+    // switched must contain the new root (observed on merged main GCC).
+    std::optional<AsyncSculptWorker::Snapshot> joined;
+    const auto joinDeadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(15);
+    while(std::chrono::steady_clock::now()<joinDeadline) {
+        if(auto frame=worker.takeSnapshot()) {
+            if(frame->index&&frame->index!=original)joined=std::move(frame);
+        }
+        const auto current=worker.status();
+        if(joined&&joined->index==worker.initialRevision()&&
+           current.history.undoDepth==1)break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     require(joined&&joined->index&&joined->index!=original&&
+            joined->index==worker.initialRevision()&&
             worker.status().history.undoDepth==1,
             "Mirrored union publishes one immutable root and one history transition");
     // M57 CI exposed the old test's status-only observer race on MSVC:
