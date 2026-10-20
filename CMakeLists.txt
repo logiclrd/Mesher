@@ -82,6 +82,18 @@ if(MESHER_BUILD_VIEWPORT)
     add_executable(Mesher src/main.cpp src/viewport.cpp)
     add_dependencies(Mesher mesher_shaders)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw)
+    if(MSVC)
+        # The lightweight CLI acceptance paths (--help and invalid
+        # --merge-geometry combinations) intentionally return BEFORE
+        # glfwInit or any Vulkan API call. Windows CI's stripped-down
+        # Vulkan SDK provides vulkan-1.lib but omits vulkan-1.dll.
+        # Delay-load the Vulkan import library so those GPU-free CLI
+        # checks can execute without a system Vulkan loader. The real
+        # interactive viewport still requires vulkan-1.dll on first use,
+        # and this never substitutes a mock implementation.
+        target_link_options(Mesher PRIVATE "/DELAYLOAD:vulkan-1.dll")
+        target_link_libraries(Mesher PRIVATE delayimp)
+    endif()
     if(UNIX AND NOT APPLE)
         # EWMH fullscreen is a window-manager request, not a monitor-owned
         # GLFW fullscreen context. The X11 path is optional so CPU builds and
