@@ -3,6 +3,7 @@
 #include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
 #include "mesher/viewport_orbit.hpp"
+#include "mesher/viewport_floor.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -58,8 +59,8 @@ struct EdgeHash {
 
 Drawing buildDrawing(const Mesh& mesh) {
     Drawing out;
-    out.solid.reserve(mesh.triangles.size()*3+6);
-    out.lines.reserve(mesh.triangles.size()*3+150);
+    out.solid.reserve(mesh.triangles.size()*3);
+    out.lines.reserve(mesh.triangles.size()*3);
     std::unordered_set<Edge,EdgeHash> unique;
     unique.reserve(mesh.triangles.size()*2);
     for(const auto& t:mesh.triangles) {
@@ -78,11 +79,19 @@ Drawing buildDrawing(const Mesh& mesh) {
         };
         edge(t.a,t.b);edge(t.b,t.c);edge(t.c,t.a);
     }
-    // XY work floor, just below the unit sphere. The grid is drawn with
-    // depth testing so that the solid sphere naturally occludes it.
-    constexpr double z=-1.22;
+    return out;
+}
+
+// Separate scenery from the real legacy/partitioned source geometry:
+// the floor is its own GPU solid+wire allocation, not stale model
+// triangles that could accidentally be drawn over a COW revision.
+Drawing buildWorkFloor(double z) {
+    Drawing out;
+    out.solid.reserve(6);
+    out.lines.reserve(68);
     const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};
-    for(auto p:{a,b,c,a,c,d})out.solid.push_back(makeVertex(p,{0,0,1},1));
+    for(const auto p:{a,b,c,a,c,d})
+        out.solid.push_back(makeVertex(p,{0,0,1},1));
     for(int i=-8;i<=8;++i) {
         out.lines.push_back(makeVertex({double(i),-8,z}));
         out.lines.push_back(makeVertex({double(i),8,z}));
@@ -91,7 +100,6 @@ Drawing buildDrawing(const Mesh& mesh) {
     }
     return out;
 }
-
 
 using Glyph = std::array<std::uint8_t,7>;
 // Compact built-in 5x7 font, independent of installed system fonts.
@@ -371,6 +379,8 @@ class VulkanViewport {
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool wireVisible_=true,wireKeyWasDown_=false;
+    bool floorVisible_=true,floorKeyWasDown_=false;
+    double floorZ_=-1.22;
     bool stampedThisFrame_=false;
     double lastPickMs_=0, lastUploadMs_=0, lastStampCallbackMs_=0, lastDrawMs_=0;
     double lastGpuFenceWaitMs_=0;
@@ -427,7 +437,7 @@ class VulkanViewport {
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
-    Buffer solid{},lines{},hud{};
+    Buffer solid{},lines{},floorSolid{},floorLines{},hud{};
     struct PartitionBuffers {Buffer solid,wire;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
@@ -1230,6 +1240,7 @@ class VulkanViewport {
             }
         }
         title+=wireVisible_?" | W: hide edges":" | W: show edges";
+        title+=floorVisible_?" | G: hide grid":" | G: show grid";
         glfwSetWindowTitle(window, title.c_str());
     }
 
@@ -1549,6 +1560,10 @@ class VulkanViewport {
                            0,sizeof(constants),&constants);
         VkDeviceSize offset=0;
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,solidPipeline);
+        if(floorVisible_) {
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);
+            vkCmdDraw(commandBuffer,floorSolid.vertexCount,1,0,0);
+        }
         vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
         vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
         if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
@@ -1561,6 +1576,10 @@ class VulkanViewport {
             // Wire only overlays previously depth-written solids. Never
             // draw rear/interior edges through the nearest solid surface.
             vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
+            if(floorVisible_) {
+                vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
+                vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
+            }
             vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
             vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
             if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
@@ -1640,10 +1659,18 @@ public:
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
         const Mesh empty;
-        auto drawing=buildDrawing(displayedIndex_?empty:mesh);
+        // The original imported source is the authority for scenery
+        // clearance; never scan an evolving worker root on the UI loop.
+        floorZ_=viewportWorkFloorZ(mesh_);
+        const auto scenery=buildWorkFloor(floorZ_);
+        floorSolid=upload(scenery.solid);
+        floorLines=upload(scenery.lines);
+        auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
         solid=upload(drawing.solid);
         lines=upload(drawing.lines);
         if(displayedIndex_)initializePartitions();
+        std::cout<<"[view] grid plane Z="<<floorZ_
+                 <<" (startup source bounds); G hides/shows grid\n";
         // The viewport owns the displayed and cached references from here.
         interaction_.initialRevision.reset();
         createSwapchain();
@@ -1667,7 +1694,9 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
-            destroyBuffer(solid);destroyBuffer(lines);destroyBuffer(hud);
+            destroyBuffer(solid);destroyBuffer(lines);
+            destroyBuffer(floorSolid);destroyBuffer(floorLines);
+            destroyBuffer(hud);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
@@ -1715,6 +1744,15 @@ public:
                 std::cout<<"[view] wireframe "
                          <<(wireVisible_?"ON (depth-tested overlay)":
                                         "OFF (solid-only)")<<"\n";
+                updateTitle();
+            }
+            // Geometry display and scenery are independently controllable.
+            // G never hides legacy or immutable COW mesh geometry.
+            if(justPressed(GLFW_KEY_G,floorKeyWasDown_)) {
+                floorVisible_=!floorVisible_;
+                std::cout<<"[view] floor/grid "
+                         <<(floorVisible_?"ON":"OFF")
+                         <<" (Z="<<floorZ_<<")\n";
                 updateTitle();
             }
             if(ctrl&&!sculpting_&&

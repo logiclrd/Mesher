@@ -1834,7 +1834,7 @@ faces, bypass original intent, or widen source geometry authorization:
   occlusion. A further independently discovered floor/fixture
   intersection is planned in M57; actual rendered Linux and
   Windows Vulkan evidence remains M52 and original M15.
-- [ ] **V17-M57 — Prevent the fixed Z=-1.22 work floor from slicing source-positive tetrahedral fixtures.**
+- [x] **V17-M57 — Prevent the fixed Z=-1.22 work floor from slicing source-positive tetrahedral fixtures.**
   Following M54's proven accepted topology and source-consistent
   render wires, diagnose an independent viewport model flaw:
   `buildDrawing()` unconditionally creates a **depth-writing**
@@ -1856,6 +1856,26 @@ faces, bypass original intent, or widen source geometry authorization:
   this only fixes a **known viewport-plane intersection**;
   actual GPU occlusion and wire rasterization must still be
   human-observed in M52. M54 topology result stays unchanged.
+  Acceptance: PR #110 substantive head `2a42f65f`,
+  [Actions #39474626696](https://github.com/logiclrd/Mesher/actions/runs/39474626696)
+  SUCCESS full Linux GCC, Linux Clang, Windows MSVC /W4 /WX
+  Vulkan-enabled builds, **36 registered desktop CTests**,
+  repeated checkpoint/history stress and benchmarks. Both real
+  source-positive tetra fixtures are proven to have initial
+  minimum Z=-3, while the separate scenic floor sits at Z=-3.5;
+  unit-sphere legacy Z=-1.22 is preserved. Dedicated floor
+  solid/wire GPU buffers, G hide/show key independent of W
+  wireframe, and real separate draw guards preserve immutable
+  COW solids. Windows CI initially caught an existing test-only
+  race reading a history-depth status before its separately
+  published snapshot. The bounded `testWorkerMirroredUnionMirrorHistoryAndCheckpoint`
+  observer now waits for matching exact root **and** history;
+  no production worker algorithm changed. Details:
+  `docs/V17_M57_FLOOR_CLEARANCE.md`.
+  Source geometry remains independently certified by M54.
+  Human-observed actual Vulkan screen pixel behavior still M52,
+  original M15 remains OPEN. Final PR-head and independently
+  merged-main CI are separate integration gates.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI

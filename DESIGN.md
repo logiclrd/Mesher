@@ -6081,3 +6081,31 @@ M52 genuinely observed GPU acceptance. Do not mischaracterize
 a validated manifold as a corrupt mesh simply because unrelated
 grid geometry intersects it, nor claim all GPU line/depth behavior
 is cured before real device testing.
+
+## V17-M57 — Floor separation for source-positive tetrahedra
+
+The previous Vulkan viewport always rendered a depth-writing XY work
+floor at **Z=−1.22**, beneath the unit sphere but *through*
+the supported M50/M51 tetrahedral fixtures whose original source
+reaches Z=−3. This independent scenery-to-model intersection
+could obscure valid union triangles and make the wireframe
+appear to penetrate the volume. M54's fully verified actual
+worker result (V32/E84/F56, two closed mirrored components,
+zero post-union triangle crossings, zero ghost CPU wires)
+shows the specific source-positive Boolean is structurally
+sound.
+
+The floor now has dedicated Vulkan solid/wire buffers,
+distinct from both immutable COW partition geometry and
+legacy mesh buffers, with an initial-source-bounds-aware
+clearance: the regular sphere remains at floor Z=−1.22;
+the two-tetra fixture floor is lowered to Z=−3.5.
+Press **G** to toggle the actual floor AND its grid lines
+without ever suppressing the model, and **W** independently
+to hide/show lines. This does not change FaceIds, source
+certificates, history, symmetry, picking or work limits.
+See `docs/V17_M57_FLOOR_CLEARANCE.md`.
+
+M52 still requires real human-observed Linux and Windows
+Vulkan behavior; floor relocation is not a blanket proof
+of correct GPU depth rasterization or freeform UI quality.
