@@ -5,6 +5,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 
 using namespace mesher;
@@ -156,6 +157,104 @@ int main() {
         const auto noOpAgain=horizontal.pickingRay(camera);
         check(nearEnough(noOpRay.origin,noOpAgain.origin),
               "M53 invalid framebuffer span never corrupts picking transform");
+
+        // M60: four pointer segments forming a CLOSED circle must not
+        // accumulate a hidden Euler roll/holonomy, even repeated hundreds
+        // of times around an off-origin original-space surface pivot.
+        ViewportOrbit circle;
+        const Vec3 cyclePivot{.375,-.75,1.125};
+        const auto initialAxes=circle.basis();
+        for(int repeat=0;repeat<400;++repeat) {
+            circle.drag(cyclePivot,30,0,720);
+            circle.drag(cyclePivot,0,30,720);
+            circle.drag(cyclePivot,-30,0,720);
+            circle.drag(cyclePivot,0,-30,720);
+        }
+        for(std::size_t axis=0;axis<3;++axis)
+            check(nearEnough(circle.basis()[axis],initialAxes[axis],1e-8),
+                  "M60 circular RMB motion never accumulates camera roll");
+        check(nearEnough(circle.displayed(cyclePivot),cyclePivot,1e-8),
+              "M60 fixed off-origin original pivot survives all closed gestures");
+
+        // The camera view uses global Z as screen-up reference. Even at
+        // nonzero pitch, arbitrary yaw leaves the displayed Z-up vector
+        // screen-vertical (zero component along the display's right axis).
+        // One entire horizontal screen-span is exactly 360 degrees.
+        const Vec3 worldUp{0,0,1};
+        const Vec3 cameraRight=normalized(cross(centerForward,worldUp));
+        const Vec3 cameraUp=cross(cameraRight,centerForward);
+        ViewportOrbit turntable;
+        turntable.drag(cyclePivot,0,50,720);
+        const auto tiltedAxes=turntable.basis();
+        const Vec3 tiltedUp=turntable.transformVector(worldUp);
+        check(std::abs(dot(tiltedUp,cameraRight))<1e-12&&
+              dot(tiltedUp,cameraUp)>0,
+              "M60 nonzero pitch keeps source Z vertically up on screen");
+        for(int step=0;step<72;++step) {
+            turntable.drag(cyclePivot,10,0,720);
+            const Vec3 up=turntable.transformVector(worldUp);
+            check(std::abs(dot(up,cameraRight))<1e-12&&
+                  dot(up,cameraUp)>0&&nearEnough(up,tiltedUp,1e-12),
+                  "M60 sustained full yaw never spins the up vector");
+        }
+        for(std::size_t axis=0;axis<3;++axis)
+            check(nearEnough(turntable.basis()[axis],tiltedAxes[axis],1e-9),
+                  "M60 one complete turn returns to identical tilted orientation");
+        check(nearEnough(turntable.displayed(cyclePivot),cyclePivot,1e-8),
+              "M60 yaw maintains the exact original source pivot");
+
+        // Positive and negative pitch extremes stay short of the fixed
+        // elevated camera's inversion; further mouse motion cannot flip.
+        ViewportOrbit capped;
+        capped.drag({},0,1000,720);
+        const auto atUpper=capped.basis();
+        capped.drag({},0,3000,720);
+        for(std::size_t axis=0;axis<3;++axis)
+            check(nearEnough(capped.basis()[axis],atUpper[axis],1e-12),
+                  "M60 positive pitch stops at hard upright boundary");
+        check(dot(capped.transformVector(worldUp),cameraUp)>0,
+              "M60 positive pitch limit still projects world up above screen center");
+        capped.drag({},0,-100,720);
+        check(!nearEnough(capped.basis()[2],atUpper[2],1e-6),
+              "M60 reverse dragging immediately moves off positive pitch boundary");
+        capped.drag({},0,-4000,720);
+        const auto atLower=capped.basis();
+        capped.drag({},0,-1000,720);
+        for(std::size_t axis=0;axis<3;++axis)
+            check(nearEnough(capped.basis()[axis],atLower[axis],1e-12),
+                  "M60 negative pitch stops at hard upright boundary");
+        check(dot(capped.transformVector(worldUp),cameraUp)>0,
+              "M60 negative pitch limit still projects world up above screen center");
+
+        // Dolly translation and the screen-space background pivot remain
+        // compatible with turntable angles; inverse picking still maps
+        // visual rays exactly to the same immutable source.
+        ViewportOrbit chained;
+        chained.drag(cyclePivot,45,40,720);
+        chained.dolly(centerForward,35,720,12);
+        const Vec3 screenPivot=chained.choosePivot(
+            visual,std::nullopt,centroid,centerForward);
+        const Vec3 anchored=chained.displayed(screenPivot);
+        chained.drag(screenPivot,75,-45,720);
+        check(nearEnough(chained.displayed(screenPivot),anchored,1e-8),
+              "M60 orbit after dolly preserves chosen screen-parallel source pivot");
+        const Ray chainedSource=chained.pickingRay(visual);
+        check(nearEnough(chained.displayed(chainedSource.origin),visual.origin,1e-8)&&
+              nearEnough(chained.transformVector(chainedSource.direction),
+                         visual.direction,1e-8),
+              "M60 post-dolly turntable still preserves exact source picking");
+        // The frame-span ratio may overflow even when raw inputs are finite.
+        const auto preservedAxes=chained.basis();
+        const auto preservedTranslation=chained.translation();
+        chained.drag(screenPivot,500,300,
+                     std::numeric_limits<double>::min()/2);
+        chained.drag(screenPivot,
+                     std::numeric_limits<double>::quiet_NaN(),10,720);
+        for(std::size_t axis=0;axis<3;++axis)
+            check(nearEnough(chained.basis()[axis],preservedAxes[axis]),
+                  "M60 invalid/overflowing drag cannot poison view orientation");
+        check(nearEnough(chained.translation(),preservedTranslation),
+              "M60 invalid drag cannot move the source-space picking transform");
 
         for(bool symmetric:{true,false}) {
             SphereOptions options;

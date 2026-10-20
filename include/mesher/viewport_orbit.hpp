@@ -30,31 +30,42 @@ public:
     const std::array<Vec3,3>& basis() const noexcept {return basis_;}
     Vec3 translation() const noexcept {return translation_;}
 
-    // A left-to-right drag yaws the nearer (negative-Y) material toward
-    // screen right. A downward drag pitches it toward screen bottom.
-    // The pivot is expressed in ORIGINAL source space and is fixed for
-    // this RMB gesture, even if its initial location was a ray hit.
+    // Turntable orbit: yaw around the invariant ORIGINAL Z-up axis,
+    // pitch about fixed displayed X. These are ABSOLUTE angles, not a
+    // succession of noncommuting incremental rotations (which adds roll
+    // when the pointer traces a circle). R = Rx(pitch) * Rz(yaw), so the
+    // transformed Z-up axis always has zero screen-right component.
+    // A left-to-right drag moves near (-Y) geometry right; downward
+    // movement pitches it down. Camera elevation is atan(0.33) ~= 18deg;
+    // clamp to 65deg so Z-up cannot project upside down on this camera.
+    // The pivot stays in ORIGINAL source coordinates for the RMB gesture.
     void drag(Vec3 pivotSource,double dxPixels,double dyPixels,
               double framebufferSpan) noexcept {
         if(!(std::isfinite(dxPixels)&&std::isfinite(dyPixels)&&
              std::isfinite(framebufferSpan)&&framebufferSpan>0))return;
         const double radiansPerPixel=2.0*std::numbers::pi/
                                      framebufferSpan;
-        const double az=std::remainder(dxPixels*radiansPerPixel,
-                                        2.0*std::numbers::pi);
-        const double ax=std::remainder(dyPixels*radiansPerPixel,
-                                        2.0*std::numbers::pi);
-        const auto rotate=[](Vec3 v,double z,double x) {
-            const double cz=std::cos(z),sz=std::sin(z);
-            const double cx=std::cos(x),sx=std::sin(x);
-            // Z yaw followed by X pitch in fixed world axes.
-            const Vec3 yaw{cz*v.x-sz*v.y,sz*v.x+cz*v.y,v.z};
-            return Vec3{yaw.x,cx*yaw.y-sx*yaw.z,
-                              sx*yaw.y+cx*yaw.z};
-        };
+        const double deltaYaw=dxPixels*radiansPerPixel;
+        const double deltaPitch=dyPixels*radiansPerPixel;
+        if(!std::isfinite(deltaYaw)||!std::isfinite(deltaPitch))return;
+        constexpr double maxPitch=65.0*std::numbers::pi/180.0;
+        const double newYaw=std::remainder(
+            yaw_+std::remainder(deltaYaw,2.0*std::numbers::pi),
+            2.0*std::numbers::pi);
+        const double newPitch=std::clamp(pitch_+deltaPitch,
+                                       -maxPitch,maxPitch);
+        if(newYaw==yaw_&&newPitch==pitch_)return;
+        // Anchor the currently displayed pivot, including any Alt+RMB
+        // dolly accumulated before this gesture, across the new rotation.
         const Vec3 anchor=displayed(pivotSource);
-        for(auto& axis:basis_)axis=rotate(axis,az,ax);
-        translation_=anchor+rotate(translation_-anchor,az,ax);
+        yaw_=newYaw;
+        pitch_=newPitch;
+        const double cy=std::cos(yaw_),sy=std::sin(yaw_);
+        const double cp=std::cos(pitch_),sp=std::sin(pitch_);
+        basis_[0]={cy,cp*sy,sp*sy};
+        basis_[1]={-sy,cp*cy,sp*cy};
+        basis_[2]={0,-sp,cp};
+        translation_=anchor-transformVector(pivotSource);
     }
 
     // The background pivot lies in a DISPLAY-space plane parallel to the
@@ -94,6 +105,7 @@ public:
     }
 
 private:
+    double yaw_=0.0,pitch_=0.0;
     std::array<Vec3,3> basis_{{{1,0,0},{0,1,0},{0,0,1}}};
     Vec3 translation_{};
 };

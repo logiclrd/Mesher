@@ -824,11 +824,15 @@ geometry/topology and stamp totals, and verifies that all work completes
 back-to-back strokes and orderly worker cancellation. The scripted demo,
 comparison benchmarks and synchronous `BrushStroke` interface are unchanged.
 
-## Viewport rotation and translation (V17-M53/M55)
+## Viewport rotation and translation (V17-M53/M55/M60)
 
-Hold **right mouse** to rotate the displayed scene. Horizontal
-movement rotates about world **Z** and vertical movement about
-world **X**; release freezes the view. If the RMB gesture begins over
+Hold **right mouse** to rotate the displayed scene using an
+**upright turntable**: horizontal movement changes yaw about original
+world **Z-up**; vertical movement changes pitch about fixed display
+**X**. Pitch is capped at 65 degrees in either direction to keep
+up visually above screen center with the elevated default camera.
+Circular pointer gestures never accumulate roll or invert the view;
+release freezes the view. If the RMB gesture begins over
 a source surface, the exact immutable-BVH hit is the fixed pivot.
 If it begins over background, the ray instead intersects a plane
 **parallel to the screen**, through the **currently displayed,
@@ -850,7 +854,8 @@ never wrapped.
 All transforms are visual only, and inverse-transform the
 ordinary sculpt/Merge picking rays: no source FaceIds, worker
 mesh or checkpoint are changed. See
-\`docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md\`.
+\`docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md\` and
+\`docs/V17_M60_UPRIGHT_TURNTABLE_ORBIT.md\`.
 True Vulkan-driver interaction on both OS families remains M52;
 the suspected accepted-union interior edges remain M54 and are
 not deemed clean by UI or worker accepted counters.

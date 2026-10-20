@@ -2248,3 +2248,26 @@ both matching accepted root and history before asserting
 See `docs/V17_M58_ANTIALIASED_WIRES.md`.
 As with M55–M57, real Vulkan graphics appearance on
 Linux/Windows remains M52 and original M15 stays open.
+
+## V17-M60 — Upright two-angle RMB turntable, no circular roll
+
+User-observed: M53's per-sample left-multiplication of fixed Z yaw
+and X pitch causes unintended roll (noncommuting rotations) when
+right-dragging repeatedly in circles. M60 retains each RMB pivot in
+the exact original source and computes a fresh rigid
+`Rx(pitch) * Rz(yaw)` basis from only two accumulated scalars;
+it does not compound arbitrary three-axis orientation. Z-up always
+projects screen-vertically, and pitch clamps to +/-65 degrees
+because the fixed camera is elevated approximately 18 degrees.
+Full horizontal yaw is unrestricted; reverse motion is immediate.
+
+M55's background screen-parallel pivot, exact picked source hit,
+Alt+RMB dolly, GLFW cursor wrap and synthetic-event suppression
+remain intact. Undo/redo, immutable roots, source ID topology,
+worker/checkpoint/Boolean proofs and renderer GPU buffers are
+unmodified. CPU tests cover repeated closed circular paths, exact
+360-degree yaw under pitch, stable upright projection, both clamp
+limits, original pivot and inverse picking after dolly, and finite
+invalid-input rejection. Actual human-observed Linux/Windows
+interaction remains M52, followed by unchanged original M15.
+See [M60 acceptance](V17_M60_UPRIGHT_TURNTABLE_ORBIT.md).

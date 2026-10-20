@@ -1943,6 +1943,38 @@ faces, bypass original intent, or widen source geometry authorization:
   separation and M59 optional-buffer startup source contracts pass.
   Independent merged-main CI is required after PR merge;
   real Linux/Windows visible GPU acceptance remains M52.
+- [x] **V17-M60 — Consistent Z-up turntable RMB orbit without accumulated roll.**
+  User-observed defect: repeated circular right-mouse motions currently
+  compose noncommuting incremental Z/X rotations and cause unintended
+  apparent 360-degree roll. Replace incremental free composition with
+  a true 2-degree-of-freedom yaw-about-global-Z and pitch-about-fixed-
+  display-X turntable orientation, with NO roll component and a finite
+  non-inverting pitch clamp adapted to the fixed elevated camera view.
+  Preserve M53 exact picked-source and M55 screen-parallel background
+  pivot for each RMB gesture, accurate source inverse picking,
+  previously accumulated view-relative dolly/translation, immutable
+  mesh/history/worker/certificate and symmetric source identity.
+  Preserve direction and HiDPI mouse sensitivity, genuine W/G display
+  controls, Alt-RMB dolly latch, edge wrapping, and invalid input
+  rejection. CPU tests must prove circular/closed gestures return to
+  the original orientation without roll, yaw under arbitrary pitch,
+  upright world Z throughout sustained 360-degree yaw, finite pitch
+  clamping/reversal, non-origin source pivot stability, screen-parallel
+  background ray and inverse picking after interleaved dolly/rotation,
+  and unchanged invalid-input state. Three-platform Vulkan-enabled
+  compiler/CTest/stress/benchmark CI must pass on exact final PR head
+  and independently on merged main. Actual GPU interactions remain
+  M52; original M15/V17 and V18/V19 remain open.
+  PR #113 implementation head `3c596743` was independently accepted
+  in [Actions #39498850898](https://github.com/logiclrd/Mesher/actions/runs/39498850898):
+  Vulkan-enabled Linux GCC, Linux Clang and Windows MSVC /W4 /WX
+  complete workflows GREEN. GCC registered/passed **39/39 CTests**
+  including `mouse_picking` with hundreds of closed RMB gestures,
+  upright 360-degree yaw, pitch limits, original pivot, post-dolly
+  inverse picking and input validation, plus threaded history/stress
+  and applicable benchmarks. Source geometry/worker remain unchanged.
+  Final documented PR-head and independently merged-main CI are
+  separate acceptance gates, and real GPU observation remains M52.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
