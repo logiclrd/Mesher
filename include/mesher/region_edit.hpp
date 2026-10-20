@@ -124,6 +124,11 @@ public:
         std::size_t trianglesTested{};
     };
     // Exact ray picking against this revision's path-shared triangle BVHs.
+    struct FaceRayHit {Vec3 point{}; FaceId face{};};
+    // Same immutable revision/BVH used for regular picks; carries the stable
+    // FaceId, NEVER a nearest-coordinate inference from later topology.
+    std::optional<FaceRayHit> firstRayFaceHit(
+        Ray ray,PickStatistics* statistics=nullptr) const;
     std::optional<Vec3> firstRayHit(Ray ray,PickStatistics* statistics=nullptr) const;
     const void* pickingRootIdentity() const noexcept;
 

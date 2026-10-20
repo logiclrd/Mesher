@@ -369,6 +369,14 @@ std::vector<VertexId> RegionTopologyIndex::querySphere(
     return hits;
 }
 
+std::optional<RegionTopologyIndex::FaceRayHit>
+RegionTopologyIndex::firstRayFaceHit(
+    Ray ray,PickStatistics* statistics) const {
+    if(!finite(ray.origin)||!finite(ray.direction)||
+       length(ray.direction)<1e-12)
+        throw std::invalid_argument("Invalid indexed picking ray");
+    return picking_->firstRayFaceHit(ray,statistics);
+}
 std::optional<Vec3> RegionTopologyIndex::firstRayHit(
     Ray ray,PickStatistics* statistics) const {
     if(!finite(ray.origin)||!finite(ray.direction)||

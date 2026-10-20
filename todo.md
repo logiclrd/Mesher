@@ -1519,7 +1519,7 @@ report a refusal rather than asserting universal Boolean support.
   See `docs/V17_M47_BOUNDED_LIVE_MERGE_DISCOVERY.md`.
   Exact final PR-head and separate merged-main CI remain
   mandatory before reporting this prerequisite merged-complete.
-- [ ] **V17-M48 — Explicit default-OFF Vulkan desktop Merge input and mode.**
+- [x] **V17-M48 — Explicit default-OFF Vulkan desktop Merge input and mode.**
   Extend the viewport interaction contract with a visible
   default-OFF, user-toggled Merge geometry mode and bounded
   async request route, without an invisible automatic union
@@ -1532,6 +1532,48 @@ report a refusal rather than asserting universal Boolean support.
   pending and fatal-terminal status in title/HUD/console;
   no callbacks to Vulkan from worker or blocking full
   geometry traversals on the render/picking thread.
+  **M48 implemented PR #101 — explicitly provisioned default-OFF desktop:**
+  Normal invocation is unchanged and does NOT create a protected
+  worker, synthesize source authority or issue any Boolean request.
+  Only `--merge-geometry` on a fresh interactive in-memory source
+  provisions the sealed M29 physicalExact worker, and even in that
+  authorized session the Vulkan Merge selection MODE initially remains
+  OFF. The command line rejects invalid demo/comparison modes and
+  disk `--recover` without opaque M29 first-original credentials.
+  Explicit M key toggles visible ON/OFF mode; while ON, ordinary LMB
+  inflation is suppressed and each fresh LMB click ray-tests the
+  displayed immutable revision's same persistent picking BVH for
+  stable `FaceId`+hit. Up to 32 unique stable face nominations bind
+  to EXACTLY one immutable displayed indexed root; switching OFF,
+  Backspace clear or any published new index clears nominations.
+  Enter explicitly sends that expected root plus nominated FaceIds
+  to M47's serialized fully bounded worker contact/lineage validator
+  and source Boolean, without a renderer-thread all-face/contact scan.
+  Missing source, unsupported geometry, invalid original FaceIds
+  and stale root continue to refuse, never substitute coincident
+  XYZ. GPU overlay and window title show OFF/ON, selected count,
+  accepted/refused/pending and fatal-worker status; console
+  records selections, submission and eventual refusal. A separate
+  atomic outstanding-command counter prevents falsely displaying
+  zero pending jobs between enqueue and worker completion, and
+  stops new user strokes during a pending Merge. Typed
+  `firstRayFaceHit` is tested against the legacy position-only
+  BVH ray pick using SAME geometry, and all 23 CPU suites plus
+  full Vulkan GCC/Clang/MSVC compile gates apply.
+  This is a restrictive EXPLICIT AUTHORIZATION, not an
+  unqualified UI-only upgrade of an arbitrary older sculpt
+  history to protected first-original credentials. In sessions
+  launched with `--merge-geometry`, OFF mode selects Inflate
+  but retains the explicitly requested protected physics
+  worker. Normal launches keep the prior legacy worker.
+  Human-observed Linux/Windows Vulkan interaction and
+  mode/input end-to-end acceptance are independently planned
+  M49 and ORIGINAL M15 and are NOT claimed by CI.
+  See `docs/V17_M48_DESKTOP_OPT_IN_ACCEPTANCE.md`.
+  Substantive CI [Actions #39348475445](https://github.com/logiclrd/Mesher/actions/runs/39348475445)
+  started after the precise outstanding-command fix;
+  exact documentation-final and independent merged-main
+  full compiler matrix remain mandatory.
 - [ ] **V17-M49 — Targeted desktop integration and compiler acceptance.**
   Exercise a CPU-testable representation of the exact
   GLFW input/mode state machine, default OFF and

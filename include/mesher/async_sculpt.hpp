@@ -37,6 +37,7 @@ public:
         std::size_t completedUnions=0;
         std::size_t rejectedUnions=0;
         std::size_t liveMergeRequests=0,liveMergeRefusals=0,liveMergeAccepted=0;
+        std::size_t pendingLiveMergeRequests=0;
         std::string liveMergeRefusal;
         SculptContactStatistics contact{};
         std::string lastRejection;
@@ -113,7 +114,10 @@ public:
         return checkpoints_.statistics();
     }
 
-    bool canBegin() const noexcept {return !reserved_.load();}
+    bool canBegin() const noexcept {
+        return !reserved_.load()&&!brush_->terminalFailure()&&
+               pendingLiveMergeRequests_.load(std::memory_order_acquire)==0;
+    }
     Status status() const;
     std::optional<Snapshot> takeSnapshot();
     std::shared_ptr<const RegionTopologyIndex> initialRevision() const noexcept {
@@ -159,6 +163,7 @@ private:
     std::chrono::steady_clock::time_point lastPublish_{};
     std::size_t completedUndos_{},completedRedos_{},checkpointCommands_{};
     std::size_t liveMergeRequests_{},liveMergeRefusals_{},liveMergeAccepted_{};
+    std::atomic<std::size_t> pendingLiveMergeRequests_{0};
     std::string liveMergeRefusal_;
     std::vector<FaceId> trustedFirstOriginalFaces_;
     std::size_t snapshotPublications_{},lastSnapshotDirtyOwners_{};
