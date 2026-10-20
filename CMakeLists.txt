@@ -119,6 +119,10 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                      "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_viewport_floor.cmake")
+        add_test(NAME viewport_aa_wire_quad_pipeline_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_aa_wire_quads.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -241,6 +245,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_partition_render_tests tests/partition_render_tests.cpp)
     target_link_libraries(mesher_partition_render_tests PRIVATE mesher_mesh)
     add_test(NAME dirty_partition_rendering COMMAND mesher_partition_render_tests)
+    add_executable(mesher_wire_quad_tests tests/wire_quads_tests.cpp)
+    target_link_libraries(mesher_wire_quad_tests PRIVATE mesher_mesh)
+    add_test(NAME screen_space_aa_wire_quad_encoding COMMAND mesher_wire_quad_tests)
     add_executable(mesher_benchmark tests/performance_benchmark.cpp)
     target_link_libraries(mesher_benchmark PRIVATE mesher_mesh)
 endif()
