@@ -162,7 +162,11 @@ jobs:
       - name: Run CPU tests (MSVC)
         shell: pwsh
         run: |
-          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          # The four M49 executable-level argument checks start Mesher.exe
+          # without creating a Vulkan instance, but dynamic linking still
+          # requires vulkan-1.dll from the installed SDK at process load.
+          $env:PATH = "$env:VULKAN_SDK/Bin;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          Write-Host "Vulkan SDK loader present: $(Test-Path "$env:VULKAN_SDK/Bin/vulkan-1.dll")"
           ctest --test-dir build -C Release --output-on-failure --verbose
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Repeated history and checkpoint threading regression (MSVC)
