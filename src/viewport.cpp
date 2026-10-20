@@ -810,7 +810,7 @@ class VulkanViewport {
                          <<" first-original FaceIds on exact fixture root\n";
             else
                 std::cout<<"[merge] A nomination refused (no current authorized "
-                           "fixture, stale root, invalid identity, or selection limit)\\n";
+                           "fixture, stale root, invalid identity, or selection limit)\n";
             refreshHud();
             updateTitle();
         }
