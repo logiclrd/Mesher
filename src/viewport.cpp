@@ -1586,8 +1586,10 @@ class VulkanViewport {
         const VkRect2D scissor{{0,0},extent};
         vkCmdSetViewport(commandBuffer,0,1,&viewport);
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
-        const auto constants=makeConstants(int(extent.width),int(extent.height),
+        auto constants=makeConstants(int(extent.width),int(extent.height),
                                            interaction_.cameraScale,orbit_);
+        // W drives mesh coverage inside the visible solid fragment.
+        constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
                            0,sizeof(constants),&constants);
         VkDeviceSize offset=0;
@@ -1606,24 +1608,12 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
         }
-        if(wireVisible_) {
-            // Wire only overlays previously depth-written solids. Never
-            // draw rear/interior edges through the nearest solid surface.
+        if(wireVisible_&&floorVisible_) {
+            // Until M68, the independent unit XY floor grid remains
+            // the only draw using old depth-tested wire quads.
             vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
-            if(floorVisible_) {
-                vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
-                vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
-            }
-            if(lines.vertexCount) {
-                vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
-                vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
-            }
-            if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
-                (void)id;
-                if(!buffers.wire.vertexCount)continue;
-                vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.buffer,&offset);
-                vkCmdDraw(commandBuffer,buffers.wire.vertexCount,1,0,0);
-            }
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
+            vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
         }
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
