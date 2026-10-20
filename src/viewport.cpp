@@ -695,7 +695,8 @@ class VulkanViewport {
         const auto edges=mergeKeys_.sample(
             glfwGetKey(window,GLFW_KEY_M)==GLFW_PRESS,
             glfwGetKey(window,GLFW_KEY_ENTER)==GLFW_PRESS,
-            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS);
+            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS,
+            glfwGetKey(window,GLFW_KEY_A)==GLFW_PRESS);
         const bool ready=!interaction_.canBegin||interaction_.canBegin();
         if(edges.toggle) {
             const auto result=mergeInput_.toggle(
@@ -704,7 +705,7 @@ class VulkanViewport {
             case DesktopMergeInput::Result::ModeOn:
             case DesktopMergeInput::Result::ModeOff:
                 std::cout<<"[merge] mode="<<(mergeInput_.enabled()?"ON":"OFF")
-                         <<" (M toggles, LMB selects FaceIds, Enter submits, Backspace clears)\n";
+                         <<" (M toggles, LMB selects FaceIds, fixture A nominates, Enter submits, Backspace clears)\n";
                 break;
             case DesktopMergeInput::Result::Unavailable:
                 std::cout<<"[merge] unavailable: launch with --merge-geometry to authorize sealed original-root worker\n";
@@ -714,6 +715,20 @@ class VulkanViewport {
                 break;
             default:break;
             }
+            refreshHud();
+            updateTitle();
+        }
+        if(edges.nominate&&mergeInput_.enabled()) {
+            const auto result=mergeInput_.nominateFixtureOriginals(
+                displayedIndex_,interaction_.mergeFixtureOriginal,
+                interaction_.mergeFixtureOriginals,ready);
+            if(result==DesktopMergeInput::Result::Selected)
+                std::cout<<"[merge] explicit A nominated "
+                         <<mergeInput_.selectedCount()
+                         <<" first-original FaceIds on exact fixture root\\n";
+            else
+                std::cout<<"[merge] A nomination refused (no current authorized "
+                           "fixture, stale root, invalid identity, or selection limit)\\n";
             refreshHud();
             updateTitle();
         }
