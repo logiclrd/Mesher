@@ -19,7 +19,7 @@ foreach(needle
     "if(wire||hudOverlay) {"
     "blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;"
     "result.wireRaster={float(width),float(height),kWireOuterHalfWidthPixels,0.0f};"
-    "if(wireVisible_&&floorVisible_) {"
+    "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;")
     string(FIND "${viewport}" "${needle}" index)
     if(index EQUAL -1)

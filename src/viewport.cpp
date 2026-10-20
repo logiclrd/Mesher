@@ -1608,13 +1608,9 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
         }
-        if(wireVisible_&&floorVisible_) {
-            // Until M68, the independent unit XY floor grid remains
-            // the only draw using old depth-tested wire quads.
-            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,wirePipeline);
-            vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
-            vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
-        }
+        // M68: mesh edges and floor unit grid are shaded on their OWN
+        // depth-tested solid fragments. No detached wire quads are
+        // emitted; M69 retires now-unused wire GPU buffers/pipeline.
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
         vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);

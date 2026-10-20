@@ -2126,7 +2126,7 @@ faces, bypass original intent, or widen source geometry authorization:
   Floor still uses legacy quads until M68; real Linux/Windows
   device visual approval is M52, and M69 GPU cleanup remains open.
   Final documented-head and independent merged-main CI required.
-- [ ] **V17-M68 — Surface-anchored floor grid coverage at arbitrary camera elevation.**
+- [x] **V17-M68 — Surface-anchored floor grid coverage at arbitrary camera elevation.**
   Replace the floor's independent clip-depth-flat AA quad overlay
   with view-projected distance to integer XY grid lines evaluated
   ON the visible floor fragment at its actual surface depth.
@@ -2136,6 +2136,17 @@ faces, bypass original intent, or widen source geometry authorization:
   source-relative floor clearance. Reject hidden floor through
   nearer mesh. CPU analytic shader/source contracts and full
   three-platform Vulkan-enabled CI plus independent merged-main.
+  M68 implementation `b00067ee` passed
+  [Actions #39515619434](https://github.com/logiclrd/Mesher/actions/runs/39515619434)
+  full Vulkan-enabled Linux GCC, Clang and Windows MSVC /W4 /WX
+  builds and tests GREEN, including **47 registered CTests** on GCC
+  for integer-grid pixel distance and actual W/G floor draw routing.
+  No fake floor-triangulation diagonal and no independent detached
+  grid GPU draw, with no change to genuine mesh occlusion.
+  M69 old GPU buffer/pipeline cleanup remains separately open,
+  human-observed Linux/Windows pole and hidden-edge verification
+  remains M52, original M15/parent V17 still open.
+  Final documented PR-head and independent merged-main CI required.
 - [ ] **V17-M69 — Retire obsolete clip-depth-flat wire quads and certify whole viewport.**
   Only after M67 mesh AND M68 floor have independently passed,
   remove dead AA wire vertex buffers, uploads and pipelines;
