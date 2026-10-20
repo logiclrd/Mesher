@@ -18,7 +18,7 @@ foreach(needle
     "depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;"
     "if(wire||hudOverlay) {"
     "blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;"
-    "result.wireRaster={float(width),float(height),2.0f,0.0f};"
+    "result.wireRaster={float(width),float(height),kWireOuterHalfWidthPixels,0.0f};"
     "if(wireVisible_) {")
     string(FIND "${viewport}" "${needle}" index)
     if(index EQUAL -1)
@@ -42,7 +42,7 @@ foreach(needle
 endforeach()
 foreach(needle
     "noperspective in vec2 aaDistance"
-    "clamp(aaDistance.y-abs(aaDistance.x),0.0,1.0)"
+    "smoothstep(0.0,1.0,aaDistance.y-abs(aaDistance.x))"
     "outColor=vec4(0.073239,0.073239,0.073239,coverage);")
     string(FIND "${frag}" "${needle}" index)
     if(index EQUAL -1)

@@ -1,10 +1,12 @@
 #include "mesher/wire_quads.hpp"
+#include "mesher/wire_appearance.hpp"
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -43,6 +45,43 @@ void verify(std::vector<PartitionRenderVertex> lines) {
 }
 int main() {
     try {
+
+        // M62 shader-matched analytic coverage: smoother and lighter
+        // in BOTH symmetric and depth-clipped one-sided visible cases.
+        check(kWireOuterHalfWidthPixels==1.5f,
+              "M62 physical stroke halfwidth is calibrated to 1.5px");
+        check(wireCoverage(0.0f)==1.0f&&
+              wireCoverage(kWireOuterHalfWidthPixels)==0.0f,
+              "M62 exact center and fringe boundaries");
+        check(wireCoverage(1.0f)==0.5f&&
+              wireCoverage(-1.0f)==0.5f,
+              "M62 symmetric smoothstep halfway alpha coverage");
+        float last=1.0f;
+        for(int sample=1;sample<=150;++sample) {
+            const float d=float(sample)/100.0f;
+            const float coverage=wireCoverage(d);
+            check(coverage>=0&&coverage<=last&&
+                  std::abs(coverage-wireCoverage(-d))<1e-7f,
+                  "M62 symmetric monotonic screen-space alpha");
+            last=coverage;
+        }
+        // Numerical integral is equivalent visible opaque line width.
+        // M58: 2px halfwidth and linear 1px ramp => full ink 3px;
+        // M62: 1.5px halfwidth smoothstep => full ink 2px, each
+        // genuinely visible half still carries ~1px of coverage.
+        double halfInk=0.0;
+        constexpr int samples=15000;
+        for(int i=0;i<samples;++i)
+            halfInk+=wireCoverage((float(i)+0.5f)*1.5f/samples)*
+                     (1.5/double(samples));
+        check(std::abs(halfInk-1.0)<0.001,
+              "M62 clipped half still carries a full pixel of AA ink");
+        check(std::abs(2*halfInk-2.0)<0.002&&2*halfInk<3.0,
+              "M62 full AA stroke lighter than 2px-halfwidth M58");
+        check(wireCoverage(std::numeric_limits<float>::quiet_NaN())==0&&
+              wireCoverage(1.f,0.f)==0,
+              "M62 invalid coverage inputs must be transparent");
+
         verify({});
         verify({
             {1,2,3,0,0,0,0},

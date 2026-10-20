@@ -5,6 +5,7 @@
 #include "mesher/viewport_orbit.hpp"
 #include "mesher/viewport_floor.hpp"
 #include "mesher/wire_quads.hpp"
+#include "mesher/wire_appearance.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -306,10 +307,11 @@ PushConstants makeConstants(int width,int height,double cameraScale,
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
-    // The default 1px Vulkan LINE_LIST alias is replaced by a nominal
-    // 2+px opaque-centered line, with a 1px smooth alpha falloff at edges.
+    // M62: the 2px OUTER halfwidth over-darkened edges. The 1.5px
+    // halfwidth retains a smooth one-pixel transition and keeps each
+    // visible silhouette half sufficiently legible, without depth bias.
     // Pixel dimensions track the actual HiDPI framebuffer every frame.
-    result.wireRaster={float(width),float(height),2.0f,0.0f};
+    result.wireRaster={float(width),float(height),kWireOuterHalfWidthPixels,0.0f};
     return result;
 }
 
