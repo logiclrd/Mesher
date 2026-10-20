@@ -1564,8 +1564,10 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);
             vkCmdDraw(commandBuffer,floorSolid.vertexCount,1,0,0);
         }
-        vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
-        vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        if(solid.vertexCount) {
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
+            vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        }
         if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
             (void)id;
             if(!buffers.solid.vertexCount)continue;
@@ -1580,8 +1582,10 @@ class VulkanViewport {
                 vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
                 vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
             }
-            vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
-            vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+            if(lines.vertexCount) {
+                vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
+                vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+            }
             if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 if(!buffers.wire.vertexCount)continue;
@@ -1666,8 +1670,12 @@ public:
         floorSolid=upload(scenery.solid);
         floorLines=upload(scenery.lines);
         auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
-        solid=upload(drawing.solid);
-        lines=upload(drawing.lines);
+        // COW mode intentionally has NO legacy triangles/edges. Those
+        // empty arrays are valid optional data, not Vulkan allocations:
+        // upload() correctly rejects a zero-byte vertex buffer.
+        // Rebuild the real COW geometry exclusively from live partitions.
+        if(!drawing.solid.empty())solid=upload(drawing.solid);
+        if(!drawing.lines.empty())lines=upload(drawing.lines);
         if(displayedIndex_)initializePartitions();
         std::cout<<"[view] grid plane Z="<<floorZ_
                  <<" (startup source bounds); G hides/shows grid\n";
