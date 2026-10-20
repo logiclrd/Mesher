@@ -87,3 +87,12 @@ registered Vulkan-enabled CTests and applicable worker stress
 and benchmarks. Final documentation-exact PR head and separately
 merged main must be checked independently. Real GUI visual and
 input feel are not asserted by this compiled acceptance.
+
+## M63 interaction correction (October 20, 2026)
+
+After actually trying M61 on Linux, the user preferred moving the
+world along with the Ctrl+LMB cursor, rather than dragging the camera.
+M63 reverses both pan axes only, retaining source-space inverse
+picking, exact modifier-button latching, W/G and Ctrl+RMB dolly.
+Existing M61 tests are updated to enforce the world-grab sign and
+reverse translation identity. See `docs/V17_M63_WORLD_GRAB_STRAFE.md`.

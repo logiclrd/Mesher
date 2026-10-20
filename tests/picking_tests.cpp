@@ -315,21 +315,24 @@ int main() {
         const double worldPerPixel=2*viewDistance*
                                    std::tan(std::numbers::pi/8)/physicalHeight;
         pan.strafe(cameraRight,cameraUp,40,0,physicalHeight,viewDistance);
-        check(nearEnough(pan.translation(),cameraRight*(-40*worldPerPixel)),
-              "M61 positive Ctrl+LMB X walks CAMERA screen-right, scene left");
+        check(nearEnough(pan.translation(),cameraRight*(40*worldPerPixel)),
+              "M63 positive Ctrl+LMB X drags visible WORLD screen-right");
         pan.strafe(cameraRight,cameraUp,0,25,physicalHeight,viewDistance);
-        check(nearEnough(pan.translation(),cameraRight*(-40*worldPerPixel)+
+        check(nearEnough(pan.translation(),cameraRight*(40*worldPerPixel)-
                                        cameraUp*(25*worldPerPixel)),
-              "M61 positive Ctrl+LMB Y walks CAMERA down, scene up");
+              "M63 positive Ctrl+LMB Y drags visible WORLD screen-down");
         pan.strafe(cameraRight,cameraUp,-40,-25,physicalHeight,viewDistance);
         check(nearEnough(pan.translation(),Vec3{},1e-10),
               "M61 reverse pan closes its translation exactly");
         pan.strafe(cameraRight,cameraUp,80,50,2*physicalHeight,
                    2*viewDistance);
         check(nearEnough(pan.translation(),
-                         cameraRight*(-80*worldPerPixel)+
+                         cameraRight*(80*worldPerPixel)-
                          cameraUp*(50*worldPerPixel)),
-              "M61 double HiDPI framebuffer size and distance preserve scale");
+              "M63 HiDPI preserves world-grab pan scaling and both signs");
+        check(dot(pan.translation(),cameraRight)>0&&
+              dot(pan.translation(),cameraUp)<0,
+              "M63 camera orbit orientation never reverses projected world-grab polarity");
         const auto beforeInvalidPan=pan.translation();
         pan.strafe(cameraRight,cameraUp,1,1,0,viewDistance);
         pan.strafe(cameraRight,cameraUp,1,1,physicalHeight,
@@ -341,6 +344,8 @@ int main() {
         pan.drag(cyclePivot,120,95,720);
         pan.dolly(centerForward,40,720,viewDistance);
         pan.strafe(cameraRight,cameraUp,55,-33,physicalHeight,viewDistance);
+        check(std::abs(dot(pan.translation(),cameraRight))>1e-9,
+              "M63 screen-relative pan remains visible after prior orbit/dolly");
         const Ray panSource=pan.pickingRay(visual);
         check(nearEnough(pan.displayed(panSource.origin),visual.origin,1e-8)&&
               nearEnough(pan.transformVector(panSource.direction),
