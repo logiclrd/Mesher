@@ -132,7 +132,12 @@ void AsyncSculptWorker::mergeDiscoveredContacts(
     command.mergeLimits=std::move(limits);
     command.discoveryLimits=std::move(discovery);
     command.intendedOriginals=std::move(explicitlySelectedFirstOriginals);
-    enqueue(std::move(command));
+    pendingLiveMergeRequests_.fetch_add(1,std::memory_order_acq_rel);
+    try {enqueue(std::move(command));}
+    catch(...) {
+        pendingLiveMergeRequests_.fetch_sub(1,std::memory_order_acq_rel);
+        throw;
+    }
 }
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
@@ -147,6 +152,8 @@ AsyncSculptWorker::Status AsyncSculptWorker::status() const {
         if(error_&&!status_.terminalFailure)std::rethrow_exception(error_);
         current=status_;
     }
+    current.pendingLiveMergeRequests=current.terminalFailure?0:
+        pendingLiveMergeRequests_.load(std::memory_order_acquire);
     // Disk I/O finishes independently of worker stamps; do not leave save
     // completion/error reporting frozen until the next mouse event.
     current.checkpoints=checkpoints_.statistics();
@@ -320,6 +327,14 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     ++checkpointCommands_;
                     break;
                 case Kind::DiscoverMerge: {
+                    // Exactly one decrement on EVERY accepted, refused or
+                    // exceptionally aborted worker-side discovery path.
+                    struct Complete {
+                        std::atomic<std::size_t>& outstanding;
+                        ~Complete() {
+                            outstanding.fetch_sub(1,std::memory_order_acq_rel);
+                        }
+                    } completion{pendingLiveMergeRequests_};
                     ++liveMergeRequests_;
                     auto refuse=[&](std::string reason) {
                         ++liveMergeRefusals_;

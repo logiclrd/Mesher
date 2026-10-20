@@ -313,10 +313,7 @@ int main(int argc, char** argv) {
                 };
                 interaction.mergeStatus=[&] {
                     const auto status=liveWorker->status();
-                    const auto pending=status.liveMergeRequests>=
-                         status.liveMergeAccepted+status.liveMergeRefusals
-                        ?status.liveMergeRequests-
-                         status.liveMergeAccepted-status.liveMergeRefusals:0;
+                    const auto pending=status.pendingLiveMergeRequests;
                     std::string text="A "+std::to_string(status.liveMergeAccepted)+
                         " R "+std::to_string(status.liveMergeRefusals)+
                         " P "+std::to_string(pending);
