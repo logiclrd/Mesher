@@ -53,6 +53,11 @@ struct ViewportInteraction {
     std::function<void(std::shared_ptr<const RegionTopologyIndex>,
                        std::vector<FaceId>)> mergeSelected;
     std::function<std::string()> mergeStatus;
+    // Only deliberately named M50/M51 fixtures supply a finite first-
+    // original FaceId list, with its exact initial immutable root. A in
+    // ON mode is an explicit human nomination, never an automatic weld.
+    std::shared_ptr<const RegionTopologyIndex> mergeFixtureOriginal;
+    std::vector<FaceId> mergeFixtureOriginals;
     std::function<std::size_t()> pendingSamples;
     std::function<std::size_t()> pendingSegments;
     std::function<std::size_t()> inputCommands;
