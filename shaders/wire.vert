@@ -7,6 +7,9 @@ layout(push_constant) uniform Constants {
 } constants;
 void main() {
     gl_Position=constants.viewProjection*vec4(position,1.0);
-    // Pull wire slightly toward the viewer to avoid coplanar depth fighting.
-    gl_Position.z-=0.00012*gl_Position.w;
+    // Preserve EXACT solid-triangle clip depth. The old global -0.00012*w
+    // bias displaced every wire toward the eye by thousands of depth
+    // representable steps, exposing wire edges through nearer solid faces.
+    // The wire pipeline uses LEQUAL and never writes depth; hidden edges
+    // must be occluded by the solid depth buffer, including at joins.
 }

@@ -113,6 +113,12 @@ if(MESHER_BUILD_TESTS)
     # window. These checks are additive to the 23 existing CPU suites.
     # Invalid combinations must fail closed before GPU initialization.
     if(MESHER_BUILD_VIEWPORT)
+        # M56: real shader text/pipeline invariants in addition to GLSL
+        # compilation and full Vulkan-enabled desktop builds.
+        add_test(NAME viewport_wire_depth_occlusion_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_wire_occlusion.cmake")
         add_test(NAME desktop_merge_default_off_help COMMAND Mesher --help)
         set_tests_properties(desktop_merge_default_off_help PROPERTIES
             PASS_REGULAR_EXPRESSION "Mouse Inflate by default")
