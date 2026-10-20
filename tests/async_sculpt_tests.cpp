@@ -5817,6 +5817,18 @@ void testM49DesktopModeSelectionAndBoundedWorkerIntegration() {
     const auto mergedStatus=worker.status();
     auto mergedFrame=worker.takeSnapshot();
     const auto mergedRoot=worker.initialRevision();
+    std::cout<<"[m49 diagnostic] requests="<<mergedStatus.liveMergeRequests
+             <<" accepted="<<mergedStatus.liveMergeAccepted
+             <<" refused="<<mergedStatus.liveMergeRefusals
+             <<" pending="<<mergedStatus.pendingLiveMergeRequests
+             <<" completedUnions="<<mergedStatus.completedUnions
+             <<" history="<<mergedStatus.history.undoDepth
+             <<" publishedWork="<<mergedStatus.resources.published
+             <<" snapshotPublications="<<mergedStatus.snapshotPublications
+             <<" frame="<<bool(mergedFrame)
+             <<" dirty="<<(mergedFrame?mergedFrame->dirtyPartitions.size():0)
+             <<" retired="<<mergedRoot->retiredFaceCount()
+             <<" reason="<<mergedStatus.liveMergeRefusal<<"\n"<<std::flush;
     require(mergedStatus.liveMergeRequests==1&&
             mergedStatus.liveMergeAccepted==1&&
             mergedStatus.liveMergeRefusals==0&&
