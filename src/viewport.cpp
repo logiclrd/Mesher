@@ -105,7 +105,27 @@ Glyph hudGlyph(char ch) {
         case '7': return {31,1,2,4,8,8,8};
         case '8': return {14,17,17,14,17,17,14};
         case '9': return {14,17,17,15,1,1,14};
+        case 'B': return {30,17,17,30,17,17,30};
+        case 'C': return {14,17,16,16,16,17,14};
+        case 'D': return {30,17,17,17,17,17,30};
+        case 'E': return {31,16,16,30,16,16,31};
         case 'F': return {31,16,16,30,16,16,16};
+        case 'G': return {14,17,16,23,17,17,14};
+        case 'H': return {17,17,17,31,17,17,17};
+        case 'I': return {14,4,4,4,4,4,14};
+        case 'J': return {7,2,2,2,18,18,12};
+        case 'K': return {17,18,20,24,20,18,17};
+        case 'L': return {16,16,16,16,16,16,31};
+        case 'N': return {17,25,21,19,17,17,17};
+        case 'O': return {14,17,17,17,17,17,14};
+        case 'Q': return {14,17,17,17,21,18,13};
+        case 'U': return {17,17,17,17,17,17,14};
+        case 'V': return {17,17,17,17,17,10,4};
+        case 'W': return {17,17,17,21,21,21,10};
+        case 'X': return {17,17,10,4,10,17,17};
+        case 'Y': return {17,17,10,4,4,4,4};
+        case 'Z': return {31,1,2,4,8,16,31};
+        case ' ': return {};
         case 'P': return {30,17,17,30,16,16,16};
         case 'R': return {30,17,17,30,20,18,17};
         case 'S': return {15,16,16,14,1,1,30};
@@ -131,13 +151,14 @@ RadiusSliderLayout radiusSliderLayout(int height) {
 
 std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& fps, const std::string& stamps,
+                             const std::string& merge,
                              const std::optional<BrushRadiusRange>& slider,
                              double radius) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
-    const int chars=int(std::max(fps.size(),stamps.size()));
+    const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
     const int boxW=chars*characterWidth+2*padding;
-    const int boxH=2*characterHeight+2*padding;
+    const int boxH=(merge.empty()?2:3)*characterHeight+2*padding;
     const int left=std::max(margin,int(width)-margin-boxW);
     const int top=margin;
     std::vector<Vertex> vertices;
@@ -167,6 +188,7 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     };
     textLine(fps,0);
     textLine(stamps,1);
+    if(!merge.empty())textLine(merge,2);
 
     if(slider) {
         const auto layout=radiusSliderLayout(int(height));
@@ -346,6 +368,11 @@ class VulkanViewport {
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
+    bool mergeWasDown_=false,mergeSubmitWasDown_=false,mergeClearWasDown_=false;
+    bool mergeOn_=false;
+    std::shared_ptr<const RegionTopologyIndex> mergeSelectionRoot_;
+    std::vector<FaceId> mergeSelectedFaces_;
+    std::string lastMergeStatus_;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
@@ -623,8 +650,12 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
+        const std::string mergeText=interaction_.begin?
+            !interaction_.mergeSelected?"MERGE: DISABLED":
+            mergeOn_?"MERGE: ON SEL "+std::to_string(mergeSelectedFaces_.size()):
+                     "MERGE: OFF":"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
-                                     slider,interaction_.radius);
+                                     mergeText,slider,interaction_.radius);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -646,6 +677,65 @@ class VulkanViewport {
         lastPickStats_={};
         return displayedIndex_?displayedIndex_->firstRayHit(ray,&lastPickStats_):
                firstMeshHit(currentMesh(),ray);
+    }
+
+    std::optional<RegionTopologyIndex::FaceRayHit> pickCursorSourceFace() const {
+        if(!displayedIndex_)return std::nullopt;
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
+        const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
+        if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
+        return displayedIndex_->firstRayFaceHit(
+            viewportRay(px,py,double(fw),double(fh)),&lastPickStats_);
+    }
+    void resetMergeSelection() {
+        mergeSelectedFaces_.clear();
+        mergeSelectionRoot_.reset();
+    }
+    void updateMergeKeyboard() {
+        const bool change=justPressed(GLFW_KEY_M,mergeWasDown_);
+        const bool submit=justPressed(GLFW_KEY_ENTER,mergeSubmitWasDown_);
+        const bool clear=justPressed(GLFW_KEY_BACKSPACE,mergeClearWasDown_);
+        if(change&&!sculpting_) {
+            if(!interaction_.mergeSelected)
+                std::cout<<"[merge] unavailable: launch with --merge-geometry to authorize sealed original-root worker\n";
+            else if(!interaction_.canBegin||interaction_.canBegin()) {
+                mergeOn_=!mergeOn_;
+                resetMergeSelection();
+                std::cout<<"[merge] mode="<<(mergeOn_?"ON":"OFF")
+                         <<" (M toggles, LMB selects FaceIds, Enter submits, Backspace clears)\n";
+            }else std::cout<<"[merge] toggle refused: worker busy or terminal\n";
+            refreshHud();
+            updateTitle();
+        }
+        if(clear&&mergeOn_) {
+            resetMergeSelection();
+            refreshHud();
+            updateTitle();
+        }
+        if(submit&&mergeOn_&&interaction_.mergeSelected) {
+            if(mergeSelectedFaces_.empty()||!mergeSelectionRoot_) {
+                std::cout<<"[merge] refusal: no explicitly selected original FaceIds\n";
+            }else if(!interaction_.canBegin||!interaction_.canBegin()||
+                     mergeSelectionRoot_!=displayedIndex_) {
+                std::cout<<"[merge] refusal: busy or selected immutable root is stale\n";
+                resetMergeSelection();
+            }else {
+                // Strictly one selected immutable root. Never query
+                // triangle contacts or original lifetime on Vulkan thread.
+                interaction_.mergeSelected(mergeSelectionRoot_,
+                                           mergeSelectedFaces_);
+                std::cout<<"[merge] queued "<<mergeSelectedFaces_.size()
+                         <<" explicitly nominated first-original FaceIds\n";
+                resetMergeSelection();
+            }
+            refreshHud();
+            updateTitle();
+        }
     }
 
     // Status lines use a separate window from the 750ms HUD counter, so
@@ -748,6 +838,31 @@ class VulkanViewport {
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
         const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        if(mergeOn_) {
+            if(down&&!mouseWasDown_) {
+                if(!interaction_.canBegin||!interaction_.canBegin())
+                    std::cout<<"[merge] pick refused: worker busy or terminal\n";
+                else if(const auto picked=pickCursorSourceFace()) {
+                    if(!mergeSelectionRoot_||mergeSelectionRoot_!=displayedIndex_) {
+                        resetMergeSelection();
+                        mergeSelectionRoot_=displayedIndex_;
+                    }
+                    if(std::find(mergeSelectedFaces_.begin(),
+                                 mergeSelectedFaces_.end(),
+                                 picked->face)==mergeSelectedFaces_.end()) {
+                        if(mergeSelectedFaces_.size()<32) {
+                            mergeSelectedFaces_.push_back(picked->face);
+                            std::cout<<"[merge] select immutable FaceId "<<picked->face
+                                     <<" total="<<mergeSelectedFaces_.size()<<"\n";
+                        }else std::cout<<"[merge] selection limit 32; submit or clear\n";
+                    }
+                }else std::cout<<"[merge] no indexed surface face under pointer\n";
+                refreshHud();
+                updateTitle();
+            }
+            mouseWasDown_=down;
+            return; // Never accidentally stamp while selecting Merge source.
+        }
         if(interaction_.setRadius) {
             double cx=0,cy=0;
             glfwGetCursorPos(window,&cx,&cy);
@@ -870,6 +985,7 @@ class VulkanViewport {
             // Intermediate completed states coalesce into the newest
             // snapshot; every brush stamp itself has still been applied.
             if(auto snapshot=interaction_.takeSnapshot()) {
+                if(snapshot->index!=displayedIndex_)resetMergeSelection();
                 const auto previous=displayedStamps_;
                 displayedStamps_=snapshot->completedStamps;
                 refreshPartitions(std::move(snapshot->index),
@@ -889,6 +1005,15 @@ class VulkanViewport {
                 refreshMesh();
                 updateTitle();
                 reportAfterStamp(1);
+            }
+        }
+        if(interaction_.mergeStatus) {
+            const auto requests=interaction_.mergeStatus();
+            if(!requests.empty()&&requests!=lastMergeStatus_) {
+                lastMergeStatus_=requests;
+                std::cout<<"[merge] "<<requests<<"\n";
+                updateTitle();
+                refreshHud();
             }
         }
         if(waitingForDrain_ && interaction_.canBegin && interaction_.canBegin()) {
@@ -927,7 +1052,13 @@ class VulkanViewport {
         std::string title = "Mesher";
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
-            title+=sculpting_ ? " | Sculpting" : " | LMB: Inflate";
+            if(mergeOn_)
+                title+=" | Merge ON: LMB select; Enter submit ("+
+                       std::to_string(mergeSelectedFaces_.size())+" faces)";
+            else title+=sculpting_ ? " | Sculpting" :
+                interaction_.mergeSelected?
+                " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
+            if(interaction_.mergeStatus)title+=" | "+interaction_.mergeStatus();
             title+=" | Esc: exit";
         } else if (animation_.advance) {
             if (animation_.caption) title += " - " + animation_.caption();
@@ -1422,6 +1553,7 @@ public:
                 else if(y&&interaction_.redo)interaction_.redo();
             }
             if(ctrl&&save&&interaction_.checkpoint)interaction_.checkpoint();
+            if(!ctrl)updateMergeKeyboard();
             updateMouseSculpt();
             pumpMouseStroke();
             if (animation_.advance) {
