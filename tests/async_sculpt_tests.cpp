@@ -2792,28 +2792,40 @@ void testM36OriginalCombinedProtectedSamePatchPolicy() {
     require(diskOnlyRejected,
             "M36 disk-only protected terminal cannot reauthenticate first-original source from coincident XYZ");
 
-    for(std::size_t n=roots.size()-1;n>0;--n) {
-        worker.undo();
+    // The worker refreshes Status BEFORE it publishes the corresponding
+    // immutable renderer frame (AsyncSculptWorker::run -> refreshStatus,
+    // publish). A history-depth observation alone is NOT a publication
+    // barrier. Poll for BOTH the target bounded-history position and the
+    // EXACT expected root in the viewport mailbox. Drop older coalesced
+    // frames but never accept a newer/wrong root as a successful restore.
+    // This is synchronization, not a random-seed issue or a test timeout
+    // increase: a missing correct publication still fails after 20s.
+    const auto awaitHistoryFrame=[&](
+        const std::shared_ptr<const RegionTopologyIndex>& expected,
+        std::size_t undoDepth,std::size_t redoDepth) {
         const auto until=std::chrono::steady_clock::now()+
                          std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n-1&&
-              std::chrono::steady_clock::now()<until)
+        while(std::chrono::steady_clock::now()<until) {
+            const auto status=worker.status();
+            if(status.history.undoDepth==undoDepth&&
+               status.history.redoDepth==redoDepth) {
+                const auto snapshot=worker.takeSnapshot();
+                if(snapshot&&snapshot->index==expected&&
+                   worker.initialRevision()==expected)
+                    return true;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        const auto snapshot=worker.takeSnapshot();
-        require(snapshot&&snapshot->index==roots[n-1]&&
-                worker.status().history.redoDepth==roots.size()-n,
+        }
+        return false;
+    };
+    for(std::size_t n=roots.size()-1;n>0;--n) {
+        worker.undo();
+        require(awaitHistoryFrame(roots[n-1],n-1,roots.size()-n),
                 "M36 all accepted mixed Contact/Clean/allowed drift COW history pointers undo EXACTLY after protected refusals");
     }
     for(std::size_t n=1;n<roots.size();++n) {
         worker.redo();
-        const auto until=std::chrono::steady_clock::now()+
-                         std::chrono::seconds(20);
-        while(worker.status().history.undoDepth!=n&&
-              std::chrono::steady_clock::now()<until)
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        const auto snapshot=worker.takeSnapshot();
-        require(snapshot&&snapshot->index==roots[n]&&
-                worker.status().history.redoDepth==roots.size()-1-n,
+        require(awaitHistoryFrame(roots[n],n,roots.size()-1-n),
                 "M36 post-refusal 4D redo restores exact accepted original source roots one-by-one");
     }
     require(worker.initialRevision()==final&&
