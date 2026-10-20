@@ -61,11 +61,14 @@ global 0.00012 clip displacement.
 Vulkan-enabled matrix and checks actual wire shader projection,
 absence of clip-Z modification, solid/wire depth-test/write/compare
 state and the `wireVisible_` draw guard. Normal shader compilation,
-all CPU tests, existing 32 desktop CTests, repeated history/checkpoint
-thread stress and applicable benchmarks remain mandatory on GCC,
-Clang and Windows MSVC /W4 /WX, followed by exact PR-head and
-independent merged-main CI. There are now **33** desktop-enabled
-CTests (23 CPU plus 10 Vulkan-built/headless contract/CLI checks).
+all CPU tests, existing 32 desktop CTests and the new source
+contract (33 total), repeated history/checkpoint thread stress
+and applicable benchmarks passed across Linux GCC, Linux Clang
+and Windows MSVC /W4 /WX on substantive PR #108 head `d788ce87`:
+[Actions #39464142614](https://github.com/logiclrd/Mesher/actions/runs/39464142614).
+This checks the actual source shader and compiled pipeline, not an
+observed GPU session. The final documentation-head and independently
+merged-main CI remain separate integration gates.
 
 **Still unresolved:** This fixes a demonstrated screen-space
 occlusion hazard, but is not a proof of the reflected Boolean's
