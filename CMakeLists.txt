@@ -201,6 +201,15 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_async_tests tests/async_sculpt_tests.cpp)
     target_link_libraries(mesher_async_tests PRIVATE mesher_mesh)
     add_test(NAME asynchronous_sculpting COMMAND mesher_async_tests)
+    # M54 is an independent full accepted FIRST-original worker Boolean
+    # audit, not merely a private planner or a GPU screenshot. One
+    # original/accepted/undo/redo root is exhaustively checked.
+    add_executable(mesher_accepted_union_audit_tests
+                   tests/accepted_union_audit_tests.cpp)
+    target_link_libraries(mesher_accepted_union_audit_tests PRIVATE mesher_mesh)
+    add_test(NAME accepted_union_structural_audit
+             COMMAND mesher_accepted_union_audit_tests)
+    set_tests_properties(accepted_union_structural_audit PROPERTIES TIMEOUT 90)
     add_executable(mesher_versioned_mesh_tests tests/versioned_mesh_tests.cpp)
     target_link_libraries(mesher_versioned_mesh_tests PRIVATE mesher_mesh)
     add_test(NAME versioned_mesh_storage COMMAND mesher_versioned_mesh_tests)
