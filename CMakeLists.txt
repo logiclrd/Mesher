@@ -132,6 +132,12 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_wire_coverage.cmake")
+        # M64: analytical diagnosis with the exact pre-fix wire shader
+        # and BOTH independent surface/floor representations.
+        add_test(NAME viewport_pole_wire_depth_diagnosis_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_wire_pole_diagnosis.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -186,6 +192,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_refine_tests tests/refine_tests.cpp)
     target_link_libraries(mesher_refine_tests PRIVATE mesher_mesh)
     add_test(NAME local_refinement COMMAND mesher_refine_tests)
+    add_executable(mesher_wire_pole_depth_tests tests/wire_pole_depth_tests.cpp)
+    target_link_libraries(mesher_wire_pole_depth_tests PRIVATE mesher_mesh)
+    add_test(NAME wire_pole_depth_self_occlusion_diagnosis COMMAND mesher_wire_pole_depth_tests)
     add_executable(mesher_picking_tests tests/picking_tests.cpp)
     target_link_libraries(mesher_picking_tests PRIVATE mesher_mesh)
     add_test(NAME mouse_picking COMMAND mesher_picking_tests)
