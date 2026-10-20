@@ -203,8 +203,8 @@ int main() {
         check(nearEnough(turntable.displayed(cyclePivot),cyclePivot,1e-8),
               "M60 yaw maintains the exact original source pivot");
 
-        // Positive and negative pitch extremes stay short of the fixed
-        // elevated camera's inversion; further mouse motion cannot flip.
+        // M61 permits the exact overhead/underneath camera poles with
+        // a zero-length world-Z screen projection there; NEVER past them.
         ViewportOrbit capped;
         capped.drag({},0,1000,720);
         const auto atUpper=capped.basis();
@@ -212,8 +212,9 @@ int main() {
         for(std::size_t axis=0;axis<3;++axis)
             check(nearEnough(capped.basis()[axis],atUpper[axis],1e-12),
                   "M60 positive pitch stops at hard upright boundary");
-        check(dot(capped.transformVector(worldUp),cameraUp)>0,
-              "M60 positive pitch limit still projects world up above screen center");
+        check(std::abs(dot(capped.transformVector(worldUp),cameraUp))<1e-12&&
+              std::abs(dot(capped.transformVector(worldUp),centerForward)+1)<1e-12,
+              "M61 upper pitch reaches exactly top-down view without inversion");
         capped.drag({},0,-100,720);
         check(!nearEnough(capped.basis()[2],atUpper[2],1e-6),
               "M60 reverse dragging immediately moves off positive pitch boundary");
@@ -223,8 +224,9 @@ int main() {
         for(std::size_t axis=0;axis<3;++axis)
             check(nearEnough(capped.basis()[axis],atLower[axis],1e-12),
                   "M60 negative pitch stops at hard upright boundary");
-        check(dot(capped.transformVector(worldUp),cameraUp)>0,
-              "M60 negative pitch limit still projects world up above screen center");
+        check(std::abs(dot(capped.transformVector(worldUp),cameraUp))<1e-12&&
+              std::abs(dot(capped.transformVector(worldUp),centerForward)-1)<1e-12,
+              "M61 lower pitch reaches exactly bottom-up view without inversion");
 
         // Dolly translation and the screen-space background pivot remain
         // compatible with turntable angles; inverse picking still maps
@@ -255,6 +257,110 @@ int main() {
                   "M60 invalid/overflowing drag cannot poison view orientation");
         check(nearEnough(chained.translation(),preservedTranslation),
               "M60 invalid drag cannot move the source-space picking transform");
+
+
+        // M61 Ctrl+mouse controls: button-down latching, no mid-drag
+        // modifier switches, no accidental Ctrl+LMB brush/FaceId intent.
+        ViewportCameraGestures buttons;
+        using Mode=ViewportCameraMode;
+        check(buttons.sample(false,false,false,true).mode==Mode::None,
+              "M61 idle pointer has no camera gesture");
+        auto gesture=buttons.sample(false,true,false,true);
+        check(gesture.started&&gesture.mode==Mode::Orbit,
+              "M61 plain RMB starts turntable orbit");
+        gesture=buttons.sample(false,true,true,true);
+        check(!gesture.started&&gesture.mode==Mode::Orbit,
+              "M61 Ctrl pressed during RMB orbit must not switch to dolly");
+        gesture=buttons.sample(false,false,true,true);
+        check(gesture.ended&&gesture.endedMode==Mode::Orbit,
+              "M61 releasing RMB terminates its latched orbit");
+        gesture=buttons.sample(false,true,true,true);
+        check(gesture.started&&gesture.mode==Mode::Dolly,
+              "M61 Ctrl+RMB starts dolly rather than orbit");
+        gesture=buttons.sample(false,true,false,true);
+        check(gesture.mode==Mode::Dolly,
+              "M61 releasing Ctrl while RMB held keeps latched dolly");
+        buttons.sample(false,false,false,true);
+        gesture=buttons.sample(true,false,false,true);
+        check(gesture.mode==Mode::None,
+              "M61 ordinary LMB is left to sculpt/merge selection");
+        gesture=buttons.sample(true,false,true,true);
+        check(gesture.mode==Mode::None,
+              "M61 Ctrl pressed after LMB down cannot hijack brush stroke");
+        buttons.sample(false,false,true,true);
+        gesture=buttons.sample(true,false,true,true);
+        check(gesture.started&&gesture.mode==Mode::Strafe,
+              "M61 Ctrl+LMB starts view-relative camera strafe");
+        gesture=buttons.sample(true,false,false,false);
+        check(gesture.mode==Mode::Strafe,
+              "M61 strafe remains latched despite Ctrl release/busy worker");
+        gesture=buttons.sample(true,true,false,true);
+        check(gesture.mode==Mode::Strafe,
+              "M61 second button does not change an active pan");
+        buttons.sample(false,false,false,true);
+        gesture=buttons.sample(true,true,true,true);
+        check(gesture.mode==Mode::None,
+              "M61 both buttons simultaneously cannot start a gesture");
+        buttons.sample(false,false,false,true);
+        gesture=buttons.sample(true,false,true,false);
+        check(gesture.mode==Mode::None,
+              "M61 busy sculptor cannot start Ctrl+LMB strafe");
+        buttons.sample(true,false,true,true);
+        check(buttons.sample(true,false,true,true).mode==Mode::None,
+              "M61 pressing Ctrl after a blocked down cannot start late");
+        buttons.sample(false,false,false,true);
+
+        ViewportOrbit pan;
+        const double physicalHeight=720.0,viewDistance=12.0;
+        const double worldPerPixel=2*viewDistance*
+                                   std::tan(std::numbers::pi/8)/physicalHeight;
+        pan.strafe(cameraRight,cameraUp,40,0,physicalHeight,viewDistance);
+        check(nearEnough(pan.translation(),cameraRight*(-40*worldPerPixel)),
+              "M61 positive Ctrl+LMB X walks CAMERA screen-right, scene left");
+        pan.strafe(cameraRight,cameraUp,0,25,physicalHeight,viewDistance);
+        check(nearEnough(pan.translation(),cameraRight*(-40*worldPerPixel)+
+                                       cameraUp*(25*worldPerPixel)),
+              "M61 positive Ctrl+LMB Y walks CAMERA down, scene up");
+        pan.strafe(cameraRight,cameraUp,-40,-25,physicalHeight,viewDistance);
+        check(nearEnough(pan.translation(),Vec3{},1e-10),
+              "M61 reverse pan closes its translation exactly");
+        pan.strafe(cameraRight,cameraUp,80,50,2*physicalHeight,
+                   2*viewDistance);
+        check(nearEnough(pan.translation(),
+                         cameraRight*(-80*worldPerPixel)+
+                         cameraUp*(50*worldPerPixel)),
+              "M61 double HiDPI framebuffer size and distance preserve scale");
+        const auto beforeInvalidPan=pan.translation();
+        pan.strafe(cameraRight,cameraUp,1,1,0,viewDistance);
+        pan.strafe(cameraRight,cameraUp,1,1,physicalHeight,
+                   std::numeric_limits<double>::infinity());
+        pan.strafe(cameraRight,cameraUp,1e300,1e300,
+                   std::numeric_limits<double>::min(),viewDistance);
+        check(nearEnough(pan.translation(),beforeInvalidPan),
+              "M61 pan refuses invalid/overflowing frame and displacement");
+        pan.drag(cyclePivot,120,95,720);
+        pan.dolly(centerForward,40,720,viewDistance);
+        pan.strafe(cameraRight,cameraUp,55,-33,physicalHeight,viewDistance);
+        const Ray panSource=pan.pickingRay(visual);
+        check(nearEnough(pan.displayed(panSource.origin),visual.origin,1e-8)&&
+              nearEnough(pan.transformVector(panSource.direction),
+                         visual.direction,1e-8),
+              "M61 combined pan/dolly/orbit remains exact inverse picker");
+        const Vec3 backgroundAfterPan=pan.choosePivot(
+            visual,std::nullopt,centroid,centerForward);
+        const auto anchoredAfterPan=pan.displayed(backgroundAfterPan);
+        pan.drag(backgroundAfterPan,-55,26,720);
+        check(nearEnough(pan.displayed(backgroundAfterPan),
+                         anchoredAfterPan,1e-8),
+              "M61 background plane pivot survives post-pan and dolly orbit");
+        // Pole views admit full 360-degree yaw while upright angle is
+        // undefined exactly at the pole, and recover correctly on retreat.
+        capped.drag({},720,0,720);
+        check(dot(capped.transformVector(worldUp),cameraUp)>=-1e-12,
+              "M61 yaw at bottom pole cannot invert world-up");
+        capped.drag({},0,75,720);
+        check(std::abs(dot(capped.transformVector(worldUp),cameraRight))<1e-12,
+              "M61 reverse pole preserves roll-free source Z projection");
 
         for(bool symmetric:{true,false}) {
             SphereOptions options;
