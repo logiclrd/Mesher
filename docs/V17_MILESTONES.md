@@ -2113,3 +2113,31 @@ functions scale their eye origins together. The default camera
 remains scale 1; this is display framing only, with no geometry,
 FaceId, proof, worker, operation-limit or M15 observed-GPU permission
 change.
+
+
+## V17-M55 — Correct screen-space background orbit, Alt-dolly and uninterrupted RMB wrap
+
+M53's background picker originally intersected a fixed world-source
+\`Y=centroid.y\` XZ plane. After an existing orbit this rotates along
+with the geometry and is **not parallel to the screen**. M55 instead
+uses the display-coordinate visual ray and plane through the *scene-
+transformed current-root centroid*, normal to the centre-viewport
+camera-forward vector, then inversely maps the picked point into
+stable original source space. Exactly hit triangles still take
+priority with their immutable root FaceId/ray. The source mesh,
+CAS, protected original lifetime, budgets and undo/redo do not move.
+
+RMB pressed while Alt is down latches horizontal forward/back
+**camera-direction dolly** instead of rotation. The existing
+Vulkan model translation represents the equivalent viewer motion,
+so all drawn solid/wire/grid and inverse source picking remain
+coherent. No lateral pan is implicitly assigned to vertical delta.
+Active RMB gestures attempt GLFW cursor wrap on both client
+boundaries while suppressing the synthetic opposite-side jump;
+HiDPI and resize are handled explicitly. If a compositor prohibits
+cursor warping, the gesture continues locally without it, not
+as a runtime fatal error. Real X11/Wayland/Windows pointer behavior
+still requires *observed* M52 acceptance. M54 separately audits
+the alleged internal penetrating edge geometry; a successful worker
+Merge counter is not manifold proof. Details:
+\`docs/V17_M55_SCREEN_PARALLEL_ALT_DOLLY_CURSOR_WRAP.md\`.
