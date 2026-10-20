@@ -1799,7 +1799,7 @@ faces, bypass original intent, or widen source geometry authorization:
   Does NOT satisfy M54 manifold or M52 observed GPU acceptance.
   Final documentation-head and independent merged-main CI remain
   separate repository integration gates.
-- [ ] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
+- [x] **V17-M54 — Explicit accepted-union manifold and residual-intersection audit.**
   Investigate the reported reflected union where triangle edges
   visually plunge into its surface even though M51 worker reports
   `A 1 R 0 P 0`. Add an independent bounded CPU diagnostic on
@@ -1813,6 +1813,49 @@ faces, bypass original intent, or widen source geometry authorization:
   todo.md BEFORE beginning any partial repair and keep original
   M52/M15 acceptance open until the defect is solved. Never treat
   worker acceptance counters as manifold proof.
+  Measured directly in independent CTest
+  `accepted_union_structural_audit` on the **actual** worker root
+  submitted through M51 UI selection:
+  reflected before: V16/E24/F16, four closed components,
+  18 transverse triangle contacts; accepted: V32/E84/F56,
+  two genus-zero closed components, equal signed volumes
+  2.3434 each, ZERO open/nonmanifold/winding/degenerate/duplicate
+  face failures and ZERO residual intersection or ambiguous pairs.
+  Independent CPU partition renderer staging emits exactly
+  84 distinct live original-root edges, ZERO missing, ghost
+  or duplicate wires. One-Step undo and redo restore pointer-exact
+  roots and repeat these counts. Asymmetric positive control:
+  V8/E12/F8/two components/nine crossings → V16/E42/F28/
+  one closed component/zero crossings. Logged in actual GCC
+  [Actions #39471107991](https://github.com/logiclrd/Mesher/actions/runs/39471107991)
+  alongside full GCC/Clang/Windows MSVC successful CTest, including
+  34 registered viewport-enabled tests and history/checkpoint stress.
+  These source/staging observations DO NOT establish GPU pixel
+  occlusion. A further independently discovered floor/fixture
+  intersection is planned in M57; actual rendered Linux and
+  Windows Vulkan evidence remains M52 and original M15.
+- [ ] **V17-M57 — Prevent the fixed Z=-1.22 work floor from slicing source-positive tetrahedral fixtures.**
+  Following M54's proven accepted topology and source-consistent
+  render wires, diagnose an independent viewport model flaw:
+  `buildDrawing()` unconditionally creates a **depth-writing**
+  XY floor at Z=-1.22, originally below the unit sphere, while
+  both current M50/M51 tetrahedral fixture sources extend to
+  Z=-3 and therefore are PHYSICALLY intersected and occluded
+  by that floor. Implement an explicit finite fixture/bounds-aware
+  floor offset below the complete initial source geometry,
+  preserve the legacy sphere default, and provide a deliberate
+  diagnostic ability to hide/show the floor+grid without hiding
+  the immutable COW solids. Prevent an old unpartitioned flat
+  source mesh from accidentally overlaying COW revisions;
+  protect W solid-only/edge display, physical picker rays and
+  worker original identities, and avoid adding render-thread
+  full-mesh traversals. CPU-test original and reflected
+  fixture floor clearance and render geometry separation,
+  actual GLFW/Vulkan CMake/compiler integration and regression
+  including Windows MSVC /W4 /WX. Remain explicit that even
+  this only fixes a **known viewport-plane intersection**;
+  actual GPU occlusion and wire rasterization must still be
+  human-observed in M52. M54 topology result stays unchanged.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
