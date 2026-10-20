@@ -4204,7 +4204,7 @@ void testSourceCertifiedCoincidentVertexIdentity() {
               "A vertex-only tangent is no proof of a proper source-owned seam");
         std::cout<<"[v17-m16] "
                  <<(onPlane?"X=0":"off-plane")
-                 <<" coincidence=preserved independent-fans=2\\n";
+                 <<" coincidence=preserved independent-fans=2\n";
     }
     // A THIRD independently valid shell has a corner exactly on a
     // real source vertex beside the active transverse Boolean halo.

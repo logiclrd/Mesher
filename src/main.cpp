@@ -135,8 +135,8 @@ int main(int argc, char** argv) {
                          <<"       [--curvature-correction] [--curvature-strength GAIN]\n"
                          <<"       [--compare-mitigations] [--compare-local-remesh]\n"
                          <<"       [--refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
-                         <<"       [--max-split-pairs N] [--max-flip-pairs N]\\n"
-                         <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\\n"
+                         <<"       [--max-split-pairs N] [--max-flip-pairs N]\n"
+                         <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
             std::cout<<"M51 sealed reflected desktop fixture: "
                      <<mesh.vertices.size()<<" independently owned original vertices, "
                      <<mesh.triangles.size()<<" faces; two reciprocal source-positive "
-                     <<"groups. Merge starts OFF.\\n";
+                     <<"groups. Merge starts OFF.\n";
         }else if(mergeTestTetra) {
             // Deliberate, separately authorized supported-domain source;
             // never constructed in a normal interactive desktop launch.
@@ -478,7 +478,7 @@ int main(int argc, char** argv) {
                 std::cout<<"[merge] This named developer fixture permits "
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
-                            "A is disabled on other sources and later roots.\\n";
+                            "A is disabled on other sources and later roots.\n";
             if(allowMergeGeometry)
                 std::cout<<"Merge geometry: explicitly authorized protected original-root worker; "
                          <<"desktop starts OFF. Press M to toggle Merge selection, "

@@ -113,6 +113,11 @@ if(MESHER_BUILD_TESTS)
     # window. These checks are additive to the 23 existing CPU suites.
     # Invalid combinations must fail closed before GPU initialization.
     if(MESHER_BUILD_VIEWPORT)
+        # M59: indexed COW has intentionally empty optional legacy buffers.
+        add_test(NAME viewport_cow_empty_optional_buffers
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_viewport_optional_buffers.cmake")
         # M56: real shader text/pipeline invariants in addition to GLSL
         # compilation and full Vulkan-enabled desktop builds.
         add_test(NAME viewport_floor_vulkan_separation_contract

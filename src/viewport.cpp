@@ -1581,8 +1581,10 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);
             vkCmdDraw(commandBuffer,floorSolid.vertexCount,1,0,0);
         }
-        vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
-        vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        if(solid.vertexCount) {
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
+            vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
+        }
         if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
             (void)id;
             if(!buffers.solid.vertexCount)continue;
@@ -1597,8 +1599,10 @@ class VulkanViewport {
                 vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);
                 vkCmdDraw(commandBuffer,floorLines.vertexCount,1,0,0);
             }
-            vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
-            vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+            if(lines.vertexCount) {
+                vkCmdBindVertexBuffers(commandBuffer,0,1,&lines.buffer,&offset);
+                vkCmdDraw(commandBuffer,lines.vertexCount,1,0,0);
+            }
             if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 if(!buffers.wire.vertexCount)continue;
@@ -1683,8 +1687,10 @@ public:
         floorSolid=upload(scenery.solid);
         floorLines=uploadWire(scenery.lines);
         auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
-        solid=upload(drawing.solid);
-        lines=uploadWire(drawing.lines);
+        // Indexed COW startup intentionally has no legacy flat model;
+        // do not upload its zero-byte arrays (M59), including AA wires.
+        if(!drawing.solid.empty())solid=upload(drawing.solid);
+        if(!drawing.lines.empty())lines=uploadWire(drawing.lines);
         if(displayedIndex_)initializePartitions();
         std::cout<<"[view] grid plane Z="<<floorZ_
                  <<" (startup source bounds); G hides/shows grid\n";

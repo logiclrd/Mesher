@@ -57,8 +57,10 @@ int main() {
         // Real named asymmetric and reflected first-original COW fixtures:
         // expansion must carry EXACT topological edge endpoints even after
         // duplicate-owner suppression in partition rendering.
-        for(const Mesh mesh:{desktopMergeAsymmetricTetraFixture(),
-                             desktopMergeReflectedTetraFixture()}) {
+        const std::array<Mesh,2> fixtures{
+            desktopMergeAsymmetricTetraFixture(),
+            desktopMergeReflectedTetraFixture()};
+        for(const Mesh& mesh:fixtures) {
             const auto imported=partitionFlatMesh(mesh,256);
             const auto indexed=RegionTopologyIndex::build(imported.revision);
             indexed->revision().forEachPartition([&](

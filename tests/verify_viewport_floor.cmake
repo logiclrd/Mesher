@@ -8,7 +8,7 @@ foreach(needle
     "floorZ_=viewportWorkFloorZ(mesh_);"
     "const auto scenery=buildWorkFloor(floorZ_);"
     "floorSolid=upload(scenery.solid);"
-    "floorLines=upload(scenery.lines);"
+    "floorLines=uploadWire(scenery.lines);"
     "Buffer solid{},lines{},floorSolid{},floorLines{},hud{};"
     "destroyBuffer(floorSolid);destroyBuffer(floorLines);"
     "if(justPressed(GLFW_KEY_G,floorKeyWasDown_))"
