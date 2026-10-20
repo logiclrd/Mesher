@@ -142,6 +142,10 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_surface_mesh_edges.cmake")
+        add_test(NAME viewport_surface_attached_floor_grid_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_surface_floor_grid.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
@@ -196,6 +200,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_refine_tests tests/refine_tests.cpp)
     target_link_libraries(mesher_refine_tests PRIVATE mesher_mesh)
     add_test(NAME local_refinement COMMAND mesher_refine_tests)
+    add_executable(mesher_surface_floor_grid_tests tests/surface_floor_grid_tests.cpp)
+    target_link_libraries(mesher_surface_floor_grid_tests PRIVATE mesher_mesh)
+    add_test(NAME visible_floor_grid_pixel_distance COMMAND mesher_surface_floor_grid_tests)
     add_executable(mesher_visible_mesh_edge_tests tests/visible_mesh_edge_tests.cpp)
     target_link_libraries(mesher_visible_mesh_edge_tests PRIVATE mesher_mesh)
     add_test(NAME surface_attached_mesh_edge_distance COMMAND mesher_visible_mesh_edge_tests)

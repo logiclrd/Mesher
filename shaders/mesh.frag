@@ -22,12 +22,29 @@ void main() {
     // Shade mesh wires ONLY on the depth-visible owning solid triangle.
     // noperspective barycentric gradient converts to physical pixel
     // distance. Neither detached edge quads nor forward clip-Z bias.
-    if(constants.wireRaster.w>0.5 && surfaceMaterial<0.5) {
-        vec3 dx=dFdx(edgeBarycentric);
-        vec3 dy=dFdy(edgeBarycentric);
-        vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
-        vec3 distances=abs(edgeBarycentric)/perPixel;
-        float distancePx=min(distances.x,min(distances.y,distances.z));
+    if(constants.wireRaster.w>0.5) {
+        float distancePx=1000000.0;
+        if(surfaceMaterial<0.5) {
+            // M67: only owning visible mesh triangle edges.
+            vec3 dx=dFdx(edgeBarycentric);
+            vec3 dy=dFdy(edgeBarycentric);
+            vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
+            vec3 distances=abs(edgeBarycentric)/perPixel;
+            distancePx=min(distances.x,min(distances.y,distances.z));
+        } else {
+            // M68: unit XY grid lies ON the real visible floor plane.
+            // Floor triangles are just two huge cells: do not draw their
+            // false diagonal! Each cell boundary is an integer world
+            // coordinate. Convert its local perspective-correct
+            // world-space gradient into PHYSICAL framebuffer pixels.
+            vec2 nearest=abs(worldPosition.xy-round(worldPosition.xy));
+            vec2 unitsPerPixel=max(
+                vec2(length(vec2(dFdx(worldPosition.x),dFdy(worldPosition.x))),
+                     length(vec2(dFdx(worldPosition.y),dFdy(worldPosition.y)))),
+                vec2(0.0000001));
+            vec2 gridDistance=nearest/unitsPerPixel;
+            distancePx=min(gridDistance.x,gridDistance.y);
+        }
         float coverage=smoothstep(0.0,1.0,
                                   constants.wireRaster.z-distancePx);
         color=mix(color,vec3(0.073239),coverage);

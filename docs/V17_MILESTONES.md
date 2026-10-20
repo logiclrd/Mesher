@@ -2344,3 +2344,13 @@ actual depth-tested filled face, never from a displaced
 edge's constant-depth quad. Floor grid retains the old path
 until M68; mesh wire GPU buffers are temporary dead allocations
 until M69. See [M67](V17_M67_SURFACE_MESH_EDGES.md).
+
+## V17-M68 — Floor unit XY grid now owned by visible floor fragments
+
+The floor's true integer X/Y grid is shaded on the actual
+perspective-correct, depth-tested work-floor fragments,
+rather than detached constant-depth line quads. M67's
+triangle-barycentric mesh wires remain independent; a
+floor triangulation diagonal must never appear. W/G stay
+independent; obsolete GPU wire uploads/pipelines are still
+retained until M69 cleanup. See [M68](V17_M68_VISIBLE_FLOOR_GRID.md).

@@ -19,7 +19,8 @@ foreach(needle
     "layout(location=3) noperspective in vec3 edgeBarycentric;"
     "dFdx(edgeBarycentric)" "dFdy(edgeBarycentric)"
     "abs(edgeBarycentric)/perPixel"
-    "constants.wireRaster.w>0.5 && surfaceMaterial<0.5"
+    "if(constants.wireRaster.w>0.5)"
+    "if(surfaceMaterial<0.5)"
     "smoothstep(0.0,1.0,"
     "color=mix(color,vec3(0.073239),coverage);")
     string(FIND "${frag}" "${needle}" at)
@@ -29,8 +30,7 @@ foreach(needle
 endforeach()
 foreach(needle
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
-    "if(wireVisible_&&floorVisible_) {"
-    "vkCmdBindVertexBuffers(commandBuffer,0,1,&floorLines.buffer,&offset);"
+    "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
     "depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;"
     "raster.cullMode=VK_CULL_MODE_NONE;")
     string(FIND "${view}" "${needle}" at)
@@ -52,4 +52,4 @@ string(FIND "${view}" "vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.wire.bu
 if(NOT old EQUAL -1 OR NOT indexed EQUAL -1)
     message(FATAL_ERROR "M67 old mesh edge quads must NOT draw")
 endif()
-message(STATUS "M67 real visible triangle fragment shades AA mesh wires")
+message(STATUS "M67 mesh AA resides on actual visible fragment; M68 floor grid is independent")
