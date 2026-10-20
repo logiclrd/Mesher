@@ -59,10 +59,13 @@ original-root CAS/history and M14 post-CAS quarantine policy.
   unarmed and symmetric startup; the existing four M49 executable
   gates remain unchanged. With the viewport enabled there are now
   **29** registered CTests (23 CPU + 6 executable CLI).
-- Full final PR-head GCC/Clang/MSVC warning-clean Vulkan-enabled builds,
-  existing checkpoint/history stress and the independently merged-main
-  suite are required before checking M50. Do not mark it complete from
-  source review alone.
+- Substantive PR head `826cfba0` CI
+  [#39375926773](https://github.com/logiclrd/Mesher/actions/runs/39375926773)
+  completed **SUCCESS** across full Vulkan-enabled GCC, Clang and
+  Windows MSVC /W4 /WX jobs, including the 29 registered CTests,
+  repeated checkpoint/history stress and applicable benchmarks.
+  Final documentation-head CI and independent merged-main CI still
+  require confirmation; a headless check never means observed GPU.
 
 ## Explicit residual / no false M15 acceptance
 
