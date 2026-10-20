@@ -72,6 +72,9 @@ struct ViewportInteraction {
     std::function<void(double)> setRadius;
     BrushRadiusRange radiusRange{};
     double radius = 0.4;
+    // M51: explicit developer fixtures are larger than the default unit
+    // sphere. Shared render/picker scale only; normal sessions stay 1.0.
+    double cameraScale = 1.0;
     double stationaryStampsPerSecond = 0;
 };
 
