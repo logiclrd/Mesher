@@ -7880,21 +7880,37 @@ void testM50DesktopAsymmetricFixtureAndProtectedWorker() {
             "M50 fixture construction never secretly selects or joins sheets");
     worker.mergeDiscoveredContacts(first,firstOriginalFaces(source),
                                    desktopMergeExactLimits(false));
+    // M36/#103: history status can precede the actual renderer mailbox.
+    // Require both exact terminal immutable frame AND matching history;
+    // do not sample the mailbox once after only status has advanced.
     const auto end=std::chrono::steady_clock::now()+
                    std::chrono::seconds(30);
-    while((worker.status().liveMergeRequests!=1||
-           worker.status().pendingLiveMergeRequests!=0)&&
-           std::chrono::steady_clock::now()<end)
+    std::shared_ptr<const RegionTopologyIndex> observedFinal;
+    bool observedDirty=false;
+    while(std::chrono::steady_clock::now()<end) {
+        const auto frame=worker.takeSnapshot();
+        if(frame&&frame->index&&frame->index!=first&&
+           frame->index==worker.initialRevision()) {
+            observedFinal=frame->index;
+            observedDirty=!frame->dirtyPartitions.empty();
+        }
+        const auto progress=worker.status();
+        if(observedFinal&&observedDirty&&
+           observedFinal==worker.initialRevision()&&
+           progress.liveMergeRequests==1&&
+           progress.pendingLiveMergeRequests==0&&
+           progress.liveMergeAccepted==1&&
+           progress.history.undoDepth==1)
+            break;
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
     const auto status=worker.status();
-    const auto final=worker.takeSnapshot();
     require(status.liveMergeRequests==1&&status.liveMergeAccepted==1&&
             status.liveMergeRefusals==0&&status.history.undoDepth==1&&
             status.completedUnions==1&&status.publishedRevisions==1&&
-            final&&final->index&&final->index!=first&&
-            !final->dirtyPartitions.empty()&&
-            first->pickingRootIdentity()==oldPicking,
-            "M50 shared desktop source succeeds only on explicit worker Merge");
+            observedFinal&&observedFinal==worker.initialRevision()&&
+            observedDirty&&first->pickingRootIdentity()==oldPicking,
+            "M50 shared desktop source succeeds only on explicit worker Merge with exact renderer frame");
 }
 }
 int main() {
