@@ -5631,11 +5631,26 @@ void testM47BoundedAuthenticatedLiveMergeDiscovery() {
     // A genuinely reciprocal reflected double section is source-owned
     // and can be assessed and joined ONLY with its certified involution.
     const auto mirrorMesh=twoIntersectingTetrahedra(true);
-    AsyncSculptWorker reflected(mirrorMesh,.025,.006,.2,
-                                {},{},{},true,{},protectedPolicy);
+    const auto importedMirror=partitionFlatMesh(mirrorMesh,256);
+    const auto mirroredRoot=RegionTopologyIndex::build(importedMirror.revision);
+    std::vector<std::pair<VertexId,VertexId>> mirrorPairs;
+    for(std::size_t i=0;i<8;++i)
+        mirrorPairs.emplace_back(
+            importedMirror.flatIndex.vertexIds[i],
+            importedMirror.flatIndex.vertexIds[i+8]);
+    auto mirroredProof=std::make_shared<const OriginalPatchLifetime>(
+        beginOriginalPatchLifetime(captureOriginalSourceAnchors(
+            mirroredRoot,importedMirror.flatIndex.faceIds,
+            7*importedMirror.flatIndex.faceIds.size())));
+    DurableCheckpoint trustedMirror(mirroredRoot,mirrorPairs,16,
+                                    true,mirroredProof);
+    trustedMirror.verifiedFirstOriginalMirrorPairs=mirrorPairs;
+    AsyncSculptWorker reflected(
+        std::move(trustedMirror),.025,.006,.2,{},{},{},{},
+        protectedPolicy,importedMirror.flatIndex.faceIds);
     const auto mirroredOriginal=reflected.initialRevision();
     reflected.mergeDiscoveredContacts(
-        mirroredOriginal,firstOriginalFaces(mirrorMesh),
+        mirroredOriginal,importedMirror.flatIndex.faceIds,
         supportedUnionLimits(true));
     wait(reflected,1);
     const auto mirroredResult=reflected.status();
