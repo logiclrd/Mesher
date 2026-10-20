@@ -30,7 +30,13 @@ verified first original mirror map is preserved for the worker. The
 real `AsyncSculptWorker(DurableCheckpoint,...trustedFirstFaces)` checks
 that certificate and source authority: a disk-read V13 checkpoint
 cannot turn into this privileged source. The production exact
-`physicalExact` worker and rendered immutable root remain unchanged.
+`physicalExact` worker and immutable source root remain unchanged. Both
+viewport GPU projection and CPU ray picking consistently apply a
+**fixture-only** positive camera distance scale: 2.0 for the original
+asymmetric test scene, 4.0 for off-plane reflected groups at X≈±5.
+Normal unit-sphere launch keeps cameraScale=1.0. This is *framing* for
+an otherwise invisible test scene, not a source-geometry transform
+or a substitute for real observed Linux/Windows Vulkan acceptance.
 No automatic Boolean, source selection or root publication is triggered
 merely by launching the fixture.
 
