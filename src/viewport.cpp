@@ -2,6 +2,7 @@
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
+#include "mesher/viewport_orbit.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -271,12 +272,26 @@ struct PushConstants {
     std::array<float,4> light1;
 };
 static_assert(sizeof(PushConstants)==96);
-PushConstants makeConstants(int width,int height,double cameraScale) {
+PushConstants makeConstants(int width,int height,double cameraScale,
+                            const ViewportOrbit& orbit) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
     const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
     PushConstants result;
-    result.viewProjection=multiply(perspective(aspect),cameraView(eye));
+    Matrix model;
+    const auto& axes=orbit.basis();
+    for(int col=0;col<3;++col) {
+        at(model,0,col,float(axes[std::size_t(col)].x));
+        at(model,1,col,float(axes[std::size_t(col)].y));
+        at(model,2,col,float(axes[std::size_t(col)].z));
+    }
+    const Vec3 offset=orbit.translation();
+    at(model,0,3,float(offset.x));
+    at(model,1,3,float(offset.y));
+    at(model,2,3,float(offset.z));
+    at(model,3,3,1.0f);
+    result.viewProjection=multiply(
+        multiply(perspective(aspect),cameraView(eye)),model);
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
@@ -371,6 +386,10 @@ class VulkanViewport {
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
     DesktopMergeKeyEdges mergeKeys_;
     DesktopMergeInput mergeInput_;
+    ViewportOrbit orbit_;
+    bool rightMouseWasDown_=false,orbitDragging_=false;
+    Vec3 orbitPivotSource_{};
+    double orbitPreviousX_=0,orbitPreviousY_=0;
     std::string lastMergeStatus_;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
@@ -663,24 +682,29 @@ class VulkanViewport {
         }
     }
 
-    std::optional<Vec3> pickCursor() const {
-        double cx=0,cy=0;
-        glfwGetCursorPos(window,&cx,&cy);
-        int ww=0,wh=0,fw=0,fh=0;
-        glfwGetWindowSize(window,&ww,&wh);
-        glfwGetFramebufferSize(window,&fw,&fh);
-        if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
-        const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
-        if(px<0 || py<0 || px>=fw || py>=fh)return std::nullopt;
-        auto ray=viewportRay(px,py,double(fw),double(fh));
-        ray.origin=ray.origin*interaction_.cameraScale;
-        lastPickStats_={};
-        return displayedIndex_?displayedIndex_->firstRayHit(ray,&lastPickStats_):
-               firstMeshHit(currentMesh(),ray);
+    // A deliberate RMB gesture may traverse the CURRENT immutable source
+    // once to sample its centroid. Never traverse geometry every frame.
+    Vec3 currentGeometryCentroid() const {
+        Vec3 total{};
+        std::size_t count=0;
+        if(displayedIndex_) {
+            displayedIndex_->revision().forEachPartition(
+                [&](PartitionId,const MeshPartition& part) {
+                    for(const auto& vertex:part.vertices) {
+                        total=total+vertex.position;
+                        ++count;
+                    }
+                });
+        } else {
+            for(const auto vertex:mesh_.vertices) {
+                total=total+vertex;
+                ++count;
+            }
+        }
+        return count?total/double(count):Vec3{};
     }
 
-    std::optional<RegionTopologyIndex::FaceRayHit> pickCursorSourceFace() const {
-        if(!displayedIndex_)return std::nullopt;
+    std::optional<Ray> cursorSourceRay() const {
         double cx=0,cy=0;
         glfwGetCursorPos(window,&cx,&cy);
         int ww=0,wh=0,fw=0,fh=0;
@@ -691,7 +715,63 @@ class VulkanViewport {
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
         auto ray=viewportRay(px,py,double(fw),double(fh));
         ray.origin=ray.origin*interaction_.cameraScale;
-        return displayedIndex_->firstRayFaceHit(ray,&lastPickStats_);
+        return orbit_.pickingRay(ray);
+    }
+
+    void updateMouseOrbit() {
+        const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
+        double x=0,y=0;
+        glfwGetCursorPos(window,&x,&y);
+        if(down&&!rightMouseWasDown_&&!sculpting_&&!radiusDragging_&&
+           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS) {
+            if(const auto ray=cursorSourceRay()) {
+                const auto picked=displayedIndex_?
+                    displayedIndex_->firstRayHit(*ray):firstMeshHit(mesh_,*ray);
+                // A hit already gives a stable source-space pivot: avoid
+                // even the one-time centroid traversal unless RMB misses.
+                orbitPivotSource_=picked?*picked:ViewportOrbit::choosePivot(
+                    *ray,std::nullopt,currentGeometryCentroid());
+                orbitPreviousX_=x;
+                orbitPreviousY_=y;
+                orbitDragging_=true;
+                std::cout<<"[view] RMB orbit start pivot="
+                         <<(picked?"surface":"centroid-Y XZ plane")
+                         <<" ("<<orbitPivotSource_.x<<","
+                         <<orbitPivotSource_.y<<","
+                         <<orbitPivotSource_.z<<")\n";
+            }
+        } else if(down&&orbitDragging_) {
+            int ww=0,wh=0,fw=0,fh=0;
+            glfwGetWindowSize(window,&ww,&wh);
+            glfwGetFramebufferSize(window,&fw,&fh);
+            if(ww>0&&wh>0&&fw>0&&fh>0) {
+                orbit_.drag(orbitPivotSource_,
+                            (x-orbitPreviousX_)*double(fw)/ww,
+                            (y-orbitPreviousY_)*double(fh)/wh,
+                            double(std::min(fw,fh)));
+            }
+            orbitPreviousX_=x;
+            orbitPreviousY_=y;
+        } else if(!down&&rightMouseWasDown_&&orbitDragging_) {
+            orbitDragging_=false;
+            std::cout<<"[view] RMB orbit end\n";
+        }
+        rightMouseWasDown_=down;
+    }
+
+    std::optional<Vec3> pickCursor() const {
+        const auto ray=cursorSourceRay();
+        if(!ray)return std::nullopt;
+        lastPickStats_={};
+        return displayedIndex_?displayedIndex_->firstRayHit(*ray,&lastPickStats_):
+               firstMeshHit(currentMesh(),*ray);
+    }
+
+    std::optional<RegionTopologyIndex::FaceRayHit> pickCursorSourceFace() const {
+        if(!displayedIndex_)return std::nullopt;
+        const auto ray=cursorSourceRay();
+        if(!ray)return std::nullopt;
+        return displayedIndex_->firstRayFaceHit(*ray,&lastPickStats_);
     }
     void updateMergeKeyboard() {
         const auto edges=mergeKeys_.sample(
@@ -727,10 +807,10 @@ class VulkanViewport {
             if(result==DesktopMergeInput::Result::Selected)
                 std::cout<<"[merge] explicit A nominated "
                          <<mergeInput_.selectedCount()
-                         <<" first-original FaceIds on exact fixture root\\n";
+                         <<" first-original FaceIds on exact fixture root\n";
             else
                 std::cout<<"[merge] A nomination refused (no current authorized "
-                           "fixture, stale root, invalid identity, or selection limit)\\n";
+                           "fixture, stale root, invalid identity, or selection limit)\n";
             refreshHud();
             updateTitle();
         }
@@ -858,6 +938,12 @@ class VulkanViewport {
 
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
+        if(orbitDragging_) {
+            // The view-only RMB gesture never admits a sculpt stroke.
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
         const bool down=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
         if(mergeInput_.enabled()) {
             if(down&&!mouseWasDown_) {
@@ -1416,7 +1502,7 @@ class VulkanViewport {
         vkCmdSetViewport(commandBuffer,0,1,&viewport);
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         const auto constants=makeConstants(int(extent.width),int(extent.height),
-                                           interaction_.cameraScale);
+                                           interaction_.cameraScale,orbit_);
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
                            0,sizeof(constants),&constants);
         VkDeviceSize offset=0;
@@ -1584,6 +1670,7 @@ public:
             }
             if(ctrl&&save&&interaction_.checkpoint)interaction_.checkpoint();
             if(!ctrl)updateMergeKeyboard();
+            updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
             if (animation_.advance) {
