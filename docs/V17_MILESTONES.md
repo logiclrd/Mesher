@@ -2271,3 +2271,15 @@ limits, original pivot and inverse picking after dolly, and finite
 invalid-input rejection. Actual human-observed Linux/Windows
 interaction remains M52, followed by unchanged original M15.
 See [M60 acceptance](V17_M60_UPRIGHT_TURNTABLE_ORBIT.md).
+
+## V17-M61 — Ctrl camera controls, view-relative strafe and true 90° pole views
+
+New independently-planned peer after M60 and before human-observed
+M52. Ctrl+LMB pans the current view-right/up plane; Ctrl+RMB
+latches the existing view-forward dolly; ordinary RMB remains
+turntable orbit. Modifier changes in the middle of a gesture never
+hijack sculpt or Merge selection. Alt remains available for future
+inverse brush work (not implemented by M61). The elevated camera
+reaches exact +/-90-degree viewing elevation without crossing
+a pole or rolling world Z-up, preserving pivot/inverse source picking.
+See [M61 acceptance](V17_M61_CTRL_CAMERA_AND_POLES.md).
