@@ -17,6 +17,13 @@ void main() {
     float diffuseA=max(dot(n,normalize(lightA)),0.0);
     float diffuseB=max(dot(n,normalize(lightB)),0.0);
     float intensity=0.19+0.69*diffuseA+0.44*diffuseB;
+    // R01 one-shot inspection overlay uses unlit colors; this is independent
+    // of ordinary material/wireframe appearance and cannot tint mesh data.
+    if(surfaceMaterial>=1.5) {
+        outColor=vec4(surfaceMaterial>=2.5 ? vec3(0.55,0.045,0.065)
+                                            : vec3(1.0,0.08,0.09),1.0);
+        return;
+    }
     vec3 albedo=surfaceMaterial>0.5 ? vec3(0.25,0.27,0.30) : vec3(0.63,0.67,0.72);
     vec3 color=min(albedo*intensity,vec3(1.0));
     // Shade mesh wires ONLY on the depth-visible owning solid triangle.
