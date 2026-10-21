@@ -2240,6 +2240,22 @@ faces, bypass original intent, or widen source geometry authorization:
   one-Step undo/redo, checkpoint recovery's V13 source refusal and
   failed-save diagnostics. Keep raw OS/GPU/build/commands, actual
   observed outcomes and limitations; never mark passed by assumption.
+  **Partial actual desktop feedback, 2026-10-20, after M69:** The
+  user reports mesh/floor line appearance now consistently independent
+  of camera elevation (including the formerly discontinuous 90-degree
+  angle), although slightly heavier than personally preferred.
+  New camera movement feels correct; W works on both sides of a
+  surface; asymmetric and reflected symmetric Merge fixtures
+  behave as expected. This is reported human visual/interaction
+  evidence, NOT a measured benchmark or proof of specific FaceId
+  counts, worker acceptance stamps, source-local rejection, undo/redo,
+  save-failure recovery, or real Windows GPU behavior. The user
+  did not provide the exact latest executable commit, driver and OS
+  build in this report; confirm those before claiming an exact build
+  reproducibility record. Preserve the stronger geometric/audio-free
+  acceptance checks and retain this M52 box OPEN.
+  Detailed current evidence and outstanding checks:
+  `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
 **Then ORIGINAL V17-M15:** Independently reconcile all previously
   stated physical source/first-original/winding/cavity, 38 resource
   limits, M23 episodes, M14 quarantine, immutable history and
