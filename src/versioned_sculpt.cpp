@@ -849,7 +849,7 @@ VersionedSculptBrush::probeOffModeNormalFraction(
         // addressed by smaller normal displacement. No retry of an
         // UNKNOWN, bad source or exhausted finite certificate.
         if(noChange||
-           (!tooLargeNormal&&
+           (!assessment.allowed()&&
             assessment.status!=OffModeClearanceStatus::TooClose&&
             assessment.status!=OffModeClearanceStatus::Contact)) {
             choice.refusal="V18 bounded backtracking refuses uncertain private clearance";
