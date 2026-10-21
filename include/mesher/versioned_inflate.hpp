@@ -67,7 +67,8 @@ public:
     VersionedInflateStamp stamp(
         std::shared_ptr<const RegionTopologyIndex> before,
         std::span<const BrushArea> areas,
-        std::size_t maximumElementsPerPartition=256) const;
+        std::size_t maximumElementsPerPartition=256,
+        double normalFraction=1.0) const;
 
 private:
     double strength_;
