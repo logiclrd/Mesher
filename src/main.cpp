@@ -11,6 +11,7 @@
 #include "mesher/repair_inspection.hpp"
 
 #include <array>
+#include <set>
 #include <filesystem>
 #include <optional>
 #include <charconv>
