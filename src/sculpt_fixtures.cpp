@@ -199,7 +199,7 @@ FixtureTopology auditFixtureTopology(const Mesh& mesh) {
     if(mesh.vertices.size()<4||mesh.triangles.size()<4)
         throw std::runtime_error("Fixture is empty or has too few triangles");
     const auto edges=edgesOf(mesh);
-    std::vector<std::set<Index>> links(mesh.vertices.size());
+    std::vector<std::map<Index,std::vector<Index>>> fanLinks(mesh.vertices.size());
     std::vector<std::vector<Index>> graph(mesh.vertices.size());
     for(const auto& [pair,uses]:edges) {
         if(uses.size()!=2||uses[0].forward==uses[1].forward)
@@ -208,25 +208,19 @@ FixtureTopology auditFixtureTopology(const Mesh& mesh) {
         graph[pair.second].push_back(pair.first);
     }
     for(const auto t:mesh.triangles) {
-        // The link of every vertex must be a single closed cycle, not a
-        // collection of fans glued only at one vertex.
-        links[t.a].insert(t.b); links[t.a].insert(t.c);
-        links[t.b].insert(t.a); links[t.b].insert(t.c);
-        links[t.c].insert(t.a); links[t.c].insert(t.b);
+        // Build each directed vertex-link fan ONCE, in linear total time.
+        // Every active vertex must have a single cyclic manifold link.
+        const auto append=[&](Index v,Index a,Index b) {
+            fanLinks[v][a].push_back(b);
+            fanLinks[v][b].push_back(a);
+        };
+        append(t.a,t.b,t.c);
+        append(t.b,t.c,t.a);
+        append(t.c,t.a,t.b);
     }
     for(Index v=0;v<mesh.vertices.size();++v) {
-        if(links[v].empty())throw std::runtime_error("Unused fixture vertex");
-        std::map<Index,std::vector<Index>> adjacency;
-        for(const auto t:mesh.triangles) {
-            if(t.a==v) {
-                adjacency[t.b].push_back(t.c);adjacency[t.c].push_back(t.b);
-            }else if(t.b==v) {
-                adjacency[t.a].push_back(t.c);adjacency[t.c].push_back(t.a);
-            }else if(t.c==v) {
-                adjacency[t.a].push_back(t.b);adjacency[t.b].push_back(t.a);
-            }
-        }
-        if(adjacency.size()!=links[v].size())throw std::runtime_error("Bad vertex link");
+        const auto& adjacency=fanLinks[v];
+        if(adjacency.empty())throw std::runtime_error("Unused fixture vertex");
         for(const auto& [a,others]:adjacency) {
             (void)a;
             if(others.size()!=2)throw std::runtime_error("Branching fixture vertex fan");
@@ -271,10 +265,10 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
     Mesh mesh;
     mesh.vertices.reserve(vertexCount);
     std::vector<Loop> rings(rows);
-    std::vector<std::pair<double,double>> parameters;
     std::vector<std::pair<double,double>> homes;
-    parameters.reserve(vertexCount);
+    std::vector<double> halfCellsU;
     homes.reserve(vertexCount);
+    halfCellsU.reserve(vertexCount);
     for(std::uint32_t j=0;j<rows;++j) {
         const auto count=vertexCount/rows+(j<vertexCount%rows?1u:0u);
         auto& ring=rings[j];
@@ -289,7 +283,7 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
             const double v=(double(j)+.5+.40*(unit(rng)-.5))/rows;
             ring.push_back(static_cast<Index>(mesh.vertices.size()));
             homes.emplace_back(homeU,homeV);
-            parameters.emplace_back(u,v);
+            halfCellsU.push_back(.43/double(count));
             mesh.vertices.push_back(torusPoint(tau*u,inverseAreaFraction(v)));
         }
     }
@@ -322,15 +316,7 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
             };
             u=unwrap(u,hu);
             v=unwrap(areaFraction(tau*v),hv);
-            const auto count=adjacent[i].size();
-            (void)count;
-            // Independent per-ring cell width follows from the initial
-            // coordinates, so no physical edge length is hardcoded.
-            const auto [originalU,originalV]=parameters[i];
-            const double uHalf=std::abs(originalU-hu)<.5 ? .43/double(
-                rings[std::min<std::size_t>(rows-1,
-                    static_cast<std::size_t>(hv*rows))].size()) : .003;
-            u=std::clamp(u,hu-uHalf,hu+uHalf);
+            u=std::clamp(u,hu-halfCellsU[i],hu+halfCellsU[i]);
             v=std::clamp(v,hv-.43/rows,hv+.43/rows);
             next[i]=torusPoint(tau*u,inverseAreaFraction(wrap(tau*v)/tau));
         }
