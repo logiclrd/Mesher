@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/partition_render.hpp"
+#include "mesher/repair_preview.hpp"
 
 #include <atomic>
 #include <memory>
@@ -24,16 +25,20 @@ struct RepairInspectionSnapshot {
     RegionTopologyIndex::CollisionStatistics baselineWork{};
     std::size_t preexistingPairs=0; // not automatically a new-crossing freeze
     std::string diagnostic; // nonempty on bounded-query/incomplete evidence
+    bool previewEnabled=false;
+    RepairExcisionPreview excision;
 };
 
 // Thread-safe one-shot observer, called by the existing PRE-CAS sculpt
 // validator. Returns a refusal only on a freeze; no worker root is published.
 class RepairInspectionSession {
 public:
+    explicit RepairInspectionSession(bool preview=false):previewEnabled_(preview) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
 private:
+    bool previewEnabled_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
