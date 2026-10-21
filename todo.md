@@ -3149,6 +3149,95 @@ switch, V18 and V19 remain independent and open.
   behavior. Exact swept-volume CCD remains deferred with a documented
   tunneling limitation. Keep the current live default until explicitly
   selected/validated.
+
+**V18 flat peer implementation plan — 2026-10-21, before M01 work.**
+Keep the **original V18 checkbox and text above unchanged**. V18 is
+a new, separately opt-in *OFF-mode collision avoidance policy*, NOT a
+Boolean weld. M01–M07 below are independently finishable, mergeable
+peers. If one proves too large, first preplan its entire remaining flat
+peer sequence rather than creating nested children or partially marking
+it done. Do not alter ordinary default behavior until M06's separate
+opt-in integration is accepted; do not weaken V17 source-authorized
+Merge ON, original-surface proof, accepted history or worker FIFO.
+
+- [x] **V18-M01 — Finite before/after changed-neighborhood contact ledger (read-only).**
+  On exact immutable `before` and fully staged `candidate`
+  post-Inflate/refine/collapse roots, compare bounded post-state
+  nonadjacent face contacts against the *corresponding original
+  changed neighborhood*, with six real BVH work caps on EACH query,
+  stable IDs rather than XYZ correspondence, explicit new/old/uncertain
+  classification, and no full-root renderer scan. Unrelated pre-existing
+  contacts must not be globally cleaned/refused. Ambiguous or changing
+  pre-existing contact and topology turnover conservatively yield
+  uncertainty rather than a forged clearance proof. Test zero change,
+  disjoint two sheets, one moving sheet, simultaneous opposing motion,
+  pre-existing unrelated bad sheets, adjacency/tangency, budget one-under,
+  same-root immutable pointer retention and actual work counters.
+  **No deformation or publication behavior change in M01.**
+  Implemented read-only `include/mesher/offmode_collision.hpp`,
+  `src/offmode_collision.cpp`, and
+  `tests/offmode_collision_tests.cpp` with the true pre-/post-root
+  `triangleIntersections` BVH, finite six-budget accounting,
+  complete supported status/refusal classes, stable-identity
+  grandfather check and candidate moved-sheet tests. Actual
+  worker admission/clearance/edit limiting is deliberately deferred
+  to M02–M05; ordinary sculpting remains unchanged. See
+  `docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md`. Exact final
+  PR-head/merged-main GCC/Clang/Windows Vulkan CI still required.
+- [ ] **V18-M02 — Opt-in private final-candidate admission/refusal before one original-root CAS.**
+  Route M01's complete read-only ledger into a separately enabled
+  worker-side final Step gate, AFTER all normally enabled Inflate,
+  refine, collapse and staging, BEFORE one immutable publication.
+  New/uncertain unsafe contact refuses the complete candidate,
+  with correct attempted work/rejected Step, no root/mirrors/history/
+  dirty-owner change; later valid queued 4D input still drains.
+  Initial conservative refusal gate need not yet restore full permitted
+  motion; no V17 approximate repair and no exact ON-mode weld.
+- [ ] **V18-M03 — Local mesh-scale clearance and legal sliding classification.**
+  Specify and implement finitely metered nearby independent
+  triangle/edge/vertex distance or signed-separation checks tied to
+  *local mesh spacing*, never brush radius; distinguish a legal
+  tangent or tangential displacement from interpenetration/unsafe
+  ambiguous contact, with double-precision tolerance and
+  mixed-density neighborhood tests. Work exhaustion conservatively
+  refuses; do not erase/repair unrelated initial contacts.
+- [ ] **V18-M04 — Constrained normal displacement with conservative large-step policy.**
+  Use local pre-/post-state geometric evidence to reduce/limit
+  proposed normal motion where clearance is endangered while
+  preserving separately valid tangential movement. Define a
+  finite deterministic bound/backtracking policy on the PRIVATE
+  candidate and rerun post-refine/collapse contact/clearance checks.
+  Unsupported large stamps may refuse; do not claim continuous
+  swept-volume CCD or no tunneling between samples.
+- [ ] **V18-M05 — Both-opposing-sheet and reflected-symmetry transaction proof.**
+  Integrate simultaneous motion on two opposing sheets against
+  the SAME complete post-state, and source-certified reciprocal
+  mirror pairs including fixed X=0. Positive symmetric clearance/
+  slide and deliberate close-approach refusals preserve one
+  terminal CAS, permanent stable IDs, original-root picker,
+  mirror journals, undo/redo, stale refusal and independent
+  coincident-coordinate ownership. Bounded work only.
+- [ ] **V18-M06 — Explicit desktop opt-in, default unchanged, and diagnostics.**
+  Add an unambiguous CLI/UI selection for V18 OFF-mode collision
+  constraints (NOT the V17 protected Merge ON authorization).
+  Verify ordinary startup/default flags/old checkpoints,
+  invalid combinations, visible refused Steps and later resumed
+  editing in real interaction; keep numeric settings/feature
+  checkpoint persistence M72 as separately deferred. No
+  automatic retrofit on imported bad meshes and no silent
+  feature enablement on recovery.
+- [ ] **V18-M07 — Original V18 integrated acceptance and reproducible GPU/CPU boundary.**
+  Independently reconcile M01–M06 for initial unchanged
+  geometry, legal grazing/sliding, both sheets moving, mirrored
+  strokes, safe large stamps and work exhaustion, stale/undo/redo/
+  checkpoint/history, pre-existing unrelated contacts and
+  conservative fail-stop. Human Linux/Windows GPU acceptance
+  as necessary for genuinely new visible controls. Record exact
+  supported-domain limits and tunneling non-CCD caveat; close
+  ORIGINAL V18 only after exact final PR-head and separately
+  successful merged-main GCC/Clang/Windows full Vulkan CI.
+  Leave V19 broad imported/complex geometry/performance open.
+
 - [ ] **V19 — 3D robustness, performance and desktop acceptance.**
   Stress multiple/near-tangent/coplanar intersection regions, tunnels,
   ambiguous enclosed shells, imported meshes with pre-existing unrelated
