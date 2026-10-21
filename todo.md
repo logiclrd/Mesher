@@ -2254,6 +2254,19 @@ faces, bypass original intent, or widen source geometry authorization:
   build in this report; confirm those before claiming an exact build
   reproducibility record. Preserve the remaining exact geometric,
   history, refusal and recovery criteria and leave M52 OPEN.
+  **Additional actual-user observation, 2026-10-20:** In an
+  explicit first-original reflected Merge fixture, the user
+  nominated immutable FaceIds 8, 10, 1, 14 and 13 manually,
+  without A, then submitted Enter. Console: queued five,
+  `A 0 R 0 P 1` then `A 0 R 1 P 0 REFUSED`, with exact
+  diagnostic `Caller original intent is not closed under
+  source-proven reflection`. This proves real worker
+  refusal for a non-closed original intent, not every
+  possible incomplete-selection rejection case. Separate
+  Ctrl+Z/Ctrl+Y sequences, including undoing and
+  reselecting/reprocessing, behaved as the user expected.
+  The exact rejected before/after root, history depths and
+  a physical Windows host are not yet independently logged.
   Detailed current evidence and outstanding checks:
   `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
 **Then ORIGINAL V17-M15:** Independently reconcile all previously
