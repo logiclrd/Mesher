@@ -103,7 +103,7 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   `docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md`. PR #128 (`1d93d313`)
   passed PR-head and independently merged-main GCC/Clang/Windows Vulkan
   CI (#39551048562).
-- [ ] **V18-M02 — Opt-in private final-candidate admission/refusal before one original-root CAS.**
+- [x] **V18-M02 — Opt-in private final-candidate admission/refusal before one original-root CAS.**
   Route M01's complete read-only ledger into a separately enabled
   worker-side final Step gate, AFTER all normally enabled Inflate,
   refine, collapse and staging, BEFORE one immutable publication.
@@ -112,6 +112,22 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   dirty-owner change; later valid queued 4D input still drains.
   Initial conservative refusal gate need not yet restore full permitted
   motion; no V17 approximate repair and no exact ON-mode weld.
+  Implemented `SculptCollisionSettings::offModeConstraints` as an
+  explicitly enabled, non-UI policy incompatible with V17
+  `physicalExact` or `collision.enabled`. The real final
+  candidate from Inflate/refine/collapse and combined dirty IDs
+  is checked using M01 immutable before/candidate BVHs after
+  attempted COW/dirty resource measurement, BEFORE CAS.
+  New/uncertain or exhausted contact cases reject with full
+  pre-CAS rollback and honest attempted-vs-published telemetry;
+  unrelated old unchanged contacts do not cause global cleanup.
+  One direct and actual async 4D worker regression prove an induced
+  source-independent crossing is refused without root/history/
+  mirror/renderer publication, followed by genuine valid worker
+  progress and pointer exact undo/redo. No desktop mode yet and
+  no swept CCD/clearance guarantee. See
+  `docs/V18_M02_PRIVATE_STEP_ADMISSION.md`; M03 is next.
+  Final PR-head and independent merged-main CI are separate gates.
 - [ ] **V18-M03 — Local mesh-scale clearance and legal sliding classification.**
   Specify and implement finitely metered nearby independent
   triangle/edge/vertex distance or signed-separation checks tied to
