@@ -1167,6 +1167,7 @@ class VulkanViewport {
                                   snapshot->dirtyPartitions);
                 if(snapshot->inspectionFrozen) {
                     inspectionFrozen_=true;
+                    inspectionIncomplete_=snapshot->inspectionOverlay.empty();
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
