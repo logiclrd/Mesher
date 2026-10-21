@@ -132,6 +132,7 @@ struct SculptStageWallObservations {
 struct SculptOffModeBacktrackLimits {
     bool enabled=true; // only active when the enclosing OFF policy is ON
     std::size_t maxTrials=5; // fractions 1, 1/2, 1/4, 1/8, 1/16
+    double maxNormalStepInLocalEdges=0.5; // conservative endpoint/tunnelling bound
     std::size_t maxTrialCopiedBytes=536870912;
     std::size_t maxTrialChangedIdReferences=131072;
     std::size_t maxTrialDistanceTests=32768;
