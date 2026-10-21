@@ -143,6 +143,33 @@ void testDirectPrivateRefusalAndWork(const Mesh& mesh,double strength) {
             guarded.redo()&&guarded.snapshot()==accepted,
             "M02 undo/redo restores original/accepted immutable root pointers after refusal");
 }
+void testPreserveUnrelatedHistoricalCrossings() {
+    Mesh source;
+    appendTetra(source,{0,0,0});
+    appendTetra(source,{0,0,0}); // intentionally pre-existing bad contact
+    appendTetra(source,{40,0,0},8); // independent local edit target
+    const auto indexed=partitionFlatMesh(source,256);
+    const std::vector<FaceId> oldOverlap{
+        indexed.flatIndex.faceIds.begin(),
+        indexed.flatIndex.faceIds.begin()+8};
+    Mesh dummy;
+    VersionedSculptBrush guarded(source,.05,{},{},{},false,256,{},enabled());
+    const auto initial=guarded.snapshot();
+    const auto existing=initial->triangleIntersections({},oldOverlap);
+    require(!existing.empty(),
+            "Source contains genuine unrelated old nonadjacent crossings");
+    const std::array<BrushArea,1> remote{{distantArea}};
+    guarded.stamp(dummy,remote);
+    require(guarded.rejectedStamps()==0&&
+            guarded.publishedRevisions()==1&&
+            guarded.snapshot()!=initial&&
+            guarded.historyStatistics().undoDepth==1&&
+            guarded.lastStepResourceWork().published,
+            "Real opt-in M02 stamp must NOT globally refuse unrelated old crossing sources");
+    const auto after=guarded.snapshot()->triangleIntersections({},oldOverlap);
+    require(after==existing,
+            "M02 leaves unrelated source-independent historical crossings untouched");
+}
 void testBudgetAndClean() {
     Mesh tetra;
     appendTetra(tetra,{0,0,0});
@@ -226,6 +253,7 @@ int main() {
         const auto mesh=detachedWithRemoteCleanPatch();
         const auto strength=findActuallyCrossingStrength(mesh);
         testDirectPrivateRefusalAndWork(mesh,strength);
+        testPreserveUnrelatedHistoricalCrossings();
         testBudgetAndClean();
         testActualAsync4DFifo(mesh,strength);
         std::cout<<"V18-M02 private OFF-mode terminal admission: PASS (strength "
