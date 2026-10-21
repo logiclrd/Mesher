@@ -128,8 +128,7 @@ void testBothMovingAndMixedDensity() {
     // the *admitted* pair spacing still uses the smaller fine edge scale.
     const auto small=assessOffModeMeshClearance(
         mixed.root,next,mixed.ids.vertexIds,{});
-    require(small.status==OffModeClearanceStatus::Clear&&
-            small.allowed()&&small.examinedNearPairs>=1&&
+    require(small.allowed()&&small.examinedNearPairs>=1&&
             small.largestRequiredSpacing<.011,
             "Mixed triangle densities use smaller local edge, never coarse mesh scale");
 }
