@@ -522,6 +522,12 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
             "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
+    if(collision_.offModeConstraints.enabled&&
+       collision_.offModeConstraints.backtrack.enabled&&
+       (collision_.offModeConstraints.backtrack.maxTrials==0||
+        collision_.offModeConstraints.backtrack.maxTrials>8))
+        throw std::invalid_argument(
+            "V18 backtracking requires 1..8 bounded private candidate trials");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&symmetric_)
@@ -570,6 +576,12 @@ VersionedSculptBrush::VersionedSculptBrush(
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
             "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
+    if(collision_.offModeConstraints.enabled&&
+       collision_.offModeConstraints.backtrack.enabled&&
+       (collision_.offModeConstraints.backtrack.maxTrials==0||
+        collision_.offModeConstraints.backtrack.maxTrials>8))
+        throw std::invalid_argument(
+            "V18 backtracking requires 1..8 bounded private candidate trials");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
@@ -1102,8 +1114,6 @@ void VersionedSculptBrush::stamp(
     // geometric refusals raised by this opt-in callback are recoverable.
     std::string rejection=physicalRefusal.empty()?
         std::move(collisionRefusal):std::move(physicalRefusal);
-    if(rejection.empty()&&!trial.refusal.empty())
-        rejection=trial.refusal;
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -1214,7 +1224,8 @@ void VersionedSculptBrush::stamp(
                 *old,*updated,changedVertices,changedFaces);
             measured.finalDirtyPartitions=finalDirty.size();
             measured.evaluated=true;
-            if(collision_.physicalExact)
+            if(collision_.physicalExact||
+               collision_.offModeConstraints.enabled)
                 rejection=refuseExcessStepWork(
                     measured,collision_.stepResources);
         }catch(const std::length_error& e) {
@@ -1225,6 +1236,11 @@ void VersionedSculptBrush::stamp(
                       e.what();
         }
     }
+    // Failed M04 probes are still genuine private COW work measured
+    // above; force the one terminal refusal only AFTER billing all
+    // attempted bytes and changed stable-ID references.
+    if(rejection.empty()&&!trial.refusal.empty())
+        rejection=trial.refusal;
     // M41–M45: true geometry, contour/seam, original seven-witness,
     // protected feature, reflected-source and authenticated history
     // preflight work from the ENTIRE private candidate is admitted
