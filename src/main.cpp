@@ -503,8 +503,9 @@ int main(int argc, char** argv) {
                         [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                             owners.insert(id);
                         });
-                    std::cout<<"[repair-r01] FROZEN candidate contacts="
-                             <<frozen->contacts.size()
+                    std::cout<<"[repair-r01] FROZEN candidate state="
+                             <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
+                             <<" contacts="<<frozen->contacts.size()
                              <<" faces="<<frozen->affectedFaces.size()
                              <<" incident_vertices="<<frozen->incidentVertices.size()
                              <<" incident_edges="<<frozen->incidentEdges.size()
