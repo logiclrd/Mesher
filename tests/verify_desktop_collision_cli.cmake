@@ -60,4 +60,13 @@ mustRefuse("requires --merge-geometry"
 mustRefuse("Unknown argument"
     --avoid-collisions-extra --help)
 
-message(STATUS "V18-M06 actual desktop CLI opt-in conflict checks: PASS")
+mustRefuse("--avoid-test-sheets requires --avoid-collisions --asymmetric"
+    --avoid-test-sheets)
+mustRefuse("--avoid-test-sheets requires --avoid-collisions --asymmetric"
+    --avoid-collisions --avoid-test-sheets)
+mustRefuse("--avoid-test-sheets requires --avoid-collisions --asymmetric"
+    --avoid-collisions --asymmetric --avoid-test-sheets --recover m07-nonexistent.mshr)
+mustRefuse("--avoid-test-sheets requires --avoid-collisions --asymmetric"
+    --merge-geometry --avoid-test-sheets --asymmetric)
+
+message(STATUS "V18-M07 actual protected/independent fixture CLI contract: PASS")
