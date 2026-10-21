@@ -5,6 +5,11 @@ historical development/acceptance record. The chronological files
 are retained because their positive and refusal cases contain
 technical details that should not be rewritten as broad promises.
 
+## Repair architecture rebaseline (2026-10-21)
+
+- [New geometry repair product contract and flat R01–R08 plan](GEOMETRY_REPAIR_REBASELINE.md): iterative approximate Merge, shared brushes, permissive minor existing crossings, exact symmetry only while provably maintained, independent many-island closure and conservative many-to-many refusal.
+- [R01 frozen intersection developer GPU acceptance](R01_GPU_ACCEPTANCE.md): source-independent post-stamp diagnostic with red incident elements, separate Linux/Windows physical evidence still pending.
+
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
