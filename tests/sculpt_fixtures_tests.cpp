@@ -24,10 +24,10 @@ void torus() {
             stats.components==1,"Torus must be one closed genus-one surface with N original vertices");
     std::vector<unsigned> areaBuckets(10);
     for(const auto p:surface.vertices) {
-        const double radial=std::hypot(p.x,p.y);
-        const double tube=std::hypot(radial-.8,p.z);
+        const double radial=std::hypot(p.x,p.z);
+        const double tube=std::hypot(radial-.8,p.y);
         require(std::abs(tube-.2)<1e-10,"Every relaxed point must lie on analytic torus");
-        double v=std::atan2(p.z,radial-.8);
+        double v=std::atan2(p.y,radial-.8);
         if(v<0)v+=2*pi;
         const double area=(.8*v+.2*std::sin(v))/(2*pi*.8);
         const auto bucket=std::min(std::size_t{9},
@@ -41,10 +41,10 @@ void torus() {
         const auto a=surface.vertices[t.a],b=surface.vertices[t.b],
                    c=surface.vertices[t.c];
         const auto center=(a+b+c)/3.0;
-        const double u=std::atan2(center.y,center.x);
-        const double v=std::atan2(center.z,std::hypot(center.x,center.y)-.8);
+        const double u=std::atan2(center.z,center.x);
+        const double v=std::atan2(center.y,std::hypot(center.x,center.z)-.8);
         const Vec3 normal{std::cos(u)*std::cos(v),
-                          std::sin(u)*std::cos(v),std::sin(v)};
+                          std::sin(v),std::sin(u)*std::cos(v)};
         require(dot(cross(b-a,c-a),normal)>0,
                 "Torus must be consistently outward oriented, including both periodic seams");
     }
