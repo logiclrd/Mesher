@@ -95,6 +95,11 @@ void unrelatedPreexistingAndBudget() {
     RepairInspectionSession session;
     require(session.inspect({f.root,moved,far,{}}).empty()&&!session.frozen(),
             "Untouched pre-existing intersections must not globally freeze a stamp");
+    const std::vector<FaceId> oldFaces(f.ids.faceIds.begin(),f.ids.faceIds.begin()+8);
+    RepairInspectionSession previous;
+    require(previous.inspect({f.root,moved,far,oldFaces}).empty()&&
+            !previous.frozen(),
+            "Existing triangle-pair contacts in a changed neighborhood are not new contacts");
 
     std::vector<VertexId> deliberatelyOverBudget(65537,far.front());
     RepairInspectionSession finite;
