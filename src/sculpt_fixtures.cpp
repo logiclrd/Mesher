@@ -353,11 +353,12 @@ Mesh generateHollowSphereFixture(std::uint32_t vertexCount,std::uint64_t seed,
     const auto appendShell=[&](const Mesh& shell,double radius,
                                std::vector<Index>& remap,bool inverted) {
         for(std::size_t i=0;i<shell.vertices.size();++i) {
-            const auto p=shell.vertices[i];
-            // Clip on the NEGATIVE Y hemisphere against the Y-axis cylinder.
+            const auto p=shell.vertices[i]*radius;
+            // The axial cylinder is in WORLD units and is identical for
+            // both shells; perform its test AFTER applying sphere radius.
             if(p.y<0&&std::hypot(p.x,p.z)<.1)continue;
             remap[i]=static_cast<Index>(mesh.vertices.size());
-            mesh.vertices.push_back(p*radius);
+            mesh.vertices.push_back(p);
         }
         for(const auto t:shell.triangles) {
             if(remap[t.a]==std::numeric_limits<Index>::max()||
