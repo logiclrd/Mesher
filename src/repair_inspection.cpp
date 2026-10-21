@@ -73,7 +73,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     limits.maxPartitionTests=131072;
     limits.maxCandidateTriangles=131072;
     limits.maxNarrowPhaseTests=65536;
-    limits.maxReportedContacts=8192;
+    limits.maxReportedContacts=512; // diagnostic overlay memory is deliberately finite
     if(vertices.size()>65536||faces.size()>65536)
         result->diagnostic="R01 changed-ID input budget exhausted";
     else {
