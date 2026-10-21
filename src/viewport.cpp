@@ -1168,7 +1168,7 @@ class VulkanViewport {
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
                     std::cout<<"[repair-r01] FROZEN: viewing an unpublished "
                                 "candidate; LMB/undo/save disabled; orbit, "
-                                "W/G and Escape remain available\\n"<<std::flush;
+                                "W/G and Escape remain available\n"<<std::flush;
                 }
                 const auto added=displayedStamps_>=previous
                     ?displayedStamps_-previous:0;
