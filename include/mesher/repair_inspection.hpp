@@ -21,6 +21,8 @@ struct RepairInspectionSnapshot {
     std::vector<VertexId> incidentVertices;
     std::vector<RegionTopologyIndex::Edge> incidentEdges;
     RegionTopologyIndex::CollisionStatistics work{};
+    RegionTopologyIndex::CollisionStatistics baselineWork{};
+    std::size_t preexistingPairs=0; // not automatically a new-crossing freeze
     std::string diagnostic; // nonempty on bounded-query/incomplete evidence
 };
 
