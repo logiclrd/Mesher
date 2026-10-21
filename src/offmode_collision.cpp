@@ -32,7 +32,9 @@ bool collectKnown(std::span<const ID> inputs,
                   std::vector<ID>& before,std::vector<ID>& after) {
     for(const auto id:inputs) {
         const bool old=exists(id,true),now=exists(id,false);
-        // A tombstone in BOTH roots is not evidence of a changed live\n        // neighborhood. Retirements are valid only when old is live.\n        if(!old&&!now)return false;
+        // A tombstone in BOTH roots is not evidence of a changed live
+        // neighborhood. Retirements are valid only when old is live.
+        if(!old&&!now)return false;
         if(old)before.push_back(id);
         if(now)after.push_back(id);
     }
