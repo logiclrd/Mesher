@@ -195,9 +195,9 @@ void testAllFiniteBoundaries() {
     const auto near=shifted(f.root,ids,{0,0,-.18});
     const auto nominal=assessOffModeMeshClearance(f.root,near,ids,{});
     require(nominal.status==OffModeClearanceStatus::TooClose&&
-            nominal.distanceTests==1&&
+            nominal.distanceTests==2&&
             nominal.neighborhoodWork.reportedContacts==1,
-            "Nominal clearance query executes exactly one real local distance");
+            "Nominal clearance checks current and historical triangle distances");
     const std::array<std::size_t,6> used{{
         nominal.neighborhoodWork.seedFaces,
         nominal.neighborhoodWork.boxesTested,
