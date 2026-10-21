@@ -169,9 +169,19 @@ RepairExcisionPreview previewApproximateExcision(
         view.boundaryEdges=plan.boundaryEdges;
         view.excisionComponents=excisionComponentCount(candidate,view.proposedFaces);
         if(plan.status!=RepairPlanStatus::Ready) {
-            view.complete=false;
-            if(view.diagnostic.empty())
-                view.diagnostic="R02 boundary / closure evidence: "+plan.reason;
+            // V15 goes beyond R02: cap/zipper matching, planarity and
+            // seam-area fitness may refuse otherwise valid oriented
+            // contours. R02's "complete" means excision classification
+            // and boundary extraction completed, NOT closure approved.
+            if(plan.status==RepairPlanStatus::UnmatchedContours||
+               plan.status==RepairPlanStatus::ExcessiveDeviation||
+               plan.status==RepairPlanStatus::AmbiguousClosure) {
+                view.closureAdvisory=plan.reason;
+            }else {
+                view.complete=false;
+                if(view.diagnostic.empty())
+                    view.diagnostic="R02 invalid/unfinished boundary extraction: "+plan.reason;
+            }
         }
     }catch(const std::exception& e) {
         view.complete=false;
