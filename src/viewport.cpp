@@ -360,6 +360,7 @@ class VulkanViewport {
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool wireVisible_=true,wireKeyWasDown_=false;
+    bool inspectionFrozen_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -420,7 +421,7 @@ class VulkanViewport {
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
-    Buffer solid{},floorSolid{},hud{};
+    Buffer solid{},floorSolid{},hud{},inspectionSolid{};
     struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
@@ -981,6 +982,18 @@ class VulkanViewport {
 
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
+        if(inspectionFrozen_) {
+            // Freeze is detected asynchronously; still close an active
+            // stroke so the worker drains queued 4D input in FIFO order.
+            if(sculpting_&&interaction_.end) {
+                interaction_.end(lastCursorHit_,
+                    std::max(0.0,glfwGetTime()-mouseStartTime_));
+                sculpting_=false;
+            }
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
         if(orbitDragging_) {
             // View-only RMB and Ctrl+LMB never sculpt or nominate Merge faces.
             mouseWasDown_=glfwGetMouseButton(
@@ -1148,6 +1161,15 @@ class VulkanViewport {
                 displayedStamps_=snapshot->completedStamps;
                 refreshPartitions(std::move(snapshot->index),
                                   snapshot->dirtyPartitions);
+                if(snapshot->inspectionFrozen) {
+                    inspectionFrozen_=true;
+                    // refreshPartitions has waited for the previous GPU
+                    // submission fence, so this buffer may be safely staged.
+                    replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
+                    std::cout<<"[repair-r01] FROZEN: viewing an unpublished "
+                                "candidate; LMB/undo/save disabled; orbit, "
+                                "W/G and Escape remain available\\n"<<std::flush;
+                }
                 const auto added=displayedStamps_>=previous
                     ?displayedStamps_-previous:0;
                 stampsThisInterval_+=added;
@@ -1231,6 +1253,7 @@ class VulkanViewport {
         std::string title = "Mesher";
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
+            if(inspectionFrozen_)title+=" | R01 FROZEN (UNPUBLISHED CANDIDATE)";
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
@@ -1590,6 +1613,12 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
         }
+        // R01: draw red, depth-tested inspection markers ON TOP of the
+        // diagnostic candidate, without modifying its normal mesh data.
+        if(inspectionSolid.vertexCount) {
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&inspectionSolid.buffer,&offset);
+            vkCmdDraw(commandBuffer,inspectionSolid.vertexCount,1,0,0);
+        }
         // M68: mesh edges and floor unit grid are shaded on their OWN
         // depth-tested solid fragments. No detached wire quads are
         // emitted; M69 retires now-unused wire GPU buffers/pipeline.
@@ -1701,6 +1730,7 @@ public:
             destroyBuffer(solid);
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
+            destroyBuffer(inspectionSolid);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
@@ -1758,13 +1788,14 @@ public:
                          <<" (Z="<<floorZ_<<")\n";
                 updateTitle();
             }
-            if(ctrl&&!sculpting_&&
+            if(ctrl&&!inspectionFrozen_&&!sculpting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
                 else if(z&&interaction_.undo)interaction_.undo();
                 else if(y&&interaction_.redo)interaction_.redo();
             }
-            if(ctrl&&save&&interaction_.checkpoint)interaction_.checkpoint();
+            if(ctrl&&!inspectionFrozen_&&save&&interaction_.checkpoint)
+                interaction_.checkpoint();
             if(!ctrl)updateMergeKeyboard();
             updateMouseOrbit();
             updateMouseSculpt();
