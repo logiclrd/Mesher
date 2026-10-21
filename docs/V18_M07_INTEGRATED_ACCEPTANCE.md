@@ -39,9 +39,11 @@ Inflate. This geometry is completely independent of V17's protected
 `--merge-test-tetra` source authorization; no M29 certificate,
 Boolean weld, or hidden runtime Merge toggle exists. It contains a
 lower triangle (Z=0), nearby independently owned upper triangle
-(Z=0.14, opposite winding), and remote editable triangle at X=3.5.
+(Z=0.55, opposite winding), and remote editable triangle at X=3.5.
 The normal displacement at a vertex of either close triangle points
-toward the other. There are **no** globally welded coordinates.
+toward the other. The 0.55-unit separation is deliberately greater
+than the fixture's 0.5-unit desktop brush radius, so one click
+changes only one sheet rather than simultaneously picking both. There are **no** globally welded coordinates.
 The third face gives a distinct recovery target without resetting.
 
 For this deliberately open, low-resolution display geometry,
@@ -89,7 +91,7 @@ Named near-sheet fixture, from the repository root (Linux):
 mkdir -p m07-checkpoints m07-logs
 ./build/Mesher --avoid-collisions --asymmetric --avoid-test-sheets \
   --no-refine --no-collapse --no-curvature-correction \
-  --strength 0.12 --brush-radius 0.5 \
+  --strength 0.5 --brush-radius 0.5 \
   --checkpoint m07-checkpoints/near-linux.mshr 2>&1 \
   | tee m07-logs/near-linux.log
 ```
@@ -100,7 +102,7 @@ Windows PowerShell:
 New-Item -ItemType Directory -Force m07-checkpoints,m07-logs | Out-Null
 & .\build\Release\Mesher.exe --avoid-collisions --asymmetric --avoid-test-sheets `
   --no-refine --no-collapse --no-curvature-correction `
-  --strength 0.12 --brush-radius 0.5 `
+  --strength 0.5 --brush-radius 0.5 `
   --checkpoint .\m07-checkpoints\near-windows.mshr 2>&1 |
   Tee-Object -FilePath .\m07-logs\near-windows.log
 ```
@@ -109,7 +111,7 @@ New-Item -ItemType Directory -Force m07-checkpoints,m07-logs | Out-Null
 OFF-mode avoidance. Orbit to a view from **above Z** so the two
 slightly separated triangles at X≈0 are visible; they can largely
 overlap when seen exactly from above. A low side/oblique angle
-makes the vertical 0.14-unit gap visible. A third independent
+makes the vertical 0.55-unit gap visible. A third independent
 triangle is clearly offset at X≈3.5. Verify face occlusion, W
 edges and G floor do not alter geometry.
 
