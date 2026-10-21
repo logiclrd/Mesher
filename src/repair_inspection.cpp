@@ -84,6 +84,41 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             result->diagnostic=std::string("R01 collision query budget exhausted: ")+e.what();
         }
     }
+    // R01 should freeze on NEW changed-neighborhood evidence, not on a
+    // historically imperfect but still editable mesh. Compare the same
+    // supported finite query on the previous immutable root. Restrict
+    // sources to IDs that actually exist there: new refinement vertices
+    // and faces have no historical counterpart. This is face-pair
+    // provenance only; R07 will introduce geometric worsening metrics.
+    if(!result->contacts.empty()&&result->diagnostic.empty()) {
+        std::vector<VertexId> oldVertices;
+        std::vector<FaceId> oldFaces;
+        oldVertices.reserve(vertices.size());
+        oldFaces.reserve(faces.size());
+        for(const auto id:vertices)
+            if(proposed.before->maybeVertex(id))oldVertices.push_back(id);
+        for(const auto id:faces)
+            if(proposed.before->maybeFace(id))oldFaces.push_back(id);
+        try {
+            const auto previous=proposed.before->triangleIntersections(
+                oldVertices,oldFaces,&result->baselineWork,limits);
+            std::set<std::pair<FaceId,FaceId>> existing;
+            for(const auto& p:previous)
+                if(!p.ambiguous)existing.emplace(p.first,p.second);
+            std::erase_if(result->contacts,[&](const auto& p) {
+                if(existing.contains({p.first,p.second})) {
+                    ++result->preexistingPairs;
+                    return true;
+                }
+                return false;
+            });
+        }catch(const std::length_error& e) {
+            result->diagnostic=std::string("R01 baseline collision query budget exhausted: ")+e.what();
+            // No partial result may be presented as newly introduced:
+            // the query's evidential comparison did not complete.
+            result->contacts.clear();
+        }
+    }
     if(result->contacts.empty()&&result->diagnostic.empty())return {};
     std::set<FaceId> markedFaces;
     std::set<VertexId> markedVertices;
