@@ -25,15 +25,26 @@ void torus() {
     std::vector<unsigned> areaBuckets(10);
     for(const auto p:surface.vertices) {
         const double radial=std::hypot(p.x,p.z);
-        const double tube=std::hypot(radial-.8,p.y);
-        require(std::abs(tube-.2)<1e-10,"Every relaxed point must lie on analytic torus");
+        const double tube=std::hypot(radial-.55,p.y);
+        require(std::abs(tube-.45)<1e-10,"Every relaxed point must lie on analytic torus");
         double v=std::atan2(p.y,radial-.8);
         if(v<0)v+=2*pi;
-        const double area=(.8*v+.2*std::sin(v))/(2*pi*.8);
+        const double area=(.55*v+.45*std::sin(v))/(2*pi*.55);
         const auto bucket=std::min(std::size_t{9},
                                    static_cast<std::size_t>(area*10));
         ++areaBuckets[bucket];
     }
+    // The inner equator lies only 0.10 from the Y axis; the outside
+    // remains at 1.00. The sample must retain a *small* but open hole.
+    double minimumRadial=2,maximumRadial=0;
+    for(const auto p:surface.vertices) {
+        const double r=std::hypot(p.x,p.z);
+        minimumRadial=std::min(minimumRadial,r);
+        maximumRadial=std::max(maximumRadial,r);
+    }
+    require(minimumRadial>=.10-1e-10&&minimumRadial<.115&&
+            maximumRadial<=1.0+1e-10&&maximumRadial>.985,
+            "Tight torus must retain its 0.10 inner hole and unit outside radius");
     for(const auto count:areaBuckets)
         require(count>=400&&count<=600,
                 "Torus random stratum counts must reflect actual surface area, not uniform angle");
@@ -42,7 +53,7 @@ void torus() {
                    c=surface.vertices[t.c];
         const auto center=(a+b+c)/3.0;
         const double u=std::atan2(center.z,center.x);
-        const double v=std::atan2(center.y,std::hypot(center.x,center.z)-.8);
+        const double v=std::atan2(center.y,std::hypot(center.x,center.z)-.55);
         const Vec3 normal{std::cos(u)*std::cos(v),
                           std::sin(v),std::sin(u)*std::cos(v)};
         require(dot(cross(b-a,c-a),normal)>0,
