@@ -20,6 +20,10 @@ remain V19. For exact completion status see the
 The earlier README's complete prototype-era text is archived
 [unchanged here](docs/archive/README_PRE_ROADMAP_CLEANUP.md).
 
+## Repair architecture rebaseline (developer diagnostic R01)
+
+The [geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md) defines the intended iterative, approximate manifold-preserving Merge pipeline and independent nonpenetrating brush response, superseding *product* assumptions that every local residual intersection must be an exact certified Boolean refusal. Historical V17/V18 implementation and tests remain supported only for their documented domains. The new [R01 diagnostic acceptance protocol](docs/R01_GPU_ACCEPTANCE.md) describes the opt-in `--repair-inspect` read-only first-intersection freeze, red vertices/edges and physical GPU verification. No automatic repair is enabled by R01; see `todo.md` for the flat R01–R08 plan.
+
 ## Building and testing
 
 Requires C++20, CMake 3.22+, Vulkan SDK including a shader compiler,
