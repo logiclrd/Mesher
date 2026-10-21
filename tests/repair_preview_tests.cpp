@@ -54,7 +54,7 @@ void independentIslandsAndClassification() {
     require(preview.classifiedFaces>0,
             "R02 must consult V14 fragment sampling, not blindly delete red contact faces");
     for(const auto id:preview.proposedFaces) {
-        require(f.root->maybeFace(id).has_value(),
+        require(static_cast<bool>(f.root->maybeFace(id)),
                 "R02 selected faces must be real stable FaceIds");
         require(std::find(preview.uncertainFaces.begin(),
             preview.uncertainFaces.end(),id)==preview.uncertainFaces.end(),
@@ -65,7 +65,7 @@ void independentIslandsAndClassification() {
                 loop.vertexIds.size()==loop.survivingFaces.size(),
                 "R02 contours must carry retained-winding directed edge evidence");
         for(const auto id:loop.vertexIds)
-            require(f.root->maybeVertex(id).has_value(),
+            require(static_cast<bool>(f.root->maybeVertex(id)),
                     "R02 boundary loop vertices must belong to frozen revision");
     }
     require(f.root->pickingRootIdentity()==beforeRoot&&
