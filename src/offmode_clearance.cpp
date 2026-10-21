@@ -49,12 +49,6 @@ bool wellFormed(const Triangle& t) {
     return std::isfinite(area)&&std::isfinite(maximum)&&
            area>1e-12*s*maximum;
 }
-double pointSegmentSquared(Vec3 p,Vec3 a,Vec3 b) {
-    const auto direction=b-a;
-    const double denom=square(direction);
-    if(!(denom>0))throw std::logic_error("V18 zero-length edge");
-    return square(p-(a+direction*clamp01(dot(p-a,direction)/denom)));
-}
 // Ericson's Voronoi-region point/triangle closest point, with no
 // barycentric tolerance that could fabricate an accepted clearance.
 double pointTriangleSquared(Vec3 p,const Triangle& t) {
@@ -254,8 +248,6 @@ OffModeClearanceReport assessOffModeMeshClearance(
     }catch(const std::out_of_range& error) {
         return uncertain(error.what());
     }catch(const std::logic_error& error) {
-        return uncertain(error.what());
-    }catch(const std::invalid_argument& error) {
         return uncertain(error.what());
     }
     return report;
