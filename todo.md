@@ -51,7 +51,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M02 is NEXT. M03–M07 are flat peers
+**Order:** V18-M03 is NEXT. M03–M07 are flat peers
 preplanned before M01 implementation. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
