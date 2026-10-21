@@ -10,6 +10,7 @@
 #include "mesher/repair_intersection.hpp"
 #include "mesher/exact_stage_work.hpp"
 #include "mesher/offmode_collision.hpp"
+#include "mesher/offmode_clearance.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -160,6 +161,7 @@ struct SculptResourceTotals {
 struct SculptOffModeConstraintSettings {
     bool enabled=false;
     OffModeContactLimits contactLimits{};
+    OffModeClearanceLimits clearanceLimits{};
 };
 
 struct SculptCollisionSettings {

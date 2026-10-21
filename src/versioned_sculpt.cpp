@@ -1106,13 +1106,14 @@ void VersionedSculptBrush::stamp(
     // Thus a veto keeps its true attempted Step costs and rolls back.
     if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
         ++collisionChecked_;
-        const auto assessment=assessOffModePostStateContacts(
-            old,updated,changedVertices,changedFaces,
-            collision_.offModeConstraints.contactLimits);
-        if(!assessment.conservativelyContactFree())
+        auto limits=collision_.offModeConstraints.clearanceLimits;
+        limits.contacts=collision_.offModeConstraints.contactLimits;
+        const auto assessment=assessOffModeMeshClearance(
+            old,updated,changedVertices,changedFaces,limits);
+        if(!assessment.allowed())
             rejection="V18 OFF-mode collision constraint refused: "+
                 (assessment.reason.empty()?
-                 std::string("ambiguous private candidate"):assessment.reason);
+                 std::string("uncertain private clearance"):assessment.reason);
     }
     // M23: exactly ONE episode observation per classified full physical
     // proposal. A refused conclusive Contact remains known Contact;

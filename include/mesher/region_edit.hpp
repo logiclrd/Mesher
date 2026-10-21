@@ -158,6 +158,20 @@ public:
         CollisionStatistics* stats=nullptr,
         const CollisionQueryLimits& limits={}) const;
 
+    // V18-M03: read-only pair broad phase over the same persistent
+    // partition BVH. Each seed AABB expands by ratio * ITS OWN shortest
+    // edge. Actual clearance uses min(seed,target) local edge scales;
+    // expanding by the seed therefore cannot omit a pair requiring
+    // mesh-scale clearance. Returned pairs are stable FaceIds, not
+    // geometric equivalences, and are limited by maxReportedContacts.
+    // Limits meter all directory/partition traversals and pair visits.
+    std::vector<std::pair<FaceId,FaceId>> nearbyTrianglePairs(
+        const std::vector<VertexId>& changedVertices,
+        const std::vector<FaceId>& changedFaces,
+        double localEdgeRatio,
+        CollisionStatistics* stats=nullptr,
+        const CollisionQueryLimits& limits={}) const;
+
     struct WindingStatistics {
         std::size_t boxesTested{}, partitionsTested{}, trianglesTested{};
         std::size_t raysTested{}, referenceFallbacks{};
