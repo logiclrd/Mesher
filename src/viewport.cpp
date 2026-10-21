@@ -1258,7 +1258,10 @@ class VulkanViewport {
         std::string title = "Mesher";
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
-            if(inspectionFrozen_)title+=" | R01 FROZEN (UNPUBLISHED CANDIDATE)";
+            if(inspectionFrozen_)
+                title+=inspectionIncomplete_?
+                    " | R01 QUERY INCOMPLETE (FROZEN)":
+                    " | R01 CONTACT (FROZEN CANDIDATE)";
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
