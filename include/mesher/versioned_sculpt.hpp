@@ -9,6 +9,7 @@
 #include "mesher/repair_surgery.hpp"
 #include "mesher/repair_intersection.hpp"
 #include "mesher/exact_stage_work.hpp"
+#include "mesher/offmode_collision.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -153,11 +154,20 @@ struct SculptResourceTotals {
     ExactStageWork attemptedExact{},publishedExact{};
     double observedAttemptMilliseconds{},observedPublishedMilliseconds{};
 };
+// V18-M02: new, explicitly enabled OFF-mode **private admission gate**.
+// M03/M04 will supply mesh-scale clearance and constrained displacement.
+// M06 alone will expose a desktop opt-in. Not V17 source-certified Merge.
+struct SculptOffModeConstraintSettings {
+    bool enabled=false;
+    OffModeContactLimits contactLimits{};
+};
+
 struct SculptCollisionSettings {
     bool enabled=false; // V16 approximate classifier; independent policy
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
+    SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};
     SculptOriginalIntentInputLimits originalIntentInput{};

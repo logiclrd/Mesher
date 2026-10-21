@@ -518,6 +518,10 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.offModeConstraints.enabled&&
+       (collision_.physicalExact||collision_.enabled))
+        throw std::invalid_argument(
+            "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&symmetric_)
@@ -562,6 +566,10 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.offModeConstraints.enabled&&
+       (collision_.physicalExact||collision_.enabled))
+        throw std::invalid_argument(
+            "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
@@ -1091,6 +1099,20 @@ void VersionedSculptBrush::stamp(
     if(rejection.empty()&&updated!=old&&collision_.physicalExact) {
         rejection=refuseExactStageWork(lastStepResourceWork_.exactStage,
                                       collision_.exactStageLimits);
+    }
+    // V18-M02 evaluates the ACTUAL complete private post-remesh root
+    // after M40 has measured private copy/dirty work, but BEFORE the
+    // original CAS, mirror/history publication or Clean episode credit.
+    // Thus a veto keeps its true attempted Step costs and rolls back.
+    if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
+        ++collisionChecked_;
+        const auto assessment=assessOffModePostStateContacts(
+            old,updated,changedVertices,changedFaces,
+            collision_.offModeConstraints.contactLimits);
+        if(!assessment.conservativelyContactFree())
+            rejection="V18 OFF-mode collision constraint refused: "+
+                (assessment.reason.empty()?
+                 std::string("ambiguous private candidate"):assessment.reason);
     }
     // M23: exactly ONE episode observation per classified full physical
     // proposal. A refused conclusive Contact remains known Contact;
