@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
     bool avoidCollisions = false;
     bool avoidTestSheets = false;
     bool repairInspect = false;
+    bool repairPreview = false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -71,6 +72,7 @@ int main(int argc, char** argv) {
             else if(arg=="--avoid-collisions")avoidCollisions=true;
             else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
             else if(arg=="--repair-inspect")repairInspect=true;
+            else if(arg=="--repair-preview")repairPreview=true;
             else if(arg=="--torus")torusFixture=true;
             else if(arg=="--hollow-sphere")hollowSphereFixture=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
@@ -168,6 +170,7 @@ int main(int argc, char** argv) {
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
+                         <<"       [--repair-preview] (R02 classify excision faces and boundary loops; no topology edits)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
@@ -205,6 +208,7 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
+        repairInspect=repairInspect||repairPreview;
         if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
            !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
             throw std::invalid_argument(
@@ -406,7 +410,7 @@ int main(int argc, char** argv) {
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
         bool inspectionPresented=false;
         auto repairSession=repairInspect
-            ?std::make_shared<mesher::RepairInspectionSession>():nullptr;
+            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -546,7 +550,8 @@ int main(int argc, char** argv) {
                         [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                             owners.insert(id);
                         });
-                    std::cout<<"[repair-r01] FROZEN candidate state="
+                    std::cout<<(repairPreview?"[repair-r02] ":"[repair-r01] ")
+                             <<"FROZEN candidate state="
                              <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
                              <<" contacts="<<frozen->contacts.size()
                              <<" faces="<<frozen->affectedFaces.size()
@@ -563,18 +568,38 @@ int main(int argc, char** argv) {
                         std::cout<<"[repair-r01] FaceId "<<pair.first
                                  <<" x "<<pair.second
                                  <<(pair.ambiguous?" AMBIGUOUS":" CONTACT")<<"\n";
+                    if(repairPreview) {
+                        const auto& preview=frozen->excision;
+                        std::cout<<"[repair-r02] PREVIEW proposed_faces="<<preview.proposedFaces.size()
+                                 <<" uncertain_faces="<<preview.uncertainFaces.size()
+                                 <<" mixed_faces="<<preview.mixedFaces.size()
+                                 <<" contact_islands="<<preview.contactIslands
+                                 <<" excision_components="<<preview.excisionComponents
+                                 <<" boundary_loops="<<preview.contours.size()
+                                 <<" boundary_edges="<<preview.boundaryEdges
+                                 <<" classified_faces="<<preview.classifiedFaces
+                                 <<" complete="<<preview.complete
+                                 <<" reason="<<(preview.diagnostic.empty()?"none":preview.diagnostic)
+                                 <<" (NO FACE DELETION)\n";
+                        for(std::size_t i=0;i<preview.contours.size();++i)
+                            std::cout<<"[repair-r02] loop="<<i
+                                     <<" vertices="<<preview.contours[i].vertexIds.size()
+                                     <<" perimeter="<<preview.contours[i].perimeter<<"\n";
+                        for(const auto id:preview.proposedFaces)
+                            std::cout<<"[repair-r02] selected FaceId "<<id<<"\n";
+                    }
                     return mesher::ViewportMeshUpdate{
                         frozen->candidate,
                         {owners.begin(),owners.end()},
                         liveWorker->status().completedStamps,
-                        true,mesher::buildRepairInspectionOverlay(*frozen)};
+                        true,mesher::buildRepairInspectionOverlay(*frozen),repairPreview};
                 }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
                 lastDisplayed=snapshot->index;
                 return mesher::ViewportMeshUpdate{
                     std::move(snapshot->index),std::move(snapshot->dirtyPartitions),
-                    snapshot->completedStamps,false,{}};
+                    snapshot->completedStamps,false,{},false};
             };
             interaction.completedStamps=[&]{return liveWorker->status().completedStamps;};
             interaction.skippedStamps=[]{return std::size_t{0};};
@@ -661,6 +686,10 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
+            if(repairPreview)
+                std::cout<<"[repair-r02] Armed read-only proposed excision preview. "
+                            "Orange selected faces; purple uncertain faces; "
+                            "gold boundary loops; red incident contacts. "\n                            "No geometry removed or published.\n";
             if(repairInspect)
                 std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
                             "unpublished candidate. Red dots are incident vertices; "
