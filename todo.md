@@ -708,6 +708,19 @@ existing tests preserved, and GCC/Clang/MSVC warnings-as-errors CI.
 
 ## V17 — Flat remaining milestones (authoritative rebaseline)
 
+**Final integrated V17 core disposition (after original M15 and M52):**
+The planned source-certified finite-domain Merge geometry architecture,
+real 4D physical and explicit protected worker paths, one-terminal-CAS
+history/dirty/picker behavior, bounded original-surface/38-work source
+proof, exception fail-stop and actual Linux/Windows GUI acceptance are
+checked. The original V17-M15 checklist remains above as the final
+independent core integration gate, now accepted; the historical
+"next M12" summaries below are preserved as dated project history.
+Optional V17-M66/M70–M72 are deferred separate UX extensions, NOT
+prerequisites for accepting this bounded V17 core. V18 and V19
+stay open with their original distinct objectives.
+
+
 The old seven-level V17 task genealogy has been **retired as a planning hierarchy**, not discarded. Its complete original text, historical checkbox status, regressions, caveats and decisions are archived verbatim in [docs/V17_LEGACY_TASK_TREE.md](docs/V17_LEGACY_TASK_TREE.md). The authoritative detailed acceptance criteria and historical-ID traceability matrix are in [docs/V17_MILESTONES.md](docs/V17_MILESTONES.md); DESIGN.md preserves the chronological engineering record. The implementation through PR #50 (`28c419f`) is preserved and does not need to be reimplemented.
 
 **October 18 scope rebaseline:** M06 exposed independent c3 singleton contour, d2 disk/weld and original-root worker/history gates. The complete former M07 objective is retained as flat M07–M09; former M08–M13 objectives are renumbered M10–M15 without loss. Historical task tree and append-only DESIGN retain old identifiers.\n\nEach item below is a **standalone mergeable milestone** with its own positive/negative acceptance. No child numbering (M01a, M01b1, etc.). Dependencies permit later integration but never require subdividing this list. **M01–M10 and M16 are complete in their independently verified bounded geometry, provenance, original-root worker, and accepted identity scopes; M12–M15 and V17 as a whole remain open. M17 source certification, M18 first physical exact transaction and M11 bounded sixteen repeated symmetric physical unions have independently passed their acceptance scopes. M12 is NEXT; no desktop Merge geometry UI is enabled.** M16 remains an append-only peer completed after M10 and before M11, without renumbering any accepted historical milestone. See [coincident-vertex contract](docs/COINCIDENT_VERTEX_TOPOLOGY.md).
@@ -2407,8 +2420,39 @@ faces, bypass original intent, or widen source geometry authorization:
   after every genuinely rendered targeted criterion has been
   observed, and leave V18/V19 separately open.
 
-- [ ] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
+- [x] **V17-M15 — Default-off live Merge geometry switch and targeted desktop acceptance.**
   Explicit on-mode only after M16's source-proven coincidence/fan acceptance, with Linux/Windows Vulkan, symmetry, picking, undo/redo, storage and rejected-stroke checks. V18 Off-mode collision constraints and broader V19 acceptance remain separate.
+  **ORIGINAL M15 final independent integrated acceptance:** All unchanged
+  criterion groups accepted at the bounded supported-domain scope,
+  not inferred from screenshots alone. M04/M10 complete original
+  12/16-contact 3→1 source unions versus unsupported 21-contact
+  refusal, M05–M09 actual source-justified reflected/X=0 orbits,
+  M16 genuinely independent coincident stable IDs, M19–M34
+  FIRST-original seven-witness/local-edge ancestry and M21 explicit
+  source scope with protected Exposed and 0/+1/0 ReversedBoundary
+  cavity/outer walls, M11/M35–M39 actual physical original-source
+  repeated 4D joins, M23 original M12/M36 authentic
+  Contact/Clean/Unknown and three-new-Clean closure, M40–M46
+  original M42/M13 simultaneous 38-category actual work and
+  attempted/published diagnostics, original M14 irreversible
+  post-CAS terminal fail-stop, M47–M49 real source-authenticated
+  deferred UI worker/picker/selection, M54 independent accepted
+  immutable desktop-fixture manifold/residual-collision/renderer
+  staging/pointer-exact undo-redo proof, and M52 exact-revision
+  Linux/Windows physical GPU interaction/safe refusal/checkpoint
+  observations. One accepted Step publishes one original-root
+  CAS/history/mirror/dirty snapshot; pre-CAS refusals leak none.
+  M52 live GPU limitations (Windows RustDesk cursor warp, Linux
+  physical-device choice inventory vs direct selection, no
+  user-captured root-pointer values) are expressly distinguished
+  from source/worker tests. V13 disk-only protected original M29
+  proof remains unavailable; guarded refusal is correct.
+  Independent acceptance record:
+  `docs/V17_M15_ORIGINAL_INTEGRATED_ACCEPTANCE.md`.
+  **Core V17 can close at this supported finite domain**; optional
+  M66/M70/M71/M72 and separate V18/V19 remain UNCHECKED
+  without silently broadening or reopening the accepted scope.
+
 
 **M12 flat execution rebaseline — October 18, 2026.** The original M12
 objective/checkbox remains intact and OPEN. Its original-source provenance,
