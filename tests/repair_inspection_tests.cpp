@@ -104,6 +104,27 @@ void unrelatedPreexistingAndBudget() {
             finite.frozenSnapshot()->contacts.empty(),
             "Incomplete bounded query must freeze with a diagnostic, never report false clean");
 }
+void interiorFaceIntersectionWithoutCrossingVertices() {
+    Mesh mesh;
+    // Horizontal and vertical triangles cross through their interiors.
+    // No vertex of either triangle is located inside the opposing face.
+    mesh.vertices={
+        {-2,-2,-3},{2,-2,-3},{0,2,-3},
+        {0,-1,-1},{0,-1,1},{0,2,1}};
+    mesh.triangles={{0,1,2},{3,4,5}};
+    const auto f=fixture(std::move(mesh));
+    const std::vector<VertexId> moving(f.ids.vertexIds.begin(),
+                                       f.ids.vertexIds.begin()+3);
+    const auto candidate=move(f.root,moving,{0,0,3});
+    RepairInspectionSession session;
+    require(!session.inspect({f.root,candidate,moving,{}}).empty()&&
+            session.frozen(),"Face-interior intersections must be found without crossed source vertices");
+    const auto evidence=session.frozenSnapshot();
+    require(evidence&&evidence->contacts.size()==1&&
+            evidence->affectedFaces.size()==2&&
+            evidence->incidentVertices.size()==6,
+            "R01 identifies both participating triangles and marks their six incident vertices");
+}
 void simultaneousIndependentIslands() {
     Mesh mesh;
     tetra(mesh,{-2,0,0},.5);
@@ -162,6 +183,7 @@ int main() {
     try {
         cleanAndFrozen();
         unrelatedPreexistingAndBudget();
+        interiorFaceIntersectionWithoutCrossingVertices();
         simultaneousIndependentIslands();
         actualPostRemeshStamp();
         std::cout<<"R01 post-stamp candidate freeze and visual evidence: PASS\n";
