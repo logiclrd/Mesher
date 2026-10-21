@@ -361,6 +361,7 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool wireVisible_=true,wireKeyWasDown_=false;
     bool inspectionFrozen_=false;
+    bool inspectionIncomplete_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
