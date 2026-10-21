@@ -99,3 +99,75 @@ checkpoint save/reopen and failed-save diagnostics,
 armed recovery refusal, and exact positive fixture worker
 accepted statuses/root identity as needed for full audit.
 These observations do not close M52 or original M15.
+
+## Ordinary checkpoint, controlled failure, and V13 armed-recovery refusal — user PASS 2026-10-20
+
+The user performed the complete checkpoint triad on the live
+Linux desktop, supplied the following actual file/log evidence,
+and explicitly marked all three tests PASS. These are
+physical program tests, not merely CPU simulated checkpoints.
+
+1. **Ordinary checkpoint / recovery PASS.** A fresh ordinary
+   Inflate session wrote `m52-checkpoints/ordinary.mshr`:
+
+   ```text
+   -rw-rw-r-- 1 logiclrd logiclrd 521380 Oct 20 21:51 ordinary.mshr
+   ```
+
+   The file reopened correctly in Mesher, displayed the
+   recovered geometry and allowed further sculpting. The
+   observed symmetric/asymmetric editing state survived
+   recovery. Startup feature flags `--curvature-correction`,
+   `--collapse`, and `--refine` did NOT persist; see separate
+   deferred feature M72 rather than treating this as a failure
+   of the current checkpoint format.
+
+2. **Failed-save handling PASS.** The user provided a nonexistent
+   parent path, submitted Ctrl+S twice, and observed:
+
+   ```text
+   [checkpoint] queued m52-checkpoints/nonexistent-parent/failed.mshr
+   [checkpoint] queued m52-checkpoints/nonexistent-parent/failed.mshr
+   [sculpt] ... undo_depth=26 redo_depth=0 history_roots=27 ... checkpoints_saved=0 checkpoint_failures=2 renderer=dirty_partitions
+   ```
+
+   This confirms both background write failures were counted,
+   no successful checkpoint was reported, and the application
+   was still running and logging active sculpt state. The user
+   labeled the safe-failure case PASS. An explicit subsequent
+   before/after root pointer is not captured by this log.
+
+3. **Protected Merge-armed recovery refusal PASS.** Launched:
+
+   ```text
+   build/Mesher --checkpoint m52-checkpoints/protected.mshr --merge-geometry --symmetric --merge-test-reflected-tetra
+   ```
+
+   The first-original reflected fixture reported 16 original
+   vertices/16 faces and enabled background save via Ctrl+S.
+   The user verified a 1249-byte `protected.mshr` file, then:
+
+   ```text
+   build/Mesher --merge-geometry --recover m52-checkpoints/protected.mshr
+   Mesher: --merge-geometry refuses V13 disk recovery without sealed first-original M29 authority
+   ```
+
+   This is an exact expected CLI guard in `src/main.cpp` that
+   rejects any Merge-armed disk recovery request **before**
+   deserializing the file; do not misrepresent it as proof of
+   a later serializer-level source-recertificate validation.
+
+**New deferred user requests:** M70 symmetric-to-asymmetric
+runtime editing switch; M71 symmetric/mirrored brush editing
+on geometrically asymmetric meshes (distinguishing dual-side
+spatial strokes from proof of exact mirrored topology); M72
+persistence or explicit restore of run-time sculpt feature
+flags/settings. None block M52, original M15 or V18/V19.
+
+**Still open for M52:** exact executable SHA, GPU/Vulkan driver,
+Windows physical host verification; any remaining explicit
+accepted/refused immutable root/history identity assertions
+and requested diagnostics. The earlier geometry AA, camera,
+W, both named Merge fixtures, user-observed undo/redo and
+reflection-closure refusal remain accepted at their reported
+scope. M52 is NOT checked complete.

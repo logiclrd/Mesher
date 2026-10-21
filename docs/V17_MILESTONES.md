@@ -2378,3 +2378,19 @@ specific worker events, undo/redo, checkpoint/recovery,
 Windows physical Vulkan behavior or exact OS/driver/commit
 provenance. M52 and original M15 remain OPEN.
 See [partial M52 observation log](V17_M52_DESKTOP_OBSERVATIONS.md).
+
+## V17-M52 physical runtime checkpoints passed; M70–M72 future UX requests
+
+User ran three checkpoint scenarios successfully on Linux:
+ordinary save/load with 521380-byte recovered editable geometry,
+failed write path with two counted background failures and
+continued runtime, and protected Merge-armed recovery blocked
+with exact V13 first-original guard after saving a 1249-byte
+reflected checkpoint. Symmetry/asymmetry restored on ordinary
+load; curvature correction, collapse and refinement flags did
+not. Plan future M70 dynamic symmetric→asymmetric mode, M71
+mirrored *editing actions* on asymmetric topology versus exact
+pairwise manifold symmetry, and M72 optional persisted sculpt
+runtime settings/override precedence. M52 still waits on
+physical Windows GPU and exact provenance/root-history checks.
+See [M52 physical observations](V17_M52_DESKTOP_OBSERVATIONS.md).
