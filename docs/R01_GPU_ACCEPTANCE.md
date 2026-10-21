@@ -33,6 +33,12 @@ ctest --test-dir build -C Release --output-on-failure
   Tee-Object -FilePath .\r01-windows.log
 ```
 
+## Observed Linux manual exercise (2026-10-21; partial physical evidence)
+
+A user-provided physical viewport screenshot captures a default symmetric sphere sculpted into two long opposed protrusions that were intentionally brought into contact. R01 appears to freeze at the intended first collision. Red octahedral markers and attached edge rods are visible on both sides from a camera placed near the surface boundary; the highlighted topology includes a one-triangle incident-face halo beyond the one visibly penetrating vertex. That *is expected R01 visualization* and is not a claim that every marked vertex penetrates or should ultimately be excised. This positive real-world example contrasts with two earlier **failed** sphere exercises: spurious convex-hull shared-vertex contacts (fixed by endpoint snapping) and diagnostic broad-phase budget exhaustion with no evidence (addressed by a larger finite budget and differentiated messages).
+
+This is meaningful **partial Linux GPU observation**, not full R01 acceptance: no corresponding verified Windows GPU screenshot/log, controlled fixture/negative exercise and exact binary provenance were supplied. R01 should remain unchecked. A future positive review of R02/R03 must distinguish highlighting all vertices incident to intersecting faces from an actual proposed *deletion* set, since blindly removing their complete vertex fans could over-excise.
+
 ## Additional acceptance and evidence
 
 Repeat on an ordinary sphere with `--repair-inspect` (without the test fixture); ordinary stamps not involving intersections should continue to work normally. Record both hosts' exact `git rev-parse HEAD`, binary SHA256, OS/GPU/driver and clear screenshots of frozen geometry and red markers, plus logs. Confirm default `Mesher` doesn't freeze or display markers and `Mesher --repair-inspect --avoid-collisions` fails CLI preflight. CPU regression `repair_r01_frozen_intersection_inspection` must pass alongside all existing suites. Distinguish **CPU/CI integration** from actual physical hardware acceptance; leave R01 TODO unchecked pending both host observations and merged-main CI.
