@@ -113,11 +113,15 @@ void realFixtureAcceptance() {
             !ordinary.checkpoint().verifiedOriginalFidelity,
             "Recovered OFF-mode never manufactures M29 protected first-original credentials");
     const auto g=guarded.snapshot();
-    guarded.stamp(dummy,safe);
+    const auto recoveredRemote=g->vertex(remote).position;
+    const std::array<BrushArea,1> resumedSafe{{
+        {recoveredRemote,.5,.3}
+    }};
+    guarded.stamp(dummy,resumedSafe);
     require(guarded.publishedRevisions()==1&&guarded.snapshot()!=g&&
             guarded.lastStepResourceWork().backtracking.trials>=1,
             "Rearmed recovered V18 policy performs actual full geometric private trials");
-    ordinary.stamp(dummy,safe);
+    ordinary.stamp(dummy,resumedSafe);
     require(ordinary.publishedRevisions()==1&&
             ordinary.lastStepResourceWork().backtracking.trials==0,
             "Unarmed recovery of same edited checkpoint remains ordinary legacy Inflate");
