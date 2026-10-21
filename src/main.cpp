@@ -527,7 +527,7 @@ int main(int argc, char** argv) {
                 lastDisplayed=snapshot->index;
                 return mesher::ViewportMeshUpdate{
                     std::move(snapshot->index),std::move(snapshot->dirtyPartitions),
-                    snapshot->completedStamps};
+                    snapshot->completedStamps,false,{}};
             };
             interaction.completedStamps=[&]{return liveWorker->status().completedStamps;};
             interaction.skippedStamps=[]{return std::size_t{0};};
