@@ -2287,6 +2287,33 @@ faces, bypass original intent, or widen source geometry authorization:
   editing with full compatibility/three-platform CI; defer
   until explicitly prioritized. Existing successful checkpoint
   reload behavior remains accepted for M52.
+- [x] **V17-M73 — Default desktop sculpt mitigations ON, opt out via --no-* CLI flags.**
+  User-requested local CLI policy update only: enable directional
+  `collapseSettings`, curvature correction and local
+  `refineSettings` by default in `src/main.cpp`, and replace
+  accepted `--collapse`, `--curvature-correction`, `--refine`
+  with `--no-collapse`, `--no-curvature-correction`,
+  `--no-refine`. Keep core implementation, numeric defaults,
+  independent dedicated comparison modes, background worker
+  history/persistence schema and protected Merge OFF untouched.
+  Prevent numeric `--curvature-strength` from re-enabling a
+  correction explicitly disabled via `--no-curvature-correction`,
+  regardless of command-line ordering. Test help, defaults,
+  explicit opt-outs, old option rejection, and unchanged
+  protected Merge rejection boundary with CTest on Vulkan GCC,
+  Clang and Windows MSVC; build full stress/benchmarks and
+  verify merged-main separately. Update current README examples
+  and distinguish historical milestone descriptions. M52 physical
+  Windows GPU, source/history evidence remain OPEN.
+  M73 implementation head `6bfff6b9` passed
+  [Actions #39538385526](https://github.com/logiclrd/Mesher/actions/runs/39538385526)
+  full Vulkan-enabled Linux GCC, Linux Clang, Windows MSVC /W4 /WX
+  compile/CTest/stress/benchmark workflow green. GCC passed
+  **53/53 registered CTests**, including all new positive/negative
+  CLI parser smoke/rejection/source contracts and preserved
+  protected Merge default-OFF refusal tests. Exact completed
+  acceptance documentation PR head and independently merged-main
+  CI remain separate final gates; real host M52 stays open.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI

@@ -29,10 +29,15 @@ int main(int argc, char** argv) {
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
     std::uint32_t segments = 128;
+    // M73: desktop CLI defaults ON; library/settings structs and the
+    // independent four-way CPU comparison controls are unchanged.
     mesher::CollapseSettings collapseSettings;
     bool compareRemesh = false, compareMitigations = false;
     mesher::CurvatureSettings curvatureSettings;
     mesher::RefineSettings refineSettings;
+    collapseSettings.enabled=true;
+    curvatureSettings.enabled=true;
+    refineSettings.enabled=true;
     bool compareLocalRemesh = false;
     std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
     std::filesystem::path recoverPath;
@@ -40,13 +45,13 @@ int main(int argc, char** argv) {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
             if(arg=="--asymmetric") options.symmetric=false;
-            else if(arg=="--collapse") collapseSettings.enabled=true;
-            else if(arg=="--refine") refineSettings.enabled=true;
+            else if(arg=="--no-collapse") collapseSettings.enabled=false;
+            else if(arg=="--no-refine") refineSettings.enabled=false;
             else if(arg=="--no-edge-flips") refineSettings.optimizeFlips=false;
             else if(arg=="--compare-local-remesh") compareLocalRemesh=true;
             else if(arg=="--compare-remesh") compareRemesh=true;
             else if(arg=="--compare-mitigations") compareMitigations=true;
-            else if(arg=="--curvature-correction") curvatureSettings.enabled=true;
+            else if(arg=="--no-curvature-correction") curvatureSettings.enabled=false;
             else if(arg=="--no-inflate") inflate=false;
             else if(arg=="--demo") demoMode=true;
             else if(arg=="--verbose-input") verboseInput=true;
@@ -77,8 +82,10 @@ int main(int argc, char** argv) {
                 }
                 else if(arg=="--curvature-strength"){
                     if(v<0)throw std::invalid_argument("Curvature strength must be nonnegative");
+                    // Strength configures a parameter, not the enable
+                    // state. --no-curvature-correction must win regardless
+                    // of argument order.
                     curvatureSettings.strength=v;
-                    curvatureSettings.enabled=true;
                 }
                 else strength=v;
             }
@@ -130,11 +137,11 @@ int main(int argc, char** argv) {
             } else if(arg=="--help"||arg=="-h"){
                 std::cout<<"Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
                          <<"       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]\n"
-                         <<"       [--stamps-per-second HZ] [--collapse] [--compare-remesh]\n"
+                         <<"       [--stamps-per-second HZ] [--no-collapse] [--compare-remesh]\n"
                          <<"       [--minimum-edge-ratio R] [--max-collapse-pairs N]\n"
-                         <<"       [--curvature-correction] [--curvature-strength GAIN]\n"
+                         <<"       [--no-curvature-correction] [--curvature-strength GAIN]\n"
                          <<"       [--compare-mitigations] [--compare-local-remesh]\n"
-                         <<"       [--refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
+                         <<"       [--no-refine] [--no-edge-flips] [--maximum-edge-ratio R]\n"
                          <<"       [--max-split-pairs N] [--max-flip-pairs N]\n"
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
@@ -142,7 +149,7 @@ int main(int argc, char** argv) {
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
-                         <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65\n"
+                         <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
                          <<"          Mouse Inflate by default; --demo replays 128 segments at 10 stamps/sec.\n"
                          <<"Escape exits. Space pauses, Right steps (when paused), R replays.\n";
                 return 0;
