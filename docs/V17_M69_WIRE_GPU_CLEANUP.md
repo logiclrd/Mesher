@@ -39,3 +39,21 @@ Actual human-reviewed Linux and Windows GPU visual appearance,
 including normal/near/exact 90-degree thickness and hidden
 edge occlusion, remains M52. M66 optional backface culling
 remains deferred: two-sided interior debugging stays enabled.
+
+## Implementation and CI acceptance — 2026-10-20
+
+M69 initial full Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX
+implementation at `7d0e7122` passed
+[Actions #39516929872](https://github.com/logiclrd/Mesher/actions/runs/39516929872).
+Its subsequent documentation/code head `a28e4bb2` passed
+[Actions #39517508753](https://github.com/logiclrd/Mesher/actions/runs/39517508753)
+on the same three platforms. Both include applicable CTests,
+historical worker/checkpoint threaded stress and benchmarks.
+
+Reconcile the implementation with M68's independent merged-main
+CI-approved commit `aaa30999`: retain the final accepted M64, M67
+and M68 documentation and TODO statuses, not earlier unchecked
+versions from the originally dependent M69 development branch.
+The exact reconciled PR head and separately merged-main commit
+must still pass CI. No graphical claim of actual Linux/Windows
+pole visual uniformity is made without M52 user observation.
