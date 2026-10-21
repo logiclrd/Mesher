@@ -29,6 +29,10 @@ struct ViewportMeshUpdate {
     std::shared_ptr<const RegionTopologyIndex> index;
     std::vector<PartitionId> dirtyPartitions;
     std::size_t completedStamps = 0;
+    // Unpublished debug candidate only. Freeze UI editing and display
+    // separately shaded topology markers until the application exits.
+    bool inspectionFrozen = false;
+    std::vector<PartitionRenderVertex> inspectionOverlay;
 };
 
 struct ViewportInteraction {
