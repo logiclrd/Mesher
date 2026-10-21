@@ -81,6 +81,23 @@ Fixture mirroredSource(bool duplicateRemote=false) {
         root,std::move(pairs),mesh.vertices.size()),
         imported.flatIndex.vertexIds};
 }
+Fixture closedFixedSeamTetra() {
+    Mesh mesh;
+    mesh.vertices={
+        {-1,0,0},{1,0,0},{0,1.2,0},{0,.2,-1.3}
+    };
+    mesh.triangles={
+        {0,1,2},{1,0,3},{2,1,3},{0,2,3}
+    };
+    const auto imported=partitionFlatMesh(mesh,256);
+    const auto& ids=imported.flatIndex.vertexIds;
+    std::vector<MirrorPair> pairs{
+        {ids[0],ids[1]},{ids[2],ids[2]},{ids[3],ids[3]}
+    };
+    return {DurableCheckpoint(
+        RegionTopologyIndex::build(imported.revision),std::move(pairs),
+        mesh.vertices.size()),ids};
+}
 SculptCollisionSettings enabled(unsigned maxTrials=5) {
     SculptCollisionSettings cfg;
     cfg.offModeConstraints.enabled=true;
@@ -278,7 +295,7 @@ void actualMirrored4DWorkerFifoAndCheckpoint() {
             "Asynchronous reflected worker undo restores exact accepted source ancestor");
 }
 void actualFixedPointMirrorJournalSplitAndRollback() {
-    const auto fixture=mirroredSource();
+    const auto fixture=closedFixedSeamTetra();
     const auto initial=fixture.source;
     RefineSettings refine;
     refine.enabled=true;
@@ -305,7 +322,10 @@ void actualFixedPointMirrorJournalSplitAndRollback() {
     const auto baseline=brush.snapshot();
     const auto mirrors=canonicalPairs(brush.checkpoint().mirrorPairs);
     Mesh dummy;
-    brush.stamp(dummy,seam);
+    const std::array<BrushArea,1> fixedEdge{{
+        {{0,1.2,0},.13,.3}
+    }};
+    brush.stamp(dummy,fixedEdge);
     if(!(brush.rejectedStamps()==1&&brush.snapshot()==baseline&&
          brush.historyStatistics().undoDepth==0&&
          brush.checkpoint().mirrorPairs.size()==mirrors.size()&&
@@ -319,7 +339,7 @@ void actualFixedPointMirrorJournalSplitAndRollback() {
             " remainingMirrors="+std::to_string(brush.checkpoint().mirrorPairs.size())+
             " originalMirrors="+std::to_string(mirrors.size())+
             " reason="+brush.lastRejection());
-    brush.stamp(dummy,seam);
+    brush.stamp(dummy,fixedEdge);
     const auto accepted=brush.snapshot();
     const auto after=canonicalPairs(brush.checkpoint().mirrorPairs);
     require(candidates==2&&brush.rejectedStamps()==1&&
