@@ -689,7 +689,8 @@ int main(int argc, char** argv) {
             if(repairPreview)
                 std::cout<<"[repair-r02] Armed read-only proposed excision preview. "
                             "Orange selected faces; purple uncertain faces; "
-                            "gold boundary loops; red incident contacts. "\n                            "No geometry removed or published.\n";
+                            "gold boundary loops; red incident contacts. "
+                             "No geometry removed or published.\n";
             if(repairInspect)
                 std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
                             "unpublished candidate. Red dots are incident vertices; "
