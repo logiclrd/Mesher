@@ -384,6 +384,8 @@ class VulkanViewport {
     ViewportCameraGestures cameraGestures_;
     ViewportCursorWrap orbitCursor_;
     std::string lastMergeStatus_;
+    std::string lastCollisionStatus_;
+    double lastCollisionReportTime_=-1.0;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
@@ -1170,6 +1172,27 @@ class VulkanViewport {
                 std::cout<<"[merge] "<<requests<<"\n";
                 updateTitle();
                 refreshHud();
+            }
+        }
+        // M06: the *separate* OFF-mode constraint policy reports
+        // recoverable refusal even when no geometry/stamp was published.
+        // No Merge or protected original-source UI selection is implied.
+        if(interaction_.collisionStatus) {
+            const auto value=interaction_.collisionStatus();
+            const auto now=glfwGetTime();
+            const bool urgent=value.find(" REFUSED ")!=std::string::npos||
+                              value.find(" TERMINAL ")!=std::string::npos||
+                              lastCollisionStatus_.find(" REFUSED ")!=std::string::npos;
+            // Do not turn a smooth high-frequency stroke into a console
+            // line per Step. Never throttle a refusal or the first
+            // accepted Step after it; periodic detailed [sculpt] remains.
+            if(!value.empty()&&value!=lastCollisionStatus_&&
+               (urgent||lastCollisionReportTime_<0||
+                now-lastCollisionReportTime_>=1.0)) {
+                lastCollisionStatus_=value;
+                lastCollisionReportTime_=now;
+                std::cout<<"[collision] "<<value<<"\n"<<std::flush;
+                updateTitle();
             }
         }
         if(waitingForDrain_ && interaction_.canBegin && interaction_.canBegin()) {

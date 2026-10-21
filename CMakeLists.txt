@@ -178,6 +178,12 @@ if(MESHER_BUILD_TESTS)
         add_test(NAME sculpt_cli_reject_legacy_refine
                  COMMAND Mesher --refine --help)
         set_tests_properties(sculpt_cli_reject_legacy_refine PROPERTIES WILL_FAIL TRUE)
+        # M06: all modes go through the REAL desktop argument parser,
+        # without initializing Vulkan/GLFW or opening a checkpoint.
+        add_test(NAME desktop_offmode_cli_fail_closed
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_desktop_collision_cli.cmake")
         add_test(NAME desktop_merge_default_off_help COMMAND Mesher --help)
         set_tests_properties(desktop_merge_default_off_help PROPERTIES
             PASS_REGULAR_EXPRESSION "Mouse Inflate by default")
@@ -261,6 +267,9 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_offmode_backtracking_tests tests/offmode_backtracking_tests.cpp)
     target_link_libraries(mesher_offmode_backtracking_tests PRIVATE mesher_mesh)
     add_test(NAME offmode_bounded_normal_backtracking COMMAND mesher_offmode_backtracking_tests)
+    add_executable(mesher_desktop_collision_policy_tests tests/desktop_collision_policy_tests.cpp)
+    target_link_libraries(mesher_desktop_collision_policy_tests PRIVATE mesher_mesh)
+    add_test(NAME desktop_offmode_policy_and_recovery COMMAND mesher_desktop_collision_policy_tests)
     add_executable(mesher_offmode_mirrored_transaction_tests tests/offmode_mirrored_transaction_tests.cpp)
     target_link_libraries(mesher_offmode_mirrored_transaction_tests PRIVATE mesher_mesh)
     add_test(NAME offmode_reflected_opposing_sheet_transactions COMMAND mesher_offmode_mirrored_transaction_tests)

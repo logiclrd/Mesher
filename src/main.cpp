@@ -6,6 +6,7 @@
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/desktop_collision_policy.hpp"
 
 #include <array>
 #include <filesystem>
@@ -25,6 +26,7 @@ int main(int argc, char** argv) {
     mesher::SphereOptions options;
     bool inflate = true, demoMode = false, verboseInput = false;
     bool allowMergeGeometry = false;
+    bool avoidCollisions = false;
     bool mergeTestTetra = false;
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
@@ -56,6 +58,7 @@ int main(int argc, char** argv) {
             else if(arg=="--demo") demoMode=true;
             else if(arg=="--verbose-input") verboseInput=true;
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
+            else if(arg=="--avoid-collisions")avoidCollisions=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
@@ -147,6 +150,7 @@ int main(int argc, char** argv) {
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
+                         <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -171,6 +175,11 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
+        const auto desktopPolicy=mesher::desktopCollisionSettings({
+            allowMergeGeometry,avoidCollisions,
+            inflate&&!demoMode&&!compareRemesh&&
+            !compareLocalRemesh&&!compareMitigations
+        });
         if(allowMergeGeometry&&!recoverPath.empty())
             throw std::invalid_argument(
                 "--merge-geometry refuses V13 disk recovery without sealed first-original M29 authority");
@@ -334,10 +343,10 @@ int main(int argc, char** argv) {
             if(recovered)
                 liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
-                    curvatureSettings,collapseSettings,refineSettings);
+                    curvatureSettings,collapseSettings,refineSettings,
+                    mesher::SculptStepValidator{},desktopPolicy);
             else {
-                mesher::SculptCollisionSettings mergePolicy;
-                mergePolicy.physicalExact=allowMergeGeometry;
+                const auto mergePolicy=desktopPolicy;
                 if(mergeTestReflectedTetra) {
                     // The ordinary symmetric sphere constructor cannot
                     // authenticate this separate pair of original tetra
@@ -370,6 +379,23 @@ int main(int argc, char** argv) {
                 // rendered acceptance. Default unit-sphere camera is
                 // untouched; both Vulkan projection and CPU rays scale.
                 interaction.cameraScale=mergeTestReflectedTetra?4.0:2.0;
+            }
+            if(avoidCollisions) {
+                interaction.collisionStatus=[&] {
+                    const auto status=liveWorker->status();
+                    const auto& bt=status.stepResources.backtracking;
+                    std::ostringstream out;
+                    out<<"ON R "<<status.rejectedStamps
+                       <<" A "<<status.completedStamps
+                       <<" P "<<status.publishedRevisions
+                       <<" trials "<<bt.trials
+                       <<" fraction "<<bt.chosenNormalFraction;
+                    if(status.terminalFailure)
+                        out<<" TERMINAL "<<status.terminalFailureReason;
+                    else if(status.stepResources.refused)
+                        out<<" REFUSED "<<status.lastRejection;
+                    return out.str();
+                };
             }
             if(allowMergeGeometry) {
                 interaction.mergeSelected=[&](
@@ -469,6 +495,23 @@ int main(int argc, char** argv) {
                    <<" checkpoints_saved="<<status.checkpoints.completed
                    <<" checkpoint_failures="<<status.checkpoints.failed
                    <<" renderer=dirty_partitions";
+                if(avoidCollisions) {
+                    const auto& bt=status.stepResources.backtracking;
+                    os<<" collision_avoidance=ON"
+                      <<" rejected_stamps="<<status.rejectedStamps
+                      <<" collision_checked="<<status.collisionCheckedStamps
+                      <<" trial_count="<<bt.trials
+                      <<" declined_trials="<<bt.declined
+                      <<" normal_fraction="<<bt.chosenNormalFraction
+                      <<" trial_copy_bytes="<<bt.privateCopiedBytes
+                      <<" trial_changed_id_references="<<bt.changedIdReferences
+                      <<" trial_distance_tests="<<bt.distanceTests
+                      <<" private_copy_bytes="<<status.stepResources.privateCopiedBytes
+                      <<" step_refused="<<(status.stepResources.refused?1:0)
+                      <<" budget_refusals="<<status.resources.budgetRefusals;
+                    if(status.stepResources.refused)
+                        os<<" refusal_reason="<<status.lastRejection;
+                }
                 return os.str();
             };
             interaction.stationaryStampsPerSecond=timeSpeed/step;
@@ -479,13 +522,22 @@ int main(int argc, char** argv) {
                        " | stamps "+std::to_string(status.completedStamps)+
                        " | pending "+std::to_string(status.pendingSteps)+
                        " | input "+std::to_string(status.inputCommands)+
-                       (options.symmetric?" | mirrored":" | asymmetric");
+                       (options.symmetric?" | mirrored":" | asymmetric")+
+                       (avoidCollisions?" | collision avoidance ON (Merge OFF)":"");
             };
             if(mergeTestTetra||mergeTestReflectedTetra)
                 std::cout<<"[merge] This named developer fixture permits "
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
+            if(avoidCollisions)
+                std::cout<<"[collision] OFF-mode collision avoidance explicitly ON "
+                            "for this session; protected Merge unavailable. "
+                            "Unsafe/uncertain Steps may backtrack or REFUSE; "
+                            "check [collision] and [sculpt] diagnostics. "
+                            "Checkpoint recovery never re-enables avoidance "
+                            "unless --avoid-collisions is supplied again. "
+                            "No exact swept-volume CCD is claimed.\n";
             if(allowMergeGeometry)
                 std::cout<<"Merge geometry: explicitly authorized protected original-root worker; "
                          <<"desktop starts OFF. Press M to toggle Merge selection, "
