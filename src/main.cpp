@@ -253,7 +253,7 @@ int main(int argc, char** argv) {
                         "separate close sheets near origin and safe remote face at X=3.5. "
                         "No protected Merge source is authorized.\n";
         }else if(torusFixture) {
-            std::cout<<"[fixture] Constructing torus R=0.8 r=0.2; "
+            std::cout<<"[fixture] Constructing torus R=0.55 r=0.45 (hole radius 0.10); "
                      <<options.vertexCount<<" random area-stratified vertices, "
                      <<options.relaxationIterations<<" relaxation passes.\n";
             mesh=mesher::generateTorusFixture(options.vertexCount,options.seed,
