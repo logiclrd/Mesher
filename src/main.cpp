@@ -509,6 +509,9 @@ int main(int argc, char** argv) {
                              <<" incident_vertices="<<frozen->incidentVertices.size()
                              <<" incident_edges="<<frozen->incidentEdges.size()
                              <<" seed_faces="<<frozen->work.seedFaces
+                             <<" box_tests="<<frozen->work.boxesTested
+                             <<" partition_tests="<<frozen->work.partitionsTested
+                             <<" candidate_triangles="<<frozen->work.candidateTriangles
                              <<" narrow_tests="<<frozen->work.narrowPhaseTests
                              <<" diagnostic="<<(frozen->diagnostic.empty()?"none":frozen->diagnostic)
                              <<" (no CAS/history/checkpoint publication)\n";
