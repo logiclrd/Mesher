@@ -7,6 +7,7 @@
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/desktop_collision_policy.hpp"
+#include "mesher/desktop_offmode_fixture.hpp"
 
 #include <array>
 #include <filesystem>
@@ -27,6 +28,7 @@ int main(int argc, char** argv) {
     bool inflate = true, demoMode = false, verboseInput = false;
     bool allowMergeGeometry = false;
     bool avoidCollisions = false;
+    bool avoidTestSheets = false;
     bool mergeTestTetra = false;
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
@@ -59,6 +61,7 @@ int main(int argc, char** argv) {
             else if(arg=="--verbose-input") verboseInput=true;
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
             else if(arg=="--avoid-collisions")avoidCollisions=true;
+            else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
@@ -151,6 +154,7 @@ int main(int argc, char** argv) {
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
+                         <<"       [--avoid-test-sheets] (requires --avoid-collisions --asymmetric; M07 GPU test only)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -180,6 +184,16 @@ int main(int argc, char** argv) {
             inflate&&!demoMode&&!compareRemesh&&
             !compareLocalRemesh&&!compareMitigations
         });
+        if(avoidTestSheets&&(!avoidCollisions||options.symmetric||
+            !recoverPath.empty()||mergeTestTetra||
+            mergeTestReflectedTetra))
+            throw std::invalid_argument(
+                "--avoid-test-sheets requires --avoid-collisions --asymmetric, no --recover and no protected Merge fixture");
+        if(avoidTestSheets&&
+            (!inflate||demoMode||compareLocalRemesh||
+             compareRemesh||compareMitigations))
+            throw std::invalid_argument(
+                "--avoid-test-sheets requires interactive Inflate mode");
         if(allowMergeGeometry&&!recoverPath.empty())
             throw std::invalid_argument(
                 "--merge-geometry refuses V13 disk recovery without sealed first-original M29 authority");
@@ -200,6 +214,14 @@ int main(int argc, char** argv) {
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
                      <<" retired vertices from "<<recoverPath.string()<<"\n";
+        }else if(avoidTestSheets) {
+            mesh=mesher::desktopOffModeNearSheetsFixture();
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            std::cout<<"[collision] M07 developer near-sheet fixture: "
+                     <<mesh.vertices.size()<<" stable vertices, "
+                     <<mesh.triangles.size()<<" independently owned faces; "
+                        "separate close sheets near origin and safe remote face at X=3.5. "
+                        "No protected Merge source is authorized.\n";
         }else if(mergeTestReflectedTetra) {
             mesh=mesher::desktopMergeReflectedTetraFixture();
             options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
@@ -372,6 +394,8 @@ int main(int argc, char** argv) {
                         mesher::SculptStepValidator{},mergePolicy);
                 }
             }
+            if(avoidTestSheets)
+                interaction.cameraScale=3.5; // covers near and safe remote face
             if(mergeTestTetra||mergeTestReflectedTetra) {
                 interaction.mergeFixtureOriginal=liveWorker->initialRevision();
                 interaction.mergeFixtureOriginals=std::move(fixtureFirstFaces);
@@ -530,6 +554,14 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
+            if(avoidTestSheets)
+                std::cout<<"[collision] M07 GPU exercise: orbit to view the two "
+                            "closely separated faces near X=0, sculpt repeatedly "
+                            "toward the other sheet, observe reduced normal_fraction "
+                            "and eventual REFUSED. Sculpt the separate face "
+                            "at X=3.5 to verify recovery; Ctrl+Z/Y and Ctrl+S, "
+                            "then --recover with/without --avoid-collisions. "
+                            "This is a finite fixture, not CCD.\n";
             if(avoidCollisions)
                 std::cout<<"[collision] OFF-mode collision avoidance explicitly ON "
                             "for this session; protected Merge unavailable. "
