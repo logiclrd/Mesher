@@ -2314,7 +2314,7 @@ faces, bypass original intent, or widen source geometry authorization:
   protected Merge default-OFF refusal tests. Exact completed
   acceptance documentation PR head and independently merged-main
   CI remain separate final gates; real host M52 stays open.
-- [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
+- [x] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
   or mocked GPU), covering normal and explicitly armed default OFF,
@@ -2323,6 +2323,7 @@ faces, bypass original intent, or widen source geometry authorization:
   one-Step undo/redo, checkpoint recovery's V13 source refusal and
   failed-save diagnostics. Keep raw OS/GPU/build/commands, actual
   observed outcomes and limitations; never mark passed by assumption.
+  **Historical partial Linux-only report (superseded by final acceptance below):**
   **Partial actual desktop feedback, 2026-10-20, after M69:** The
   user reports mesh/floor line appearance now consistently independent
   of camera elevation (including the formerly discontinuous 90-degree
@@ -2363,11 +2364,41 @@ faces, bypass original intent, or widen source geometry authorization:
   emitted exact expected V13 source-authority refusal, before
   it attempted to read the checkpoint (this confirms the CLI
   combination guard, not disk proof reauthentication).
-  Keep M52 OPEN for true Windows Vulkan observation, exact
+  At this historical Linux-only point, M52 remained OPEN for Windows Vulkan observation, exact
   executable SHA/GPU/driver, and finer-grained root/history
   evidence as described in the acceptance log.
   Detailed current evidence and outstanding checks:
   `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
+  **FINAL ACCEPTANCE, 2026-10-20/21 (after Windows user reports):**
+  Both independently built tested binaries identify source
+  `c3123987d6f45e5f0eb946c94b40ac1fc99695fd`. Linux executable
+  SHA-256 `93ba9936f42528e8b3aaf2abe3e283ae92a7ff7a03a041f50ef2d1f49ed9d955`
+  on Ubuntu-based kernel 7.0.0-34, AMD Radeon 780M Mesa RADV 26.0.8;
+  Windows executable SHA-256
+  `5A19D5C5A3547E532EFB4CF77BC8AABC240E5CCE2CD138B8873B6CC4B00C4A72`
+  on Windows 10 Pro build 19045, RTX 3080 NVIDIA 560.94, through
+  a normally GPU-accelerated RustDesk-controlled desktop.
+  Physical W1–W7 passed: default OFF/ordinary sculpt and W/G,
+  camera/interior/±90 poles/occlusion, asymmetric and reflected
+  M/A/Enter positive unions each `A 1 R 0 P 0`, Ctrl+Z/Y
+  and rebranch, manually nominated FaceIds `8,10,1,9`
+  reflection-closure `A 0 R 1 P 0 REFUSED` followed by
+  accepted recovery, ordinary 543048-byte disk save/reload/edit,
+  failed-save count with healthy worker, protected
+  `--merge-geometry --recover` early authority refusal and
+  M73 default/legacy-CLI smoke. Earlier Linux checkpoint/refusal
+  runs independently passed. M54 plus M47/M49 automated tests
+  provide separately proven exact root/history/source/atomicity,
+  not manually measured pointer identity. Explicit limitations:
+  Linux Vulkan device inventory includes llvmpipe and Mesher's
+  chosen `VkPhysicalDevice` wasn't separately logged; RustDesk
+  prevents directly observing Windows edge cursor warps; no complete
+  Windows console transcript or explicit GUI history-depth
+  counters. Do not infer untested host details. This is the
+  intentionally **targeted M52** acceptance, not M15 integrated
+  acceptance, V18 OFF crossing prevention, V19 general Boolean
+  or universal Vulkan correctness.
+  Detailed evidence: `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
 **Then ORIGINAL V17-M15:** Independently reconcile all previously
   stated physical source/first-original/winding/cavity, 38 resource
   limits, M23 episodes, M14 quarantine, immutable history and
