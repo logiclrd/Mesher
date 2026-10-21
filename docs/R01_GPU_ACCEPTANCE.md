@@ -1,6 +1,6 @@
 # R01 physical acceptance — first post-stamp intersection freeze
 
-**Status:** Implementation/CPU validation in progress. Linux and Windows GPU inspection not yet accepted. This is an explicitly opted-in **developer diagnostic**, NOT the production approximate repair engine.
+**Status (2026-10-21):** CPU/CI passed on Linux GCC, Linux Clang and Windows MSVC. Positive Linux physical intersection highlighting and negative non-contact sculpting have been observed, including a hollow-shell console trace below. Formal acceptance remains open pending Windows physical GPU observation and provenance/completion of the recorded inspection gates. This is an explicitly opted-in **developer diagnostic**, NOT the production approximate repair engine.
 
 ## Expected behavior
 
@@ -38,6 +38,19 @@ ctest --test-dir build -C Release --output-on-failure
 A user-provided physical viewport screenshot captures a default symmetric sphere sculpted into two long opposed protrusions that were intentionally brought into contact. R01 appears to freeze at the intended first collision. Red octahedral markers and attached edge rods are visible on both sides from a camera placed near the surface boundary; the highlighted topology includes a one-triangle incident-face halo beyond the one visibly penetrating vertex. That *is expected R01 visualization* and is not a claim that every marked vertex penetrates or should ultimately be excised. This positive real-world example contrasts with two earlier **failed** sphere exercises: spurious convex-hull shared-vertex contacts (fixed by endpoint snapping) and diagnostic broad-phase budget exhaustion with no evidence (addressed by a larger finite budget and differentiated messages).
 
 This is meaningful **partial Linux GPU observation**, not full R01 acceptance: no corresponding verified Windows GPU screenshot/log, controlled fixture/negative exercise and exact binary provenance were supplied. R01 should remain unchecked. A future positive review of R02/R03 must distinguish highlighting all vertices incident to intersecting faces from an actual proposed *deletion* set, since blindly removing their complete vertex fans could over-excise.
+
+## Hollow-sphere pinch and non-contact exercises — user-provided Linux evidence, 2026-10-21
+
+A physical Linux Vulkan session of the `--repair-inspect --hollow-sphere` fixture deliberately inflated the narrow entrance until the inner/outer surfaces made contact. The attached screenshots in the conversation visibly show red incident-face vertex/edge overlays at the expected constriction, rather than an unrelated region. The console reports:
+
+```text
+[repair-r01] FROZEN candidate state=CONTACT contacts=37 faces=19 incident_vertices=15 incident_edges=36 seed_faces=846 box_tests=101560 partition_tests=3671 candidate_triangles=12325 narrow_tests=6171 diagnostic=none (no CAS/history/checkpoint publication)
+[repair-r01] FROZEN: viewing an unpublished candidate; LMB/undo/save disabled; orbit, W/G and Escape remain available
+```
+
+The complete user-provided log enumerates 37 concrete FaceId pairs (for example, 1011×1021 and 10569×10572). This is 37 intersecting **triangle pairs**, not 37 independent repair islands; 19 distinct incident faces and 15 unique incident vertices are highlighted. 101,560 box tests are well inside the revised 4,194,304 maximum. The last preceding sculpt status showed a radius-0.5 stamp near (`-0.0041,-0.9660,-0.0803`), 364 influenced/moved vertices, 8 splits, 3 flips and 3 collapses. This confirms collision detection is performed following ordinary deformation and remeshing, not just on a static fixture.
+
+The tester additionally reports **no false positive contacts or incomplete queries during non-contact manipulation of all three nontrivial meshes** (the sculpted sphere, torus and hollow shell). Combined with successful earlier two-protrusion and torus pinch visuals, Linux R01's positive and negative *functional behavior* is convincingly demonstrated. Not yet separately furnished: exact tested binary SHA, recorded interactive undo/save/repeated-stamp attempts after freeze and the Windows physical Vulkan observation. Keep the combined formal R01 TODO gate open until these are satisfied; neither changed material classification nor detached interior surface cleanup belongs to R01. The hollow-shell's enclosed inner surface is planned for complete **redundant-component deletion** in later repair stages, with no cap/zipper necessary.
 
 ## Additional acceptance and evidence
 
