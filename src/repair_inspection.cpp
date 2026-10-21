@@ -39,7 +39,7 @@ void dot(std::vector<PartitionRenderVertex>& out,Vec3 c,double r) {
         triangle(out,points[5],b,a,2.0f);
     }
 }
-void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius) {
+void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius,float material=3.0f) {
     const auto delta=b-a;
     if(length(delta)<=1e-15)return;
     const auto axis=normalized(delta);
@@ -49,8 +49,8 @@ void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius) {
     const std::array<Vec3,4> ring{{u,v,u*-1.0,v*-1.0}};
     for(unsigned i=0;i<4;++i) {
         const auto j=(i+1)%4;
-        triangle(out,a+ring[i],a+ring[j],b+ring[i],3.0f);
-        triangle(out,b+ring[i],a+ring[j],b+ring[j],3.0f);
+        triangle(out,a+ring[i],a+ring[j],b+ring[i],material);
+        triangle(out,b+ring[i],a+ring[j],b+ring[j],material);
     }
 }
 }
@@ -207,8 +207,6 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
         // The face inset exposes underlying wireframe and makes the
         // diagnostic region distinguishable from the red R01 contact halo.
         const auto highlight=[&](FaceId id,float material) {
-            const auto* unused=static_cast<const void*>(nullptr);
-            (void)unused;
             const auto& f=snapshot.candidate->face(id).vertices;
             const auto a=snapshot.candidate->vertex(f[0]).position;
             const auto b=snapshot.candidate->vertex(f[1]).position;
@@ -231,7 +229,7 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
                 const auto b=loop.vertexIds[(i+1)%loop.vertexIds.size()];
                 rod(overlay,snapshot.candidate->vertex(a).position,
                     snapshot.candidate->vertex(b).position,
-                    std::max(.0025,std::min(markerRadius(a),markerRadius(b))*.53));
+                    std::max(.0025,std::min(markerRadius(a),markerRadius(b))*.53),6.0f);
             }
         }
     }
