@@ -56,12 +56,12 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 **Effective 2026-10-21:** the original V17 and V18 supported-domain acceptance records remain historical evidence, **not** fulfillment of the clarified product-level Merge and Non-Merge requirements. The intended design, proof boundaries, non-goals, precise R01–R08 acceptance cases, symmetry migration and deferred Smooth brush are specified in [Geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md). R01 begins as an opt-in observation-only diagnostic; no production-path defaults change. Preserve all V1–V16 reusable infrastructure, exact V17 as reference, and previous open V18-M07 physical acceptance truth. Do not mark V17/V18 original feature goals complete for new purposes based on old restricted tests.
 
-- [ ] **R01 — Detect and freeze on the first relevant post-stamp triangle intersection; red incident vertex/edge overlay, private candidate inspection, finite CPU and physical Linux/Windows Vulkan acceptance.**
+- [ ] **G01 — Developer startup fixtures:** `--torus` and `--hollow-sphere` with deterministic surface sampling/relaxation, directed manifold stitching, exact geometry and CLI validation, and CPU+physical viewer acceptance; no automated topology repair implied.\n- [ ] **R01 — Detect and freeze on the first relevant post-stamp triangle intersection; red incident vertex/edge overlay, private candidate inspection, finite CPU and physical Linux/Windows Vulkan acceptance.**
 - [ ] **R02 — Classify and visually preview buried-face deletion and resulting boundary graph, including independent islands, without editing geometry.**
 - [ ] **R03 — Frozen PRIVATE excision-only snapshot with actual holes and stable boundary loops, not a normally published closed mesh.**
 - [ ] **R04 — Forced `--repair zipper`, blue new faces, multiple independently matched loop pairs, explicit refusal of unsupported cases.**
 - [ ] **R05 — Forced `--repair cap`, green new faces, one/multiple independent loops and explicit unsuitable-cap refusals.**
-- [ ] **R06 — Automatic closure per independent region (cap, zipper, or redundant component elimination), ambiguous many-to-many refusals; test torus tunnel removal and hollow-shell mouth sealing with correct oriented disconnected cavity components.**
+- [ ] **R06 — Automatic closure per independent region (cap, zipper, or redundant component elimination), ambiguous many-to-many refusals; test torus tunnel removal and hollow-shell mouth sealing with correct closed-component excision of a now-isolated redundant interior, without a cap or zipper.**
 - [ ] **R07 — Continuous iterative approximate repair, structurally valid intermediate published results, local residual contacts and bounded refinement.**
 - [ ] **R08 — Production approximate Merge integration and physical acceptance, independent brush proposal, symmetry handoff, no developer freeze modes.**
 
