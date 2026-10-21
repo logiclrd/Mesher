@@ -11,6 +11,7 @@
 #include "mesher/exact_stage_work.hpp"
 #include "mesher/offmode_collision.hpp"
 #include "mesher/offmode_clearance.hpp"
+#include "mesher/offmode_mirror.hpp"
 
 #include <atomic>
 #include <chrono>
