@@ -128,8 +128,6 @@ OffModeMirrorAudit auditOffModeMirrors(
         return fail(e.what());
     }catch(const std::logic_error& e) {
         return fail(e.what());
-    }catch(const std::out_of_range& e) {
-        return fail(e.what());
     }
     result.complete=true;
     return result;
