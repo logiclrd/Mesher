@@ -525,7 +525,10 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
     if(collision_.offModeConstraints.enabled&&
        collision_.offModeConstraints.backtrack.enabled&&
        (collision_.offModeConstraints.backtrack.maxTrials==0||
-        collision_.offModeConstraints.backtrack.maxTrials>8))
+        collision_.offModeConstraints.backtrack.maxTrials>8||
+        !std::isfinite(collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges)||
+        collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges<=0||
+        collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges>1))
         throw std::invalid_argument(
             "V18 backtracking requires 1..8 bounded private candidate trials");
     details_.vertices=vertices_;
@@ -579,7 +582,10 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.offModeConstraints.enabled&&
        collision_.offModeConstraints.backtrack.enabled&&
        (collision_.offModeConstraints.backtrack.maxTrials==0||
-        collision_.offModeConstraints.backtrack.maxTrials>8))
+        collision_.offModeConstraints.backtrack.maxTrials>8||
+        !std::isfinite(collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges)||
+        collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges<=0||
+        collision_.offModeConstraints.backtrack.maxNormalStepInLocalEdges>1))
         throw std::invalid_argument(
             "V18 backtracking requires 1..8 bounded private candidate trials");
     details_.vertices=vertices_;
@@ -709,6 +715,11 @@ VersionedSculptBrush::probeOffModeNormalFraction(
     const auto& policy=collision_.offModeConstraints;
     if(!policy.enabled||!policy.backtrack.enabled)return choice;
     const auto& budget=policy.backtrack;
+    if(!std::isfinite(budget.maxNormalStepInLocalEdges)||
+       budget.maxNormalStepInLocalEdges<=0||
+       budget.maxNormalStepInLocalEdges>1)
+        throw std::invalid_argument(
+            "V18 normal step must have finite local edge ratio in (0,1]");
     if(budget.maxTrials==0||budget.maxTrials>8)
         throw std::invalid_argument(
             "V18 bounded backtracking requires 1..8 private trials");
@@ -729,6 +740,7 @@ VersionedSculptBrush::probeOffModeNormalFraction(
         bool rollbackNeeded=true;
         OffModeClearanceReport assessment;
         bool noChange=false;
+        bool tooLargeNormal=false;
         std::string error;
         try {
             const auto refined=refiner_.apply(
@@ -766,6 +778,31 @@ VersionedSculptBrush::probeOffModeNormalFraction(
                    budget.maxTrialChangedIdReferences)
                 throw std::length_error(
                     "V18 bounded backtracking cumulative COW/changed-ID work budget exhausted");
+            // The finite endpoint predicate alone cannot exclude
+            // tunnelling through a thin untouched sheet. Bound each
+            // original normal step by a fraction of the PRE-STAMP
+            // shortest incident edge, never the brush radius.
+            for(const auto id:inflated.baseline.movedVertices) {
+                const auto& beforeVertex=before->vertex(id);
+                const auto afterVertex=inflated.index->vertex(id).position;
+                double shortest=std::numeric_limits<double>::infinity();
+                for(const auto fid:beforeVertex.incidentFaces) {
+                    const auto corners=before->face(fid).vertices;
+                    for(unsigned k=0;k<3;++k) {
+                        if(corners[k]!=id)continue;
+                        for(unsigned j=1;j<=2;++j)
+                            shortest=std::min(shortest,length(
+                                beforeVertex.position-
+                                before->vertex(corners[(k+j)%3]).position));
+                    }
+                }
+                if(!std::isfinite(shortest)||shortest<=0)
+                    throw std::logic_error(
+                        "V18 cannot certify local edge scale for large normal step");
+                if(length(afterVertex-beforeVertex.position)>
+                   budget.maxNormalStepInLocalEdges*shortest)
+                    tooLargeNormal=true;
+            }
             noChange=updated==before;
             if(!noChange) {
                 assessment=assessOffModeMeshClearance(
@@ -802,7 +839,7 @@ VersionedSculptBrush::probeOffModeNormalFraction(
             choice.work.chosenNormalFraction=1;
             return choice; // Genuine unchanged original Step
         }
-        if(!noChange&&assessment.allowed()) {
+        if(!noChange&&assessment.allowed()&&!tooLargeNormal) {
             choice.fraction=fraction;
             choice.work.chosenNormalFraction=fraction;
             return choice;
@@ -812,7 +849,8 @@ VersionedSculptBrush::probeOffModeNormalFraction(
         // addressed by smaller normal displacement. No retry of an
         // UNKNOWN, bad source or exhausted finite certificate.
         if(noChange||
-           (assessment.status!=OffModeClearanceStatus::TooClose&&
+           (!tooLargeNormal&&
+            assessment.status!=OffModeClearanceStatus::TooClose&&
             assessment.status!=OffModeClearanceStatus::Contact)) {
             choice.refusal="V18 bounded backtracking refuses uncertain private clearance";
             break;
