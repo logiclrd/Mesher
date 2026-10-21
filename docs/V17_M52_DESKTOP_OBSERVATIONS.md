@@ -56,3 +56,118 @@ the user praised consistent thickness but noted a slight preference
 for thinner lines. If requested, tune ink as a separate, bounded
 visual change without bringing back detached quads or forward
 clip-Z bias. Deferred M66 backface-culling option is unrelated.
+
+## Additional undo/redo and reflection refusal observation — 2026-10-20
+
+The user reports experimenting with various **Ctrl+Z/Ctrl+Y**
+sequences and redoing selection/processing after an undo.
+All outcomes matched their expectations. This is actual
+GUI history/branching evidence, without an independently
+captured immutable-root identity or precise depth record.
+
+The user then restarted to a fresh initial state, enabled
+Merge (M), **did not use fixture A**, clicked a subset of
+intersecting faces, and submitted with Enter. The following
+console output was provided verbatim:
+
+```text
+[merge] mode=ON (M toggles, LMB selects FaceIds, fixture A nominates, Enter submits, Backspace clears)
+[merge] select immutable FaceId 8 total=1
+[merge] select immutable FaceId 10 total=2
+[merge] select immutable FaceId 1 total=3
+[merge] select immutable FaceId 14 total=4
+[merge] select immutable FaceId 13 total=5
+[merge] queued 5 explicitly nominated first-original FaceIds
+[merge] A 0 R 0 P 1
+[merge] A 0 R 1 P 0 REFUSED Queued first-original exact terminal policy refused: Caller original intent is not closed under source-proven reflection
+```
+
+The event confirms five distinct source-original nominations,
+a queued request and one completed worker refusal rather than
+an accepted union. This particular refusal enforces closure
+under source-proven reflection; it is not proof of every
+other incomplete, noncontact, stale or budget refusal.
+The accepted/rejected/pending counters after processing
+are 0/1/0. The user has not independently reported
+before/after root identity, explicit unchanged history
+depth, or screenshot of the rejected geometry, so those
+specific assertions remain open.
+
+Remaining M52 acceptance includes exact executable SHA and
+OS/GPU/Vulkan driver provenance, physical Windows GPU,
+checkpoint save/reopen and failed-save diagnostics,
+armed recovery refusal, and exact positive fixture worker
+accepted statuses/root identity as needed for full audit.
+These observations do not close M52 or original M15.
+
+## Ordinary checkpoint, controlled failure, and V13 armed-recovery refusal — user PASS 2026-10-20
+
+The user performed the complete checkpoint triad on the live
+Linux desktop, supplied the following actual file/log evidence,
+and explicitly marked all three tests PASS. These are
+physical program tests, not merely CPU simulated checkpoints.
+
+1. **Ordinary checkpoint / recovery PASS.** A fresh ordinary
+   Inflate session wrote `m52-checkpoints/ordinary.mshr`:
+
+   ```text
+   -rw-rw-r-- 1 logiclrd logiclrd 521380 Oct 20 21:51 ordinary.mshr
+   ```
+
+   The file reopened correctly in Mesher, displayed the
+   recovered geometry and allowed further sculpting. The
+   observed symmetric/asymmetric editing state survived
+   recovery. Startup feature flags `--curvature-correction`,
+   `--collapse`, and `--refine` did NOT persist; see separate
+   deferred feature M72 rather than treating this as a failure
+   of the current checkpoint format.
+
+2. **Failed-save handling PASS.** The user provided a nonexistent
+   parent path, submitted Ctrl+S twice, and observed:
+
+   ```text
+   [checkpoint] queued m52-checkpoints/nonexistent-parent/failed.mshr
+   [checkpoint] queued m52-checkpoints/nonexistent-parent/failed.mshr
+   [sculpt] ... undo_depth=26 redo_depth=0 history_roots=27 ... checkpoints_saved=0 checkpoint_failures=2 renderer=dirty_partitions
+   ```
+
+   This confirms both background write failures were counted,
+   no successful checkpoint was reported, and the application
+   was still running and logging active sculpt state. The user
+   labeled the safe-failure case PASS. An explicit subsequent
+   before/after root pointer is not captured by this log.
+
+3. **Protected Merge-armed recovery refusal PASS.** Launched:
+
+   ```text
+   build/Mesher --checkpoint m52-checkpoints/protected.mshr --merge-geometry --symmetric --merge-test-reflected-tetra
+   ```
+
+   The first-original reflected fixture reported 16 original
+   vertices/16 faces and enabled background save via Ctrl+S.
+   The user verified a 1249-byte `protected.mshr` file, then:
+
+   ```text
+   build/Mesher --merge-geometry --recover m52-checkpoints/protected.mshr
+   Mesher: --merge-geometry refuses V13 disk recovery without sealed first-original M29 authority
+   ```
+
+   This is an exact expected CLI guard in `src/main.cpp` that
+   rejects any Merge-armed disk recovery request **before**
+   deserializing the file; do not misrepresent it as proof of
+   a later serializer-level source-recertificate validation.
+
+**New deferred user requests:** M70 symmetric-to-asymmetric
+runtime editing switch; M71 symmetric/mirrored brush editing
+on geometrically asymmetric meshes (distinguishing dual-side
+spatial strokes from proof of exact mirrored topology); M72
+persistence or explicit restore of run-time sculpt feature
+flags/settings. None block M52, original M15 or V18/V19.
+
+**Still open for M52:** exact executable SHA, GPU/Vulkan driver,
+Windows physical host verification; any remaining explicit
+accepted/refused immutable root/history identity assertions
+and requested diagnostics. The earlier geometry AA, camera,
+W, both named Merge fixtures, user-observed undo/redo and
+reflection-closure refusal remain accepted at their reported
+scope. M52 is NOT checked complete.

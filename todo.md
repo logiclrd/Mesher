@@ -2231,6 +2231,62 @@ faces, bypass original intent, or widen source geometry authorization:
   not a prerequisite for M64 wire-depth diagnosis, M52 physical
   acceptance, original M15/V17 completion, or V18/V19; implement
   only when explicitly prioritized.
+- [ ] **V17-M70 — Runtime toggle from topologically symmetric to asymmetric sculpting (DEFERRED).**
+  User-confirmed successful ordinary checkpoint recovery retained
+  symmetric/asymmetric state, prompting a future editing-mode
+  control. Specify how to STOP mirroring strokes after symmetric
+  initialization without changing existing mesh geometry, stable
+  VertexId/FaceId, checkpoint mirroring metadata or history.
+  Explicitly choose policy for the old mirror correspondence:
+  retained and revalidated before re-enabling, versus retired
+  as a separate epoch; never silently assume that one-sided
+  subsequent sculpting preserves geometric/topological symmetry.
+  Handle active worker strokes/queued commands, undo/redo across
+  mode changes, checkpoint/recovery, paired remesh/collapse/refine
+  caches, mirror pairs used by exact Boolean proofs and
+  protected first-original authority. Separate UI behavior and
+  immutable evidence from worker status; no implicit conversion
+  of existing source. Exercise both positive/negative fixtures,
+  arbitrary partially edited positions, and CTest/three-platform
+  CI with actual Linux/Windows GUI observation when scheduled.
+  This is a future opt-in workflow, not part of M52/M15.
+- [ ] **V17-M71 — Symmetric brush editing on intrinsically asymmetric geometry (DEFERRED DESIGN).**
+  User asks whether mirrored editing can be enabled even when
+  the existing shape/mesh has no intrinsic bilateral symmetry.
+  First design TWO distinct semantics: (1) reflect brush
+  position/effect across a user-defined plane to work on two
+  potentially unrelated topology patches, with independent
+  per-side geometry and no vertex equivalence, and (2)
+  verified exact symmetric topology/paired-vertex editing,
+  which must refuse arbitrary unpaired meshes unless a
+  trustworthy correspondence is established by explicit
+  transformation/certification. Choose spatial falloff,
+  plane editing, per-side remeshing, asymmetrical density,
+  overlaps/one-sided hits and missing counterpart behavior.
+  Never fabricate mirror VertexIds, weld accidental equal
+  coordinates, or mint first-original Merge source authority
+  from geometric proximity. Bound action budgets/atomic
+  publication and history; use independent acceptance
+  milestones if design requires broader implementation.
+  This is not an expansion of supported exact Boolean inputs.
+- [ ] **V17-M72 — Persist or explicitly restore interactive sculpt feature settings (DEFERRED).**
+  Ordinary V12/V13 checkpoint records live root, stable IDs
+  and mirror pairs, but the recovered program currently
+  reconstructs `options.symmetric` from `mirrorPairs`
+  while `--curvature-correction`, `--collapse`, `--refine`
+  remain startup CLI settings and are not restored. Design
+  session-settings persistence: enabled flags and their numeric
+  parameters (curvature gain, split/flip/remesh constraints,
+  brush radius/stroke speed where appropriate), clear precedence
+  among checkpoint and explicitly supplied CLI overrides,
+  safe defaults for old binary V12/V13 saves, atomic writer/
+  reader compatibility, robust unsupported/corrupt input
+  refusal and status display. Settings are NOT provenance
+  certificates and may not enable protected Merge implicitly.
+  Verify both symmetric and asymmetric save/restart and resumed
+  editing with full compatibility/three-platform CI; defer
+  until explicitly prioritized. Existing successful checkpoint
+  reload behavior remains accepted for M52.
 - [ ] **V17-M52 — Targeted real GLFW/Vulkan desktop observation.**
   Execute and record reproducible **actual human-observed** Linux and
   Windows runtime acceptance on real Vulkan hosts (not headless CLI
@@ -2254,6 +2310,35 @@ faces, bypass original intent, or widen source geometry authorization:
   build in this report; confirm those before claiming an exact build
   reproducibility record. Preserve the remaining exact geometric,
   history, refusal and recovery criteria and leave M52 OPEN.
+  **Additional actual-user observation, 2026-10-20:** In an
+  explicit first-original reflected Merge fixture, the user
+  nominated immutable FaceIds 8, 10, 1, 14 and 13 manually,
+  without A, then submitted Enter. Console: queued five,
+  `A 0 R 0 P 1` then `A 0 R 1 P 0 REFUSED`, with exact
+  diagnostic `Caller original intent is not closed under
+  source-proven reflection`. This proves real worker
+  refusal for a non-closed original intent, not every
+  possible incomplete-selection rejection case. Separate
+  Ctrl+Z/Ctrl+Y sequences, including undoing and
+  reselecting/reprocessing, behaved as the user expected.
+  The exact rejected before/after root, history depths and
+  a physical Windows host are not yet independently logged.
+  **Checkpoint tests user-confirmed PASS, 2026-10-20 (Linux):**
+  Normal ordinary Inflate checkpoint `m52-checkpoints/ordinary.mshr`
+  was 521380 bytes and recovered geometry remained editable;
+  symmetric/asymmetric state survived recovery, while runtime
+  `--curvature-correction`, `--collapse` and `--refine` flags
+  did NOT survive without relaunch options (logged M72 below).
+  Intentionally bad parent directory, two Ctrl+S requests:
+  `checkpoints_saved=0 checkpoint_failures=2`, no valid save;
+  user reports safe operation. Protected reflected fixture saved
+  `protected.mshr` at 1249 bytes; `--merge-geometry --recover`
+  emitted exact expected V13 source-authority refusal, before
+  it attempted to read the checkpoint (this confirms the CLI
+  combination guard, not disk proof reauthentication).
+  Keep M52 OPEN for true Windows Vulkan observation, exact
+  executable SHA/GPU/driver, and finer-grained root/history
+  evidence as described in the acceptance log.
   Detailed current evidence and outstanding checks:
   `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
 **Then ORIGINAL V17-M15:** Independently reconcile all previously
