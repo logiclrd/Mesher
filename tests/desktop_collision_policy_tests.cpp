@@ -44,6 +44,23 @@ void selectionsDoNotAliasMerge() {
                 "Incompatible protected or noninteractive collision modes fail before initializing viewport");
     }
 }
+void freshSymmetricDesktopSourceIsArmedNotMerged() {
+    SphereOptions options;
+    options.vertexCount=96;
+    options.relaxationIterations=3;
+    options.symmetric=true;
+    const auto sphere=generateSphere(options);
+    require(validateSphere(sphere),
+            "M06 small realistic symmetric desktop fixture is a valid original source");
+    const auto policy=desktopCollisionSettings({false,true,true});
+    VersionedSculptBrush brush(sphere,.002,{},{},{},true,256,{},policy);
+    const auto original=brush.snapshot();
+    require(original&&
+            !brush.checkpoint().mirrorPairs.empty()&&
+            !brush.checkpoint().verifiedOriginalFidelity,
+            "Real fresh symmetric desktop mesh arms OFF avoidance, retaining reciprocal pairs but never sealed Merge authority");
+}
+
 void oldCheckpointDoesNotRestoreFeatureFlags() {
     auto source=parallelSheets();
     VersionedSculptBrush ordinary(source,.12,{},{},{},false);
@@ -109,6 +126,7 @@ void oldCheckpointDoesNotRestoreFeatureFlags() {
 int main() {
     try {
         selectionsDoNotAliasMerge();
+        freshSymmetricDesktopSourceIsArmedNotMerged();
         oldCheckpointDoesNotRestoreFeatureFlags();
         std::cout<<"V18-M06 desktop policy and legacy checkpoint contract: PASS\n";
         return 0;
