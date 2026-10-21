@@ -8,6 +8,7 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
+#include "mesher/sculpt_fixtures.hpp"
 #include "mesher/repair_inspection.hpp"
 
 #include <array>
@@ -32,6 +33,8 @@ int main(int argc, char** argv) {
     bool avoidCollisions = false;
     bool avoidTestSheets = false;
     bool repairInspect = false;
+    bool torusFixture = false, hollowSphereFixture = false;
+    bool explicitSymmetric = false;
     bool mergeTestTetra = false;
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
@@ -51,7 +54,9 @@ int main(int argc, char** argv) {
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
-            if(arg=="--asymmetric") options.symmetric=false;
+            if(arg=="--asymmetric") {
+                options.symmetric=false;explicitSymmetric=false;
+            }
             else if(arg=="--no-collapse") collapseSettings.enabled=false;
             else if(arg=="--no-refine") refineSettings.enabled=false;
             else if(arg=="--no-edge-flips") refineSettings.optimizeFlips=false;
@@ -66,6 +71,8 @@ int main(int argc, char** argv) {
             else if(arg=="--avoid-collisions")avoidCollisions=true;
             else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
             else if(arg=="--repair-inspect")repairInspect=true;
+            else if(arg=="--torus")torusFixture=true;
+            else if(arg=="--hollow-sphere")hollowSphereFixture=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
@@ -129,7 +136,9 @@ int main(int argc, char** argv) {
                     throw std::invalid_argument("Segments must be between 1 and 100000");
                 segments=static_cast<std::uint32_t>(n);
             }
-            else if(arg=="--symmetric")options.symmetric=true;
+            else if(arg=="--symmetric") {
+                options.symmetric=true;explicitSymmetric=true;
+            }
             else if(arg=="--vertices"||arg=="--seed"||arg=="--relax") {
                 if(++i>=argc)throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string_view value=argv[i];
@@ -159,6 +168,7 @@ int main(int argc, char** argv) {
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
+                         <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
@@ -172,6 +182,17 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
+        if(torusFixture&&hollowSphereFixture)
+            throw std::invalid_argument("Choose either --torus or --hollow-sphere");
+        if(torusFixture||hollowSphereFixture) {
+            if(explicitSymmetric)
+                throw std::invalid_argument("Randomized fixture does not have exact --symmetric topology; use spatially independent --asymmetric");
+            if(avoidTestSheets||mergeTestTetra||mergeTestReflectedTetra||
+               !recoverPath.empty()||allowMergeGeometry||demoMode||
+               compareRemesh||compareLocalRemesh||compareMitigations)
+                throw std::invalid_argument("--torus and --hollow-sphere require fresh interactive geometry, not recovery, demo, compare, or protected Merge");
+            options.symmetric=false;
+        }
         if(mergeTestTetra&&mergeTestReflectedTetra)
             throw std::invalid_argument("Choose only one experimental Merge fixture");
         if(mergeTestReflectedTetra&&(!allowMergeGeometry||!options.symmetric))
@@ -231,6 +252,28 @@ int main(int argc, char** argv) {
                      <<mesh.triangles.size()<<" independently owned faces; "
                         "separate close sheets near origin and safe remote face at X=3.5. "
                         "No protected Merge source is authorized.\n";
+        }else if(torusFixture) {
+            std::cout<<"[fixture] Constructing torus R=0.8 r=0.2; "
+                     <<options.vertexCount<<" random area-stratified vertices, "
+                     <<options.relaxationIterations<<" relaxation passes.\n";
+            mesh=mesher::generateTorusFixture(options.vertexCount,options.seed,
+                                             options.relaxationIterations);
+            std::cout<<"[fixture] TORUS topology: "
+                     <<mesh.vertices.size()<<" vertices, "
+                     <<mesh.triangles.size()<<" triangles, connected genus 1. "
+                     <<"Independent (non-mirrored) mesh topology.\n";
+        }else if(hollowSphereFixture) {
+            std::cout<<"[fixture] Constructing hollow shell; outer R=1, "
+                     <<"inner R=0.95, negative-Y mouth r=0.1, "
+                     <<"tube r=0.095 at Y=-0.96 and Y=-0.93.\n";
+            mesh=mesher::generateHollowSphereFixture(
+                options.vertexCount,options.seed,options.relaxationIterations);
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            std::cout<<"[fixture] HOLLOW SHELL topology: "
+                     <<mesh.vertices.size()<<" vertices after cut/connector, "
+                     <<mesh.triangles.size()<<" triangles; one connected "
+                     <<"closed genus-0 surface with an accessible inner wall. "
+                     <<"Independent (non-mirrored) mesh topology.\n";
         }else if(mergeTestReflectedTetra) {
             mesh=mesher::desktopMergeReflectedTetraFixture();
             options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
