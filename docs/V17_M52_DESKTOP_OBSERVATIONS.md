@@ -1,15 +1,15 @@
 # V17-M52 — Accepted Linux/Windows real GLFW/Vulkan desktop observations
 
-**Report started:** 2026-10-20; **final source-revision GPU provenance supplied:** 2026-10-20/21. These are observations supplied by
-the user after the M64–M69 near-pole AA wire redesign merged to
-`main`. The report itself does **not** provide the executable's
-exact SHA, OS build, graphics adapter or Vulkan driver. The
-repository's current `main` at the time of recording is
-`6c6748bd093e0859e7e9dba1d17ca1165098e8e1`; this is the
-EXPECTED code line, **not** an independently identified local
-running binary. Earlier screenshots were provided from a Linux
-desktop, but the platform details of this report were not
-repeated explicitly.
+**Report initiated:** October 20, 2026 (Linux-only observations
+after M64–M69); **completed:** October 20/21 with Windows physical
+tests and independently reported Linux/Windows executable and driver
+provenance. The original Linux-only report preceded the binary SHA
+and OS/GPU details. Its then-current `main` was `6c6748bd`, a
+historical code-line expectation and **not** proof of that earlier
+running executable. The later independently reported tested Linux
+and Windows binaries are both from the exact M73 source revision
+`c3123987d6f45e5f0eb946c94b40ac1fc99695fd`. Chronological
+partial-stage text is preserved below.
 
 
 ## Final targeted real-GPU acceptance — user reports October 20/21, 2026
