@@ -51,7 +51,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M05 is NEXT. M05–M07 are flat peers
+**Order:** V18-M06 is NEXT. M06–M07 are flat peers
 preplanned before M01 implementation. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
@@ -184,7 +184,7 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   independent symmetrical/dual-sheet integration remains
   open. See `docs/V18_M04_BOUNDED_NORMAL_BACKTRACKING.md`.
   Full exact-head and merged-main GCC/Clang/MSVC CI required.
-- [ ] **V18-M05 — Both-opposing-sheet and reflected-symmetry transaction proof.**
+- [x] **V18-M05 — Both-opposing-sheet and reflected-symmetry transaction proof.**
   Integrate simultaneous motion on two opposing sheets against
   the SAME complete post-state, and source-certified reciprocal
   mirror pairs including fixed X=0. Positive symmetric clearance/
@@ -192,6 +192,21 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   terminal CAS, permanent stable IDs, original-root picker,
   mirror journals, undo/redo, stale refusal and independent
   coincident-coordinate ownership. Bounded work only.
+  Implemented a finite full-source OFF-mode mirror admission (one
+  bounded session-start scan), with local per-trial and pre-CAS
+  changed stable-ID halo verification of reciprocal live vertex
+  involution, exact reflected XYZ, true fixed X=0 vertices, mirrored
+  face-corner topology and reflected orientation, and source-pair
+  retirement. No source-matching by XYZ, no original M29 protected
+  Merge authority forgery, and no full mesh traversal on each edit.
+  Added four simultaneous inward-moving sheets across two
+  reflected islands with M04 normal backtracking and M01/M03
+  whole-post-state admission, unrelated coincident independent
+  sources, full-Step refusal, later fixed-seam recovery, source
+  mirror checkpoint/undo/redo, explicit stale callback refusal
+  and actual 4D worker FIFO tests. See
+  `docs/V18_M05_MIRRORED_OPPOSING_SHEETS.md`. M06 next,
+  original V18 still open, full PR/main CI required.
 - [ ] **V18-M06 — Explicit desktop opt-in, default unchanged, and diagnostics.**
   Add an unambiguous CLI/UI selection for V18 OFF-mode collision
   constraints (NOT the V17 protected Merge ON authorization).

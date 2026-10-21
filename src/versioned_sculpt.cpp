@@ -522,6 +522,14 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
             "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
+    if(collision_.offModeConstraints.enabled&&symmetric_) {
+        const auto checked=auditOffModeMirrors(
+            published_.snapshot(),inflate_.mirrors(),{},{},true);
+        if(!checked.complete)
+            throw std::invalid_argument(
+                "V18 OFF-mode initial stable mirror source refused: "+checked.refusal);
+    }
+
     if(collision_.offModeConstraints.enabled&&
        collision_.offModeConstraints.backtrack.enabled&&
        (collision_.offModeConstraints.backtrack.maxTrials==0||
@@ -579,6 +587,14 @@ VersionedSculptBrush::VersionedSculptBrush(
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
             "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
+    if(collision_.offModeConstraints.enabled&&symmetric_) {
+        const auto checked=auditOffModeMirrors(
+            published_.snapshot(),inflate_.mirrors(),{},{},true);
+        if(!checked.complete)
+            throw std::invalid_argument(
+                "V18 OFF-mode initial stable mirror source refused: "+checked.refusal);
+    }
+
     if(collision_.offModeConstraints.enabled&&
        collision_.offModeConstraints.backtrack.enabled&&
        (collision_.offModeConstraints.backtrack.maxTrials==0||
@@ -804,6 +820,22 @@ VersionedSculptBrush::probeOffModeNormalFraction(
                     tooLargeNormal=true;
             }
             noChange=updated==before;
+            if(!noChange&&symmetric_) {
+                const auto audited=auditOffModeMirrors(
+                    updated,collapser_.mirrors(),changedVertices,changedFaces);
+                if(!audited.complete)
+                    throw std::logic_error(
+                        "V18 private mirrored trial lacks exact stable-ID source: "+
+                        audited.refusal);
+                for(const auto v:changedVertices) {
+                    if(!before->maybeVertex(v)||updated->maybeVertex(v))continue;
+                    const auto original=inflate_.mirrors().find(v);
+                    if(original==inflate_.mirrors().end()||
+                       updated->maybeVertex(original->second))
+                        throw std::logic_error(
+                            "V18 reflected trial retired only one old source mirror");
+                }
+            }
             if(!noChange) {
                 assessment=assessOffModeMeshClearance(
                     before,updated,changedVertices,changedFaces,limits);
@@ -1293,11 +1325,27 @@ void VersionedSculptBrush::stamp(
     // Thus a veto keeps its true attempted Step costs and rolls back.
     if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
         ++collisionChecked_;
+        if(symmetric_) {
+            const auto audited=auditOffModeMirrors(
+                updated,collapser_.mirrors(),changedVertices,changedFaces);
+            if(!audited.complete)
+                rejection="V18 OFF-mode mirrored terminal refusal: "+audited.refusal;
+            for(const auto v:changedVertices) {
+                if(!rejection.empty())break;
+                if(!old->maybeVertex(v)||updated->maybeVertex(v))continue;
+                const auto original=inflate_.mirrors().find(v);
+                if(original==inflate_.mirrors().end()||
+                   updated->maybeVertex(original->second))
+                    rejection="V18 OFF-mode mirrored terminal retired only one old mirror";
+            }
+        }
         auto limits=collision_.offModeConstraints.clearanceLimits;
         limits.contacts=collision_.offModeConstraints.contactLimits;
-        const auto assessment=assessOffModeMeshClearance(
-            old,updated,changedVertices,changedFaces,limits);
-        if(!assessment.allowed())
+        const auto assessment=rejection.empty()?
+            assessOffModeMeshClearance(
+                old,updated,changedVertices,changedFaces,limits):
+            OffModeClearanceReport{};
+        if(rejection.empty()&&!assessment.allowed())
             rejection="V18 OFF-mode collision constraint refused: "+
                 (assessment.reason.empty()?
                  std::string("uncertain private clearance"):assessment.reason);

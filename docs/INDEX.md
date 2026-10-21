@@ -8,7 +8,7 @@ technical details that should not be rewritten as broad promises.
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
-  small active working list; V18-M05 is next.
+  small active working list; V18-M06 is next.
 - [Main README](../README.md): current features, building,
   controls, supported and refused scope.
 - [V18-M01 finite contact baseline](V18_M01_POSTSTATE_CONTACT_LEDGER.md):
@@ -19,8 +19,11 @@ technical details that should not be rewritten as broad promises.
   finite mesh-local spacing and conservative tangent evidence.
 - [V18-M04 bounded normal backtracking](V18_M04_BOUNDED_NORMAL_BACKTRACKING.md):
   finite fully private retries, local-step motion limit and
-  measured abandoned attempt cost. Desktop still unchanged;
-  V18-M05–M07 remain unaccepted.
+  measured abandoned attempt cost.
+- [V18-M05 reflected opposing-sheet integration](V18_M05_MIRRORED_OPPOSING_SHEETS.md):
+  explicit source ID mirror involution, X=0 fixed points, both
+  sides moving in one root and reversible mirror journals.
+  Desktop still unchanged; M06–M07 remain open.
 - [Sculpt collision and topology repair design](SCULPT_COLLISION_REPAIR.md):
   original V13–V19 geometric intentions. V18's OFF-mode constraints
   and V19 generality are not yet accepted.
