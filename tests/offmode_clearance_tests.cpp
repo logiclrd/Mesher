@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -121,8 +122,11 @@ void testBothMovingAndMixedDensity() {
     auto mixed=fixture(std::move(m));
     const auto fine=group(mixed,1);
     auto next=shifted(mixed.root,fine,{.01,0,0});
+    // Also seed the coarse stable face (an over-inclusive local halo):
+    // its larger candidate search radius visits the close fine face, but
+    // the *admitted* pair spacing still uses the smaller fine edge scale.
     const auto small=assessOffModeMeshClearance(
-        mixed.root,next,fine,{});
+        mixed.root,next,mixed.ids.vertexIds,{});
     require(small.status==OffModeClearanceStatus::Clear&&
             small.allowed()&&small.examinedNearPairs>=1&&
             small.largestRequiredSpacing<.011,
