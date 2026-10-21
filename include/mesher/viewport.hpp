@@ -33,6 +33,7 @@ struct ViewportMeshUpdate {
     // separately shaded topology markers until the application exits.
     bool inspectionFrozen = false;
     std::vector<PartitionRenderVertex> inspectionOverlay;
+    bool inspectionPreview = false;
 };
 
 struct ViewportInteraction {
