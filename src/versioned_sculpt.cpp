@@ -973,21 +973,6 @@ void VersionedSculptBrush::stamp(
     // geometric refusals raised by this opt-in callback are recoverable.
     std::string rejection=physicalRefusal.empty()?
         std::move(collisionRefusal):std::move(physicalRefusal);
-    // V18-M02: do NOT modify the candidate, attempt a repair, or consume
-    // V17 authenticated source authority. This read-only check sees the
-    // actual post-Inflate/refine/collapse root and the union of actual
-    // per-stage changed stable IDs, before the single external CAS.
-    // M03/M04 can later admit legitimate mesh-clear sliding/normal limits.
-    if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
-        ++collisionChecked_;
-        const auto assessment=assessOffModePostStateContacts(
-            old,updated,changedVertices,changedFaces,
-            collision_.offModeConstraints.contactLimits);
-        if(!assessment.conservativelyContactFree())
-            rejection="V18 OFF-mode collision constraint refused: "+
-                (assessment.reason.empty()?
-                 std::string("ambiguous private candidate"):assessment.reason);
-    }
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -1114,6 +1099,20 @@ void VersionedSculptBrush::stamp(
     if(rejection.empty()&&updated!=old&&collision_.physicalExact) {
         rejection=refuseExactStageWork(lastStepResourceWork_.exactStage,
                                       collision_.exactStageLimits);
+    }
+    // V18-M02 evaluates the ACTUAL complete private post-remesh root
+    // after M40 has measured private copy/dirty work, but BEFORE the
+    // original CAS, mirror/history publication or Clean episode credit.
+    // Thus a veto keeps its true attempted Step costs and rolls back.
+    if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
+        ++collisionChecked_;
+        const auto assessment=assessOffModePostStateContacts(
+            old,updated,changedVertices,changedFaces,
+            collision_.offModeConstraints.contactLimits);
+        if(!assessment.conservativelyContactFree())
+            rejection="V18 OFF-mode collision constraint refused: "+
+                (assessment.reason.empty()?
+                 std::string("ambiguous private candidate"):assessment.reason);
     }
     // M23: exactly ONE episode observation per classified full physical
     // proposal. A refused conclusive Contact remains known Contact;
