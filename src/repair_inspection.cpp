@@ -146,6 +146,16 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     result->affectedFaces.assign(markedFaces.begin(),markedFaces.end());
     result->incidentVertices.assign(markedVertices.begin(),markedVertices.end());
     result->incidentEdges.assign(markedEdges.begin(),markedEdges.end());
+    result->previewEnabled=previewEnabled_;
+    if(previewEnabled_&&!result->contacts.empty()) {
+        try {
+            result->excision=previewApproximateExcision(
+                *proposed.candidate,result->contacts);
+        }catch(const std::exception& e) {
+            result->excision.complete=false;
+            result->excision.diagnostic=std::string("R02 preview could not complete: ")+e.what();
+        }
+    }
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -193,6 +203,38 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
             std::min(markerRadius(edge.a),markerRadius(edge.b))*.34);
     for(const auto id:snapshot.incidentVertices)
         dot(overlay,snapshot.candidate->vertex(id).position,markerRadius(id));
+    if(snapshot.previewEnabled) {
+        // The face inset exposes underlying wireframe and makes the
+        // diagnostic region distinguishable from the red R01 contact halo.
+        const auto highlight=[&](FaceId id,float material) {
+            const auto* unused=static_cast<const void*>(nullptr);
+            (void)unused;
+            const auto& f=snapshot.candidate->face(id).vertices;
+            const auto a=snapshot.candidate->vertex(f[0]).position;
+            const auto b=snapshot.candidate->vertex(f[1]).position;
+            const auto c=snapshot.candidate->vertex(f[2]).position;
+            const auto center=(a+b+c)/3.0;
+            const auto normal=cross(b-a,c-a);
+            const auto scale=length(normal);
+            const auto offset=scale>0?
+                normal/scale*(.003*std::min({length(a-b),length(b-c),length(c-a)})):
+                Vec3{};
+            triangle(overlay,center+(a-center)*.89+offset,
+                             center+(b-center)*.89+offset,
+                             center+(c-center)*.89+offset,material);
+        };
+        for(const auto id:snapshot.excision.proposedFaces)highlight(id,4.0f);
+        for(const auto id:snapshot.excision.uncertainFaces)highlight(id,5.0f);
+        for(const auto& loop:snapshot.excision.contours) {
+            for(std::size_t i=0;i<loop.vertexIds.size();++i) {
+                const auto a=loop.vertexIds[i];
+                const auto b=loop.vertexIds[(i+1)%loop.vertexIds.size()];
+                rod(overlay,snapshot.candidate->vertex(a).position,
+                    snapshot.candidate->vertex(b).position,
+                    std::max(.0025,std::min(markerRadius(a),markerRadius(b))*.53));
+            }
+        }
+    }
     return overlay;
 }
 
