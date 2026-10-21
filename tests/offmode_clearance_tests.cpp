@@ -1,6 +1,7 @@
 #include "mesher/offmode_clearance.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
+#include "mesher/versioned_sculpt.hpp"
 
 #include <array>
 #include <cmath>
@@ -153,6 +154,42 @@ void testOldBadUnrelatedAndAdjacency() {
         local.root,local.root,local.ids.vertexIds,{});
     require(none.allowed(),"Shared stable edge adjacency imposes no zero-gap clearance veto");
 }
+void testRealWorkerStageRefusesClearanceBeforeContact() {
+    Mesh mesh;
+    triangle(mesh,{0,0,0},{2,0,0},{0,2,0});
+    triangle(mesh,{0,0,.14},{2,0,.14},{0,2,.14});
+    SculptCollisionSettings settings;
+    settings.offModeConstraints.enabled=true;
+    VersionedSculptBrush brush(mesh,.12,{},{},{},false,256,{},settings);
+    const auto original=brush.snapshot();
+    const auto originalPicker=original->pickingRootIdentity();
+    const auto checkpoint=brush.checkpoint();
+    Mesh dummy;
+    const std::array<BrushArea,1> close{{{{0,0,0},.13,.3}}};
+    brush.stamp(dummy,close);
+    require(brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==0&&
+            brush.snapshot()==original&&
+            brush.snapshot()->pickingRootIdentity()==originalPicker&&
+            brush.checkpoint().index==checkpoint.index&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.lastDirtyPartitions().empty()&&
+            brush.lastRejection().find("mesh-scale spacing")!=std::string::npos&&
+            brush.lastStepResourceWork().evaluated&&
+            brush.lastStepResourceWork().privateCopiedBytes>0,
+            "M03 real Inflate approaches a separate sheet without crossing: pre-CAS clearance veto, no dirty root/history");
+    const std::array<BrushArea,1> farther{{{{0,0,.14},.13,.3}}};
+    brush.stamp(dummy,farther);
+    require(brush.rejectedStamps()==1&&
+            brush.publishedRevisions()==1&&
+            brush.snapshot()!=original&&
+            brush.historyStatistics().undoDepth==1,
+            "M03 rejects close approach but later accepts legitimate outward edit");
+    const auto accepted=brush.snapshot();
+    require(brush.undo()&&brush.snapshot()==original&&
+            brush.redo()&&brush.snapshot()==accepted,
+            "M03 normal clearance refusal does not poison exact root history");
+}
 void testAllFiniteBoundaries() {
     auto f=planarPair(.25);
     const auto ids=group(f,1);
@@ -214,6 +251,7 @@ int main() {
         testBothMovingAndMixedDensity();
         testOldBadUnrelatedAndAdjacency();
         testAllFiniteBoundaries();
+        testRealWorkerStageRefusesClearanceBeforeContact();
         std::cout<<"V18-M03 mesh-local distance and tangential admission: PASS\n";
         return 0;
     }catch(const std::exception& e) {
