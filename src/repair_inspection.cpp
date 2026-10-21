@@ -152,3 +152,5 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
         dot(overlay,snapshot.candidate->vertex(id).position,markerRadius(id));
     return overlay;
 }
+
+} // namespace mesher
