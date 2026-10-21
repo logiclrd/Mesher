@@ -421,7 +421,10 @@ class VulkanViewport {
     std::vector<VkSemaphore> finishedForImage;
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
-    Buffer solid{},floorSolid{},hud{},inspectionSolid{};
+    Buffer solid{},floorSolid{},hud{};
+    // Inspection has a separate buffer; legacy solid/floor/HUD ownership
+    // remains textually and behaviorally unchanged.
+    Buffer inspectionSolid{};
     struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
