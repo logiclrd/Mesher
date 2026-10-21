@@ -306,12 +306,19 @@ void actualFixedPointMirrorJournalSplitAndRollback() {
     const auto mirrors=canonicalPairs(brush.checkpoint().mirrorPairs);
     Mesh dummy;
     brush.stamp(dummy,seam);
-    require(brush.rejectedStamps()==1&&brush.snapshot()==baseline&&
-            brush.historyStatistics().undoDepth==0&&
-            brush.checkpoint().mirrorPairs.size()==mirrors.size()&&
-            canonicalPairs(brush.checkpoint().mirrorPairs)==mirrors&&
-            examinedNewFixed,
-            "Speculative local refinement creates genuine new mirrored X=0 ID but refusal rolls back its mirror journal");
+    if(!(brush.rejectedStamps()==1&&brush.snapshot()==baseline&&
+         brush.historyStatistics().undoDepth==0&&
+         brush.checkpoint().mirrorPairs.size()==mirrors.size()&&
+         canonicalPairs(brush.checkpoint().mirrorPairs)==mirrors&&
+         examinedNewFixed))
+        throw std::runtime_error(
+            "Speculative X=0 mirror split/rollback failure: rejected="+
+            std::to_string(brush.rejectedStamps())+
+            " callbacks="+std::to_string(candidates)+
+            " newFixed="+std::to_string(examinedNewFixed)+
+            " remainingMirrors="+std::to_string(brush.checkpoint().mirrorPairs.size())+
+            " originalMirrors="+std::to_string(mirrors.size())+
+            " reason="+brush.lastRejection());
     brush.stamp(dummy,seam);
     const auto accepted=brush.snapshot();
     const auto after=canonicalPairs(brush.checkpoint().mirrorPairs);
