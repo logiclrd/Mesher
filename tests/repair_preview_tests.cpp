@@ -60,9 +60,11 @@ void independentIslandsAndClassification() {
              <<" contour_loops="<<preview.contours.size()
              <<" complete="<<preview.complete
              <<" reason="<<preview.diagnostic<<"\n";
-    if(preview.proposedFaces.empty())
-        throw std::runtime_error("R02 MUST identify some buried removal faces on deliberate cube penetration: "+
-                                 preview.diagnostic);
+    require(preview.proposedFaces.size()==8&&
+            preview.contours.size()==4&&
+            preview.excisionComponents==4&&
+            preview.complete&&preview.uncertainFaces.empty(),
+            "Two cube penetrations must yield eight V14 proposed faces and four V15 valid contours; closure fitness is NOT R02 classification");
     for(const auto id:preview.proposedFaces) {
         require(static_cast<bool>(f.root->maybeFace(id)),
                 "R02 selected faces must be real stable FaceIds");
