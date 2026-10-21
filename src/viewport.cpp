@@ -384,6 +384,7 @@ class VulkanViewport {
     ViewportCameraGestures cameraGestures_;
     ViewportCursorWrap orbitCursor_;
     std::string lastMergeStatus_;
+    std::string lastCollisionStatus_;
     double nextStampTime_ = 0;
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
@@ -1170,6 +1171,17 @@ class VulkanViewport {
                 std::cout<<"[merge] "<<requests<<"\n";
                 updateTitle();
                 refreshHud();
+            }
+        }
+        // M06: the *separate* OFF-mode constraint policy reports
+        // recoverable refusal even when no geometry/stamp was published.
+        // No Merge or protected original-source UI selection is implied.
+        if(interaction_.collisionStatus) {
+            const auto value=interaction_.collisionStatus();
+            if(!value.empty()&&value!=lastCollisionStatus_) {
+                lastCollisionStatus_=value;
+                std::cout<<"[collision] "<<value<<"\n"<<std::flush;
+                updateTitle();
             }
         }
         if(waitingForDrain_ && interaction_.canBegin && interaction_.canBegin()) {
