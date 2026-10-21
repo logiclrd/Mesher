@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
             !recoverPath.empty()||mergeTestTetra||
             mergeTestReflectedTetra))
             throw std::invalid_argument(
-                "--avoid-test-sheets requires --asymmetric and --avoid-collisions or --repair-inspect, no --recover or protected Merge");
+                "--avoid-test-sheets requires --avoid-collisions --asymmetric (or --repair-inspect --asymmetric), no --recover or protected Merge");
         if(avoidTestSheets&&
             (!inflate||demoMode||compareLocalRemesh||
              compareRemesh||compareMitigations))
