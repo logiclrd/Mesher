@@ -51,7 +51,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M06 is NEXT. M06–M07 are flat peers
+**Order:** V18-M07 is NEXT. M07 is the remaining preplanned flat peer
 preplanned before M01 implementation. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
@@ -207,7 +207,7 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   and actual 4D worker FIFO tests. See
   `docs/V18_M05_MIRRORED_OPPOSING_SHEETS.md`. M06 next,
   original V18 still open, full PR/main CI required.
-- [ ] **V18-M06 — Explicit desktop opt-in, default unchanged, and diagnostics.**
+- [x] **V18-M06 — Explicit desktop opt-in, default unchanged, and diagnostics.**
   Add an unambiguous CLI/UI selection for V18 OFF-mode collision
   constraints (NOT the V17 protected Merge ON authorization).
   Verify ordinary startup/default flags/old checkpoints,
@@ -216,6 +216,26 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   checkpoint persistence M72 as separately deferred. No
   automatic retrofit on imported bad meshes and no silent
   feature enablement on recovery.
+  Desktop `--avoid-collisions` explicitly arms only the
+  V18 OFF-mode `SculptCollisionSettings::offModeConstraints`;
+  it is forbidden with V17 `--merge-geometry` or noninteractive
+  demo/compare modes and never creates protected Boolean authority.
+  Ordinary startup/default and unarmed old V12/V13 checkpoint
+  recovery remain unguarded and unchanged. Recovered meshes
+  run the finite guard ONLY with another explicit opt-in; no
+  numeric/feature flag checkpoint persistence (M72).
+  Window title persistently identifies OFF-mode avoidance.
+  Separate `[collision]` lines report even refused unpublished
+  Steps and later recovery, while `[sculpt]` records actual
+  private retry/normal-fraction/copied-byte, refusal and
+  geometry work counters. Headless tests run real desktop
+  argument parsing with no Vulkan loader/GPU, and CPU tests
+  prove accepted/default/recovered worker isolation, a
+  refused close approach, resumed valid edits and exact
+  undo/redo. `docs/V18_M06_DESKTOP_OFFMODE_OPT_IN.md`.
+  M07 independently verifies the full device-visible
+  Linux/Windows Vulkan integration; V18 remains open until
+  M07 physical/CPU acceptance and merged-main CI.
 - [ ] **V18-M07 — Original V18 integrated acceptance and reproducible GPU/CPU boundary.**
   Independently reconcile M01–M06 for initial unchanged
   geometry, legal grazing/sliding, both sheets moving, mirrored
