@@ -20,8 +20,13 @@ void main() {
     // R01 one-shot inspection overlay uses unlit colors; this is independent
     // of ordinary material/wireframe appearance and cannot tint mesh data.
     if(surfaceMaterial>=1.5) {
-        outColor=vec4(surfaceMaterial>=2.5 ? vec3(0.55,0.045,0.065)
-                                            : vec3(1.0,0.08,0.09),1.0);
+        vec3 diagnostic;
+        if(surfaceMaterial>=5.5)diagnostic=vec3(1.0,0.83,0.07); // directed contour
+        else if(surfaceMaterial>=4.5)diagnostic=vec3(0.75,0.13,0.84); // uncertain V14 face
+        else if(surfaceMaterial>=3.5)diagnostic=vec3(1.0,0.43,0.075); // proposed excision
+        else if(surfaceMaterial>=2.5)diagnostic=vec3(0.55,0.045,0.065); // R01 edges
+        else diagnostic=vec3(1.0,0.08,0.09); // R01 incident vertices
+        outColor=vec4(diagnostic,1.0);
         return;
     }
     vec3 albedo=surfaceMaterial>0.5 ? vec3(0.25,0.27,0.30) : vec3(0.63,0.67,0.72);
