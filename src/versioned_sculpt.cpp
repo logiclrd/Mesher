@@ -518,6 +518,10 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.offModeConstraints.enabled&&
+       (collision_.physicalExact||collision_.enabled))
+        throw std::invalid_argument(
+            "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&symmetric_)
@@ -562,6 +566,10 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.offModeConstraints.enabled&&
+       (collision_.physicalExact||collision_.enabled))
+        throw std::invalid_argument(
+            "V18 OFF-mode contact guard is mutually exclusive with V17 Boolean surgery and physicalExact Merge");
     details_.vertices=vertices_;
     details_.triangles=faces_;
     if(collision_.physicalExact&&recovered.verifiedOriginalFidelity) {
@@ -965,6 +973,21 @@ void VersionedSculptBrush::stamp(
     // geometric refusals raised by this opt-in callback are recoverable.
     std::string rejection=physicalRefusal.empty()?
         std::move(collisionRefusal):std::move(physicalRefusal);
+    // V18-M02: do NOT modify the candidate, attempt a repair, or consume
+    // V17 authenticated source authority. This read-only check sees the
+    // actual post-Inflate/refine/collapse root and the union of actual
+    // per-stage changed stable IDs, before the single external CAS.
+    // M03/M04 can later admit legitimate mesh-clear sliding/normal limits.
+    if(rejection.empty()&&collision_.offModeConstraints.enabled&&updated!=old) {
+        ++collisionChecked_;
+        const auto assessment=assessOffModePostStateContacts(
+            old,updated,changedVertices,changedFaces,
+            collision_.offModeConstraints.contactLimits);
+        if(!assessment.conservativelyContactFree())
+            rejection="V18 OFF-mode collision constraint refused: "+
+                (assessment.reason.empty()?
+                 std::string("ambiguous private candidate"):assessment.reason);
+    }
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
