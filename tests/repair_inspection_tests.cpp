@@ -3,6 +3,7 @@
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <memory>
@@ -103,6 +104,36 @@ void unrelatedPreexistingAndBudget() {
             finite.frozenSnapshot()->contacts.empty(),
             "Incomplete bounded query must freeze with a diagnostic, never report false clean");
 }
+void simultaneousIndependentIslands() {
+    Mesh mesh;
+    tetra(mesh,{-2,0,0},.5);
+    tetra(mesh,{2,0,0},.5);
+    tetra(mesh,{8,0,0},.5);
+    tetra(mesh,{12,0,0},.5);
+    const auto f=fixture(std::move(mesh));
+    std::vector<VertexId> movers(f.ids.vertexIds.begin(),
+                                 f.ids.vertexIds.begin()+4);
+    movers.insert(movers.end(),f.ids.vertexIds.begin()+8,
+                  f.ids.vertexIds.begin()+12);
+    const auto moved=move(f.root,movers,{3.9,0,0});
+    RepairInspectionSession session;
+    require(!session.inspect({f.root,moved,movers,{}}).empty(),
+            "Two spatially independent contacts must trigger a single freeze");
+    const auto evidence=session.frozenSnapshot();
+    require(evidence&&evidence->contacts.size()>=2,
+            "R01 retains full changed-neighborhood pair set, not only first contact");
+    bool firstIsland=false,secondIsland=false;
+    for(const auto& p:evidence->contacts) {
+        const bool early=std::find(f.ids.faceIds.begin(),
+            f.ids.faceIds.begin()+8,p.first)!=f.ids.faceIds.begin()+8;
+        const bool late=std::find(f.ids.faceIds.begin()+8,
+            f.ids.faceIds.end(),p.first)!=f.ids.faceIds.end();
+        firstIsland=firstIsland||early;
+        secondIsland=secondIsland||late;
+    }
+    require(firstIsland&&secondIsland,
+            "One stamp must preserve witnesses from both independent intersection islands");
+}
 void actualPostRemeshStamp() {
     const auto mesh=desktopOffModeNearSheetsFixture();
     auto session=std::make_shared<RepairInspectionSession>();
@@ -131,6 +162,7 @@ int main() {
     try {
         cleanAndFrozen();
         unrelatedPreexistingAndBudget();
+        simultaneousIndependentIslands();
         actualPostRemeshStamp();
         std::cout<<"R01 post-stamp candidate freeze and visual evidence: PASS\n";
         return 0;
