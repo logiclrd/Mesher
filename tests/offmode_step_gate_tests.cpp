@@ -75,6 +75,7 @@ double findActuallyCrossingStrength(const Mesh& mesh) {
 SculptCollisionSettings enabled() {
     SculptCollisionSettings settings;
     settings.offModeConstraints.enabled=true;
+    settings.offModeConstraints.backtrack.enabled=false; // frozen M02 refusal semantics
     return settings;
 }
 void testIllegalCombinations() {

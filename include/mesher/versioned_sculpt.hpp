@@ -128,6 +128,22 @@ struct SculptStageWallObservations {
     double initialGeometryMs{},sourceGeometryMs{},originalProofMs{};
     double admissionMs{},publicationAndHistoryMs{};
 };
+// V18-M04: bounded private full-geometry trials, never partial CAS.
+struct SculptOffModeBacktrackLimits {
+    bool enabled=true; // only active when the enclosing OFF policy is ON
+    std::size_t maxTrials=5; // fractions 1, 1/2, 1/4, 1/8, 1/16
+    double maxNormalStepInLocalEdges=0.5; // conservative endpoint/tunnelling bound
+    std::size_t maxTrialCopiedBytes=536870912;
+    std::size_t maxTrialChangedIdReferences=131072;
+    std::size_t maxTrialDistanceTests=32768;
+};
+struct SculptBacktrackWork {
+    std::size_t trials{},declined{};
+    std::size_t privateCopiedBytes{},changedIdReferences{},distanceTests{};
+    double chosenNormalFraction=0;
+    bool refused{};
+};
+
 struct SculptStepResourceWork {
     SculptStepResourcePath path{SculptStepResourcePath::None};
     bool evaluated{}; // a complete candidate was measured
@@ -138,6 +154,7 @@ struct SculptStepResourceWork {
     std::size_t changedIdReferences{}; // reference count, not unique stable IDs
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
     ExactStageWork exactStage{}; // all actual M41–M45 geometry and original-source proof operations
+    SculptBacktrackWork backtracking{}; // rejected and accepted private V18 trials
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
     SculptStageWallObservations stageWall{};
     SculptRefusalCategory refusalCategory{SculptRefusalCategory::None};
@@ -162,6 +179,7 @@ struct SculptOffModeConstraintSettings {
     bool enabled=false;
     OffModeContactLimits contactLimits{};
     OffModeClearanceLimits clearanceLimits{};
+    SculptOffModeBacktrackLimits backtrack{};
 };
 
 struct SculptCollisionSettings {
@@ -343,6 +361,14 @@ private:
     void markPostCasFailure(std::exception_ptr error);
     void injectPostCasFault(SculptPostCasFaultPoint point) const;
     void recordStepDiagnostics() noexcept;
+    struct BacktrackChoice {
+        double fraction=1;
+        std::string refusal;
+        SculptBacktrackWork work{};
+    };
+    BacktrackChoice probeOffModeNormalFraction(
+        const std::shared_ptr<const RegionTopologyIndex>& before,
+        std::span<const BrushArea> areas);
     std::string validateOriginalIntentSources(
         const std::vector<FaceId>& originals) const;
     VersionedSculptBrush(PartitionedMeshImport import,std::size_t initialCount,

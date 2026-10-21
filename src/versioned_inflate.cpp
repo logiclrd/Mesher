@@ -57,11 +57,14 @@ void VersionedInflateBrush::removeMirrorPair(VertexId first,VertexId second) {
 VersionedInflateStamp VersionedInflateBrush::stamp(
     std::shared_ptr<const RegionTopologyIndex> before,
     std::span<const BrushArea> areas,
-    std::size_t maximumElementsPerPartition) const {
+    std::size_t maximumElementsPerPartition,double normalFraction) const {
     if(!before)
         throw std::invalid_argument("Inflate stamp needs an immutable revision");
     if(maximumElementsPerPartition==0)
         throw std::invalid_argument("Partition capacity must be positive");
+    if(!std::isfinite(normalFraction)||normalFraction<=0||
+       normalFraction>1)
+        throw std::invalid_argument("V18 Inflate normal fraction must be finite and in (0,1]");
     VersionedInflateStamp result;
     result.index=before;
     result.baseline.before=before;
@@ -126,7 +129,8 @@ VersionedInflateStamp VersionedInflateBrush::stamp(
             multiplier=std::clamp(1.0+curvature_.strength*nominalLength*
                                   signedCurvature,0.10,3.0);
         }
-        const Vec3 delta=direction*(strength_*influence*multiplier);
+        const Vec3 delta=direction*(strength_*influence*multiplier*
+                                      normalFraction);
         const Vec3 position=point+delta;
         if(!finite(position))
             throw std::overflow_error("Versioned Inflate displacement is not finite");

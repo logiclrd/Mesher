@@ -8,7 +8,7 @@ technical details that should not be rewritten as broad promises.
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
-  small active working list; V18-M04 is next.
+  small active working list; V18-M05 is next.
 - [Main README](../README.md): current features, building,
   controls, supported and refused scope.
 - [V18-M01 finite contact baseline](V18_M01_POSTSTATE_CONTACT_LEDGER.md):
@@ -16,9 +16,11 @@ technical details that should not be rewritten as broad promises.
 - [V18-M02 private worker admission](V18_M02_PRIVATE_STEP_ADMISSION.md):
   explicitly enabled source-independent OFF-mode pre-CAS refusal.
 - [V18-M03 local clearance and sliding](V18_M03_MESH_SCALE_CLEARANCE.md):
-  finite mesh-local spacing and conservative tangent evidence,
-  with near-gap refusal before actual intersection.
-  The desktop remains unchanged; V18-M04–M07 are not complete.
+  finite mesh-local spacing and conservative tangent evidence.
+- [V18-M04 bounded normal backtracking](V18_M04_BOUNDED_NORMAL_BACKTRACKING.md):
+  finite fully private retries, local-step motion limit and
+  measured abandoned attempt cost. Desktop still unchanged;
+  V18-M05–M07 remain unaccepted.
 - [Sculpt collision and topology repair design](SCULPT_COLLISION_REPAIR.md):
   original V13–V19 geometric intentions. V18's OFF-mode constraints
   and V19 generality are not yet accepted.

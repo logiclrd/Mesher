@@ -159,6 +159,7 @@ void testRealWorkerStageRefusesClearanceBeforeContact() {
     triangle(mesh,{0,0,.14},{2,0,.14},{0,2,.14});
     SculptCollisionSettings settings;
     settings.offModeConstraints.enabled=true;
+    settings.offModeConstraints.backtrack.enabled=false; // frozen M03 near-gap veto
     VersionedSculptBrush brush(mesh,.12,{},{},{},false,256,{},settings);
     const auto original=brush.snapshot();
     const auto originalPicker=original->pickingRootIdentity();

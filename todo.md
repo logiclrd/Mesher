@@ -51,7 +51,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M04 is NEXT. M04–M07 are flat peers
+**Order:** V18-M05 is NEXT. M05–M07 are flat peers
 preplanned before M01 implementation. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
@@ -154,7 +154,7 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   M04 normal backtracking yet. See
   `docs/V18_M03_MESH_SCALE_CLEARANCE.md`. M04 next, original
   V18 still open until M04–M07 acceptance.
-- [ ] **V18-M04 — Constrained normal displacement with conservative large-step policy.**
+- [x] **V18-M04 — Constrained normal displacement with conservative large-step policy.**
   Use local pre-/post-state geometric evidence to reduce/limit
   proposed normal motion where clearance is endangered while
   preserving separately valid tangential movement. Define a
@@ -162,6 +162,28 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   candidate and rerun post-refine/collapse contact/clearance checks.
   Unsupported large stamps may refuse; do not claim continuous
   swept-volume CCD or no tunneling between samples.
+  Finite worker-only policy `SculptOffModeConstraintSettings::backtrack`
+  (enabled only under explicit OFF-mode constraint authorization)
+  retries normal-only fractions 1, 1/2, 1/4, 1/8, 1/16,
+  up to eight configurable finite trials. Every trial recomputes
+  actual private Inflate/refine/collapse including mirrors and
+  complete stable-ID M01/M03 clearance, then rolls back all
+  speculative mirror journals before another try. Large-stamp
+  motion is independently limited to half the immutable original
+  shortest incident edge per moved vertex (not brush radius),
+  reducing but NOT eliminating possible swept tunnelling.
+  Uncertain/cost-exhausted geometry refuses; no false no-op
+  success. Cumulative actual speculative copied bytes, changed
+  IDs and distance work are metered under separate caps and
+  charged to the ONE terminal original-root CAS/work history.
+  A passing trial is rerun through the complete original
+  stamp/admission path; it cannot publish intermediate geometry.
+  Dedicated direct/async CPU regressions cover smaller safe
+  motion, no retry/budget refusal, large steps, mirror-neutral
+  rollback, later FIFO progress and exact undo/redo. M05's
+  independent symmetrical/dual-sheet integration remains
+  open. See `docs/V18_M04_BOUNDED_NORMAL_BACKTRACKING.md`.
+  Full exact-head and merged-main GCC/Clang/MSVC CI required.
 - [ ] **V18-M05 — Both-opposing-sheet and reflected-symmetry transaction proof.**
   Integrate simultaneous motion on two opposing sheets against
   the SAME complete post-state, and source-certified reciprocal
