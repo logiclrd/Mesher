@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -27,7 +28,7 @@ void torus() {
         const double radial=std::hypot(p.x,p.z);
         const double tube=std::hypot(radial-.55,p.y);
         require(std::abs(tube-.45)<1e-10,"Every relaxed point must lie on analytic torus");
-        double v=std::atan2(p.y,radial-.8);
+        double v=std::atan2(p.y,radial-.55);
         if(v<0)v+=2*pi;
         const double area=(.55*v+.45*std::sin(v))/(2*pi*.55);
         const auto bucket=std::min(std::size_t{9},
@@ -48,6 +49,34 @@ void torus() {
     for(const auto count:areaBuckets)
         require(count>=400&&count<=600,
                 "Torus random stratum counts must reflect actual surface area, not uniform angle");
+    // Area-equal population alone is not sufficient: an equal number of
+    // azimuthal samples on every ring would severely crowd the 0.10-radius
+    // hole. Compare actual inner and outer triangle-edge scales.
+    std::set<std::pair<std::uint32_t,std::uint32_t>> uniqueEdges;
+    for(const auto t:surface.triangles)
+        for(const auto e:std::array<std::pair<std::uint32_t,std::uint32_t>,3>{{
+            {t.a,t.b},{t.b,t.c},{t.c,t.a}}})
+            uniqueEdges.insert(std::minmax(e.first,e.second));
+    double innerLength=0,outerLength=0;
+    std::size_t innerCount=0,outerCount=0;
+    for(const auto [a,b]:uniqueEdges) {
+        const auto p=surface.vertices[a],q=surface.vertices[b];
+        const auto mid=(p+q)/2.0;
+        const double radial=std::hypot(mid.x,mid.z);
+        if(radial<.23) {
+            innerLength+=length(q-p);
+            ++innerCount;
+        }else if(radial>.85) {
+            outerLength+=length(q-p);
+            ++outerCount;
+        }
+    }
+    require(innerCount>100&&outerCount>100,
+            "Both inner and outer torus regions need populated triangles");
+    const double innerMean=innerLength/double(innerCount);
+    const double outerMean=outerLength/double(outerCount);
+    require(innerMean/outerMean>.5&&innerMean/outerMean<2.0,
+            "Adaptive ring populations should keep inner and outer edge lengths comparable");
     for(const auto t:surface.triangles) {
         const auto a=surface.vertices[t.a],b=surface.vertices[t.b],
                    c=surface.vertices[t.c];
