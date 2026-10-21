@@ -2394,3 +2394,15 @@ pairwise manifold symmetry, and M72 optional persisted sculpt
 runtime settings/override precedence. M52 still waits on
 physical Windows GPU and exact provenance/root-history checks.
 See [M52 physical observations](V17_M52_DESKTOP_OBSERVATIONS.md).
+
+## V17-M73 — Default-on CLI sculpt features and explicit opt-out switches
+
+User-requested CLI-only policy: ordinary desktop Inflate and demo
+startup enable collapse, curvature and refinement by default.
+Replace old positive flags with `--no-collapse`,
+`--no-curvature-correction` and `--no-refine`. A numeric
+`--curvature-strength` argument cannot override an explicit
+disable. Existing comparison experiments retain manually
+selected baseline variants. Protected Merge stays default OFF.
+No core engine, worker, checkpoint or source-provenance changes.
+See [M73 implementation](V17_M73_DEFAULT_SCULPT_CLI.md).

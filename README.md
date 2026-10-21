@@ -34,10 +34,10 @@ ctest --test-dir build-cpu --output-on-failure
 ```text
 Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]
        [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]
-       [--stamps-per-second HZ]
+       [--stamps-per-second HZ] [--no-collapse] [--no-curvature-correction] [--no-refine]
 ```
 
-Defaults are `--symmetric --vertices 5000 --seed 1 --relax 65`. The viewport respects the window manager's display placement. **Escape** exits.
+Defaults are `--symmetric --vertices 5000 --seed 1 --relax 65`, with **collapse, curvature correction, and refinement ON** for interactive and `--demo` use. Disable them independently using `--no-collapse`, `--no-curvature-correction`, and `--no-refine`; the old positive flags are no longer accepted. `--curvature-strength` sets the gain, not the on/off state. The viewport respects the window manager's display placement. **Escape** exits.
 **Space** pauses/resumes, **Right** applies one stamp while paused, and
 **R** restores the original sphere and replays the animation.
 
@@ -157,13 +157,16 @@ and a synchronous run yield identical final positions (CPU regression).
 
 ## Experimental directional edge collapse
 
-The default animated Inflate brush remains **unchanged**: it recomputes normals
-at every stamp and performs no topology edits. Add `--collapse` to run an
-experimental, conservative remeshing pass immediately after each stamp:
+The core Inflate law and collapse algorithm are unchanged, but **directional
+collapse is now enabled by default in the CLI**. Disable the pass while
+leaving curvature correction and refinement enabled with:
 
 ```sh
-./build/Mesher --collapse --minimum-edge-ratio 0.65 --max-collapse-pairs 12
+./build/Mesher --no-collapse --minimum-edge-ratio 0.65 --max-collapse-pairs 12
 ```
+
+Omit `--no-collapse` to use the default. Headless controlled comparison
+modes still select their own experimental baseline and variants.
 
 An edge becomes a candidate **only if it shrank during the current stamp**
 and is now shorter than the configured threshold. The threshold is a fraction
@@ -224,10 +227,12 @@ collapse before adding curvature-aware movement or collision constraints.
 
 ## Independent curvature-correction experiment
 
-`--curvature-correction` enables a separate local correction to Inflate's
-normal-based displacement; `--curvature-strength GAIN` enables it and selects
-a nonnegative gain (default **1.0**). It can be used alone or together with
-`--collapse`. Without either flag the original Inflate behaviour is unchanged.
+Curvature correction is **now enabled by default** for interactive and
+demo sessions. `--no-curvature-correction` disables this local correction.
+`--curvature-strength GAIN` sets a nonnegative gain (default **1.0**)
+without changing the enabled state, even if given after
+`--no-curvature-correction`. The curvature and collapse options
+remain independent.
 
 For each active vertex, compute the standard cotangent-weighted
 Laplace-Beltrami vector `L` from the **pre-stamp** triangles, and the current
@@ -260,9 +265,9 @@ The CSV includes **baseline**, **curvature only**, **collapse only**, and
 `--compare-remesh` remains available. CI runs the four-way experiment
 at gains 0.5, 1.0 and 2.0 and uploads the comparison CSV files as artifacts.
 
-In the viewport, try `./build/Mesher --curvature-correction` or
-`./build/Mesher --collapse --curvature-correction` for direct visual
-comparison at 10 stamps/s. Use Space/Right/R to pause, single-step and replay.
+For a direct comparison, try the new default `./build/Mesher` versus
+`./build/Mesher --no-collapse --no-curvature-correction --no-refine`.
+Use `--demo` to compare repeatable playback with Space/Right/R.
 
 ## Measured 5,000-vertex curvature experiment (2026-10-15)
 
@@ -291,8 +296,10 @@ The correction is experimentally promising, but radial inversion counts
 do not establish absence of other types of self-intersection. We have not
 tested imported meshes or noisy photogrammetry scans; the curvature term
 may also attenuate legitimate high-frequency geometric detail. It should
-remain **opt-in** while we evaluate fidelity and stability. The default
-unmodified Inflate remains available for A/B comparisons.
+were historically recommended as opt-in for fidelity experiments;
+M73 now defaults them ON in the user-requested desktop CLI policy.
+Unmodified Inflate remains available by disabling all three
+mitigations for A/B comparisons.
 
 See GitHub Actions `mesher-curvature-experiments` artifacts for complete
 per-stamp CSV data.
@@ -336,14 +343,15 @@ but does not have a running KWin compositor to check these desktop behaviours.
 
 ## Experimental stretch-driven local refinement
 
-Use `--refine` to enable **directional subdivision plus local edge flipping**;
-the existing collapse pass (`--collapse`) and curvature correction
-(`--curvature-strength 0.25`) remain independent options. For example:
+**Directional subdivision and local edge flipping are now enabled by
+default**. Use `--no-refine` to turn them off independently of
+collapse and curvature. For example:
 
 ```sh
-./build/Mesher --refine --curvature-strength 0.25
-./build/Mesher --refine --collapse --curvature-strength 0.25
-./build/Mesher --refine --no-edge-flips --curvature-strength 0.25
+./build/Mesher --curvature-strength 0.25
+./build/Mesher --no-collapse --curvature-strength 0.25
+./build/Mesher --no-edge-flips --curvature-strength 0.25
+./build/Mesher --no-refine --no-curvature-correction
 ```
 
 A split requires **both** `edge_length_after > maximumEdgeRatio * h_initial`
@@ -462,14 +470,14 @@ its exact YZ-plane reflection, and the brush uses the maximum influence
 of the two spheres (never doubles overlapping influences). With
 `--asymmetric`, no second influence is created and no mirror mapping
 is passed to topology maintenance. This distinction is determined by the
-generator, not the cursor position. Symmetric topology maintenance remains
-available through `--collapse` and `--refine`.
+generator, not the cursor position. Symmetric topology maintenance is active by default, but can be
+individually disabled using `--no-collapse` and `--no-refine`.
 
-The live interactive brush uses the same Inflate law and optional
-curvature, stretch-driven refinement, local flipping and directional
-collapse mechanisms as the scripted demo. These topology operations
-remain **opt-in**; try
-`./build/Mesher --refine --collapse --curvature-correction`.
+The live interactive brush uses the same Inflate law and
+independent curvature, stretch-driven refinement, local flipping,
+and directional collapse mechanisms as the scripted demo. All
+three mitigations are now enabled by default; use the
+corresponding `--no-*` flags for controlled comparisons.
 
 The previous 105-stamp reproducible animation remains available under
 `--demo`, including Space to pause, Right to single-step, and R to replay.
@@ -619,7 +627,7 @@ On Ubuntu/Debian:
 sudo apt install libqhull-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-./build/Mesher --vertices 100000 --refine --collapse --curvature-correction
+./build/Mesher --vertices 100000
 ```
 
 Configure output reports the selected build type and detected hull backend.
@@ -739,8 +747,8 @@ every input event can itself perturb performance. It supplements (and does
 not replace) the 250ms `[sculpt]` throughput lines:
 
 ```sh
-build/Mesher --vertices 5000 --brush-radius 0.1 --refine --collapse \
-  --curvature-correction --curvature-strength 0.25 --verbose-input \
+build/Mesher --vertices 5000 --brush-radius 0.1 \
+  --curvature-strength 0.25 --verbose-input \
   2>&1 | tee sculpt.log
 ```
 
