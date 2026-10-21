@@ -158,6 +158,26 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_ctrl_camera_gestures.cmake")
+        # M73 CLI-only policy: all three sculpt mitigations ON by
+        # default; explicit --no-* opt-outs, no legacy positive flags.
+        add_test(NAME sculpt_cli_default_and_opt_out_contract
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_sculpt_cli_defaults.cmake")
+        add_test(NAME sculpt_cli_explicit_opt_out_help
+                 COMMAND Mesher --no-collapse --no-curvature-correction
+                        --no-refine --help)
+        set_tests_properties(sculpt_cli_explicit_opt_out_help PROPERTIES
+            PASS_REGULAR_EXPRESSION "collapse/curvature/refine ON")
+        add_test(NAME sculpt_cli_reject_legacy_collapse
+                 COMMAND Mesher --collapse --help)
+        set_tests_properties(sculpt_cli_reject_legacy_collapse PROPERTIES WILL_FAIL TRUE)
+        add_test(NAME sculpt_cli_reject_legacy_curvature
+                 COMMAND Mesher --curvature-correction --help)
+        set_tests_properties(sculpt_cli_reject_legacy_curvature PROPERTIES WILL_FAIL TRUE)
+        add_test(NAME sculpt_cli_reject_legacy_refine
+                 COMMAND Mesher --refine --help)
+        set_tests_properties(sculpt_cli_reject_legacy_refine PROPERTIES WILL_FAIL TRUE)
         add_test(NAME desktop_merge_default_off_help COMMAND Mesher --help)
         set_tests_properties(desktop_merge_default_off_help PROPERTIES
             PASS_REGULAR_EXPRESSION "Mouse Inflate by default")
