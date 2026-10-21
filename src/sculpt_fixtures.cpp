@@ -275,32 +275,75 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
                           std::uint32_t relaxationIterations) {
     if(vertexCount<128||vertexCount>1000000||relaxationIterations>10000)
         throw std::invalid_argument("Torus needs 128..1000000 vertices and <=10000 relaxation passes");
-    const auto rows=std::max(std::uint32_t{8},
-        static_cast<std::uint32_t>(std::sqrt(double(vertexCount)/4.0)));
+    // The surface-area density fixes a target length scale. Minor-circle
+    // rows need roughly this physical spacing; each row's number of
+    // azimuthal vertices then follows its circumference (R+r*cos(v)).
+    // Keeping an equal number on all rows would create very short inner
+    // edges but long cross-row edges near the new 0.10-radius opening.
+    const double totalArea=4*pi*pi*majorRadius*minorRadius;
+    const double targetSpacing=std::sqrt(totalArea/double(vertexCount));
+    const auto rows=std::clamp(
+        static_cast<std::uint32_t>(std::lround(tau*minorRadius/targetSpacing)),
+        std::uint32_t{8},vertexCount/3);
+    std::vector<double> bandAreas(rows),weights(rows);
+    double weightSum=0;
+    for(std::uint32_t j=0;j<rows;++j) {
+        const double low=tau*double(j)/rows;
+        const double high=tau*(double(j)+1)/rows;
+        bandAreas[j]=areaFraction(high)-areaFraction(low);
+        // Every toroidal ring requires at least three vertices.
+        weights[j]=std::max(0.0,double(vertexCount)*bandAreas[j]-3.0);
+        weightSum+=weights[j];
+    }
+    if(!(weightSum>0))throw std::runtime_error("Invalid torus surface-area bands");
+    const std::uint32_t remaining=vertexCount-3*rows;
+    std::vector<std::uint32_t> perRing(rows,3);
+    std::vector<std::pair<double,std::uint32_t>> remainders;
+    remainders.reserve(rows);
+    std::uint32_t allocated=0;
+    for(std::uint32_t j=0;j<rows;++j) {
+        const double ideal=double(remaining)*weights[j]/weightSum;
+        const auto integer=static_cast<std::uint32_t>(std::floor(ideal));
+        perRing[j]+=integer;
+        allocated+=integer;
+        remainders.emplace_back(ideal-double(integer),j);
+    }
+    std::sort(remainders.begin(),remainders.end(),[](const auto& a,const auto& b) {
+        if(a.first!=b.first)return a.first>b.first;
+        return a.second<b.second;
+    });
+    if(allocated>remaining||remaining-allocated>rows)
+        throw std::runtime_error("Torus ring population accounting overflow");
+    for(std::uint32_t i=0;i<remaining-allocated;++i)
+        ++perRing[remainders[i].second];
+
     std::mt19937_64 rng(seed);
     Mesh mesh;
     mesh.vertices.reserve(vertexCount);
     std::vector<Loop> rings(rows);
     std::vector<std::pair<double,double>> homes;
-    std::vector<double> halfCellsU;
+    std::vector<double> halfCellsU,halfCellsV;
     homes.reserve(vertexCount);
     halfCellsU.reserve(vertexCount);
+    halfCellsV.reserve(vertexCount);
     for(std::uint32_t j=0;j<rows;++j) {
-        const auto count=vertexCount/rows+(j<vertexCount%rows?1u:0u);
+        const auto count=perRing[j];
         auto& ring=rings[j];
         ring.reserve(count);
+        const double areaLow=areaFraction(tau*double(j)/rows);
+        const double homeArea=areaLow+.5*bandAreas[j];
         for(std::uint32_t i=0;i<count;++i) {
-            // Area-uniform STRATIFIED random samples. Strictly monotone
-            // cells make it possible to triangulate the resulting topology
-            // on the doubly-periodic parameter domain without a convex hull.
+            // Random jitter stays inside disjoint strata on the torus.
+            // Meridional band areas and their per-row populations both
+            // reflect the exact Jacobian R+r*cos(v).
             const double homeU=(double(i)+.5)/count;
-            const double homeV=(double(j)+.5)/rows;
             const double u=(double(i)+.5+.40*(unit(rng)-.5))/count;
-            const double v=(double(j)+.5+.40*(unit(rng)-.5))/rows;
+            const double area=homeArea+.40*(unit(rng)-.5)*bandAreas[j];
             ring.push_back(static_cast<Index>(mesh.vertices.size()));
-            homes.emplace_back(homeU,homeV);
+            homes.emplace_back(homeU,homeArea);
             halfCellsU.push_back(.43/double(count));
-            mesh.vertices.push_back(torusPoint(tau*u,inverseAreaFraction(v)));
+            halfCellsV.push_back(.43*bandAreas[j]);
+            mesh.vertices.push_back(torusPoint(tau*u,inverseAreaFraction(area)));
         }
     }
     for(std::uint32_t j=0;j<rows;++j)
@@ -309,9 +352,8 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
     // a negative coordinate basis. Reverse the strip winding to face out.
     for(auto& tri:mesh.triangles)std::swap(tri.b,tri.c);
 
-    // Relax against the already-defined 6-neighbor periodic topology.
-    // Project displacements back to the analytic torus and keep each point
-    // within its original stratified cell; faces cannot trade cyclic order.
+    // Relax against periodic triangle-neighborhood connectivity. Clamp
+    // every vertex to its own parameter stratum to preserve cyclic order.
     std::vector<std::vector<Index>> adjacent(vertexCount);
     for(const auto& [e,uses]:edgesOf(mesh)) {
         (void)uses;
@@ -336,7 +378,7 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
             u=unwrap(u,hu);
             v=unwrap(areaFraction(tau*v),hv);
             u=std::clamp(u,hu-halfCellsU[i],hu+halfCellsU[i]);
-            v=std::clamp(v,hv-.43/rows,hv+.43/rows);
+            v=std::clamp(v,hv-halfCellsV[i],hv+halfCellsV[i]);
             next[i]=torusPoint(tau*u,inverseAreaFraction(wrap(tau*v)/tau));
         }
         mesh.vertices=std::move(next);
@@ -347,7 +389,6 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
         throw std::runtime_error("Torus fixture has incorrect genus or connectivity");
     return mesh;
 }
-
 Mesh generateHollowSphereFixture(std::uint32_t vertexCount,std::uint64_t seed,
                                   std::uint32_t relaxationIterations) {
     if(vertexCount<1000||vertexCount>1000000||vertexCount%2||
