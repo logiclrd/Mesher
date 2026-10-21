@@ -126,6 +126,36 @@ void noRetryAndBudgetRefusals() {
     }catch(const std::invalid_argument&) {threw=true;}
     require(threw,"Unbounded private retry settings reject at construction");
 }
+void conservativeLargeStepPolicy() {
+    Mesh source;
+    source.vertices={{0,0,0},{2,0,0},{0,2,0}};
+    source.triangles={{0,1,2}};
+    auto setup=constrained();
+    VersionedSculptBrush brush(source,5.0,{},{},{},false,256,{},setup);
+    const auto original=brush.snapshot();
+    const auto stable=brush.originalOrder()->vertexIds[0];
+    Mesh dummy;
+    const std::array<BrushArea,1> areas{{approach}};
+    brush.stamp(dummy,areas);
+    const auto back=brush.lastStepResourceWork().backtracking;
+    require(brush.publishedRevisions()==1&&brush.rejectedStamps()==0&&
+            back.trials>=3&&back.chosenNormalFraction<=.25&&
+            back.chosenNormalFraction>0&&
+            brush.snapshot()->vertex(stable).position.z<=1.0&&
+            original->vertex(stable).position.z==0,
+            "Endpoint-clean huge Inflate is attenuated under local pre-stamp edge bound");
+    auto shortBudget=constrained();
+    shortBudget.offModeConstraints.backtrack.maxTrials=1;
+    VersionedSculptBrush reject(source,5.0,{},{},{},false,256,{},shortBudget);
+    const auto previous=reject.snapshot();
+    reject.stamp(dummy,areas);
+    require(reject.rejectedStamps()==1&&reject.publishedRevisions()==0&&
+            reject.snapshot()==previous&&
+            reject.lastStepResourceWork().backtracking.refused&&
+            reject.lastDirtyPartitions().empty(),
+            "Unresolved tunnelling-risk large stamp refuses without any history or root publication");
+}
+
 void queued4DWorkerAfterBacktracking() {
     AsyncSculptWorker worker(withRemoteEdit(),.02,.12,.2,{},{},{},
                              false,{},constrained());
@@ -161,6 +191,7 @@ int main() {
     try {
         acceptedBoundedNormalMotion();
         noRetryAndBudgetRefusals();
+        conservativeLargeStepPolicy();
         queued4DWorkerAfterBacktracking();
         std::cout<<"V18-M04 bounded private normal backtracking: PASS\n";
         return 0;
