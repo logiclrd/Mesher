@@ -53,6 +53,7 @@ struct ViewportInteraction {
     std::function<void(std::shared_ptr<const RegionTopologyIndex>,
                        std::vector<FaceId>)> mergeSelected;
     std::function<std::string()> mergeStatus;
+    std::function<std::string()> collisionStatus; // opt-in OFF-mode worker diagnostics
     // Only deliberately named M50/M51 fixtures supply a finite first-
     // original FaceId list, with its exact initial immutable root. A in
     // ON mode is an explicit human nomination, never an automatic weld.
