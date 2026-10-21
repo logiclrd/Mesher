@@ -8,12 +8,11 @@ file(READ "${MESHER_SOURCE_ROOT}/src/viewport.cpp" viewport)
 foreach(required
     "auto drawing=buildDrawing(displayedIndex_?empty:mesh_);"
     "if(!drawing.solid.empty())solid=upload(drawing.solid);"
-    "if(!drawing.lines.empty())lines=uploadWire(drawing.lines);"
     "if(displayedIndex_)initializePartitions();"
     "if(solid.vertexCount) {"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
     "if(!geometry->solid.empty())dst.solid=upload(geometry->solid);"
-    "if(!geometry->wire.empty())dst.wire=uploadWire(geometry->wire);"
+    "struct PartitionBuffers {Buffer solid;};"
     "if(vertices.empty())throw std::runtime_error(\"Empty vertex buffer\");")
     string(FIND "${viewport}" "${required}" at)
     if(at EQUAL -1)

@@ -32,7 +32,7 @@ foreach(needle
     "if(floorVisible_) {"
     "vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
-    "for(int i=-8;i<=8;++i)")
+    "const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};")
     string(FIND "${view}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M68 real floor G/W and source integer grid missing: ${needle}")

@@ -60,7 +60,7 @@ if(MESHER_BUILD_VIEWPORT)
     find_program(GLSLC_EXECUTABLE NAMES glslc glslangValidator
         HINTS "$ENV{VULKAN_SDK}/Bin" "$ENV{VULKAN_SDK}/bin" REQUIRED)
 
-    set(SHADERS mesh.vert mesh.frag wire.vert wire.frag hud.vert hud.frag)
+    set(SHADERS mesh.vert mesh.frag hud.vert hud.frag)
     set(SPIRV_FILES)
     foreach(SHADER IN LISTS SHADERS)
         set(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER}")
@@ -124,7 +124,7 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                      "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_viewport_floor.cmake")
-        add_test(NAME viewport_aa_wire_quad_pipeline_contract
+        add_test(NAME viewport_surface_aa_pipeline_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_aa_wire_quads.cmake")
@@ -146,6 +146,10 @@ if(MESHER_BUILD_TESTS)
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_surface_floor_grid.cmake")
+        add_test(NAME viewport_no_detached_wire_gpu_resources
+                 COMMAND "${CMAKE_COMMAND}"
+                    "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_no_detached_wire_gpu.cmake")
         add_test(NAME viewport_wire_depth_occlusion_contract
                  COMMAND "${CMAKE_COMMAND}"
                     "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"

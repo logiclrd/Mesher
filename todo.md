@@ -2147,7 +2147,7 @@ faces, bypass original intent, or widen source geometry authorization:
   human-observed Linux/Windows pole and hidden-edge verification
   remains M52, original M15/parent V17 still open.
   Final documented PR-head and independent merged-main CI required.
-- [ ] **V17-M69 — Retire obsolete clip-depth-flat wire quads and certify whole viewport.**
+- [x] **V17-M69 — Retire obsolete clip-depth-flat wire quads and certify whole viewport.**
   Only after M67 mesh AND M68 floor have independently passed,
   remove dead AA wire vertex buffers, uploads and pipelines;
   reconcile M56/M58/M59/M62 regression source contracts, COW
@@ -2159,6 +2159,20 @@ faces, bypass original intent, or widen source geometry authorization:
   CTest, stress/benchmark and independent merged-main CI;
   reserve final real Linux/Windows screenshots and visual
   approval for M52, original M15/V17 still open.
+  PR #122 implementation `7d0e7122` passed
+  [Actions #39516929872](https://github.com/logiclrd/Mesher/actions/runs/39516929872)
+  full Vulkan-enabled GCC, Clang and Windows MSVC /W4 /WX, CPU
+  CTests, thread/checkpoint stress and benchmark checks GREEN.
+  PR head `a28e4bb2` then passed final three-platform
+  [Actions #39517508753](https://github.com/logiclrd/Mesher/actions/runs/39517508753).
+  The stale M68-parent branch is reconciled with M68's independently
+  merged-main acceptance (PR #121, `aaa30999`) in this integration.
+  M69 removes GPU wire quad staging/pipeline, but preserves CPU
+  canonical source edge audits, COW zero-byte protection and W/G.
+  Exact reconciled PR-head and independent merged-main CI remain
+  explicit gates. Actual new pole-line appearance and M15/M52
+  physical Linux/Windows approval remain OPEN.
+
 - [x] **V17-M65 — Correct M11 asynchronous 16-undo/redo renderer snapshot observer race.**
   Independent merged-main MSVC Actions #39508068531 failed 1/41
   at `M11 each real FIFO physical union is independently undoable`,

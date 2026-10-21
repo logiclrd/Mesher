@@ -1070,3 +1070,22 @@ legitimately make a geometric silhouette look narrower, and is
 not remedied by a global wire Z-offset. It remains important
 to compare W-on/off and G floor visibility in real Vulkan
 M52 observations. See `docs/V17_M62_WIRE_COVERAGE.md`.
+
+## V17-M64–M69 — Stable AA wires through the 90° camera pole
+
+The old M58/M62 detached screen-space edge quads could self-occlude
+against the depth gradient of their owning triangles, abruptly doubling
+visible line weight at exactly 90°. M64 documents and tests the cause.
+Mesh edges now use M67's noperspective pixel barycentric distance in
+**actual visible solid triangle fragments**; M68's independently spaced
+integer XY floor grid is shaded within the true depth-tested floor
+fragment, without a fake floor triangulation diagonal. M69 removes
+obsolete GPU line buffers, uploads, and the old graphics pipeline.
+The old reference shader/quads remain in source only as historical
+CPU/analytic counterexamples and are not compiled by Vulkan.
+
+**W** disables mesh/floor line shading; **G** independently hides the
+whole floor. No global depth bias, hidden rear-edge drawing, backface
+culling or source/worker edits were introduced. Real Linux/Windows
+appearance—including the near/exact 90° transition—requires M52 user
+verification rather than treating CI compilation as a screenshot.
