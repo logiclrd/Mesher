@@ -2252,8 +2252,8 @@ faces, bypass original intent, or widen source geometry authorization:
   save-failure recovery, or real Windows GPU behavior. The user
   did not provide the exact latest executable commit, driver and OS
   build in this report; confirm those before claiming an exact build
-  reproducibility record. Preserve the stronger geometric/audio-free
-  acceptance checks and retain this M52 box OPEN.
+  reproducibility record. Preserve the remaining exact geometric,
+  history, refusal and recovery criteria and leave M52 OPEN.
   Detailed current evidence and outstanding checks:
   `docs/V17_M52_DESKTOP_OBSERVATIONS.md`.
 **Then ORIGINAL V17-M15:** Independently reconcile all previously
