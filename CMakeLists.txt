@@ -253,6 +253,9 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME revision_triangle_collisions COMMAND mesher_collision_tests)
     # V18-M01: before/after immutable source contact comparison; this is
     # read-only and does not enable the OFF-mode admission policy.
+    add_executable(mesher_repair_sphere_diagnostic tests/repair_inspection_sphere_diagnostic.cpp)
+    target_link_libraries(mesher_repair_sphere_diagnostic PRIVATE mesher_mesh)
+    add_test(NAME repair_r01_stock_sphere_diagnostic COMMAND mesher_repair_sphere_diagnostic)
     add_executable(mesher_repair_inspection_tests tests/repair_inspection_tests.cpp)
     target_link_libraries(mesher_repair_inspection_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r01_frozen_intersection_inspection COMMAND mesher_repair_inspection_tests)
