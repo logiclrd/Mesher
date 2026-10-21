@@ -51,7 +51,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M03 is NEXT. M03–M07 are flat peers
+**Order:** V18-M04 is NEXT. M04–M07 are flat peers
 preplanned before M01 implementation. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
@@ -128,7 +128,7 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   no swept CCD/clearance guarantee. See
   `docs/V18_M02_PRIVATE_STEP_ADMISSION.md`; M03 is next.
   Final PR-head and independent merged-main CI are separate gates.
-- [ ] **V18-M03 — Local mesh-scale clearance and legal sliding classification.**
+- [x] **V18-M03 — Local mesh-scale clearance and legal sliding classification.**
   Specify and implement finitely metered nearby independent
   triangle/edge/vertex distance or signed-separation checks tied to
   *local mesh spacing*, never brush radius; distinguish a legal
@@ -136,6 +136,24 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   ambiguous contact, with double-precision tolerance and
   mixed-density neighborhood tests. Work exhaustion conservatively
   refuses; do not erase/repair unrelated initial contacts.
+  Implemented finite `RegionTopologyIndex::nearbyTrianglePairs`
+  over the persistent candidate BVH: each changed seed AABB expands
+  by a fraction of its OWN shortest edge, and actual pair clearance
+  requires `0.05 × min(shortestEdgeA, shortestEdgeB)` (never brush
+  radius or coarse adjacent density). Double-precision vertex-to-
+  triangle and edge-to-edge witnesses refuse newly too-close
+  disjoint surfaces as well as M01 contact; unchanged old close
+  pairs and strict stable-face rigid tangential no-approach motion
+  retain conservative permitted progress. Six separate finite BVH
+  caps and an independent distance-test budget refuse without
+  truncation. Hooked into the explicitly enabled M02 final
+  post-Inflate/refine/collapse pre-CAS gate, with real worker
+  close-approach, safe recovery, root/undo and mixed-density tests.
+  Default desktop and V17 Merge ON remain untouched. Numerical
+  near-zero grazing without proof still refuses; no swept CCD or
+  M04 normal backtracking yet. See
+  `docs/V18_M03_MESH_SCALE_CLEARANCE.md`. M04 next, original
+  V18 still open until M04–M07 acceptance.
 - [ ] **V18-M04 — Constrained normal displacement with conservative large-step policy.**
   Use local pre-/post-state geometric evidence to reduce/limit
   proposed normal motion where clearance is endangered while
