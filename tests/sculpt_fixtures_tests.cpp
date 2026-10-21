@@ -1,6 +1,7 @@
 #include "mesher/sculpt_fixtures.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -54,12 +55,12 @@ void torus() {
     // hole. Compare actual inner and outer triangle-edge scales.
     std::set<std::pair<std::uint32_t,std::uint32_t>> uniqueEdges;
     for(const auto t:surface.triangles)
-        for(const auto e:std::array<std::pair<std::uint32_t,std::uint32_t>,3>{{
+        for(const auto& e:std::array<std::pair<std::uint32_t,std::uint32_t>,3>{{
             {t.a,t.b},{t.b,t.c},{t.c,t.a}}})
             uniqueEdges.insert(std::minmax(e.first,e.second));
     double innerLength=0,outerLength=0;
     std::size_t innerCount=0,outerCount=0;
-    for(const auto [a,b]:uniqueEdges) {
+    for(const auto& [a,b]:uniqueEdges) {
         const auto p=surface.vertices[a],q=surface.vertices[b];
         const auto mid=(p+q)/2.0;
         const double radial=std::hypot(mid.x,mid.z);
