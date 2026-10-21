@@ -67,8 +67,11 @@ post-refine/collapse root, then publish exactly ONE final
 root/history/mirror transition. Old original picker and every
 unrelated stable ID remain unchanged.
 
-An independent genuine local-refinement scenario forces a midpoint
-split of the shared X=0 seam edge. The validator deliberately refuses
+An independent genuine local-refinement scenario uses a **closed,
+oriented symmetric tetrahedron** with an actual X=0 shared edge,
+rather than requesting an unsupported topological split on the
+open two-triangle display fixture. It forces a midpoint split of
+that source-owned interior X=0 edge. The validator deliberately refuses
 the first complete privately staged split: the new permanent ID and
 new self-mirror pair must disappear from *published* state and the
 speculative refiner/collapser mirror journals must roll back. The
