@@ -18,7 +18,9 @@ namespace mesher {
 namespace {
 constexpr double pi=3.1415926535897932384626433832795;
 constexpr double tau=2*pi;
-constexpr double majorRadius=.8,minorRadius=.2;
+// A wide tube and tight opening permit the torus to be pinched shut
+// with modest brush displacement (minimum radius to the Y axis = 0.10).
+constexpr double majorRadius=.55,minorRadius=.45;
 using Index=std::uint32_t;
 using Loop=std::vector<Index>;
 using Edge=std::pair<Index,Index>;
@@ -40,15 +42,28 @@ double areaFraction(double v) {
     return (majorRadius*v+minorRadius*std::sin(v))/(tau*majorRadius);
 }
 double inverseAreaFraction(double area) {
-    // Strictly increasing: majorRadius > minorRadius.
-    double v=tau*area;
-    for(int i=0;i<10;++i) {
-        const double delta=(areaFraction(v)-area)*tau*majorRadius/
-            (majorRadius+minorRadius*std::cos(v));
-        v-=delta;
-        if(std::abs(delta)<1e-13)break;
+    // A torus has an exact Jacobian proportional to R+r*cos(v).
+    // With R=0.55, r=0.45 this approaches only 0.10 at the inside
+    // of the torus. Unbounded Newton steps can jump outside [0,2*pi]
+    // and destroy the monotone per-stratum vertex ordering. Safeguard
+    // the inverse with a bracket and fall back to bisection as needed.
+    if(!(area>=0&&area<=1))
+        throw std::invalid_argument("Invalid torus surface-area fraction");
+    if(area==0)return 0;
+    if(area==1)return tau;
+    double low=0,high=tau,angle=tau*area;
+    for(int i=0;i<30;++i) {
+        const double error=areaFraction(angle)-area;
+        if(std::abs(error)<2e-15)break;
+        if(error>0)high=angle;
+        else low=angle;
+        const double slope=(majorRadius+minorRadius*std::cos(angle))/
+                           (tau*majorRadius);
+        const double newton=angle-error/slope;
+        angle=(newton>low&&newton<high&&std::isfinite(newton))
+            ?newton:.5*(low+high);
     }
-    return v;
+    return angle;
 }
 Loop orientedAzimuthLoop(const Mesh& mesh,Loop loop) {
     if(loop.size()<3)throw std::runtime_error("Connector boundary too short");
