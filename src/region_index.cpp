@@ -471,6 +471,97 @@ RegionTopologyIndex::triangleIntersections(
 }
 
 
+std::vector<std::pair<FaceId,FaceId>>
+RegionTopologyIndex::nearbyTrianglePairs(
+    const std::vector<VertexId>& changedVertices,
+    const std::vector<FaceId>& changedFaces,
+    double localEdgeRatio,CollisionStatistics* measured,
+    const CollisionQueryLimits& limits) const {
+    if(!std::isfinite(localEdgeRatio)||localEdgeRatio<=0||
+       localEdgeRatio>1)
+        throw std::invalid_argument("V18 proximity requires a finite local edge ratio in (0,1]");
+    CollisionStatistics local{};
+    auto& stats=measured?*measured:local;
+    stats={};
+    std::set<FaceId> seeds;
+    const auto addSeed=[&](FaceId id) {
+        if(seeds.contains(id))return;
+        if(seeds.size()>=limits.maxSeedFaces)
+            throw std::length_error("V18 proximity seed-face budget exhausted");
+        seeds.insert(id);
+        stats.seedFaces=seeds.size();
+    };
+    for(const auto id:changedVertices) {
+        const auto v=maybeVertex(id);
+        if(!v) {
+            if(retiredVertex(id))continue;
+            throw std::out_of_range("Unknown V18 proximity vertex ID");
+        }
+        for(const auto face:v->incidentFaces)addSeed(face);
+    }
+    for(const auto id:changedFaces) {
+        if(retiredFace(id))continue;
+        (void)face(id);
+        addSeed(id);
+    }
+    std::set<std::pair<FaceId,FaceId>> result;
+    for(const auto id:seeds) {
+        const auto record=face(id);
+        std::array<Vec3,3> positions{};
+        RevisionPickingIndex::Bounds bounds{};
+        for(unsigned i=0;i<3;++i) {
+            positions[i]=vertex(record.vertices[i]).position;
+            if(!bounds.valid) {
+                bounds.low=bounds.high=positions[i];
+                bounds.valid=true;
+            }else {
+                const auto p=positions[i];
+                bounds.low.x=std::min(bounds.low.x,p.x);
+                bounds.low.y=std::min(bounds.low.y,p.y);
+                bounds.low.z=std::min(bounds.low.z,p.z);
+                bounds.high.x=std::max(bounds.high.x,p.x);
+                bounds.high.y=std::max(bounds.high.y,p.y);
+                bounds.high.z=std::max(bounds.high.z,p.z);
+            }
+        }
+        double shortest=std::numeric_limits<double>::infinity();
+        for(unsigned i=0;i<3;++i)
+            shortest=std::min(shortest,length(
+                positions[(i+1)%3]-positions[i]));
+        if(!std::isfinite(shortest)||shortest<=0)
+            throw std::logic_error("V18 proximity has degenerate source triangle");
+        const double range=shortest*localEdgeRatio;
+        if(!std::isfinite(range))
+            throw std::length_error("V18 proximity radius overflow");
+        bounds.low=bounds.low-Vec3{range,range,range};
+        bounds.high=bounds.high+Vec3{range,range,range};
+        if(!finite(bounds.low)||!finite(bounds.high))
+            throw std::length_error("V18 proximity AABB overflow");
+        picking_->forEachOverlappingTriangle(bounds,[&](
+            const RevisionPickingIndex::Triangle& target) {
+            if(id==target.id)return;
+            const auto pair=std::minmax(id,target.id);
+            if(result.contains({pair.first,pair.second}))return;
+            if(stats.narrowPhaseTests>=limits.maxNarrowPhaseTests)
+                throw std::length_error("V18 proximity pair-test budget exhausted");
+            ++stats.narrowPhaseTests;
+            // Shared stable vertices are topologically adjacent. M01's
+            // independent contact predicate already checks their folding;
+            // they must not produce an unavoidable zero clearance.
+            const auto other=face(target.id);
+            for(const auto a:record.vertices)
+                for(const auto b:other.vertices)
+                    if(a==b)return;
+            if(stats.reportedContacts>=limits.maxReportedContacts)
+                throw std::length_error("V18 proximity near-pair budget exhausted");
+            result.emplace(pair.first,pair.second);
+            ++stats.reportedContacts;
+        },stats,limits);
+    }
+    return {result.begin(),result.end()};
+}
+
+
 IndexedMeshRepository::IndexedMeshRepository(
     std::shared_ptr<const RegionTopologyIndex> initial)
     :published_(std::move(initial)) {
