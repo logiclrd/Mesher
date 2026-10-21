@@ -9,9 +9,11 @@ geometries. It is not yet a general-purpose Boolean mesh editor.
 
 **Current state (2026-10-21):** finite supported-domain V17 Merge
 and Linux/Windows physical GPU acceptance are complete.
-[V18](todo.md) is in development to introduce a **new opt-in
-OFF-mode collision constraint**; it is not yet enabled in the desktop; M02 adds an opt-in
-worker-only conservative collision refusal, with M03–M07 pending.
+[V18](todo.md) now offers separately authorized
+**OFF-mode collision avoidance** with `--avoid-collisions`,
+backed by M01–M05 finite worker admission and backtracking.
+Its independent integrated Linux/Windows GPU acceptance
+(M07) remains pending; this is not protected Merge or swept CCD.
 Complex imported meshes and large-device/performance validation
 remain V19. For exact completion status see the
 [active roadmap](todo.md) and [documentation guide](docs/INDEX.md).
@@ -55,7 +57,19 @@ Mesher --asymmetric --vertices 5000 --seed 1
 Mesher --no-collapse --no-curvature-correction --no-refine
 Mesher --checkpoint session.mshr
 Mesher --recover session.mshr
+Mesher --avoid-collisions
+Mesher --avoid-collisions --recover session.mshr
 ```
+
+With `--avoid-collisions`, ordinary Inflate retains a session-only
+collision-avoidance policy: risky normal movement may be attenuated
+or refused before publication. The title shows `collision avoidance
+ON (Merge OFF)`; `[collision]` and `[sculpt]` report
+refusals and trial work. This mode is explicitly incompatible with
+`--merge-geometry`, `--demo`, `--no-inflate` and comparison modes.
+**Recovery never silently re-enables the policy**; repeat the flag
+on `--recover` to opt in again. The current policy conservatively
+refuses unproven geometry and is not swept-volume CCD.
 
 Directional collapse, local refinement and curvature correction
 are ON by default; `--no-*` options disable them independently.
@@ -101,8 +115,10 @@ checkpoint recovery, which is supported.
 - Post-CAS exceptional auxiliary failures are **terminal
   fail-stop**, not fictional rollback; ordinary failed
   asynchronous checkpoint writes are separately recoverable.
-- V18 promises neither live collision prevention yet nor
-  exact swept CCD; V19 owns broad robustness, imported meshes,
+- V18's explicitly selected OFF-mode avoidance is finite and
+  conservative, not exact swept CCD or an automatic imported
+  mesh repair. M07 physical GPU acceptance remains pending;
+  V19 owns broad robustness, imported meshes,
   high-density workloads and benchmarks.
 - No universal Boolean, general two-sided Hausdorff,
   peak-process-memory bound or hard real-time guarantee is
