@@ -53,7 +53,7 @@ mustRefuse("requires interactive mouse Inflate"
     --avoid-collisions --compare-local-remesh)
 mustRefuse("requires interactive mouse Inflate"
     --avoid-collisions --compare-mitigations)
-mustRefuse("requires --merge-geometry"
+mustRefuse("--merge-test-tetra requires explicit --merge-geometry"
     --avoid-collisions --merge-test-tetra --asymmetric)
 mustRefuse("requires --merge-geometry"
     --avoid-collisions --merge-test-reflected-tetra)
