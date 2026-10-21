@@ -689,6 +689,132 @@ void VersionedSculptBrush::setOriginalPatchIntent(
         physicalIntendedOriginals_);
 }
 
+VersionedSculptBrush::BacktrackChoice
+VersionedSculptBrush::probeOffModeNormalFraction(
+    const std::shared_ptr<const RegionTopologyIndex>& before,
+    std::span<const BrushArea> areas) {
+    BacktrackChoice choice;
+    const auto& policy=collision_.offModeConstraints;
+    if(!policy.enabled||!policy.backtrack.enabled)return choice;
+    const auto& budget=policy.backtrack;
+    if(budget.maxTrials==0||budget.maxTrials>8)
+        throw std::invalid_argument(
+            "V18 bounded backtracking requires 1..8 private trials");
+    auto limits=policy.clearanceLimits;
+    limits.contacts=policy.contactLimits;
+    // The first unsuccessful normal proposal has *no* authority to
+    // change the repository or any speculative remesher mirror state.
+    // Each complete candidate gets an independent source-baseline
+    // Inflate, refine, collapse and *final* M01+M03 clearance check.
+    for(std::size_t attempt=0;attempt<budget.maxTrials;++attempt) {
+        const double fraction=std::ldexp(1.0,-static_cast<int>(attempt));
+        ++choice.work.trials;
+        const auto inflated=inflate_.stamp(
+            before,areas,partitionCapacity_,fraction);
+        refiner_.beginStep();
+        try {collapser_.beginStep();}
+        catch(...) {refiner_.rollbackStep();throw;}
+        bool rollbackNeeded=true;
+        OffModeClearanceReport assessment;
+        bool noChange=false;
+        std::string error;
+        try {
+            const auto refined=refiner_.apply(
+                inflated.index,inflated.baseline);
+            for(const auto& pair:refined.insertedMirrorPairs)
+                collapser_.addMirrorPair(pair.first,pair.second);
+            const auto collapsed=collapser_.apply(
+                refined.index,inflated.baseline);
+            const auto updated=collapsed.index;
+            std::vector<VertexId> changedVertices=inflated.baseline.movedVertices;
+            changedVertices.insert(changedVertices.end(),
+                refined.insertedVertices.begin(),refined.insertedVertices.end());
+            changedVertices.insert(changedVertices.end(),
+                collapsed.removedVertices.begin(),collapsed.removedVertices.end());
+            std::vector<FaceId> changedFaces=inflated.baseline.affectedFaces;
+            changedFaces.insert(changedFaces.end(),
+                refined.changedFaces.begin(),refined.changedFaces.end());
+            changedFaces.insert(changedFaces.end(),
+                collapsed.removedFaces.begin(),collapsed.removedFaces.end());
+            changedFaces.insert(changedFaces.end(),
+                collapsed.rewrittenFaces.begin(),collapsed.rewrittenFaces.end());
+
+            choice.work.privateCopiedBytes=checkedStepSum({
+                choice.work.privateCopiedBytes,
+                inflated.commitStatistics.clonedPartitionBytes,
+                refined.clonedPartitionBytes,
+                collapsed.clonedPartitionBytes
+            });
+            choice.work.changedIdReferences=checkedStepSum({
+                choice.work.changedIdReferences,
+                changedVertices.size(),changedFaces.size()
+            });
+            if(choice.work.privateCopiedBytes>budget.maxTrialCopiedBytes||
+               choice.work.changedIdReferences>
+                   budget.maxTrialChangedIdReferences)
+                throw std::length_error(
+                    "V18 bounded backtracking cumulative COW/changed-ID work budget exhausted");
+            noChange=updated==before;
+            if(!noChange) {
+                assessment=assessOffModeMeshClearance(
+                    before,updated,changedVertices,changedFaces,limits);
+                choice.work.distanceTests=checkedStepSum({
+                    choice.work.distanceTests,assessment.distanceTests});
+                if(choice.work.distanceTests>budget.maxTrialDistanceTests)
+                    throw std::length_error(
+                        "V18 bounded backtracking distance-work budget exhausted");
+            }
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+            rollbackNeeded=false;
+        }catch(const std::length_error& e) {
+            error=std::string("V18 bounded backtracking budget refusal: ")+e.what();
+        }catch(const std::logic_error& e) {
+            error=std::string("V18 bounded backtracking geometry refusal: ")+e.what();
+        }catch(...) {
+            if(rollbackNeeded) {
+                collapser_.rollbackStep();
+                refiner_.rollbackStep();
+            }
+            throw;
+        }
+        if(rollbackNeeded) {
+            collapser_.rollbackStep();
+            refiner_.rollbackStep();
+        }
+        if(!error.empty()) {
+            choice.refusal=std::move(error);
+            break;
+        }
+        if(noChange&&attempt==0) {
+            choice.work.chosenNormalFraction=1;
+            return choice; // Genuine unchanged original Step
+        }
+        if(!noChange&&assessment.allowed()) {
+            choice.fraction=fraction;
+            choice.work.chosenNormalFraction=fraction;
+            return choice;
+        }
+        ++choice.work.declined;
+        // Only conclusive TOO-CLOSE or definite new CONTACT can be
+        // addressed by smaller normal displacement. No retry of an
+        // UNKNOWN, bad source or exhausted finite certificate.
+        if(noChange||
+           (assessment.status!=OffModeClearanceStatus::TooClose&&
+            assessment.status!=OffModeClearanceStatus::Contact)) {
+            choice.refusal="V18 bounded backtracking refuses uncertain private clearance";
+            break;
+        }
+    }
+    choice.work.refused=true;
+    if(choice.refusal.empty())
+        choice.refusal="V18 bounded backtracking exhausted without a certified normal displacement";
+    // The normal full-strength pipeline runs once more, but is FORCED to
+    // refuse pre-CAS. This retains the existing single rejected Step,
+    // attempted-work accounting, diagnostic and FIFO rollback contracts.
+    return choice;
+}
+
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
@@ -748,7 +874,10 @@ void VersionedSculptBrush::stamp(
             contact_.observe(std::nullopt);
         return;
     }
-    const auto inflated=inflate_.stamp(old,areas,partitionCapacity_);
+    const auto trial=probeOffModeNormalFraction(old,areas);
+    lastStepResourceWork_.backtracking=trial.work;
+    const auto inflated=inflate_.stamp(
+        old,areas,partitionCapacity_,trial.fraction);
     const auto afterInflate=Clock::now();
     refiner_.beginStep();
     try {collapser_.beginStep();}
@@ -973,6 +1102,8 @@ void VersionedSculptBrush::stamp(
     // geometric refusals raised by this opt-in callback are recoverable.
     std::string rejection=physicalRefusal.empty()?
         std::move(collisionRefusal):std::move(physicalRefusal);
+    if(rejection.empty()&&!trial.refusal.empty())
+        rejection=trial.refusal;
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -1068,6 +1199,7 @@ void VersionedSculptBrush::stamp(
         try {
             auto& measured=lastStepResourceWork_;
             measured.privateCopiedBytes=checkedStepSum({
+                trial.work.privateCopiedBytes,
                 inflated.commitStatistics.clonedPartitionBytes,
                 refined.clonedPartitionBytes,
                 collapsed.clonedPartitionBytes,
@@ -1076,6 +1208,7 @@ void VersionedSculptBrush::stamp(
                     collisionRepair->commit.statistics.clonedPartitionBytes:0
             });
             measured.changedIdReferences=checkedStepSum({
+                trial.work.changedIdReferences,
                 changedVertices.size(),changedFaces.size()});
             finalDirty=dirtyRenderPartitions(
                 *old,*updated,changedVertices,changedFaces);
