@@ -2365,3 +2365,16 @@ canonical topology-edge staging used by immutable audits.
 Update historic M56–M62 source contracts to assert current stronger
 surface-depth ownership and preserve M59 empty-buffer startup.
 See [M69 acceptance](V17_M69_WIRE_GPU_CLEANUP.md).
+
+## V17-M52 — Partial real desktop acceptance reported after M69
+
+On 2026-10-20 the user reported that wires are now uniformly
+visible independent of camera angle (though a little heavier
+than desired), the new camera controls work as expected, W
+correctly toggles wires from either side, and both symmetric and
+asymmetric Merge fixtures behave as expected. This is genuine
+human-observed progress; it does not independently document
+specific worker events, undo/redo, checkpoint/recovery,
+Windows physical Vulkan behavior or exact OS/driver/commit
+provenance. M52 and original M15 remain OPEN.
+See [partial M52 observation log](V17_M52_DESKTOP_OBSERVATIONS.md).
