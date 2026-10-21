@@ -158,11 +158,26 @@ bool penetratesBeyondSharedVertex(
             }
             if((dp>planeTolerance&&dq>planeTolerance)||
                (dp< -planeTolerance&&dq< -planeTolerance))continue;
-            const double divisor=dp-dq;
-            if(std::abs(divisor)<=planeTolerance)continue;
-            const double t=dp/divisor;
-            if(t<0||t>1)continue;
-            const auto at=p+(q-p)*t;
+            // An endpoint already on the plane (within the supported
+            // plane-distance uncertainty) MUST be used as that exact
+            // endpoint. Solving dp/(dp-dq) instead can land a tiny distance
+            // along an otherwise disjoint edge. Near-tangential planes
+            // amplify that error into >epsilon 3D motion, turning a valid
+            // shared-vertex fan on a convex sphere into false penetration.
+            // The endpoint owns an exact shared VertexId, so its position
+            // is more reliable than an extrapolated plane intersection.
+            Vec3 at{};
+            if(std::abs(dp)<=planeTolerance) {
+                at=p;
+            }else if(std::abs(dq)<=planeTolerance) {
+                at=q;
+            }else {
+                const double divisor=dp-dq;
+                if(std::abs(divisor)<=planeTolerance)continue;
+                const double t=dp/divisor;
+                if(t<0||t>1)continue;
+                at=p+(q-p)*t;
+            }
             if(length(at-shared)>epsilon&&
                pointInsideTriangle(at,to,normal,epsilon))return true;
         }
