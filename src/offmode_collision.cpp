@@ -26,13 +26,13 @@ bool sameFace(const RegionTopologyIndex& before,
     return true;
 }
 
-template<class ID,class Exists,class WasRetired>
+template<class ID,class Exists>
 bool collectKnown(std::span<const ID> inputs,
-                  const Exists& exists,const WasRetired& wasRetired,
+                  const Exists& exists,
                   std::vector<ID>& before,std::vector<ID>& after) {
     for(const auto id:inputs) {
         const bool old=exists(id,true),now=exists(id,false);
-        if(!old&&!now&&!wasRetired(id))return false;
+        // A tombstone in BOTH roots is not evidence of a changed live\n        // neighborhood. Retirements are valid only when old is live.\n        if(!old&&!now)return false;
         if(old)before.push_back(id);
         if(now)after.push_back(id);
     }
@@ -82,17 +82,11 @@ OffModeContactReport assessOffModePostStateContacts(
         changedVertices,
         [&](VertexId id,bool isBefore) {
             return static_cast<bool>((isBefore?before:candidate)->maybeVertex(id));
-        },
-        [&](VertexId id) {
-            return before->retiredVertex(id)||candidate->retiredVertex(id);
         },oldVertices,newVertices);
     const auto knownFaces=collectKnown<FaceId>(
         changedFaces,
         [&](FaceId id,bool isBefore) {
             return static_cast<bool>((isBefore?before:candidate)->maybeFace(id));
-        },
-        [&](FaceId id) {
-            return before->retiredFace(id)||candidate->retiredFace(id);
         },oldFaces,newFaces);
     if(!knownVertices||!knownFaces)
         return refuse("V18 contact ledger received unknown stable vertex/face ID");
