@@ -3,8 +3,7 @@
 ## Status and scope
 
 M02 is the SECOND flat V18 peer after the accepted, separately
-read-only [M01 immutable before/after contact ledger]
-(V18_M01_POSTSTATE_CONTACT_LEDGER.md). This milestone adds an
+read-only [M01 immutable before/after contact ledger](V18_M01_POSTSTATE_CONTACT_LEDGER.md). This milestone adds an
 **opt-in C++ worker policy, still NOT a desktop CLI switch**.
 The ordinary unarmed/default sculpt and the V17 first-original
 `--merge-geometry` source-certified Boolean retain their behavior;
@@ -67,7 +66,9 @@ A third distant tetrahedron provides a safe subsequent stamp:
 one direct brush and one real `AsyncSculptWorker` 4D FIFO each
 recover from the original crossing refusal and publish exactly
 one legitimate new original-root/history entry. Pointer-exact
-undo/redo is checked. A single clean tetrahedron supplies
+undo/redo is checked. A separate test confirms unrelated pre-existing overlapping source
+tetrahedra remain unchanged during a valid remote edit; there is
+no global cleanup/refusal requirement. A single clean tetrahedron supplies
 a positive accepted stamped candidate and all source/geometry
 credentials remain untouched. A zero collision seed budget
 refuses an otherwise clean, actually staged Step with real
