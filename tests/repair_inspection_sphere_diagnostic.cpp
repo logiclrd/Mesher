@@ -67,9 +67,14 @@ void inspectSphere() {
                     report(*previous,pair.first,pair.second);
                 }
             }
-            break;
+            throw std::runtime_error(
+                "Default symmetric sphere spuriously froze within 20 gentle stamps");
         }
     }
+    if(!initial.empty())
+        throw std::runtime_error("Untouched convex sphere has false triangle contacts");
+    if(guarded.completedStamps()!=20)
+        throw std::runtime_error("Gentle repeat stamps did not complete normally");
 }
 }
 int main() {
