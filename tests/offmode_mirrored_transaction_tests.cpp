@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 using namespace mesher;
@@ -212,6 +213,63 @@ void explicitRefusalThenFixedPointRecovery() {
             brush.redo()&&brush.snapshot()==next,
             "Refused mirrored trial does not poison fixed-plane undo/redo or mirrors");
 }
+void actualMirrored4DWorkerFifoAndCheckpoint() {
+    auto fixture=mirroredSource();
+    const auto original=fixture.source.index;
+    AsyncSculptWorker worker(fixture.source,.02,.12,.2,{},{},{},
+                             {},enabled(1));
+    worker.begin({4,0,0},.13);
+    worker.end({4,0,0},0);
+    const auto wait=[&]() {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(15);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        require(worker.canBegin(),"Reflected OFF-mode 4D worker FIFO drained");
+    };
+    wait();
+    const auto denied=worker.status();
+    require(denied.rejectedStamps==1&&denied.publishedRevisions==0&&
+            denied.history.undoDepth==0&&denied.resources.refused==1&&
+            worker.initialRevision()==original&&
+            denied.pendingSteps==0&&denied.pendingSegments==0,
+            "Mirrored 4D worker rejects unsafe paired input without root/undo/renderer publication");
+    const auto noDirty=worker.takeSnapshot();
+    if(noDirty)
+        require(noDirty->index==original&&
+                noDirty->dirtyPartitions.empty(),
+                "Mirrored 4D rejected Step never exposes a partial dirty frame");
+    worker.begin({0,10,0},.13);
+    worker.end({0,10,0},0);
+    wait();
+    const auto current=worker.status();
+    const auto accepted=worker.initialRevision();
+    require(accepted!=original&&current.rejectedStamps==1&&
+            current.publishedRevisions==1&&current.history.undoDepth==1&&
+            current.resources.published==1&&
+            current.pendingSteps==0&&current.pendingSegments==0,
+            "Next real mirrored 4D seam stroke publishes one complete original-root transaction after refusal");
+    const auto seamPoint=fixture.vertexIds[13];
+    require(accepted->vertex(seamPoint).position.x==0&&
+            accepted->vertex(seamPoint).position.z>
+                original->vertex(seamPoint).position.z,
+            "Mirrored 4D worker preserves actual X=0 stable fixed-point source");
+    const auto published=worker.takeSnapshot();
+    require(published&&published->index==accepted&&
+            !published->dirtyPartitions.empty(),
+            "One valid 4D mirrored Step produces complete renderer dirty owners");
+    worker.undo();
+    const auto deadline=std::chrono::steady_clock::now()+
+                        std::chrono::seconds(10);
+    while(std::chrono::steady_clock::now()<deadline) {
+        if(worker.status().history.undoDepth==0&&
+           worker.initialRevision()==original)break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    require(worker.initialRevision()==original&&
+            worker.status().history.undoDepth==0,
+            "Asynchronous reflected worker undo restores exact accepted source ancestor");
+}
 void badMirrorOwnershipIsNotGuessedFromXYZ() {
     auto f=mirroredSource(true);
     auto invalid=f.source;
@@ -259,6 +317,7 @@ int main() {
         allSourcePairsAndRealReflectedApproach();
         explicitRefusalThenFixedPointRecovery();
         badMirrorOwnershipIsNotGuessedFromXYZ();
+        actualMirrored4DWorkerFifoAndCheckpoint();
         staleExpectedRootRefusalNoPartialHistory();
         std::cout<<"V18-M05 reflected source and opposing-sheet transaction: PASS\n";
         return 0;
