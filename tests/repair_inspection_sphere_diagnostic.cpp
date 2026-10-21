@@ -42,7 +42,13 @@ void inspectSphere() {
         report(*original,pair.first,pair.second);
     }
     auto session=std::make_shared<RepairInspectionSession>();
-    VersionedSculptBrush guarded(mesh,.012,{},{},{},true,256,
+    CurvatureSettings curvature;
+    CollapseSettings collapse;
+    RefineSettings refine;
+    curvature.enabled=true;
+    collapse.enabled=true;
+    refine.enabled=true;
+    VersionedSculptBrush guarded(mesh,.012,curvature,collapse,refine,true,256,
         [session](const ProposedSculptStep& p){return session->inspect(p);});
     const Vec3 center=normalized(Vec3{.55,-.75,-.36});
     const std::array<BrushArea,2> areas{{
@@ -73,8 +79,9 @@ void inspectSphere() {
     }
     if(!initial.empty())
         throw std::runtime_error("Untouched convex sphere has false triangle contacts");
-    if(guarded.completedStamps()!=20)
-        throw std::runtime_error("Gentle repeat stamps did not complete normally");
+    if(guarded.completedStamps()!=20||guarded.rejectedStamps()!=0)
+        throw std::runtime_error("Desktop-default refine/collapse/curvature stamps did not complete");
+    std::cout<<"[r01-sphere] desktop-default correction: 20 accepted, no freeze"<<"\n";
 }
 }
 int main() {
