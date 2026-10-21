@@ -2406,3 +2406,26 @@ disable. Existing comparison experiments retain manually
 selected baseline variants. Protected Merge stays default OFF.
 No core engine, worker, checkpoint or source-provenance changes.
 See [M73 implementation](V17_M73_DEFAULT_SCULPT_CLI.md).
+
+## V17-M52 — Final real-GPU desktop acceptance (2026-10-20/21)
+
+User supplied the missing **same-revision** physical Linux and Windows
+host binary, operating system, GPU and Vulkan-driver provenance for
+`c3123987d6f45e5f0eb946c94b40ac1fc99695fd`. Reported actual
+Windows W1–W7 acceptance covers unarmed default OFF, real sculpt
+and mesh/floor ink, orbit/strafe/dolly and ±90-degree pole views,
+positive authenticated asymmetric and reflected Merge with
+`A 1 R 0 P 0`, Ctrl+Z/Ctrl+Y and rebranch, named first-original
+reflection-closure refusal followed by successful later Merge,
+ordinary checkpoint/recovery, deliberately failed checkpoint writes,
+protected V13 recovery guard, and default-on M73 CLI policy.
+Linux physical tests separately covered the same bounded workflow.
+GPU-specific omissions are recorded accurately: Linux `vulkaninfo`
+listed hardware RADV and software llvmpipe without an independently
+logged Mesher device choice, while Windows cursor wrapping was not
+directly observable through RustDesk. M54/M47/M49 CPU/worker tests
+are the **separate** exact source/manifold/picker/root/history proof,
+not claims of GUI-observed pointer equality. Source-supported M52 is
+**accepted**, original M15 integrated review **still open**, V18/V19
+and optional M66/M70–M72 unaffected. See
+[final M52 acceptance](V17_M52_DESKTOP_OBSERVATIONS.md).
