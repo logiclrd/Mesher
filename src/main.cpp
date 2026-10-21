@@ -580,6 +580,8 @@ int main(int argc, char** argv) {
                                  <<" classified_faces="<<preview.classifiedFaces
                                  <<" complete="<<preview.complete
                                  <<" reason="<<(preview.diagnostic.empty()?"none":preview.diagnostic)
+                                 <<" closure_advisory="<<(preview.closureAdvisory.empty()?
+                                    "none":preview.closureAdvisory)
                                  <<" (NO FACE DELETION)\n";
                         for(std::size_t i=0;i<preview.contours.size();++i)
                             std::cout<<"[repair-r02] loop="<<i
