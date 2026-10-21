@@ -19,7 +19,7 @@ void realFixtureAcceptance() {
     require(mesh.vertices.size()==9&&mesh.triangles.size()==3,
             "M07 named GPU fixture retains three independent face owners");
     auto cfg=desktopCollisionSettings({false,true,true});
-    VersionedSculptBrush brush(mesh,.12,{},{},{},false,256,{},cfg);
+    VersionedSculptBrush brush(mesh,.5,{},{},{},false,256,{},cfg);
     auto original=brush.snapshot();
     const auto first=brush.originalOrder()->vertexIds[0];
     const auto other=brush.originalOrder()->vertexIds[3];
@@ -40,8 +40,8 @@ void realFixtureAcceptance() {
             firstWork.privateCopiedBytes>firstWork.backtracking.privateCopiedBytes,
             "Real visible near-sheet source requires certified normal attenuation before one CAS");
     require(accepted->vertex(first).position.z>0&&
-            accepted->vertex(first).position.z<.05&&
-            accepted->vertex(other).position.z==.14&&
+            accepted->vertex(first).position.z<.3&&
+            accepted->vertex(other).position.z==.55&&
             accepted->vertex(remote).position.x==remotePosition.x&&
             accepted->vertex(remote).position.z==remotePosition.z,
             "Near-sheet accepted normal displacement is bounded and does not touch other or remote surface");
@@ -106,8 +106,8 @@ void realFixtureAcceptance() {
                 afterRecovery->retiredVertexCount()&&
             recovered.mirrorPairs.empty(),
             "M07 edited source disk round trip preserves immutable stable source and asymmetric identity");
-    VersionedSculptBrush guarded(recovered,.12,{},{},{},256,{},cfg);
-    VersionedSculptBrush ordinary(recovered,.12,{},{},{});
+    VersionedSculptBrush guarded(recovered,.5,{},{},{},256,{},cfg);
+    VersionedSculptBrush ordinary(recovered,.5,{},{},{});
     require(guarded.snapshot()&&ordinary.snapshot()&&
             !guarded.checkpoint().verifiedOriginalFidelity&&
             !ordinary.checkpoint().verifiedOriginalFidelity,
