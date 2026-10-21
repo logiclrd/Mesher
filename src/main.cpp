@@ -8,6 +8,7 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
+#include "mesher/repair_inspection.hpp"
 
 #include <array>
 #include <filesystem>
@@ -29,6 +30,7 @@ int main(int argc, char** argv) {
     bool allowMergeGeometry = false;
     bool avoidCollisions = false;
     bool avoidTestSheets = false;
+    bool repairInspect = false;
     bool mergeTestTetra = false;
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
@@ -62,6 +64,7 @@ int main(int argc, char** argv) {
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
             else if(arg=="--avoid-collisions")avoidCollisions=true;
             else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
+            else if(arg=="--repair-inspect")repairInspect=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
@@ -154,7 +157,8 @@ int main(int argc, char** argv) {
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
-                         <<"       [--avoid-test-sheets] (requires --avoid-collisions --asymmetric; M07 GPU test only)\n"
+                         <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
+                         <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -179,16 +183,20 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
+        if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
+           !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
+            throw std::invalid_argument(
+                "--repair-inspect is exclusive with --merge-geometry/--avoid-collisions and requires interactive Inflate");
         const auto desktopPolicy=mesher::desktopCollisionSettings({
             allowMergeGeometry,avoidCollisions,
             inflate&&!demoMode&&!compareRemesh&&
             !compareLocalRemesh&&!compareMitigations
         });
-        if(avoidTestSheets&&(!avoidCollisions||options.symmetric||
+        if(avoidTestSheets&&(!(avoidCollisions||repairInspect)||options.symmetric||
             !recoverPath.empty()||mergeTestTetra||
             mergeTestReflectedTetra))
             throw std::invalid_argument(
-                "--avoid-test-sheets requires --avoid-collisions --asymmetric, no --recover and no protected Merge fixture");
+                "--avoid-test-sheets requires --asymmetric and --avoid-collisions or --repair-inspect, no --recover or protected Merge");
         if(avoidTestSheets&&
             (!inflate||demoMode||compareLocalRemesh||
              compareRemesh||compareMitigations))
@@ -350,6 +358,13 @@ int main(int argc, char** argv) {
         mesher::ViewportInteraction interaction;
         std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
+        auto repairSession=repairInspect
+            ?std::make_shared<mesher::RepairInspectionSession>():nullptr;
+        const mesher::SculptStepValidator repairValidator=repairSession
+            ?mesher::SculptStepValidator{
+                [repairSession](const mesher::ProposedSculptStep& proposed) {
+                    return repairSession->inspect(proposed);
+                }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
             const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
@@ -366,7 +381,7 @@ int main(int argc, char** argv) {
                 liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
                     curvatureSettings,collapseSettings,refineSettings,
-                    mesher::SculptStepValidator{},desktopPolicy);
+                    repairValidator,desktopPolicy);
             else {
                 const auto mergePolicy=desktopPolicy;
                 if(mergeTestReflectedTetra) {
@@ -379,7 +394,7 @@ int main(int argc, char** argv) {
                     liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                         std::move(source.checkpoint),step,strength,timeSpeed,
                         curvatureSettings,collapseSettings,refineSettings,
-                        mesher::SculptStepValidator{},mergePolicy,
+                        repairValidator,mergePolicy,
                         std::move(source.firstFaces));
                 } else {
                     // The global OFF startup remains bit-for-bit the previous
@@ -391,7 +406,7 @@ int main(int argc, char** argv) {
                     liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                         mesh,step,strength,timeSpeed,curvatureSettings,
                         collapseSettings,refineSettings,options.symmetric,
-                        mesher::SculptStepValidator{},mergePolicy);
+                        repairValidator,mergePolicy);
                 }
             }
             if(avoidTestSheets)
@@ -442,9 +457,10 @@ int main(int argc, char** argv) {
                     return text;
                 };
             }
-            interaction.undo=[&]{liveWorker->undo();};
-            interaction.redo=[&]{liveWorker->redo();};
+            interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
+            interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.checkpoint=[&]{
+                if(repairSession&&repairSession->frozen())return;
                 liveWorker->saveCheckpoint(checkpointPath);
                 std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
             };
@@ -456,6 +472,7 @@ int main(int argc, char** argv) {
                 liveWorker->setRadius(brushRadius);
             };
             interaction.begin=[&](mesher::Vec3 point) {
+                if(repairSession&&repairSession->frozen())return;
                 liveWorker->begin(point,brushRadius);
             };
             interaction.update=[&](mesher::Vec3 point,double elapsed) {
@@ -465,9 +482,46 @@ int main(int argc, char** argv) {
                 liveWorker->end(point,elapsed);
             };
             interaction.initialRevision=liveWorker->initialRevision();
+            // R01 preview is NOT a published worker root. Preserve its
+            // immutable source separately from ordinary live snapshots and
+            // invalidate all visible partition owners once at freeze.
+            auto lastDisplayed=liveWorker->initialRevision();
+            bool inspectionPresented=false;
             interaction.takeSnapshot=[&]() -> std::optional<mesher::ViewportMeshUpdate> {
+                if(repairSession)if(const auto frozen=repairSession->frozenSnapshot()) {
+                    if(inspectionPresented)return std::nullopt;
+                    inspectionPresented=true;
+                    std::set<mesher::PartitionId> owners;
+                    if(lastDisplayed)lastDisplayed->revision().forEachPartition(
+                        [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                            owners.insert(id);
+                        });
+                    frozen->candidate->revision().forEachPartition(
+                        [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                            owners.insert(id);
+                        });
+                    std::cout<<"[repair-r01] FROZEN candidate contacts="
+                             <<frozen->contacts.size()
+                             <<" faces="<<frozen->affectedFaces.size()
+                             <<" incident_vertices="<<frozen->incidentVertices.size()
+                             <<" incident_edges="<<frozen->incidentEdges.size()
+                             <<" seed_faces="<<frozen->work.seedFaces
+                             <<" narrow_tests="<<frozen->work.narrowPhaseTests
+                             <<" diagnostic="<<(frozen->diagnostic.empty()?"none":frozen->diagnostic)
+                             <<" (no CAS/history/checkpoint publication)\n";
+                    for(const auto& pair:frozen->contacts)
+                        std::cout<<"[repair-r01] FaceId "<<pair.first
+                                 <<" x "<<pair.second
+                                 <<(pair.ambiguous?" AMBIGUOUS":" CONTACT")<<"\n";
+                    return mesher::ViewportMeshUpdate{
+                        frozen->candidate,
+                        {owners.begin(),owners.end()},
+                        liveWorker->status().completedStamps,
+                        true,mesher::buildRepairInspectionOverlay(*frozen)};
+                }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
+                lastDisplayed=snapshot->index;
                 return mesher::ViewportMeshUpdate{
                     std::move(snapshot->index),std::move(snapshot->dirtyPartitions),
                     snapshot->completedStamps};
@@ -478,7 +532,8 @@ int main(int argc, char** argv) {
             interaction.pendingSegments=[&]{return liveWorker->status().pendingSegments;};
             interaction.totalQueuedSteps=[&]{return liveWorker->status().totalQueuedSteps;};
             interaction.inputCommands=[&]{return liveWorker->status().inputCommands;};
-            interaction.canBegin=[&]{return liveWorker->canBegin();};
+            interaction.canBegin=[&]{return liveWorker->canBegin()&&
+                (!repairSession||!repairSession->frozen());};
             interaction.lastStampDetails=[&] {
                 const auto status=liveWorker->status();
                 const auto& d=status.details;
@@ -547,14 +602,22 @@ int main(int argc, char** argv) {
                        " | pending "+std::to_string(status.pendingSteps)+
                        " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric")+
-                       (avoidCollisions?" | collision avoidance ON (Merge OFF)":"");
+                       (avoidCollisions?" | collision avoidance ON (Merge OFF)":"")+
+                       (repairInspect?(repairSession->frozen()?
+                         " | R01 inspection FROZEN":" | R01 inspection armed"):"");
             };
             if(mergeTestTetra||mergeTestReflectedTetra)
                 std::cout<<"[merge] This named developer fixture permits "
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
-            if(avoidTestSheets)
+            if(repairInspect)
+                std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
+                            "unpublished candidate. Red dots are incident vertices; "
+                            "dark-red rods are attached edges. Move camera/orbit "
+                            "inside the surface, W/G; Escape to exit/relaunch. "
+                            "No excision, no checkpoint/history publication.\n";
+            if(avoidTestSheets&&!repairInspect)
                 std::cout<<"[collision] M07 GPU exercise: orbit to view the two "
                             "closely separated faces near X=0, sculpt repeatedly "
                             "toward the other sheet, observe reduced normal_fraction "
