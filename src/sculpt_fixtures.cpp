@@ -32,7 +32,8 @@ double wrap(double value) {
 }
 Vec3 torusPoint(double u,double v) {
     const double r=majorRadius+minorRadius*std::cos(v);
-    return {r*std::cos(u),r*std::sin(u),minorRadius*std::sin(v)};
+    // Toroidal hole is centered on the Y axis, facing the default camera.
+    return {r*std::cos(u),minorRadius*std::sin(v),r*std::sin(u)};
 }
 double areaFraction(double v) {
     // The exact torus surface-area Jacobian is r(R+r*cos(v)).
@@ -116,7 +117,7 @@ EdgeMap edgesOf(const Mesh& mesh) {
         const auto a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
         if(!(length(cross(b-a,c-a))>1e-12))
             throw std::runtime_error("Geometrically degenerate fixture triangle");
-        for(const auto e:std::array<std::pair<Index,Index>,3>{{
+        for(const auto& e:std::array<std::pair<Index,Index>,3>{{
             {t.a,t.b},{t.b,t.c},{t.c,t.a}}})
             result[edge(e.first,e.second)].push_back({
                 i,e.first<e.second});
@@ -141,7 +142,7 @@ void orientConnectedSurface(Mesh& mesh) {
     work.push(0);
     while(!work.empty()) {
         const auto face=work.front();work.pop();
-        for(const auto [next,needFlip]:neighbors[face]) {
+        for(const auto& [next,needFlip]:neighbors[face]) {
             const int wanted=parity[face]^static_cast<int>(needFlip);
             if(parity[next]==-1) {
                 parity[next]=wanted;
@@ -289,6 +290,9 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
     }
     for(std::uint32_t j=0;j<rows;++j)
         stitch(mesh,rings[j],rings[(j+1)%rows]);
+    // The XZ azimuth and increasing minor-meridian parameter define
+    // a negative coordinate basis. Reverse the strip winding to face out.
+    for(auto& tri:mesh.triangles)std::swap(tri.b,tri.c);
 
     // Relax against the already-defined 6-neighbor periodic topology.
     // Project displacements back to the analytic torus and keep each point
@@ -306,8 +310,8 @@ Mesh generateTorusFixture(std::uint32_t vertexCount,std::uint64_t seed,
             for(const auto j:adjacent[i])average=average+mesh.vertices[j];
             average=average/double(adjacent[i].size());
             const auto p=mesh.vertices[i]+(average-mesh.vertices[i])*.18;
-            double u=wrap(std::atan2(p.y,p.x))/tau;
-            double v=wrap(std::atan2(p.z,std::hypot(p.x,p.y)-majorRadius))/tau;
+            double u=wrap(std::atan2(p.z,p.x))/tau;
+            double v=wrap(std::atan2(p.y,std::hypot(p.x,p.z)-majorRadius))/tau;
             const auto [hu,hv]=homes[i];
             const auto unwrap=[](double x,double origin) {
                 while(x-origin> .5)x-=1;
