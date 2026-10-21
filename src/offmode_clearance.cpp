@@ -10,7 +10,7 @@
 
 namespace mesher {
 namespace {
-using Triangle=std::array<Vec3,3>;
+using FacePoints=std::array<Vec3,3>;
 double square(Vec3 p) {return dot(p,p);}
 double clamp01(double x) {return std::clamp(x,0.0,1.0);}
 bool finite(Vec3 p) {
@@ -19,18 +19,18 @@ bool finite(Vec3 p) {
 Triangle triangleOf(const RegionTopologyIndex& root,FaceId id) {
     const auto face=root.maybeFace(id);
     if(!face)throw std::logic_error("V18 missing stable clearance face");
-    Triangle result{};
+    FacePoints result{};
     for(unsigned k=0;k<3;++k)
         result[k]=root.vertex(face->vertices[k]).position;
     return result;
 }
-double shortestEdge(const Triangle& t) {
+double shortestEdge(const FacePoints& t) {
     double shortest=std::numeric_limits<double>::infinity();
     for(unsigned i=0;i<3;++i)
         shortest=std::min(shortest,length(t[(i+1)%3]-t[i]));
     return shortest;
 }
-double numericTolerance(const Triangle& a,const Triangle& b,
+double numericTolerance(const FacePoints& a,const FacePoints& b,
                         double localScale) {
     double coordinate=0;
     for(const auto& t:{a,b})for(const auto p:t)
@@ -39,7 +39,7 @@ double numericTolerance(const Triangle& a,const Triangle& b,
     return std::max(1e-12*localScale,
         64*std::numeric_limits<double>::epsilon()*coordinate);
 }
-bool wellFormed(const Triangle& t) {
+bool wellFormed(const FacePoints& t) {
     for(const auto p:t)if(!finite(p))return false;
     const double s=shortestEdge(t);
     if(!std::isfinite(s)||s<=0)return false;
@@ -51,16 +51,18 @@ bool wellFormed(const Triangle& t) {
 }
 // Ericson's Voronoi-region point/triangle closest point, with no
 // barycentric tolerance that could fabricate an accepted clearance.
-double pointTriangleSquared(Vec3 p,const Triangle& t) {
+double pointTriangleSquared(Vec3 p,const FacePoints& t) {
     const auto a=t[0],b=t[1],c=t[2],ab=b-a,ac=c-a,ap=p-a;
     const auto d1=dot(ab,ap),d2=dot(ac,ap);
     if(d1<=0&&d2<=0)return square(ap);
-    const auto bp=p-b,d3=dot(ab,bp),d4=dot(ac,bp);
+    const Vec3 bp=p-b;
+    const double d3=dot(ab,bp),d4=dot(ac,bp);
     if(d3>=0&&d4<=d3)return square(bp);
     const double vc=d1*d4-d3*d2;
     if(vc<=0&&d1>=0&&d3<=0)
         return square(p-(a+ab*(d1/(d1-d3))));
-    const auto cp=p-c,d5=dot(ab,cp),d6=dot(ac,cp);
+    const Vec3 cp=p-c;
+    const double d5=dot(ab,cp),d6=dot(ac,cp);
     if(d6>=0&&d5<=d6)return square(cp);
     const double vb=d5*d2-d1*d6;
     if(vb<=0&&d2>=0&&d6<=0)
@@ -92,7 +94,7 @@ double segmentSegmentSquared(Vec3 p1,Vec3 q1,Vec3 p2,Vec3 q2) {
     else if(t==1)s=clamp01((b-c)/a);
     return square((p1+u*s)-(p2+v*t));
 }
-double triangleDistance(const Triangle& a,const Triangle& b) {
+double triangleDistance(const FacePoints& a,const FacePoints& b) {
     if(!wellFormed(a)||!wellFormed(b))
         throw std::logic_error("V18 degenerate clearance triangle");
     double distance=std::numeric_limits<double>::infinity();
@@ -107,7 +109,7 @@ double triangleDistance(const Triangle& a,const Triangle& b) {
         throw std::logic_error("V18 nonfinite triangle clearance");
     return std::sqrt(distance);
 }
-bool sameTriangle(const Triangle& a,const Triangle& b) {
+bool sameTriangle(const FacePoints& a,const FacePoints& b) {
     for(unsigned i=0;i<3;++i)
         if(a[i].x!=b[i].x||a[i].y!=b[i].y||a[i].z!=b[i].z)
             return false;
@@ -123,8 +125,8 @@ bool topologyUnchanged(const RegionTopologyIndex& a,
 // Changing topology, rotations, nonuniform normal displacement and
 // insufficient numeric evidence are never labelled tangential.
 bool strictRelativeTangent(
-    const Triangle& a0,const Triangle& a1,
-    const Triangle& b0,const Triangle& b1,double tolerance) {
+    const FacePoints& a0,const FacePoints& a1,
+    const FacePoints& b0,const FacePoints& b1,double tolerance) {
     const Vec3 da=a1[0]-a0[0],db=b1[0]-b0[0];
     for(unsigned i=1;i<3;++i)
         if(length(a1[i]-a0[i]-da)>tolerance||
@@ -190,7 +192,7 @@ OffModeClearanceReport assessOffModeMeshClearance(
             if(!(required>4*epsilon))
                 throw std::logic_error(
                     "V18 local triangle is too small for reliable mesh-scale clearance");
-            const auto testDistance=[&](const Triangle& x,const Triangle& y) {
+            const auto testDistance=[&](const FacePoints& x,const FacePoints& y) {
                 if(report.distanceTests>=limits.maxDistanceTests)
                     throw std::length_error("V18 clearance distance budget exhausted");
                 ++report.distanceTests;
@@ -202,7 +204,7 @@ OffModeClearanceReport assessOffModeMeshClearance(
                 report.largestRequiredSpacing,required);
             const bool preserved=topologyUnchanged(*before,*candidate,a)&&
                                  topologyUnchanged(*before,*candidate,b);
-            Triangle oldA{},oldB{};
+            FacePoints oldA{},oldB{};
             double previous=std::numeric_limits<double>::infinity();
             bool isOldUnchanged=false;
             if(preserved) {
