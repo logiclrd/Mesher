@@ -67,6 +67,15 @@ post-refine/collapse root, then publish exactly ONE final
 root/history/mirror transition. Old original picker and every
 unrelated stable ID remain unchanged.
 
+An independent genuine local-refinement scenario forces a midpoint
+split of the shared X=0 seam edge. The validator deliberately refuses
+the first complete privately staged split: the new permanent ID and
+new self-mirror pair must disappear from *published* state and the
+speculative refiner/collapser mirror journals must roll back. The
+same stamp then succeeds, publishes the additional X=0 self-pair
+exactly once, and pointer-exact undo/redo restores and reapplies
+the incremental mirror journal.
+
 A separate intentional one-trial unsafe close approach refuses,
 leaves pointer-identical indexed root, empty dirty partitions,
 unchanged mirror map and zero history, then permits a valid
