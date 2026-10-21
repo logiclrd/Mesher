@@ -8,7 +8,7 @@ technical details that should not be rewritten as broad promises.
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
-  small active working list; V18-M07 is next.
+  small active working list; V18-M07 integrated acceptance is in progress, pending physical Linux/Windows GPU evidence.
 - [Main README](../README.md): current features, building,
   controls, supported and refused scope.
 - [V18-M01 finite contact baseline](V18_M01_POSTSTATE_CONTACT_LEDGER.md):
@@ -27,6 +27,11 @@ technical details that should not be rewritten as broad promises.
   session-only `--avoid-collisions`, early conflict checks,
   recover/no-recover isolation and live refusal diagnostics.
   Physical GPU device acceptance remains V18-M07.
+- [V18-M07 integrated acceptance protocol](V18_M07_INTEGRATED_ACCEPTANCE.md):
+  traceable M01–M06 end-to-end guarantees and deliberately
+  independent near-sheet Linux/Windows physical Vulkan tests.
+  **M07 and original V18 remain OPEN until real observations
+  and independent merged-main CI.**
 - [Sculpt collision and topology repair design](SCULPT_COLLISION_REPAIR.md):
   original V13–V19 geometric intentions. V18's OFF-mode constraints
   and V19 generality are not yet accepted.

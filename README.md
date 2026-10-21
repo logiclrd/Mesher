@@ -59,6 +59,7 @@ Mesher --checkpoint session.mshr
 Mesher --recover session.mshr
 Mesher --avoid-collisions
 Mesher --avoid-collisions --recover session.mshr
+Mesher --avoid-collisions --asymmetric --avoid-test-sheets --no-refine --no-collapse --no-curvature-correction
 ```
 
 With `--avoid-collisions`, ordinary Inflate retains a session-only
@@ -70,6 +71,14 @@ refusals and trial work. This mode is explicitly incompatible with
 **Recovery never silently re-enables the policy**; repeat the flag
 on `--recover` to opt in again. The current policy conservatively
 refuses unproven geometry and is not swept-volume CCD.
+
+The `--avoid-test-sheets` flag is an **M07 developer-only visible
+acceptance fixture**, usable solely with `--avoid-collisions
+--asymmetric`. It displays two closely spaced independent
+opposing faces plus a remote third face. The documented
+[M07 Linux/Windows GPU protocol](docs/V18_M07_INTEGRATED_ACCEPTANCE.md)
+uses it to observe normal attenuation, refusal, continued editing,
+undo/redo and checkpoint recovery; it is not the V17 Merge test fixture.
 
 Directional collapse, local refinement and curvature correction
 are ON by default; `--no-*` options disable them independently.
