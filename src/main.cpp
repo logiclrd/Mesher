@@ -359,6 +359,9 @@ int main(int argc, char** argv) {
         mesher::ViewportInteraction interaction;
         std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
+        // The lambdas in ViewportInteraction outlive the setup block.
+        std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
+        bool inspectionPresented=false;
         auto repairSession=repairInspect
             ?std::make_shared<mesher::RepairInspectionSession>():nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
@@ -486,8 +489,7 @@ int main(int argc, char** argv) {
             // R01 preview is NOT a published worker root. Preserve its
             // immutable source separately from ordinary live snapshots and
             // invalidate all visible partition owners once at freeze.
-            auto lastDisplayed=liveWorker->initialRevision();
-            bool inspectionPresented=false;
+            lastDisplayed=liveWorker->initialRevision();
             interaction.takeSnapshot=[&]() -> std::optional<mesher::ViewportMeshUpdate> {
                 if(repairSession)if(const auto frozen=repairSession->frozenSnapshot()) {
                     if(inspectionPresented)return std::nullopt;
