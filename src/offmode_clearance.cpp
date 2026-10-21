@@ -16,7 +16,7 @@ double clamp01(double x) {return std::clamp(x,0.0,1.0);}
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
 }
-Triangle triangleOf(const RegionTopologyIndex& root,FaceId id) {
+FacePoints triangleOf(const RegionTopologyIndex& root,FaceId id) {
     const auto face=root.maybeFace(id);
     if(!face)throw std::logic_error("V18 missing stable clearance face");
     FacePoints result{};
