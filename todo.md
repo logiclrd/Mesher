@@ -21,16 +21,19 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   reader/picker references, permanently unique VertexId/FaceId and
   tombstones, one accepted final-root CAS/undoable history transition.
   No intermediate edit or unsafe failed Step may leak to render or history.
-- Preserve exactly ordered asynchronous 4D input Begin/Update/End,
-  original symmetric fixed-plane and reciprocal source identity,
-  finite worker CPU work, diagnostic refusal categories and safe
-  continued FIFO processing. Keep source authority anchored to the
-  immutable FIRST original; coincident XYZ never implies equal IDs.
-- **V17 Merge ON is explicit and source-proven, not a universal Boolean.**
-  Ordinary unarmed sculpt remains default; protected Merge starts its
-  visible mode OFF until enabled. No global source repair, unproven
-  cavity deletion, broad imported-mesh correctness or arbitrary
-  contact topology is authorized by V17 acceptance.
+- Preserve ordered asynchronous 4D input Begin/Update/End,
+  finite worker CPU work, diagnostic failure categories and safe
+  continued FIFO processing. Legacy exact-topology reflection and
+  original-source certificates remain valid invariants **only for the
+  corresponding legacy operations while enabled**. The new general
+  geometry pipeline must not require first-original proof for ordinary
+  approximate repairs or spatially mirrored brush actions.
+  Coincident XYZ never automatically means equal topological IDs.
+- **Historical V17 Merge ON is explicit and source-proven, not a universal Boolean.**
+  Ordinary unarmed sculpt remains the current default; protected
+  legacy Merge starts visually OFF. Its historical accepted domain
+  neither proves nor restricts the intended replacement approximate
+  repair semantics. Do not weaken protected V17 while developing R01–R08.
 - Default interactive curvature correction, collapse and refine are
   **ON** (M73); `--no-curvature-correction`, `--no-collapse` and
   `--no-refine` are opt-outs. Checkpoint settings persistence is
