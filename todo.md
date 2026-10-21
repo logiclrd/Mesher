@@ -51,8 +51,10 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 
 ## Current work: V18, then V19
 
-**Order:** V18-M07 is NEXT. M07 is the remaining preplanned flat peer
-preplanned before M01 implementation. Do not move original V18
+**Order:** V18-M07 is IN INTEGRATED REVIEW; M07 is the remaining
+flat peer preplanned before M01 implementation. CPU/CI and actual
+Linux/Windows GPU reports are separate acceptance gates. M07 and
+original V18 remain unchecked pending full evidence. Do not move original V18
 acceptance or introduce default-on behavior ahead of M06.
 The original V18/V19 objective text below is retained verbatim
 apart from dated M01 verification annotations.
@@ -247,6 +249,23 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   ORIGINAL V18 only after exact final PR-head and separately
   successful merged-main GCC/Clang/Windows full Vulkan CI.
   Leave V19 broad imported/complex geometry/performance open.
+  **Evidence under review (not yet accepted):** Named desktop
+  `--avoid-test-sheets` fixture requires
+  `--avoid-collisions --asymmetric`, supplies two independent
+  opposite-facing close triangles and a remote recovery target.
+  Dedicated `v18_integrated_near_sheet_checkpoint_acceptance`
+  runs actual M01–M06 source-independent backtracking/refusal,
+  repeated approach to a mesh-scale limit, later remote edits,
+  pointer-exact undo/redo and an edited checkpoint reloaded with
+  and without V18 reauthorization. GPU-free CLI preflight checks
+  prove invalid fixture and protected-mode combinations refuse.
+  The full [M07 protocol](docs/V18_M07_INTEGRATED_ACCEPTANCE.md)
+  requires separate physical Linux and Windows Vulkan observation
+  with exact executable hashes and actual console evidence.
+  **Neither M07 nor original V18 is complete** until these
+  observations, exact PR-head and independently merged-main
+  three-platform CI pass. Keep exact-zero-gap grazing and
+  intersample tunneling caveats explicit.
 
 - [ ] **V19 — 3D robustness, performance and desktop acceptance.**
   Stress multiple/near-tangent/coplanar intersection regions, tunnels,
