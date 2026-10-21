@@ -8,11 +8,14 @@ technical details that should not be rewritten as broad promises.
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
-  small active working list; V18-M02 is next.
+  small active working list; V18-M03 is next.
 - [Main README](../README.md): current features, building,
   controls, supported and refused scope.
 - [V18-M01 finite contact baseline](V18_M01_POSTSTATE_CONTACT_LEDGER.md):
-  read-only before/candidate comparison, **not** a live collision guard.
+  read-only before/candidate comparison.
+- [V18-M02 private worker admission](V18_M02_PRIVATE_STEP_ADMISSION.md):
+  explicitly enabled source-independent OFF-mode pre-CAS refusal.
+  The desktop remains unchanged; V18-M03–M07 are not complete.
 - [Sculpt collision and topology repair design](SCULPT_COLLISION_REPAIR.md):
   original V13–V19 geometric intentions. V18's OFF-mode constraints
   and V19 generality are not yet accepted.
