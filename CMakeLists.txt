@@ -250,6 +250,12 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_offmode_collision_tests tests/offmode_collision_tests.cpp)
     target_link_libraries(mesher_offmode_collision_tests PRIVATE mesher_mesh)
     add_test(NAME offmode_poststate_contact_ledger COMMAND mesher_offmode_collision_tests)
+    # M02 adds the real opt-in pre-CAS worker rejection and FIFO recovery,
+    # still without a desktop CLI mode or a default runtime behavior change.
+    add_executable(mesher_offmode_step_gate_tests tests/offmode_step_gate_tests.cpp)
+    target_link_libraries(mesher_offmode_step_gate_tests PRIVATE mesher_mesh)
+    add_test(NAME offmode_private_step_gate COMMAND mesher_offmode_step_gate_tests)
+    set_tests_properties(offmode_private_step_gate PROPERTIES TIMEOUT 90)
     add_executable(mesher_winding_tests tests/revision_winding_tests.cpp)
     target_link_libraries(mesher_winding_tests PRIVATE mesher_mesh)
     add_test(NAME positive_winding_classification COMMAND mesher_winding_tests)
