@@ -10,7 +10,8 @@ geometries. It is not yet a general-purpose Boolean mesh editor.
 **Current state (2026-10-21):** finite supported-domain V17 Merge
 and Linux/Windows physical GPU acceptance are complete.
 [V18](todo.md) is in development to introduce a **new opt-in
-OFF-mode collision constraint**; it is not yet active in sculpting.
+OFF-mode collision constraint**; it is not yet enabled in the desktop; M02 adds an opt-in
+worker-only conservative collision refusal, with M03–M07 pending.
 Complex imported meshes and large-device/performance validation
 remain V19. For exact completion status see the
 [active roadmap](todo.md) and [documentation guide](docs/INDEX.md).
