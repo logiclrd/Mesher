@@ -49,6 +49,21 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 | V17 finite source-certified core | Complete, original M15 and physical M52 accepted; [original M15](docs/V17_M15_ORIGINAL_INTEGRATED_ACCEPTANCE.md), [GPU evidence](docs/V17_M52_DESKTOP_OBSERVATIONS.md), [full milestone history](docs/V17_MILESTONES.md) |
 | V18-M01 | Complete, read-only bounded before/after ledger, [PR #128](https://github.com/logiclrd/Mesher/pull/128), [M01 specification](docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md); neither sculpt gating nor opt-in behavior active |
 
+## Architectural rebaseline: iterative, inspectable geometry repair
+
+**Effective 2026-10-21:** the original V17 and V18 supported-domain acceptance records remain historical evidence, **not** fulfillment of the clarified product-level Merge and Non-Merge requirements. The intended design, proof boundaries, non-goals, precise R01–R08 acceptance cases, symmetry migration and deferred Smooth brush are specified in [Geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md). R01 begins as an opt-in observation-only diagnostic; no production-path defaults change. Preserve all V1–V16 reusable infrastructure, exact V17 as reference, and previous open V18-M07 physical acceptance truth. Do not mark V17/V18 original feature goals complete for new purposes based on old restricted tests.
+
+- [ ] **R01 — Detect and freeze on the first relevant post-stamp triangle intersection; red incident vertex/edge overlay, private candidate inspection, finite CPU and physical Linux/Windows Vulkan acceptance.**
+- [ ] **R02 — Classify and visually preview buried-face deletion and resulting boundary graph, including independent islands, without editing geometry.**
+- [ ] **R03 — Frozen PRIVATE excision-only snapshot with actual holes and stable boundary loops, not a normally published closed mesh.**
+- [ ] **R04 — Forced `--repair zipper`, blue new faces, multiple independently matched loop pairs, explicit refusal of unsupported cases.**
+- [ ] **R05 — Forced `--repair cap`, green new faces, one/multiple independent loops and explicit unsuitable-cap refusals.**
+- [ ] **R06 — Automatic closure per independent region (cap, zipper, or redundant component elimination), ambiguous many-to-many refusals.**
+- [ ] **R07 — Continuous iterative approximate repair, structurally valid intermediate published results, local residual contacts and bounded refinement.**
+- [ ] **R08 — Production approximate Merge integration and physical acceptance, independent brush proposal, symmetry handoff, no developer freeze modes.**
+
+The general many-to-many loop reconstruction, severe imported defects and Smooth brush remain deferred and **are not R01–R08 prerequisites**. Spatially varying Merge-OFF contact resolution is an independently planned follow-on workstream, not conflated with the Merge repair proof milestones.
+
 ## Current work: V18, then V19
 
 **Order:** V18-M07 is IN INTEGRATED REVIEW; M07 is the remaining
