@@ -155,8 +155,8 @@ struct SculptResourceTotals {
     double observedAttemptMilliseconds{},observedPublishedMilliseconds{};
 };
 // V18-M02: new, explicitly enabled OFF-mode **private admission gate**.
- // M03/M04 will supply mesh-scale clearance and constrained displacement.
- // M06 alone will expose a desktop opt-in. Not V17 source-certified Merge.
+// M03/M04 will supply mesh-scale clearance and constrained displacement.
+// M06 alone will expose a desktop opt-in. Not V17 source-certified Merge.
 struct SculptOffModeConstraintSettings {
     bool enabled=false;
     OffModeContactLimits contactLimits{};
