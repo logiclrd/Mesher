@@ -2429,3 +2429,35 @@ not claims of GUI-observed pointer equality. Source-supported M52 is
 **accepted**, original M15 integrated review **still open**, V18/V19
 and optional M66/M70–M72 unaffected. See
 [final M52 acceptance](V17_M52_DESKTOP_OBSERVATIONS.md).
+
+## ORIGINAL V17-M15 — Final integrated core acceptance after M52
+
+The original M15 objective remains unchanged: default OFF ordinary
+Mouse Inflate, explicit `--merge-geometry` protection provisioning
+but still UI OFF at startup, and real M/first-original FaceId/Enter
+source-authorized ON submission into worker-side bounded contact
+discovery and exact terminal Boolean. An **independent final
+criterion-by-criterion review** checks the complete source
+arrangement/occupancy/seam/strict-refusal matrix, authenticated
+X=0 and coincident IDs, sealed FIRST-original per-face seven-witness
+protected Exposed/ReversedBoundary source/explicit intent,
+genuine repeated 4D physical contacts and M23 episodes,
+simultaneous 38-dimensional actual work and telemetry, M14
+post-CAS fail-stop, one CAS/history/dirty/immutable picker and
+checkpoint authority boundaries, M49/M54 accepted actual worker
+desktop-source roots, and M52 human Linux/Windows Vulkan results.
+
+This is a review of distinct actual positive and refusal regressions,
+plus newly available physical GPU acceptance, **not** a new synthetic
+test that changes geometry scope. The user-tested M73 code SHA is
+`c3123987d6f45e5f0eb946c94b40ac1fc99695fd`; M52
+documentation merged in PR #126 (main `5c0ac5d1`).
+**Original M15 and finite supported V17 core are accepted**
+subject to exact final review PR-head and merged-main CI.
+No universal source Boolean, arbitrary imported/grazing/coplanar,
+continuous two-sided Hausdorff or CCD, process RSS or hard realtime
+guarantee, positive disk-only protected M29 source recovery,
+Windows cursor-wrap observation through RustDesk, or universally
+verified Linux Mesher-selected Vulkan GPU is implied. Leave
+V18 and V19 OPEN; M66 and M70–M72 deferred independent future UX.
+See [original M15 independent acceptance](V17_M15_ORIGINAL_INTEGRATED_ACCEPTANCE.md).
