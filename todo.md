@@ -100,8 +100,9 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   grandfather check and candidate moved-sheet tests. Actual
   worker admission/clearance/edit limiting is deliberately deferred
   to M02–M05; ordinary sculpting remains unchanged. See
-  `docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md`. Exact final
-  PR #128 (`1d93d313`) passed PR-head and independently merged-main GCC/Clang/Windows Vulkan CI (#39551048562).
+  `docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md`. PR #128 (`1d93d313`)
+  passed PR-head and independently merged-main GCC/Clang/Windows Vulkan
+  CI (#39551048562).
 - [ ] **V18-M02 — Opt-in private final-candidate admission/refusal before one original-root CAS.**
   Route M01's complete read-only ledger into a separately enabled
   worker-side final Step gate, AFTER all normally enabled Inflate,
