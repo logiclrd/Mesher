@@ -277,6 +277,56 @@ void actualMirrored4DWorkerFifoAndCheckpoint() {
             worker.status().history.undoDepth==0,
             "Asynchronous reflected worker undo restores exact accepted source ancestor");
 }
+void actualFixedPointMirrorJournalSplitAndRollback() {
+    const auto fixture=mirroredSource();
+    const auto initial=fixture.source;
+    RefineSettings refine;
+    refine.enabled=true;
+    refine.maximumEdgeRatio=.1;
+    refine.maximumSplitPairsPerStamp=1;
+    refine.optimizeFlips=false;
+    std::size_t candidates=0;
+    bool examinedNewFixed=false;
+    SculptStepValidator declineFirst=[&](const ProposedSculptStep& proposal) {
+        ++candidates;
+        require(proposal.before==initial.index&&proposal.candidate!=initial.index,
+                "Refined reflected seam validator sees the complete private source root");
+        for(const auto id:proposal.changedVertices) {
+            if(proposal.before->maybeVertex(id)||
+               !proposal.candidate->maybeVertex(id))continue;
+            if(proposal.candidate->vertex(id).position.x==0)
+                examinedNewFixed=true;
+        }
+        return candidates==1?
+            std::string("M05 deliberate refusal after staged fixed-point mirror split"):
+            std::string{};
+    };
+    VersionedSculptBrush brush(initial,.12,{},{},refine,256,declineFirst,enabled());
+    const auto baseline=brush.snapshot();
+    const auto mirrors=canonicalPairs(brush.checkpoint().mirrorPairs);
+    Mesh dummy;
+    brush.stamp(dummy,seam);
+    require(brush.rejectedStamps()==1&&brush.snapshot()==baseline&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.checkpoint().mirrorPairs.size()==mirrors.size()&&
+            canonicalPairs(brush.checkpoint().mirrorPairs)==mirrors&&
+            examinedNewFixed,
+            "Speculative local refinement creates genuine new mirrored X=0 ID but refusal rolls back its mirror journal");
+    brush.stamp(dummy,seam);
+    const auto accepted=brush.snapshot();
+    const auto after=canonicalPairs(brush.checkpoint().mirrorPairs);
+    require(candidates==2&&brush.rejectedStamps()==1&&
+            accepted!=baseline&&after.size()>mirrors.size()&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.publishedRevisions()==1,
+            "Later accepted reflected seam split publishes new self-mirrored stable ID in precisely one history transition");
+    verifyAllPairs(brush.checkpoint());
+    require(brush.undo()&&brush.snapshot()==baseline&&
+            canonicalPairs(brush.checkpoint().mirrorPairs)==mirrors&&
+            brush.redo()&&brush.snapshot()==accepted&&
+            canonicalPairs(brush.checkpoint().mirrorPairs)==after,
+            "Mirror insertion and fixed-point X=0 split roll back through undo and replay through redo");
+}
 void badMirrorOwnershipIsNotGuessedFromXYZ() {
     auto f=mirroredSource(true);
     auto invalid=f.source;
@@ -323,6 +373,7 @@ int main() {
     try {
         allSourcePairsAndRealReflectedApproach();
         explicitRefusalThenFixedPointRecovery();
+        actualFixedPointMirrorJournalSplitAndRollback();
         badMirrorOwnershipIsNotGuessedFromXYZ();
         actualMirrored4DWorkerFifoAndCheckpoint();
         staleExpectedRootRefusalNoPartialHistory();
