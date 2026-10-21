@@ -1,0 +1,269 @@
+#include "mesher/async_sculpt.hpp"
+#include "mesher/mesh_partitioning.hpp"
+#include "mesher/offmode_clearance.hpp"
+#include "mesher/offmode_mirror.hpp"
+#include "mesher/versioned_sculpt.hpp"
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
+
+using namespace mesher;
+namespace {
+void require(bool ok,const char* detail) {
+    if(!ok)throw std::runtime_error(detail);
+}
+struct Fixture {
+    DurableCheckpoint source;
+    std::vector<VertexId> vertexIds;
+};
+Fixture mirroredSource(bool duplicateRemote=false) {
+    Mesh mesh;
+    // Independent positive-X bottom/top sheets face toward each other.
+    // Reversed winding of the upper sheet points its normal DOWN.
+    const std::array<Vec3,6> positive{{
+        {4,0,0},{6,0,0},{4,2,0},
+        {4,0,.14},{4,2,.14},{6,0,.14}
+    }};
+    for(const auto p:positive)mesh.vertices.push_back(p);
+    for(const auto p:positive)mesh.vertices.push_back({-p.x,p.y,p.z});
+    mesh.triangles={{0,1,2},{3,4,5},{6,8,7},{9,11,10}};
+    // Real original X=0 source-fixed vertices: two opposite face
+    // halves, NOT fictitious duplicated vertices at equal XYZ.
+    mesh.vertices.insert(mesh.vertices.end(),{
+        {-1,11,0},{0,10,0},{0,12,0},{1,11,0}
+    });
+    mesh.triangles.push_back({12,13,14});
+    mesh.triangles.push_back({15,14,13});
+    if(duplicateRemote) {
+        // Entirely unrelated coincident *coordinates*, with four
+        // independent triangles and distinct permanent stable IDs.
+        // These MUST NOT imply any new mirror or welded identity.
+        for(unsigned repeat=0;repeat<2;++repeat) {
+            const std::array<Vec3,3> p{{
+                {40,0,0},{42,0,0},{40,2,0}
+            }};
+            const auto start=static_cast<std::uint32_t>(mesh.vertices.size());
+            for(const auto point:p)mesh.vertices.push_back(point);
+            for(const auto point:p)
+                mesh.vertices.push_back({-point.x,point.y,point.z});
+            mesh.triangles.push_back({start,start+1,start+2});
+            mesh.triangles.push_back({start+3,start+5,start+4});
+        }
+    }
+    const auto imported=partitionFlatMesh(mesh,256);
+    auto root=RegionTopologyIndex::build(imported.revision);
+    std::vector<MirrorPair> pairs;
+    for(unsigned i=0;i<6;++i)
+        pairs.emplace_back(imported.flatIndex.vertexIds[i],
+                           imported.flatIndex.vertexIds[i+6]);
+    pairs.emplace_back(imported.flatIndex.vertexIds[12],
+                       imported.flatIndex.vertexIds[15]);
+    pairs.emplace_back(imported.flatIndex.vertexIds[13],
+                       imported.flatIndex.vertexIds[13]);
+    pairs.emplace_back(imported.flatIndex.vertexIds[14],
+                       imported.flatIndex.vertexIds[14]);
+    if(duplicateRemote)for(unsigned repeat=0;repeat<2;++repeat) {
+        const unsigned offset=16+6*repeat;
+        for(unsigned i=0;i<3;++i)
+            pairs.emplace_back(imported.flatIndex.vertexIds[offset+i],
+                               imported.flatIndex.vertexIds[offset+i+3]);
+    }
+    return {DurableCheckpoint(
+        root,std::move(pairs),mesh.vertices.size()),
+        imported.flatIndex.vertexIds};
+}
+SculptCollisionSettings enabled(unsigned maxTrials=5) {
+    SculptCollisionSettings cfg;
+    cfg.offModeConstraints.enabled=true;
+    cfg.offModeConstraints.backtrack.maxTrials=maxTrials;
+    return cfg;
+}
+const std::array<BrushArea,4> bothSides{{
+    {{4,0,0},.13,.3},{{4,0,.14},.13,.3},
+    {{-4,0,0},.13,.3},{{-4,0,.14},.13,.3}
+}};
+const std::array<BrushArea,2> seam{{
+    {{0,10,0},.13,.3},{{0,10,0},.13,.3}
+}};
+bool equalReflection(Vec3 a,Vec3 b) {
+    return a.x==-b.x&&a.y==b.y&&a.z==b.z;
+}
+void verifyAllPairs(const DurableCheckpoint& checkpoint) {
+    const auto& root=*checkpoint.index;
+    for(const auto [a,b]:checkpoint.mirrorPairs) {
+        require(root.maybeVertex(a)&&root.maybeVertex(b),
+                "Mirrored checkpoint cannot reference retired or missing stable ID");
+        const auto p=root.vertex(a).position,q=root.vertex(b).position;
+        require(equalReflection(p,q)&&((a==b)==(p.x==0)),
+                "All source-owned pairs preserve exact X reflection and true X=0 fixed points");
+    }
+}
+void allSourcePairsAndRealReflectedApproach() {
+    const auto source=mirroredSource(true);
+    auto initial=source.source;
+    verifyAllPairs(initial);
+    require(initial.mirrorPairs.size()==15,
+            "Fixture has reciprocal off-plane orbits and two real X=0 fixed IDs");
+    const auto mirrorCheck=auditOffModeMirrors(
+        initial.index, [&]{
+            std::unordered_map<VertexId,VertexId> map;
+            for(const auto [a,b]:initial.mirrorPairs) {
+                map[a]=b;map[b]=a;
+            }
+            return map;
+        }(),{},{},true);
+    require(mirrorCheck.complete&&mirrorCheck.fixedPlaneVertices==2&&
+            mirrorCheck.facesChecked==10,
+            "Whole first source is certified by stable reciprocal ID, correct face orientation and real fixed points");
+    std::size_t finalCalls=0;
+    const auto original=initial.index;
+    SculptStepValidator wholeStage=[&](const ProposedSculptStep& step) {
+        ++finalCalls;
+        require(step.before==original&&step.candidate!=original,
+                "Mirrored multi-sheet validator receives ONE original root and complete final post-remesh candidate");
+        const auto& after=*step.candidate;
+        const auto& ids=source.vertexIds;
+        for(const unsigned k:{0u,3u,6u,9u}) {
+            const auto p=after.vertex(ids[k]).position;
+            const auto q=original->vertex(ids[k]).position;
+            require(p.z!=q.z,
+                    "Both inward-moving sheets and BOTH reflected islands move in same immutable Step");
+        }
+        return std::string{};
+    };
+    VersionedSculptBrush brush(initial,.12,{},{},{},256,wholeStage,enabled());
+    const auto base=brush.snapshot();
+    const auto picker=base->pickingRootIdentity();
+    Mesh dummy;
+    brush.stamp(dummy,bothSides);
+    const auto step=brush.lastStepResourceWork();
+    require(brush.rejectedStamps()==0&&brush.publishedRevisions()==1&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.collisionCheckedStamps()==1&&
+            finalCalls==1&&step.backtracking.trials>=2&&
+            step.backtracking.chosenNormalFraction>0&&
+            step.backtracking.chosenNormalFraction<1&&
+            step.backtracking.privateCopiedBytes>0&&step.published&&
+            step.privateCopiedBytes>step.backtracking.privateCopiedBytes,
+            "Both opposing sheets across both mirrored islands backtrack to one accepted private original-root CAS");
+    const auto accepted=brush.snapshot();
+    require(accepted!=base&&base->pickingRootIdentity()==picker,
+            "Earlier immutable original/picker survives all speculative reflected trials");
+    verifyAllPairs(brush.checkpoint());
+    // Nearby separation derives from SAME accepted post-state for
+    // opposing moving faces; no stale opposite-sheet interpolation.
+    const auto a=source.vertexIds[0],b=source.vertexIds[3];
+    const double gap=accepted->vertex(b).position.z-
+                     accepted->vertex(a).position.z;
+    require(gap>.1&&gap<.14,
+            "Certified both-moving reflected sheets retain required mesh-scale clearance after normal attenuation");
+    for(unsigned i=16;i<source.vertexIds.size();++i) {
+        const auto v=source.vertexIds[i];
+        require(accepted->vertex(v).position.x==
+                base->vertex(v).position.x&&
+                accepted->vertex(v).position.y==
+                base->vertex(v).position.y&&
+                accepted->vertex(v).position.z==
+                base->vertex(v).position.z,
+                "Unrelated independent coincident-XYZ source IDs never move, merge or change mirror owner");
+    }
+    const auto stored=brush.checkpoint();
+    require(brush.undo()&&brush.snapshot()==base&&
+            brush.checkpoint().mirrorPairs==initial.mirrorPairs&&
+            brush.redo()&&brush.snapshot()==accepted&&
+            brush.checkpoint().mirrorPairs==stored.mirrorPairs,
+            "Mirrored multi-sheet accepted Step has exactly one pointer-exact history/mirror transition");
+}
+void explicitRefusalThenFixedPointRecovery() {
+    auto fixture=mirroredSource();
+    VersionedSculptBrush brush(fixture.source,.12,{},{},{},256,{},enabled(1));
+    const auto base=brush.snapshot();
+    const auto sourceCheckpoint=brush.checkpoint();
+    Mesh dummy;
+    brush.stamp(dummy,bothSides);
+    require(brush.rejectedStamps()==1&&brush.publishedRevisions()==0&&
+            brush.snapshot()==base&&
+            brush.historyStatistics().undoDepth==0&&
+            brush.lastDirtyPartitions().empty()&&
+            brush.checkpoint().mirrorPairs==sourceCheckpoint.mirrorPairs&&
+            brush.lastStepResourceWork().backtracking.trials==1&&
+            brush.lastStepResourceWork().refused,
+            "Symmetric fully staged unsafe both-sheet proposal refuses without CAS, mirror journal or dirty history");
+    brush.stamp(dummy,seam);
+    const auto next=brush.snapshot();
+    require(brush.rejectedStamps()==1&&brush.publishedRevisions()==1&&
+            next!=base&&brush.historyStatistics().undoDepth==1,
+            "Same worker resumes with valid seam-local mirrored stroke after refusal");
+    const auto id=fixture.vertexIds[13];
+    require(next->vertex(id).position.x==0&&
+            next->vertex(id).position.z>base->vertex(id).position.z,
+            "Genuine X=0 fixed stable-ID seam moves tangentially to the mirror plane without leaving it");
+    verifyAllPairs(brush.checkpoint());
+    require(brush.undo()&&brush.snapshot()==base&&
+            brush.checkpoint().mirrorPairs==sourceCheckpoint.mirrorPairs&&
+            brush.redo()&&brush.snapshot()==next,
+            "Refused mirrored trial does not poison fixed-plane undo/redo or mirrors");
+}
+void badMirrorOwnershipIsNotGuessedFromXYZ() {
+    auto f=mirroredSource(true);
+    auto invalid=f.source;
+    // Legitimately equal coordinates are not permission to map one
+    // stable VertexId to some different coincident historical source.
+    auto& pairs=invalid.mirrorPairs;
+    const auto offset=9u; // two positive copies in remote repeat groups
+    std::swap(pairs[offset].second,pairs[offset+3].second);
+    bool refused=false;
+    try {
+        VersionedSculptBrush brush(invalid,.12,{},{},{},256,{},enabled());
+    }catch(const std::invalid_argument&) {refused=true;}
+    require(refused,
+            "OFF-mode initial mirror audit refuses non-source-owned mapping even for matching XYZ");
+}
+void staleExpectedRootRefusalNoPartialHistory() {
+    auto source=mirroredSource();
+    std::shared_ptr<const RegionTopologyIndex> nominated=source.source.index;
+    std::size_t checks=0;
+    SculptStepValidator stale=[&](const ProposedSculptStep& proposal) {
+        ++checks;
+        return proposal.before!=nominated?
+            std::string("M05 stale selected root refuses candidate"):
+            std::string{};
+    };
+    VersionedSculptBrush brush(source.source,.012,{},{},{},256,stale,enabled());
+    Mesh dummy;
+    brush.stamp(dummy,seam);
+    const auto accepted=brush.snapshot();
+    require(brush.publishedRevisions()==1&&checks==1,
+            "Initial selected original-root reference permits one current symmetric commit");
+    const auto prior=brush.checkpoint();
+    brush.stamp(dummy,seam);
+    require(brush.rejectedStamps()==1&&checks==2&&
+            brush.snapshot()==accepted&&
+            brush.checkpoint().mirrorPairs==prior.mirrorPairs&&
+            brush.historyStatistics().undoDepth==1&&
+            brush.lastDirtyPartitions().empty()&&
+            brush.lastRejection().find("stale selected root")!=std::string::npos,
+            "Stale external original-root selection vetoes a complete private candidate before any root/mirror/history side effect");
+}
+}
+int main() {
+    try {
+        allSourcePairsAndRealReflectedApproach();
+        explicitRefusalThenFixedPointRecovery();
+        badMirrorOwnershipIsNotGuessedFromXYZ();
+        staleExpectedRootRefusalNoPartialHistory();
+        std::cout<<"V18-M05 reflected source and opposing-sheet transaction: PASS\n";
+        return 0;
+    }catch(const std::exception& e) {
+        std::cerr<<"V18-M05: "<<e.what()<<'\n';
+        return 1;
+    }
+}
