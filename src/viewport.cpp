@@ -362,6 +362,7 @@ class VulkanViewport {
     bool wireVisible_=true,wireKeyWasDown_=false;
     bool inspectionFrozen_=false;
     bool inspectionIncomplete_=false;
+    bool inspectionPreview_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -1168,6 +1169,7 @@ class VulkanViewport {
                 if(snapshot->inspectionFrozen) {
                     inspectionFrozen_=true;
                     inspectionIncomplete_=snapshot->inspectionOverlay.empty();
+                    inspectionPreview_=snapshot->inspectionPreview;
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
@@ -1259,9 +1261,11 @@ class VulkanViewport {
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
-                title+=inspectionIncomplete_?
+                title+=inspectionPreview_?
+                    " | R02 EXCISION PREVIEW (UNPUBLISHED)":
+                    (inspectionIncomplete_?
                     " | R01 QUERY INCOMPLETE (FROZEN)":
-                    " | R01 CONTACT (FROZEN CANDIDATE)";
+                    " | R01 CONTACT (FROZEN CANDIDATE)");
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
