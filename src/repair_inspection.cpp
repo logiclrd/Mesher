@@ -69,10 +69,18 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     // Finite speculative work, NEVER a partial collision list.
     RegionTopologyIndex::CollisionQueryLimits limits;
     limits.maxSeedFaces=16384;
-    limits.maxBoxTests=131072;
-    limits.maxPartitionTests=131072;
-    limits.maxCandidateTriangles=131072;
-    limits.maxNarrowPhaseTests=65536;
+    // Each changed face performs its OWN traversal of the persistent
+    // partition directory. A normal 5000-vertex symmetric sphere stamp
+    // can seed ~900 triangles, exceeding 131072 *directory* visits
+    // even when only a few thousand pairs reach narrow phase.
+    // Keep a hard limit, but size it for the actual two-level indexed
+    // query rather than confusing directory work with contact volume.
+    // R01 is an explicitly opt-in debug inspector, not a real-time
+    // collision solver. Candidate and baseline both use these limits.
+    limits.maxBoxTests=4194304;
+    limits.maxPartitionTests=1048576;
+    limits.maxCandidateTriangles=524288;
+    limits.maxNarrowPhaseTests=262144;
     limits.maxReportedContacts=512; // diagnostic overlay memory is deliberately finite
     if(vertices.size()>65536||faces.size()>65536)
         result->diagnostic="R01 changed-ID input budget exhausted";
