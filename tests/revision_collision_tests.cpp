@@ -148,6 +148,21 @@ void testNarrowPhase() {
     check(contact({{{0,0,0},{0,0,1},{-1,0,1}}},{1,4,5})==
           TriangleContact::ExpectedAdjacency,
           "Noncoplanar shared vertex without penetration is legitimate");
+    // Reproduced on untouched DEFAULT mirrored convex sphere
+    // (5000 vertices, seed 1, relax 65). FaceIds 3052/3074 share
+    // VertexId 1536, but were falsely declared penetrating when a
+    // nearly-on-plane endpoint was recomputed using dp/(dp-dq).
+    // The other two symmetric source-face pairs follow the same pattern.
+    check(triangleContact(
+        Points{{{-0.32745170306109606,0.65284124927668175,-0.68306199235885556},
+                {-0.32520346790442595,0.68532508406695114,-0.65159207608101066},
+                {-0.29191909163867658,0.70310618120372703,-0.64840183674166285}}},
+        Ids{1534,1535,1536},
+        Points{{{-0.31644996570513856,0.73536227080439354,-0.5992509907231045},
+                {-0.29191909163867658,0.70310618120372703,-0.64840183674166285},
+                {-0.35389589190952375,0.70451990066513992,-0.61514990632881017}}},
+        Ids{1546,1536,1545})==TriangleContact::ExpectedAdjacency,
+        "Untouched convex sphere shared-corner triangles have no transverse penetration");
     // Regression from two correctly sewn cube walls. Their new scar
     // triangle meets the old horizontal face only at a real shared
     // vertex; the other scar edge is coplanar with the horizontal
