@@ -53,6 +53,16 @@ void independentIslandsAndClassification() {
             "R02 must enumerate independent triangle-contact islands");
     require(preview.classifiedFaces>0,
             "R02 must consult V14 fragment sampling, not blindly delete red contact faces");
+    std::cout<<"[r02-cubes] contact_islands="<<preview.contactIslands
+             <<" classified="<<preview.classifiedFaces
+             <<" selected="<<preview.proposedFaces.size()
+             <<" uncertain="<<preview.uncertainFaces.size()
+             <<" contour_loops="<<preview.contours.size()
+             <<" complete="<<preview.complete
+             <<" reason="<<preview.diagnostic<<"\n";
+    if(preview.proposedFaces.empty())
+        throw std::runtime_error("R02 MUST identify some buried removal faces on deliberate cube penetration: "+
+                                 preview.diagnostic);
     for(const auto id:preview.proposedFaces) {
         require(static_cast<bool>(f.root->maybeFace(id)),
                 "R02 selected faces must be real stable FaceIds");
