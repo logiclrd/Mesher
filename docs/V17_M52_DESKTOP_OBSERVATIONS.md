@@ -56,3 +56,46 @@ the user praised consistent thickness but noted a slight preference
 for thinner lines. If requested, tune ink as a separate, bounded
 visual change without bringing back detached quads or forward
 clip-Z bias. Deferred M66 backface-culling option is unrelated.
+
+## Additional undo/redo and reflection refusal observation — 2026-10-20
+
+The user reports experimenting with various **Ctrl+Z/Ctrl+Y**
+sequences and redoing selection/processing after an undo.
+All outcomes matched their expectations. This is actual
+GUI history/branching evidence, without an independently
+captured immutable-root identity or precise depth record.
+
+The user then restarted to a fresh initial state, enabled
+Merge (M), **did not use fixture A**, clicked a subset of
+intersecting faces, and submitted with Enter. The following
+console output was provided verbatim:
+
+```text
+[merge] mode=ON (M toggles, LMB selects FaceIds, fixture A nominates, Enter submits, Backspace clears)
+[merge] select immutable FaceId 8 total=1
+[merge] select immutable FaceId 10 total=2
+[merge] select immutable FaceId 1 total=3
+[merge] select immutable FaceId 14 total=4
+[merge] select immutable FaceId 13 total=5
+[merge] queued 5 explicitly nominated first-original FaceIds
+[merge] A 0 R 0 P 1
+[merge] A 0 R 1 P 0 REFUSED Queued first-original exact terminal policy refused: Caller original intent is not closed under source-proven reflection
+```
+
+The event confirms five distinct source-original nominations,
+a queued request and one completed worker refusal rather than
+an accepted union. This particular refusal enforces closure
+under source-proven reflection; it is not proof of every
+other incomplete, noncontact, stale or budget refusal.
+The accepted/rejected/pending counters after processing
+are 0/1/0. The user has not independently reported
+before/after root identity, explicit unchanged history
+depth, or screenshot of the rejected geometry, so those
+specific assertions remain open.
+
+Remaining M52 acceptance includes exact executable SHA and
+OS/GPU/Vulkan driver provenance, physical Windows GPU,
+checkpoint save/reopen and failed-save diagnostics,
+armed recovery refusal, and exact positive fixture worker
+accepted statuses/root identity as needed for full audit.
+These observations do not close M52 or original M15.
