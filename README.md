@@ -24,6 +24,8 @@ The earlier README's complete prototype-era text is archived
 
 The [geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md) defines the intended iterative, approximate manifold-preserving Merge pipeline and independent nonpenetrating brush response, superseding *product* assumptions that every local residual intersection must be an exact certified Boolean refusal. Historical V17/V18 implementation and tests remain supported only for their documented domains. The new [R01 diagnostic acceptance protocol](docs/R01_GPU_ACCEPTANCE.md) describes the opt-in `--repair-inspect` read-only first-intersection freeze, red vertices/edges and physical GPU verification. No automatic repair is enabled by R01; see `todo.md` for the flat R01–R08 plan.
 
+The [R02 read-only excision preview](docs/R02_EXCISION_PREVIEW_ACCEPTANCE.md) can be enabled with `--repair-preview` to show proposed cut faces and boundary loops without changing mesh topology. The existing R01 detector remains available with `--repair-inspect`.
+
 The [G01 topology-test geometry fixtures](docs/G01_GEOMETRY_FIXTURES.md) provide `--torus` and `--hollow-sphere`, with tunable `--vertices`, `--seed`, `--relax` and optional R01 `--repair-inspect`. These deliberately test topology without enabling automatic repair.
 
 ## Building and testing
