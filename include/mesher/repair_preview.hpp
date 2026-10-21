@@ -21,8 +21,9 @@ struct RepairExcisionPreview {
     std::size_t classifiedFaces{};
     std::size_t boundaryEdges{};
     RepairPlanStatus contourStatus{RepairPlanStatus::NoChanges};
-    std::string diagnostic;
-    bool complete{}; // all visited classifications certain; finite bounds respected
+    std::string diagnostic; // classification/contour extraction blocker
+    std::string closureAdvisory; // later R04–R06 matching/quality only
+    bool complete{}; // classified and extracted valid loops; no claim of closure
 };
 
 struct RepairPreviewLimits {
