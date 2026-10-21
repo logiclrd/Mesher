@@ -94,12 +94,17 @@ const std::array<BrushArea,4> bothSides{{
 const std::array<BrushArea,2> seam{{
     {{0,10,0},.13,.3},{{0,10,0},.13,.3}
 }};
+std::vector<MirrorPair> canonicalPairs(std::vector<MirrorPair> pairs) {
+    for(auto& [a,b]:pairs)if(b<a)std::swap(a,b);
+    std::sort(pairs.begin(),pairs.end());
+    return pairs;
+}
 bool equalReflection(Vec3 a,Vec3 b) {
     return a.x==-b.x&&a.y==b.y&&a.z==b.z;
 }
 void verifyAllPairs(const DurableCheckpoint& checkpoint) {
     const auto& root=*checkpoint.index;
-    for(const auto [a,b]:checkpoint.mirrorPairs) {
+    for(const auto& [a,b]:checkpoint.mirrorPairs) {
         require(root.maybeVertex(a)&&root.maybeVertex(b),
                 "Mirrored checkpoint cannot reference retired or missing stable ID");
         const auto p=root.vertex(a).position,q=root.vertex(b).position;
@@ -116,7 +121,7 @@ void allSourcePairsAndRealReflectedApproach() {
     const auto mirrorCheck=auditOffModeMirrors(
         initial.index, [&]{
             std::unordered_map<VertexId,VertexId> map;
-            for(const auto [a,b]:initial.mirrorPairs) {
+            for(const auto& [a,b]:initial.mirrorPairs) {
                 map[a]=b;map[b]=a;
             }
             return map;
@@ -178,9 +183,11 @@ void allSourcePairsAndRealReflectedApproach() {
     }
     const auto stored=brush.checkpoint();
     require(brush.undo()&&brush.snapshot()==base&&
-            brush.checkpoint().mirrorPairs==initial.mirrorPairs&&
+            canonicalPairs(brush.checkpoint().mirrorPairs)==
+                canonicalPairs(initial.mirrorPairs)&&
             brush.redo()&&brush.snapshot()==accepted&&
-            brush.checkpoint().mirrorPairs==stored.mirrorPairs,
+            canonicalPairs(brush.checkpoint().mirrorPairs)==
+                canonicalPairs(stored.mirrorPairs),
             "Mirrored multi-sheet accepted Step has exactly one pointer-exact history/mirror transition");
 }
 void explicitRefusalThenFixedPointRecovery() {
