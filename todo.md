@@ -3160,7 +3160,7 @@ it done. Do not alter ordinary default behavior until M06's separate
 opt-in integration is accepted; do not weaken V17 source-authorized
 Merge ON, original-surface proof, accepted history or worker FIFO.
 
-- [ ] **V18-M01 — Finite before/after changed-neighborhood contact ledger (read-only).**
+- [x] **V18-M01 — Finite before/after changed-neighborhood contact ledger (read-only).**
   On exact immutable `before` and fully staged `candidate`
   post-Inflate/refine/collapse roots, compare bounded post-state
   nonadjacent face contacts against the *corresponding original
@@ -3174,6 +3174,16 @@ Merge ON, original-surface proof, accepted history or worker FIFO.
   pre-existing unrelated bad sheets, adjacency/tangency, budget one-under,
   same-root immutable pointer retention and actual work counters.
   **No deformation or publication behavior change in M01.**
+  Implemented read-only `include/mesher/offmode_collision.hpp`,
+  `src/offmode_collision.cpp`, and
+  `tests/offmode_collision_tests.cpp` with the true pre-/post-root
+  `triangleIntersections` BVH, finite six-budget accounting,
+  complete supported status/refusal classes, stable-identity
+  grandfather check and candidate moved-sheet tests. Actual
+  worker admission/clearance/edit limiting is deliberately deferred
+  to M02–M05; ordinary sculpting remains unchanged. See
+  `docs/V18_M01_POSTSTATE_CONTACT_LEDGER.md`. Exact final
+  PR-head/merged-main GCC/Clang/Windows Vulkan CI still required.
 - [ ] **V18-M02 — Opt-in private final-candidate admission/refusal before one original-root CAS.**
   Route M01's complete read-only ledger into a separately enabled
   worker-side final Step gate, AFTER all normally enabled Inflate,
