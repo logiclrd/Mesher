@@ -148,6 +148,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     result->incidentEdges.assign(markedEdges.begin(),markedEdges.end());
     result->previewEnabled=previewEnabled_;
     result->excisionEnabled=excisionEnabled_;
+    result->zipperEnabled=zipperEnabled_;
     if(previewEnabled_&&!result->contacts.empty()) {
         try {
             result->excision=previewApproximateExcision(
@@ -174,6 +175,19 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
+    if(zipperEnabled_) {
+        if(!result->privateCut) {
+            result->zipperDiagnostic="R04 requires a successful R03 private excision: "+
+                result->excisionDiagnostic;
+        }else {
+            try {
+                result->privateZipper=applyForcedPrivateZipper(
+                    *result->privateCut,result->excision);
+            }catch(const std::exception& e) {
+                result->zipperDiagnostic=std::string("R04 forced zipper refused: ")+e.what();
+            }
+        }
+    }
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -194,6 +208,27 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
+    if(snapshot.zipperEnabled&&snapshot.privateZipper) {
+        // Actual scar triangles are in the private mesh. Draw their blue
+        // surfaces from BOTH sides, with small opposed normal offsets;
+        // unlike R02's one-sided orange overlay, an interior camera
+        // can inspect every produced triangle.
+        const auto& zipped=*snapshot.privateZipper->index;
+        for(const auto id:snapshot.privateZipper->blueFaces) {
+            const auto& tri=zipped.face(id).vertices;
+            const auto a=zipped.vertex(tri[0]).position;
+            const auto b=zipped.vertex(tri[1]).position;
+            const auto c=zipped.vertex(tri[2]).position;
+            const auto crossNormal=cross(b-a,c-a);
+            const auto norm=length(crossNormal);
+            if(norm<=1e-15)continue;
+            const auto scale=.003*std::min({length(a-b),length(b-c),length(c-a)});
+            const auto offset=crossNormal/norm*scale;
+            triangle(overlay,a+offset,b+offset,c+offset,8.0f);
+            triangle(overlay,c-offset,b-offset,a-offset,8.0f);
+        }
+        return overlay;
+    }
     if(snapshot.excisionEnabled&&snapshot.privateCut) {
         // Only real SURVIVING boundary rims are shown on the privately
         // cut mesh. Removed faces/vertices must not reappear as red/orange
