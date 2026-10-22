@@ -154,6 +154,58 @@ void mixedAndTampered() {
             "R06-M04B exhausted work must not alter original immutable revision");
     std::cout<<"[r06-m04ab] real mixed cap+zipper private closed, stable IDs preserved PASS\n";
 }
+void narrowZipperMustNeverReturnUnderQuality() {
+    Mesh m;
+    const auto left=prism(m,-2,0,1);
+    const auto right=prism(m,.1,2.1,1);
+    std::vector<std::size_t> removed;
+    addCapFaces(removed,left,true);
+    addCapFaces(removed,right,false);
+    const auto f=fixture(std::move(m));
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    for(const auto index:removed)
+        proposal.proposedFaces.push_back(f.flat.faceIds.at(index));
+    std::sort(proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    const std::set<FaceId> deleted(proposal.proposedFaces.begin(),
+                                   proposal.proposedFaces.end());
+    for(const auto id:f.flat.vertexIds) {
+        const auto& incident=f.root->vertex(id).incidentFaces;
+        if(!incident.empty()&&std::all_of(
+                incident.begin(),incident.end(),
+                [&](FaceId id){return deleted.contains(id);}))
+            proposal.proposedVertices.push_back(id);
+    }
+    const auto ring=planRemovalContours(*f.root,proposal.proposedFaces);
+    proposal.contours=ring.contours;
+    for(const auto& loop:proposal.contours)
+        proposal.boundaryEdges+=loop.vertexIds.size();
+    const auto cut=applyPrivateExcision(f.root,proposal);
+    const auto links=std::vector<RegionTopologyIndex::CollisionPair>{
+        contact(f.flat.faceIds[left.right],f.flat.faceIds[right.left])};
+    const auto plan=planPrivateAutomaticClosure(*f.root,cut,proposal,links);
+    require(plan.ready()&&plan.zipperPairs.size()==1,
+            "R06-M04B narrow seam must enter actual mixed-refinement gate");
+    const auto policy=MixedPrivateClosureLimits{};
+    bool refused=false;
+    try {
+        const auto result=applyPrivateMixedClosure(cut,proposal,plan);
+        require(result.index&&
+                result.minimumZipperQuality>=policy.minZipperQuality &&
+                !result.blueFaces.empty(),
+                "R06-M04B narrow seam may succeed only with fully audited quality");
+    }catch(const std::logic_error&) {
+        refused=true;
+    }catch(const std::length_error&) {
+        refused=true;
+    }
+    require(f.root->retiredFaceCount()==0 &&
+            cut.index->retiredFaceCount()==proposal.proposedFaces.size(),
+            "R06-M04B narrow seam refusal cannot mutate either input root");
+    std::cout<<"[r06-m04b] narrow seam "
+             <<(refused?"refused safely":"passed audited quality")
+             <<" without partial publication PASS\n";
+}
 void tightTorus() {
     const auto f=fixture(generateTorusFixture(5000,1,5));
     const auto contacts=std::vector<RegionTopologyIndex::CollisionPair>{
@@ -194,6 +246,7 @@ void tightTorus() {
 int main() {
     try{
         mixedAndTampered();
+        narrowZipperMustNeverReturnUnderQuality();
         tightTorus();
         return 0;
     }catch(const std::exception& error) {
