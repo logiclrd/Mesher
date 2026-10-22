@@ -57,7 +57,7 @@ Match pairLoops(const RegionTopologyIndex& mesh,
         if(!std::isfinite(ratio)||ratio>bounds.maximumPerimeterRatio)continue;
         double sum=0;
         double maximum=0;
-        for(const auto [i,j]:{std::pair{a,b},std::pair{b,a}}) {
+        for(const auto& [i,j]:{std::pair{a,b},std::pair{b,a}}) {
             for(const auto vertex:loops[i].vertexIds) {
                 const auto p=mesh.vertex(vertex).position;
                 double nearest=std::numeric_limits<double>::infinity();
@@ -293,7 +293,7 @@ ForcedZipperResult applyForcedPrivateZipper(
     const auto span=[&](VertexId a,VertexId b) {
         return length(pos.at(a)-pos.at(b));
     };
-    for(const auto [i,j]:pairing.pairs) {
+    for(const auto& [i,j]:pairing.pairs) {
         const auto h=std::min(median(*cut.index,proposal.contours[i]),
                               median(*cut.index,proposal.contours[j]));
         if(!(h>0)||!std::isfinite(h))
