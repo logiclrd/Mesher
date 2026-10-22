@@ -1,4 +1,5 @@
 #include "mesher/repair_auto_private.hpp"
+#include "mesher/repair_mirror_geometry.hpp"
 
 #include <algorithm>
 #include <map>
