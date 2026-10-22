@@ -446,8 +446,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     auto closed=RegionTopologyIndex::restore(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
-    if(staged.usedSpatialCapFallback) {
-        // The front-only triangle test cannot see the surrounding mesh.
+    if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper) {
+        // Neither the spatial front nor the explicit mirrored zipper
+        // seam can see the full surrounding mesh during local staging.
         // Demand a separate, bounded exact triangle contact query against
         // ALL candidate geometry after final conforming refinement. A
         // manifold by incidence can still self-intersect in 3D.
@@ -459,8 +460,11 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         collision.maxNarrowPhaseTests=262144;
         collision.maxReportedContacts=1;
         RegionTopologyIndex::CollisionStatistics diagnostics;
+        std::vector<FaceId> newSurface=out.greenFaces;
+        newSurface.insert(newSurface.end(),
+                          out.blueFaces.begin(),out.blueFaces.end());
         const auto unexpected=closed->triangleIntersections(
-            std::vector<VertexId>{},out.greenFaces,&diagnostics,collision);
+            std::vector<VertexId>{},newSurface,&diagnostics,collision);
         if(!unexpected.empty())
             throw std::logic_error(
                 "R06-M06C spatial front intersects surviving/cap geometry "
