@@ -149,6 +149,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     result->previewEnabled=previewEnabled_;
     result->excisionEnabled=excisionEnabled_;
     result->zipperEnabled=zipperEnabled_;
+    result->capEnabled=capEnabled_;
     if(previewEnabled_&&!result->contacts.empty()) {
         try {
             result->excision=previewApproximateExcision(
@@ -188,6 +189,19 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
+    if(capEnabled_) {
+        if(!result->privateCut)
+            result->capDiagnostic="R05 requires complete R03 excision: "+
+                result->excisionDiagnostic;
+        else {
+            try {
+                result->privateCap=applyForcedPrivateCap(
+                    *result->privateCut,result->excision);
+            }catch(const std::exception& e) {
+                result->capDiagnostic=std::string("R05 forced cap refused: ")+e.what();
+            }
+        }
+    }
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -208,6 +222,25 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
+    if(snapshot.capEnabled&&snapshot.privateCap) {
+        // The real new faces are in the private COW mesh, highlighted from
+        // BOTH sides. There must be no green surface left over in a hole
+        // when the private cap refused.
+        const auto& capped=*snapshot.privateCap->index;
+        for(const auto id:snapshot.privateCap->greenFaces) {
+            const auto& f=capped.face(id).vertices;
+            const auto a=capped.vertex(f[0]).position;
+            const auto b=capped.vertex(f[1]).position;
+            const auto c=capped.vertex(f[2]).position;
+            const auto n=cross(b-a,c-a);
+            if(length(n)<=1e-15)continue;
+            const auto offset=n/length(n)*
+                (.003*std::min({length(a-b),length(b-c),length(c-a)}));
+            triangle(overlay,a+offset,b+offset,c+offset,9.0f);
+            triangle(overlay,c-offset,b-offset,a-offset,9.0f);
+        }
+        return overlay;
+    }
     if(snapshot.zipperEnabled&&snapshot.privateZipper) {
         // Actual scar triangles are in the private mesh. Draw their blue
         // surfaces from BOTH sides, with small opposed normal offsets;
