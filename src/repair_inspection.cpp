@@ -158,8 +158,13 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
         }
     }
     if(excisionEnabled_) {
-        if(!result->diagnostic.empty()||!result->excision.complete)
-            result->excisionDiagnostic="R03 refuses incomplete contact or R02 cut plan";
+        if(!result->diagnostic.empty()||!result->excision.complete) {
+            // Never lose the actual cause in a generic refusal banner.
+            const auto reason=!result->diagnostic.empty()?result->diagnostic:
+                (!result->excision.diagnostic.empty()?result->excision.diagnostic:
+                 "R02 cut plan was not certified complete");
+            result->excisionDiagnostic="R03 refuses incomplete contact or R02 cut plan: "+reason;
+        }
         else {
             try {
                 result->privateCut=applyPrivateExcision(
@@ -230,7 +235,7 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
             std::min(markerRadius(edge.a),markerRadius(edge.b))*.34);
     for(const auto id:snapshot.incidentVertices)
         dot(overlay,snapshot.candidate->vertex(id).position,markerRadius(id));
-    if(snapshot.previewEnabled) {
+    if(snapshot.previewEnabled&&!snapshot.excisionEnabled) {
         // The face inset exposes underlying wireframe and makes the
         // diagnostic region distinguishable from the red R01 contact halo.
         const auto highlight=[&](FaceId id,float material) {
