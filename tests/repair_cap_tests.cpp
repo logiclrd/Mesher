@@ -59,6 +59,14 @@ void exercise(const char* name,const Fixture& source,
     require(source.mesh->retiredFaceCount()==0&&
             cut.index->retiredFaceCount()==plan.proposedFaces.size(),
             "R05 must not modify the published source or R03 cut");
+    RepairInspectionSnapshot frozen;
+    frozen.candidate=source.mesh;
+    frozen.capEnabled=true;
+    frozen.privateCap=result;
+    const auto green=buildRepairInspectionOverlay(frozen);
+    require(!green.empty()&&std::all_of(green.begin(),green.end(),
+            [](const PartitionRenderVertex& v){return v.material==9.0f;}),
+            "R05 successful cut must show only genuine double-sided green faces");
     std::cout<<"[r05] "<<name<<" caps="<<result.cappedLoops
              <<" green_faces="<<result.greenFaces.size()
              <<" vertices="<<result.insertedVertices.size()
