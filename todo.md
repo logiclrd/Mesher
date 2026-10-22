@@ -184,12 +184,23 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   R06-M05 CLI, M06 physical GPU and eventual production publication remain
   separately open; the R06 parent is NOT complete.
 
-- [ ] **R06-M05 — Frozen developer `--repair auto` and diagnostics.**
+- [x] **R06-M05 — Frozen developer `--repair auto` and diagnostics.**
   Wire M04 into R01/R02/R03 freeze, distinguish actual green caps/blue
   zippers/deleted components and refusal reasons, expose plan/quality/work
   metrics and actual private root to viewport. Never mutate async worker,
   undo/history or checkpoint; do not replace R04/R05 forced modes.
   Add CLI/overlay/real pre-CAS inspector tests, finite budget and stale refusal.
+  **CPU accepted on [PR #145](https://github.com/logiclrd/Mesher/pull/145):**
+  one-shot `--repair auto`/`--repair-auto` frozen developer mode, M03/M04
+  final root or real R03 open-rim refusal, double-sided surviving GREEN cap
+  and BLUE zipper overlays, separate AUTO COMPLETE/REFUSED HUD/title, genuine
+  per-region/material-retirement and quality/work diagnostics. Real
+  candidate zero-loop exterior deletion refused; post-stamp worker PRE-CAS
+  freeze, unchanged root/history/dirty partitions tested.
+  **74/74 CTests on Linux GCC, Linux Clang and Windows MSVC**,
+  [Actions #39739406371](https://github.com/logiclrd/Mesher/actions/runs/39739406371).
+  No actual physical Vulkan signoff or live publication is claimed;
+  R06-M06 and the parent R06 remain unchecked.
 - [ ] **R06-M06 — Cross-platform and physical R06 acceptance.**
   GCC/Clang/MSVC warnings-as-errors full matrix, exact PR-head and separately
   merged-main CI, Linux and Windows Vulkan inspection for sphere/torus/hollow,

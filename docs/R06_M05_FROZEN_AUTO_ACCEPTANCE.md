@@ -1,5 +1,12 @@
 # R06-M05 — Frozen developer automatic repair: inspection and acceptance
 
+**Status: CPU/CI accepted** in [PR #145](https://github.com/logiclrd/Mesher/pull/145).
+The complete [GitHub Actions run #39739406371](https://github.com/logiclrd/Mesher/actions/runs/39739406371)
+passed **74/74 registered CTests** on Linux GCC, Linux Clang and Windows
+MSVC. The new tests cover real cap overlay, open-rim refusal and pre-CAS
+worker freeze. Physical Vulkan and full stacked integration are assigned
+to R06-M06; the parent R06 remains unchecked.
+
 **Scope:** the first physical Vulkan-facing use of the R06-M01–M04
 private topology pipeline. This is a developer opt-in only, not R07
 continuous repair or R08 production Merge ON. Worker/history/checkpoint
