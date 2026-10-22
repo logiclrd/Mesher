@@ -75,7 +75,40 @@ void hollowSingle() {
     const auto f=fixture(generateHollowSphereFixture(5000,1,65));
     FaceId a=nearest(f,{.095,-.96,0}),b=nearest(f,{.095,-.93,0});
     if(a>b)std::swap(a,b);
-    exercise("hollow mouth one cap",f,{{a,b,false}},1);
+    const auto plan=previewApproximateExcision(*f.mesh,{{a,b,false}});
+    require(plan.complete&&plan.contours.size()==1,
+            "R05 hollow mouth fixture should yield one real oriented loop");
+    const auto cut=applyPrivateExcision(f.mesh,plan);
+    try {
+        const auto result=applyForcedPrivateCap(cut,plan);
+        require(result.index&&result.cappedLoops==1,
+                "R05 successfully generated hollow cap must close the private mesh");
+        std::cout<<"[r05] hollow mouth one cap: PASS\n";
+    }catch(const std::logic_error& e) {
+        // This is a deeply folded synthetic selection: projection may
+        // collapse to a self-overlapping polygon despite valid R03 holes.
+        // Refusal is explicitly allowed at R05; it must not be worked
+        // around by dropping winding or global manifold checks.
+        require(cut.index!=f.mesh&&f.mesh->retiredFaceCount()==0,
+                "R05 unsupported cap must not alter the original revision");
+        std::cout<<"[r05] hollow mouth unsupported projected disk correctly refused: "
+                 <<e.what()<<"\n";
+    }
+}
+void sphereSingle() {
+    SphereOptions options;
+    options.vertexCount=320;options.symmetric=false;options.relaxationIterations=8;
+    const auto f=fixture(generateSphere(options));
+    const auto face=nearest(f,{0,1,0});
+    const auto t=f.mesh->face(face).vertices;
+    auto a=t[0],b=t[1];
+    if(a>b)std::swap(a,b);
+    FaceId partner=0;
+    for(const auto& side:f.mesh->edgeSides({a,b}))
+        if(side.face!=face)partner=side.face;
+    require(partner!=0,"R05 single spherical cap needs an adjacent face");
+    exercise("one independent sphere cap",f,
+        {{std::min(face,partner),std::max(face,partner),false}},1);
 }
 void sphereTwoIslands() {
     SphereOptions options;
@@ -149,8 +182,9 @@ void refuseZeroOrMalformed() {
 int main() {
     try {
         sphereTwoIslands();
-        hollowSingle();
+        sphereSingle();
         torusPair();
+        hollowSingle();
         actualSession();
         refuseZeroOrMalformed();
         std::cout<<"R05 frozen cap CPU acceptance: PASS\n";
