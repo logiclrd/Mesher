@@ -134,7 +134,7 @@ void twoIndependentZippers() {
              <<" faces="<<preview.proposedFaces.size()
              <<" diagnostic="<<preview.diagnostic<<"\n";
     require(preview.complete&&preview.contours.size()==4&&
-            preview.excisionComponents==2,
+            preview.excisionComponents==4,
             "R04 multi-region torus fixture must create four independent rims");
     const auto cut=applyPrivateExcision(f.root,preview);
     const auto zipped=applyForcedPrivateZipper(cut,preview);
