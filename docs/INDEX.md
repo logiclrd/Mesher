@@ -7,6 +7,8 @@ technical details that should not be rewritten as broad promises.
 
 ## Repair architecture rebaseline (2026-10-21)
 
+- [R03 private open-hole excision inspection](R03_PRIVATE_EXCISION_ACCEPTANCE.md): real deleted vertex fans and oriented surviving boundaries shown only in a frozen private mesh, with no cap, zipper or worker publication.
+
 - [R02 bounded vertex-star excision and contour inspection](R02_EXCISION_PREVIEW_ACCEPTANCE.md): contact vertices and complete removal fans (orange), bounded pinch cleanup vertices (cyan), advisory V14 uncertainty (purple), oriented survivor loops (gold), no topology mutation.
 
 - [G01 torus and hollow-shell construction / acceptance](G01_GEOMETRY_FIXTURES.md): randomized analytic torus; connected hollow shell with corrected two-ring negative-Y tube, and eventual redundant inner component deletion.
