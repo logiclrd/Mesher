@@ -285,6 +285,18 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   that improves minimum q instead of bisecting stagnating skinny
   triangles; certify adjacency, winding, q>=0.10, embeddedness,
   source survivor quality and all-or-nothing private rollback.
+- [ ] **R06-M06C4e — Curvature and surface-profile quality diagnostics.**
+  The one-loop physically manifold/quality-valid cap has a sharp
+  pinched-waist/star-like profile. Triangle shape q>=0.10 and
+  watertightness alone do NOT certify curvature continuity or a
+  natural boundary transition. Add bounded cap-to-survivor dihedral
+  statistics (including maximum normal discontinuity), signed
+  out-of-plane fairing displacement from measured adjacent normals,
+  and optional curvature-aware re-optimization of INTERIOR vertices
+  only. Preserve fixed original rim, reflection paired moves,
+  q>=0.10, source collisions and all-or-nothing private refusal.
+  Do not force a visual smoothness rule that incorrectly erases
+  intentional sculpted creases; expose an explicit diagnostic first.
 - [ ] **R06-M06C4b — Full R06 spatial closure acceptance.**
   Repeat real nonplanar sphere/hollow/torus cases with profile views
   and `spatial_cap_loops` logs; check optional detail refinement,
