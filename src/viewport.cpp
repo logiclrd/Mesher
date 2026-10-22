@@ -369,6 +369,8 @@ class VulkanViewport {
     bool inspectionZipperSucceeded_=false;
     bool inspectionCapRequested_=false;
     bool inspectionCapSucceeded_=false;
+    bool inspectionAutoRequested_=false;
+    bool inspectionAutoSucceeded_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -671,7 +673,9 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
-        const std::string mergeText=inspectionFrozen_&&inspectionCapRequested_?
+        const std::string mergeText=inspectionFrozen_&&inspectionAutoRequested_?
+            (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":"R06: AUTO REFUSED"):
+            inspectionFrozen_&&inspectionCapRequested_?
             (inspectionCapSucceeded_?"R05: CAP COMPLETE":"R05: CAP REFUSED"):
             inspectionFrozen_&&inspectionZipperRequested_?
             (inspectionZipperSucceeded_?"R04: ZIPPER COMPLETE":"R04: ZIPPER REFUSED"):
@@ -1187,6 +1191,8 @@ class VulkanViewport {
                     inspectionZipperRequested_=snapshot->inspectionZipperRequested;
                     inspectionZipperSucceeded_=snapshot->inspectionZipperSucceeded;
                     inspectionCapRequested_=snapshot->inspectionCapRequested;
+                    inspectionAutoRequested_=snapshot->inspectionAutoRequested;
+                    inspectionAutoSucceeded_=snapshot->inspectionAutoSucceeded;
                     inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
@@ -1283,7 +1289,10 @@ class VulkanViewport {
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
-                title+=inspectionCapRequested_?
+                title+=inspectionAutoRequested_?
+                    (inspectionAutoSucceeded_?" | R06 AUTO CLOSED (FROZEN PRIVATE)":
+                     " | R06 AUTO REFUSED (FROZEN)"):
+                    inspectionCapRequested_?
                     (inspectionCapSucceeded_?" | R05 CAPS (FROZEN PRIVATE)":
                      " | R05 CAP REFUSED (FROZEN)"):
                     (inspectionZipperRequested_?
