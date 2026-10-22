@@ -201,7 +201,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   [Actions #39739406371](https://github.com/logiclrd/Mesher/actions/runs/39739406371).
   No actual physical Vulkan signoff or live publication is claimed;
   R06-M06 and the parent R06 remain unchecked.
-- [ ] **R06-M06A — Explain and exercise automatic closure decisions.**
+- [x] **R06-M06A — Explain and exercise automatic closure decisions.**
   Physical Linux noodle collisions yielded 3/5 undesired independent caps
   and one legitimate quality refusal. Log per-region actual M03 choice and
   cause (fast V15 score vs same-survivor area penalty vs ambiguous two-cap
@@ -209,6 +209,14 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   Log which closure kind/triangle violated M04 quality and the finite
   refinement count. Add regression proof that no speculative plan is
   published and no quality bound is relaxed.
+  **Completed diagnostics in [PR #146](https://github.com/logiclrd/Mesher/pull/146):**
+  exact cap-vs-zipper and V15 fallback reasons, normals/area/proximity,
+  failed CAP/ZIPPER triangle IDs and quality with consumed subdivisions.
+  74/74 GCC/Clang/MSVC CTests in
+  [Actions #39792765074](https://github.com/logiclrd/Mesher/actions/runs/39792765074).
+  Confirmed physical misclassification: savings=0.503887 rejected by
+  same-surface minimum 0.55 despite opposite normals -0.998 and a
+  verified single contact-linked two-patch region.
 - [ ] **R06-M06B — Geometry-grounded cap/zipper decision hardening.**
   Replace silent ambiguous *contact-linked* two-rim -> independent caps with
   a bounded alternative validated against real oriented rings and direct
@@ -216,17 +224,32 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   Regression for equal-area ties, long torus bridge refusal, close facing
   noodle contacts and separate distant repairs; do NOT unconditionally
   zipper all directly contacting patches.
-- [ ] **R06-M06C — Mixed scar triangle-quality improvement.**
-  Evaluate why some actual M04B closure triangles remain skinny after
-  finite conforming midpoint splitting (observed q=0.068893 <0.1 with
-  edge length ratio=0.215962). Prefer bounded quality-increasing legal
-  retriangulation over lowering quality or unbounded splitting; exercise
-  narrow/warped scar and orphan-free rollback regressions.
-- [ ] **R06-M06D — Repeat physical and integrated CPU/GPU acceptance.**
-  Repeat sphere noodles (multiple varying real stamps), torus tunnel,
-  hollow inward-shell removal, mixed islands, safe refusals, exact
-  Linux and Windows hardware provenance and stack/main integration.
-  Keep the parent R06 unchecked until M06D is accepted; R07/R08 remain
+- [ ] **R06-M06C — Nonprojectable, folded single-loop cap reconstruction.**
+  New physical noodle self-contact merges two would-be cuts into a
+  long skinny curved boundary loop; R05 exhausts all projection
+  orientations (`contour projection overlaps itself`). Design a finite
+  nonprojective 3D disk triangulator or an equally explicit cut-recovery
+  strategy. Require boundary-preserving oriented embedded triangles,
+  verified against each other and the surviving surface, no foldovers,
+  unchanged q>=0.10, manifold/fan audit, finite budgets and whole-plan
+  refusal on ambiguous genuinely unfillable rims. Preserve R05 forced
+  behavior, and regress projected-simple caps plus folded 3D contours.
+  A synthetic test is NOT evidence of reconstructing the exact physical
+  boundary without an R03 replay fixture.
+- [ ] **R06-M06D — Mixed scar triangle-quality improvement.**
+  Actual close noodle zipper refused after all 512 conforming midpoint
+  subdivisions: ZIPPER q=0.078209 <0.10, length_ratio=0.229595,
+  inserted_vertices=512. Prefer finite quality-improving legal diagonal
+  flips or local retriangulation over midpoint-only splitting, and
+  reject crossing/invalid candidates; preserve same quality and COW
+  rollback guarantees. Exercise badly shaped but recoverable seams
+  and irrecoverable skinny safe refusals.
+- [ ] **R06-M06E — Repeat physical and integrated CPU/GPU acceptance.**
+  Repeat sphere noodles (multiple real stamps, off-axis self-contact,
+  both accepted zippers and legitimate refusals), torus tunnel,
+  hollow inward-shell removal, mixed islands, quality/manifold
+  invariants, Linux and Windows hardware provenance and stack/main CI.
+  Keep the parent R06 unchecked until M06E is accepted; R07/R08 remain
   future independent publication milestones.
 - [ ] **R06-M06 — Cross-platform and physical R06 acceptance.**
   GCC/Clang/MSVC warnings-as-errors full matrix, exact PR-head and separately
