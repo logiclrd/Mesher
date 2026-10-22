@@ -25,7 +25,7 @@ void triangle(std::vector<PartitionRenderVertex>& out,
     out.push_back(marker(b,material));
     out.push_back(marker(c,material));
 }
-void dot(std::vector<PartitionRenderVertex>& out,Vec3 c,double r) {
+void dot(std::vector<PartitionRenderVertex>& out,Vec3 c,double r,float material=2.0f) {
     const std::array<Vec3,6> points{{
         c+Vec3{r,0,0},c+Vec3{-r,0,0},
         c+Vec3{0,r,0},c+Vec3{0,-r,0},
@@ -35,8 +35,8 @@ void dot(std::vector<PartitionRenderVertex>& out,Vec3 c,double r) {
         const unsigned j=(i+1)%4;
         const auto a=points[i==0?0:i==1?2:i==2?1:3];
         const auto b=points[j==0?0:j==1?2:j==2?1:3];
-        triangle(out,points[4],a,b,2.0f);
-        triangle(out,points[5],b,a,2.0f);
+        triangle(out,points[4],a,b,material);
+        triangle(out,points[5],b,a,material);
     }
 }
 void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius,float material=3.0f) {
@@ -223,6 +223,9 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
         };
         for(const auto id:snapshot.excision.proposedFaces)highlight(id,4.0f);
         for(const auto id:snapshot.excision.uncertainFaces)highlight(id,5.0f);
+        // Cyan dots mark vertices absorbed to repair branching cut rims.
+        for(const auto id:snapshot.excision.expandedBoundaryVertices)
+            dot(overlay,snapshot.candidate->vertex(id).position,.008,7.0f);
         for(const auto& loop:snapshot.excision.contours) {
             for(std::size_t i=0;i<loop.vertexIds.size();++i) {
                 const auto a=loop.vertexIds[i];
