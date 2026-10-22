@@ -27,6 +27,15 @@ struct CertifiedPrivateAutoResult {
     std::size_t acceptedExteriorComponents{};
     std::size_t postClosureFaces{};
     std::size_t postRetirementFaces{};
+    // M05 only: forward real M04B topology-quality and M02 bounded
+    // enclosure-work evidence to frozen diagnostics, no changes to policy.
+    std::size_t generatedFaces{};
+    std::size_t insertedVertices{};
+    std::size_t refinementSteps{};
+    double minimumCapQuality{1};
+    double minimumZipperQuality{1};
+    std::size_t windingTriangleVisits{};
+    std::size_t collisionNarrowPhaseTests{};
 };
 
 // Entire result is still PRIVATE and unpublishable by R06 diagnostics.
