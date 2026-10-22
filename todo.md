@@ -201,6 +201,33 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   [Actions #39739406371](https://github.com/logiclrd/Mesher/actions/runs/39739406371).
   No actual physical Vulkan signoff or live publication is claimed;
   R06-M06 and the parent R06 remain unchecked.
+- [ ] **R06-M06A — Explain and exercise automatic closure decisions.**
+  Physical Linux noodle collisions yielded 3/5 undesired independent caps
+  and one legitimate quality refusal. Log per-region actual M03 choice and
+  cause (fast V15 score vs same-survivor area penalty vs ambiguous two-cap
+  fallback), trusted contact/excision association and geometric statistics.
+  Log which closure kind/triangle violated M04 quality and the finite
+  refinement count. Add regression proof that no speculative plan is
+  published and no quality bound is relaxed.
+- [ ] **R06-M06B — Geometry-grounded cap/zipper decision hardening.**
+  Replace silent ambiguous *contact-linked* two-rim -> independent caps with
+  a bounded alternative validated against real oriented rings and direct
+  R01 source contact provenance, preserving tight torus cap preference.
+  Regression for equal-area ties, long torus bridge refusal, close facing
+  noodle contacts and separate distant repairs; do NOT unconditionally
+  zipper all directly contacting patches.
+- [ ] **R06-M06C — Mixed scar triangle-quality improvement.**
+  Evaluate why some actual M04B closure triangles remain skinny after
+  finite conforming midpoint splitting (observed q=0.068893 <0.1 with
+  edge length ratio=0.215962). Prefer bounded quality-increasing legal
+  retriangulation over lowering quality or unbounded splitting; exercise
+  narrow/warped scar and orphan-free rollback regressions.
+- [ ] **R06-M06D — Repeat physical and integrated CPU/GPU acceptance.**
+  Repeat sphere noodles (multiple varying real stamps), torus tunnel,
+  hollow inward-shell removal, mixed islands, safe refusals, exact
+  Linux and Windows hardware provenance and stack/main integration.
+  Keep the parent R06 unchecked until M06D is accepted; R07/R08 remain
+  future independent publication milestones.
 - [ ] **R06-M06 — Cross-platform and physical R06 acceptance.**
   GCC/Clang/MSVC warnings-as-errors full matrix, exact PR-head and separately
   merged-main CI, Linux and Windows Vulkan inspection for sphere/torus/hollow,
