@@ -98,3 +98,59 @@ C4d quality algorithm remain outstanding.
 
 **No checkboxes for C4c, C4d, C4b, or parent R06 may be marked complete
 until their respective remaining work and cross-platform evidence exist.**
+
+## 2026-10-22 second physical acceptance round (three runs)
+
+**A successful single reflected cap:** one mirrored 26-vertex R03
+rim was capped with `cap_loops=1`, `green_faces=98`, `inserted_vertices=37`,
+`refinement_steps=10`, `min_cap_quality=0.166`,
+`spatial_cap_loops=1`, `spatial_poisson_iterations=49`,
+`spatial_density_splits=10`, `spatial_density_remaining_edges=0`,
+`spatial_max_final_edge_ratio=1.489`. This is positive physical
+evidence for spatial closure and optional mesh density, **not** proof
+of sufficient curvature continuity or R07 live mirror-map updates.
+
+**A refused single reflected cap:** a new exact 16-vertex R03 rim,
+with two real X=0 seam endpoints, chose CAP in M03 and refused M04
+`R06-M06C mirrored conforming edge lacks two incident tracked faces`.
+Root cause in M04A: projected R05 ear clipping was still attempted
+FIRST on a symmetric cross-plane rim, yielding an unpaired diagonal
+configuration. The mirror-mapped split edge was absent on the
+other side of the staging halo. C4c1 now routes ALL such spanning
+single-loop caps directly to the reflection-safe AFM front. Both
+the exact physical 16-vertex local front and a separate synthetic
+projected-simple symmetric loop are regression fixtures. The
+physical rim's front passed local topology checks at initial
+minimum q=0.423486 (source surviving face geometry unavailable).
+
+**A refused mirrored two-loop zipper:** separate mirrored, directed
+15+15 boundary loops chose ZIPPER in M03 with saving 0.505506 above
+the specific directly-linked facing-contact threshold 0.45.
+The preexisting arbitrary DP zipper crossed X=0 without a seam,
+and the *correct* final geometry mirror audit refused it.
+C4c2 now identifies an exact reflected/reverse-wound zipper pair,
+constructs one genuine x=0 vertex for each paired boundary vertex,
+and places mirrored half-strips with identical reflected diagonals
+on either side. Existing rim IDs are untouched and no coincidence
+welding occurs. The exact 15+15 physical coordinates are used in
+a private M04A staging fixture; malformed winding and ambiguity
+refuse, cyclic origin shifts are allowed. The test does not
+recreate the original 11K-face sculpt; success is not guaranteed
+until a full physical AUTO_CLOSED case passes M04B.
+
+C4c3 expands the complete private post-refinement collision
+check to **BOTH** green cap and blue zipper faces whenever
+spatial AFM or a mirrored seam zipper was used. It retains
+bounded test count, quality and manifold constraints, and reports
+`mirrored_seam_zipper_pairs` and `mirrored_seam_vertices`
+in successful `[repair-r06] AUTO_CLOSED` diagnostics. M04B
+mirrored conforming splits still consume the same total 512
+step / 1024 vertex budget; asymmetric zippers remain on the
+original R04 area-DP route.
+
+**Remaining certification:** GCC, Clang and MSVC on the latest
+full implementation; physical Linux rerun of all three
+configurations; direct matched reflected face-ID journals
+for eventual R07 live CAS/history/checkpoint; bounded symmetric
+quality-improving diagonal flips in C4d. Keep PR #148 draft
+and all C4c parent, C4d, C4e, M06C parent and R06 checkboxes OPEN.
