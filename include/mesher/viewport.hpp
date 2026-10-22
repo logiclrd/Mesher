@@ -34,6 +34,8 @@ struct ViewportMeshUpdate {
     bool inspectionFrozen = false;
     std::vector<PartitionRenderVertex> inspectionOverlay;
     bool inspectionPreview = false;
+    bool inspectionCutRequested = false;
+    bool inspectionCutSucceeded = false;
 };
 
 struct ViewportInteraction {
