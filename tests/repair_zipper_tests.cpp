@@ -1,5 +1,6 @@
 #include "mesher/repair_zipper.hpp"
 #include "mesher/repair_inspection.hpp"
+#include "mesher/versioned_sculpt.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
