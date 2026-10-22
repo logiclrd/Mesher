@@ -46,7 +46,7 @@ Match pairLoops(const RegionTopologyIndex& mesh,
            loops[i].vertexIds.size()>bounds.maxContourVertices)
             throw std::length_error("R04 contour vertex limit exceeded");
         h[i]=median(mesh,loops[i]);
-        if(!(h[i]>0)&&std::isfinite(h[i]))
+        if(!(h[i]>0)||!std::isfinite(h[i]))
             throw std::logic_error("R04 degenerate contour edge scale");
     }
     std::vector<std::vector<double>> scores(
@@ -264,6 +264,7 @@ ForcedZipperResult applyForcedPrivateZipper(
     ForcedZipperResult output;
     output.matchedLoops=pairing.pairs;
     std::map<VertexId,Vec3> pos;
+    std::set<PartitionId> owners;
     std::vector<FaceRec> faces;
     std::map<FaceId,std::size_t> existing;
     std::vector<std::vector<VertexId>> loops;
@@ -283,6 +284,7 @@ ForcedZipperResult applyForcedPrivateZipper(
     const auto makeVertex=[&](PartitionId owner,Vec3 point)->VertexId {
         if(output.insertedVertices.size()>=limits.maxNewVertices)
             throw std::length_error("R04 finite inserted-vertex budget exceeded");
+        owners.insert(owner);
         const auto id=view.addVertex(owner,point);
         pos.emplace(id,point);
         output.insertedVertices.push_back(id);
@@ -379,7 +381,6 @@ ForcedZipperResult applyForcedPrivateZipper(
            limits.minSurvivorQuality)
             throw std::logic_error("R04 adjacent surviving triangle became too skinny");
     }
-    std::set<PartitionId> owners;
     for(const auto& face:faces) {
         owners.insert(face.owner);
         if(face.original) {
@@ -397,9 +398,6 @@ ForcedZipperResult applyForcedPrivateZipper(
             if(face.seam)output.blueFaces.push_back(id);
         }
     }
-    for(const auto vertex:output.insertedVertices)
-        owners.insert(cut.index->revision().partitionCount()? // source owner is stored in mutable view
-            cut.index->vertex(proposal.contours.front().vertexIds.front()).owner:0);
     output.touchedPartitions.assign(owners.begin(),owners.end());
     const auto revision=view.commit().revision;
     auto result=RegionTopologyIndex::restore(revision,
