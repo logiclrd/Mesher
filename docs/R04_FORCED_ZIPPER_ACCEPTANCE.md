@@ -2,7 +2,7 @@
 
 **Status:** Development branch; CPU CI and Linux/Windows physical Vulkan acceptance open. **No production sculpt publication.**
 
-Use \`--repair zipper\` (alias `--repair-zipper`) with the existing default sphere, `--torus`, and `--hollow-sphere` fixtures. A successful post-stamp R01 contact freezes the brush and performs R02 vertex-star removal and R03 **actual** private open-boundary excision. R04 then **forces zipper-only** reconstruction. The result is an unpublished private **closed** mesh with newly created seam triangles colored **blue**, from both sides, including an interior camera view. No automatic cap, and no topology work is published to undo, redo, checkpoints, or the ordinary sculpt worker.
+Use `--repair zipper` (alias `--repair-zipper`) with the existing default sphere, `--torus`, and `--hollow-sphere` fixtures. A successful post-stamp R01 contact freezes the brush and performs R02 vertex-star removal and R03 **actual** private open-boundary excision. R04 then **forces zipper-only** reconstruction. The result is an unpublished private **closed** mesh with newly created seam triangles colored **blue**, from both sides, including an interior camera view. No automatic cap, and no topology work is published to undo, redo, checkpoints, or the ordinary sculpt worker.
 
 ## What makes a valid forced zipper
 
