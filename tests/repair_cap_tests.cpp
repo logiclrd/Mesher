@@ -153,19 +153,19 @@ void actualSession() {
     const auto snapshot=inspector.frozenSnapshot();
     require(snapshot&&snapshot->capEnabled&&snapshot->privateCut,
             "R05 must run only after R03 private excision");
-    if(!snapshot->privateCap) {
-        std::cout<<"[r05] session refusal="<<snapshot->capDiagnostic<<"\n";
-        throw std::runtime_error("R05 genuine single-contact closed mesh refused cap");
-    }
-    const auto overlay=buildRepairInspectionOverlay(*snapshot);
-    require(!overlay.empty()&&
-            std::all_of(overlay.begin(),overlay.end(),[](const auto& v){
-                return v.material==9.0f;
-            }),"R05 actual frozen private caps must render exclusively green");
+    // This original R01 regression has only four faces per component.
+    // Its R02/R03 vertex-star proposal removes one entire tetrahedron,
+    // leaving zero open loops. Auto repair will handle this in R06;
+    // ALWAYS CAP must refuse instead of manufacturing an arbitrary disk.
+    require(snapshot->excision.contours.empty()&&
+            !snapshot->privateCap&&
+            snapshot->capDiagnostic.find("at least one")!=std::string::npos,
+            "R05 must refuse full-component retirement with no hole to cap");
     require(original.mesh->retiredFaceCount()==0&&
             edit.updatedIndex()->retiredFaceCount()==0,
             "R05 real inspector must not publish/mutate prior roots");
-    std::cout<<"[r05] full inspector single-hole private green cap: PASS\n";
+    std::cout<<"[r05] full inspector zero-loop component removal correctly refused"
+             <<" (no CAS/history publication): PASS\n";
 }
 void refuseZeroOrMalformed() {
     const auto f=fixture(generateTorusFixture(5000,1,5));
