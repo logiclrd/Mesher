@@ -365,6 +365,8 @@ class VulkanViewport {
     bool inspectionPreview_=false;
     bool inspectionCutRequested_=false;
     bool inspectionCutSucceeded_=false;
+    bool inspectionZipperRequested_=false;
+    bool inspectionZipperSucceeded_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -667,7 +669,9 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
-        const std::string mergeText=inspectionFrozen_&&inspectionCutRequested_?
+        const std::string mergeText=inspectionFrozen_&&inspectionZipperRequested_?
+            (inspectionZipperSucceeded_?"R04: ZIPPER COMPLETE":"R04: ZIPPER REFUSED"):
+            inspectionFrozen_&&inspectionCutRequested_?
             (inspectionCutSucceeded_?"R03: PRIVATE CUT":"R03: EXCISION REFUSED"):
             interaction_.begin?
             (!interaction_.mergeSelected?"MERGE: DISABLED":
@@ -1176,6 +1180,8 @@ class VulkanViewport {
                     inspectionPreview_=snapshot->inspectionPreview;
                     inspectionCutRequested_=snapshot->inspectionCutRequested;
                     inspectionCutSucceeded_=snapshot->inspectionCutSucceeded;
+                    inspectionZipperRequested_=snapshot->inspectionZipperRequested;
+                    inspectionZipperSucceeded_=snapshot->inspectionZipperSucceeded;
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
@@ -1271,14 +1277,17 @@ class VulkanViewport {
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
-                title+=inspectionCutRequested_?
+                title+=inspectionZipperRequested_?
+                    (inspectionZipperSucceeded_?" | R04 ZIPPER (FROZEN PRIVATE)":
+                     " | R04 ZIPPER REFUSED (FROZEN)"):
+                    (inspectionCutRequested_?
                     (inspectionCutSucceeded_?" | R03 PRIVATE CUT (FROZEN)":
                      " | R03 EXCISION REFUSED (FROZEN)"):
                     (inspectionPreview_?
                     " | R02 EXCISION PREVIEW (UNPUBLISHED)":
                     (inspectionIncomplete_?
                     " | R01 QUERY INCOMPLETE (FROZEN)":
-                    " | R01 CONTACT (FROZEN CANDIDATE)"));
+                    " | R01 CONTACT (FROZEN CANDIDATE)")));
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
