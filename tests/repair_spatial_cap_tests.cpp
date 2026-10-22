@@ -138,9 +138,9 @@ void recordedCurved18Safety() {
     }
 }
 void crossingRimMustRefuse() {
-    const std::vector<Vec3> crossing{{
+    const std::vector<Vec3> crossing{
         {-1,-1,0},{1,1,0},{-1,1,0},{1,-1,0}
-    }};
+    };
     bool refused=false;
     try{(void)buildSpatialCapFrontPoisson(crossing,{});}
     catch(const std::logic_error&){refused=true;}
