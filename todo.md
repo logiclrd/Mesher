@@ -139,6 +139,37 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   components, including zero-rim cases, without capping/zippering them.
   Test mixed islands, torus Euler 0-to-2 where appropriate, hollow exterior
   one component/Euler 2, and deliberate refusal leaving original untouched.
+  **M04 flat peer sequence planned before implementation (2026-10-22):**
+  existing R04/R05 each require all open rims to be theirs; they cannot
+  run sequentially with partial holes. Preserve the original M04
+  all-or-nothing final acceptance contract across these peers.
+- [ ] **R06-M04A — Mixed private face staging and shared R04/R05 geometry primitives.**
+  Factor reusable R05 oriented projected ear-disks and R04 oriented DP
+  zipper strips without changing forced-mode behavior. Stage caps and
+  M03-selected explicit zipper pairs simultaneously from the SAME R03
+  open root, with stable IDs and one combined face-incidence ledger.
+  No unsafe intermediate closed-root assertion, no worker/history/CAS.
+  Test exact loop usage, mixed winding, cross-region no-stitching,
+  malformed plan refusal and source immutability.
+- [ ] **R06-M04B — Shared conforming adaptive refinement and closed-root audit.**
+  Unify old-survivor and newly inserted blue/green face splitting so
+  each edge is split on both incident sides, bounded by per-kind R04/R05
+  quality and scale limits. Commit ONE private root after full contour
+  coverage and global closed orientable vertex-fan audit; preserve stable
+  IDs/tombstones and refuse all bad-quality/over-budget mixed repairs.
+  Test torus Euler 2 where supported, independent multi-island cap/zipper,
+  and never permit a half-closed published/private result.
+- [ ] **R06-M04C — Proven enclosed-component retirement and integrated acceptance.**
+  Analyze closed M04B candidate with R06-M02's bounded, reliable
+  containment/orientation witness; remove ONLY fully proved redundant
+  inward closed components and their isolated vertices, with preserved
+  retirement tombstones, then re-audit full closed root, Euler/component
+  count and source immutability. A zero-loop component deletion requires
+  independent proof/authorization, not mere lack of a contour.
+  Test hollow sphere outer-only Euler 2, intentionally disconnected
+  exterior solids preserved, uncertain inverted/nested overlap refused,
+  finite budgets and complete rollback. Record GCC/Clang/MSVC gate.
+
 - [ ] **R06-M05 — Frozen developer `--repair auto` and diagnostics.**
   Wire M04 into R01/R02/R03 freeze, distinguish actual green caps/blue
   zippers/deleted components and refusal reasons, expose plan/quality/work
