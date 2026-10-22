@@ -64,6 +64,26 @@ double projectedArea(const RegionTopologyIndex& index,
             "R06-M03 no reliable positive cap area estimate");
     return actual;
 }
+// Area is only a ranking hint for M03. A cap with no zipper competitor
+// must reach M04 even when Newell cancellation makes this estimate zero.
+// This fallback is deliberately NOT a geometric embedding certificate.
+double advisoryCapArea(const RegionTopologyIndex& mesh,
+                       const RepairContour& contour) {
+    try {
+        return projectedArea(mesh,contour);
+    }catch(const Refusal& e) {
+        if(e.status!=AutoClosurePlanStatus::AmbiguousFitness)throw;
+        const auto length=contour.perimeter;
+        require(std::isfinite(length)&&length>0,
+                AutoClosurePlanStatus::InvalidInput,
+                "R06-M06C1 nonfinite independent-cap perimeter");
+        const auto estimate=length*length/(4*std::acos(-1.0));
+        require(std::isfinite(estimate)&&estimate>0,
+                AutoClosurePlanStatus::AmbiguousFitness,
+                "R06-M06C1 cap advisory area overflow");
+        return estimate;
+    }
+}
 struct TwoRimEvidence {
     double separation{},alignment{},maxNearestEdgeUnits{};
     double caps{},zipperFrustum{};
@@ -343,14 +363,19 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 for(const auto global:region.contours)
                     oneOwner &=loopSurvivor.at(global)==
                                loopSurvivor.at(region.contours.front());
-                require((n==1 || (n==2 && oneOwner)) &&
+                // A linked two-loop region on different survivors has
+                // unresolved attachment topology. Completely UNLINKED
+                // independent rims have no certified zipper competitor,
+                // so allow two private caps to reach M04's embedding audit.
+                require((n==1 ||
+                         (n==2 && (oneOwner||region.contactLinks==0))) &&
                         choice.status==RepairPlanStatus::AmbiguousClosure,
                     AutoClosurePlanStatus::AmbiguousFitness,
                     choice.reason.c_str());
                 for(const auto global:region.contours) {
                     region.caps.push_back(global);
                     region.estimatedAddedArea+=
-                        projectedArea(*cut.index,proposal.contours[global]);
+                        advisoryCapArea(*cut.index,proposal.contours[global]);
                 }
             }else {
                 region.selectionReason="V15 area-DP choice";
@@ -428,7 +453,7 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 // downgrades, instead of copying V15's now-stale total.
                 for(const auto global:region.caps)
                     region.estimatedAddedArea+=
-                        projectedArea(*cut.index,proposal.contours[global]);
+                        advisoryCapArea(*cut.index,proposal.contours[global]);
                 for(const auto& pair:region.zippers) {
                     const auto a=static_cast<std::size_t>(std::distance(
                         region.contours.begin(),
