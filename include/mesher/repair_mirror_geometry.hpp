@@ -1,5 +1,5 @@
 #pragma once
-#include "mesher/versioned_mesh.hpp"
+#include "mesher/region_edit.hpp"
 
 #include <cstddef>
 #include <memory>
