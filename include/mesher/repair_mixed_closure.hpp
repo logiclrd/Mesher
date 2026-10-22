@@ -19,6 +19,8 @@ struct MixedPrivateClosureLimits {
     double minZipperQuality=0.10;
     double maxCapEdgeFactor=2.5;
     double maxZipperEdgeFactor=2.5;
+    // Conforming pre-refinement of zipper boundary/retained-face edges.
+    double maxZipperBoundaryEdgeFactor=0.5;
 };
 
 struct MixedPrivateClosureResult {
