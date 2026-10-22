@@ -8,6 +8,7 @@
 #include <array>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -54,17 +55,18 @@ void independentIslandsAndClassification() {
     require(preview.classifiedFaces>0,
             "R02 must consult V14 fragment sampling, not blindly delete red contact faces");
     std::cout<<"[r02-cubes] contact_islands="<<preview.contactIslands
+             <<" vertices="<<preview.proposedVertices.size()
              <<" classified="<<preview.classifiedFaces
              <<" selected="<<preview.proposedFaces.size()
              <<" uncertain="<<preview.uncertainFaces.size()
              <<" contour_loops="<<preview.contours.size()
              <<" complete="<<preview.complete
              <<" reason="<<preview.diagnostic<<"\n";
-    require(preview.proposedFaces.size()==8&&
-            preview.contours.size()==4&&
-            preview.excisionComponents==4&&
-            preview.complete&&preview.uncertainFaces.empty(),
-            "Two cube penetrations must yield eight V14 proposed faces and four V15 valid contours; closure fitness is NOT R02 classification");
+    require(preview.proposedVertices.size()==32&&
+            preview.proposedFaces.size()==48&&
+            preview.contours.empty()&&preview.excisionComponents==4&&
+            preview.complete,
+            "Whole-vertex fan of each coarse cube is an entire closed component: deletion must have no boundary");
     for(const auto id:preview.proposedFaces) {
         require(static_cast<bool>(f.root->maybeFace(id)),
                 "R02 selected faces must be real stable FaceIds");
@@ -84,6 +86,80 @@ void independentIslandsAndClassification() {
             f.root->retiredFaceCount()==0&&f.root->retiredVertexCount()==0,
             "R02 read-only classification must preserve original indexed root and tombstones");
 }
+
+void syntheticSphereVertexFansAndBoundaryLoops() {
+    // The low-level R02 preview accepts R01's trusted contact face IDs.
+    // Create two synthetic independent face-pairs on a CLOSED SPHERE to
+    // directly test vertex-fan removal, clean loops and separation.
+    SphereOptions sphereOptions;
+    sphereOptions.vertexCount=320;
+    sphereOptions.symmetric=false;
+    sphereOptions.relaxationIterations=8;
+    const auto f=fixture(generateSphere(sphereOptions));
+    FaceId highest=0,lowest=0;
+    double high=-1e20,low=1e20;
+    for(const auto id:f.ids.faceIds) {
+        const auto& tri=f.root->face(id).vertices;
+        const double y=(f.root->vertex(tri[0]).position.y+
+                        f.root->vertex(tri[1]).position.y+
+                        f.root->vertex(tri[2]).position.y)/3.0;
+        if(y>high) {high=y;highest=id;}
+        if(y<low) {low=y;lowest=id;}
+    }
+    require(highest!=lowest&&high>.75&&low<-.75,
+            "Regression sphere must have well-separated polar face centers");
+    const auto neighbor=[&](FaceId face) {
+        const auto& tri=f.root->face(face).vertices;
+        auto a=tri[0],b=tri[1];
+        if(a>b)std::swap(a,b);
+        for(const auto& side:f.root->edgeSides({a,b}))
+            if(side.face!=face)return side.face;
+        throw std::runtime_error("No adjacent triangle on closed sphere");
+    };
+    const auto canonical=[](FaceId a,FaceId b) {
+        if(a>b)std::swap(a,b);
+        return RegionTopologyIndex::CollisionPair{a,b,false};
+    };
+    const std::vector<RegionTopologyIndex::CollisionPair> contacts{
+        canonical(highest,neighbor(highest)),
+        canonical(lowest,neighbor(lowest))
+    };
+    const auto originalIdentity=f.root->pickingRootIdentity();
+    const auto plan=previewApproximateExcision(*f.root,contacts);
+    std::cout<<"[r02-sphere] vertices="<<plan.proposedVertices.size()
+             <<" faces="<<plan.proposedFaces.size()
+             <<" loops="<<plan.contours.size()
+             <<" components="<<plan.excisionComponents
+             <<" complete="<<plan.complete
+             <<" diagnostic="<<plan.diagnostic<<"\\n";
+    require(plan.complete&&plan.contactIslands==2&&
+            plan.excisionComponents==2&&plan.contours.size()==2&&
+            plan.expandedBoundaryVertices.empty(),
+            "Two disjoint vertex-star patches must yield exactly two independent directed holes");
+    require(plan.boundaryEdges>=12&&plan.proposedFaces.size()>4,
+            "Removing contact triangle vertices must expand through their complete incident face fans");
+    const std::set<VertexId> removedVertices(
+        plan.proposedVertices.begin(),plan.proposedVertices.end());
+    const std::set<FaceId> removedFaces(
+        plan.proposedFaces.begin(),plan.proposedFaces.end());
+    for(const auto vertex:removedVertices) {
+        for(const auto face:f.root->vertex(vertex).incidentFaces)
+            require(removedFaces.contains(face),
+                    "Every proposed vertex requires its entire incident face fan to be retired");
+    }
+    for(const auto& loop:plan.contours) {
+        require(loop.vertexIds.size()>=3&&
+                loop.vertexIds.size()==loop.survivingFaces.size(),
+                "A survivor-oriented contour is a directed closed loop");
+        for(const auto id:loop.vertexIds)
+            require(!removedVertices.contains(id),
+                    "No removed vertex can also appear in a surviving boundary loop");
+    }
+    require(f.root->pickingRootIdentity()==originalIdentity&&
+            f.root->retiredFaceCount()==0&&f.root->retiredVertexCount()==0,
+            "Read-only synthetic vertex star preview cannot mutate candidate or retired IDs");
+}
+
 void noContactsAndBudget() {
     Mesh mesh;
     cube(mesh,{-3,0,0},.5);
@@ -138,6 +214,7 @@ int main() {
     try {
         noContactsAndBudget();
         independentIslandsAndClassification();
+        syntheticSphereVertexFansAndBoundaryLoops();
         freezeAndOverlay();
         std::cout<<"R02 read-only independent-island classification and preview: PASS\n";
         return 0;
