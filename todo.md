@@ -265,6 +265,36 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   zipper >=0.10). Do NOT change frozen rim positions, relax hard
   limits, or turn a previously valid repair into a budget refusal.
   Report optional split counts and worst final cap edge/target ratios.
+- [ ] **R06-M06C4c1 — Always mirror-stage spanning single-loop caps.**
+  Physical 16-point R03 self-mirrored contour had one cap plan but M04
+  refused `reflected conforming edge lacks two incident tracked faces`.
+  A successful projected R05 triangulation may not reflect its
+  diagonals, despite the source being paired. Route every symmetric
+  single contour spanning X=0 through the mirror-front backend
+  *before* trying projected ear clipping. Reject off-plane triangles
+  crossing the reflection plane without true seam vertices. Regress
+  the exact 16-point contour as local isolated geometry; no full-mesh
+  replay claim. Preserve asymmetric/projected R05 behavior.
+- [ ] **R06-M06C4c2 — Mirror-paired opposing-loop zipper with real seam.**
+  Physical 15+15 mirrored opposing rims selected a supported zipper
+  (saving=0.505506, threshold=0.45), but arbitrary DP triangles
+  intersected X=0 and a final mirror audit refused. Build exact
+  reversed-contour pair matching; create one *self-mirrored, x=0*
+  seam vertex for each pair, join each side with inverse-orientation
+  mirrored half-strips, and forbid a shortcut face crossing the plane.
+  Stage new seam IDs privately, preserve the original rims, test true
+  30-point coordinates, and keep source/zipper collision, quality,
+  closure, ID and finite-work gates. No coordinate welding.
+- [ ] **R06-M06C4c3 — Mirror-split completeness and diagnostic gates.**
+  Preflight a tracked reflected edge pair before any split and
+  distinguish missing topological mirrored edge from an absent
+  survivor in the local M04 editable halo. Keep old-face identities,
+  enforce all-or-nothing paired splits, 512-step/1024-vertex/4096-face
+  limits, and query BOTH blue zipper and green cap surfaces against
+  the complete post-refinement private mesh. Surface actual
+  spatial-zipper usage separately from cap Poisson metrics.
+  Verify real Linux test cases, GCC/Clang/MSVC CI, and leave C4c
+  pending live mirror-map authorization.
 - [ ] **R06-M06C4c — Preserve intrinsic mirror topology in private automatic caps.**
   New physical single elongated R03 rim spans X=0 with symmetric source
   stable vertices, but projected/spatial closure triangles crossed the
