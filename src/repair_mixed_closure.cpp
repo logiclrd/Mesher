@@ -209,7 +209,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 "R06-M06C mirrored conforming edge lacks two incident tracked faces");
         }
         if(optional) {
-            for(const auto e:{chosen,paired})
+            for(const auto& e:{chosen,paired})
                 for(const auto index:incident(e)) {
                     const auto q=splitQuality(faces[index],e);
                     if(!std::isfinite(q)||
