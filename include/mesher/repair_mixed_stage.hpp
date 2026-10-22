@@ -29,6 +29,10 @@ struct MixedClosureStaging {
     std::size_t capTriangles{};
     std::size_t zipperTriangles{};
     std::size_t boundarySidesCovered{};
+    // Temporary IDs are NEVER published. M04B replaces them with actual
+    // monotonically allocated immutable IDs before its conforming audit.
+    std::vector<VertexId> provisionalSpatialVertices;
+    bool usedSpatialCapFallback{};
 };
 
 struct MixedClosureStageSettings {
