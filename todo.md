@@ -74,7 +74,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   ALONE do not establish safe deletion: distinguish retained independent
   exterior components, malformed/inverted inputs, and uncertain enclosure.
   Never turn this into unbounded automatic cleanup of unrelated imports.
-- [ ] **R06-M01 — Bounded, read-only R03 survivor component and contour ownership inventory.**
+- [x] **R06-M01 — Bounded, read-only R03 survivor component and contour ownership inventory.**
   Enumerate topological face components by shared stable vertex/edge incidence,
   identify directed boundary-loop owner components from actual surviving
   FaceIds, count faces/vertices/edges/boundary loops and Euler characteristic,
@@ -83,6 +83,12 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   finite work exhaustion. Test sphere/torus/hollow fixtures, disjoint
   components, entire-component R03 removal (zero loops), mutated or ambiguous
   loop ownership, and source/retirement nonmutation. No closure policy/CLI.
+  Implemented in [PR #141](https://github.com/logiclrd/Mesher/pull/141):
+  stable-ID real R03 connected components, exact oriented contour ownership,
+  Euler/boundary counts, open/closed and zero-rim cases, malformed/budget
+  refusals. **2026-10-22 PR-head full Linux GCC/Clang and Windows MSVC CI
+  SUCCESS** ([Actions 39725703354](https://github.com/logiclrd/Mesher/actions/runs/39725703354)).
+  Separate R06 integration/GPU acceptance remains under M05–M06.
 - [ ] **R06-M02 — Bounded isolated/enclosed redundant-component proof.**
   From M01 stable-ID face components, require genuine disconnection,
   orientable closed surface and finite orientation evidence (e.g. signed
