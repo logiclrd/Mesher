@@ -5,6 +5,7 @@
 #include <cmath>
 #include <map>
 #include <limits>
+#include <optional>
 #include <numeric>
 #include <set>
 #include <stdexcept>
@@ -67,9 +68,12 @@ struct TwoRimEvidence {
     double separation{},alignment{},maxNearestEdgeUnits{};
     double caps{},zipperFrustum{};
 };
-TwoRimEvidence inspectTwoRims(const RegionTopologyIndex& mesh,
-                               const RepairContour& first,
-                               const RepairContour& second) {
+std::optional<TwoRimEvidence> inspectTwoRims(const RegionTopologyIndex& mesh,
+    const RepairContour& first,const RepairContour& second) {
+    // Read-only instrumentation must NEVER change M03's plan: V15 and
+    // the later true-geometry validator, not this advisory 3D proxy,
+    // decide whether malformed or folded contours are admissible.
+    try {
     const auto describe=[&](const RepairContour& loop) {
         Vec3 center{},normal{};
         const auto& ids=loop.vertexIds;
@@ -114,6 +118,9 @@ TwoRimEvidence inspectTwoRims(const RegionTopologyIndex& mesh,
             areaA+areaB,
             3.14159265358979323846*(radiusA+radiusB)*
                std::hypot(separation,radiusA-radiusB)};
+    }catch(const std::exception&) {
+        return std::nullopt;
+    }
 }
 void validateSettings(const AutoClosurePlanSettings& s) {
     require(s.maxExcisionFaces>0&&s.maxContours>0&&s.maxContourVertices>0&&
@@ -288,11 +295,14 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 const auto info=inspectTwoRims(
                     *cut.index,proposal.contours[region.contours[0]],
                     proposal.contours[region.contours[1]]);
-                region.rimCentroidSeparation=info.separation;
-                region.rimNormalAlignment=info.alignment;
-                region.rimNearestSeparationInEdges=info.maxNearestEdgeUnits;
-                region.estimatedCapArea=info.caps;
-                region.estimatedZipperArea=info.zipperFrustum;
+                if(info) {
+                    region.twoRimEvidenceValid=true;
+                    region.rimCentroidSeparation=info->separation;
+                    region.rimNormalAlignment=info->alignment;
+                    region.rimNearestSeparationInEdges=info->maxNearestEdgeUnits;
+                    region.estimatedCapArea=info->caps;
+                    region.estimatedZipperArea=info->zipperFrustum;
+                }
             }
             if(!n) {
                 region.selectionReason="zero-rim entire removed component; M02 must certify material";
@@ -379,6 +389,7 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     // a shorter same-shell bridge without globally
                     // defeating the torus-handle penalty.
                     const bool facingContact=
+                        region.twoRimEvidenceValid&&
                         sameSurvivor&&n==2&&patchA!=patchB&&
                         directLinks.contains({patchA,patchB})&&
                         region.rimNormalAlignment<=
