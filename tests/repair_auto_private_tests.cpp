@@ -128,6 +128,11 @@ void torusAccepted() {
             "R06-M04C tight torus needs two automatic caps");
     const auto result=applyCertifiedPrivateAutomaticClosure(
         f.mesh,cut,preview,plan,contacts);
+    std::cout<<"[r06-m04c-torus] retired="<<result.retiredCavityComponents
+             <<" exterior="<<result.acceptedExteriorComponents
+             <<" Euler="<<euler(*result.index)
+             <<" green="<<result.greenFaces.size()
+             <<" blue="<<result.blueFaces.size()<<"\n";
     require(result.index&&result.retiredCavityComponents==0&&
             result.acceptedExteriorComponents==1&&
             euler(*result.index)==2&&result.greenFaces.size()>2&&
