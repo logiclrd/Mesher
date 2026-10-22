@@ -135,6 +135,53 @@ void torusAccepted() {
             "R06-M04C torus removes handle, no spurious cavity or zipper");
     std::cout<<"[r06-m04c] tight torus retained one closed Euler 2 exterior PASS\n";
 }
+void zeroRimEnclosedInnerAccepted() {
+    SphereOptions opts;
+    opts.vertexCount=160;
+    opts.symmetric=false;
+    opts.relaxationIterations=8;
+    const auto sphere=generateSphere(opts);
+    Mesh mesh;
+    for(const auto radius:{1.0,.5}) {
+        const auto offset=static_cast<std::uint32_t>(mesh.vertices.size());
+        for(const auto v:sphere.vertices)
+            mesh.vertices.push_back(v*radius);
+        for(const auto t:sphere.triangles)
+            if(radius<1)
+                mesh.triangles.push_back({offset+t.a,offset+t.c,offset+t.b});
+            else
+                mesh.triangles.push_back({offset+t.a,offset+t.b,offset+t.c});
+    }
+    const auto source=fixture(std::move(mesh));
+    RepairExcisionPreview preview;
+    preview.complete=true;
+    const auto innerVertexBegin=sphere.vertices.size();
+    const auto innerFaceBegin=sphere.triangles.size();
+    preview.proposedVertices.assign(
+        source.ids.vertexIds.begin()+static_cast<std::ptrdiff_t>(innerVertexBegin),
+        source.ids.vertexIds.end());
+    preview.proposedFaces.assign(
+        source.ids.faceIds.begin()+static_cast<std::ptrdiff_t>(innerFaceBegin),
+        source.ids.faceIds.end());
+    const auto cut=applyPrivateExcision(source.mesh,preview);
+    require(cut.boundaryLoops==0&&cut.boundaryEdges==0,
+            "R06-M04C entire enclosed inward shell must cut with zero open rims");
+    const auto plan=planPrivateAutomaticClosure(*source.mesh,cut,preview,{});
+    require(plan.ready()&&plan.cappedContours.empty()&&
+            plan.zipperPairs.empty()&&
+            plan.regions.size()==1&&
+            plan.regions.front().zeroLoopComponentRetirement,
+            "R06-M04C zero-loop certificate needs no invented closure faces");
+    const auto result=applyCertifiedPrivateAutomaticClosure(
+        source.mesh,cut,preview,plan,{});
+    require(result.index&&result.greenFaces.empty()&&
+            result.blueFaces.empty()&&
+            result.acceptedExteriorComponents==1&&euler(*result.index)==2 &&
+            source.mesh->retiredFaceCount()==0 &&
+            result.index->retiredFaceCount()==preview.proposedFaces.size(),
+            "R06-M04C zero-rim inner cavity is safely retired with exterior preserved");
+    std::cout<<"[r06-m04c] pre-certified whole inward component zero-loop removal PASS\n";
+}
 void zeroRimExteriorRefused() {
     Mesh mesh;
     const auto cube=[&](Vec3 shift) {
@@ -175,6 +222,7 @@ int main() {
     try {
         nestedInwardShellRetired();
         torusAccepted();
+        zeroRimEnclosedInnerAccepted();
         zeroRimExteriorRefused();
         return 0;
     }catch(const std::exception& e) {
