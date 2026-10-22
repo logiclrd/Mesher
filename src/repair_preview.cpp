@@ -1,12 +1,12 @@
 #include "mesher/repair_preview.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <map>
 #include <queue>
 #include <set>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace mesher {
 namespace {
@@ -15,178 +15,265 @@ RegionTopologyIndex::Edge key(VertexId a,VertexId b) {
     if(a>b)std::swap(a,b);
     return {a,b};
 }
-std::vector<FaceId> adjacent(const RegionTopologyIndex& candidate,FaceId id) {
-    std::set<FaceId> ids;
-    const auto& face=candidate.face(id).vertices;
-    for(unsigned i=0;i<3;++i) {
-        const auto sides=candidate.maybeEdgeSides(
-            key(face[i],face[(i+1)%3]));
-        if(!sides||sides->size()!=2)
-            throw std::runtime_error("Non-manifold input at proposed excision boundary");
-        for(const auto& side:*sides)if(side.face!=id)ids.insert(side.face);
-    }
-    return {ids.begin(),ids.end()};
-}
 std::size_t contactIslandCount(
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts) {
-    // Canonical FaceIds are graph vertices; a contact pair is a graph edge.
-    // Separate geometric contact clusters need not correspond to separate
-    // proposed face deletions or to pairs of closure loops.
+    // Contact-pair connected components, not closure-loop counts.
     std::map<FaceId,std::set<FaceId>> graph;
     for(const auto& pair:contacts) {
         graph[pair.first].insert(pair.second);
         graph[pair.second].insert(pair.first);
     }
-    std::set<FaceId> seen;
-    std::size_t count=0;
+    std::set<FaceId> visited;
+    std::size_t components=0;
     for(const auto& [seed,_]:graph) {
-        if(seen.contains(seed))continue;
-        ++count;
-        std::vector<FaceId> stack{seed};
-        while(!stack.empty()) {
-            const auto node=stack.back();stack.pop_back();
-            if(!seen.insert(node).second)continue;
-            for(const auto next:graph.at(node))stack.push_back(next);
+        if(visited.contains(seed))continue;
+        ++components;
+        std::vector<FaceId> pending{seed};
+        while(!pending.empty()) {
+            const auto f=pending.back();pending.pop_back();
+            if(!visited.insert(f).second)continue;
+            for(const auto next:graph.at(f))pending.push_back(next);
         }
     }
-    return count;
+    return components;
 }
-std::size_t excisionComponentCount(
-    const RegionTopologyIndex& candidate,
-    const std::vector<FaceId>& proposed) {
-    std::set<FaceId> removed(proposed.begin(),proposed.end());
-    std::set<FaceId> seen;
+std::vector<FaceId> neighbors(const RegionTopologyIndex& index,FaceId id) {
+    std::set<FaceId> neighbors;
+    const auto& tri=index.face(id).vertices;
+    for(unsigned k=0;k<3;++k) {
+        const auto sides=index.maybeEdgeSides(key(tri[k],tri[(k+1)%3]));
+        if(!sides||sides->size()!=2)
+            throw std::runtime_error("R02 requires a closed two-sided original edge manifold");
+        for(const auto& side:*sides)
+            if(side.face!=id)neighbors.insert(side.face);
+    }
+    return {neighbors.begin(),neighbors.end()};
+}
+std::size_t countFaceComponents(const RegionTopologyIndex& index,
+                                const std::set<FaceId>& removed) {
+    std::set<FaceId> visited;
     std::size_t count=0;
     for(const auto seed:removed) {
-        if(seen.contains(seed))continue;
+        if(visited.contains(seed))continue;
         ++count;
         std::vector<FaceId> pending{seed};
         while(!pending.empty()) {
-            const auto id=pending.back();pending.pop_back();
-            if(!seen.insert(id).second)continue;
-            for(const auto next:adjacent(candidate,id))
-                if(removed.contains(next))pending.push_back(next);
+            const auto face=pending.back();pending.pop_back();
+            if(!visited.insert(face).second)continue;
+            for(const auto adjacent:neighbors(index,face))
+                if(removed.contains(adjacent))pending.push_back(adjacent);
         }
     }
     return count;
 }
-}
-RepairExcisionPreview previewApproximateExcision(
-    const RegionTopologyIndex& candidate,
-    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
-    const RepairPreviewLimits& limits) {
-    if(!limits.maxClassifiedFaces||!limits.maxProposedFaces||
-       !limits.maxContours||limits.sampleDepth>4||
-       !std::isfinite(limits.minimumHiddenFraction)||
-       limits.minimumHiddenFraction<=.5||limits.minimumHiddenFraction>1)
-        throw std::invalid_argument("Invalid R02 classification budgets");
-    RepairExcisionPreview view;
-    view.contactIslands=contactIslandCount(contacts);
-    view.complete=true;
-    if(contacts.empty())return view;
-    std::queue<FaceId> pending;
-    std::set<FaceId> scheduled;
-    for(const auto& pair:contacts) {
-        if(pair.ambiguous) {
-            view.complete=false;
-            view.diagnostic="R02 triangle-contact classification is ambiguous";
+bool expandCompleteFans(const RegionTopologyIndex& index,
+                        const std::set<VertexId>& removedVertices,
+                        std::set<FaceId>& removedFaces,std::size_t maxFaces,
+                        std::string& diagnostic) {
+    removedFaces.clear();
+    for(const auto vertex:removedVertices) {
+        const auto original=index.maybeVertex(vertex);
+        if(!original) {
+            diagnostic="R02 contact references a missing candidate vertex";
+            return false;
         }
-        for(const auto id:{pair.first,pair.second})
-            if(scheduled.insert(id).second)pending.push(id);
+        for(const auto id:original->incidentFaces) {
+            if(!index.maybeFace(id)) {
+                diagnostic="R02 vertex fan contains a missing face";
+                return false;
+            }
+            removedFaces.insert(id);
+            if(removedFaces.size()>maxFaces) {
+                diagnostic="R02 complete incident face fans exceed finite removal budget";
+                return false;
+            }
+        }
     }
-    std::set<FaceId> proposed,uncertain,mixed;
-    while(!pending.empty()) {
-        if(view.classifiedFaces>=limits.maxClassifiedFaces) {
-            view.complete=false;
-            view.diagnostic="R02 face-classification work limit exhausted";
-            break;
+    return true;
+}
+struct BoundaryCheck {
+    bool valid=true;
+    std::set<VertexId> branchingVertices;
+    std::size_t edges{};
+    std::string error;
+};
+BoundaryCheck boundaryGraph(const RegionTopologyIndex& index,
+                            const std::set<FaceId>& removed) {
+    BoundaryCheck out;
+    std::map<VertexId,std::pair<std::size_t,std::size_t>> degrees; // out, in
+    for(const auto id:removed) {
+        const auto& tri=index.face(id).vertices;
+        for(unsigned e=0;e<3;++e) {
+            const auto a=tri[e],b=tri[(e+1)%3];
+            const auto sides=index.maybeEdgeSides(key(a,b));
+            if(!sides||sides->size()!=2) {
+                out.valid=false;
+                out.error="R02 candidate includes open/nonmanifold source edge";
+                return out;
+            }
+            FaceId surviving=0;
+            for(const auto& side:*sides)
+                if(!removed.contains(side.face))surviving=side.face;
+            if(!surviving)continue;
+            const auto& survivor=index.face(surviving).vertices;
+            bool reverse=false;
+            for(unsigned j=0;j<3;++j)
+                if(survivor[j]==b&&survivor[(j+1)%3]==a)reverse=true;
+            if(!reverse) {
+                out.valid=false;
+                out.error="R02 cut borders have inconsistent source triangle winding";
+                return out;
+            }
+            ++degrees[b].first; ++degrees[a].second; ++out.edges;
         }
-        const auto id=pending.front();pending.pop();
-        ++view.classifiedFaces;
+    }
+    for(const auto& [id,degree]:degrees) {
+        if(degree.first==1&&degree.second==1)continue;
+        if(degree.first>1||degree.second>1) {
+            out.branchingVertices.insert(id);
+            continue;
+        }
+        out.valid=false;
+        out.error="R02 cut border has an open-ended edge";
+        return out;
+    }
+    return out;
+}
+void classifyAdvisory(const RegionTopologyIndex& index,
+                      const std::set<FaceId>& contacting,
+                      const RepairPreviewLimits& limits,
+                      RepairExcisionPreview& result) {
+    // These samples are hints for future R03/R06 interior selection.
+    // They NEVER veto or authorize the current conservative vertex halo.
+    for(const auto id:contacting) {
+        if(result.classifiedFaces>=limits.maxClassifiedFaces) {
+            result.classificationAdvisory=
+                "V14 informational sample budget exceeded";
+            return;
+        }
+        ++result.classifiedFaces;
         try {
-            const auto patches=candidate.classifyFaceFragments(
-                id,limits.sampleDepth,false); // never perform O(all) fallback
-            std::size_t hidden=0,visible=0,indeterminate=0;
-            for(const auto& patch:patches) {
-                if(patch.kind==Kind::Buried||patch.kind==Kind::Outside)
-                    ++hidden;
-                else if(patch.kind==Kind::Ambiguous)
-                    ++indeterminate;
+            const auto fragments=index.classifyFaceFragments(
+                id,limits.sampleDepth,false);
+            std::size_t buried=0,visible=0,uncertain=0;
+            for(const auto& fragment:fragments) {
+                if(fragment.kind==Kind::Buried||fragment.kind==Kind::Outside)
+                    ++buried;
+                else if(fragment.kind==Kind::Ambiguous)++uncertain;
                 else ++visible;
             }
-            if(indeterminate) {
-                uncertain.insert(id);
-                view.complete=false;
-                if(view.diagnostic.empty())
-                    view.diagnostic="R02 V14 sample winding is uncertain; no deletion certified for purple faces";
-                continue;
+            if(uncertain)result.uncertainFaces.push_back(id);
+            if(buried&&visible)result.mixedFaces.push_back(id);
+        }catch(const std::exception& e) {
+            result.uncertainFaces.push_back(id);
+            result.classificationAdvisory=e.what();
+        }
+    }
+}
+} // namespace
+
+RepairExcisionPreview previewApproximateExcision(
+    const RegionTopologyIndex& index,
+    const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
+    const RepairPreviewLimits& limits) {
+    if(!limits.maxSeedVertices||!limits.maxProposedVertices||
+       !limits.maxProposedFaces||!limits.maxContours||
+       !limits.maxClassifiedFaces||limits.sampleDepth>4)
+        throw std::invalid_argument("Invalid R02 finite-work limits");
+    RepairExcisionPreview result;
+    result.contactIslands=contactIslandCount(contacts);
+    result.complete=true;
+    if(contacts.empty())return result;
+    std::set<FaceId> contacting;
+    std::set<VertexId> selected;
+    for(const auto& pair:contacts) {
+        if(pair.ambiguous) {
+            result.complete=false;
+            result.diagnostic="R02 uncertain geometric contact cannot certify deletion";
+            return result;
+        }
+        for(const auto id:{pair.first,pair.second}) {
+            const auto face=index.maybeFace(id);
+            if(!face) {
+                result.complete=false;
+                result.diagnostic="R02 contact refers to a missing FaceId";
+                return result;
             }
-            if(hidden&&visible)mixed.insert(id);
-            if(!hidden||static_cast<double>(hidden)/patches.size()<
-                        limits.minimumHiddenFraction)continue;
-            if(proposed.size()>=limits.maxProposedFaces) {
-                view.complete=false;
-                view.diagnostic="R02 selected-face work limit exhausted";
-                break;
-            }
-            proposed.insert(id);
-            // Expand ONLY through confirmed removed triangles, as in
-            // the V15 bounded approximate-excision planner.
-            for(const auto neighbor:adjacent(candidate,id))
-                if(scheduled.insert(neighbor).second)pending.push(neighbor);
-        }catch(const std::length_error&) {
-            view.complete=false;
-            uncertain.insert(id);
-            view.diagnostic="R02 winding query work limit exhausted";
+            contacting.insert(id);
+            for(const auto vertex:face->vertices)selected.insert(vertex);
+        }
+    }
+    if(selected.size()>limits.maxSeedVertices||
+       selected.size()>limits.maxProposedVertices) {
+        result.complete=false;
+        result.diagnostic="R02 contact vertex budget exceeded";
+        return result;
+    }
+    std::set<FaceId> removed;
+    if(!expandCompleteFans(index,selected,removed,limits.maxProposedFaces,
+                           result.diagnostic)) {
+        result.complete=false;
+        return result;
+    }
+    // The closed star of a union of vertices can have two prospective
+    // holes meeting at a *retained* vertex. That vertex would have two
+    // separate survivor fans and create a non-manifold pinch after removal.
+    // Conservatively absorb the offending vertex's complete star, iterating
+    // until every oriented boundary vertex has exactly one in/out edge.
+    BoundaryCheck border;
+    while(true) {
+        border=boundaryGraph(index,removed);
+        if(!border.valid) {
+            result.complete=false;
+            result.diagnostic=border.error;
             break;
-        }catch(const std::runtime_error& e) {
-            view.complete=false;
-            uncertain.insert(id);
-            view.diagnostic=std::string("R02 classification error: ")+e.what();
+        }
+        if(border.branchingVertices.empty())break;
+        if(result.boundaryRepairs>=limits.maxBoundaryRepairs||
+           selected.size()+border.branchingVertices.size()>
+               limits.maxProposedVertices) {
+            result.complete=false;
+            result.diagnostic="R02 finite boundary-pinch cleanup exhausted";
+            break;
+        }
+        for(const auto id:border.branchingVertices)
+            if(selected.insert(id).second)result.expandedBoundaryVertices.push_back(id);
+        ++result.boundaryRepairs;
+        if(!expandCompleteFans(index,selected,removed,limits.maxProposedFaces,
+                               result.diagnostic)) {
+            result.complete=false;
             break;
         }
     }
-    view.proposedFaces.assign(proposed.begin(),proposed.end());
-    view.uncertainFaces.assign(uncertain.begin(),uncertain.end());
-    view.mixedFaces.assign(mixed.begin(),mixed.end());
-    if(view.proposedFaces.empty()) {
-        if(view.diagnostic.empty()) {
-            view.complete=false;
-            view.diagnostic="R02 contacts exist but no confidently buried candidate faces were identified";
-        }
-        return view;
-    }
-    // Planning is read-only. Closure failure is *not* a reason to erase
-    // useful diagnostic loops or to authorize a guessed hole pairing.
-    try {
-        RepairPlanSettings settings;
-        settings.maxRemovedFaces=limits.maxProposedFaces;
-        settings.maxBoundaryEdges=limits.maxProposedFaces*3;
-        settings.maxContours=limits.maxContours;
-        const auto plan=planRemovalContours(candidate,view.proposedFaces,settings);
-        view.contourStatus=plan.status;
-        view.contours=plan.contours;
-        view.boundaryEdges=plan.boundaryEdges;
-        view.excisionComponents=excisionComponentCount(candidate,view.proposedFaces);
-        if(plan.status!=RepairPlanStatus::Ready) {
-            // V15 goes beyond R02: cap/zipper matching, planarity and
-            // seam-area fitness may refuse otherwise valid oriented
-            // contours. R02's "complete" means excision classification
-            // and boundary extraction completed, NOT closure approved.
-            if(plan.status==RepairPlanStatus::UnmatchedContours||
-               plan.status==RepairPlanStatus::ExcessiveDeviation||
-               plan.status==RepairPlanStatus::AmbiguousClosure) {
-                view.closureAdvisory=plan.reason;
-            }else {
-                view.complete=false;
-                if(view.diagnostic.empty())
-                    view.diagnostic="R02 invalid/unfinished boundary extraction: "+plan.reason;
+    result.proposedVertices.assign(selected.begin(),selected.end());
+    result.proposedFaces.assign(removed.begin(),removed.end());
+    if(result.complete) {
+        try {
+            result.excisionComponents=countFaceComponents(index,removed);
+            RepairPlanSettings planning;
+            planning.maxRemovedFaces=limits.maxProposedFaces;
+            planning.maxBoundaryEdges=limits.maxProposedFaces*3;
+            planning.maxContours=limits.maxContours;
+            const auto plan=planRemovalContours(index,result.proposedFaces,planning);
+            result.contourStatus=plan.status;
+            result.boundaryEdges=plan.boundaryEdges;
+            result.contours=plan.contours;
+            if(plan.status!=RepairPlanStatus::Ready) {
+                if(plan.status==RepairPlanStatus::UnmatchedContours||
+                   plan.status==RepairPlanStatus::ExcessiveDeviation||
+                   plan.status==RepairPlanStatus::AmbiguousClosure)
+                    result.closureAdvisory=plan.reason;
+                else {
+                    result.complete=false;
+                    result.diagnostic="R02 invalid hypothetical excision: "+plan.reason;
+                }
             }
+        }catch(const std::exception& e) {
+            result.complete=false;
+            result.diagnostic=std::string("R02 contour work refused: ")+e.what();
         }
-    }catch(const std::exception& e) {
-        view.complete=false;
-        view.diagnostic=std::string("R02 oriented-contour planning failed: ")+e.what();
     }
-    return view;
+    classifyAdvisory(index,contacting,limits,result);
+    return result;
 }
 } // namespace mesher
