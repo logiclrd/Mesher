@@ -265,6 +265,26 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   zipper >=0.10). Do NOT change frozen rim positions, relax hard
   limits, or turn a previously valid repair into a budget refusal.
   Report optional split counts and worst final cap edge/target ratios.
+- [ ] **R06-M06C4c — Preserve intrinsic mirror topology in private automatic caps.**
+  New physical single elongated R03 rim spans X=0 with symmetric source
+  stable vertices, but projected/spatial closure triangles crossed the
+  mirror plane arbitrarily; known mirror relationships were invalidated.
+  Prohibit a false mirrored repair success. Demand two true seam endpoints,
+  explicit mirrored front/Poisson orbits (one self-paired on-plane hub),
+  paired oppositely wound reflected faces, no plane-crossing unseamed
+  triangles, and bounded post-conforming mirror audits. Prefer mirror-
+  orbit-preserving seam splits; otherwise refuse privately with GOLD R03
+  boundaries and leave source symmetry state unchanged. No silent switch
+  to asymmetric or coordinate welding. Test the user's 26-point rim and
+  a tampered asymmetry, while leaving genuinely asymmetric mode unchanged.
+- [ ] **R06-M06C4d — Fix symmetric thin-scar quality stagnation.**
+  On the new 26-point physical single-rim case, M04B chose CAP but
+  exhausted 512 subdivisions and refused triangle q=0.090671 <0.10,
+  length_ratio=0.240044, 539 inserted vertices. Implement bounded,
+  *mirror-orbit-paired* local diagonal flips or patch retriangulation
+  that improves minimum q instead of bisecting stagnating skinny
+  triangles; certify adjacency, winding, q>=0.10, embeddedness,
+  source survivor quality and all-or-nothing private rollback.
 - [ ] **R06-M06C4b — Full R06 spatial closure acceptance.**
   Repeat real nonplanar sphere/hollow/torus cases with profile views
   and `spatial_cap_loops` logs; check optional detail refinement,
