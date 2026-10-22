@@ -694,6 +694,13 @@ int main(int argc, char** argv) {
                                      <<" final_faces="<<automatic->postRetirementFaces
                                      <<" trusted_contact_links="<<plan.trustedContactLinks
                                      <<" estimated_area="<<plan.estimatedAddedArea
+                                     <<" generated_faces="<<automatic->generatedFaces
+                                     <<" inserted_vertices="<<automatic->insertedVertices
+                                     <<" refinement_steps="<<automatic->refinementSteps
+                                     <<" min_cap_quality="<<automatic->minimumCapQuality
+                                     <<" min_zipper_quality="<<automatic->minimumZipperQuality
+                                     <<" enclosure_winding_visits="<<automatic->windingTriangleVisits
+                                     <<" enclosure_narrow_tests="<<automatic->collisionNarrowPhaseTests
                                      <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
                             for(std::size_t i=0;i<plan.regions.size();++i)
                                 std::cout<<"[repair-r06] region="<<i
