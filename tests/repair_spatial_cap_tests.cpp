@@ -236,6 +236,42 @@ void physicalSymmetric26Rim() {
                  <<e.what()<<" PASS\\n";
     }
 }
+void physicalSymmetric16Rim() {
+    // User 2026-10-22 second physical test, whose M04B refinement had
+    // no two-sided reflected tracked edge. Exact ordered R03 rim.
+    const std::vector<Vec3> ring{
+        {0,-1.1098760554323437,0.292600353358898},
+        {-0.0081116620586424125,-1.170724542511,0.31365251819483636},
+        {-0.019214601753264907,-1.2074127629937643,0.29346835954943445},
+        {-0.016309809330932908,-1.2453679480475219,0.33532411102367443},
+        {-0.0070403341737743054,-1.2127251584549916,0.39865015332831427},
+        {-0.014320256447625093,-1.1790180130168149,0.44601365212029531},
+        {-0.033240435511679108,-1.1364802172855437,0.48172135437799213},
+        {-0.045889366327617531,-1.0757745130805672,0.48076082290019329},
+        {0,-1.0633881626619526,0.41656010700256052},
+        {0.045889366327617531,-1.0757745130805672,0.48076082290019329},
+        {0.033240435511679108,-1.1364802172855437,0.48172135437799213},
+        {0.014320256447625093,-1.1790180130168149,0.44601365212029531},
+        {0.0070403341737743054,-1.2127251584549916,0.39865015332831427},
+        {0.016309809330932908,-1.2453679480475219,0.33532411102367443},
+        {0.019214601753264907,-1.2074127629937643,0.29346835954943445},
+        {0.0081116620586424125,-1.170724542511,0.31365251819483636}
+    };
+    SpatialCapSettings limits;
+    limits.requireMirrorPlane=true;
+    try {
+        const auto patch=buildSpatialCapFrontPoisson(ring,{},limits);
+        validate(ring,patch);
+        expect(patch.positions.back().x==0,
+               "R06-M06C4c1 physical mirror front hub must lie on seam");
+        std::cout<<"[r06-m06c4c1] physical 16-point symmetric rim produced"
+                 <<" local reflected cap q="<<patch.minimumQuality
+                 <<" (surrounding survivor audit not replayed) PASS\\n";
+    }catch(const std::logic_error& error) {
+        std::cout<<"[r06-m06c4c1] physical 16-point rim safely refused"
+                 <<" at spatial front: "<<error.what()<<" PASS\\n";
+    }
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -261,6 +297,7 @@ int main() {
         smoothRoundAndCurved();
         mirroredSingleRimContract();
         physicalSymmetric26Rim();
+        physicalSymmetric16Rim();
         physicalLongRimSafety();
         recordedCurved18Safety();
         crossingRimMustRefuse();
