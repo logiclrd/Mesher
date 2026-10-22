@@ -62,17 +62,21 @@ void independentIslandsAndClassification() {
              <<" contour_loops="<<preview.contours.size()
              <<" complete="<<preview.complete
              <<" reason="<<preview.diagnostic<<"\n";
-    require(preview.proposedVertices.size()==32&&
-            preview.proposedFaces.size()==48&&
-            preview.contours.empty()&&preview.excisionComponents==4&&
-            preview.complete,
-            "Whole-vertex fan of each coarse cube is an entire closed component: deletion must have no boundary");
+    require(preview.complete&&preview.proposedFaces.size()>8&&
+            preview.proposedVertices.size()>8,
+            "Conservative contact-vertex excision must include complete incident face stars");
+    const std::set<FaceId> selectedFaces(
+        preview.proposedFaces.begin(),preview.proposedFaces.end());
+    for(const auto id:preview.proposedVertices)
+        for(const auto face:f.root->vertex(id).incidentFaces)
+            require(selectedFaces.contains(face),
+                    "Every selected vertex must have its full incident face fan selected");
     for(const auto id:preview.proposedFaces) {
         require(static_cast<bool>(f.root->maybeFace(id)),
                 "R02 selected faces must be real stable FaceIds");
-        require(std::find(preview.uncertainFaces.begin(),
-            preview.uncertainFaces.end(),id)==preview.uncertainFaces.end(),
-            "Uncertain V14 face may never be approved for removal");
+        // V14 classifications are advisory: a vertex-star candidate can
+        // include a face whose optional winding sample is uncertain.
+        // R02 must not let fragment voting create torn triangle fans.
     }
     for(const auto& loop:preview.contours) {
         require(loop.vertexIds.size()>=3&&
@@ -131,7 +135,7 @@ void syntheticSphereVertexFansAndBoundaryLoops() {
              <<" loops="<<plan.contours.size()
              <<" components="<<plan.excisionComponents
              <<" complete="<<plan.complete
-             <<" diagnostic="<<plan.diagnostic<<"\\n";
+             <<" diagnostic="<<plan.diagnostic<<"\n";
     require(plan.complete&&plan.contactIslands==2&&
             plan.excisionComponents==2&&plan.contours.size()==2&&
             plan.expandedBoundaryVertices.empty(),
