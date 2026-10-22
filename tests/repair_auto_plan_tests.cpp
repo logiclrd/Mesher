@@ -165,6 +165,85 @@ void append(std::vector<std::size_t>& output,PrismCaps c,bool left) {
     for(std::size_t i=0;i<c.size;++i)
         output.push_back((left?c.left:c.right)+i);
 }
+void closeOpposingMouthsOnOneSurvivor() {
+    // One topological tube curved into a wide U. Its two ends face each
+    // other at a short gap: two independent disk caps would preserve a
+    // sphere, whereas one zipper would intentionally create a handle.
+    // The R01 link is a test-only provenance fixture (not a physical
+    // intersection); the open R03 rims, original owners and orientation
+    // are computed from actual indexed triangles.
+    Mesh mesh;
+    const std::array<Vec3,6> centers{{
+        {-.28,0,0},{-3,0,0},{-3,4,0},
+        {3,4,0},{3,0,0},{.28,0,0}
+    }};
+    constexpr std::array<std::array<double,2>,4> section{{
+        {-1,-1},{1,-1},{1,1},{-1,1}
+    }};
+    for(std::size_t i=0;i<centers.size();++i) {
+        const auto tangent=normalized(
+            centers[std::min(i+1,centers.size()-1)]-
+            centers[i==0?0:i-1]);
+        const auto u=normalized(cross(Vec3{0,0,1},tangent));
+        for(const auto& yz:section)
+            mesh.vertices.push_back(
+                centers[i]+u*yz[0]+Vec3{0,0,yz[1]});
+    }
+    for(std::uint32_t i=0;i+1<centers.size();++i)
+        for(std::uint32_t j=0;j<4;++j) {
+            const auto k=(j+1)%4;
+            const auto a=4*i+j,b=4*i+k;
+            const auto c=4*(i+1)+j,d=4*(i+1)+k;
+            mesh.triangles.push_back({a,b,d});
+            mesh.triangles.push_back({a,d,c});
+        }
+    const auto capA=mesh.triangles.size();
+    const auto first=static_cast<std::uint32_t>(mesh.vertices.size());
+    mesh.vertices.push_back(centers.front());
+    for(std::uint32_t j=0;j<4;++j)
+        mesh.triangles.push_back({first,(j+1)%4,j});
+    const auto capB=mesh.triangles.size();
+    const auto last=static_cast<std::uint32_t>(mesh.vertices.size());
+    mesh.vertices.push_back(centers.back());
+    const auto tail=4*static_cast<std::uint32_t>(centers.size()-1);
+    for(std::uint32_t j=0;j<4;++j)
+        mesh.triangles.push_back({last,tail+j,tail+(j+1)%4});
+    std::vector<std::size_t> excise;
+    for(std::size_t j=0;j<4;++j) {
+        excise.push_back(capA+j);
+        excise.push_back(capB+j);
+    }
+    auto f=stagedCaps(std::move(mesh),excise,{{capA,capB}});
+    const auto planned=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,f.links);
+    check(planned.ready()&&planned.geometryRegions==1&&
+          planned.zipperPairs.size()==1&&planned.cappedContours.empty()&&
+          planned.survivors.components.size()==1,
+          "R06-M06B close and directly linked opposing SAME-SURVIVOR mouths must zipper");
+    const auto& decision=planned.regions.front();
+    check(decision.contactLinks==1&&
+          decision.excisionPatches.size()==2&&
+          decision.rimNormalAlignment<-.95&&
+          decision.rimNearestSeparationInEdges<=2.5&&
+          decision.estimatedZipperArea<decision.estimatedCapArea*.55&&
+          decision.estimatedZipperArea>decision.estimatedCapArea*.45&&
+          decision.selectionReason.find("directly linked close opposing rims")!=
+              std::string::npos,
+          "R06-M06B must require meaningful facing provenance and approximately 50% area saving");
+    const auto unlinked=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,{});
+    check(unlinked.ready()&&unlinked.cappedContours.size()==2&&
+          unlinked.zipperPairs.empty(),
+          "R06-M06B spatially close SAME-survivor rims must not zipper without trusted contacts");
+    auto conservative=AutoClosurePlanSettings{};
+    conservative.minimumFacingContactZipperSavings=.55;
+    const auto oldPolicy=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,f.links,conservative);
+    check(oldPolicy.ready()&&oldPolicy.cappedContours.size()==2&&
+          oldPolicy.zipperPairs.empty(),
+          "R06-M06B synthetic fixture must reproduce the former over-conservative 55% decision");
+    std::cout<<"[r06-m06b] two opposite mouths on one U tube: 50% area saving now zips, unlinked stays caps PASS\n";
+}
 void mixedCapAndZipper() {
     Mesh mesh;
     const auto left=prism(mesh,-2,0,1);
@@ -299,6 +378,7 @@ int main() {
     try {
         torusCaps();
         sphereSeparatedRepairs();
+        closeOpposingMouthsOnOneSurvivor();
         mixedCapAndZipper();
         nearTieMustRefuse();
         ambiguousManyToMany();
