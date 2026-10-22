@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
     bool repairInspect = false;
     bool repairPreview = false;
     bool repairExcise = false;
+    bool repairZipper = false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -75,6 +76,12 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-inspect")repairInspect=true;
             else if(arg=="--repair-preview")repairPreview=true;
             else if(arg=="--repair-excise")repairExcise=true;
+            else if(arg=="--repair-zipper")repairZipper=true;
+            else if(arg=="--repair") {
+                if(++i>=argc||std::string_view(argv[i])!="zipper")
+                    throw std::invalid_argument("--repair requires zipper in R04");
+                repairZipper=true;
+            }
             else if(arg=="--torus")torusFixture=true;
             else if(arg=="--hollow-sphere")hollowSphereFixture=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
@@ -174,6 +181,7 @@ int main(int argc, char** argv) {
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
                          <<"       [--repair-preview] (R02 classify excision faces and boundary loops; no topology edits)\n"
                          <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
+                         <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
@@ -211,6 +219,7 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
+        repairExcise=repairExcise||repairZipper;
         repairPreview=repairPreview||repairExcise;
         repairInspect=repairInspect||repairPreview;
         if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
@@ -414,7 +423,7 @@ int main(int argc, char** argv) {
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
         bool inspectionPresented=false;
         auto repairSession=repairInspect
-            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise):nullptr;
+            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise,repairZipper):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -554,7 +563,7 @@ int main(int argc, char** argv) {
                         [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                             owners.insert(id);
                         });
-                    std::cout<<(repairExcise?"[repair-r03] ":(repairPreview?"[repair-r02] ":"[repair-r01] "))
+                    std::cout<<(repairZipper?"[repair-r04] ":(repairExcise?"[repair-r03] ":(repairPreview?"[repair-r02] ":"[repair-r01] ")))
                              <<"FROZEN candidate state="
                              <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
                              <<" contacts="<<frozen->contacts.size()
@@ -620,7 +629,29 @@ int main(int argc, char** argv) {
                                      <<" (original candidate retained, unpublished)\n";
                         }
                     }
-                    const auto displayed=(repairExcise&&frozen->privateCut)
+                    if(repairZipper) {
+                        if(const auto& zipper=frozen->privateZipper) {
+                            std::cout<<"[repair-r04] ZIPPED forced=1 private_closed_mesh=1"
+                                     <<" zipper_pairs="<<zipper->matchedLoops.size()
+                                     <<" blue_faces="<<zipper->blueFaces.size()
+                                     <<" inserted_vertices="<<zipper->insertedVertices.size()
+                                     <<" new_faces="<<zipper->totalNewFaces
+                                     <<" boundary_splits="<<zipper->splitBoundaryEdges
+                                     <<" refinement_steps="<<zipper->refinementSteps
+                                     <<" min_seam_quality="<<zipper->minimumSeamQuality
+                                     <<" no_caps=1 unpublished=1\n";
+                            for(const auto& pair:zipper->matchedLoops)
+                                std::cout<<"[repair-r04] pair "<<pair.first
+                                         <<" -> "<<pair.second<<"\n";
+                        }else {
+                            std::cout<<"[repair-r04] ZIPPER_REFUSED private_closed_mesh=0"
+                                     <<" reason="<<frozen->zipperDiagnostic
+                                     <<" (R03 cut retained where available; no publication)\n";
+                        }
+                    }
+                    const auto displayed=repairZipper&&frozen->privateZipper
+                        ?frozen->privateZipper->index:
+                        repairExcise&&frozen->privateCut
                         ?frozen->privateCut->index:frozen->candidate;
                     return mesher::ViewportMeshUpdate{
                         displayed,
@@ -628,7 +659,8 @@ int main(int argc, char** argv) {
                         liveWorker->status().completedStamps,
                         true,mesher::buildRepairInspectionOverlay(*frozen),
                         repairPreview,repairExcise,
-                        repairExcise&&frozen->privateCut.has_value()};
+                        repairExcise&&frozen->privateCut.has_value(),
+                        repairZipper,repairZipper&&frozen->privateZipper.has_value()};
                 }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
@@ -722,7 +754,11 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
-            if(repairExcise)
+            if(repairZipper)
+                std::cout<<"[repair-r04] Armed ALWAYS ZIPPER in unpublished private mesh. "
+                            "Blue new seam triangles, bounded refinement, no caps; "
+                            "the brush freezes on contact.\n";
+            if(repairExcise&&!repairZipper)
                 std::cout<<"[repair-r03] Armed PRIVATE OPEN CUT: first certified contact freezes, "
                             "removes selected complete face fans/vertices only in a separate "
                             "unpublished debug revision; surviving hole rims are gold. "
