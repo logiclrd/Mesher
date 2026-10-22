@@ -139,6 +139,53 @@ PrivateExcisionResult applyPrivateExcision(
     if(observed!=expected || observed.size()!=proposal.boundaryEdges)
         throw std::logic_error("R03 actual open edges differ from R02 directed contours");
 
+    // An edge-count audit alone can miss two disjoint triangle fans meeting
+    // at one surviving vertex. A legitimate open manifold has ONE connected
+    // vertex link: a chain at a hole rim (two degree-1 link endpoints), or a
+    // cycle elsewhere (all degree-2). Audit the complete affected neighborhood
+    // under the existing finite face budget, not the entire global mesh.
+    std::set<VertexId> boundaryVertices;
+    for(const auto e:observed) {
+        boundaryVertices.insert(e.a);
+        boundaryVertices.insert(e.b);
+    }
+    for(const auto id:affected) {
+        const auto vertex=cut->maybeVertex(id);
+        if(!vertex)continue;
+        if(vertex->incidentFaces.empty())
+            throw std::logic_error("R03 cut left an unretired orphan vertex");
+        std::map<VertexId,std::set<VertexId>> link;
+        for(const auto faceId:vertex->incidentFaces) {
+            const auto& tri=cut->face(faceId).vertices;
+            std::array<VertexId,2> others{};
+            unsigned count=0;
+            for(const auto v:tri)
+                if(v!=id)others[count++]=v;
+            if(count!=2)
+                throw std::logic_error("R03 remaining face does not contain center vertex");
+            link[others[0]].insert(others[1]);
+            link[others[1]].insert(others[0]);
+        }
+        std::size_t endpoints=0;
+        for(const auto& [_,adjacent]:link) {
+            if(adjacent.size()==1)++endpoints;
+            else if(adjacent.size()!=2)
+                throw std::logic_error("R03 private cut left branching vertex link");
+        }
+        const auto isBoundary=boundaryVertices.contains(id);
+        if(endpoints!=(isBoundary?2u:0u))
+            throw std::logic_error("R03 vertex link is not one open fan or closed cycle");
+        std::set<VertexId> visited;
+        std::vector<VertexId> pending{link.begin()->first};
+        while(!pending.empty()) {
+            const auto current=pending.back();pending.pop_back();
+            if(!visited.insert(current).second)continue;
+            for(const auto next:link.at(current))pending.push_back(next);
+        }
+        if(visited.size()!=link.size())
+            throw std::logic_error("R03 surviving vertex has disconnected fans");
+    }
+
     for(const auto id:vertices)
         if(cut->maybeVertex(id)||!cut->retiredVertex(id))
             throw std::logic_error("R03 vertex tombstone was not retained");
