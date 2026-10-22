@@ -113,7 +113,7 @@ std::optional<TwoRimEvidence> inspectTwoRims(const RegionTopologyIndex& mesh,
         throw Refusal(AutoClosurePlanStatus::InvalidInput,
                       "R06-M06A invalid local rim edge scale");
     const auto separation=length(centerA-centerB);
-    return {separation,dot(normalA,normalB),
+    return TwoRimEvidence{separation,dot(normalA,normalB),
             std::max(oneWay(first,second),oneWay(second,first))/edgeSize,
             areaA+areaB,
             3.14159265358979323846*(radiusA+radiusB)*
