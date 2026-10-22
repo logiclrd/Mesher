@@ -1,10 +1,13 @@
 #include "mesher/repair_mixed_stage.hpp"
+#include "mesher/repair_cap_spatial.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <limits>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace mesher {
@@ -89,9 +92,65 @@ MixedClosureStaging stagePrivateMixedClosure(
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
         const auto owner=mesh.face(loop.survivingFaces.front()).owner;
-        for(const auto triangle:triangulatePrivateCapDisk(
-                loop,result.positions,h))
-            addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
+        try {
+            for(const auto triangle:triangulatePrivateCapDisk(
+                    loop,result.positions,h))
+                addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
+        }catch(const std::logic_error& projectedError) {
+            // The original R05 projected-ear builder remains unchanged and
+            // first-choice. For genuinely folded contours, advance a fully
+            // spatial oriented front, add synthetic private interior vertices
+            // and fair by fixed-rim normal-guided Poisson. M04B later
+            // allocates permanent IDs and certifies true mesh embedding.
+            std::vector<Vec3> ordered;
+            std::vector<Vec3> guidance;
+            const auto n=loop.vertexIds.size();
+            ordered.reserve(n);
+            guidance.reserve(n);
+            for(std::size_t k=0;k<n;++k) {
+                const auto r=n-k-1;
+                ordered.push_back(result.positions.at(loop.vertexIds[r]));
+                const auto& adjacent=mesh.face(loop.survivingFaces.at(r));
+                const auto& v=adjacent.vertices;
+                const auto normal=cross(
+                    result.positions.at(v[1])-result.positions.at(v[0]),
+                    result.positions.at(v[2])-result.positions.at(v[0]));
+                guidance.push_back(normal);
+            }
+            SpatialCapPatch patch;
+            try {
+                patch=buildSpatialCapFrontPoisson(ordered,guidance);
+            }catch(const std::exception& failed) {
+                throw std::logic_error(
+                    std::string("R06-M06C projected cap unavailable: ")+
+                    projectedError.what()+"; spatial front refused: "+
+                    failed.what());
+            }
+            std::vector<VertexId> ids;
+            ids.reserve(patch.positions.size());
+            for(std::size_t k=0;k<n;++k)
+                ids.push_back(loop.vertexIds[n-k-1]);
+            for(std::size_t k=n;k<patch.positions.size();++k) {
+                if(result.provisionalSpatialVertices.size()>=
+                   bounds.maxNewTriangles)
+                    throw std::length_error(
+                        "R06-M06C spatial provisional vertex budget exceeded");
+                const auto provisional=std::numeric_limits<VertexId>::max()-
+                    static_cast<VertexId>(result.provisionalSpatialVertices.size());
+                if(mesh.maybeVertex(provisional)||
+                   result.positions.contains(provisional))
+                    throw std::logic_error(
+                        "R06-M06C temporary ID collides with immutable vertex");
+                result.provisionalSpatialVertices.push_back(provisional);
+                result.positions.emplace(provisional,patch.positions[k]);
+                result.vertexOwners.emplace(provisional,owner);
+                ids.push_back(provisional);
+            }
+            for(const auto& t:patch.faces)
+                addFace({0,owner,{ids[t[0]],ids[t[1]],ids[t[2]]},
+                         MixedClosureFaceKind::Cap,h});
+            result.usedSpatialCapFallback=true;
+        }
         ++result.capLoops;
     }
     for(const auto& pair:plan.zipperPairs) {
