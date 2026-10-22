@@ -2,6 +2,7 @@
 #include "mesher/partition_render.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
+#include "mesher/repair_zipper.hpp"
 
 #include <atomic>
 #include <memory>
@@ -32,20 +33,25 @@ struct RepairInspectionSnapshot {
     RepairExcisionPreview excision;
     std::optional<PrivateExcisionResult> privateCut;
     std::string excisionDiagnostic;
+    bool zipperEnabled=false;
+    std::optional<ForcedZipperResult> privateZipper;
+    std::string zipperDiagnostic;
 };
 
 // Thread-safe one-shot observer, called by the existing PRE-CAS sculpt
 // validator. Returns a refusal only on a freeze; no worker root is published.
 class RepairInspectionSession {
 public:
-    explicit RepairInspectionSession(bool preview=false,bool excise=false)
-        :previewEnabled_(preview||excise),excisionEnabled_(excise) {}
+    explicit RepairInspectionSession(bool preview=false,bool excise=false,bool zipper=false)
+        :previewEnabled_(preview||excise||zipper),excisionEnabled_(excise||zipper),
+         zipperEnabled_(zipper) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
 private:
     bool previewEnabled_=false;
     bool excisionEnabled_=false;
+    bool zipperEnabled_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
