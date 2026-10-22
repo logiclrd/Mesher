@@ -89,7 +89,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   refusals. **2026-10-22 PR-head full Linux GCC/Clang and Windows MSVC CI
   SUCCESS** ([Actions 39725703354](https://github.com/logiclrd/Mesher/actions/runs/39725703354)).
   Separate R06 integration/GPU acceptance remains under M05–M06.
-- [ ] **R06-M02 — Bounded isolated/enclosed redundant-component proof.**
+- [x] **R06-M02 — Bounded isolated/enclosed redundant-component proof.**
   From M01 stable-ID face components, require genuine disconnection,
   orientable closed surface and finite orientation evidence (e.g. signed
   volume), then verify spatial containment/side-of-material against other
@@ -103,6 +103,14 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   witnesses. Neither isolated IDs, negative volume, nor nested AABBs alone
   authorizes deletion. Test hollow mouth before/after, pre-existing enclosed
   shells, disjoint exterior solids and malformed inverted exterior meshes.
+  Implemented in [PR #142](https://github.com/logiclrd/Mesher/pull/142):
+  read-only candidate-closed-root component evidence, translated signed
+  volume, bounded per-component winding witnesses, indexed crossing checks,
+  and explicit ambiguity for inverted uncontained/exterior or nested oddities.
+  Never deletes geometry. **Full Linux GCC, Linux Clang and Windows MSVC
+  70/70 CTest SUCCESS**, [Actions run 39726664591](https://github.com/logiclrd/Mesher/actions/runs/39726664591).
+  R06-M03 closure selection, M04 atomic surgery, M05 CLI and M06 GPU
+  acceptance remain open; do not mark the parent R06 complete.
 - [ ] **R06-M03 — Per-independent-region automatic cap/zipper decision plan.**
   Use R06-M01 owners and M02 occupancy, compatible oriented contours,
   evidence-based zipper pairing and V15-style added-area fitness as a

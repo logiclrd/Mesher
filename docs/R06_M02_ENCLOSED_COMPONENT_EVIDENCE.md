@@ -1,6 +1,6 @@
 # R06-M02 — Bounded enclosed-component evidence
 
-**Status:** CPU implementation and regression validation in stacked R06-M02 PR, based on R06-M01. This is a read-only certificate, not a deletion operation.
+**Status:** R06-M02 CPU implementation accepted on stacked [PR #142](https://github.com/logiclrd/Mesher/pull/142), based on R06-M01. [CI run 39726664591](https://github.com/logiclrd/Mesher/actions/runs/39726664591) passed **70/70 registered CTests on Linux GCC, Linux Clang and Windows MSVC**. This is a read-only certificate, not a deletion operation. The parent R06 remains open.
 
 ## Product rule
 
