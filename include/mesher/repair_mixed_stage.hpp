@@ -33,6 +33,8 @@ struct MixedClosureStaging {
     // monotonically allocated immutable IDs before its conforming audit.
     std::vector<VertexId> provisionalSpatialVertices;
     bool usedSpatialCapFallback{};
+    bool usedMirroredSeamZipper{};
+    std::size_t mirroredSeamZipperVertices{};
     std::size_t spatialCapLoops{};
     std::size_t spatialPoissonIterations{};
     double minimumSpatialInitialQuality{1};
