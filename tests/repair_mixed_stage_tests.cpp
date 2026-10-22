@@ -227,6 +227,120 @@ void narrowZipperMustNeverReturnUnderQuality() {
              <<(refused?"refused safely":"passed audited quality")
              <<" without partial publication PASS\n";
 }
+void physicalMirroredZipperStaging() {
+    // User's physical 2026-10-22 third run: one 15-vertex negative-X
+    // contour plus its exactly reflected reverse-wound 15-vertex mate.
+    // The cone walls below are ONLY a synthetic test harness; no
+    // physical full-scene replay or source-face provenance is claimed.
+    const std::vector<Vec3> left{
+        {-0.031007713054145417,-1.1836744611350298,0.280200847381798},
+        {-0.022457743732093041,-1.2317527007027365,0.32452651759714424},
+        {-0.022314532795767769,-1.2597746200274036,0.37194167359900848},
+        {-0.016718918648627897,-1.2434259568702559,0.40289958689434363},
+        {-0.0079178477591305037,-1.2232021816141574,0.42835521840216018},
+        {-0.026980549887205982,-1.2355194192123422,0.47076800879725617},
+        {-0.021879171174721771,-1.1772709040242231,0.49948713115248411},
+        {-0.033262887944756868,-1.1189238188370849,0.51852404125459983},
+        {-0.023925537979033448,-1.0879203026713191,0.48471449738103473},
+        {-0.020833989196607873,-1.0614813915793981,0.44958828940649598},
+        {-0.007896840246730423,-1.0893901933528187,0.41869076523125487},
+        {-0.012132250212578275,-1.0649160149680836,0.38024382853815925},
+        {-0.012774357648999658,-1.0857760696177319,0.34485227991553014},
+        {-0.017453788743390264,-1.1069933254809998,0.31003298589811173},
+        {-0.034710167704590698,-1.1260278547422924,0.26737804206477189}
+    };
+    const auto n=static_cast<std::uint32_t>(left.size());
+    Mesh m;
+    std::vector<std::size_t> removed;
+    for(unsigned half=0;half<2;++half) {
+        const auto start=static_cast<std::uint32_t>(m.vertices.size());
+        Vec3 centroid{};
+        for(std::uint32_t i=0;i<n;++i) {
+            auto v=left[half?(n-i)%n:i];
+            if(half)v.x=-v.x;
+            m.vertices.push_back(v);
+            centroid=centroid+v;
+        }
+        centroid=centroid/static_cast<double>(n);
+        const auto far=static_cast<std::uint32_t>(m.vertices.size());
+        m.vertices.push_back({half?.20:-.20,centroid.y,centroid.z});
+        const auto near=static_cast<std::uint32_t>(m.vertices.size());
+        m.vertices.push_back({half?.002:-.002,centroid.y,centroid.z});
+        for(std::uint32_t i=0;i<n;++i) {
+            const auto j=(i+1)%n;
+            m.triangles.push_back({far,start+i,start+j});
+            removed.push_back(m.triangles.size());
+            m.triangles.push_back({near,start+j,start+i});
+        }
+    }
+    const auto source=fixture(std::move(m));
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    for(const auto id:removed)
+        proposal.proposedFaces.push_back(source.flat.faceIds[id]);
+    std::sort(proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    for(const auto id:source.flat.vertexIds) {
+        const auto& incident=source.root->vertex(id).incidentFaces;
+        if(!incident.empty()&&std::all_of(incident.begin(),incident.end(),
+            [&](FaceId v) {
+                return std::binary_search(proposal.proposedFaces.begin(),
+                                          proposal.proposedFaces.end(),v);
+            }))proposal.proposedVertices.push_back(id);
+    }
+    const auto rims=planRemovalContours(*source.root,proposal.proposedFaces);
+    proposal.contours=rims.contours;
+    for(const auto& rim:proposal.contours)
+        proposal.boundaryEdges+=rim.vertexIds.size();
+    require(proposal.contours.size()==2&&proposal.boundaryEdges==30,
+            "R06-M06C4c2 physical mirrored pair fixture must produce two R03 rings");
+    const auto cut=applyPrivateExcision(source.root,proposal);
+    AutoClosurePlan plan;
+    plan.status=AutoClosurePlanStatus::Ready;
+    plan.zipperPairs={{0,1}};
+    AutoClosureRegion region;
+    region.contours={0,1};
+    region.zippers={{0,1}};
+    plan.regions.push_back(region);
+    MixedClosureStageSettings bounds;
+    bounds.requireReflectedGeometry=true;
+    const auto staged=stagePrivateMixedClosure(cut,proposal,plan,bounds);
+    require(staged.zipperPairs==1&&staged.usedMirroredSeamZipper&&
+            staged.mirroredSeamZipperVertices==n&&
+            staged.zipperTriangles==4*n&&
+            staged.boundarySidesCovered==30,
+            "R06-M06C4c2 must stage one exact mirror-paired zipper with real seam");
+    for(const auto& f:staged.faces)
+        if(f.kind==MixedClosureFaceKind::Zipper) {
+            const auto x0=staged.positions.at(f.vertices[0]).x;
+            const auto x1=staged.positions.at(f.vertices[1]).x;
+            const auto x2=staged.positions.at(f.vertices[2]).x;
+            require(!(std::min({x0,x1,x2})<0&&std::max({x0,x1,x2})>0),
+                    "R06-M06C4c2 a staged zipper face may not cross X=0 without seam");
+        }
+    // Deliberate mismatch cannot be healed by approximate welding.
+    auto corrupt=proposal;
+    const auto old=corrupt.contours[1].vertexIds;
+    std::rotate(corrupt.contours[1].vertexIds.begin(),
+                corrupt.contours[1].vertexIds.begin()+1,
+                corrupt.contours[1].vertexIds.end());
+    bool refused=false;
+    // Rotating an otherwise valid contour is legal, not a mismatch:
+    // the algorithm must accept it with exact reflected matching.
+    const auto rotated=stagePrivateMixedClosure(cut,corrupt,plan,bounds);
+    require(rotated.zipperTriangles==4*n,
+            "R06-M06C4c2 rotated start vertex must not defeat mirrored loop matching");
+    corrupt.contours[1].vertexIds=old;
+    std::swap(corrupt.contours[1].vertexIds[1],
+              corrupt.contours[1].vertexIds[2]);
+    try{(void)stagePrivateMixedClosure(cut,corrupt,plan,bounds);}
+    catch(const std::logic_error&){refused=true;}
+    require(refused,
+            "R06-M06C4c2 twisted opposing loop must refuse rather than weld mismatched topology");
+    require(source.root->retiredFaceCount()==0,
+            "R06-M06C4c2 local staging cannot publish or mutate original source");
+    std::cout<<"[r06-m06c4c2] physical 15+15 rim stages two reflected halves around real seam PASS\\n";
+}
+
 void tightTorus() {
     const auto f=fixture(generateTorusFixture(5000,1,5));
     const auto contacts=std::vector<RegionTopologyIndex::CollisionPair>{
@@ -269,6 +383,7 @@ int main() {
         mixedAndTampered();
         narrowZipperMustNeverReturnUnderQuality();
         tightTorus();
+        physicalMirroredZipperStaging();
         return 0;
     }catch(const std::exception& error) {
         std::cerr<<"R06-M04A mixed staging FAILED: "<<error.what()<<"\n";
