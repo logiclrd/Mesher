@@ -214,7 +214,7 @@ void ambiguousManyToMany() {
         pieces.push_back(prism(mesh,double(i)*3,double(i)*3+1,.3));
     std::vector<std::size_t> red;
     std::vector<std::pair<std::size_t,std::size_t>> links;
-    for(const auto& piece:pieces)append(red,piece,true);
+    for(const auto& piece:pieces)append(red,piece,false);
     for(std::size_t i=1;i<pieces.size();++i)
         links.emplace_back(pieces[i-1].right,pieces[i].right);
     auto candidate=stagedCaps(std::move(mesh),red,links);
