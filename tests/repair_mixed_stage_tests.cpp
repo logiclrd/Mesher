@@ -1,4 +1,5 @@
 #include "mesher/repair_mixed_stage.hpp"
+#include "mesher/repair_mixed_closure.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 
@@ -129,7 +130,29 @@ void mixedAndTampered() {
     try{(void)stagePrivateMixedClosure(cut,proposal,plan,bounds);}
     catch(const std::length_error&){refused=true;}
     require(refused,"R06-M04A must bound combined new geometry");
-    std::cout<<"[r06-m04a] mixed cap+zipper staged and forged/over-budget rejected PASS\n";
+    const auto closed=applyPrivateMixedClosure(cut,proposal,plan);
+    require(closed.index && closed.index!=cut.index &&
+            !closed.greenFaces.empty() && !closed.blueFaces.empty() &&
+            closed.cappedLoops==1 && closed.zipperPairs==1 &&
+            closed.minimumCapQuality>=MixedPrivateClosureLimits{}.minCapQuality &&
+            closed.minimumZipperQuality>=MixedPrivateClosureLimits{}.minZipperQuality &&
+            f.root->retiredFaceCount()==0 && cut.index->retiredFaceCount()==
+                proposal.proposedFaces.size(),
+            "R06-M04B must finish a genuinely mixed closed manifold in one private root");
+    for(const auto id:closed.greenFaces)
+        require(closed.index->maybeFace(id)&&!cut.index->maybeFace(id),
+                "R06-M04B green cap faces need fresh IDs");
+    for(const auto id:closed.blueFaces)
+        require(closed.index->maybeFace(id)&&!cut.index->maybeFace(id),
+                "R06-M04B blue seam faces need fresh IDs");
+    auto bound=MixedPrivateClosureLimits{};
+    bound.maxNewFaces=1;
+    refused=false;
+    try{(void)applyPrivateMixedClosure(cut,proposal,plan,bound);}
+    catch(const std::length_error&){refused=true;}
+    require(refused && f.root->retiredFaceCount()==0,
+            "R06-M04B exhausted work must not alter original immutable revision");
+    std::cout<<"[r06-m04ab] real mixed cap+zipper private closed, stable IDs preserved PASS\n";
 }
 void tightTorus() {
     const auto f=fixture(generateTorusFixture(5000,1,5));
@@ -146,7 +169,26 @@ void tightTorus() {
     require(staged.capLoops==2&&staged.zipperPairs==0&&
             staged.boundarySidesCovered==cut.boundaryEdges,
             "R06-M04A torus must have complete oriented two-cap closure");
-    std::cout<<"[r06-m04a] real tight-torus double cap staged PASS\n";
+    const auto closed=applyPrivateMixedClosure(cut,proposal,plan);
+    require(closed.index && closed.greenFaces.size()>2 &&
+            closed.blueFaces.empty() && closed.cappedLoops==2,
+            "R06-M04B tight torus must close with real caps and no zipper");
+    std::set<std::pair<VertexId,VertexId>> edges;
+    std::size_t vertices=0,faces=0;
+    closed.index->revision().forEachPartition([&](
+        PartitionId,const MeshPartition& part) {
+        vertices+=part.vertices.size();
+        faces+=part.faces.size();
+        for(const auto& f:part.faces)
+            for(unsigned k=0;k<3;++k) {
+                auto a=f.vertices[k],b=f.vertices[(k+1)%3];
+                if(a>b)std::swap(a,b);
+                edges.insert({a,b});
+            }
+    });
+    require(vertices+faces-edges.size()==2,
+            "R06-M04B tight torus must lose its genus-one handle");
+    std::cout<<"[r06-m04ab] real tight torus closes to Euler 2 PASS\n";
 }
 }
 int main() {
