@@ -592,7 +592,7 @@ int main(int argc, char** argv) {
                                  <<" reason="<<(preview.diagnostic.empty()?"none":preview.diagnostic)
                                  <<" closure_advisory="<<(preview.closureAdvisory.empty()?
                                     "none":preview.closureAdvisory)
-                                 <<" (NO FACE DELETION)\n";
+                                 <<" (R02 plan only; no faces published)\n";
                         for(std::size_t i=0;i<preview.contours.size();++i)
                             std::cout<<"[repair-r02] loop="<<i
                                      <<" vertices="<<preview.contours[i].vertexIds.size()
