@@ -67,6 +67,66 @@ quality threshold, stable ID/tombstone semantics, full closed
 manifold/vertex-fan audits and no worker/history/checkpoint changes.
 Quality failures must still refuse.
 
+## Additional physical cases (2026-10-22, same Linux environment)
+
+**Self-colliding single noodle:** the full incident-star R02 excision
+combined what would, under a strict Boolean, be two local holes into a
+long, narrow, curling boundary. The screenshot shows an actual gold
+open rim from outside and inside. M03 selected two caps, but R05's
+bounded projection search failed:
+`R05 no simple admissible projected disk after bounded orientation search:
+R05 contour projection overlaps itself`.
+No geometric surface was published. A topologically valid 3D loop does
+NOT necessarily admit an injective planar projection. A 3D-cap fallback
+MUST validate generated triangles against the source and each other;
+a loop need not admit an embedded disk at all. M06C owns this work,
+not the earlier M06A scoring instrument.
+
+**Strongly facing noodle mouths incorrectly capped:** one region,
+two distinct excision patches, 33 trusted crosspatch face contacts;
+same surviving shell, `normals_dot=-0.998`, nearest gap 1.624 local
+edge units, centroid separation 0.058. V15 favored a zipper worth
+**50.3887%** area savings, but M03 downgraded it because
+`0.503887 < 0.550000`. Actual two caps passed M04 (quality 0.325)
+but were visibly the wrong topology.
+
+**Correctly selected zipper failed quality:** one directly linked region,
+two loops, `normals_dot=-0.994`, nearest gap 2.053 local edges,
+area savings 66.6201%, and exact M03 zipper selection. M04B then
+refused **ZIPPER** triangle with vertices `5822,5737,5821`,
+`q=0.078209` vs 0.10, `length_ratio=0.229595`, after
+**512/512** midpoint refinements (512 inserted vertices).
+The failure is **not** an oversized edge and cannot be resolved by
+loosening any threshold or blindly adding subdivisions. M06D owns
+quality-increasing legal retriangulation.
+
+## M06B provisional facing-contact classifier and replay capture
+
+For *exactly two loops* with distinct removed source-face patches,
+a direct trusted R01 link, one common surviving component, nearly
+opposing oriented rim normals (dot <= -0.95), symmetric nearest rim
+separation <=2.5 local edge lengths, and an otherwise admissible V15
+zipper option, the same-owner minimum area savings is provisionally
+0.45 (previous general threshold 0.55). Other same-owner regions
+retain the 55% requirement, disconnected/no-provenance regions never
+receive a proximity-only pairing, and the final M04 quality/manifold
+audits remain entirely unchanged. This is *not* proof of the user's
+precise configuration, and M06B remains open pending real physical
+comparative acceptance on the noodles and torus. CPU fixtures include
+one single connected U tube with synthetic trusted FaceId links and
+two close opposing true oriented rims: the old policy caps, while
+the new provisional policy selects a zipper; removing the link
+still results in caps.
+
+Run `./build/Mesher --repair auto --repair-dump-contours` to emit the
+exact R03 directed contour vertices as
+`[repair-r06-contour] loop=... ordinal=... id=... xyz=x,y,z
+surviving_face=...`, with **17 significant digits**. This output
+is opt-in, console only, and does not publish or checkpoint the
+private mesh. Capture the complete lines on a naturally arising
+nonprojectable folded contour so M06C can construct a genuine
+deterministic test before changing R05's cap behavior.
+
 The actual user-provided R06 refusal has not been captured as a
 replayable checkpoint or deterministic stamp sequence. Do not
 claim the exact contact was reproduced by a synthetic test.
