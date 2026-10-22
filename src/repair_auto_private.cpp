@@ -112,6 +112,13 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
                                                  limits.material);
     CertifiedPrivateAutoResult out;
     out.postClosureFaces=evidence.inventory.faces;
+    out.generatedFaces=staged.newFaces;
+    out.insertedVertices=staged.insertedVertices.size();
+    out.refinementSteps=staged.refinementSteps;
+    out.minimumCapQuality=staged.minimumCapQuality;
+    out.minimumZipperQuality=staged.minimumZipperQuality;
+    out.windingTriangleVisits=evidence.windingTriangleVisits;
+    out.collisionNarrowPhaseTests=evidence.collisionWork.narrowPhaseTests;
     std::set<FaceId> retiredFaces;
     std::set<VertexId> retiredVertices;
     std::set<PartitionId> owners;
