@@ -169,7 +169,7 @@ void wholeComponentRemovalAndRefusals() {
     require(refused,"R03 must refuse a partial incident fan");
     std::cout<<"[r03] Whole closed component deletion with zero loops, fail-closed input: PASS\n";
 }
-void realFreeze() {
+void unsupportedOpenFixtureFreezesWithoutExcision() {
     auto session=std::make_shared<RepairInspectionSession>(true,true);
     const auto validator=[session](const ProposedSculptStep& proposal) {
         return session->inspect(proposal);
@@ -190,15 +190,22 @@ void realFreeze() {
         <<" reason="<<captured->excision.diagnostic
         <<" excision_refusal="<<captured->excisionDiagnostic
         <<" private_cut="<<captured->privateCut.has_value()<<"\n";
-    require(captured&&captured->excisionEnabled&&captured->privateCut.has_value(),
-            "R03 must actually build a private open-boundary snapshot from real contact");
+    // The historical R01 near-sheets fixture consists of independent OPEN
+    // triangles, not an original closed 2-manifold. It is valid for R01
+    // contact detection but MUST NOT be accepted for R02/R03 topology cuts.
+    require(captured&&captured->excisionEnabled&&
+            !captured->privateCut.has_value()&&
+            !captured->excision.complete&&
+            !captured->excisionDiagnostic.empty(),
+            "R03 must fail closed when a true stamp hits unsupported OPEN source topology");
     require(brush.snapshot()==prior&&brush.historyStatistics().undoDepth==0,
             "R03 must never publish even the pre-excision candidate to worker/history");
     const auto visible=buildRepairInspectionOverlay(*captured);
-    require(!visible.empty(),"R03 open holes should retain visible gold survivor contours");
-    for(const auto& triangle:visible)
-        require(triangle.material==6.0f,
-                "R03 excision must not paint retired red/orange faces over holes");
+    require(!visible.empty()&&
+            std::any_of(visible.begin(),visible.end(),[](const auto& marker) {
+                return marker.material==2.0f;
+            }),
+            "Rejected R03 cut should retain R01 contact markers for diagnosis");
     brush.stamp(unused,stamp);
     require(brush.snapshot()==prior,
             "R03 further brush stamps must be refused after freeze");
@@ -212,7 +219,7 @@ int main() {
         fixtureMouth(generateHollowSphereFixture(5000,1,65),
                      {.095,-.96,0},{.095,-.93,0},"hollow-shell mouth");
         wholeComponentRemovalAndRefusals();
-        realFreeze();
+        unsupportedOpenFixtureFreezesWithoutExcision();
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"R03 open excision test FAILED: "<<e.what()<<"\n";
