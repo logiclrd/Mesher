@@ -52,6 +52,7 @@ struct AutoClosureRegion {
     // certification and never allowed to change the selection.
     std::string selectionReason;
     bool usedAmbiguousCapFallback{};
+    bool twoRimEvidenceValid{};
     double rimCentroidSeparation{};
     double rimNormalAlignment{};
     double rimNearestSeparationInEdges{}; // symmetric nearest vertex, not a certification
