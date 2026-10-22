@@ -182,6 +182,14 @@ void realFreeze() {
     brush.stamp(unused,stamp);
     require(session->frozen(),"R03 must freeze at first actual post-remesh contact");
     const auto captured=session->frozenSnapshot();
+    if(captured)std::cout<<"[r03-live] contacts="<<captured->contacts.size()
+        <<" cut_complete="<<captured->excision.complete
+        <<" cut_vertices="<<captured->excision.proposedVertices.size()
+        <<" cut_faces="<<captured->excision.proposedFaces.size()
+        <<" cut_loops="<<captured->excision.contours.size()
+        <<" reason="<<captured->excision.diagnostic
+        <<" excision_refusal="<<captured->excisionDiagnostic
+        <<" private_cut="<<captured->privateCut.has_value()<<"\n";
     require(captured&&captured->excisionEnabled&&captured->privateCut.has_value(),
             "R03 must actually build a private open-boundary snapshot from real contact");
     require(brush.snapshot()==prior&&brush.historyStatistics().undoDepth==0,
