@@ -187,6 +187,26 @@ void mixedCapAndZipper() {
           "R06-M03 spatially nearby rings cannot join without certified contact provenance");
     std::cout<<"[r06-m03] mixed cap/zipper plus no-contact no-guess PASS\n";
 }
+void nearTieMustRefuse() {
+    Mesh mesh;
+    // Equal square cap areas = 8. A coaxial annular strip of
+    // length sqrt(4/pi) has essentially the same V15 estimated area.
+    const double gap=std::sqrt(4.0/std::acos(-1.0));
+    const auto left=prism(mesh,-2,0,1);
+    const auto right=prism(mesh,gap,gap+2,1);
+    std::vector<std::size_t> red;
+    append(red,left,false);
+    append(red,right,true);
+    auto test=stagedCaps(std::move(mesh),red,{{left.right,right.left}});
+    const auto plan=planPrivateAutomaticClosure(
+        *test.original.mesh,test.cut,test.preview,test.links);
+    check(!plan.ready()&&
+          plan.status==AutoClosurePlanStatus::AmbiguousFitness&&
+          plan.zipperPairs.empty()&&plan.cappedContours.empty()&&
+          plan.regions.empty(),
+          "R06-M03 equal-area alternatives must refuse rather than guess topology");
+    std::cout<<"[r06-m03] near-equal cap/zipper costs explicitly refuse PASS\n";
+}
 void ambiguousManyToMany() {
     Mesh mesh;
     std::vector<PrismCaps> pieces;
@@ -266,6 +286,7 @@ int main() {
         torusCaps();
         sphereSeparatedRepairs();
         mixedCapAndZipper();
+        nearTieMustRefuse();
         ambiguousManyToMany();
         invalidAndBudgetRefusal();
         zeroLoopRetirementIsNotDeletion();
