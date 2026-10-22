@@ -147,6 +147,41 @@ void crossingRimMustRefuse() {
     expect(refused,
            "R06-M06C projected crossing ring must not escape 3D self-intersection certificate");
 }
+void mirroredSingleRimContract() {
+    const std::vector<Vec3> rim{
+        {0,1,0},{.5,.86,.03},{.86,.5,.02},{1,0,0},
+        {.86,-.5,-.01},{.5,-.86,0},{0,-1,0},
+        {-.5,-.86,0},{-.86,-.5,-.01},{-1,0,0},
+        {-.86,.5,.02},{-.5,.86,.03}
+    };
+    SpatialCapSettings symmetric;
+    symmetric.requireMirrorPlane=true;
+    const std::vector<Vec3> normals(rim.size(),{0,0,1});
+    const auto result=buildSpatialCapFrontPoisson(rim,normals,symmetric);
+    validate(rim,result);
+    for(std::size_t i=0;i<rim.size();++i) {
+        const auto& a=result.positions[rim.size()+i];
+        const auto& b=result.positions[rim.size()+
+            (i==0?0:rim.size()-i)];
+        expect(a.x==-b.x&&a.y==b.y&&a.z==b.z,
+               "R06-M06C4c normal-guided spatial solver must preserve exact mirrored interior vertex orbits");
+    }
+    expect(result.positions.back().x==0,
+           "R06-M06C4c hub must be a real self-mirrored seam vertex");
+    auto damaged=rim;
+    damaged[2].y+=.001;
+    bool refused=false;
+    try{(void)buildSpatialCapFrontPoisson(damaged,normals,symmetric);}
+    catch(const std::logic_error&){refused=true;}
+    expect(refused,"R06-M06C4c tampered reflected contour must refuse without coordinate welding");
+    const std::vector<Vec3> noseam{{-1,-1,0},{1,-1,0},{1,1,0},{-1,1,0}};
+    refused=false;
+    try{(void)buildSpatialCapFrontPoisson(noseam,{},symmetric);}
+    catch(const std::logic_error&){refused=true;}
+    expect(refused,
+           "R06-M06C4c reflection-plane crossing edges without seam vertices must refuse");
+    std::cout<<"[r06-m06c4c] reflected single-loop front has exact X=0 hub and mirrored Poisson orbits PASS\\n";
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -170,6 +205,7 @@ void finiteRefusals() {
 int main() {
     try {
         smoothRoundAndCurved();
+        mirroredSingleRimContract();
         physicalLongRimSafety();
         recordedCurved18Safety();
         crossingRimMustRefuse();
