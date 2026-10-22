@@ -34,6 +34,7 @@ struct MixedClosureStaging {
     std::vector<VertexId> provisionalSpatialVertices;
     bool usedSpatialCapFallback{};
     bool usedMirroredSeamZipper{};
+    std::size_t mirroredSeamZipperPairs{};
     std::size_t mirroredSeamZipperVertices{};
     std::size_t spatialCapLoops{};
     std::size_t spatialPoissonIterations{};

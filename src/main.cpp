@@ -754,6 +754,8 @@ int main(int argc, char** argv) {
                                      <<" min_cap_quality="<<automatic->minimumCapQuality
                                      <<" min_zipper_quality="<<automatic->minimumZipperQuality
                                      <<" spatial_cap_loops="<<automatic->spatialCapLoops
+                                     <<" mirrored_seam_zipper_pairs="<<automatic->mirroredSeamZipperPairs
+                                     <<" mirrored_seam_vertices="<<automatic->mirroredSeamVertices
                                      <<" spatial_poisson_iterations="<<automatic->spatialPoissonIterations
                                      <<" spatial_initial_min_quality="<<automatic->minimumSpatialInitialQuality
                                      <<" spatial_density_splits="<<automatic->spatialDensitySplits

@@ -265,6 +265,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          MixedClosureFaceKind::Zipper,h});
             }
             result.usedMirroredSeamZipper=true;
+            ++result.mirroredSeamZipperPairs;
             result.mirroredSeamZipperVertices+=n;
         }else {
             for(const auto triangle:triangulatePrivateZipperStrip(
