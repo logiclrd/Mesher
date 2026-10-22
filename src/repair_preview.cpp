@@ -245,6 +245,30 @@ RepairExcisionPreview previewApproximateExcision(
             break;
         }
     }
+    if(result.complete) {
+        // A coarse entire-component excision may leave untouched vertex
+        // IDs with NO surviving incident faces. They must be retired by
+        // R03 too, otherwise those would become orphaned mesh vertices.
+        std::set<VertexId> incident;
+        for(const auto id:removed)
+            for(const auto vertex:index.face(id).vertices)
+                incident.insert(vertex);
+        for(const auto id:incident) {
+            if(selected.contains(id))continue;
+            bool hasSurvivor=false;
+            for(const auto face:index.vertex(id).incidentFaces)
+                if(!removed.contains(face)) {hasSurvivor=true;break;}
+            if(!hasSurvivor) {
+                if(selected.size()>=limits.maxProposedVertices) {
+                    result.complete=false;
+                    result.diagnostic="R02 orphan vertex retirement budget exhausted";
+                    break;
+                }
+                selected.insert(id);
+                result.newlyOrphanedVertices.push_back(id);
+            }
+        }
+    }
     result.proposedVertices.assign(selected.begin(),selected.end());
     result.proposedFaces.assign(removed.begin(),removed.end());
     if(result.complete) {
