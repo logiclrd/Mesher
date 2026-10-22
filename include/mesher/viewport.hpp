@@ -36,6 +36,8 @@ struct ViewportMeshUpdate {
     bool inspectionPreview = false;
     bool inspectionCutRequested = false;
     bool inspectionCutSucceeded = false;
+    bool inspectionZipperRequested = false;
+    bool inspectionZipperSucceeded = false;
 };
 
 struct ViewportInteraction {
