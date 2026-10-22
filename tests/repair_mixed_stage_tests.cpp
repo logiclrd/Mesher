@@ -194,9 +194,9 @@ void narrowZipperMustNeverReturnUnderQuality() {
                 result.minimumZipperQuality>=policy.minZipperQuality &&
                 !result.blueFaces.empty(),
                 "R06-M04B narrow seam may succeed only with fully audited quality");
-    }catch(const std::logic_error&) {
-        refused=true;
     }catch(const std::length_error&) {
+        refused=true;
+    }catch(const std::logic_error&) {
         refused=true;
     }
     require(f.root->retiredFaceCount()==0 &&
