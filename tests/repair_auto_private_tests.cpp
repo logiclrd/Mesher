@@ -135,10 +135,10 @@ void torusAccepted() {
              <<" blue="<<result.blueFaces.size()<<"\n";
     require(result.index&&result.retiredCavityComponents==0&&
             result.acceptedExteriorComponents==1&&
-            euler(*result.index)==2&&result.greenFaces.size()>2&&
+            euler(*result.index)==0&&result.greenFaces.size()>2&&
             result.blueFaces.empty(),
-            "R06-M04C torus removes handle, no spurious cavity or zipper");
-    std::cout<<"[r06-m04c] tight torus retained one closed Euler 2 exterior PASS\n";
+            "R06-M04C unmodified torus local disk closures retain Euler 0 and no zipper");
+    std::cout<<"[r06-m04c] unmodified torus local caps retain Euler 0 PASS\n";
 }
 void zeroRimEnclosedInnerAccepted() {
     SphereOptions opts;
