@@ -55,6 +55,11 @@ void torusCaps() {
     check(result.ready()&&result.cappedContours.size()==2&&
           result.zipperPairs.empty()&&result.geometryRegions>=1,
           "R06-M03 tight torus must prefer independent caps to unwanted long bridge");
+    check(!result.regions.empty()&&
+          !result.regions.front().selectionReason.empty()&&
+          result.regions.front().rimCentroidSeparation>=0&&
+          std::isfinite(result.regions.front().rimNearestSeparationInEdges),
+          "R06-M06A actual torus must report topology and finite two-rim evidence");
     check(result.survivors.components.size()==1&&
           result.estimatedAddedArea>0,
           "R06-M03 torus must preserve same-shell ownership and real cost");
@@ -176,6 +181,9 @@ void mixedCapAndZipper() {
     check(plan.ready()&&plan.geometryRegions==2&&
           plan.cappedContours.size()==1&&plan.zipperPairs.size()==1,
           "R06-M03 must plan one near-gap zipper and one independent distant cap");
+    for(const auto& region:plan.regions)
+        check(!region.selectionReason.empty(),
+              "R06-M06A each actual repair region must expose its decision reason");
     const auto& seam=plan.zipperPairs.front();
     check(seam.first!=seam.second&&seam.gapInEdges>0&&
           plan.estimatedAddedArea>0,
