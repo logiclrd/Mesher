@@ -116,13 +116,6 @@ PrismCaps prism(Mesh& mesh,double x0,double x1,double r) {
         mesh.triangles.push_back({rc,first+i+4,first+(i+1)%4+4});
     return {left,right,4};
 }
-std::vector<FaceId> caps(const Fixture& f,PrismCaps c,bool left) {
-    const auto first=left?c.left:c.right;
-    std::vector<FaceId> ids;
-    for(std::size_t i=0;i<c.size;++i)
-        ids.push_back(f.flat.faceIds[first+i]);
-    return ids;
-}
 struct SyntheticCut {
     Fixture original;
     RepairExcisionPreview preview;
