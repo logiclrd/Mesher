@@ -238,11 +238,17 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(q<requirements.threshold ||
            largest>f.targetEdge*requirements.edgeFactor*(1+1e-8))
             throw std::logic_error(
-                "R06-M04B mixed closure remains skinny/elongated after finite refinement: q="+
-                std::to_string(q)+" required="+
-                std::to_string(requirements.threshold)+
+                "R06-M04B mixed closure remains skinny/elongated after finite refinement: kind="+
+                std::string(f.kind==MixedClosureFaceKind::Cap?"CAP":"ZIPPER")+
+                " vertices="+std::to_string(v[0])+","+
+                              std::to_string(v[1])+","+
+                              std::to_string(v[2])+
+                " q="+std::to_string(q)+
+                " required="+std::to_string(requirements.threshold)+
                 " length_ratio="+
-                std::to_string(largest/(f.targetEdge*requirements.edgeFactor)));
+                std::to_string(largest/(f.targetEdge*requirements.edgeFactor))+
+                " refinements="+std::to_string(out.refinementSteps)+
+                " inserted_vertices="+std::to_string(out.insertedVertices.size()));
         if(f.kind==MixedClosureFaceKind::Cap)
             out.minimumCapQuality=std::min(out.minimumCapQuality,q);
         else
