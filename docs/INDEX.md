@@ -7,6 +7,8 @@ technical details that should not be rewritten as broad promises.
 
 ## Repair architecture rebaseline (2026-10-21)
 
+- [R05 forced cap and green visual acceptance](R05_FORCED_CAP_ACCEPTANCE.md): multiple independent hole disks, quality-aware subdivision, frozen private closure and explicit refusal.
+
 - [R04 forced zipper and refinement physical acceptance](R04_FORCED_ZIPPER_ACCEPTANCE.md): full private stitch, blue seam triangles, neighbor-aware subdivision, no auto caps or durable publication.
 
 - [R03 private open-hole excision inspection](R03_PRIVATE_EXCISION_ACCEPTANCE.md): real deleted vertex fans and oriented surviving boundaries shown only in a frozen private mesh, with no cap, zipper or worker publication.
