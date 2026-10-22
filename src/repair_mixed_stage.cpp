@@ -119,7 +119,16 @@ MixedClosureStaging stagePrivateMixedClosure(
             }
             SpatialCapPatch patch;
             try {
-                patch=buildSpatialCapFrontPoisson(ordered,guidance);
+                SpatialCapSettings spatial;
+                if(bounds.requireReflectedGeometry) {
+                    bool positive=false,negative=false;
+                    for(const auto v:ordered) {
+                        positive=positive||v.x>0;
+                        negative=negative||v.x<0;
+                    }
+                    spatial.requireMirrorPlane=positive&&negative;
+                }
+                patch=buildSpatialCapFrontPoisson(ordered,guidance,spatial);
             }catch(const std::exception& failed) {
                 throw std::logic_error(
                     std::string("R06-M06C projected cap unavailable: ")+

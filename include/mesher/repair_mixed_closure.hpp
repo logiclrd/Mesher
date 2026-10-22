@@ -10,6 +10,7 @@ namespace mesher {
 
 struct MixedPrivateClosureLimits {
     MixedClosureStageSettings staging{};
+    bool requireReflectedGeometry=false;
     std::size_t maxInsertedVertices=1024;
     std::size_t maxNewFaces=4096;
     std::size_t maxRefinementSteps=512;

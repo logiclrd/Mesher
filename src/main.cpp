@@ -440,7 +440,7 @@ int main(int argc, char** argv) {
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
         bool inspectionPresented=false;
         auto repairSession=repairInspect
-            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise,repairZipper,repairCap,repairAuto):nullptr;
+            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise,repairZipper,repairCap,repairAuto,options.symmetric):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {

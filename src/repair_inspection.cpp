@@ -215,10 +215,14 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
                 if(!result->autoPlan->ready())
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
                         result->autoPlan->diagnostic;
-                else
+                else {
+                    CertifiedPrivateAutoLimits policy;
+                    policy.closure.requireReflectedGeometry=symmetricSource_;
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
                         proposed.candidate,*result->privateCut,
-                        result->excision,*result->autoPlan,result->contacts);
+                        result->excision,*result->autoPlan,result->contacts,
+                        policy);
+                }
             }catch(const std::exception& e) {
                 result->autoDiagnostic=std::string(
                     "R06 private automatic closure refused: ")+e.what();

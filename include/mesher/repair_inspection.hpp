@@ -52,10 +52,12 @@ struct RepairInspectionSnapshot {
 class RepairInspectionSession {
 public:
     explicit RepairInspectionSession(bool preview=false,bool excise=false,
-                                     bool zipper=false,bool cap=false,bool autoMode=false)
+                                     bool zipper=false,bool cap=false,bool autoMode=false,
+                                     bool symmetricSource=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
-         zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode) {}
+         zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
+         symmetricSource_(symmetricSource) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -65,6 +67,7 @@ private:
     bool zipperEnabled_=false;
     bool capEnabled_=false;
     bool autoEnabled_=false;
+    bool symmetricSource_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;

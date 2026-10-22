@@ -64,7 +64,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     const AutoClosurePlan& plan,
     const MixedPrivateClosureLimits& limits) {
     validate(limits);
-    auto staged=stagePrivateMixedClosure(cut,proposal,plan,limits.staging);
+    auto stageLimits=limits.staging;
+    stageLimits.requireReflectedGeometry=limits.requireReflectedGeometry;
+    auto staged=stagePrivateMixedClosure(cut,proposal,plan,stageLimits);
     MixedPrivateClosureResult out;
     out.cappedLoops=staged.capLoops;
     out.zipperPairs=staged.zipperPairs;

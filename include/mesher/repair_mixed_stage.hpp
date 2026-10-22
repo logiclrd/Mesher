@@ -39,6 +39,7 @@ struct MixedClosureStaging {
 };
 
 struct MixedClosureStageSettings {
+    bool requireReflectedGeometry=false;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;
     std::size_t maxTrackedFaces=1000000;
