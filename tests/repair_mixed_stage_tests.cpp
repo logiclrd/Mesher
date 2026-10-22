@@ -139,6 +139,27 @@ void mixedAndTampered() {
             f.root->retiredFaceCount()==0 && cut.index->retiredFaceCount()==
                 proposal.proposedFaces.size(),
             "R06-M04B must finish a genuinely mixed closed manifold in one private root");
+    require(closed.spatialCapLoops==0&&
+            closed.spatialDensitySplits==0&&
+            closed.maximumFinalSpatialCapEdgeRatio==0,
+            "R06-M06C4a spatial density must not touch legacy mixed caps and zippers");
+    auto legacyDensity=MixedPrivateClosureLimits{};
+    legacyDensity.spatialCapDensityEdgeFactor=1.05;
+    legacyDensity.maxOptionalSpatialDensitySplits=0;
+    const auto unchanged=applyPrivateMixedClosure(cut,proposal,plan,legacyDensity);
+    require(unchanged.index&&
+            unchanged.spatialDensitySplits==0&&
+            unchanged.greenFaces.size()==closed.greenFaces.size()&&
+            unchanged.blueFaces.size()==closed.blueFaces.size()&&
+            unchanged.minimumCapQuality>=legacyDensity.minCapQuality,
+            "R06-M06C4a optional density settings must not perturb non-spatial repair");
+    auto invalidDensity=MixedPrivateClosureLimits{};
+    invalidDensity.spatialCapDensityEdgeFactor=0.95;
+    bool badDensityRefused=false;
+    try{(void)applyPrivateMixedClosure(cut,proposal,plan,invalidDensity);}
+    catch(const std::invalid_argument&){badDensityRefused=true;}
+    require(badDensityRefused&&f.root->retiredFaceCount()==0,
+            "R06-M06C4a invalid optional spatial density limits must refuse safely");
     for(const auto id:closed.greenFaces)
         require(closed.index->maybeFace(id)&&!cut.index->maybeFace(id),
                 "R06-M04B green cap faces need fresh IDs");
