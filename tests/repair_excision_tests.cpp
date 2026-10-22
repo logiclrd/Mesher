@@ -1,4 +1,5 @@
 #include "mesher/repair_excision.hpp"
+#include "mesher/region_edit.hpp"
 #include "mesher/repair_inspection.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/mesh_partitioning.hpp"
@@ -169,6 +170,60 @@ void wholeComponentRemovalAndRefusals() {
     require(refused,"R03 must refuse a partial incident fan");
     std::cout<<"[r03] Whole closed component deletion with zero loops, fail-closed input: PASS\n";
 }
+void closedTetraActualSessionFreeze() {
+    // Exercise the *same session* that the GUI passes to its async worker,
+    // with a real fully closed candidate and a newly intersecting face set.
+    // R01's near-sheets regression covers refusal but not successful wiring.
+    Mesh m;
+    const auto tetra=[&](Vec3 at,double h) {
+        const auto base=static_cast<std::uint32_t>(m.vertices.size());
+        for(const auto p:std::array<Vec3,4>{{
+            {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}
+        }})m.vertices.push_back(at+p*h);
+        for(const auto f:std::array<std::array<std::uint32_t,3>,4>{{
+            {0,1,2},{0,2,3},{0,3,1},{1,3,2}
+        }})m.triangles.push_back({base+f[0],base+f[1],base+f[2]});
+    };
+    tetra({-2,0,0},.5);
+    tetra({2,0,0},.5);
+    const auto input=fixture(std::move(m));
+    const std::vector<VertexId> moving(
+        input.ids.vertexIds.begin(),input.ids.vertexIds.begin()+4);
+    RegionEdit edit(input.root,moving,{},64);
+    for(const auto id:moving)
+        edit.moveVertex(id,input.root->vertex(id).position+Vec3{3.9,0,0});
+    (void)edit.commit();
+    const auto candidate=edit.updatedIndex();
+
+    RepairInspectionSession session(true,true);
+    const auto refusal=session.inspect({input.root,candidate,moving,{}});
+    require(!refusal.empty()&&session.frozen(),
+            "R03 must freeze on a real new collision of closed independent shells");
+    const auto observed=session.frozenSnapshot();
+    if(observed)std::cout<<"[r03-session] contacts="<<observed->contacts.size()
+        <<" preview_complete="<<observed->excision.complete
+        <<" proposed_faces="<<observed->excision.proposedFaces.size()
+        <<" private_cut="<<observed->privateCut.has_value()
+        <<" preview_reason="<<observed->excision.diagnostic
+        <<" cut_reason="<<observed->excisionDiagnostic<<"\n";
+    require(observed&&observed->excision.complete&&
+            observed->privateCut.has_value()&&
+            observed->privateCut->index!=candidate,
+            "R03 must actually produce a distinct private cut through the live inspector");
+    const auto cut=observed->privateCut->index;
+    for(const auto id:observed->excision.proposedFaces)
+        require(!cut->maybeFace(id)&&candidate->maybeFace(id),
+                "R03 freeze must display cut faces only in private revision");
+    const auto overlay=buildRepairInspectionOverlay(*observed);
+    for(const auto& vertex:overlay)
+        require(vertex.material==6.0f,
+                "Successfully cut R03 preview cannot retain orange/red ghost triangles");
+    require(input.root->retiredFaceCount()==0&&
+            candidate->retiredFaceCount()==0,
+            "R03 private cut never mutates source or uncut post-stamp candidate");
+    std::cout<<"[r03] Real closed-shell collision through inspector creates private excision: PASS\n";
+}
+
 void unsupportedOpenFixtureFreezesWithoutExcision() {
     auto session=std::make_shared<RepairInspectionSession>(true,true);
     const auto validator=[session](const ProposedSculptStep& proposal) {
@@ -204,8 +259,11 @@ void unsupportedOpenFixtureFreezesWithoutExcision() {
     require(!visible.empty()&&
             std::any_of(visible.begin(),visible.end(),[](const auto& marker) {
                 return marker.material==2.0f;
+            })&&
+            std::none_of(visible.begin(),visible.end(),[](const auto& marker) {
+                return marker.material==4.0f||marker.material==5.0f;
             }),
-            "Rejected R03 cut should retain R01 contact markers for diagnosis");
+            "Rejected R03 cut must show red contact warning but NEVER orange fake-excision overlays");
     brush.stamp(unused,stamp);
     require(brush.snapshot()==prior,
             "R03 further brush stamps must be refused after freeze");
@@ -219,6 +277,7 @@ int main() {
         fixtureMouth(generateHollowSphereFixture(5000,1,65),
                      {.095,-.96,0},{.095,-.93,0},"hollow-shell mouth");
         wholeComponentRemovalAndRefusals();
+        closedTetraActualSessionFreeze();
         unsupportedOpenFixtureFreezesWithoutExcision();
         return 0;
     }catch(const std::exception& e) {
