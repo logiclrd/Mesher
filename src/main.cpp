@@ -677,6 +677,33 @@ int main(int argc, char** argv) {
                                      <<" (R03 cut retained where available; no publication)\n";
                         }
                     }
+                    if(repairAuto&&frozen->autoPlan) {
+                        const auto& plan=*frozen->autoPlan;
+                        std::cout<<"[repair-r06] PLAN status="<<static_cast<int>(plan.status)
+                                 <<" reason="<<(plan.diagnostic.empty()?"none":plan.diagnostic)
+                                 <<" regions="<<plan.geometryRegions
+                                 <<" caps="<<plan.cappedContours.size()
+                                 <<" zipper_pairs="<<plan.zipperPairs.size()
+                                 <<" contact_links="<<plan.trustedContactLinks<<"\n";
+                        for(std::size_t i=0;i<plan.regions.size();++i) {
+                            const auto& region=plan.regions[i];
+                            std::cout<<"[repair-r06] region="<<i
+                                     <<" caps="<<region.caps.size()
+                                     <<" zippers="<<region.zippers.size()
+                                     <<" patches="<<region.excisionPatches.size()
+                                     <<" contacts="<<region.contactLinks
+                                     <<" zero_rim="<<region.zeroLoopComponentRetirement
+                                     <<" estimated_area="<<region.estimatedAddedArea
+                                     <<" selection="<<region.selectionReason
+                                     <<" ambiguous_cap_fallback="<<region.usedAmbiguousCapFallback
+                                     <<" centroid_gap="<<region.rimCentroidSeparation
+                                     <<" normals_dot="<<region.rimNormalAlignment
+                                     <<" nearest_gap_in_edges="<<region.rimNearestSeparationInEdges
+                                     <<" cap_area_estimate="<<region.estimatedCapArea
+                                     <<" zipper_area_estimate="<<region.estimatedZipperArea
+                                     <<"\n";
+                        }
+                    }
                     if(repairAuto) {
                         if(const auto& automatic=frozen->privateAuto) {
                             const auto& plan=*frozen->autoPlan;
@@ -702,19 +729,14 @@ int main(int argc, char** argv) {
                                      <<" enclosure_winding_visits="<<automatic->windingTriangleVisits
                                      <<" enclosure_narrow_tests="<<automatic->collisionNarrowPhaseTests
                                      <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
-                            for(std::size_t i=0;i<plan.regions.size();++i)
-                                std::cout<<"[repair-r06] region="<<i
-                                         <<" caps="<<plan.regions[i].caps.size()
-                                         <<" zippers="<<plan.regions[i].zippers.size()
-                                         <<" patches="<<plan.regions[i].excisionPatches.size()
-                                         <<" contacts="<<plan.regions[i].contactLinks
-                                         <<" zero_rim="<<plan.regions[i].zeroLoopComponentRetirement
-                                         <<" estimated_area="<<plan.regions[i].estimatedAddedArea
-                                         <<"\n";
                         }else {
                             std::cout<<"[repair-r06] AUTO_REFUSED private_closed_mesh=0"
                                      <<" plan_status="<<(frozen->autoPlan?
                                          static_cast<int>(frozen->autoPlan->status):-1)
+                                     <<" selected_caps="<<(frozen->autoPlan?
+                                         frozen->autoPlan->cappedContours.size():0)
+                                     <<" selected_zippers="<<(frozen->autoPlan?
+                                         frozen->autoPlan->zipperPairs.size():0)
                                      <<" reason="<<frozen->autoDiagnostic
                                      <<" (R03 cut retained where available; unpublished=1)\n";
                         }
