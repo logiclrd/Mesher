@@ -7,11 +7,15 @@
 
 namespace mesher {
 
-// R02: diagnostic-only decision evidence, not a deletion authorization.
-// Classifications are V14 face-fragment *samples*, not exact material cuts.
-// Independent intersection islands, face-excision components, and surviving
-// directed boundary contours have distinct cardinalities and relationships.
+// R02: read-only preview of the ORIGINAL vertex-excision contract.
+// Select incident vertices of colliding faces; remove every incident face
+// of every selected vertex, with bounded boundary-pinch cleanup.
+// No RegionEdit is performed, no mesh root or history is published.
+// V14 winding/fragment classifications are informational ONLY and never
+// shrink the candidate deletion to a few buried triangle samples.
 struct RepairExcisionPreview {
+    std::vector<VertexId> proposedVertices;
+    std::vector<VertexId> expandedBoundaryVertices;
     std::vector<FaceId> proposedFaces;
     std::vector<FaceId> uncertainFaces;
     std::vector<FaceId> mixedFaces;
@@ -20,24 +24,25 @@ struct RepairExcisionPreview {
     std::size_t excisionComponents{};
     std::size_t classifiedFaces{};
     std::size_t boundaryEdges{};
+    std::size_t boundaryRepairs{};
     RepairPlanStatus contourStatus{RepairPlanStatus::NoChanges};
-    std::string diagnostic; // classification/contour extraction blocker
-    std::string closureAdvisory; // later R04–R06 matching/quality only
-    bool complete{}; // classified and extracted valid loops; no claim of closure
+    std::string diagnostic; // a necessary topological/preflight condition failed
+    std::string classificationAdvisory; // V14 samples are NOT deletion evidence
+    std::string closureAdvisory; // R04-R06 closure fitness is not R02's job
+    bool complete{}; // bounded full vertex fans AND valid directed boundary loops
 };
-
 struct RepairPreviewLimits {
-    std::size_t maxClassifiedFaces=128;
-    std::size_t maxProposedFaces=96;
-    std::size_t maxContours=24;
+    std::size_t maxSeedVertices=512;
+    std::size_t maxProposedVertices=768;
+    std::size_t maxProposedFaces=4096;
+    std::size_t maxContours=64;
+    std::size_t maxBoundaryRepairs=24;
+    std::size_t maxClassifiedFaces=128; // informational V14-only query
     unsigned sampleDepth=1;
-    double minimumHiddenFraction=.625;
 };
-
-// Uses the V14 fragment classifier and the V15 oriented-contour planner,
-// but NEVER performs any RegionEdit or publishes/removes mesh topology.
-// A failed or undecidable classification remains explicitly uncertain;
-// an ambiguous contour or closure does not become a "ready" repair.
+// Trusted contact pairs refer to the same complete private candidate.
+// Selecting vertices is conservative: intersection triangle endpoints may
+// include non-penetrating vertices, exactly as the R01 red overlay does.
 RepairExcisionPreview previewApproximateExcision(
     const RegionTopologyIndex& candidate,
     const std::vector<RegionTopologyIndex::CollisionPair>& contacts,
