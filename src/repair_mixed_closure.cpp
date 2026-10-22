@@ -43,6 +43,9 @@ void validate(const MixedPrivateClosureLimits& settings) {
        !std::isfinite(settings.minCapQuality)||
        !std::isfinite(settings.minZipperQuality)||
        !std::isfinite(settings.maxCapEdgeFactor)||
+       !std::isfinite(settings.spatialCapDensityEdgeFactor)||
+       settings.spatialCapDensityEdgeFactor<=1||
+       settings.spatialCapDensityEdgeFactor>settings.maxCapEdgeFactor||
        !std::isfinite(settings.maxZipperEdgeFactor)||
        !std::isfinite(settings.maxZipperBoundaryEdgeFactor)||
        settings.maxZipperBoundaryEdgeFactor<=0||
@@ -247,6 +250,81 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         splitEdge(chosen);
         ++out.refinementSteps;
     }
+    // R06-M06C4a: optional density balancing ONLY after the mandatory
+    // bounded M04 quality/length pass. The spatial front can have long
+    // spokes even if its legal triangles satisfy the relaxed 2.5*h
+    // hard limit. Prefer a tighter 1.5*h mesh-scale detail for display
+    // and downstream remeshing, without ever weakening safety or
+    // converting a valid closure into a density-budget refusal.
+    if(staged.usedSpatialCapFallback&&
+       limits.maxOptionalSpatialDensitySplits>0) {
+        for(std::size_t optional=0;
+            optional<limits.maxOptionalSpatialDensitySplits&&
+            out.refinementSteps<limits.maxRefinementSteps&&
+            out.insertedVertices.size()<limits.maxInsertedVertices;
+            ++optional) {
+            // Rebuilt after every conforming split to include both old
+            // survivors and all newly generated triangles.
+            std::map<Edge,std::vector<std::size_t>> adjacency;
+            std::size_t newFaceCount=0;
+            for(std::size_t i=0;i<faces.size();++i) {
+                const auto& f=faces[i];
+                if(f.stableId==0)++newFaceCount;
+                for(unsigned k=0;k<3;++k)
+                    adjacency[edge(f.vertices[k],
+                                   f.vertices[(k+1)%3])].push_back(i);
+            }
+            if(newFaceCount+2>limits.maxNewFaces||
+               faces.size()+2>limits.maxAuditedFaces+limits.maxNewFaces)
+                break;
+            Edge chosen{};
+            double highestRatio=1;
+            for(const auto& f:faces) {
+                if(f.kind!=MixedClosureFaceKind::Cap)continue;
+                const auto& v=f.vertices;
+                for(unsigned k=0;k<3;++k) {
+                    const auto candidate=edge(v[k],v[(k+1)%3]);
+                    const auto ratio=edgeSpan(positions,candidate)/
+                        (limits.spatialCapDensityEdgeFactor*f.targetEdge);
+                    if(ratio<=highestRatio+1e-10)continue;
+                    const auto& adjacent=adjacency.at(candidate);
+                    if(adjacent.size()!=2)continue;
+                    // A midpoint split must improve the local density
+                    // without producing a NEW under-quality cap, zipper
+                    // or survivor. M04's hard thresholds remain intact.
+                    bool qualitySafe=true;
+                    for(const auto index:adjacent) {
+                        const auto& side=faces[index];
+                        const auto q=splitQuality(side,candidate);
+                        if(!std::isfinite(q)||
+                           q+1e-12<accepted(side.kind,limits).threshold) {
+                            qualitySafe=false;break;
+                        }
+                    }
+                    if(!qualitySafe)continue;
+                    highestRatio=ratio;
+                    chosen=candidate;
+                }
+            }
+            if(highestRatio<=1)break;
+            splitEdge(chosen);
+            ++out.refinementSteps;
+            ++out.spatialDensitySplits;
+        }
+    }
+    if(staged.usedSpatialCapFallback)
+        for(const auto& f:faces) {
+            if(f.kind!=MixedClosureFaceKind::Cap)continue;
+            for(unsigned k=0;k<3;++k) {
+                const auto e=edge(f.vertices[k],f.vertices[(k+1)%3]);
+                const auto ratio=edgeSpan(positions,e)/f.targetEdge;
+                out.maximumFinalSpatialCapEdgeRatio=std::max(
+                    out.maximumFinalSpatialCapEdgeRatio,ratio);
+                if(ratio>limits.spatialCapDensityEdgeFactor*(1+1e-8))
+                    ++out.spatialDensityRemainingLongEdges;
+            }
+        }
+
     for(const auto& f:faces) {
         const auto& v=f.vertices;
         const auto q=quality(positions.at(v[0]),positions.at(v[1]),

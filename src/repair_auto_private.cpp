@@ -120,6 +120,9 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.spatialCapLoops=staged.spatialCapLoops;
     out.spatialPoissonIterations=staged.spatialPoissonIterations;
     out.minimumSpatialInitialQuality=staged.minimumSpatialInitialQuality;
+    out.spatialDensitySplits=staged.spatialDensitySplits;
+    out.spatialDensityRemainingLongEdges=staged.spatialDensityRemainingLongEdges;
+    out.maximumFinalSpatialCapEdgeRatio=staged.maximumFinalSpatialCapEdgeRatio;
     out.windingTriangleVisits=evidence.windingTriangleVisits;
     out.collisionNarrowPhaseTests=evidence.collisionWork.narrowPhaseTests;
     std::set<FaceId> retiredFaces;

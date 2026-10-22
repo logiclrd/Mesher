@@ -756,6 +756,9 @@ int main(int argc, char** argv) {
                                      <<" spatial_cap_loops="<<automatic->spatialCapLoops
                                      <<" spatial_poisson_iterations="<<automatic->spatialPoissonIterations
                                      <<" spatial_initial_min_quality="<<automatic->minimumSpatialInitialQuality
+                                     <<" spatial_density_splits="<<automatic->spatialDensitySplits
+                                     <<" spatial_density_remaining_edges="<<automatic->spatialDensityRemainingLongEdges
+                                     <<" spatial_max_final_edge_ratio="<<automatic->maximumFinalSpatialCapEdgeRatio
                                      <<" enclosure_winding_visits="<<automatic->windingTriangleVisits
                                      <<" enclosure_narrow_tests="<<automatic->collisionNarrowPhaseTests
                                      <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";

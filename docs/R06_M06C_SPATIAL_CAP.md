@@ -47,6 +47,26 @@ After assigning permanent private IDs, M04 uses its shared conforming refinement
 
 A valid contour can still be unfillable by this first spatial front, or unable to meet q>=0.10 after conforming refinement. The correct outcome is `AUTO_REFUSED` with the actual R03 gold open rims, untouched worker history/checkpoints and no manufactured blue/green faces. Never weaken quality merely to force a green HUD.
 
+## C4a: optional mesh-density balancing after safety refinement
+
+When a spatial fallback is used, M04's original hard cap limit remains
+**2.5 times** the local median contour edge, but a new *soft*
+target seeks **1.5 times** that edge. Once required M04B refinement
+is complete, it can spend at most 128 of the remaining 512 conforming
+steps on overlong cap edges. It preflights the triangle quality on **both**
+sides of each split (caps and zippers >= 0.10, survivors >= 0.012),
+retains the old rim coordinates, and SKIPS density optimization if the
+conforming step or face budget would be exhausted. Exceeding the soft
+target never causes refusal; the original hard triangle/edge audits and
+whole-mesh collision search remain the final certificate.
+
+Physical console reports:
+`spatial_density_splits`,
+`spatial_density_remaining_edges` (number of cap-edge occurrences
+still longer than 1.5 times their per-face target), and
+`spatial_max_final_edge_ratio`.
+Non-spatial caps retain identical M04 behavior.
+
 ## Next quality improvements and verification
 
 - [ ] Confirm full GCC/Clang/MSVC CPU CI and the acceptance of the new six/18/32 recorded contour fixtures.

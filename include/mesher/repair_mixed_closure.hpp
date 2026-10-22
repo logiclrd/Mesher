@@ -18,6 +18,10 @@ struct MixedPrivateClosureLimits {
     double minCapQuality=0.10;
     double minZipperQuality=0.10;
     double maxCapEdgeFactor=2.5;
+    // Aesthetic target for spatial fallback only; never a hard refusal.
+    // Requires conforming and child-quality-safe optional refinement.
+    double spatialCapDensityEdgeFactor=1.5;
+    std::size_t maxOptionalSpatialDensitySplits=128;
     double maxZipperEdgeFactor=2.5;
     // Conforming pre-refinement of zipper boundary/retained-face edges.
     double maxZipperBoundaryEdgeFactor=0.5;
@@ -38,6 +42,9 @@ struct MixedPrivateClosureResult {
     std::size_t spatialCapLoops{};
     std::size_t spatialPoissonIterations{};
     double minimumSpatialInitialQuality{1};
+    std::size_t spatialDensitySplits{};
+    std::size_t spatialDensityRemainingLongEdges{};
+    double maximumFinalSpatialCapEdgeRatio{};
 };
 
 // R06-M04B: one private COW transaction for the ENTIRE M03 mixed plan.
