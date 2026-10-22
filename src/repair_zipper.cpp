@@ -264,6 +264,7 @@ ForcedZipperResult applyForcedPrivateZipper(
     ForcedZipperResult output;
     output.matchedLoops=pairing.pairs;
     std::map<VertexId,Vec3> pos;
+    std::map<VertexId,PartitionId> vertexOwners;
     std::set<PartitionId> owners;
     std::vector<FaceRec> faces;
     std::map<FaceId,std::size_t> existing;
@@ -271,14 +272,19 @@ ForcedZipperResult applyForcedPrivateZipper(
     loops.reserve(proposal.contours.size());
     for(const auto& loop:proposal.contours) {
         loops.push_back(loop.vertexIds);
-        for(const auto id:loop.vertexIds)pos.emplace(id,cut.index->vertex(id).position);
+        for(const auto id:loop.vertexIds) {
+            pos.emplace(id,cut.index->vertex(id).position);
+            vertexOwners.emplace(id,cut.index->vertex(id).owner);
+        }
         for(const auto id:loop.survivingFaces) {
             if(existing.contains(id))continue;
             const auto face=cut.index->face(id);
             existing.emplace(id,faces.size());
             faces.push_back({id,face.owner,face.vertices,false,0});
-            for(const auto vertex:face.vertices)
+            for(const auto vertex:face.vertices) {
                 pos.emplace(vertex,cut.index->vertex(vertex).position);
+                vertexOwners.emplace(vertex,cut.index->vertex(vertex).owner);
+            }
         }
     }
     const auto makeVertex=[&](PartitionId owner,Vec3 point)->VertexId {
@@ -287,6 +293,7 @@ ForcedZipperResult applyForcedPrivateZipper(
         owners.insert(owner);
         const auto id=view.addVertex(owner,point);
         pos.emplace(id,point);
+        vertexOwners.emplace(id,owner);
         output.insertedVertices.push_back(id);
         return id;
     };
@@ -360,7 +367,7 @@ ForcedZipperResult applyForcedPrivateZipper(
         }
         if(incident!=2)
             throw std::logic_error("R04 new seam edge not bounded by exactly two affected faces");
-        const auto owner=cut.index->vertex(worst.first).owner;
+        const auto owner=vertexOwners.at(worst.first);
         const auto newVertex=makeVertex(owner,
             (pos.at(worst.first)+pos.at(worst.second))*.5);
         splitTracked(faces,worst.first,worst.second,newVertex,2,limits);
