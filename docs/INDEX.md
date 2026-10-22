@@ -7,6 +7,8 @@ technical details that should not be rewritten as broad promises.
 
 ## Repair architecture rebaseline (2026-10-21)
 
+- [R04 forced zipper and refinement physical acceptance](R04_FORCED_ZIPPER_ACCEPTANCE.md): full private stitch, blue seam triangles, neighbor-aware subdivision, no auto caps or durable publication.
+
 - [R03 private open-hole excision inspection](R03_PRIVATE_EXCISION_ACCEPTANCE.md): real deleted vertex fans and oriented surviving boundaries shown only in a frozen private mesh, with no cap, zipper or worker publication.
 
 - [R02 bounded vertex-star excision and contour inspection](R02_EXCISION_PREVIEW_ACCEPTANCE.md): contact vertices and complete removal fans (orange), bounded pinch cleanup vertices (cyan), advisory V14 uncertainty (purple), oriented survivor loops (gold), no topology mutation.
