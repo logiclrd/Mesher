@@ -469,4 +469,7 @@ ForcedZipperResult applyForcedPrivateZipper(
     output.index=std::move(result);
     return output;
 }
+void validatePrivateClosedManifold(const RegionTopologyIndex& mesh,std::size_t maxFaces) {
+    auditClosed(mesh,maxFaces);
+}
 } // namespace mesher
