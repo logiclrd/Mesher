@@ -51,4 +51,8 @@ ForcedZipperResult applyForcedPrivateZipper(
     const RepairExcisionPreview& proposal,
     const ForcedZipperSettings& limits={});
 
+
+// R04/R05 shared fail-closed global post-repair topology audit.
+void validatePrivateClosedManifold(const RegionTopologyIndex& mesh,std::size_t maxFaces);
+
 } // namespace mesher
