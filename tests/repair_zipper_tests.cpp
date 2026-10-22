@@ -110,7 +110,7 @@ void twoIndependentZippers() {
     // pinch in each. Four resulting survivor contours MUST match in two
     // independent pairs, never crossed between distant mesh components.
     Mesh combined;
-    const auto source=generateTorusFixture(1600,1,5);
+    const auto source=generateTorusFixture(5000,1,5);
     for(const double x:{-3.0,3.0}) {
         const auto first=static_cast<std::uint32_t>(combined.vertices.size());
         for(const auto p:source.vertices)
@@ -128,6 +128,11 @@ void twoIndependentZippers() {
         contacts.push_back({a,b,false});
     }
     const auto preview=previewApproximateExcision(*f.root,contacts);
+    std::cout<<"[r04-multi] loops="<<preview.contours.size()
+             <<" complete="<<preview.complete
+             <<" components="<<preview.excisionComponents
+             <<" faces="<<preview.proposedFaces.size()
+             <<" diagnostic="<<preview.diagnostic<<"\n";
     require(preview.complete&&preview.contours.size()==4&&
             preview.excisionComponents==2,
             "R04 multi-region torus fixture must create four independent rims");
