@@ -61,8 +61,59 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
 - [ ] **R02 — Read-only vertex-star excision preview: select vertices incident to contact triangles, include every incident face, absorb branching boundary vertices under finite bounds, and display simple directed cut loops for independent islands without editing geometry.** Implementation under [PR #137](https://github.com/logiclrd/Mesher/pull/137), stacked on R01; CPU/CI and physical Linux/Windows viewport acceptance remain separate. Do not mark accepted on R01 contact evidence alone.
 - [ ] **R03 — Frozen PRIVATE excision-only snapshot with actual holes and stable boundary loops, not a normally published closed mesh.** Implemented on stacked R03 branch; require private open-boundary CPU audit and physical Linux/Windows acceptance before checking off.
 - [ ] **R04 — Forced `--repair zipper`, blue new faces, multiple independently matched loop pairs, explicit refusal of unsupported cases.** Implemented on stacked R04 branch with bounded boundary/seam subdivision and a private closed-manifold audit. CPU and physical GPU acceptance remain separate gates; do not mark complete from CI alone.
-- [ ] **R05 — Forced `--repair cap`, green new faces, one/multiple independent loops and explicit unsuitable-cap refusals.** Implemented on stacked R05 branch: projected quality-aware ear clips, bounded two-sided subdivision, private manifold audit. Await CI and physical acceptance.
+- [ ] **R05 — Forced `--repair cap`, green new faces, one/multiple independent loops and explicit unsuitable-cap refusals.** Implemented on stacked R05 branch: projected quality-aware ear clips, bounded two-sided subdivision, private manifold audit. 68/68 GCC/Clang/MSVC CI passed; Linux physical sphere/torus/hollow PASS with actual green caps and `CAPPED` closed-manifold reports (2 per fixture; quality 0.243 / 0.357346 / 0.158545). Windows physical GPU / final PR integration remain separate, so formal checkbox stays open.
 - [ ] **R06 — Automatic closure per independent region (cap, zipper, or redundant component elimination), ambiguous many-to-many refusals; test torus tunnel removal and hollow-shell mouth sealing with correct closed-component excision of a now-isolated redundant interior, without a cap or zipper.**
+  **R06 flat peer plan (2026-10-21, committed BEFORE implementation):** R06 is
+  too broad for one independently verified milestone. The following six peers
+  are ordered work, not nested independently expandable subtasks. Maintain
+  one all-or-nothing private closure transaction; actual Windows/Linux
+  acceptance and published sculpt remain separate. Never treat a closed
+  cavity as redundant solely because it is enclosed.
+- [ ] **R06-M01 — Bounded, read-only R03 survivor component and contour ownership inventory.**
+  Enumerate topological face components by shared stable vertex/edge incidence,
+  identify directed boundary-loop owner components from actual surviving
+  FaceIds, count faces/vertices/edges/boundary loops and Euler characteristic,
+  and distinguish whole closed components from still-open surfaces.
+  Fail on missing/duplicated contour assignments, malformed adjacency and
+  finite work exhaustion. Test sphere/torus/hollow fixtures, disjoint
+  components, entire-component R03 removal (zero loops), mutated or ambiguous
+  loop ownership, and source/retirement nonmutation. No closure policy/CLI.
+- [ ] **R06-M02 — Conservative material and enclosed-component evidence.**
+  Derive bounded side-of-material/relative-containment evidence from both
+  pre-excision candidate and disconnected survivor components; distinguish
+  a now-isolated redundant inward-facing inner surface from an intentional
+  unrelated cavity or unclassifiable overlap. Explicitly refuse uncertain
+  occupancy, wrong-side deletion, self-intersecting shells and exhausted
+  witnesses; neither zero loops nor nested bounding boxes alone is authority.
+  Test hollow mouth before/after and unrelated multiple shells.
+- [ ] **R06-M03 — Per-independent-region automatic cap/zipper decision plan.**
+  Use R06-M01 owners and M02 occupancy, compatible oriented contours,
+  evidence-based zipper pairing and V15-style added-area fitness as a
+  heuristic only. Prefer short safe independent caps for the tight-torus
+  configuration, permit zipper when truly preferable, cap unmatched isolated
+  suitable loops, detect genuine near-ties and ambiguous many-to-many
+  associations (including 3-vs-5); one refusal refuses whole proposal.
+  Plan-only, no candidate mutation. Bounded deterministic CPU regressions.
+- [ ] **R06-M04 — All-or-nothing mixed private closure and complete redundancy removal.**
+  Apply R06-M03 planned caps and zippers together without cross-region
+  stitching or duplicate edge splitting; retain R04/R05 quality limits,
+  shared-incidence conforming splits, stable IDs/tombstones, and the global
+  closed-orientable vertex-fan audit. Retire only M02-proven wholly redundant
+  components, including zero-rim cases, without capping/zippering them.
+  Test mixed islands, torus Euler 0-to-2 where appropriate, hollow exterior
+  one component/Euler 2, and deliberate refusal leaving original untouched.
+- [ ] **R06-M05 — Frozen developer `--repair auto` and diagnostics.**
+  Wire M04 into R01/R02/R03 freeze, distinguish actual green caps/blue
+  zippers/deleted components and refusal reasons, expose plan/quality/work
+  metrics and actual private root to viewport. Never mutate async worker,
+  undo/history or checkpoint; do not replace R04/R05 forced modes.
+  Add CLI/overlay/real pre-CAS inspector tests, finite budget and stale refusal.
+- [ ] **R06-M06 — Cross-platform and physical R06 acceptance.**
+  GCC/Clang/MSVC warnings-as-errors full matrix, exact PR-head and separately
+  merged-main CI, Linux and Windows Vulkan inspection for sphere/torus/hollow,
+  mixed multi-region, ambiguous refusals, output Euler/components/quality,
+  stable picks, renderer and no ghost geometry. Keep R06 parent unchecked
+  until the end-to-end gate closes; R07 continuous publication is separate.
 - [ ] **R07 — Continuous iterative approximate repair, structurally valid intermediate published results, local residual contacts and bounded refinement.**
 - [ ] **R08 — Production approximate Merge integration and physical acceptance, independent brush proposal, symmetry handoff, no developer freeze modes.**
 
