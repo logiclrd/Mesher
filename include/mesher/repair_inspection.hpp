@@ -4,6 +4,7 @@
 #include "mesher/repair_excision.hpp"
 #include "mesher/repair_zipper.hpp"
 #include "mesher/repair_cap.hpp"
+#include "mesher/repair_auto_private.hpp"
 
 #include <atomic>
 #include <memory>
@@ -40,6 +41,10 @@ struct RepairInspectionSnapshot {
     bool capEnabled=false;
     std::optional<ForcedCapResult> privateCap;
     std::string capDiagnostic;
+    bool autoEnabled=false;
+    std::optional<AutoClosurePlan> autoPlan;
+    std::optional<CertifiedPrivateAutoResult> privateAuto;
+    std::string autoDiagnostic;
 };
 
 // Thread-safe one-shot observer, called by the existing PRE-CAS sculpt
@@ -47,10 +52,10 @@ struct RepairInspectionSnapshot {
 class RepairInspectionSession {
 public:
     explicit RepairInspectionSession(bool preview=false,bool excise=false,
-                                     bool zipper=false,bool cap=false)
-        :previewEnabled_(preview||excise||zipper||cap),
-         excisionEnabled_(excise||zipper||cap),
-         zipperEnabled_(zipper),capEnabled_(cap) {}
+                                     bool zipper=false,bool cap=false,bool autoMode=false)
+        :previewEnabled_(preview||excise||zipper||cap||autoMode),
+         excisionEnabled_(excise||zipper||cap||autoMode),
+         zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -59,6 +64,7 @@ private:
     bool excisionEnabled_=false;
     bool zipperEnabled_=false;
     bool capEnabled_=false;
+    bool autoEnabled_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
