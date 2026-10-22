@@ -74,9 +74,9 @@ std::vector<Tri> ears(const RepairContour& contour,
                       const std::map<VertexId,Vec3>& positions,
                       double target) {
     // R02's directed surviving boundary is reversed for cap winding.
-    std::vector<VertexId> polygon(contour.vertexIds.rbegin(),
-                                  contour.vertexIds.rend());
-    const auto original=basis(polygon,positions);
+    const std::vector<VertexId> basePolygon(contour.vertexIds.rbegin(),
+                                          contour.vertexIds.rend());
+    const auto original=basis(basePolygon,positions);
     const auto n=original.normal;
     // Exhaustive finite retry on a few rotations of the *projection*
     // plane. Reprojecting preserves the original 3D vertices and contour
@@ -93,6 +93,7 @@ std::vector<Tri> ears(const RepairContour& contour,
     std::string lastReason="No supported projected cap";
     for(const auto direction:directions) {
         try {
+    std::vector<VertexId> polygon=basePolygon;
     const auto project=basis(polygon,positions,direction);
     std::map<VertexId,Vec3> xy;
     for(const auto id:polygon)
