@@ -65,7 +65,7 @@ void nestedInwardShellRetired() {
     opts.relaxationIterations=8;
     const auto unit=generateSphere(opts);
     Mesh combined;
-    for(const auto [radius,inverted]:{
+    for(const auto& [radius,inverted]:{
         std::pair{1.0,false},std::pair{.55,true}}) {
         const auto offset=static_cast<std::uint32_t>(combined.vertices.size());
         for(const auto p:unit.vertices)
