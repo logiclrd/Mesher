@@ -21,7 +21,8 @@ void main() {
     // of ordinary material/wireframe appearance and cannot tint mesh data.
     if(surfaceMaterial>=1.5) {
         vec3 diagnostic;
-        if(surfaceMaterial>=5.5)diagnostic=vec3(1.0,0.83,0.07); // directed contour
+        if(surfaceMaterial>=6.5)diagnostic=vec3(0.08,0.88,0.94); // added boundary vertex
+        else if(surfaceMaterial>=5.5)diagnostic=vec3(1.0,0.83,0.07); // directed contour
         else if(surfaceMaterial>=4.5)diagnostic=vec3(0.75,0.13,0.84); // uncertain V14 face
         else if(surfaceMaterial>=3.5)diagnostic=vec3(1.0,0.43,0.075); // proposed excision
         else if(surfaceMaterial>=2.5)diagnostic=vec3(0.55,0.045,0.065); // R01 edges
