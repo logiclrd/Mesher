@@ -244,6 +244,63 @@ void closeOpposingMouthsOnOneSurvivor() {
           "R06-M06B synthetic fixture must reproduce the former over-conservative 55% decision");
     std::cout<<"[r06-m06b] two opposite mouths on one U tube: 50% area saving now zips, unlinked stays caps PASS\n";
 }
+void physicalSixPointIndependentCaps() {
+    // Literal, full-precision R03 rims from the user's two-loop physical
+    // pinch (2026-10-22). The surrounding triangles are constructed
+    // fixture scaffolding, NOT a replay of the original full mesh.
+    const std::array<std::array<Vec3,6>,2> recorded{{
+        {{
+            {-0.023368032307729061,-1.272773899650474,0.014734588759569284},
+            {-0.03751995609069473,-1.311546898124341,0.030505212341379317},
+            {0,-1.3253678815317735,0.065519897421334794},
+            {0.03751995609069473,-1.311546898124341,0.030505212341379317},
+            {0.023368032307729061,-1.272773899650474,0.014734588759569284},
+            {0,-1.2560123857022965,-0.031614380144937761}
+        }},
+        {{
+            {-0.0571025063180381,-1.1078381434889641,0.17039929265135639},
+            {0,-1.1178692816187241,0.087693364786722808},
+            {0.0571025063180381,-1.1078381434889641,0.17039929265135639},
+            {0.036606162598786331,-1.1519623554401652,0.17506010418938714},
+            {0,-1.1982845620978035,0.19118897062668502},
+            {-0.036606162598786331,-1.1519623554401652,0.17506010418938714}
+        }}
+    }};
+    Mesh mesh;
+    std::vector<std::size_t> removed;
+    for(const auto& rim:recorded) {
+        const auto base=static_cast<std::uint32_t>(mesh.vertices.size());
+        Vec3 centroid{};
+        for(const auto p:rim) {
+            mesh.vertices.push_back(p);
+            centroid=centroid+p;
+        }
+        centroid=centroid/static_cast<double>(rim.size());
+        const auto top=static_cast<std::uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back(centroid+Vec3{0,.08,0});
+        const auto bottom=static_cast<std::uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back(centroid-Vec3{0,.08,0});
+        for(std::uint32_t i=0;i<6;++i) {
+            const auto j=(i+1)%6;
+            removed.push_back(mesh.triangles.size());
+            mesh.triangles.push_back({top,base+j,base+i});
+            mesh.triangles.push_back({bottom,base+i,base+j});
+        }
+    }
+    auto fixture=stagedCaps(std::move(mesh),removed,{});
+    check(fixture.preview.contours.size()==2&&
+          fixture.cut.boundaryLoops==2,
+          "R06-M06C1 literal six-point rims should create exactly two true open cuts");
+    const auto result=planPrivateAutomaticClosure(
+        *fixture.original.mesh,fixture.cut,fixture.preview,{});
+    check(result.ready()&&result.cappedContours.size()==2&&
+          result.zipperPairs.empty()&&result.geometryRegions==2,
+          "R06-M06C1 unlinked physical warped rims must be offered independent caps");
+    check(std::isfinite(result.estimatedAddedArea)&&
+          result.estimatedAddedArea>0,
+          "R06-M06C1 advisory area must remain finite without claiming embedding");
+    std::cout<<"[r06-m06c1] recorded six-point physical contour pair enters independent cap path PASS\\n";
+}
 void mixedCapAndZipper() {
     Mesh mesh;
     const auto left=prism(mesh,-2,0,1);
@@ -379,6 +436,7 @@ int main() {
         torusCaps();
         sphereSeparatedRepairs();
         closeOpposingMouthsOnOneSurvivor();
+        physicalSixPointIndependentCaps();
         mixedCapAndZipper();
         nearTieMustRefuse();
         ambiguousManyToMany();
