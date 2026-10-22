@@ -667,10 +667,12 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
-        const std::string mergeText=interaction_.begin?
-            !interaction_.mergeSelected?"MERGE: DISABLED":
+        const std::string mergeText=inspectionFrozen_&&inspectionCutRequested_?
+            (inspectionCutSucceeded_?"R03: PRIVATE CUT":"R03: EXCISION REFUSED"):
+            interaction_.begin?
+            (!interaction_.mergeSelected?"MERGE: DISABLED":
             mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
-                     "MERGE: OFF":"";
+                     "MERGE: OFF"):"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
@@ -1177,6 +1179,10 @@ class VulkanViewport {
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
+                    // This mode is fullscreen on Linux; the window title is
+                    // not visible. Update the persistent HUD immediately so
+                    // refusal cannot masquerade as a successful orange cut.
+                    refreshHud();
                     std::cout<<"[repair-r01] FROZEN: viewing an unpublished "
                                 "candidate; LMB/undo/save disabled; orbit, "
                                 "W/G and Escape remain available\n"<<std::flush;
