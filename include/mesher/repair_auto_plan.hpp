@@ -41,6 +41,16 @@ struct AutoClosureRegion {
     std::size_t contactLinks{};
     double estimatedAddedArea{};
     bool zeroLoopComponentRetirement{}; // NOT deletion authority: R06-M04
+    // R06-M06A auditable evidence; not a substitute for M04 manifold
+    // certification and never allowed to change the selection.
+    std::string selectionReason;
+    bool usedAmbiguousCapFallback{};
+    double rimCentroidSeparation{};
+    double rimNormalAlignment{};
+    double rimNearestSeparationInEdges{}; // symmetric nearest vertex, not a certification
+    double estimatedCapArea{};
+    double estimatedZipperArea{}; // preliminary for two loops only; 0 when unavailable
+
 };
 
 struct AutoClosurePlan {
