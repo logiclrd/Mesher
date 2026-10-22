@@ -125,7 +125,7 @@ void twoDisconnectedOpenComponents() {
         for(const auto p:sphere.vertices)merged.vertices.push_back(p+center);
         for(const auto t:sphere.triangles)
             merged.triangles.push_back({
-                offset+t[0],offset+t[1],offset+t[2]});
+                offset+t.a,offset+t.b,offset+t.c});
     }
     const auto source=fixture(std::move(merged));
     const auto sibling=[&](FaceId id) {
