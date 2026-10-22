@@ -224,6 +224,33 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   Regression for equal-area ties, long torus bridge refusal, close facing
   noodle contacts and separate distant repairs; do NOT unconditionally
   zipper all directly contacting patches.
+- [ ] **R06-M06C1 — Planner area-independent unpaired cap admission.**
+  When V15 cannot provide projected area, permit independent caps for
+  a single directed loop or clearly unlinked independent loops; record
+  an advisory fallback estimate only, never mistake it for proof that
+  the cap can be embedded. Use supplied two six-vertex physical rim
+  contours for a deterministic planner regression. Retain R01 patch
+  provenance, explicit refusal on ambiguous linked many-to-many and
+  zero-loop material certification.
+- [ ] **R06-M06C2 — Local-indexed advancing front with interior-vertex contract.**
+  Introduce a bounded spatial-cap result with preserved oriented rim,
+  staged new vertices/triangles and a deterministic front. Try only
+  after projected-ear failure; no global projection and no forced-R05
+  regression. Require patch-face self/candidate collision screening,
+  closed fan and strict budget refusal before private publication.
+- [ ] **R06-M06C3 — Dirichlet normal-guided Poisson fairing.**
+  On a certified front triangulation, freeze every boundary vertex,
+  derive a bounded normal/gradient field from surrounding oriented
+  faces, solve sparse interior Poisson systems with residual and finite
+  iteration budgets, and recheck all triangle/embedding/quality gates.
+  Include planar and curved 6/18/32-vertex physical coordinates, and
+  deliberately self-overlapping unsafe test fixtures. No global weld.
+- [ ] **R06-M06C4 — Integrated mixed private cap backend and CI acceptance.**
+  Map local front IDs to fresh immutable MeshRevision stable IDs inside
+  one COW transaction; conforming quality correction must split *both*
+  incident sides. Run complete root/boundary/contained-shell audits and
+  preserve R04/R05 forced path, GOLD refusal and worker/history/checkpoint
+  invariants. Repeat 74+ CTests GCC/Clang/MSVC before checking parent C.
 - [ ] **R06-M06C — Nonprojectable, folded single-loop cap reconstruction.**
   New physical noodle self-contact merges two would-be cuts into a
   long skinny curved boundary loop; R05 exhausts all projection
