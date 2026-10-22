@@ -67,8 +67,13 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   too broad for one independently verified milestone. The following six peers
   are ordered work, not nested independently expandable subtasks. Maintain
   one all-or-nothing private closure transaction; actual Windows/Linux
-  acceptance and published sculpt remain separate. Never treat a closed
-  cavity as redundant solely because it is enclosed.
+  acceptance and published sculpt remain separate. **The Mesher material
+  model permits NO intentionally sealed interior cavities.** A completely
+  enclosed, independent internal surface is redundant when structurally
+  closed and reliably proven inside material. Isolation or reversed normals
+  ALONE do not establish safe deletion: distinguish retained independent
+  exterior components, malformed/inverted inputs, and uncertain enclosure.
+  Never turn this into unbounded automatic cleanup of unrelated imports.
 - [ ] **R06-M01 — Bounded, read-only R03 survivor component and contour ownership inventory.**
   Enumerate topological face components by shared stable vertex/edge incidence,
   identify directed boundary-loop owner components from actual surviving
@@ -78,14 +83,20 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   finite work exhaustion. Test sphere/torus/hollow fixtures, disjoint
   components, entire-component R03 removal (zero loops), mutated or ambiguous
   loop ownership, and source/retirement nonmutation. No closure policy/CLI.
-- [ ] **R06-M02 — Conservative material and enclosed-component evidence.**
-  Derive bounded side-of-material/relative-containment evidence from both
-  pre-excision candidate and disconnected survivor components; distinguish
-  a now-isolated redundant inward-facing inner surface from an intentional
-  unrelated cavity or unclassifiable overlap. Explicitly refuse uncertain
-  occupancy, wrong-side deletion, self-intersecting shells and exhausted
-  witnesses; neither zero loops nor nested bounding boxes alone is authority.
-  Test hollow mouth before/after and unrelated multiple shells.
+- [ ] **R06-M02 — Bounded isolated/enclosed redundant-component proof.**
+  From M01 stable-ID face components, require genuine disconnection,
+  orientable closed surface and finite orientation evidence (e.g. signed
+  volume), then verify spatial containment/side-of-material against other
+  surviving shells under explicit work limits. A reliably enclosed,
+  inward-wound cavity wall is redundant under the **global no-sealed-voids
+  rule**, regardless of whether isolation is newly caused by the stamp.
+  An exterior disconnected component must remain; a reversed but uncontained
+  shell is NOT automatically disposable, and a wholly buried outward shell
+  requires its own material evidence. Explicitly refuse uncertain occupancy,
+  wrong-side deletion, ambiguous nesting, self-intersections and exhausted
+  witnesses. Neither isolated IDs, negative volume, nor nested AABBs alone
+  authorizes deletion. Test hollow mouth before/after, pre-existing enclosed
+  shells, disjoint exterior solids and malformed inverted exterior meshes.
 - [ ] **R06-M03 — Per-independent-region automatic cap/zipper decision plan.**
   Use R06-M01 owners and M02 occupancy, compatible oriented contours,
   evidence-based zipper pairing and V15-style added-area fitness as a
