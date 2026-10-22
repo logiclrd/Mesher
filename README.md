@@ -24,6 +24,8 @@ The earlier README's complete prototype-era text is archived
 
 The [geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md) defines the intended iterative, approximate manifold-preserving Merge pipeline and independent nonpenetrating brush response, superseding *product* assumptions that every local residual intersection must be an exact certified Boolean refusal. Historical V17/V18 implementation and tests remain supported only for their documented domains. The new [R01 diagnostic acceptance protocol](docs/R01_GPU_ACCEPTANCE.md) describes the opt-in `--repair-inspect` read-only first-intersection freeze, red vertices/edges and physical GPU verification. No automatic repair is enabled by R01; see `todo.md` for the flat R01–R08 plan.
 
+The [R04 forced private zipper](docs/R04_FORCED_ZIPPER_ACCEPTANCE.md) is enabled by `--repair zipper`: it stitches compatible R03 hole loops with actual blue new faces and bounded edge refinement, then freezes on an unpublished private closed mesh. It never silently caps unmatched loops.
+
 The [R03 private open-hole excision inspection](docs/R03_PRIVATE_EXCISION_ACCEPTANCE.md) can be enabled with `--repair-excise`; it actually removes the selected face fans and vertices in a **private, frozen, unpublished mesh** so the holes can be viewed without allowing normal editing of a non-closed mesh.
 
 The [R02 read-only excision preview](docs/R02_EXCISION_PREVIEW_ACCEPTANCE.md) can be enabled with `--repair-preview` to show **conservative contact-vertex removal, complete incident-face fans, and oriented cut boundary loops** without actually changing mesh topology. The existing R01 detector remains available with `--repair-inspect`.
