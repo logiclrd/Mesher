@@ -336,13 +336,93 @@ ForcedZipperResult applyForcedPrivateZipper(
         for(const auto& triangle:zipperTriangles(loops[i],loops[j],pos,limits))
             faces.push_back({0,owner,triangle,true,h});
     }
-    // Bounded longest-seam-edge bisection. Each bisection is propagated
-    // to *both* incident triangles: existing retained survivors as well
-    // as new zipper faces. This never creates T-junctions.
+    // Split the geometric longest offending seam edge first. For skinny
+    // faces, evaluate all three possible bisections, including both sides
+    // of the edge, rather than giving every edge the same quality penalty.
+    // The old equal-score choice repeatedly cut the first edge of an
+    // ill-shaped triangle, consuming the budget without improving its angle.
+    const auto midpoint=[&](Edge e) {
+        return (pos.at(e.first)+pos.at(e.second))*.5;
+    };
+    const auto splitQuality=[&](const FaceRec& face,Edge chosen) {
+        const auto v=face.vertices;
+        for(unsigned i=0;i<3;++i) {
+            const auto a=v[i],b=v[(i+1)%3],c=v[(i+2)%3];
+            if(edge(a,b)!=chosen)continue;
+            const auto p=midpoint(chosen);
+            return std::min(quality(pos.at(a),p,pos.at(c)),
+                            quality(p,pos.at(b),pos.at(c)));
+        }
+        throw std::logic_error("R04 predicted bisection has no owning triangle");
+    };
+    const auto incidentFaces=[&](Edge e) {
+        std::vector<std::size_t> ids;
+        for(std::size_t i=0;i<faces.size();++i) {
+            const auto v=faces[i].vertices;
+            for(unsigned j=0;j<3;++j)
+                if(edge(v[j],v[(j+1)%3])==e) {
+                    ids.push_back(i);break;
+                }
+        }
+        return ids;
+    };
+    std::size_t stagnation=0;
     for(std::size_t step=0;step<limits.maxRefinementSteps;++step) {
-        double severity=1;
-        Edge worst{};
-        for(const auto& face:faces)if(face.seam) {
+        Edge longest{};
+        double largestRatio=1;
+        std::size_t lowestIndex=faces.size();
+        double lowestQuality=limits.minSeamQuality;
+        for(std::size_t i=0;i<faces.size();++i) {
+            const auto& face=faces[i];
+            if(!face.seam)continue;
+            const auto& v=face.vertices;
+            const auto q=quality(pos.at(v[0]),pos.at(v[1]),pos.at(v[2]));
+            if(q<lowestQuality) {lowestIndex=i;lowestQuality=q;}
+            for(unsigned k=0;k<3;++k) {
+                const auto candidate=edge(v[k],v[(k+1)%3]);
+                const auto ratio=span(candidate.first,candidate.second)/
+                    (limits.maxSeamEdgeFactor*face.target);
+                if(ratio>largestRatio) {
+                    largestRatio=ratio;
+                    longest=candidate;
+                }
+            }
+        }
+        if(largestRatio<=1&&lowestIndex==faces.size())break;
+        Edge worst=longest;
+        if(largestRatio<=1) {
+            const auto v=faces[lowestIndex].vertices;
+            double bestScore=-1;
+            for(unsigned k=0;k<3;++k) {
+                const auto candidate=edge(v[k],v[(k+1)%3]);
+                const auto adjacent=incidentFaces(candidate);
+                if(adjacent.size()!=2)continue;
+                double score=1;
+                for(const auto index:adjacent)
+                    score=std::min(score,splitQuality(faces[index],candidate));
+                // Prefer an edge with the highest predicted minimum child
+                // quality; tie-break toward the longer physical edge.
+                score+=1e-7*span(candidate.first,candidate.second)/
+                    faces[lowestIndex].target;
+                if(score>bestScore){bestScore=score;worst=candidate;}
+            }
+            if(bestScore<0)
+                throw std::logic_error("R04 skinny seam has no two-sided refinement edge");
+            if(bestScore<=lowestQuality*(1+1e-6))++stagnation;
+            else stagnation=0;
+        }else stagnation=0;
+        if(stagnation>64)
+            throw std::logic_error(
+                "R04 seam remains skinny: edge bisection cannot improve local angles");
+        const auto adjacent=incidentFaces(worst);
+        if(adjacent.size()!=2)
+            throw std::logic_error("R04 new seam edge not bounded by exactly two affected faces");
+        const auto owner=vertexOwners.at(worst.first);
+        const auto newVertex=makeVertex(owner,midpoint(worst));
+        splitTracked(faces,worst.first,worst.second,newVertex,2,limits);
+        ++output.refinementSteps;
+    }
+    for(const auto& face:faces)if(face.seam) {
             const auto& v=face.vertices;
             const auto q=quality(pos.at(v[0]),pos.at(v[1]),pos.at(v[2]));
             const auto qualitySeverity=q<limits.minSeamQuality?
@@ -379,7 +459,13 @@ ForcedZipperResult applyForcedPrivateZipper(
         const auto maximum=std::max({span(v[0],v[1]),span(v[1],v[2]),span(v[2],v[0])});
         if(q<limits.minSeamQuality||
            maximum>limits.maxSeamEdgeFactor*face.target*(1+1e-8))
-            throw std::logic_error("R04 zipper scar still has elongated/skinny triangles after finite subdivision");
+            throw std::logic_error(
+                "R04 zipper scar still has elongated/skinny triangles after finite subdivision:"
+                " min_q="+std::to_string(q)+
+                " required_q="+std::to_string(limits.minSeamQuality)+
+                " max_edge_ratio="+std::to_string(maximum/(limits.maxSeamEdgeFactor*face.target))+
+                " splits="+std::to_string(output.refinementSteps)+
+                " contour_edge_splits="+std::to_string(output.splitBoundaryEdges));
         output.minimumSeamQuality=std::min(output.minimumSeamQuality,q);
     }
     for(const auto& face:faces)if(!face.seam) {
