@@ -200,6 +200,13 @@ int main() {
     try {
         holeFixture("torus",generateTorusFixture(5000,1,5),
                     {.12,0,0},{-.12,0,0});
+        // Pinch the torus along its opening axis. The source stays closed
+        // and manifold, but the annular zipper becomes a narrow ribbon
+        // at a different local aspect ratio than the baseline torus.
+        auto squeezed=generateTorusFixture(5000,1,5);
+        for(auto& p:squeezed.vertices)p.x*=.35;
+        holeFixture("squeezed torus",std::move(squeezed),
+                    {.042,0,0},{-.042,0,0});
         holeFixture("hollow mouth",generateHollowSphereFixture(5000,1,65),
                     {.095,-.96,0},{.095,-.93,0},false);
         oneLoopRefuses();
