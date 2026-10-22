@@ -44,6 +44,9 @@ void validate(const MixedPrivateClosureLimits& settings) {
        !std::isfinite(settings.minZipperQuality)||
        !std::isfinite(settings.maxCapEdgeFactor)||
        !std::isfinite(settings.maxZipperEdgeFactor)||
+       !std::isfinite(settings.maxZipperBoundaryEdgeFactor)||
+       settings.maxZipperBoundaryEdgeFactor<=0||
+       settings.maxZipperBoundaryEdgeFactor>1||
        settings.minSurvivorQuality<=0||
        settings.minCapQuality<=0||settings.minCapQuality>=1||
        settings.minZipperQuality<=0||settings.minZipperQuality>=1||
@@ -126,8 +129,47 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         }
     };
 
+    // R04-like conforming PRE-subdivision along the true old-boundary /
+    // new-zipper seam. A narrow zipper across sparsely sampled loops cannot
+    // be fixed reliably by repeatedly bisecting skinny interior needles:
+    // first shorten BOTH incident surface sides on the same actual edge.
+    // This shares the single transaction and the same finite vertex/step
+    // budget with later adaptive refinement (no private half-publication).
+    while(true) {
+        Edge worst{};
+        double largestRatio=1;
+        for(const auto& face:faces) {
+            if(face.kind!=MixedClosureFaceKind::Zipper)continue;
+            const auto& v=face.vertices;
+            for(unsigned k=0;k<3;++k) {
+                const auto candidate=edge(v[k],v[(k+1)%3]);
+                const auto adjacent=incident(candidate);
+                if(adjacent.size()!=2)continue;
+                const auto first=faces[adjacent[0]].kind;
+                const auto second=faces[adjacent[1]].kind;
+                if(!((first==MixedClosureFaceKind::Survivor&&
+                       second==MixedClosureFaceKind::Zipper)||
+                      (first==MixedClosureFaceKind::Zipper&&
+                       second==MixedClosureFaceKind::Survivor)))
+                    continue;
+                const auto ratio=edgeSpan(positions,candidate)/
+                    (limits.maxZipperBoundaryEdgeFactor*face.targetEdge);
+                if(ratio>largestRatio) {
+                    largestRatio=ratio;
+                    worst=candidate;
+                }
+            }
+        }
+        if(largestRatio<=1+1e-8)break;
+        if(out.refinementSteps>=limits.maxRefinementSteps)
+            throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
+        splitEdge(worst);
+        ++out.refinementSteps;
+    }
+
     std::size_t stagnant=0;
-    for(std::size_t step=0;step<limits.maxRefinementSteps;++step) {
+    for(std::size_t step=out.refinementSteps;
+        step<limits.maxRefinementSteps;++step) {
         Edge longest{};
         double largestRatio=1;
         std::size_t lowest=faces.size();
