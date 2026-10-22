@@ -105,6 +105,48 @@ void physicalLongRimSafety() {
                  <<e.what()<<" PASS\\n";
     }
 }
+void recordedCurved18Safety() {
+    // One complete physically successful 18-vertex R05 rim: fallback
+    // must be independently safe but ordinary R05 remains preferred.
+    const std::vector<Vec3> rim{
+        {-0.20744398040584708,-1.4301080106025026,0.42951062798596357},
+        {-0.18532103945703621,-1.4583262197270039,0.39111468388194998},
+        {-0.20268407864335228,-1.5307148040232426,0.37504879024152765},
+        {-0.26250093724793172,-1.5605766782038488,0.39596784954887393},
+        {-0.30616806718364842,-1.5775324488771296,0.39579699554459757},
+        {-0.35094142050947119,-1.5866100485676875,0.3902685856012269},
+        {-0.39348415350250099,-1.5420188815350961,0.41514678801956162},
+        {-0.43672074314190662,-1.4892528720084799,0.42021727855606211},
+        {-0.40855006256271537,-1.455489319344017,0.44076514219381568},
+        {-0.38183441978949229,-1.4147885626944283,0.46947190420240092},
+        {-0.39056662513373031,-1.4827850515159398,0.50271158490677392},
+        {-0.37159740496998767,-1.5312131097977533,0.48721500584810007},
+        {-0.35378470224206671,-1.5783402151739789,0.48126275886970227},
+        {-0.30978348927073263,-1.5495750377470652,0.45549542389071845},
+        {-0.23900196324941136,-1.5203686819847453,0.443312696461999},
+        {-0.2042009660610915,-1.5005539175077962,0.44760669843460865},
+        {-0.18508714622169492,-1.4567769634794432,0.45631721362348321},
+        {-0.20229625484781158,-1.433846864913523,0.43952577269284793}
+    };
+    try {
+        const auto patch=buildSpatialCapFrontPoisson(rim,{});
+        validate(rim,patch);
+        std::cout<<"[r06-m06c] recorded curved 18-vertex rim: audited local patch PASS\\n";
+    }catch(const std::logic_error& e) {
+        std::cout<<"[r06-m06c] recorded curved 18-vertex rim: conservative front refusal "
+                 <<e.what()<<" PASS\\n";
+    }
+}
+void crossingRimMustRefuse() {
+    const std::vector<Vec3> crossing{{
+        {-1,-1,0},{1,1,0},{-1,1,0},{1,-1,0}
+    }};
+    bool refused=false;
+    try{(void)buildSpatialCapFrontPoisson(crossing,{});}
+    catch(const std::logic_error&){refused=true;}
+    expect(refused,
+           "R06-M06C projected crossing ring must not escape 3D self-intersection certificate");
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -129,6 +171,8 @@ int main() {
     try {
         smoothRoundAndCurved();
         physicalLongRimSafety();
+        recordedCurved18Safety();
+        crossingRimMustRefuse();
         finiteRefusals();
         return 0;
     }catch(const std::exception& e) {
