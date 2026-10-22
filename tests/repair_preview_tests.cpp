@@ -3,6 +3,7 @@
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
+#include "mesher/sculpt_fixtures.hpp"
 
 #include <algorithm>
 #include <array>
@@ -164,6 +165,51 @@ void syntheticSphereVertexFansAndBoundaryLoops() {
             "Read-only synthetic vertex star preview cannot mutate candidate or retired IDs");
 }
 
+void torusAndHollowMouthVertexFans() {
+    // These are explicitly synthetic contact pairs seeded near the actual
+    // small-hole/mouth features; R01 is tested separately for real collision
+    // pairs. Test the difficult *topological* rings at full fixture density.
+    const auto checkAt=[&](Mesh mesh,Vec3 a,Vec3 b,const char* label) {
+        const auto f=fixture(std::move(mesh));
+        const auto nearest=[&](Vec3 target) {
+            double best=1e100;
+            FaceId bestId=0;
+            for(const auto id:f.ids.faceIds) {
+                const auto& tri=f.root->face(id).vertices;
+                const auto center=(f.root->vertex(tri[0]).position+
+                                   f.root->vertex(tri[1]).position+
+                                   f.root->vertex(tri[2]).position)/3.0;
+                const auto dist=length(center-target);
+                if(dist<best){best=dist;bestId=id;}
+            }
+            return bestId;
+        };
+        auto first=nearest(a),second=nearest(b);
+        require(first!=second,"Synthetic fixture pinch must nominate distinct faces");
+        if(first>second)std::swap(first,second);
+        const auto preview=previewApproximateExcision(*f.root,{{first,second,false}});
+        std::cout<<"[r02-fixture] "<<label
+                 <<" removed_vertices="<<preview.proposedVertices.size()
+                 <<" removed_faces="<<preview.proposedFaces.size()
+                 <<" boundary_loops="<<preview.contours.size()
+                 <<" boundary_repairs="<<preview.boundaryRepairs
+                 <<" complete="<<preview.complete
+                 <<" reason="<<preview.diagnostic<<"\n";
+        require(preview.complete&&preview.contours.size()>0,
+                "Tight torus/hollow shell pinch neighborhood requires a complete non-branching hypothetical rim");
+        const std::set<FaceId> selected(
+            preview.proposedFaces.begin(),preview.proposedFaces.end());
+        for(const auto id:preview.proposedVertices)
+            for(const auto face:f.root->vertex(id).incidentFaces)
+                require(selected.contains(face),
+                        "Complex fixture excision must remove every star triangle");
+    };
+    checkAt(generateTorusFixture(5000,1,5),
+            {.12,0,0},{-.12,0,0},"tight torus inner hole");
+    checkAt(generateHollowSphereFixture(5000,1,65),
+            {.095,-.96,0},{.095,-.93,0},"hollow shell mouth");
+}
+
 void noContactsAndBudget() {
     Mesh mesh;
     cube(mesh,{-3,0,0},.5);
@@ -219,6 +265,7 @@ int main() {
         noContactsAndBudget();
         independentIslandsAndClassification();
         syntheticSphereVertexFansAndBoundaryLoops();
+        torusAndHollowMouthVertexFans();
         freezeAndOverlay();
         std::cout<<"R02 read-only independent-island classification and preview: PASS\n";
         return 0;
