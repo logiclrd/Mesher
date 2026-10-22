@@ -117,7 +117,7 @@ void twoIndependentZippers() {
             combined.vertices.push_back(p+Vec3{x,0,0});
         for(const auto face:source.triangles)
             combined.triangles.push_back({
-                first+face[0],first+face[1],first+face[2]});
+                first+face.a,first+face.b,first+face.c});
     }
     const auto f=fixture(std::move(combined));
     std::vector<RegionTopologyIndex::CollisionPair> contacts;
