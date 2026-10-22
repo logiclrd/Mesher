@@ -1266,7 +1266,7 @@ class VulkanViewport {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
                 title+=inspectionCutRequested_?
-                    (inspectionCutSucceeded_?" | R03 OPEN HOLES (PRIVATE, FROZEN)":
+                    (inspectionCutSucceeded_?" | R03 PRIVATE CUT (FROZEN)":
                      " | R03 EXCISION REFUSED (FROZEN)"):
                     (inspectionPreview_?
                     " | R02 EXCISION PREVIEW (UNPUBLISHED)":
