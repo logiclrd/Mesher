@@ -1,6 +1,6 @@
 # R06-M03 — Read-only automatic closure topology planner
 
-**Scope:** stacked after R06-M01 component ownership and R06-M02 enclosed-cavity evidence. M03 chooses *which oriented R03 rims should cap or zipper*; it does not allocate triangles, delete cavities, edit the worker revision, publish history/checkpoints, or commit a mesh. R06-M04 remains the independent all-or-nothing private surgery milestone.
+**Status:** R06-M03 read-only planner implemented on [PR #143](https://github.com/logiclrd/Mesher/pull/143), stacked on R06-M01 and R06-M02. The complete [GCC/Clang/MSVC run #39730105439](https://github.com/logiclrd/Mesher/actions/runs/39730105439) passed **71/71 registered CTests on each platform**. M03 chooses *which oriented R03 rims should cap or zipper*; it does not allocate triangles, delete cavities, edit the worker revision, publish history/checkpoints, or commit a mesh. R06-M04 remains the independent all-or-nothing private surgery milestone.
 
 ## Provenance over coincidence
 

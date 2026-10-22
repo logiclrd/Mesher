@@ -109,16 +109,28 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   and explicit ambiguity for inverted uncontained/exterior or nested oddities.
   Never deletes geometry. **Full Linux GCC, Linux Clang and Windows MSVC
   70/70 CTest SUCCESS**, [Actions run 39726664591](https://github.com/logiclrd/Mesher/actions/runs/39726664591).
-  R06-M03 closure selection, M04 atomic surgery, M05 CLI and M06 GPU
-  acceptance remain open; do not mark the parent R06 complete.
-- [ ] **R06-M03 — Per-independent-region automatic cap/zipper decision plan.**
-  Use R06-M01 owners and M02 occupancy, compatible oriented contours,
-  evidence-based zipper pairing and V15-style added-area fitness as a
-  heuristic only. Prefer short safe independent caps for the tight-torus
+  R06-M03 closure selection completed separately in PR #143. M04 atomic
+  surgery, M05 CLI and M06 GPU acceptance remain open; do not mark the
+  parent R06 complete.
+- [x] **R06-M03 — Per-independent-region automatic cap/zipper decision plan.**
+  Use R06-M01 actual survivor and excision-patch ownership plus verified
+  R01 contact-face provenance, compatible oriented contours and tested V15.1
+  added-area fitness as a heuristic only. R06-M02 material evidence applies
+  to the eventual **closed** candidate at R06-M04, not to R03 open cuts. Prefer short safe independent caps for the tight-torus
   configuration, permit zipper when truly preferable, cap unmatched isolated
   suitable loops, detect genuine near-ties and ambiguous many-to-many
   associations (including 3-vs-5); one refusal refuses whole proposal.
   Plan-only, no candidate mutation. Bounded deterministic CPU regressions.
+  Implemented in [PR #143](https://github.com/logiclrd/Mesher/pull/143):
+  linked patches only on actual nominated contact FaceIds, conservative
+  V15 ring-score/arc-length DP, same-shell topology penalty, independent
+  caps for tight torus, mixed zipper+cap, no untrusted proximity pairing,
+  finite work and genuine near-tie refusals, whole-plan many-to-many
+  (>4 linked loops) refusal, zero-loop retirement without new faces.
+  **Full 71/71 CTest SUCCESS on Linux GCC, Linux Clang and Windows MSVC**
+  ([Actions 39730105439](https://github.com/logiclrd/Mesher/actions/runs/39730105439)).
+  M04 mixed actual geometry, M05 CLI and M06 physical GPU acceptance remain
+  open; parent R06 stays unchecked.
 - [ ] **R06-M04 — All-or-nothing mixed private closure and complete redundancy removal.**
   Apply R06-M03 planned caps and zippers together without cross-region
   stitching or duplicate edge splitting; retain R04/R05 quality limits,
