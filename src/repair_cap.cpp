@@ -1,4 +1,5 @@
 #include "mesher/repair_cap.hpp"
+#include "mesher/repair_mixed_primitives.hpp"
 
 #include <algorithm>
 #include <array>
@@ -167,6 +168,14 @@ std::vector<Tri> ears(const RepairContour& contour,
         lastReason);
 }
 } // namespace
+
+
+std::vector<PrivateRepairTriangle> triangulatePrivateCapDisk(
+    const RepairContour& contour,
+    const std::map<VertexId,Vec3>& positions,
+    double localEdgeLength) {
+    return ears(contour,positions,localEdgeLength);
+}
 
 ForcedCapResult applyForcedPrivateCap(
     const PrivateExcisionResult& cut,
