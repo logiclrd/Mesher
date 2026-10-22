@@ -256,6 +256,22 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   approximation, not the full paper's gradient-fitting solver.
   C4 remains OPEN pending real surviving-surface collision and physical
   M04 private-root acceptance; the parent M06C/R06 remains unchecked.
+- [ ] **R06-M06C4a — Optional spatial-cap mesh-density refinement.**
+  Following required M04B quality/edge-length refinement, spend only
+  remaining finite conforming-refinement budget on spatial-mode cap
+  edges longer than a tighter local target (~1.5x median rim edge).
+  Split both incident faces, but preflight every prospective child
+  quality (new cap >=0.10; surviving old triangle >=0.012;
+  zipper >=0.10). Do NOT change frozen rim positions, relax hard
+  limits, or turn a previously valid repair into a budget refusal.
+  Report optional split counts and worst final cap edge/target ratios.
+- [ ] **R06-M06C4b — Full R06 spatial closure acceptance.**
+  Repeat real nonplanar sphere/hollow/torus cases with profile views
+  and `spatial_cap_loops` logs; check optional detail refinement,
+  COW rollback, whole-mesh intersection, no ghost self-collision,
+  Linux GCC/Clang and Windows MSVC physical Vulkan signoff.
+  Distinguish independent two-disk gaps (M03 topology) from spatial
+  disk shrinking (C3 geometry), and preserve actual gold-rim refusal.
 - [ ] **R06-M06C4 — Integrated mixed private cap backend and CI acceptance.**
   Map local front IDs to fresh immutable MeshRevision stable IDs inside
   one COW transaction; conforming quality correction must split *both*
