@@ -25,7 +25,7 @@ struct ForcedZipperSettings {
     double minMatchingAdvantage=0.12;
     double maxBoundaryEdgeFactor=1.25;
     double maxSeamEdgeFactor=2.5;
-    double minSeamQuality=0.045;
+    double minSeamQuality=0.10;
     double minSurvivorQuality=0.012;
 };
 
