@@ -136,7 +136,7 @@ void twoIndependentZippers() {
     require(zipped.matchedLoops.size()==2&&zipped.blueFaces.size()>12,
             "R04 must zip two independent pairs in ONE private closed transaction");
     std::set<std::size_t> used;
-    for(const auto [a,b]:zipped.matchedLoops) {
+    for(const auto& [a,b]:zipped.matchedLoops) {
         require(used.insert(a).second&&used.insert(b).second,
                 "No R04 boundary contour may participate in multiple zipper pairs");
         const auto pos=[&](std::size_t index) {
