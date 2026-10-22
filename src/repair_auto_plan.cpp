@@ -398,7 +398,7 @@ AutoClosurePlan planPrivateAutomaticClosure(
                             std::to_string(threshold)+
                             (!sameSurvivor?" separate-surface threshold":
                              (facingContact?" close-opposing same-surface threshold":
-                              " ordinary same-surface threshold")));
+                              " ordinary same-surface threshold"));
                         // Reject a long/slender unnecessary same-shell seam:
                         // two caps are preferable to retaining a tunnel.
                         region.caps.push_back(ga);
