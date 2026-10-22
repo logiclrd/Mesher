@@ -52,10 +52,50 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         originalEdges.push_back(length(b-a));
     }
     center=center/static_cast<double>(n);
+    if(limits.requireMirrorPlane)center.x=0;
     std::sort(originalEdges.begin(),originalEdges.end());
     const auto h=originalEdges[n/2];
     if(!(h>1e-12)||!std::isfinite(h))
         throw std::logic_error("R06-M06C front degenerate edge scale");
+
+    const auto reflect=[](Vec3 p) {return Vec3{-p.x,p.y,p.z};};
+    std::vector<std::size_t> partner(2*n+1);
+    if(limits.requireMirrorPlane) {
+        std::size_t seam=0;
+        for(std::size_t i=0;i<n;++i) {
+            const auto p=orientedCapRim[i];
+            if(p.x==0)++seam;
+            std::size_t match=n;
+            for(std::size_t j=0;j<n;++j) {
+                const auto q=orientedCapRim[j];
+                // Do not infer topology from approximate mirror proximity.
+                // Exact source-symmetry coordinates are necessary here.
+                if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
+                if(match!=n)
+                    throw std::logic_error(
+                        "R06-M06C ambiguous mirrored boundary identity");
+                match=j;
+            }
+            if(match==n)
+                throw std::logic_error(
+                    "R06-M06C missing exact mirrored boundary vertex");
+            partner[i]=match;
+        }
+        if(seam!=2)
+            throw std::logic_error(
+                "R06-M06C reflected spatial disk requires exactly two existing X=0 seam vertices");
+        for(std::size_t i=0;i<n;++i) {
+            if(partner[partner[i]]!=i)
+                throw std::logic_error(
+                    "R06-M06C noninvolutive reflected rim orbit");
+            const auto j=(i+1)%n;
+            if(orientedCapRim[i].x*orientedCapRim[j].x<0)
+                throw std::logic_error(
+                    "R06-M06C boundary edge crosses X=0 without an actual seam vertex");
+            partner[n+i]=n+partner[i];
+        }
+        partner[2*n]=2*n;
+    }
 
     // Advance the oriented FRONT one local mesh layer. The front is the
     // actual 3D rim, rather than a flattened projected polygon. Later
@@ -73,6 +113,27 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         averageNormal=averageNormal+normals[i];
         result.positions.push_back(orientedCapRim[i]*.55+center*.45);
     }
+    if(limits.requireMirrorPlane) {
+        for(std::size_t i=0;i<n;++i) {
+            const auto j=partner[i];
+            if(j<i)continue;
+            if(j==i) {
+                normals[i].x=0;
+                result.positions[n+i].x=0;
+                continue;
+            }
+            const auto v=(normals[i]+reflect(normals[j]))*.5;
+            normals[i]=v;
+            normals[j]=reflect(v);
+            const auto p=(result.positions[n+i]+
+                         reflect(result.positions[n+j]))*.5;
+            result.positions[n+i]=p;
+            result.positions[n+j]=reflect(p);
+        }
+        averageNormal={};
+        for(const auto v:normals)averageNormal=averageNormal+v;
+        averageNormal.x=0;
+    }
     const auto normalLength=length(averageNormal);
     if(normalLength>1e-12)averageNormal=averageNormal/normalLength;
     result.positions.push_back(center);
@@ -87,6 +148,34 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         result.faces.push_back({a,b,c});
         result.faces.push_back({a,c,d});
         result.faces.push_back({d,c,hub});
+    }
+
+    if(limits.requireMirrorPlane) {
+        // A disk crossing the reflection plane is triangulated as TWO
+        // mirrored half-disks, joined by real X=0 seam vertices/edges.
+        // Off-plane triangles may never bridge the plane directly.
+        const auto cyclic=[](const auto& a,const auto& b) {
+            for(unsigned shift=0;shift<3;++shift)
+                if(a[0]==b[shift]&&a[1]==b[(shift+1)%3]&&
+                   a[2]==b[(shift+2)%3])return true;
+            return false;
+        };
+        for(const auto& t:result.faces) {
+            const auto x0=result.positions[t[0]].x;
+            const auto x1=result.positions[t[1]].x;
+            const auto x2=result.positions[t[2]].x;
+            if(std::min({x0,x1,x2})<0&&std::max({x0,x1,x2})>0)
+                throw std::logic_error(
+                    "R06-M06C reflected front has an off-plane triangle crossing the seam");
+            const std::array<std::uint32_t,3> twin{
+                static_cast<std::uint32_t>(partner[t[0]]),
+                static_cast<std::uint32_t>(partner[t[2]]),
+                static_cast<std::uint32_t>(partner[t[1]])};
+            if(std::none_of(result.faces.begin(),result.faces.end(),
+                [&](const auto& candidate){return cyclic(twin,candidate);}))
+                throw std::logic_error(
+                    "R06-M06C reflected front lacks paired reversed-winding triangle");
+        }
     }
 
     // Sparse graph Laplacian with hard Dirichlet boundary coordinates.
@@ -110,15 +199,45 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const auto tolerance=limits.poissonTolerance*h;
     for(std::size_t iteration=0;iteration<limits.maxPoissonIterations;++iteration) {
         double residual=0;
-        for(std::size_t i=n;i<result.positions.size();++i) {
-            Vec3 rhs=sourceAt(i);
-            for(const auto neighbor:adjacent[i])
-                rhs=rhs+result.positions[neighbor];
-            const auto updated=rhs/static_cast<double>(adjacent[i].size());
-            if(!finite(updated))
-                throw std::logic_error("R06-M06C Poisson produced nonfinite interior vertex");
-            residual=std::max(residual,length(updated-result.positions[i]));
-            result.positions[i]=updated;
+        if(limits.requireMirrorPlane) {
+            // Jacobi updates, followed by exact orbit projection, commute
+            // with reflection. Sequential Gauss-Seidel does not.
+            auto next=result.positions;
+            for(std::size_t i=n;i<result.positions.size();++i) {
+                Vec3 rhs=sourceAt(i);
+                for(const auto neighbor:adjacent[i])
+                    rhs=rhs+result.positions[neighbor];
+                next[i]=rhs/static_cast<double>(adjacent[i].size());
+                if(!finite(next[i]))
+                    throw std::logic_error(
+                        "R06-M06C mirrored Poisson generated nonfinite interior vertex");
+            }
+            for(std::size_t i=n;i<next.size();++i) {
+                const auto j=partner[i];
+                if(j<i)continue;
+                if(j==i) {
+                    next[i].x=0;
+                }else {
+                    const auto mean=(next[i]+reflect(next[j]))*.5;
+                    next[i]=mean;
+                    next[j]=reflect(mean);
+                }
+            }
+            for(std::size_t i=n;i<next.size();++i)
+                residual=std::max(residual,length(next[i]-result.positions[i]));
+            result.positions=std::move(next);
+        }else {
+            for(std::size_t i=n;i<result.positions.size();++i) {
+                Vec3 rhs=sourceAt(i);
+                for(const auto neighbor:adjacent[i])
+                    rhs=rhs+result.positions[neighbor];
+                const auto updated=rhs/static_cast<double>(adjacent[i].size());
+                if(!finite(updated))
+                    throw std::logic_error(
+                        "R06-M06C Poisson produced nonfinite interior vertex");
+                residual=std::max(residual,length(updated-result.positions[i]));
+                result.positions[i]=updated;
+            }
         }
         result.poissonIterations=iteration+1;
         result.poissonResidual=residual;
