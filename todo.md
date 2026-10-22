@@ -178,7 +178,9 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   genuine annular torus Euler 0 -> 2 and independent local torus Euler 0.
   **Full 73/73 CTest SUCCESS on Linux GCC, Linux Clang and Windows MSVC**
   at [Actions #39734314503](https://github.com/logiclrd/Mesher/actions/runs/39734314503).
-  Narrow seam supplemental regression added in the subsequent PR head.
+  Supplemental narrow seam regression on the finalized head confirms
+  whole-operation refusal without partial publication. **Final 73/73 CTest
+  SUCCESS on GCC/Clang/MSVC**, [Actions #39737112861](https://github.com/logiclrd/Mesher/actions/runs/39737112861).
   R06-M05 CLI, M06 physical GPU and eventual production publication remain
   separately open; the R06 parent is NOT complete.
 
