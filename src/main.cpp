@@ -722,6 +722,7 @@ int main(int argc, char** argv) {
                                      <<" estimated_area="<<region.estimatedAddedArea
                                      <<" selection="<<region.selectionReason
                                      <<" ambiguous_cap_fallback="<<region.usedAmbiguousCapFallback
+                                     <<" rim_metrics_valid="<<region.twoRimEvidenceValid
                                      <<" centroid_gap="<<region.rimCentroidSeparation
                                      <<" normals_dot="<<region.rimNormalAlignment
                                      <<" nearest_gap_in_edges="<<region.rimNearestSeparationInEdges
