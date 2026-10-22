@@ -1,4 +1,5 @@
 #include "mesher/repair_zipper.hpp"
+#include "mesher/repair_mixed_primitives.hpp"
 
 #include <algorithm>
 #include <array>
@@ -240,6 +241,15 @@ void auditClosed(const RegionTopologyIndex& mesh,std::size_t maxFaces) {
     }
 }
 } // namespace
+
+
+std::vector<PrivateRepairTriangle> triangulatePrivateZipperStrip(
+    const std::vector<VertexId>& first,
+    const std::vector<VertexId>& second,
+    const std::map<VertexId,Vec3>& positions,
+    const ForcedZipperSettings& bounds) {
+    return zipperTriangles(first,second,positions,bounds);
+}
 
 ForcedZipperResult applyForcedPrivateZipper(
     const PrivateExcisionResult& cut,
