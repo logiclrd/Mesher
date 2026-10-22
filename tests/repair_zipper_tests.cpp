@@ -38,15 +38,23 @@ FaceId closest(const Fixture& fixture,Vec3 target) {
     }
     return result;
 }
-void holeFixture(const char* name,Mesh mesh,Vec3 p,Vec3 q) {
+void holeFixture(const char* name,Mesh mesh,Vec3 p,Vec3 q,bool expectedPair=true) {
     const auto f=fixture(std::move(mesh));
     auto first=closest(f,p),second=closest(f,q);
     require(first!=second,"R04 synthetic contact faces must be distinct");
     if(first>second)std::swap(first,second);
     const auto preview=previewApproximateExcision(*f.root,{{first,second,false}});
-    require(preview.complete&&preview.contours.size()==2,
-            "R04 supported fixture needs exactly two real directed hole contours");
+    require(preview.complete&&preview.contours.size()==(expectedPair?2u:1u),
+            "R04 fixture must expose the expected number of open rims");
     const auto cut=applyPrivateExcision(f.root,preview);
+    if(!expectedPair) {
+        bool refused=false;
+        try{(void)applyForcedPrivateZipper(cut,preview);}
+        catch(const std::logic_error&){refused=true;}
+        require(refused,"R04 MUST refuse hollow-mouth single-loop cuts instead of silently capping");
+        std::cout<<"[r04] "<<name<<" one-loop zipper refused as intended: PASS\n";
+        return;
+    }
     const auto baseline=cut.index;
     ForcedZipperSettings settings;
     settings.maxSeamEdgeFactor=2.0;
@@ -97,6 +105,53 @@ void oneLoopRefuses() {
     catch(const std::logic_error&){refused=true;}
     require(refused,"R04 must never cap a single hole in forced zipper mode");
 }
+void twoIndependentZippers() {
+    // Two widely separated complete torus components, with one nominated
+    // pinch in each. Four resulting survivor contours MUST match in two
+    // independent pairs, never crossed between distant mesh components.
+    Mesh combined;
+    const auto source=generateTorusFixture(1600,1,5);
+    for(const double x:{-3.0,3.0}) {
+        const auto first=static_cast<std::uint32_t>(combined.vertices.size());
+        for(const auto p:source.vertices)
+            combined.vertices.push_back(p+Vec3{x,0,0});
+        for(const auto face:source.triangles)
+            combined.triangles.push_back({
+                first+face[0],first+face[1],first+face[2]});
+    }
+    const auto f=fixture(std::move(combined));
+    std::vector<RegionTopologyIndex::CollisionPair> contacts;
+    for(const double x:{-3.0,3.0}) {
+        auto a=closest(f,{x+.12,0,0}),b=closest(f,{x-.12,0,0});
+        require(a!=b,"R04 multi-pair fixture needs different pinch triangles");
+        if(a>b)std::swap(a,b);
+        contacts.push_back({a,b,false});
+    }
+    const auto preview=previewApproximateExcision(*f.root,contacts);
+    require(preview.complete&&preview.contours.size()==4&&
+            preview.excisionComponents==2,
+            "R04 multi-region torus fixture must create four independent rims");
+    const auto cut=applyPrivateExcision(f.root,preview);
+    const auto zipped=applyForcedPrivateZipper(cut,preview);
+    require(zipped.matchedLoops.size()==2&&zipped.blueFaces.size()>12,
+            "R04 must zip two independent pairs in ONE private closed transaction");
+    std::set<std::size_t> used;
+    for(const auto [a,b]:zipped.matchedLoops) {
+        require(used.insert(a).second&&used.insert(b).second,
+                "No R04 boundary contour may participate in multiple zipper pairs");
+        const auto pos=[&](std::size_t index) {
+            Vec3 c{};
+            for(const auto id:preview.contours[index].vertexIds)
+                c=c+cut.index->vertex(id).position;
+            return c/double(preview.contours[index].vertexIds.size());
+        };
+        require(length(pos(a)-pos(b))<1.0,
+                "Two independent R04 zipper pairs must not cross distant geometry");
+    }
+    std::cout<<"[r04] two independent torus zipper pairs, blue_faces="
+             <<zipped.blueFaces.size()<<" : PASS\n";
+}
+
 void genuineSession() {
     Mesh mesh;
     const auto tetra=[&](Vec3 at) {
@@ -141,8 +196,9 @@ int main() {
         holeFixture("torus",generateTorusFixture(5000,1,5),
                     {.12,0,0},{-.12,0,0});
         holeFixture("hollow mouth",generateHollowSphereFixture(5000,1,65),
-                    {.095,-.96,0},{.095,-.93,0});
+                    {.095,-.96,0},{.095,-.93,0},false);
         oneLoopRefuses();
+        twoIndependentZippers();
         genuineSession();
         std::cout<<"R04 private forced zipper CPU test: PASS\n";
         return 0;
