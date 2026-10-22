@@ -7,7 +7,7 @@ technical details that should not be rewritten as broad promises.
 
 ## Repair architecture rebaseline (2026-10-21)
 
-- [R02 private excision classification and contour inspection](R02_EXCISION_PREVIEW_ACCEPTANCE.md): candidate removals (orange), uncertainty (purple), oriented survivor loops (gold), no topology mutation.
+- [R02 bounded vertex-star excision and contour inspection](R02_EXCISION_PREVIEW_ACCEPTANCE.md): contact vertices and complete removal fans (orange), bounded pinch cleanup vertices (cyan), advisory V14 uncertainty (purple), oriented survivor loops (gold), no topology mutation.
 
 - [G01 torus and hollow-shell construction / acceptance](G01_GEOMETRY_FIXTURES.md): randomized analytic torus; connected hollow shell with corrected two-ring negative-Y tube, and eventual redundant inner component deletion.
 
