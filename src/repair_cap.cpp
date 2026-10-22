@@ -50,7 +50,8 @@ struct Projection {
     }
 };
 Projection basis(const std::vector<VertexId>& ids,
-                 const std::map<VertexId,Vec3>& positions) {
+                 const std::map<VertexId,Vec3>& positions,
+                 Vec3 optionalNormal={}) {
     Projection p;
     p.origin=positions.at(ids.front());
     Vec3 area{};
@@ -59,7 +60,11 @@ Projection basis(const std::vector<VertexId>& ids,
               positions.at(ids[(i+1)%ids.size()])-p.origin);
     if(!std::isfinite(length(area))||length(area)<1e-14)
         throw std::logic_error("R05 contour has vanishing projected area");
-    p.normal=normalized(area);
+    p.normal=length(optionalNormal)>0?normalized(optionalNormal):normalized(area);
+    // Preserve the original surviving boundary's orientation: do not
+    // silently flip a projected cap to obtain a prettier polygon.
+    if(dot(p.normal,area)<=.1*length(area))
+        throw std::logic_error("R05 projection normal disagrees with winding");
     const auto axis=std::abs(p.normal.z)<.8?Vec3{0,0,1}:Vec3{0,1,0};
     p.u=normalized(cross(axis,p.normal));
     p.v=cross(p.normal,p.u);
@@ -71,7 +76,24 @@ std::vector<Tri> ears(const RepairContour& contour,
     // R02's directed surviving boundary is reversed for cap winding.
     std::vector<VertexId> polygon(contour.vertexIds.rbegin(),
                                   contour.vertexIds.rend());
-    const auto project=basis(polygon,positions);
+    const auto original=basis(polygon,positions);
+    const auto n=original.normal;
+    // Exhaustive finite retry on a few rotations of the *projection*
+    // plane. Reprojecting preserves the original 3D vertices and contour
+    // winding, but can unwrap a genuinely simple folded space contour
+    // whose Newell projection overlaps itself.
+    std::vector<Vec3> directions{n};
+    for(const auto axis:std::array<Vec3,3>{{{1,0,0},{0,1,0},{0,0,1}}}) {
+        const auto positive=dot(axis,n)>=0?axis:axis*-1;
+        directions.push_back(normalized(n+positive));
+        directions.push_back(normalized(n+positive*.5));
+        directions.push_back(normalized(n+positive*2));
+        directions.push_back(positive);
+    }
+    std::string lastReason="No supported projected cap";
+    for(const auto direction:directions) {
+        try {
+    const auto project=basis(polygon,positions,direction);
     std::map<VertexId,Vec3> xy;
     for(const auto id:polygon)
         xy.emplace(id,project(positions.at(id)));
@@ -134,6 +156,14 @@ std::vector<Tri> ears(const RepairContour& contour,
         throw std::logic_error("R05 final cap ear has degenerate orientation");
     output.push_back({polygon[0],polygon[1],polygon[2]});
     return output;
+
+        }catch(const std::logic_error& e) {
+            lastReason=e.what();
+        }
+    }
+    throw std::logic_error(
+        "R05 no simple admissible projected disk after bounded orientation search: "+
+        lastReason);
 }
 } // namespace
 
