@@ -227,6 +227,69 @@ void narrowZipperMustNeverReturnUnderQuality() {
              <<(refused?"refused safely":"passed audited quality")
              <<" without partial publication PASS\n";
 }
+void planarMirroredCapMustNotUseUnpairedEarDiagonal() {
+    Mesh m;
+    const std::vector<Vec3> rim{
+        {0,1,0},{-.20,.8,0},{-.35,.3,0},
+        {-.35,-.3,0},{-.20,-.8,0},{0,-1,0},
+        {.20,-.8,0},{.35,-.3,0},{.35,.3,0},{.20,.8,0}
+    };
+    for(const auto p:rim)m.vertices.push_back(p);
+    m.vertices.push_back({0,0,-.45});
+    m.vertices.push_back({0,0,.45});
+    std::vector<std::size_t> remove;
+    for(std::uint32_t i=0;i<rim.size();++i) {
+        const auto j=(i+1)%static_cast<std::uint32_t>(rim.size());
+        m.triangles.push_back({10,i,j});
+        remove.push_back(m.triangles.size());
+        m.triangles.push_back({11,j,i});
+    }
+    const auto source=fixture(std::move(m));
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    for(const auto i:remove)
+        proposal.proposedFaces.push_back(source.flat.faceIds[i]);
+    std::sort(proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    for(const auto id:source.flat.vertexIds) {
+        const auto& incident=source.root->vertex(id).incidentFaces;
+        if(!incident.empty()&&std::all_of(incident.begin(),incident.end(),
+            [&](FaceId v) {
+                return std::binary_search(proposal.proposedFaces.begin(),
+                                          proposal.proposedFaces.end(),v);
+            }))proposal.proposedVertices.push_back(id);
+    }
+    const auto loops=planRemovalContours(*source.root,proposal.proposedFaces);
+    proposal.contours=loops.contours;
+    for(const auto& loop:proposal.contours)
+        proposal.boundaryEdges+=loop.vertexIds.size();
+    require(proposal.contours.size()==1&&proposal.boundaryEdges==rim.size(),
+            "R06-M06C4c1 synthetic planar mirror disk must have one true rim");
+    const auto cut=applyPrivateExcision(source.root,proposal);
+    AutoClosurePlan plan;
+    plan.status=AutoClosurePlanStatus::Ready;
+    plan.cappedContours={0};
+    AutoClosureRegion region;
+    region.contours={0};
+    region.caps={0};
+    plan.regions.push_back(region);
+    MixedClosureStageSettings bounds;
+    bounds.requireReflectedGeometry=true;
+    const auto staged=stagePrivateMixedClosure(cut,proposal,plan,bounds);
+    require(staged.capLoops==1&&staged.spatialCapLoops==1&&
+            staged.usedSpatialCapFallback&&
+            staged.boundarySidesCovered==rim.size(),
+            "R06-M06C4c1 even projected-simple mirrored caps require mirror-paired spatial triangulation");
+    for(const auto& face:staged.faces) {
+        if(face.kind!=MixedClosureFaceKind::Cap)continue;
+        const auto a=staged.positions.at(face.vertices[0]).x;
+        const auto b=staged.positions.at(face.vertices[1]).x;
+        const auto c=staged.positions.at(face.vertices[2]).x;
+        require(!(std::min({a,b,c})<0&&std::max({a,b,c})>0),
+                "R06-M06C4c1 mirrored cap may not straddle plane without seam");
+    }
+    std::cout<<"[r06-m06c4c1] projected-simple symmetric single rim stages mirrored spatial patch PASS\\n";
+}
+
 void physicalMirroredZipperStaging() {
     // User's physical 2026-10-22 third run: one 15-vertex negative-X
     // contour plus its exactly reflected reverse-wound 15-vertex mate.
@@ -384,6 +447,7 @@ int main() {
         narrowZipperMustNeverReturnUnderQuality();
         tightTorus();
         physicalMirroredZipperStaging();
+        planarMirroredCapMustNotUseUnpairedEarDiagonal();
         return 0;
     }catch(const std::exception& error) {
         std::cerr<<"R06-M04A mixed staging FAILED: "<<error.what()<<"\n";
