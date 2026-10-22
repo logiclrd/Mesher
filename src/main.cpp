@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
     bool avoidTestSheets = false;
     bool repairInspect = false;
     bool repairPreview = false;
+    bool repairExcise = false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -73,6 +74,7 @@ int main(int argc, char** argv) {
             else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
             else if(arg=="--repair-inspect")repairInspect=true;
             else if(arg=="--repair-preview")repairPreview=true;
+            else if(arg=="--repair-excise")repairExcise=true;
             else if(arg=="--torus")torusFixture=true;
             else if(arg=="--hollow-sphere")hollowSphereFixture=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
@@ -171,6 +173,7 @@ int main(int argc, char** argv) {
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
                          <<"       [--repair-preview] (R02 classify excision faces and boundary loops; no topology edits)\n"
+                         <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
@@ -208,6 +211,7 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
+        repairPreview=repairPreview||repairExcise;
         repairInspect=repairInspect||repairPreview;
         if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
            !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
@@ -410,7 +414,7 @@ int main(int argc, char** argv) {
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
         bool inspectionPresented=false;
         auto repairSession=repairInspect
-            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview):nullptr;
+            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -550,7 +554,7 @@ int main(int argc, char** argv) {
                         [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                             owners.insert(id);
                         });
-                    std::cout<<(repairPreview?"[repair-r02] ":"[repair-r01] ")
+                    std::cout<<(repairExcise?"[repair-r03] ":(repairPreview?"[repair-r02] ":"[repair-r01] "))
                              <<"FROZEN candidate state="
                              <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
                              <<" contacts="<<frozen->contacts.size()
@@ -598,11 +602,33 @@ int main(int argc, char** argv) {
                          for(const auto id:preview.proposedFaces)
                             std::cout<<"[repair-r02] remove FaceId "<<id<<"\n";
                     }
+                    if(repairExcise) {
+                        if(const auto& cut=frozen->privateCut) {
+                            std::cout<<"[repair-r03] EXCISED private_open_mesh=1"
+                                     <<" removed_vertices="<<cut->removedVertices
+                                     <<" removed_faces="<<cut->removedFaces
+                                     <<" modified_partitions="<<cut->modifiedPartitions
+                                     <<" surviving_faces="<<cut->survivingFaces
+                                     <<" open_boundary_edges="<<cut->boundaryEdges
+                                     <<" open_boundary_loops="<<cut->boundaryLoops
+                                     <<" no_caps=1 no_zippers=1"
+                                     <<" unpublished=1 (worker/history/checkpoint unchanged)\n";
+                        }else {
+                            std::cout<<"[repair-r03] EXCISION_REFUSED private_open_mesh=0"
+                                     <<" reason="<<(frozen->excisionDiagnostic.empty()?
+                                        "no complete approved cut":frozen->excisionDiagnostic)
+                                     <<" (original candidate retained, unpublished)\n";
+                        }
+                    }
+                    const auto displayed=(repairExcise&&frozen->privateCut)
+                        ?frozen->privateCut->index:frozen->candidate;
                     return mesher::ViewportMeshUpdate{
-                        frozen->candidate,
+                        displayed,
                         {owners.begin(),owners.end()},
                         liveWorker->status().completedStamps,
-                        true,mesher::buildRepairInspectionOverlay(*frozen),repairPreview};
+                        true,mesher::buildRepairInspectionOverlay(*frozen),
+                        repairPreview,repairExcise,
+                        repairExcise&&frozen->privateCut.has_value()};
                 }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
@@ -696,7 +722,12 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
-            if(repairPreview)
+            if(repairExcise)
+                std::cout<<"[repair-r03] Armed PRIVATE OPEN CUT: first certified contact freezes, "
+                            "removes selected complete face fans/vertices only in a separate "
+                            "unpublished debug revision; surviving hole rims are gold. "
+                            "No cap/zipper; normal worker/history/checkpoint untouched.\n";
+            if(repairPreview&&!repairExcise)
                 std::cout<<"[repair-r02] Armed read-only proposed excision preview. "
                             "Orange selected faces; purple uncertain faces; "
                             "gold boundary loops; red incident contacts. "
