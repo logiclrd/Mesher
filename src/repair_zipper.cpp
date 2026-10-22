@@ -423,37 +423,6 @@ ForcedZipperResult applyForcedPrivateZipper(
         ++output.refinementSteps;
     }
     for(const auto& face:faces)if(face.seam) {
-            const auto& v=face.vertices;
-            const auto q=quality(pos.at(v[0]),pos.at(v[1]),pos.at(v[2]));
-            const auto qualitySeverity=q<limits.minSeamQuality?
-                limits.minSeamQuality/std::max(q,1e-9):0.;
-            for(unsigned k=0;k<3;++k) {
-                const auto a=v[k],b=v[(k+1)%3];
-                const auto edgeSeverity=span(a,b)/
-                    (limits.maxSeamEdgeFactor*face.target);
-                const auto s=std::max(edgeSeverity,qualitySeverity);
-                if(s>severity) {severity=s;worst=edge(a,b);}
-            }
-        }
-        if(severity<=1)break;
-        if(output.refinementSteps>=limits.maxRefinementSteps)
-            throw std::length_error("R04 bounded seam refinement exhausted");
-        std::size_t incident=0;
-        for(const auto& face:faces) {
-            const auto v=face.vertices;
-            for(unsigned i=0;i<3;++i) {
-                if(edge(v[i],v[(i+1)%3])==worst){++incident;break;}
-            }
-        }
-        if(incident!=2)
-            throw std::logic_error("R04 new seam edge not bounded by exactly two affected faces");
-        const auto owner=vertexOwners.at(worst.first);
-        const auto newVertex=makeVertex(owner,
-            (pos.at(worst.first)+pos.at(worst.second))*.5);
-        splitTracked(faces,worst.first,worst.second,newVertex,2,limits);
-        ++output.refinementSteps;
-    }
-    for(const auto& face:faces)if(face.seam) {
         const auto v=face.vertices;
         const auto q=quality(pos.at(v[0]),pos.at(v[1]),pos.at(v[2]));
         const auto maximum=std::max({span(v[0],v[1]),span(v[1],v[2]),span(v[2],v[0])});
