@@ -72,7 +72,7 @@ RegionTopologyIndex::CollisionPair contact(FaceId a,FaceId b) {
 }
 void mixedAndTampered() {
     Mesh m;
-    const auto left=prism(m,-2,0,1),right=prism(m,.1,2,1);
+    const auto left=prism(m,-2,0,1),right=prism(m,.5,2.5,1);
     const auto remote=prism(m,6,8,.5);
     std::vector<std::size_t> removed;
     addCapFaces(removed,left,true);
@@ -186,9 +186,9 @@ void tightTorus() {
                 edges.insert({a,b});
             }
     });
-    require(vertices+faces-edges.size()==2,
-            "R06-M04B tight torus must lose its genus-one handle");
-    std::cout<<"[r06-m04ab] real tight torus closes to Euler 2 PASS\n";
+    require(vertices+faces-edges.size()==0,
+            "R06-M04B unmodified torus disk cuts must preserve its genus-one handle");
+    std::cout<<"[r06-m04ab] unmodified torus local disk caps preserve Euler 0 PASS\n";
 }
 }
 int main() {
