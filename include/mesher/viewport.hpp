@@ -40,6 +40,8 @@ struct ViewportMeshUpdate {
     bool inspectionZipperSucceeded = false;
     bool inspectionCapRequested = false;
     bool inspectionCapSucceeded = false;
+    bool inspectionAutoRequested = false;
+    bool inspectionAutoSucceeded = false;
 };
 
 struct ViewportInteraction {
