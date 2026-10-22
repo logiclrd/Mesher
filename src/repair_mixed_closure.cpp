@@ -65,6 +65,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     MixedPrivateClosureResult out;
     out.cappedLoops=staged.capLoops;
     out.zipperPairs=staged.zipperPairs;
+    out.spatialCapLoops=staged.spatialCapLoops;
+    out.spatialPoissonIterations=staged.spatialPoissonIterations;
+    out.minimumSpatialInitialQuality=staged.minimumSpatialInitialQuality;
     auto view=cut.index->revision().createMutableView();
     auto& faces=staged.faces;
     auto& positions=staged.positions;

@@ -117,6 +117,9 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.refinementSteps=staged.refinementSteps;
     out.minimumCapQuality=staged.minimumCapQuality;
     out.minimumZipperQuality=staged.minimumZipperQuality;
+    out.spatialCapLoops=staged.spatialCapLoops;
+    out.spatialPoissonIterations=staged.spatialPoissonIterations;
+    out.minimumSpatialInitialQuality=staged.minimumSpatialInitialQuality;
     out.windingTriangleVisits=evidence.windingTriangleVisits;
     out.collisionNarrowPhaseTests=evidence.collisionWork.narrowPhaseTests;
     std::set<FaceId> retiredFaces;

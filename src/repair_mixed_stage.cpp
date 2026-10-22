@@ -150,6 +150,10 @@ MixedClosureStaging stagePrivateMixedClosure(
                 addFace({0,owner,{ids[t[0]],ids[t[1]],ids[t[2]]},
                          MixedClosureFaceKind::Cap,h});
             result.usedSpatialCapFallback=true;
+            ++result.spatialCapLoops;
+            result.spatialPoissonIterations+=patch.poissonIterations;
+            result.minimumSpatialInitialQuality=std::min(
+                result.minimumSpatialInitialQuality,patch.minimumQuality);
         }
         ++result.capLoops;
     }

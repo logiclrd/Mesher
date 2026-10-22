@@ -753,6 +753,9 @@ int main(int argc, char** argv) {
                                      <<" refinement_steps="<<automatic->refinementSteps
                                      <<" min_cap_quality="<<automatic->minimumCapQuality
                                      <<" min_zipper_quality="<<automatic->minimumZipperQuality
+                                     <<" spatial_cap_loops="<<automatic->spatialCapLoops
+                                     <<" spatial_poisson_iterations="<<automatic->spatialPoissonIterations
+                                     <<" spatial_initial_min_quality="<<automatic->minimumSpatialInitialQuality
                                      <<" enclosure_winding_visits="<<automatic->windingTriangleVisits
                                      <<" enclosure_narrow_tests="<<automatic->collisionNarrowPhaseTests
                                      <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";

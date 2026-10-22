@@ -35,6 +35,9 @@ struct MixedPrivateClosureResult {
     std::size_t refinementSteps{};
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
+    std::size_t spatialCapLoops{};
+    std::size_t spatialPoissonIterations{};
+    double minimumSpatialInitialQuality{1};
 };
 
 // R06-M04B: one private COW transaction for the ENTIRE M03 mixed plan.

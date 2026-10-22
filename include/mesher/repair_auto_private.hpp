@@ -34,6 +34,9 @@ struct CertifiedPrivateAutoResult {
     std::size_t refinementSteps{};
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
+    std::size_t spatialCapLoops{};
+    std::size_t spatialPoissonIterations{};
+    double minimumSpatialInitialQuality{1};
     std::size_t windingTriangleVisits{};
     std::size_t collisionNarrowPhaseTests{};
 };
