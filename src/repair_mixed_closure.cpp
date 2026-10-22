@@ -71,6 +71,30 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     auto& vertexOwners=staged.vertexOwners;
     std::set<PartitionId> owners;
 
+    // Resolve synthetic spatial front IDs ONLY inside this never-published
+    // private transaction. Boundary vertex IDs are retained exactly;
+    // interior vertices receive monotonically allocated immutable IDs.
+    for(const auto provisional:staged.provisionalSpatialVertices) {
+        if(out.insertedVertices.size()>=limits.maxInsertedVertices)
+            throw std::length_error(
+                "R06-M06C mixed front interior-vertex budget exceeded");
+        const auto position=positions.at(provisional);
+        const auto owner=vertexOwners.at(provisional);
+        const auto stable=view.addVertex(owner,position);
+        if(positions.contains(stable))
+            throw std::logic_error(
+                "R06-M06C newly allocated permanent front ID already present");
+        positions.emplace(stable,position);
+        vertexOwners.emplace(stable,owner);
+        owners.insert(owner);
+        out.insertedVertices.push_back(stable);
+        for(auto& face:faces)
+            for(auto& vertex:face.vertices)
+                if(vertex==provisional)vertex=stable;
+        positions.erase(provisional);
+        vertexOwners.erase(provisional);
+    }
+
     const auto incident=[&](Edge e) {
         std::vector<std::size_t> result;
         for(std::size_t i=0;i<faces.size();++i) {
@@ -280,6 +304,26 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     auto closed=RegionTopologyIndex::restore(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
+    if(staged.usedSpatialCapFallback) {
+        // The front-only triangle test cannot see the surrounding mesh.
+        // Demand a separate, bounded exact triangle contact query against
+        // ALL candidate geometry after final conforming refinement. A
+        // manifold by incidence can still self-intersect in 3D.
+        RegionTopologyIndex::CollisionQueryLimits collision;
+        collision.maxSeedFaces=16384;
+        collision.maxBoxTests=4194304;
+        collision.maxPartitionTests=1048576;
+        collision.maxCandidateTriangles=524288;
+        collision.maxNarrowPhaseTests=262144;
+        collision.maxReportedContacts=1;
+        RegionTopologyIndex::CollisionStatistics diagnostics;
+        const auto unexpected=closed->triangleIntersections(
+            std::vector<VertexId>{},out.greenFaces,&diagnostics,collision);
+        if(!unexpected.empty())
+            throw std::logic_error(
+                "R06-M06C spatial front intersects surviving/cap geometry "
+                "after final 3D private refinement");
+    }
     for(const auto id:proposal.proposedFaces)
         if(closed->maybeFace(id)||!closed->retiredFace(id))
             throw std::logic_error("R06-M04B resurrected a retired R03 FaceId");
