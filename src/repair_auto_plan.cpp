@@ -123,7 +123,15 @@ void validateSettings(const AutoClosurePlanSettings& s) {
             std::isfinite(s.minimumSameOwnerZipperSavings)&&
             s.minimumZipperSavings>0&&s.minimumZipperSavings<1&&
             s.minimumSameOwnerZipperSavings>=s.minimumZipperSavings&&
-            s.minimumSameOwnerZipperSavings<1,
+            s.minimumSameOwnerZipperSavings<1&&
+            std::isfinite(s.minimumFacingContactZipperSavings)&&
+            s.minimumFacingContactZipperSavings>=s.minimumZipperSavings&&
+            s.minimumFacingContactZipperSavings<=s.minimumSameOwnerZipperSavings&&
+            std::isfinite(s.maximumFacingContactGapInEdges)&&
+            s.maximumFacingContactGapInEdges>0&&
+            std::isfinite(s.minimumFacingContactNormalOpposition)&&
+            s.minimumFacingContactNormalOpposition>0&&
+            s.minimumFacingContactNormalOpposition<=1,
             AutoClosurePlanStatus::InvalidInput,
             "R06-M03 invalid finite planning limits");
     require(s.fitness.minimumRelativeAreaAdvantage>=0&&
@@ -361,16 +369,36 @@ AutoClosurePlan planPrivateAutomaticClosure(
                         AutoClosurePlanStatus::AmbiguousFitness,
                         "R06-M03 missing finite V15 zipper comparison");
                     const auto savings=1-found->zipperArea/found->capArea;
-                    const auto threshold=loopSurvivor.at(ga)==
-                        loopSurvivor.at(gb)?
-                            limits.minimumSameOwnerZipperSavings:
-                            limits.minimumZipperSavings;
+                    const bool sameSurvivor=
+                        loopSurvivor.at(ga)==loopSurvivor.at(gb);
+                    auto patchA=loopPatch.at(ga),patchB=loopPatch.at(gb);
+                    if(patchA>patchB)std::swap(patchA,patchB);
+                    // Exact R01 contact of TWO removed face patches,
+                    // extremely opposing surviving contour normals,
+                    // and a small local mesh-scale gap together support
+                    // a shorter same-shell bridge without globally
+                    // defeating the torus-handle penalty.
+                    const bool facingContact=
+                        sameSurvivor&&n==2&&patchA!=patchB&&
+                        directLinks.contains({patchA,patchB})&&
+                        region.rimNormalAlignment<=
+                            -limits.minimumFacingContactNormalOpposition&&
+                        region.rimNearestSeparationInEdges<=
+                            limits.maximumFacingContactGapInEdges;
+                    const double threshold=!sameSurvivor?
+                        limits.minimumZipperSavings:
+                        (facingContact?
+                            limits.minimumFacingContactZipperSavings:
+                            limits.minimumSameOwnerZipperSavings);
+                    if(facingContact)
+                        region.selectionReason+="; directly linked close opposing rims";
                     if(savings<threshold) {
                         region.selectionReason+="; zipper downgraded to caps: "+
                             std::to_string(savings)+" < "+
                             std::to_string(threshold)+
-                            (loopSurvivor.at(ga)==loopSurvivor.at(gb)?
-                             " same-surface threshold":" separate-surface threshold");
+                            (!sameSurvivor?" separate-surface threshold":
+                             (facingContact?" close-opposing same-surface threshold":
+                              " ordinary same-surface threshold")));
                         // Reject a long/slender unnecessary same-shell seam:
                         // two caps are preferable to retaining a tunnel.
                         region.caps.push_back(ga);
