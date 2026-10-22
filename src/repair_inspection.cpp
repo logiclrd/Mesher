@@ -150,6 +150,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     result->excisionEnabled=excisionEnabled_;
     result->zipperEnabled=zipperEnabled_;
     result->capEnabled=capEnabled_;
+    result->autoEnabled=autoEnabled_;
     if(previewEnabled_&&!result->contacts.empty()) {
         try {
             result->excision=previewApproximateExcision(
@@ -202,6 +203,28 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
+    if(autoEnabled_) {
+        if(!result->privateCut) {
+            result->autoDiagnostic="R06 requires successful complete R03 excision: "+
+                result->excisionDiagnostic;
+        }else {
+            try {
+                result->autoPlan=planPrivateAutomaticClosure(
+                    *proposed.candidate,*result->privateCut,
+                    result->excision,result->contacts);
+                if(!result->autoPlan->ready())
+                    result->autoDiagnostic="R06 automatic closure plan refused: "+
+                        result->autoPlan->diagnostic;
+                else
+                    result->privateAuto=applyCertifiedPrivateAutomaticClosure(
+                        proposed.candidate,*result->privateCut,
+                        result->excision,*result->autoPlan,result->contacts);
+            }catch(const std::exception& e) {
+                result->autoDiagnostic=std::string(
+                    "R06 private automatic closure refused: ")+e.what();
+            }
+        }
+    }
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -222,6 +245,30 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
+    if(snapshot.autoEnabled&&snapshot.privateAuto) {
+        // Draw only actual surviving new faces from M04's FINAL closed
+        // private root. An inner-cavity face retired by M04C is invisible:
+        // there are no diagnostic ghost caps or invented seam triangles.
+        const auto& closed=*snapshot.privateAuto->index;
+        const auto draw=[&](const std::vector<FaceId>& ids,float material) {
+            for(const auto id:ids) {
+                const auto& face=closed.face(id).vertices;
+                const auto a=closed.vertex(face[0]).position;
+                const auto b=closed.vertex(face[1]).position;
+                const auto c=closed.vertex(face[2]).position;
+                const auto n=cross(b-a,c-a);
+                const auto norm=length(n);
+                if(norm<=1e-15)continue;
+                const auto offset=n/norm*
+                    (.003*std::min({length(a-b),length(b-c),length(c-a)}));
+                triangle(overlay,a+offset,b+offset,c+offset,material);
+                triangle(overlay,c-offset,b-offset,a-offset,material);
+            }
+        };
+        draw(snapshot.privateAuto->greenFaces,9.0f);
+        draw(snapshot.privateAuto->blueFaces,8.0f);
+        return overlay;
+    }
     if(snapshot.capEnabled&&snapshot.privateCap) {
         // The real new faces are in the private COW mesh, highlighted from
         // BOTH sides. There must be no green surface left over in a hole
