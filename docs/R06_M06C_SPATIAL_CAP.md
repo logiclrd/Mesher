@@ -1,5 +1,7 @@
 # R06-M06C — Nonprojective advancing-front / Poisson private caps
 
+**Status: local CPU acceptance complete for C1–C3; C4 full-mesh/private acceptance remains OPEN.** [Actions #39806840808](https://github.com/logiclrd/Mesher/actions/runs/39806840808) passed **75/75 registered CTests on Linux GCC, Linux Clang and Windows MSVC**. In the isolated spatial test, the actual 32-vertex recorded rim produced a non-self-intersecting candidate with initial minimum triangle quality **0.190579**. Without the original incident survivor faces that is NOT a whole-object collision certificate.
+
 **Status:** stacked implementation in [PR #147](https://github.com/logiclrd/Mesher/pull/147), based on the R06-M06B draft. The full C1–C4 acceptance sequence was recorded in `todo.md` before changes. This is a research-backed **bounded initial backend**, NOT an implementation of every optimization in Zhao–Gao–Lin's 2007 method and NOT physical GPU signoff.
 
 ## Specific physical problem and fixtures

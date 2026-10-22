@@ -224,7 +224,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   Regression for equal-area ties, long torus bridge refusal, close facing
   noodle contacts and separate distant repairs; do NOT unconditionally
   zipper all directly contacting patches.
-- [ ] **R06-M06C1 — Planner area-independent unpaired cap admission.**
+- [x] **R06-M06C1 — Planner area-independent unpaired cap admission.**
   When V15 cannot provide projected area, permit independent caps for
   a single directed loop or clearly unlinked independent loops; record
   an advisory fallback estimate only, never mistake it for proof that
@@ -232,19 +232,30 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   contours for a deterministic planner regression. Retain R01 patch
   provenance, explicit refusal on ambiguous linked many-to-many and
   zero-loop material certification.
-- [ ] **R06-M06C2 — Local-indexed advancing front with interior-vertex contract.**
+  **CPU accepted:** both real physical six-point contour coordinate
+  sequences now reach M03's unlinked cap decision; no geometry certified.
+- [x] **R06-M06C2 — Local-indexed advancing front with interior-vertex contract.**
   Introduce a bounded spatial-cap result with preserved oriented rim,
   staged new vertices/triangles and a deterministic front. Try only
   after projected-ear failure; no global projection and no forced-R05
   regression. Require patch-face self/candidate collision screening,
   closed fan and strict budget refusal before private publication.
-- [ ] **R06-M06C3 — Dirichlet normal-guided Poisson fairing.**
+- [x] **R06-M06C3 — Dirichlet normal-guided Poisson fairing.**
   On a certified front triangulation, freeze every boundary vertex,
   derive a bounded normal/gradient field from surrounding oriented
   faces, solve sparse interior Poisson systems with residual and finite
   iteration budgets, and recheck all triangle/embedding/quality gates.
   Include planar and curved 6/18/32-vertex physical coordinates, and
   deliberately self-overlapping unsafe test fixtures. No global weld.
+  **C2/C3 local CPU accepted** in draft [PR #147](https://github.com/logiclrd/Mesher/pull/147)
+  ([Actions #39806840808](https://github.com/logiclrd/Mesher/actions/runs/39806840808)):
+  **75/75 CTests Linux GCC, Linux Clang and Windows MSVC**. The
+  recorded elongated 32-point rim produced a local self-checked front
+  (initial q=0.190579), but source incident faces were NOT recorded.
+  Normal-guided fairing uses a 256-sweep bounded discrete Poisson
+  approximation, not the full paper's gradient-fitting solver.
+  C4 remains OPEN pending real surviving-surface collision and physical
+  M04 private-root acceptance; the parent M06C/R06 remains unchecked.
 - [ ] **R06-M06C4 — Integrated mixed private cap backend and CI acceptance.**
   Map local front IDs to fresh immutable MeshRevision stable IDs inside
   one COW transaction; conforming quality correction must split *both*
