@@ -1,38 +1,49 @@
-# R02 — frozen read-only excision classification & contour preview
+# R02 — private vertex-star excision and oriented rim preview
 
-**Status:** R02 implementation in stacked PR (base: R01). Physical Linux/Windows GPU acceptance remains open. This is not a general-purpose Boolean and never changes connectivity.
+**Status:** Revised following three failed/partial physical acceptance exercises (normal sphere, torus and hollow sphere). Code is on stacked [PR #137](https://github.com/logiclrd/Mesher/pull/137), based on open R01 #136. GPU acceptance and final merge remain OPEN. No topology is edited or published by this preview.
 
-## Operator contract
+## Why the original R02 failed
 
-Use `--repair-preview` (instead of R01's `--repair-inspect`) with an interactive brush fixture. The first new post-Inflate/Refine/Collapse triangle contact freezes **an uncommitted candidate**. Neither the full candidate nor the hypothetical removal is published into history, checkpoints, or ordinary mesh data. The camera remains freely movable and ordinary stamps/undo/save are blocked. A completed collision query and any budget/refusal categories remain independently visible.
+The original R02 selected *whole faces* when V14 barycentric sample voting marked at least 62.5% of a face as buried/outside. Actual screenshots and console on 2026-10-21 showed only 3–8 selected faces, far less than the R01 red contact topology, and failed border extraction on torus and hollow sphere with `Cut boundary branches at a vertex` (0 drawable contours). The original requested algorithm was **vertex-centered**; per-face voting selects torn patches whose vertices may share disconnected survivor fans. This violates R02's intended inspection boundary even though the V14 classifications themselves are numerically confident.
+
+The corrected R02 conservatively selects **all distinct endpoints of all detected contact triangles** (the R01 red-dot set), then the **complete incident triangle fan of each selected vertex**. The outermost red visual ring is intentional and may create a larger-than-minimal excision; it prioritizes simple editable boundary loops and consistent topology rather than exact mathematical cuts. All faces to remove appear orange, and all candidate vertices are logged as stable `VertexId`. Original triangle contact FaceIds are preserved. The orientation of retained faces determines directed yellow rim edges.
+
+## Bounded regularization
+
+The union of closed vertex stars can itself leave two holes meeting at one *retained* vertex. R02 detects that by scanning the **directed cut boundary graph** for any vertex with multiple incoming/outgoing cut edges. It then absorbs the corresponding retained vertex's complete face fan into the removal proposal, and repeats, under finite limits. This is **boundary pinch cleanup, not final zipper/cap surgery**; exceeding the budget explicitly reports `complete=0` and does not approve topology surgery. Any vertex whose *entire* original incident fan has become selected for removal is additionally marked for retirement to avoid isolated zero-face vertices after R03. Disconnected closed components can therefore be proposed for removal with zero boundary loops; such zero-loop cases are distinct from a failed contour extraction.
+
+Hard limits: 512 initial contact vertices, 768 proposed vertices including bounded regularization and orphan cleanup, 4096 proposed faces, 24 passes of rim regularization, 64 directed contours. These apply per **one private candidate**, not across stroke history. A preview is complete only after every proposed vertex has a complete selected face fan, every cut border is correctly oriented and non-branching, and V15 contour enumeration succeeds. Invalid source topology or exhausted budgets are explicit refusals.
+
+## Overlay color contract
 
 | Color | Meaning |
 | --- | --- |
-| R01 red dots and dark-red rods | vertices/edges incident to contacting triangles; not necessarily penetrating |
-| **Orange inset triangle** | V14 barycentric samples indicate at least 62.5% buried/outside; proposed whole-face excision only |
-| **Purple inset triangle** | V14 classification has an ambiguous sample or bounded query error; do **not** treat this face as deleted |
-| **Golden boundary rod** | directed surviving-face loop edge after *hypothetical* deletion, as extracted by existing V15 contour planner |
+| Red dots, dark-red rods | R01 detected triangle endpoints and their edges; the conservative *seed* vertices for excision |
+| Orange inset triangles | Full incident-face stars selected for hypothetical deletion, including triangles not geometrically penetrated |
+| Cyan dots | Additional rim vertices selected to avoid branching/nonmanifold cut loops |
+| Golden rods | Actual directed boundary loops of the hypothetical cut, oriented from retained triangle faces |
+| Purple inset triangles | **Informational** V14 fragment classification uncertain on a contacted triangle; this does not control or veto the geometric vertex-star proposal |
 
-No highlighted face or boundary implies that geometry was actually removed. Mixed faces, classification failures, contour-graph errors, and later closure-quality uncertainty are reported explicitly in `[repair-r02] PREVIEW` lines. `complete=0` means classification or contour extraction was incomplete, **not** approval to delete orange faces. `closure_advisory=...` separately names V15 cap/zipper fitness or matching refusals; a valid R02 removal-and-loop preview may show `complete=1` with a closure advisory, because R02 is not responsible for choosing a repair. The R02 planner uses a finite maximum of 128 classified faces, 96 removable faces, 24 contours, and V14 depth-1 barycentric sampling with *no unbounded reference winding fallback*. It may refuse a complex region, which is a visible diagnostic result and **not** automatic repair.
+V14 face-fragment samples remain informational only. `classified_faces`, `mixed_faces`, `uncertain_faces` and `classification_advisory` help future refinement but are **not** substituted for the vertex deletion plan. Likewise `closure_advisory` is a later V15 cap/zipper fitness assessment, not a reason to discard a valid R02 rim graph.
 
-Collision-island count groups related contact FaceIds; excision-component count groups removed faces along shared mesh edges; contour count is number of actual directed survivor loops. There is no one-to-one cardinality assumption among these. R02 deliberately does not select cap or zipper, so an ambiguous V15 closure can still leave drawable oriented loops.
+The freeze remains R01's one-shot, **unpublished** post-Inflate/Refine/Collapse private candidate: no deletions, no CAS publication, no undo/save/checkpoint root mutation. Releasing/repressing LMB does not restart sculpting. Orbit, inside/outside camera, W, G and Escape are available.
 
-The hollow sphere inner wall is still topologically connected through the mouth at the R02 time of inspection, so there is no legitimate detached redundant inner component to delete *yet*. After eventual surgical closure, R06 must classify/delete a resulting isolated interior without capping/zippering. Neither R02 nor the mere original red contact area purports to solve that future material-topology problem.
+## Three mandatory physical acceptance reproductions
 
-## Physical exercise
-
-Build the PR's exact SHA, then use:
 ```bash
-./build/Mesher --repair-preview --torus --vertices 5000
-./build/Mesher --repair-preview --hollow-sphere --vertices 5000
-./build/Mesher --repair-preview --asymmetric
+git fetch origin pull/137/head
+git switch --detach FETCH_HEAD
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+./build/Mesher --repair-preview
+./build/Mesher --repair-preview --torus
+./build/Mesher --repair-preview --hollow-sphere
 ```
-On each fixture, stamp an unrelated surface first (no freeze), then deliberately pinch across a surface. Confirm candidate is frozen, red contact incident geometry is visible, and any *certain* orange selected faces and golden directed boundary loops can be viewed from both sides without a mesh hole appearing. Where winding is ambiguous, purple classification and the matching `complete=0 reason=...` line are expected; never claim orange selection or loop success if none was supported.
 
-Record exact `git rev-parse HEAD`, a screenshot showing colors, and `[repair-r02] PREVIEW` plus selected FaceId / loop lines. Confirm that repeated LMB, Ctrl+S, Ctrl+Z and checkpoint state do not mutate the committed root, but camera/W/G remain usable. Re-launch and repeat using another site or magnitude. Cross-platform physical Vulkan acceptance is distinct from CPU tests.
+1. **Default sphere, paired probosci.** Previous failed screenshot showed **8 orange faces, 2 gold loops** and collision freezing at the base of two protrusions *before intended tip-tip contact*. Establish whether R01 contact at the base was genuinely produced by the developing geometry (FaceIds, view from inside), or whether a false positive remains. R02 cannot fix a premature R01 collision decision by changing its selection policy. In the revised R02, both contacted ends should have complete orange incident-face fans and every boundary a simple oriented loop, or else a named finite refusal.
+2. **Small-hole torus (R=0.55, r=0.45).** Previous failed `proposed_faces=3`, `boundary_loops=0`, `Cut boundary branches at a vertex`. Revised expected result: a deliberately conservative larger orange patch around the pinched hole, with valid gold loops after any bounded cyan regularization. This is still a *hypothetical excision*—the actual genus-changing closure is deferred.
+3. **Hollow sphere with negative-Y mouth.** Previous failed `proposed_faces=8`, `boundary_loops=0`, same branching error. Revised expected result: complete orange vertex-star cuts at the constriction and non-branching gold rims. The inner surface is **not yet detached**, and must not be removed wholesale during R02. Once a later seam actually seals the mouth, a newly isolated redundant interior surface should be deleted *without capping or zippering*.
 
-CPU suite `repair_r02_private_excision_preview` positively confirms two independent cube intersection islands produce **8 selected faces and 4 directed loops**, despite deliberately unsupported V15 closure fitness. It also checks contact-free work avoidance, bounded invalid settings, a live full candidate, old-root/undo safety and R01 markers preserved. V15's separate test suite covers oriented loops from explicit hypothetical face removal. Positive torus/hollow classification *quality* must be judged with the first physical viewport test and iteratively improved; the inability to classify a difficult scene is an honest R02 gap, not authorization to guess.
+Capture all `[repair-r02] PREVIEW` lines (especially `proposed_vertices`, `proposed_faces`, `expanded_boundary_vertices`, `orphan_vertices`, `boundary_repairs`, `boundary_loops`, `complete`, `reason`, `closure_advisory`) and at least one inside/outside screenshot. Each malformed or ambiguous case must refuse explicitly, not advertise completion. Verify unchanged published root/undo/save and normal non-contact stamps as in R01. Record tested SHA and CPU CI separately from physical Linux and Windows GPU observations.
 
-## Non-goals
-
-No face deletion, no holes, no automatic capping/zippering, no component extermination, no per-stamp ongoing repair, no Merge-OFF collision clipping. R03 introduces a separate **private open-boundary snapshot** and R06 handles completed enclosed redundant shells.
+The CPU test exercises real crossing cube contacts, a genuinely closed sphere with two synthetic independent contact neighborhoods (explicitly topology-only input to R02), full vertex stars, valid independent rims, no removed vertices surviving on those rims, old-root immutability and frozen worker behavior. The R01 generated fixture and earlier 65-test CI remain prerequisites; CI alone does not prove visual behavior on actual torus/hollow self-contact.
