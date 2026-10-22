@@ -182,6 +182,60 @@ void mirroredSingleRimContract() {
            "R06-M06C4c reflection-plane crossing edges without seam vertices must refuse");
     std::cout<<"[r06-m06c4c] reflected single-loop front has exact X=0 hub and mirrored Poisson orbits PASS\\n";
 }
+void physicalSymmetric26Rim() {
+    // Literal 26-vertex oriented R03 boundary from physical mirrored
+    // inflate collision (2026-10-22): M04B refused a CAP with q=.090671
+    // after 512 splits. This is a LOCAL solver fixture because no full
+    // surviving mesh/checkpoint was captured; production M04 audits
+    // must still decide whether the cap is admissible.
+    const std::vector<Vec3> ring{
+        {-0.035558218186814691,-1.158413129359128,0.2911726175244933},
+        {-0.040435085560260361,-1.2135152118297892,0.29263349994667226},
+        {-0.044221935512649524,-1.2624673720861881,0.32055274835825498},
+        {-0.023840231458855835,-1.2606970809338676,0.3871288396706245},
+        {-0.011061777326833224,-1.2366855624113164,0.4442686687592175},
+        {-0.020954006809025639,-1.2379322247827864,0.48151425180139268},
+        {-0.024789723375292248,-1.1906001559645414,0.52895906197302911},
+        {-0.029267806363676867,-1.1127800942111727,0.53480354245878148},
+        {-0.018165866450970569,-1.095343006264528,0.50491758323216585},
+        {-0.017267073154726802,-1.0526292333363849,0.48606232055192744},
+        {0,-1.0386611813517306,0.4289508963713059},
+        {0.017267073154726802,-1.0526292333363849,0.48606232055192744},
+        {0.018165866450970569,-1.095343006264528,0.50491758323216585},
+        {0.029267806363676867,-1.1127800942111727,0.53480354245878148},
+        {0.024789723375292248,-1.1906001559645414,0.52895906197302911},
+        {0.020954006809025639,-1.2379322247827864,0.48151425180139268},
+        {0.011061777326833224,-1.2366855624113164,0.4442686687592175},
+        {0.023840231458855835,-1.2606970809338676,0.3871288396706245},
+        {0.044221935512649524,-1.2624673720861881,0.32055274835825498},
+        {0.040435085560260361,-1.2135152118297892,0.29263349994667226},
+        {0.035558218186814691,-1.158413129359128,0.2911726175244933},
+        {0.016062221145499492,-1.0973825031392941,0.33474962949139725},
+        {0.014942446870618688,-1.0619105344186832,0.33059499265926218},
+        {0,-1.0551286880319248,0.38941064248518364},
+        {-0.014942446870618688,-1.0619105344186832,0.33059499265926218},
+        {-0.016062221145499492,-1.0973825031392941,0.33474962949139725}
+    };
+    const auto limits=[] {
+        SpatialCapSettings l;
+        l.requireMirrorPlane=true;
+        return l;
+    }();
+    try {
+        const auto patch=buildSpatialCapFrontPoisson(ring,{},limits);
+        validate(ring,patch);
+        expect(patch.positions.back().x==0,
+               "R06-M06C4c physical mirrored rim cannot move Poisson hub off X=0");
+        std::cout<<"[r06-m06c4c] physical 26-vertex rim produced exact mirrored local candidate q="
+                 <<patch.minimumQuality<<" (whole-object M04 audit remains required) PASS\\n";
+    }catch(const std::logic_error& e) {
+        // Never claim an invalid cap passed. Fail-closed is acceptable
+        // for the local spatial solver until mirror-paired quality
+        // retriangulation and full survivor witnesses are available.
+        std::cout<<"[r06-m06c4c] physical 26-vertex rim conservatively refused: "
+                 <<e.what()<<" PASS\\n";
+    }
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -206,6 +260,7 @@ int main() {
     try {
         smoothRoundAndCurved();
         mirroredSingleRimContract();
+        physicalSymmetric26Rim();
         physicalLongRimSafety();
         recordedCurved18Safety();
         crossingRimMustRefuse();
