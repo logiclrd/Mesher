@@ -1,6 +1,6 @@
 # R06-M04 — Mixed private geometry and certified enclosed-component retirement
 
-**Status:** implementation and CPU regression on the stacked R06-M04 draft PR, awaiting compiler and test matrix verification. The parent R06 remains open, with developer `--repair auto` and physical GPU acceptance still assigned to M05/M06.
+**Status:** M04A, M04B and M04C implementation CPU-accepted in [PR #144](https://github.com/logiclrd/Mesher/pull/144). [GCC/Clang/MSVC run #39734314503](https://github.com/logiclrd/Mesher/actions/runs/39734314503) passed **73/73 registered tests on all three platforms**. The narrow-zipper supplemental regression has a separate pending exact-head CI gate. The parent R06 remains open: developer `--repair auto` and physical Vulkan acceptance belong to M05/M06.
 
 ## Contract and all-or-nothing boundary
 
@@ -21,3 +21,7 @@ Dedicated CTests `repair_r06_m04a_mixed_face_staging` and `repair_r06_m04c_enclo
 **Limitations and separate stages:** M03's area score is only a topology-selection heuristic. M04 does NOT promise every valid contour can yield quality-bounded triangles. A supported refusal is safer than degrading mesh quality. GPU visual inspection, repeated live strokes, the worker CAS, persistent history, checkpoint publication and true physical torus/hollow post-stamp behavior are respectively M05/M06 and R07/R08, not claimed by these synthetic CPU fixtures. Zero-rim retirement of a wholly isolated inward shell is allowed only after M02 certifies it against the original closed candidate; otherwise refuse. Imported inverted/ambiguous exterior shells are not deleted by normal direction alone.
 
 R04 and R05 forced-mode behavior and their prior 68-test acceptance remain unchanged.
+
+## Observed CPU validation (2026-10-22)
+
+The completed matrix confirms: genuinely mixed private closure with blue and green faces; no cross-region pair fabrication; finite-budget refusal; a narrow seam must either satisfy the audited quality threshold or fail with no altered source root; original unmodified torus disk caps retain Euler 0, whereas a genuinely excised annular throat gives Euler 0 -> 2; a post-closure inward shell is wholly retired to one outward Euler-2 component; complete zero-rim inward cavity deletion requires prior material certification; deletion of a separate exterior closed component is refused. The Linux tests printed the expected successful case markers in CI #39734314503. The supplemental narrow-seam regression is additional and its exact-head run must be checked separately. No physical GPU acceptance or production CAS publication is asserted here.

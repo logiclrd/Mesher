@@ -131,7 +131,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   ([Actions 39730105439](https://github.com/logiclrd/Mesher/actions/runs/39730105439)).
   M04 mixed actual geometry, M05 CLI and M06 physical GPU acceptance remain
   open; parent R06 stays unchecked.
-- [ ] **R06-M04 — All-or-nothing mixed private closure and complete redundancy removal.**
+- [x] **R06-M04 — All-or-nothing mixed private closure and complete redundancy removal.**
   Apply R06-M03 planned caps and zippers together without cross-region
   stitching or duplicate edge splitting; retain R04/R05 quality limits,
   shared-incidence conforming splits, stable IDs/tombstones, and the global
@@ -143,7 +143,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   existing R04/R05 each require all open rims to be theirs; they cannot
   run sequentially with partial holes. Preserve the original M04
   all-or-nothing final acceptance contract across these peers.
-- [ ] **R06-M04A — Mixed private face staging and shared R04/R05 geometry primitives.**
+- [x] **R06-M04A — Mixed private face staging and shared R04/R05 geometry primitives.**
   Factor reusable R05 oriented projected ear-disks and R04 oriented DP
   zipper strips without changing forced-mode behavior. Stage caps and
   M03-selected explicit zipper pairs simultaneously from the SAME R03
@@ -151,7 +151,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   No unsafe intermediate closed-root assertion, no worker/history/CAS.
   Test exact loop usage, mixed winding, cross-region no-stitching,
   malformed plan refusal and source immutability.
-- [ ] **R06-M04B — Shared conforming adaptive refinement and closed-root audit.**
+- [x] **R06-M04B — Shared conforming adaptive refinement and closed-root audit.**
   Unify old-survivor and newly inserted blue/green face splitting so
   each edge is split on both incident sides, bounded by per-kind R04/R05
   quality and scale limits. Commit ONE private root after full contour
@@ -159,7 +159,7 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   IDs/tombstones and refuse all bad-quality/over-budget mixed repairs.
   Test torus Euler 2 where supported, independent multi-island cap/zipper,
   and never permit a half-closed published/private result.
-- [ ] **R06-M04C — Proven enclosed-component retirement and integrated acceptance.**
+- [x] **R06-M04C — Proven enclosed-component retirement and integrated acceptance.**
   Analyze closed M04B candidate with R06-M02's bounded, reliable
   containment/orientation witness; remove ONLY fully proved redundant
   inward closed components and their isolated vertices, with preserved
@@ -169,6 +169,18 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   Test hollow sphere outer-only Euler 2, intentionally disconnected
   exterior solids preserved, uncertain inverted/nested overlap refused,
   finite budgets and complete rollback. Record GCC/Clang/MSVC gate.
+  **Implemented and CPU-accepted on [PR #144](https://github.com/logiclrd/Mesher/pull/144).**
+  Shared R04/R05 primitives, one mixed cap+zipper staging ledger, explicit
+  conforming two-sided edge splits and finite quality/refinement budgets,
+  closed vertex-fan manifold audit before returning a private root.
+  Revalidated trusted M03 plan, M02-proven cavity-only retirement, stable
+  tombstones, zero-rim enclosed cavity acceptance / exterior-solid refusal,
+  genuine annular torus Euler 0 -> 2 and independent local torus Euler 0.
+  **Full 73/73 CTest SUCCESS on Linux GCC, Linux Clang and Windows MSVC**
+  at [Actions #39734314503](https://github.com/logiclrd/Mesher/actions/runs/39734314503).
+  Narrow seam supplemental regression added in the subsequent PR head.
+  R06-M05 CLI, M06 physical GPU and eventual production publication remain
+  separately open; the R06 parent is NOT complete.
 
 - [ ] **R06-M05 — Frozen developer `--repair auto` and diagnostics.**
   Wire M04 into R01/R02/R03 freeze, distinguish actual green caps/blue
