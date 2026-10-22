@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
     bool repairZipper = false;
     bool repairCap = false;
     bool repairAuto = false;
+    bool repairDumpContours = false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -81,6 +82,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-zipper")repairZipper=true;
             else if(arg=="--repair-cap")repairCap=true;
             else if(arg=="--repair-auto")repairAuto=true;
+            else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair") {
                 if(++i>=argc)throw std::invalid_argument("--repair requires zipper, cap, or auto");
                 const std::string_view operation=argv[i];
@@ -191,6 +193,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
                          <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
                          <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
+                         <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
@@ -231,6 +234,8 @@ int main(int argc, char** argv) {
         if(static_cast<int>(repairCap)+static_cast<int>(repairZipper)+
            static_cast<int>(repairAuto)>1)
             throw std::invalid_argument("Select only one repair: cap, zipper or auto");
+        if(repairDumpContours&&!repairAuto)
+            throw std::invalid_argument("--repair-dump-contours requires --repair auto");
         repairExcise=repairExcise||repairZipper||repairCap||repairAuto;
         repairPreview=repairPreview||repairExcise;
         repairInspect=repairInspect||repairPreview;
@@ -675,6 +680,27 @@ int main(int argc, char** argv) {
                             std::cout<<"[repair-r05] CAP_REFUSED private_closed_mesh=0"
                                      <<" reason="<<frozen->capDiagnostic
                                      <<" (R03 cut retained where available; no publication)\n";
+                        }
+                    }
+                    if(repairAuto&&repairDumpContours&&frozen->privateCut) {
+                        // An opt-in exact loop-coordinate capture makes
+                        // an otherwise one-shot physical folded contact
+                        // reproducible as a bounded CPU cap fixture.
+                        const auto& open=*frozen->privateCut->index;
+                        for(std::size_t i=0;i<frozen->excision.contours.size();++i) {
+                            const auto& rim=frozen->excision.contours[i];
+                            for(std::size_t j=0;j<rim.vertexIds.size();++j) {
+                                const auto id=rim.vertexIds[j];
+                                const auto xyz=open.vertex(id).position;
+                                std::ostringstream row;
+                                row<<std::setprecision(17)
+                                   <<"[repair-r06-contour] loop="<<i
+                                   <<" ordinal="<<j
+                                   <<" id="<<id
+                                   <<" xyz="<<xyz.x<<","<<xyz.y<<","<<xyz.z
+                                   <<" surviving_face="<<rim.survivingFaces.at(j);
+                                std::cout<<row.str()<<"\n";
+                            }
                         }
                     }
                     if(repairAuto&&frozen->autoPlan) {
