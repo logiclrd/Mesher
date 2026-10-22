@@ -47,10 +47,10 @@ succeed. HUD/title distinguish `R06: AUTO COMPLETE` vs
 Prior R01–R03 diagnostics remain. After an attempted auto closure:
 
 ```text
-[repair-r06] AUTO_CLOSED private_closed_mesh=1 regions=... cap_loops=... zipper_pairs=... green_faces=... blue_faces=... retired_cavity_components=... retired_cavity_faces=... retired_cavity_vertices=... exterior_components=... post_closure_faces=... final_faces=... trusted_contact_links=... estimated_area=... unpublished=1 worker_history_checkpoint_unchanged=1
+[repair-r06] AUTO_CLOSED private_closed_mesh=1 regions=... cap_loops=... zipper_pairs=... green_faces=... blue_faces=... retired_cavity_components=... retired_cavity_faces=... retired_cavity_vertices=... exterior_components=... post_closure_faces=... final_faces=... trusted_contact_links=... estimated_area=... generated_faces=... inserted_vertices=... refinement_steps=... min_cap_quality=... min_zipper_quality=... enclosure_winding_visits=... enclosure_narrow_tests=... unpublished=1 worker_history_checkpoint_unchanged=1
 ```
 
-Each independent region also prints caps, zippers, excision
+Refinement, triangle-quality and containment-work metrics are copied from the\nactual final M04B/M02 private result; they are not estimated from the M03\narea heuristic. A minimum quality of 1 for an unused closure kind denotes\nthat no face of that kind was processed, not a perfect seam.\n\nEach independent region also prints caps, zippers, excision
 patches, trusted interpatch contact links, a zero-rim flag and
 estimated area. The estimate is NOT a geometric quality certificate;
 R04/R05/M04's triangle and global manifold audits are authoritative.
