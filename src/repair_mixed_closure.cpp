@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -161,6 +162,66 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         }
     };
 
+    // If this immutable source carries intrinsic X=0 reflection, every
+    // conforming split is one complete mirror orbit, not an isolated
+    // triangle on whichever side happened to be visited first.
+    // The lookup uses EXACT positions only as a private staging sanity
+    // check. R07 still requires authoritative source mirror-ID provenance.
+    const auto reflectedEdge=[&](Edge chosen)->std::optional<Edge> {
+        const auto findPartner=[&](VertexId vertex)->std::optional<VertexId> {
+            const auto p=positions.at(vertex);
+            std::optional<VertexId> match;
+            for(const auto& [id,q]:positions) {
+                if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
+                if(match)return std::nullopt;
+                match=id;
+            }
+            return match;
+        };
+        const auto a=findPartner(chosen.first);
+        const auto b=findPartner(chosen.second);
+        if(!a||!b)return std::nullopt;
+        return edge(*a,*b);
+    };
+    const auto splitMirrored=[&](Edge chosen,bool optional)->std::size_t {
+        Edge paired=chosen;
+        if(limits.requireReflectedGeometry) {
+            const auto found=reflectedEdge(chosen);
+            if(!found) {
+                if(optional)return 0;
+                throw std::logic_error(
+                    "R06-M06C cannot find exact mirror orbit for conforming edge");
+            }
+            paired=*found;
+        }
+        const auto count=paired==chosen?std::size_t{1}:std::size_t{2};
+        // No speculative pair split is allowed to consume half an orbit.
+        if(out.refinementSteps+count>limits.maxRefinementSteps||
+           out.insertedVertices.size()+count>limits.maxInsertedVertices||
+           faces.size()+2*count>limits.maxAuditedFaces+limits.maxNewFaces) {
+            if(optional)return 0;
+            throw std::length_error(
+                "R06-M06C complete mirrored edge-split orbit exceeds finite budget");
+        }
+        if(incident(chosen).size()!=2||incident(paired).size()!=2) {
+            if(optional)return 0;
+            throw std::logic_error(
+                "R06-M06C mirrored conforming edge lacks two incident tracked faces");
+        }
+        if(optional) {
+            for(const auto e:{chosen,paired})
+                for(const auto index:incident(e)) {
+                    const auto q=splitQuality(faces[index],e);
+                    if(!std::isfinite(q)||
+                       q+1e-12<accepted(faces[index].kind,limits).threshold)
+                        return 0;
+                }
+        }
+        splitEdge(chosen);
+        if(paired!=chosen)splitEdge(paired);
+        return count;
+    };
+
     // R04-like conforming PRE-subdivision along the true old-boundary /
     // new-zipper seam. A narrow zipper across sparsely sampled loops cannot
     // be fixed reliably by repeatedly bisecting skinny interior needles:
@@ -195,13 +256,11 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(largestRatio<=1+1e-8)break;
         if(out.refinementSteps>=limits.maxRefinementSteps)
             throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
-        splitEdge(worst);
-        ++out.refinementSteps;
+        out.refinementSteps+=splitMirrored(worst,false);
     }
 
     std::size_t stagnant=0;
-    for(std::size_t step=out.refinementSteps;
-        step<limits.maxRefinementSteps;++step) {
+    while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
         double largestRatio=1;
         std::size_t lowest=faces.size();
@@ -249,8 +308,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         }else stagnant=0;
         if(stagnant>64)
             throw std::logic_error("R06-M04B refinement stagnation");
-        splitEdge(chosen);
-        ++out.refinementSteps;
+        out.refinementSteps+=splitMirrored(chosen,false);
     }
     // R06-M06C4a: optional density balancing ONLY after the mandatory
     // bounded M04 quality/length pass. The spatial front can have long
@@ -309,9 +367,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 }
             }
             if(highestRatio<=1)break;
-            splitEdge(chosen);
-            ++out.refinementSteps;
-            ++out.spatialDensitySplits;
+            const auto count=splitMirrored(chosen,true);
+            if(!count)break;
+            out.refinementSteps+=count;
+            out.spatialDensitySplits+=count;
         }
     }
     if(staged.usedSpatialCapFallback)
