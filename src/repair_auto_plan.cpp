@@ -390,7 +390,8 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     // defeating the torus-handle penalty.
                     const bool facingContact=
                         region.twoRimEvidenceValid&&
-                        sameSurvivor&&n==2&&patchA!=patchB&&
+                        sameSurvivor&&n==2&&region.excisionPatches.size()==2&&
+                        patchA!=patchB&&
                         directLinks.contains({patchA,patchB})&&
                         region.rimNormalAlignment<=
                             -limits.minimumFacingContactNormalOpposition&&
