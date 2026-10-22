@@ -145,8 +145,19 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         const auto j=static_cast<std::uint32_t>((i+1)%n);
         const auto a=i,b=j,c=static_cast<std::uint32_t>(n)+j;
         const auto d=static_cast<std::uint32_t>(n)+i;
-        result.faces.push_back({a,b,c});
-        result.faces.push_back({a,c,d});
+        // Diagonals on opposite half-disks must be reflected, not
+        // independently chosen by the cyclic walk. Otherwise the
+        // interiors are geometrically reflected but triangle IDs/
+        // connectivity are NOT mirrored.
+        const bool negativeHalf=limits.requireMirrorPlane&&
+            (result.positions[a].x<0||result.positions[b].x<0);
+        if(negativeHalf) {
+            result.faces.push_back({a,b,d});
+            result.faces.push_back({b,c,d});
+        }else {
+            result.faces.push_back({a,b,c});
+            result.faces.push_back({a,c,d});
+        }
         result.faces.push_back({d,c,hub});
     }
 
