@@ -92,11 +92,28 @@ MixedClosureStaging stagePrivateMixedClosure(
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
         const auto owner=mesh.face(loop.survivingFaces.front()).owner;
-        try {
-            for(const auto triangle:triangulatePrivateCapDisk(
-                    loop,result.positions,h))
-                addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
-        }catch(const std::logic_error& projectedError) {
+        bool forceSpatial=false;
+        if(bounds.requireReflectedGeometry) {
+            bool positive=false,negative=false;
+            for(const auto vertex:loop.vertexIds) {
+                const auto x=result.positions.at(vertex).x;
+                positive=positive||x>0;
+                negative=negative||x<0;
+            }
+            forceSpatial=positive&&negative;
+        }
+        std::string projectedReason="mirror-required crossing-plane cap";
+        if(!forceSpatial) {
+            try {
+                for(const auto triangle:triangulatePrivateCapDisk(
+                        loop,result.positions,h))
+                    addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
+            }catch(const std::logic_error& e) {
+                forceSpatial=true;
+                projectedReason=e.what();
+            }
+        }
+        if(forceSpatial) {
             // The original R05 projected-ear builder remains unchanged and
             // first-choice. For genuinely folded contours, advance a fully
             // spatial oriented front, add synthetic private interior vertices
@@ -120,19 +137,16 @@ MixedClosureStaging stagePrivateMixedClosure(
             SpatialCapPatch patch;
             try {
                 SpatialCapSettings spatial;
-                if(bounds.requireReflectedGeometry) {
-                    bool positive=false,negative=false;
-                    for(const auto v:ordered) {
-                        positive=positive||v.x>0;
-                        negative=negative||v.x<0;
-                    }
-                    spatial.requireMirrorPlane=positive&&negative;
-                }
+                spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
+                    std::any_of(ordered.begin(),ordered.end(),
+                                [](Vec3 v){return v.x<0;})&&
+                    std::any_of(ordered.begin(),ordered.end(),
+                                [](Vec3 v){return v.x>0;});
                 patch=buildSpatialCapFrontPoisson(ordered,guidance,spatial);
             }catch(const std::exception& failed) {
                 throw std::logic_error(
                     std::string("R06-M06C projected cap unavailable: ")+
-                    projectedError.what()+"; spatial front refused: "+
+                    projectedReason+"; spatial front refused: "+
                     failed.what());
             }
             std::vector<VertexId> ids;
