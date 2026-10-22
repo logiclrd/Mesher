@@ -202,6 +202,15 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     for(const auto id:retiredVertices)
         if(finalIndex->maybeVertex(id)||!finalIndex->retiredVertex(id))
             throw std::logic_error("R06-M04C failed to tombstone an internal cavity vertex");
+    if(limits.closure.requireReflectedGeometry) {
+        // Private diagnostic only: the actual R07 publication path must
+        // additionally update the authoritative reciprocal mirror-ID map.
+        // No silent transition to asymmetric while the current sculpt
+        // continues believing its mirror relationships are valid.
+        (void)auditPrivateReflectedGeometry(
+            *finalIndex,limits.closure.maxAuditedFaces*3,
+            limits.closure.maxAuditedFaces);
+    }
     out.postRetirementFaces=out.postClosureFaces-retiredFaces.size();
     out.index=std::move(finalIndex);
     return out;
