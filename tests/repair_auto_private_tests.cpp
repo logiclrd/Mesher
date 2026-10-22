@@ -3,6 +3,8 @@
 #include "mesher/sculpt_fixtures.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 #include <array>
 #include <iostream>
 #include <set>
@@ -140,6 +142,74 @@ void torusAccepted() {
             "R06-M04C unmodified torus local disk closures retain Euler 0 and no zipper");
     std::cout<<"[r06-m04c] unmodified torus local caps retain Euler 0 PASS\n";
 }
+void realTorusHandleLoss() {
+    // Unlike the tiny local disk excision on an unmodified torus, this
+    // full interior throat BAND is an annular cut. Its two caps must turn
+    // genus 1 into genus 0. V15 has independently exercised this fixture.
+    constexpr unsigned around=24,tube=16;
+    constexpr double major=1.0,minor=1.07;
+    const double pi=std::numbers::pi_v<double>;
+    Mesh mesh;
+    for(unsigned i=0;i<around;++i) {
+        const auto t=2*pi*i/around;
+        for(unsigned j=0;j<tube;++j) {
+            const auto p=2*pi*j/tube;
+            const auto radial=major+minor*std::cos(p);
+            mesh.vertices.push_back({radial*std::cos(t),
+                                      radial*std::sin(t),
+                                      minor*std::sin(p)});
+        }
+    }
+    for(unsigned i=0;i<around;++i)
+        for(unsigned j=0;j<tube;++j) {
+            const auto a=i*tube+j;
+            const auto b=((i+1)%around)*tube+j;
+            const auto c=((i+1)%around)*tube+(j+1)%tube;
+            const auto d=i*tube+(j+1)%tube;
+            mesh.triangles.push_back({a,b,c});
+            mesh.triangles.push_back({a,c,d});
+        }
+    const auto f=fixture(std::move(mesh));
+    RepairExcisionPreview preview;
+    preview.complete=true;
+    for(unsigned i=0;i<around;++i)
+        for(const auto j:{tube/2-1,tube/2}) {
+            const auto face=2*(i*tube+j);
+            preview.proposedFaces.push_back(f.ids.faceIds.at(face));
+            preview.proposedFaces.push_back(f.ids.faceIds.at(face+1));
+        }
+    const std::set<FaceId> removed(
+        preview.proposedFaces.begin(),preview.proposedFaces.end());
+    for(const auto id:f.ids.vertexIds) {
+        const auto& incident=f.mesh->vertex(id).incidentFaces;
+        if(!incident.empty() &&
+           std::all_of(incident.begin(),incident.end(),
+                       [&](FaceId face){return removed.contains(face);}))
+            preview.proposedVertices.push_back(id);
+    }
+    const auto realContours=planRemovalContours(
+        *f.mesh,preview.proposedFaces);
+    require(realContours.ready()&&realContours.contours.size()==2,
+            "R06-M04C throat band must provide two actual directed rims");
+    preview.contours=realContours.contours;
+    for(const auto& ring:preview.contours)
+        preview.boundaryEdges+=ring.vertexIds.size();
+    const auto cut=applyPrivateExcision(f.mesh,preview);
+    const auto contacts=std::vector<RegionTopologyIndex::CollisionPair>{
+        pair(preview.proposedFaces.front(),preview.proposedFaces.back())};
+    const auto plan=planPrivateAutomaticClosure(
+        *f.mesh,cut,preview,contacts);
+    require(plan.ready()&&plan.cappedContours.size()==2&&
+            plan.zipperPairs.empty(),
+            "R06-M04C annular throat cut must choose separate cap disks");
+    const auto result=applyCertifiedPrivateAutomaticClosure(
+        f.mesh,cut,preview,plan,contacts);
+    require(result.index&&result.acceptedExteriorComponents==1 &&
+            result.retiredCavityComponents==0 &&euler(*result.index)==2 &&
+            !result.greenFaces.empty()&&result.blueFaces.empty(),
+            "R06-M04C annular torus handle excision must create Euler-2 closed exterior");
+    std::cout<<"[r06-m04c] pinched torus annular throat removed, Euler 0 -> 2 PASS\n";
+}
 void zeroRimEnclosedInnerAccepted() {
     SphereOptions opts;
     opts.vertexCount=160;
@@ -227,6 +297,7 @@ int main() {
     try {
         nestedInwardShellRetired();
         torusAccepted();
+        realTorusHandleLoss();
         zeroRimEnclosedInnerAccepted();
         zeroRimExteriorRefused();
         return 0;
