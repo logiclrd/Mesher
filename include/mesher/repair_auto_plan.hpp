@@ -26,6 +26,13 @@ struct AutoClosurePlanSettings {
     // retaining/adding a handle on one survivor requires stronger evidence.
     double minimumZipperSavings=0.20;
     double minimumSameOwnerZipperSavings=0.55;
+    // An exceptionally close, strongly opposing, directly contact-linked
+    // pair of DIFFERENT excision patches can weld two tentacles on one
+    // connected survivor without claiming that every same-owner pair
+    // should retain/add a handle. M04 must still certify the actual seam.
+    double minimumFacingContactZipperSavings=0.45;
+    double maximumFacingContactGapInEdges=2.5;
+    double minimumFacingContactNormalOpposition=0.95;
     RepairPlanSettings fitness{};
 };
 
