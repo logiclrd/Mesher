@@ -113,6 +113,48 @@ void realFixtureCuts() {
                    {pair(nearest(hollow,{.095,-.96,0}),
                          nearest(hollow,{.095,-.93,0}))},1);
 }
+void twoDisconnectedOpenComponents() {
+    SphereOptions options;
+    options.vertexCount=160;
+    options.symmetric=false;
+    options.relaxationIterations=8;
+    Mesh merged;
+    for(const auto center:std::array<Vec3,2>{{{-3,0,0},{3,0,0}}}) {
+        const auto sphere=generateSphere(options);
+        const auto offset=static_cast<std::uint32_t>(merged.vertices.size());
+        for(const auto p:sphere.vertices)merged.vertices.push_back(p+center);
+        for(const auto t:sphere.triangles)
+            merged.triangles.push_back({
+                offset+t[0],offset+t[1],offset+t[2]});
+    }
+    const auto source=fixture(std::move(merged));
+    const auto sibling=[&](FaceId id) {
+        auto t=source.index->face(id).vertices;
+        if(t[1]<t[0])std::swap(t[0],t[1]);
+        for(const auto& side:source.index->edgeSides({t[0],t[1]}))
+            if(side.face!=id)return side.face;
+        throw std::logic_error("R06-M01 separate sphere face has no adjacent face");
+    };
+    const auto left=nearest(source,{-3,1,0});
+    const auto right=nearest(source,{3,1,0});
+    const auto plan=previewApproximateExcision(
+        *source.index,{pair(left,sibling(left)),pair(right,sibling(right))});
+    require(plan.complete&&plan.contours.size()==2,
+            "R06-M01 two disconnected spheres must produce two separate cut rims");
+    const auto cut=applyPrivateExcision(source.index,plan);
+    const auto inventory=inventoryPrivateExcision(cut,plan);
+    require(inventory.components.size()==2&&inventory.boundaryLoops==2,
+            "R06-M01 distinct disconnected shells must not have merged ownership");
+    require(inventory.components[0].contourIndices.size()==1&&
+            inventory.components[1].contourIndices.size()==1&&
+            inventory.components[0].contourIndices.front()!=
+                inventory.components[1].contourIndices.front(),
+            "R06-M01 each of two independent open shells must own its own rim");
+    for(const auto& component:inventory.components)
+        require(!component.closed&&component.eulerCharacteristic==1,
+                "R06-M01 sphere with one boundary disk removed has Euler 1");
+    std::cout<<"[r06-m01] two independent open spheres, two owners, Euler 1 each: PASS\n";
+}
 void zeroRimWholeComponentDeletion() {
     Mesh mesh;
     const auto cube=[&](Vec3 center) {
@@ -155,6 +197,7 @@ void zeroRimWholeComponentDeletion() {
 int main() {
     try {
         realFixtureCuts();
+        twoDisconnectedOpenComponents();
         zeroRimWholeComponentDeletion();
         return 0;
     }catch(const std::exception& e) {
