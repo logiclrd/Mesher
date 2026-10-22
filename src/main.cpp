@@ -570,7 +570,11 @@ int main(int argc, char** argv) {
                                  <<(pair.ambiguous?" AMBIGUOUS":" CONTACT")<<"\n";
                     if(repairPreview) {
                         const auto& preview=frozen->excision;
-                        std::cout<<"[repair-r02] PREVIEW proposed_faces="<<preview.proposedFaces.size()
+                        std::cout<<"[repair-r02] PREVIEW proposed_vertices="<<preview.proposedVertices.size()
+                                  <<" proposed_faces="<<preview.proposedFaces.size()
+                                  <<" expanded_boundary_vertices="<<preview.expandedBoundaryVertices.size()
+                                  <<" orphan_vertices="<<preview.newlyOrphanedVertices.size()
+                                  <<" boundary_repairs="<<preview.boundaryRepairs
                                  <<" uncertain_faces="<<preview.uncertainFaces.size()
                                  <<" mixed_faces="<<preview.mixedFaces.size()
                                  <<" contact_islands="<<preview.contactIslands
@@ -578,6 +582,8 @@ int main(int argc, char** argv) {
                                  <<" boundary_loops="<<preview.contours.size()
                                  <<" boundary_edges="<<preview.boundaryEdges
                                  <<" classified_faces="<<preview.classifiedFaces
+                                  <<" classification_advisory="<<(preview.classificationAdvisory.empty()?
+                                      "none":preview.classificationAdvisory)
                                  <<" complete="<<preview.complete
                                  <<" reason="<<(preview.diagnostic.empty()?"none":preview.diagnostic)
                                  <<" closure_advisory="<<(preview.closureAdvisory.empty()?
@@ -587,8 +593,10 @@ int main(int argc, char** argv) {
                             std::cout<<"[repair-r02] loop="<<i
                                      <<" vertices="<<preview.contours[i].vertexIds.size()
                                      <<" perimeter="<<preview.contours[i].perimeter<<"\n";
-                        for(const auto id:preview.proposedFaces)
-                            std::cout<<"[repair-r02] selected FaceId "<<id<<"\n";
+                        for(const auto id:preview.proposedVertices)
+                             std::cout<<"[repair-r02] retire VertexId "<<id<<"\n";
+                         for(const auto id:preview.proposedFaces)
+                            std::cout<<"[repair-r02] remove FaceId "<<id<<"\n";
                     }
                     return mesher::ViewportMeshUpdate{
                         frozen->candidate,
