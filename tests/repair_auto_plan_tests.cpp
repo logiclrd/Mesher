@@ -220,6 +220,12 @@ void ambiguousManyToMany() {
     auto candidate=stagedCaps(std::move(mesh),red,links);
     const auto plan=planPrivateAutomaticClosure(
         *candidate.original.mesh,candidate.cut,candidate.preview,candidate.links);
+    std::cout<<"[r06-m03-many] status="<<static_cast<int>(plan.status)
+             <<" patches="<<plan.excisionPatches
+             <<" regions="<<plan.geometryRegions
+             <<" links="<<plan.trustedContactLinks
+             <<" loops="<<candidate.preview.contours.size()
+             <<" reason="<<plan.diagnostic<<"\n";
     check(!plan.ready()&&plan.status==AutoClosurePlanStatus::AmbiguousRegion &&
           plan.diagnostic.find("many-to-many")!=std::string::npos&&
           plan.cappedContours.empty()&&plan.zipperPairs.empty(),
