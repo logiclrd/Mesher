@@ -16,6 +16,7 @@ namespace mesher {
 struct RepairExcisionPreview {
     std::vector<VertexId> proposedVertices;
     std::vector<VertexId> expandedBoundaryVertices;
+    std::vector<VertexId> newlyOrphanedVertices;
     std::vector<FaceId> proposedFaces;
     std::vector<FaceId> uncertainFaces;
     std::vector<FaceId> mixedFaces;
