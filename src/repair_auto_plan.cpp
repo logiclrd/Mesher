@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <limits>
 #include <numeric>
 #include <set>
 #include <stdexcept>
@@ -61,6 +62,58 @@ double projectedArea(const RegionTopologyIndex& index,
             AutoClosurePlanStatus::AmbiguousFitness,
             "R06-M03 no reliable positive cap area estimate");
     return actual;
+}
+struct TwoRimEvidence {
+    double separation{},alignment{},maxNearestEdgeUnits{};
+    double caps{},zipperFrustum{};
+};
+TwoRimEvidence inspectTwoRims(const RegionTopologyIndex& mesh,
+                               const RepairContour& first,
+                               const RepairContour& second) {
+    const auto describe=[&](const RepairContour& loop) {
+        Vec3 center{},normal{};
+        const auto& ids=loop.vertexIds;
+        for(std::size_t i=0;i<ids.size();++i) {
+            const auto a=mesh.vertex(ids[i]).position;
+            const auto b=mesh.vertex(ids[(i+1)%ids.size()]).position;
+            center=center+a;
+            normal=normal+cross(a,b);
+        }
+        center=center/static_cast<double>(ids.size());
+        const auto norm=length(normal);
+        if(!(norm>0)||!std::isfinite(norm))
+            throw Refusal(AutoClosurePlanStatus::AmbiguousFitness,
+                          "R06-M06A malformed geometric rim normal");
+        return std::pair{center,normal/norm};
+    };
+    const auto [centerA,normalA]=describe(first);
+    const auto [centerB,normalB]=describe(second);
+    const auto areaA=projectedArea(mesh,first);
+    const auto areaB=projectedArea(mesh,second);
+    const auto radiusA=std::sqrt(areaA/3.14159265358979323846);
+    const auto radiusB=std::sqrt(areaB/3.14159265358979323846);
+    const auto oneWay=[&](const RepairContour& source,
+                          const RepairContour& dest) {
+        double furthest=0;
+        for(const auto id:source.vertexIds) {
+            const auto p=mesh.vertex(id).position;
+            double best=std::numeric_limits<double>::infinity();
+            for(const auto other:dest.vertexIds)
+                best=std::min(best,length(p-mesh.vertex(other).position));
+            furthest=std::max(furthest,best);
+        }
+        return furthest;
+    };
+    const auto edgeSize=std::min(first.meanEdgeLength,second.meanEdgeLength);
+    if(!(edgeSize>0)||!std::isfinite(edgeSize))
+        throw Refusal(AutoClosurePlanStatus::InvalidInput,
+                      "R06-M06A invalid local rim edge scale");
+    const auto separation=length(centerA-centerB);
+    return {separation,dot(normalA,normalB),
+            std::max(oneWay(first,second),oneWay(second,first))/edgeSize,
+            areaA+areaB,
+            3.14159265358979323846*(radiusA+radiusB)*
+               std::hypot(separation,radiusA-radiusB)};
 }
 void validateSettings(const AutoClosurePlanSettings& s) {
     require(s.maxExcisionFaces>0&&s.maxContours>0&&s.maxContourVertices>0&&
@@ -223,7 +276,18 @@ AutoClosurePlan planPrivateAutomaticClosure(
 
         for(auto& region:out.regions) {
             const auto n=region.contours.size();
+            if(n==2) {
+                const auto info=inspectTwoRims(
+                    *cut.index,proposal.contours[region.contours[0]],
+                    proposal.contours[region.contours[1]]);
+                region.rimCentroidSeparation=info.separation;
+                region.rimNormalAlignment=info.alignment;
+                region.rimNearestSeparationInEdges=info.maxNearestEdgeUnits;
+                region.estimatedCapArea=info.caps;
+                region.estimatedZipperArea=info.zipperFrustum;
+            }
             if(!n) {
+                region.selectionReason="zero-rim entire removed component; M02 must certify material";
                 // The cut may already have retired a whole closed component.
                 // Only R06-M04 plus M02 material evidence may authorize it.
                 region.zeroLoopComponentRetirement=true;
@@ -252,6 +316,8 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 fitness.maximumIsoperimetricRatio);
             const auto choice=selectRepairClosures(*cut.index,local,fitness);
             if(!choice.ready()) {
+                region.usedAmbiguousCapFallback=true;
+                region.selectionReason="V15 ambiguous; two-cap fallback: "+choice.reason;
                 // One loop has no possible zipper competitor. Two loops on
                 // ONE survivor can safely express handle deletion via
                 // separate disks, even if V15's annular fit is unsupported.
@@ -269,6 +335,10 @@ AutoClosurePlan planPrivateAutomaticClosure(
                         projectedArea(*cut.index,proposal.contours[global]);
                 }
             }else {
+                region.selectionReason="V15 area-DP choice";
+                if(!choice.cappedContours.empty())
+                    region.selectionReason+=": independent caps="+
+                        std::to_string(choice.cappedContours.size());
                 for(const auto localCap:choice.cappedContours)
                     region.caps.push_back(region.contours.at(localCap));
                 for(const auto& matched:choice.pairs) {
@@ -296,11 +366,19 @@ AutoClosurePlan planPrivateAutomaticClosure(
                             limits.minimumSameOwnerZipperSavings:
                             limits.minimumZipperSavings;
                     if(savings<threshold) {
+                        region.selectionReason+="; zipper downgraded to caps: "+
+                            std::to_string(savings)+" < "+
+                            std::to_string(threshold)+
+                            (loopSurvivor.at(ga)==loopSurvivor.at(gb)?
+                             " same-surface threshold":" separate-surface threshold");
                         // Reject a long/slender unnecessary same-shell seam:
                         // two caps are preferable to retaining a tunnel.
                         region.caps.push_back(ga);
                         region.caps.push_back(gb);
                     }else {
+                        region.selectionReason+="; zipper accepted: saving="+
+                            std::to_string(savings)+" threshold="+
+                            std::to_string(threshold);
                         auto globalMatch=matched;
                         globalMatch.first=ga;globalMatch.second=gb;
                         region.zippers.push_back(globalMatch);
