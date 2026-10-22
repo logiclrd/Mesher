@@ -312,12 +312,14 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     region.estimatedAddedArea+=
                         projectedArea(*cut.index,proposal.contours[global]);
                 for(const auto& pair:region.zippers) {
-                    const auto a=std::find(region.contours.begin(),
-                                           region.contours.end(),pair.first)-
-                                 region.contours.begin();
-                    const auto b=std::find(region.contours.begin(),
-                                           region.contours.end(),pair.second)-
-                                 region.contours.begin();
+                    const auto a=static_cast<std::size_t>(std::distance(
+                        region.contours.begin(),
+                        std::find(region.contours.begin(),
+                                  region.contours.end(),pair.first)));
+                    const auto b=static_cast<std::size_t>(std::distance(
+                        region.contours.begin(),
+                        std::find(region.contours.begin(),
+                                  region.contours.end(),pair.second)));
                     const auto found=std::find_if(
                         choice.closureChoices.begin(),choice.closureChoices.end(),
                         [&](const RepairClosureChoice& x) {
