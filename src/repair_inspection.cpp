@@ -147,6 +147,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
     result->incidentVertices.assign(markedVertices.begin(),markedVertices.end());
     result->incidentEdges.assign(markedEdges.begin(),markedEdges.end());
     result->previewEnabled=previewEnabled_;
+    result->excisionEnabled=excisionEnabled_;
     if(previewEnabled_&&!result->contacts.empty()) {
         try {
             result->excision=previewApproximateExcision(
@@ -154,6 +155,18 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
         }catch(const std::exception& e) {
             result->excision.complete=false;
             result->excision.diagnostic=std::string("R02 preview could not complete: ")+e.what();
+        }
+    }
+    if(excisionEnabled_) {
+        if(!result->diagnostic.empty()||!result->excision.complete)
+            result->excisionDiagnostic="R03 refuses incomplete contact or R02 cut plan";
+        else {
+            try {
+                result->privateCut=applyPrivateExcision(
+                    proposed.candidate,result->excision);
+            }catch(const std::exception& e) {
+                result->excisionDiagnostic=std::string("R03 private cut refused: ")+e.what();
+            }
         }
     }
     {
@@ -176,6 +189,20 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
+    if(snapshot.excisionEnabled&&snapshot.privateCut) {
+        // Only real SURVIVING boundary rims are shown on the privately
+        // cut mesh. Removed faces/vertices must not reappear as red/orange
+        // "ghosts", which would obscure the actual holes.
+        for(const auto& loop:snapshot.excision.contours) {
+            for(std::size_t i=0;i<loop.vertexIds.size();++i) {
+                const auto a=loop.vertexIds[i];
+                const auto b=loop.vertexIds[(i+1)%loop.vertexIds.size()];
+                rod(overlay,snapshot.privateCut->index->vertex(a).position,
+                    snapshot.privateCut->index->vertex(b).position,.0025,6.0f);
+            }
+        }
+        return overlay;
+    }
     // Real incident edge lengths keep markers visible on both coarse
     // fixture geometry and ordinary higher-density sphere meshes.
     std::map<VertexId,double> radius;
