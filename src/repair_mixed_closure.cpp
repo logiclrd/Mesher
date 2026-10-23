@@ -198,10 +198,21 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(!assessSurvivorSplit(
                 faces,positions,chosen,limits.minSurvivorQuality).safe)
             return false;
+        const auto midpoint=assessUniqueConformingMidpoint(positions,chosen);
+        if(!midpoint.unique)return false;
         if(!limits.requireReflectedGeometry)return true;
         const auto reflected=reflectedEdge(chosen);
-        return reflected&&assessSurvivorSplit(
-            faces,positions,*reflected,limits.minSurvivorQuality).safe;
+        if(!reflected||!assessSurvivorSplit(
+                faces,positions,*reflected,limits.minSurvivorQuality).safe)
+            return false;
+        if(*reflected==chosen)return true;
+        const auto peer=assessUniqueConformingMidpoint(positions,*reflected);
+        // Distinct reflected orbits must not insert the SAME plane vertex
+        // under two different IDs, even if both were previously absent.
+        return peer.unique&&
+            !(peer.point.x==midpoint.point.x&&
+              peer.point.y==midpoint.point.y&&
+              peer.point.z==midpoint.point.z);
     };
     const auto splitMirrored=[&](Edge chosen,bool optional)->std::size_t {
         Edge paired=chosen;
@@ -246,6 +257,28 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                     " child_q="+std::to_string(check.worstChildQuality)+
                     " required="+std::to_string(limits.minSurvivorQuality));
             }
+        }
+        const auto firstPoint=assessUniqueConformingMidpoint(
+            positions,chosen);
+        const auto secondPoint=paired==chosen?firstPoint:
+            assessUniqueConformingMidpoint(positions,paired);
+        const bool midpointsCollide=paired!=chosen&&
+            firstPoint.point.x==secondPoint.point.x&&
+            firstPoint.point.y==secondPoint.point.y&&
+            firstPoint.point.z==secondPoint.point.z;
+        if(!firstPoint.unique||!secondPoint.unique||midpointsCollide) {
+            if(optional)return 0;
+            throw std::logic_error(
+                "R06-M11A2 complete mirrored midpoint orbit would "
+                "create coincident stable vertices: edge="+
+                std::to_string(chosen.first)+","+
+                std::to_string(chosen.second)+
+                " first_collision="+
+                std::to_string(firstPoint.existingVertex)+
+                " reflected_collision="+
+                std::to_string(secondPoint.existingVertex)+
+                " orbit_self_collision="+
+                std::to_string(midpointsCollide));
         }
         if(optional) {
             for(const auto& e:{chosen,paired})
