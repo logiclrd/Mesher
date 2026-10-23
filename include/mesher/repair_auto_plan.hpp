@@ -3,6 +3,7 @@
 #include "mesher/repair_survivors.hpp"
 
 #include <cstddef>
+#include <vector>
 #include <string>
 #include <utility>
 #include <vector>
@@ -13,7 +14,24 @@ namespace mesher {
 // publishes a worker revision, or certifies M04's actual cap/zipper geometry.
 // Contact pairs are the complete trusted R01 pairs for the same ORIGINAL
 // candidate from which R02/R03 excised the selected faces.
+enum class AutoClosureClassifier { Area, Proximity };
+const char* autoClosureClassifierName(AutoClosureClassifier algorithm) noexcept;
+
+// Experimental mathematical score, not a certificate of a valid zipper.
+// Each ring is ordered with nonzero edges, with >=3 finite vertices.
+// Newell area = magnitude of 3D vector area (NOT least-squares PCA).
+struct ProximityFitnessTerms {
+    double area1{},area2{},averageArea{},areaDifference{};
+    double weightedDistance{},distanceSquared{};
+    double averageAreaTerm{},differenceTerm{},distanceTerm{},score{};
+};
+// Exposed for deterministic sampled-geometry tests independently of M03
+// topology and M04 acceptance. Weights are 0.5*(previous+next edge).
+ProximityFitnessTerms computeProximityFitness(
+    const std::vector<Vec3>& first,const std::vector<Vec3>& second);
+
 struct AutoClosurePlanSettings {
+    AutoClosureClassifier classifier=AutoClosureClassifier::Area;
     std::size_t maxExcisionFaces=4096;
     std::size_t maxContours=16;
     std::size_t maxContourVertices=512;
@@ -53,6 +71,8 @@ struct AutoClosureRegion {
     std::string selectionReason;
     bool usedAmbiguousCapFallback{};
     bool twoRimEvidenceValid{};
+    bool proximityFitnessValid{};
+    ProximityFitnessTerms proximityFitness{};
     double rimCentroidSeparation{};
     double rimNormalAlignment{};
     double rimNearestSeparationInEdges{}; // symmetric nearest vertex, not a certification
