@@ -11,6 +11,21 @@ double quality(Vec3 a,Vec3 b,Vec3 c) {
     return sides>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/sides:0;
 }
 } // namespace
+MidpointCollision assessUniqueConformingMidpoint(
+    const std::map<VertexId,Vec3>& positions,
+    std::pair<VertexId,VertexId> e) {
+    const auto pa=positions.at(e.first),pb=positions.at(e.second);
+    MidpointCollision assessment;
+    assessment.point=(pa+pb)*0.5;
+    const auto p=assessment.point;
+    for(const auto& [id,other]:positions)
+        if(other.x==p.x&&other.y==p.y&&other.z==p.z) {
+            assessment.unique=false;
+            assessment.existingVertex=id;
+            break;
+        }
+    return assessment;
+}
 SurvivorSplitQuality assessSurvivorSplit(
     const std::vector<MixedClosureFace>& faces,
     const std::map<VertexId,Vec3>& positions,
