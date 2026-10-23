@@ -19,7 +19,8 @@ Mesh tetrahedra(bool mirror) {
         {0,2,1},{0,1,3},{0,3,2},{1,2,3}
     }};
     for(const auto v:p)mesh.vertices.push_back(v);
-    for(const auto triangle:t)mesh.triangles.push_back(triangle);
+    for(const auto triangle:t)
+        mesh.triangles.push_back({triangle[0],triangle[1],triangle[2]});
     if(mirror) {
         for(auto v:p) {
             v.x=-v.x;
