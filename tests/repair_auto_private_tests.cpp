@@ -128,6 +128,46 @@ void torusAccepted() {
     const auto plan=planPrivateAutomaticClosure(*f.mesh,cut,preview,contacts);
     require(plan.ready()&&plan.cappedContours.size()==2,
             "R06-M04C tight torus needs two automatic caps");
+    // Preserve the original forged-plan barrier in BOTH selectable
+    // classifiers. A bogus set of cap/zipper decisions cannot evade
+    // independent M04C source-based re-planning by switching algorithms.
+    const auto altered= [&] {
+        auto value=plan;
+        value.cappedContours.clear();
+        value.zipperPairs.clear();
+        return value;
+    }();
+    for(const auto classifier:{
+        AutoClosureClassifier::Area,AutoClosureClassifier::Proximity}) {
+        CertifiedPrivateAutoLimits settings;
+        settings.planner.classifier=classifier;
+        bool forgeryRefused=false;
+        try {
+            (void)applyCertifiedPrivateAutomaticClosure(
+                f.mesh,cut,preview,altered,contacts,settings);
+        }catch(const std::logic_error& e) {
+            forgeryRefused=std::string(e.what()).find(
+                "stale or forged M03 closure choice")!=std::string::npos;
+        }
+        require(forgeryRefused,"M09 M04C must still reject forged decisions under BOTH algorithms");
+    }
+    AutoClosurePlanSettings proximitySettings;
+    proximitySettings.classifier=AutoClosureClassifier::Proximity;
+    const auto legitimate=planPrivateAutomaticClosure(
+        *f.mesh,cut,preview,contacts,proximitySettings);
+    require(legitimate.ready(),"M09 trusted alternate torus plan should be ready");
+    CertifiedPrivateAutoLimits verifier;
+    verifier.planner=proximitySettings;
+    try {
+        (void)applyCertifiedPrivateAutomaticClosure(
+            f.mesh,cut,preview,legitimate,contacts,verifier);
+    }catch(const std::exception& e) {
+        // Legitimate new geometry MAY still fail M04 quality or manifold
+        // audit. Reject only the false forgery mismatch this change fixes.
+        require(std::string(e.what()).find(
+            "stale or forged M03 closure choice")==std::string::npos,
+            "M09 legitimate proximity plan cannot be compared against area");
+    }
     const auto result=applyCertifiedPrivateAutomaticClosure(
         f.mesh,cut,preview,plan,contacts);
     std::cout<<"[r06-m04c-torus] retired="<<result.retiredCavityComponents
