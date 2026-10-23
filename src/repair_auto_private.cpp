@@ -73,7 +73,7 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     // Replan directly from immutable source and exactly the entrusted R01
     // contacts; a caller may not provide an arbitrary fabricated zipper.
     const auto recomputed=planPrivateAutomaticClosure(
-        *sourceCandidate,cut,proposal,trustedContacts);
+        *sourceCandidate,cut,proposal,trustedContacts,limits.planner);
     if(!recomputed.ready() ||
        recomputed.cappedContours!=plan.cappedContours ||
        !identicalPairs(recomputed.zipperPairs,plan.zipperPairs))
