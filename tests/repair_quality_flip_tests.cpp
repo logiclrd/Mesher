@@ -34,7 +34,7 @@ std::map<VertexId,Vec3> positions(bool reflected=false) {
         {4,{8.0855206755773086,-0.9681983813799359,0}}
     };
     if(reflected)
-        for(const std::pair<VertexId,VertexId> ids:
+        for(const auto& ids:
             {std::pair<VertexId,VertexId>{1,5},{2,6},{3,7},{4,8}}) {
             auto v=p.at(ids.first);
             v.x=-v.x;
