@@ -9,6 +9,7 @@
 #include <map>
 #include <optional>
 #include <sstream>
+#include <iomanip>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -389,10 +390,23 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
             if(best<0) {
                 std::ostringstream evidence;
-                evidence<<"R06-M11A skinny cap/seam has no survivor-safe "
+                evidence<<std::setprecision(17)
+                        <<"R06-M11A skinny cap/seam has no survivor-safe "
                           "conforming two-sided split face="
                         <<v[0]<<","<<v[1]<<","<<v[2]
                         <<" current_q="<<smallest;
+                for(const auto vertex:v) {
+                    const auto p=positions.at(vertex);
+                    std::size_t reflectedMatches=0;
+                    for(const auto& [id,q]:positions) {
+                        (void)id;
+                        if(q.x==-p.x&&q.y==p.y&&q.z==p.z)
+                            ++reflectedMatches;
+                    }
+                    evidence<<" vertex="<<vertex
+                            <<" xyz="<<p.x<<","<<p.y<<","<<p.z
+                            <<" exact_mirror_candidates="<<reflectedMatches;
+                }
                 for(unsigned k=0;k<3;++k) {
                     const auto e=edge(v[k],v[(k+1)%3]);
                     const auto neighboring=incident(e);
