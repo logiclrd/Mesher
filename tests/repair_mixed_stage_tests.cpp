@@ -139,6 +139,30 @@ void mixedAndTampered() {
             f.root->retiredFaceCount()==0 && cut.index->retiredFaceCount()==
                 proposal.proposedFaces.size(),
             "R06-M04B must finish a genuinely mixed closed manifold in one private root");
+    // M12 explicit best-effort private preview: the same real staged
+    // closed topology is rejected by deliberately strict quality goals,
+    // but diagnostic mode preserves all actual bad face IDs. Nothing in
+    // the original source or production policy is changed.
+    MixedPrivateClosureLimits hostileQuality;
+    hostileQuality.minCapQuality=.95;
+    hostileQuality.minZipperQuality=.95;
+    hostileQuality.maxRefinementSteps=2;
+    bool strictlyRefused=false;
+    try {(void)applyPrivateMixedClosure(cut,proposal,plan,hostileQuality);}
+    catch(const std::exception&) {strictlyRefused=true;}
+    require(strictlyRefused,"M12 default strict quality must refuse");
+    hostileQuality.inspectionWarnQuality=true;
+    const auto warned=applyPrivateMixedClosure(
+        cut,proposal,plan,hostileQuality);
+    require(warned.index&&
+            !warned.qualityWarningFaces.empty()&&
+            !warned.qualityWarningReason.empty()&&
+            warned.index!=cut.index&&
+            f.root->retiredFaceCount()==0,
+            "M12 untrusted preview must preserve real deficient faces without mutating source");
+    for(const auto id:warned.qualityWarningFaces)
+        require(warned.index->maybeFace(id),
+                "M12 warned face IDs must refer to the actual displayed private geometry");
     require(closed.spatialCapLoops==0&&
             closed.spatialDensitySplits==0&&
             closed.maximumFinalSpatialCapEdgeRatio==0,
