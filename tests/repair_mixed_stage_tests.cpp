@@ -161,7 +161,7 @@ void mixedAndTampered() {
             f.root->retiredFaceCount()==0,
             "M12 untrusted preview must preserve real deficient faces without mutating source");
     for(const auto id:warned.qualityWarningFaces)
-        require(warned.index->maybeFace(id),
+        require(static_cast<bool>(warned.index->maybeFace(id)),
                 "M12 warned face IDs must refer to the actual displayed private geometry");
     require(closed.spatialCapLoops==0&&
             closed.spatialDensitySplits==0&&
