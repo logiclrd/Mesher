@@ -19,6 +19,7 @@ struct SpatialCapPatch {
     std::size_t poissonIterations{};
     double poissonResidual{};
     double minimumQuality{1};
+    bool usedMirroredRibbonFallback{}; // alternate exact X=0 seam strip; no Poisson sweeps
 };
 
 struct SpatialCapSettings {
