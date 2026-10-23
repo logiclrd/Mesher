@@ -17,6 +17,6 @@ struct ConstrainedRimTipQuality {
 std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
     const MixedClosureFace& face,
     const std::map<VertexId,Vec3>& positions,
-    const std::vector<RepairContourLoop>& contours,
+    const std::vector<RepairContour>& contours,
     double standardMinimumQuality);
 }
