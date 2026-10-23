@@ -19,6 +19,10 @@ for the PRIVATE R06 repair, not a reconstruction of the prior brush stroke.
 
 ## Physical capture
 
+Capture initially supported AUTO_REFUSED only; V2 supports any frozen AUTO.
+Use Ctrl+Shift+S for operator desired zipper, Ctrl+Alt+S for caps,
+or plain Ctrl+S for unlabelled success/refusal.
+
 Launch with `./build/Mesher --repair auto --repair-dump-contours`. At
 `R06 AUTO REFUSED`, press **Ctrl+S**. The console reports
 `[repair-r06] CASE_SAVED <path>` or a clearly explained save refusal.
@@ -76,3 +80,59 @@ no Vulkan startup. Check unique numbering across two captures, corruption
 handling, Linux and Windows physical Vulkan views, and future-build
 re-execution of the same archived failure. Preserve all existing quality
 thresholds, finite work budgets, symmetry and no-publication gates.
+
+## 2026-10-22: Capture successful-but-wrong classifier decisions (R06-M07D)
+
+A real physical success may still have wrong M03 semantics. The screenshot
+from the symmetric sphere shows two thin green cap patches where the sculptor
+expects a joined blue zipper bridge. Do not assume the screenshot alone
+proves that the R03 input had two independent linkable rims; a full POST-STAMP
+candidate and original R01 contacts are essential.
+
+After **any** frozen R06 outcome, save a case using these shortcuts:
+
+- **Ctrl+S**: save the original auto result without desired topology.
+- **Ctrl+Shift+S**: save the identical original candidate annotated
+  **PREFER ZIPPER**; use for a successful result that should bridge rims.
+- **Ctrl+Alt+S**: save the original candidate annotated **PREFER CAPS**.
+
+This does not re-run an alternative classifier in the GUI or change the
+frozen model. It labels the expected M03 **decision** so the precise saved
+input can drive later tuning. Archive V2 adds one explicitly validated
+`intendedSelection` byte; the reader continues loading V1 exactly.
+The observed `expectedClosure` bit remains separate. User annotation is
+not an automatic assertion of geometric validity or proof that a particular
+zipper passes all M04B quality and symmetry checks.
+
+Successful cases default to `repair-cases/closure-N.r06case`; tagged
+capture files use `repair-cases/classification-zipper-N.r06case` or
+`classification-caps-N.r06case`; untagged refusals remain
+`repair-cases/refusal-N.r06case`. Existing files are not overwritten.
+Output includes original AUTO_CLOSED/AUTO_REFUSED and the desired choice.
+
+Both replay modes now print `expected_choice`, `actual_choice`, and
+`choice_match`. In headless `--repair-replay-test FILE`, exit 0 means both
+the archived original outcome and optional human desired classification
+match, exit 2 means a CLOSED/REFUSED change, and exit 3 means an M03
+classifier mismatch despite matching CLOSED/REFUSED. A mismatched
+classification can therefore be a deliberate red regression until the
+planner is fixed, while a future semantic correction becomes explicit.
+
+The initial **five user-recorded V1 real 5K-vertex refusals** were added
+without alteration to the new headless CTest corpus:
+
+- refusal-1: CAP q=.082329, 512 refinement steps
+- refusal-2: ZIPPER q=.098881, 512 refinement steps
+- refusal-3: CAP q=.096550, 512 refinement steps
+- refusal-4: mirrored split-orbit finite-budget exhaustion
+- refusal-5: CAP q=.014067, 512 refinement steps
+
+These five do not contain a successful misclassification. To test the
+pictured mistaken caps, physically capture the next occurrence with
+Ctrl+Shift+S, then replay the actual case. Inspect the M03 region's
+rim count, paired contacts and area-DP evidence BEFORE tuning V15.
+After a future algorithm intentionally fixes a formerly refused case,
+review its test expectation instead of silently replacing the archive.
+
+Physical GUI shortcut and Vulkan acceptance remain open, and PR #151 stays
+draft until source-based CI and actual Linux/Windows UI testing pass.
