@@ -715,15 +715,26 @@ int main(int argc, char** argv) {
                     capture.contacts=frozen->contacts;
                     capture.expectedClosure=completed;
                     capture.intendedSelection=intent;
-                    if(completed) {
-                        const auto capCount=frozen->autoPlan?
-                            frozen->autoPlan->cappedContours.size():0;
-                        const auto zipperCount=frozen->autoPlan?
-                            frozen->autoPlan->zipperPairs.size():0;
-                        capture.originalDiagnostic="R06 AUTO_CLOSED cap_loops="+
-                            std::to_string(capCount)+" zipper_pairs="+
-                            std::to_string(zipperCount);
-                    }else capture.originalDiagnostic=frozen->autoDiagnostic;
+                    // Preserve the ORIGINAL M03 classification explanation
+                    // as human-readable archive evidence. A later executable
+                    // may have different decision thresholds and cannot
+                    // reconstruct what the old planner actually reasoned.
+                    std::ostringstream original;
+                    original<<(completed?"R06 AUTO_CLOSED":"R06 AUTO_REFUSED");
+                    if(frozen->autoPlan) {
+                        const auto& plan=*frozen->autoPlan;
+                        original<<" caps="<<plan.cappedContours.size()
+                                <<" zippers="<<plan.zipperPairs.size();
+                        for(std::size_t i=0;i<plan.regions.size();++i) {
+                            const auto& region=plan.regions[i];
+                            original<<" region["<<i<<"] caps="
+                                    <<region.caps.size()<<" zippers="
+                                    <<region.zippers.size()<<" selection="
+                                    <<region.selectionReason;
+                        }
+                    }
+                    if(!completed)original<<" refusal="<<frozen->autoDiagnostic;
+                    capture.originalDiagnostic=original.str();
                     mesher::writeRepairCase(destination,capture);
                     std::cout<<"[repair-r06] CASE_SAVED "<<destination.string()
                              <<" original="<<(completed?"AUTO_CLOSED":"AUTO_REFUSED")
