@@ -34,6 +34,7 @@ struct CertifiedPrivateAutoResult {
     std::size_t generatedFaces{};
     std::size_t insertedVertices{};
     std::size_t refinementSteps{};
+    std::size_t interiorQualityFlips{};
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
     std::size_t spatialCapLoops{};
