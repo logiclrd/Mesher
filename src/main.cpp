@@ -372,6 +372,7 @@ int main(int argc, char** argv) {
                          <<" min_cap_quality="<<completed.minimumCapQuality
                          <<" min_zipper_quality="<<completed.minimumZipperQuality
                          <<" refinement_steps="<<completed.refinementSteps
+                         <<" interior_quality_flips="<<completed.interiorQualityFlips
                          <<" inserted_vertices="<<completed.insertedVertices
                          <<" mirrored_ribbon_loops="<<completed.mirroredRibbonLoops
                          <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
@@ -1012,6 +1013,7 @@ int main(int argc, char** argv) {
                                      <<" generated_faces="<<automatic->generatedFaces
                                      <<" inserted_vertices="<<automatic->insertedVertices
                                      <<" refinement_steps="<<automatic->refinementSteps
+                                     <<" interior_quality_flips="<<automatic->interiorQualityFlips
                                      <<" min_cap_quality="<<automatic->minimumCapQuality
                                      <<" min_zipper_quality="<<automatic->minimumZipperQuality
                                      <<" spatial_cap_loops="<<automatic->spatialCapLoops
