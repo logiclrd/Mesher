@@ -1,4 +1,5 @@
 #include "mesher/repair_mixed_closure.hpp"
+#include "mesher/repair_quality_flip.hpp"
 
 #include <algorithm>
 #include <array>
@@ -262,6 +263,18 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         out.refinementSteps+=splitMirrored(worst,false);
     }
 
+    const auto improveQuality=[&]() -> bool {
+        const auto orbit=limits.requireReflectedGeometry?std::size_t{2}:std::size_t{1};
+        if(out.interiorQualityFlips+orbit>limits.maxInteriorQualityFlips)
+            return false;
+        const auto count=flipOneInferiorClosureDiagonal(
+            faces,positions,limits.requireReflectedGeometry,
+            limits.minCapQuality,limits.minZipperQuality,
+            limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
+        if(!count)return false;
+        out.interiorQualityFlips+=count;
+        return true;
+    };
     std::size_t stagnant=0;
     while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
@@ -289,6 +302,13 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
         if(largestRatio<=1&&lowest==faces.size())break;
+        // A bad local diagonal is not repairable merely by bisecting an
+        // already skinny needle. Try a bounded topology-preserving 2->2
+        // improvement before burning one of the finite subdivision steps.
+        if(lowest!=faces.size()&&largestRatio<=1&&improveQuality()) {
+            stagnant=0;
+            continue;
+        }
         Edge chosen=longest;
         if(largestRatio<=1) {
             double best=-1;
@@ -313,6 +333,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::logic_error("R06-M04B refinement stagnation");
         out.refinementSteps+=splitMirrored(chosen,false);
     }
+    // Mandatory split budget can be exhausted with q just below .10.
+    // Flips need no new vertices and may rescue such local bad
+    // diagonals, but remain a separate finite allowance.
+    while(improveQuality()){}
     // R06-M06C4a: optional density balancing ONLY after the mandatory
     // bounded M04 quality/length pass. The spatial front can have long
     // spokes even if its legal triangles satisfy the relaxed 2.5*h
@@ -449,7 +473,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     auto closed=RegionTopologyIndex::restore(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
-    if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper) {
+    if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
+       out.interiorQualityFlips>0) {
         // Neither the spatial front nor the explicit mirrored zipper
         // seam can see the full surrounding mesh during local staging.
         // Demand a separate, bounded exact triangle contact query against
