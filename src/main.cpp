@@ -379,6 +379,7 @@ int main(int argc, char** argv) {
                          <<" refinement_steps="<<completed.refinementSteps
                          <<" interior_quality_flips="<<completed.interiorQualityFlips
                          <<" interior_fairing_moves="<<completed.interiorFairingMoves
+                         <<" interior_cap_collapses="<<completed.interiorCapCollapses
                          <<" inserted_vertices="<<completed.insertedVertices
                          <<" mirrored_ribbon_loops="<<completed.mirroredRibbonLoops
                          <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
@@ -1047,6 +1048,7 @@ int main(int argc, char** argv) {
                                      <<" refinement_steps="<<automatic->refinementSteps
                                      <<" interior_quality_flips="<<automatic->interiorQualityFlips
                                      <<" interior_fairing_moves="<<automatic->interiorFairingMoves
+                                     <<" interior_cap_collapses="<<automatic->interiorCapCollapses
                                      <<" min_cap_quality="<<automatic->minimumCapQuality
                                      <<" min_zipper_quality="<<automatic->minimumZipperQuality
                                      <<" spatial_cap_loops="<<automatic->spatialCapLoops
