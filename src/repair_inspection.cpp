@@ -176,6 +176,35 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
     }
 }
 
+void buildSeamAuditIfRequested(RepairInspectionSnapshot& snapshot,
+                               bool requested) {
+    if(!requested)return;
+    const auto* good=snapshot.privateAuto?
+        snapshot.privateAuto->index.get():nullptr;
+    const auto* preview=snapshot.warningPreview?
+        snapshot.warningPreview->index.get():nullptr;
+    const auto* mesh=good?good:preview;
+    if(!mesh) {
+        snapshot.seamAuditDiagnostic=
+            "No closed-index geometry available; R03 cut cannot have a cap/survivor seam";
+        return;
+    }
+    std::vector<FaceId> ids;
+    if(good) {
+        ids=snapshot.privateAuto->greenFaces;
+        const auto& blue=snapshot.privateAuto->blueFaces;
+        ids.insert(ids.end(),blue.begin(),blue.end());
+    }else {
+        ids=snapshot.warningPreview->greenFaces;
+        const auto& blue=snapshot.warningPreview->blueFaces;
+        ids.insert(ids.end(),blue.begin(),blue.end());
+    }
+    try {snapshot.seamAudit=auditPrivateRepairSeam(*mesh,ids);}
+    catch(const std::exception& e) {
+        snapshot.seamAuditDiagnostic=e.what();
+    }
+}
+
 std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed) {
     if(frozen())return "R01 diagnostic view is frozen; relaunch to sculpt again";
     if(!proposed.candidate||!proposed.before)
@@ -325,6 +354,8 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
         }
     }
     if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_,warnQuality_);
+    result->exactOverlay=exactOverlay_;
+    buildSeamAuditIfRequested(*result,auditSeam_||exactOverlay_);
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -343,7 +374,8 @@ RepairInspectionSession::frozenSnapshot() const {
 
 
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
-    const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality) {
+    const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality,
+    bool auditSeam,bool exactOverlay) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -388,6 +420,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
         }
     }
     runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality);
+    result->exactOverlay=exactOverlay;
+    buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;
 }
 
@@ -418,7 +452,8 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
                 if(norm>1e-18) {
                     const auto distance=.003*std::min({
                         length(a-b),length(b-c),length(c-a)});
-                    const auto offset=n/norm*(warned?distance*1.5:distance);
+                    const auto offset=snapshot.exactOverlay?Vec3{}:
+                        n/norm*(warned?distance*1.5:distance);
                     triangle(overlay,a+offset,b+offset,c+offset,material);
                     triangle(overlay,c-offset,b-offset,a-offset,material);
                 }
@@ -437,6 +472,13 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
             const auto b=mesh.vertex(e.b).position;
             rod(overlay,a,b,.0015,failed?11.0f:12.0f);
         }
+        // Exact-position yellow seam markers remain separate from the
+        // displaced (or undisplaced) colored face overlay. These use
+        // ORIGINAL shared edge endpoint IDs, never matching XYZ guesses.
+        if(snapshot.exactOverlay&&snapshot.seamAudit)
+            for(const auto& e:snapshot.seamAudit->interfaceEdges)
+                rod(overlay,mesh.vertex(e.a).position,
+                    mesh.vertex(e.b).position,.00030,13.0f);
     };
     if(snapshot.autoEnabled&&snapshot.privateAuto) {
         const auto& result=*snapshot.privateAuto;
