@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -67,6 +68,26 @@ void torusGreenSuccessfulOverlay() {
     require(!vertices.empty()&&vertices.size()%3==0&&
             hasMaterial(vertices,9.0f)&&hasMaterial(vertices,12.0f),
             "R06-M12 successful auto torus must draw actual green faces AND triangulation edges");
+    // M13 exact-position visual check: normal colored overlays are
+    // deliberately displaced, but the opt-in diagnostic must place its
+    // actual colored face vertices at the authoritative mesh XYZ.
+    frozen.exactOverlay=true;
+    std::vector<FaceId> capIds=result.greenFaces;
+    frozen.seamAudit=auditPrivateRepairSeam(*result.index,capIds);
+    const auto undisplaced=buildRepairInspectionOverlay(frozen);
+    require(hasMaterial(undisplaced,13.0f),
+            "M13 exact overlay must draw a distinct real seam marker");
+    const auto first=result.index->face(result.greenFaces.front()).vertices;
+    const auto p=result.index->vertex(first[0]).position;
+    const auto firstGreen=std::find_if(undisplaced.begin(),undisplaced.end(),
+        [](const auto& v){return v.material==9.0f;});
+    require(firstGreen!=undisplaced.end()&&
+            std::abs(firstGreen->px-static_cast<float>(p.x))<1e-7&&
+            std::abs(firstGreen->py-static_cast<float>(p.y))<1e-7&&
+            std::abs(firstGreen->pz-static_cast<float>(p.z))<1e-7,
+            "M13 exact colored cap triangle must use source vertex XYZ without normal offset");
+    frozen.exactOverlay=false;
+    frozen.seamAudit.reset();
     const auto before=f.mesh->pickingRootIdentity();
     require(f.mesh->pickingRootIdentity()==before&&
             f.mesh->retiredFaceCount()==0,
