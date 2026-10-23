@@ -40,6 +40,65 @@ RegionTopologyIndex::CollisionPair pair(FaceId a,FaceId b) {
     if(b<a)std::swap(a,b);
     return {a,b,false};
 }
+// M08 mathematical classifier checks use ordered rings independent of
+// the topology validator. Exact two-rim safety is exercised separately.
+void proximityFitnessMath() {
+    const std::vector<Vec3> a{
+        {0,-1,-1},{0,1,-1},{0,1,1},{0,-1,1}};
+    const std::vector<Vec3> b{
+        {.1,-1,-1},{.1,1,-1},{.1,1,1},{.1,-1,1}};
+    const auto close=computeProximityFitness(a,b);
+    check(std::abs(close.area1-4)<1e-12&&
+          std::abs(close.area2-4)<1e-12&&
+          std::abs(close.weightedDistance-.1)<1e-12&&
+          std::abs(close.averageAreaTerm-4)<1e-12&&
+          std::abs(close.differenceTerm)<1e-12&&
+          std::abs(close.distanceTerm+.02)<1e-12&&
+          close.score>0,
+          "M08 equal projected rings should prefer zipper with exact d and terms");
+    // Edge midpoint pairs change vertex COUNT and individual weights,
+    // but do not change the polygon, and their sampled nearest distances
+    // remain exactly d for this symmetric translated pair.
+    const std::vector<Vec3> subdividedA{
+        {0,-1,-1},{0,0,-1},{0,1,-1},{0,1,0},
+        {0,1,1},{0,0,1},{0,-1,1},{0,-1,0}};
+    const std::vector<Vec3> subdividedB{
+        {.1,-1,-1},{.1,0,-1},{.1,1,-1},{.1,1,0},
+        {.1,1,1},{.1,0,1},{.1,-1,1},{.1,-1,0}};
+    const auto denser=computeProximityFitness(subdividedA,subdividedB);
+    check(std::abs(denser.score-close.score)<1e-12&&
+          std::abs(denser.weightedDistance-close.weightedDistance)<1e-12,
+          "M08 arc weighted matching subdivision must preserve distance and score");
+    const auto swapped=computeProximityFitness(b,a);
+    check(std::abs(swapped.score-close.score)<1e-12&&
+          std::abs(swapped.weightedDistance-close.weightedDistance)<1e-12,
+          "M08 bidirectional weighted distance must be exchange-symmetric");
+    auto far=b;
+    for(auto& p:far)p.x+=5;
+    const auto remote=computeProximityFitness(a,far);
+    check(remote.score<0,"M08 distant rings must favor caps");
+    const std::vector<Vec3> small{
+        {.1,-.5,-.5},{.1,.5,-.5},{.1,.5,.5},{.1,-.5,.5}};
+    const auto mismatched=computeProximityFitness(a,small);
+    check(std::abs(mismatched.averageAreaTerm-2.5)<1e-12&&
+          std::abs(mismatched.differenceTerm+3)<1e-12&&
+          mismatched.score<0,
+          "M08 area ratio 4:1 must refuse zipper independently of distance");
+    // Noncoplanar shoelace is the norm of vector area (sqrt(18)),
+    // not a PCA least-squares plane/triangulated surface area.
+    const std::vector<Vec3> folded{
+        {0,0,0},{2,0,0},{2,2,1},{0,2,0}};
+    const auto warp=computeProximityFitness(folded,b);
+    check(std::abs(warp.area1-std::sqrt(18.0))<1e-12,
+          "M08 nonplanar vector area must use full 3D cross sum");
+    auto bad=a;bad[1]=bad[0];
+    bool invalid=false;
+    try{(void)computeProximityFitness(bad,b);}
+    catch(const std::invalid_argument&){invalid=true;}
+    check(invalid,"M08 repeated zero-length rim edges must refuse");
+    std::cout<<"[r06-m08] Newell vector area, term signs, arc-length sampling, "
+                 "symmetric nearest distances, 3:1 cutoff and invalid rim PASS\\n";
+}
 void torusCaps() {
     const auto f=indexed(generateTorusFixture(5000,1,5));
     const auto first=nearest(f,{.12,0,0}),second=nearest(f,{-.12,0,0});
@@ -63,6 +122,17 @@ void torusCaps() {
     check(result.survivors.components.size()==1&&
           result.estimatedAddedArea>0,
           "R06-M03 torus must preserve same-shell ownership and real cost");
+    AutoClosurePlanSettings experimental;
+    experimental.classifier=AutoClosureClassifier::Proximity;
+    const auto experimentalPlan=planPrivateAutomaticClosure(
+        *f.mesh,cut,preview,contacts,experimental);
+    check(experimentalPlan.ready()&&experimentalPlan.geometryRegions>=1&&
+          experimentalPlan.cappedContours.size()+
+             2*experimentalPlan.zipperPairs.size()==preview.contours.size(),
+          "M08 torus experimental two-rim planner must partition every real rim");
+    check(!experimentalPlan.regions.empty()&&
+          experimentalPlan.regions.front().proximityFitnessValid,
+          "M08 torus must expose full experimental terms");
     check(f.mesh->pickingRootIdentity()==origin &&
           f.mesh->retiredFaceCount()==0 &&
           cut.index->retiredFaceCount()==preview.proposedFaces.size(),
@@ -230,6 +300,22 @@ void closeOpposingMouthsOnOneSurvivor() {
           decision.selectionReason.find("directly linked close opposing rims")!=
               std::string::npos,
           "R06-M06B must require meaningful facing provenance and approximately 50% area saving");
+    AutoClosurePlanSettings experimental;
+    experimental.classifier=AutoClosureClassifier::Proximity;
+    const auto proximityPlan=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,f.links,experimental);
+    check(proximityPlan.ready()&&proximityPlan.regions.size()==1&&
+          proximityPlan.regions.front().proximityFitnessValid&&
+          proximityPlan.regions.front().selectionReason.find("average_term=")!=
+              std::string::npos,
+          "M08 proven linked opposing mouths must log every signed fitness term");
+    const auto& fitness=proximityPlan.regions.front().proximityFitness;
+    check((fitness.score>0)==(!proximityPlan.zipperPairs.empty()),
+          "M08 eligible linked 2-rim decision must follow score sign exactly");
+    const auto noLink=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,{},experimental);
+    check(noLink.ready()&&noLink.zipperPairs.empty(),
+          "M08 cannot invent a new contact-linked zipper");
     const auto unlinked=planPrivateAutomaticClosure(
         *f.original.mesh,f.cut,f.preview,{});
     check(unlinked.ready()&&unlinked.cappedContours.size()==2&&
@@ -433,6 +519,7 @@ void zeroLoopRetirementIsNotDeletion() {
 }
 int main() {
     try {
+        proximityFitnessMath();
         torusCaps();
         sphereSeparatedRepairs();
         closeOpposingMouthsOnOneSurvivor();
