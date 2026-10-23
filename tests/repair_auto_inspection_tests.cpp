@@ -60,15 +60,28 @@ void torusGreenSuccessfulOverlay() {
     frozen.autoPlan=plan;
     frozen.privateAuto=result;
     const auto vertices=buildRepairInspectionOverlay(frozen);
-    require(!vertices.empty()&&vertices.size()%6==0&&
-            std::all_of(vertices.begin(),vertices.end(),
-                [](const auto& vertex){return vertex.material==9.0f;}),
-            "R06-M05 successful auto torus must draw ONLY real double-sided green caps");
+    const auto hasMaterial=[](const auto& points,float material) {
+        return std::any_of(points.begin(),points.end(),
+            [material](const auto& p){return p.material==material;});
+    };
+    require(!vertices.empty()&&vertices.size()%3==0&&
+            hasMaterial(vertices,9.0f)&&hasMaterial(vertices,12.0f),
+            "R06-M12 successful auto torus must draw actual green faces AND triangulation edges");
     const auto before=f.mesh->pickingRootIdentity();
     require(f.mesh->pickingRootIdentity()==before&&
             f.mesh->retiredFaceCount()==0,
             "R06-M05 overlay must not publish or modify candidate source");
     frozen.privateAuto.reset();
+    MixedPrivateClosureResult warning;
+    warning.index=result.index;
+    warning.greenFaces=result.greenFaces;
+    warning.qualityWarningFaces.push_back(result.greenFaces.front());
+    frozen.warningPreview=warning;
+    const auto visual=buildRepairInspectionOverlay(frozen);
+    require(hasMaterial(visual,9.0f)&&hasMaterial(visual,10.0f)&&
+            hasMaterial(visual,11.0f)&&hasMaterial(visual,12.0f),
+            "R06-M12 private warning overlay must show green surface and edges, light red face and red edges");
+    frozen.warningPreview.reset();
     const auto refusal=buildRepairInspectionOverlay(frozen);
     require(!refusal.empty()&&
             std::all_of(refusal.begin(),refusal.end(),
