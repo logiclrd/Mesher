@@ -64,9 +64,16 @@ void exercise(const char* name,const Fixture& source,
     frozen.capEnabled=true;
     frozen.privateCap=result;
     const auto green=buildRepairInspectionOverlay(frozen);
-    require(!green.empty()&&std::all_of(green.begin(),green.end(),
-            [](const PartitionRenderVertex& v){return v.material==9.0f;}),
-            "R05 successful cut must show only genuine double-sided green faces");
+    require(!green.empty()&&
+            std::any_of(green.begin(),green.end(),
+                [](const PartitionRenderVertex& v){return v.material==9.0f;})&&
+            std::any_of(green.begin(),green.end(),
+                [](const PartitionRenderVertex& v){return v.material==12.0f;})&&
+            std::all_of(green.begin(),green.end(),
+                [](const PartitionRenderVertex& v) {
+                    return v.material==9.0f||v.material==12.0f;
+                }),
+            "R05 successful private cap must show actual green faces AND dark triangulation edges");
     std::cout<<"[r05] "<<name<<" caps="<<result.cappedLoops
              <<" green_faces="<<result.greenFaces.size()
              <<" vertices="<<result.insertedVertices.size()
