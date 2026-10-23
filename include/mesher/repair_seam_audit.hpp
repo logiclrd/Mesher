@@ -15,6 +15,7 @@ struct RepairSeamEdge {
     VertexId a{},b{};
     FaceId generatedFace{},survivorFace{};
     bool generatedForward=false,survivorForward=false;
+    bool exactIncidence=false;
 };
 struct RepairSeamIssue {
     std::string kind;
