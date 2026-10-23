@@ -395,68 +395,68 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
-    if(snapshot.autoEnabled&&snapshot.privateAuto) {
-        // Draw only actual surviving new faces from M04's FINAL closed
-        // private root. An inner-cavity face retired by M04C is invisible:
-        // there are no diagnostic ghost caps or invented seam triangles.
-        const auto& closed=*snapshot.privateAuto->index;
-        const auto draw=[&](const std::vector<FaceId>& ids,float material) {
+    // Draw ACTUAL private triangles and every distinct cap/zipper edge,
+    // even when ordinary model wireframe is toggled off. Warnings mark
+    // ALL deficient faces and their three edges, including any affected
+    // surviving face; they do not certify or publish this private mesh.
+    const auto drawClosure=[&](
+        const RegionTopologyIndex& mesh,
+        const std::vector<FaceId>& caps,const std::vector<FaceId>& zippers,
+        const std::vector<FaceId>& bad) {
+        std::map<RegionTopologyIndex::Edge,bool> boundaryLines;
+        const auto drawFaces=[&](const std::vector<FaceId>& ids,
+                                  float material,bool warned) {
             for(const auto id:ids) {
-                const auto& face=closed.face(id).vertices;
-                const auto a=closed.vertex(face[0]).position;
-                const auto b=closed.vertex(face[1]).position;
-                const auto c=closed.vertex(face[2]).position;
+                const auto& v=mesh.face(id).vertices;
+                const auto a=mesh.vertex(v[0]).position;
+                const auto b=mesh.vertex(v[1]).position;
+                const auto c=mesh.vertex(v[2]).position;
                 const auto n=cross(b-a,c-a);
                 const auto norm=length(n);
-                if(norm<=1e-15)continue;
-                const auto offset=n/norm*
-                    (.003*std::min({length(a-b),length(b-c),length(c-a)}));
-                triangle(overlay,a+offset,b+offset,c+offset,material);
-                triangle(overlay,c-offset,b-offset,a-offset,material);
+                // Keep red diagnostic edges visible even for degenerate
+                // faces whose filled triangles occupy zero area.
+                if(norm>1e-18) {
+                    const auto distance=.003*std::min({
+                        length(a-b),length(b-c),length(c-a)});
+                    const auto offset=n/norm*(warned?distance*1.5:distance);
+                    triangle(overlay,a+offset,b+offset,c+offset,material);
+                    triangle(overlay,c-offset,b-offset,a-offset,material);
+                }
+                for(unsigned k=0;k<3;++k) {
+                    const auto e=canonical(v[k],v[(k+1)%3]);
+                    auto [it,inserted]=boundaryLines.try_emplace(e,warned);
+                    if(!inserted&&warned)it->second=true;
+                }
             }
         };
-        draw(snapshot.privateAuto->greenFaces,9.0f);
-        draw(snapshot.privateAuto->blueFaces,8.0f);
+        drawFaces(caps,9.0f,false);
+        drawFaces(zippers,8.0f,false);
+        drawFaces(bad,10.0f,true); // tinted light-red rejected face
+        for(const auto& [e,failed]:boundaryLines) {
+            const auto a=mesh.vertex(e.a).position;
+            const auto b=mesh.vertex(e.b).position;
+            rod(overlay,a,b,.0015,failed?11.0f:12.0f);
+        }
+    };
+    if(snapshot.autoEnabled&&snapshot.privateAuto) {
+        const auto& result=*snapshot.privateAuto;
+        drawClosure(*result.index,result.greenFaces,result.blueFaces,{});
+        return overlay;
+    }
+    if(snapshot.autoEnabled&&snapshot.warningPreview) {
+        const auto& result=*snapshot.warningPreview;
+        drawClosure(*result.index,result.greenFaces,result.blueFaces,
+                    result.qualityWarningFaces);
         return overlay;
     }
     if(snapshot.capEnabled&&snapshot.privateCap) {
-        // The real new faces are in the private COW mesh, highlighted from
-        // BOTH sides. There must be no green surface left over in a hole
-        // when the private cap refused.
-        const auto& capped=*snapshot.privateCap->index;
-        for(const auto id:snapshot.privateCap->greenFaces) {
-            const auto& f=capped.face(id).vertices;
-            const auto a=capped.vertex(f[0]).position;
-            const auto b=capped.vertex(f[1]).position;
-            const auto c=capped.vertex(f[2]).position;
-            const auto n=cross(b-a,c-a);
-            if(length(n)<=1e-15)continue;
-            const auto offset=n/length(n)*
-                (.003*std::min({length(a-b),length(b-c),length(c-a)}));
-            triangle(overlay,a+offset,b+offset,c+offset,9.0f);
-            triangle(overlay,c-offset,b-offset,a-offset,9.0f);
-        }
+        const auto& result=*snapshot.privateCap;
+        drawClosure(*result.index,result.greenFaces,{}, {});
         return overlay;
     }
     if(snapshot.zipperEnabled&&snapshot.privateZipper) {
-        // Actual scar triangles are in the private mesh. Draw their blue
-        // surfaces from BOTH sides, with small opposed normal offsets;
-        // unlike R02's one-sided orange overlay, an interior camera
-        // can inspect every produced triangle.
-        const auto& zipped=*snapshot.privateZipper->index;
-        for(const auto id:snapshot.privateZipper->blueFaces) {
-            const auto& tri=zipped.face(id).vertices;
-            const auto a=zipped.vertex(tri[0]).position;
-            const auto b=zipped.vertex(tri[1]).position;
-            const auto c=zipped.vertex(tri[2]).position;
-            const auto crossNormal=cross(b-a,c-a);
-            const auto norm=length(crossNormal);
-            if(norm<=1e-15)continue;
-            const auto scale=.003*std::min({length(a-b),length(b-c),length(c-a)});
-            const auto offset=crossNormal/norm*scale;
-            triangle(overlay,a+offset,b+offset,c+offset,8.0f);
-            triangle(overlay,c-offset,b-offset,a-offset,8.0f);
-        }
+        const auto& result=*snapshot.privateZipper;
+        drawClosure(*result.index,{},result.blueFaces,{});
         return overlay;
     }
     if(snapshot.excisionEnabled&&snapshot.privateCut) {
