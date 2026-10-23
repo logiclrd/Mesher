@@ -60,6 +60,8 @@ int main(int argc, char** argv) {
     std::filesystem::path recoverPath;
     std::filesystem::path repairCaseOut,repairReplayPath;
     bool repairReplayTest=false;
+    bool classifierExplicit=false;
+    mesher::AutoClosureClassifier repairClassifier=mesher::AutoClosureClassifier::Area;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
@@ -86,6 +88,18 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-cap")repairCap=true;
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
+            else if(arg=="--repair-classifier") {
+                if(++i>=argc)throw std::invalid_argument(
+                    "--repair-classifier requires area or proximity");
+                const std::string_view value=argv[i];
+                if(value=="area")
+                    repairClassifier=mesher::AutoClosureClassifier::Area;
+                else if(value=="proximity")
+                    repairClassifier=mesher::AutoClosureClassifier::Proximity;
+                else throw std::invalid_argument(
+                    "--repair-classifier requires area or proximity");
+                classifierExplicit=true;
+            }
             else if(arg=="--repair-case-out"||arg=="--repair-replay"||
                     arg=="--repair-replay-test") {
                 if(++i>=argc)throw std::invalid_argument("Missing R06 case filename");
@@ -202,6 +216,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
                          <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
                          <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
+                         <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
@@ -246,6 +261,9 @@ int main(int argc, char** argv) {
         if(static_cast<int>(repairCap)+static_cast<int>(repairZipper)+
            static_cast<int>(repairAuto)>1)
             throw std::invalid_argument("Select only one repair: cap, zipper or auto");
+        if(classifierExplicit&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-classifier requires --repair auto, --repair-replay or --repair-replay-test");
         if(!repairCaseOut.empty()&&!repairAuto)
             throw std::invalid_argument("--repair-case-out requires --repair auto");
         if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
@@ -287,7 +305,8 @@ int main(int argc, char** argv) {
             // candidate are decoded BEFORE any Vulkan/GPU setup. The source
             // sculpt and its previous worker history are never synthesized.
             const auto saved=mesher::readRepairCase(repairReplayPath);
-            const auto frozen=mesher::replayPrivateAutomaticRepair(saved);
+            const auto frozen=mesher::replayPrivateAutomaticRepair(
+                saved,repairClassifier);
             const bool succeeded=frozen->privateAuto.has_value();
             const auto chosenCaps=frozen->autoPlan?
                 frozen->autoPlan->cappedContours.size():0;
@@ -301,6 +320,7 @@ int main(int argc, char** argv) {
                 (saved.intendedSelection==mesher::RepairCaseIntent::PreferZipper?
                     chosenZippers>0:(chosenCaps>0&&chosenZippers==0));
             std::cout<<"[repair-r06] REPLAY file="<<repairReplayPath.string()
+                     <<" classifier="<<mesher::autoClosureClassifierName(repairClassifier)
                      <<" expected="<<(saved.expectedClosure?"AUTO_CLOSED":"AUTO_REFUSED")
                      <<" actual="<<(succeeded?"AUTO_CLOSED":"AUTO_REFUSED")
                      <<" expected_choice="<<mesher::repairCaseIntentName(saved.intendedSelection)
@@ -601,7 +621,9 @@ int main(int argc, char** argv) {
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
         bool inspectionPresented=false;
         auto repairSession=repairInspect
-            ?std::make_shared<mesher::RepairInspectionSession>(repairPreview,repairExcise,repairZipper,repairCap,repairAuto,options.symmetric):nullptr;
+            ?std::make_shared<mesher::RepairInspectionSession>(
+                repairPreview,repairExcise,repairZipper,repairCap,
+                repairAuto,options.symmetric,repairClassifier):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -1112,6 +1134,11 @@ int main(int argc, char** argv) {
                             "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
                             "The annotation does not modify the displayed result. "
                             "Replay via --repair-replay FILE or --repair-replay-test FILE.\n";
+            if(repairAuto)
+                std::cout<<"[repair-r06] classifier="
+                         <<mesher::autoClosureClassifierName(repairClassifier)
+                         <<" (M08 experimental proximity for trusted two-rim regions only; "
+                            "V15 multi-rim fallback)\n";
             if(repairAuto)
                 std::cout<<"[repair-r06] Armed AUTO private closure: green caps, "
                             "blue safe zippers, proven enclosed-shell retirement. "
