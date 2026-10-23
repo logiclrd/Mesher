@@ -37,6 +37,7 @@ struct CertifiedPrivateAutoResult {
     std::size_t interiorQualityFlips{};
     std::size_t interiorFairingMoves{};
     std::size_t interiorCapCollapses{};
+    std::size_t certifiedPlanarRimTipFaces{}; // narrow explicit exception, not general low-q waiver
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
     std::size_t spatialCapLoops{};
