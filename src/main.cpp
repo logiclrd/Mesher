@@ -1031,7 +1031,7 @@ int main(int argc, char** argv) {
                         ?frozen->privateZipper->index:
                         repairExcise&&frozen->privateCut
                         ?frozen->privateCut->index:frozen->candidate;
-                    return mesher::ViewportMeshUpdate{
+                    auto update=mesher::ViewportMeshUpdate{
                         displayed,
                         {owners.begin(),owners.end()},
                         liveWorker->status().completedStamps,
@@ -1041,6 +1041,12 @@ int main(int argc, char** argv) {
                         repairZipper,repairZipper&&frozen->privateZipper.has_value(),
                         repairCap,repairCap&&frozen->privateCap.has_value(),
                         repairAuto,repairAuto&&frozen->privateAuto.has_value()};
+                    update.classifierChoices=frozen->classifierChoices;
+                    update.classifierComparable=frozen->classifierComparable;
+                    update.classifiersAgree=frozen->classifiersAgree;
+                    update.activeClassifier=
+                        frozen->activeClassifier==mesher::AutoClosureClassifier::Proximity?1:0;
+                    return update;
                 }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
