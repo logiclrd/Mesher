@@ -6,6 +6,7 @@
 #include "mesher/repair_cap.hpp"
 #include "mesher/repair_auto_private.hpp"
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -43,6 +44,13 @@ struct RepairInspectionSnapshot {
     std::string capDiagnostic;
     bool autoEnabled=false;
     std::optional<AutoClosurePlan> autoPlan;
+    // M09 compare BOTH read-only M03 plans on the same candidate/R03 cut.
+    // No alternative M04 geometry is built. Labels are only plans, not
+    // correctness or evidence that either plan can be constructed.
+    std::array<std::string,2> classifierChoices{{"UNAVAILABLE","UNAVAILABLE"}};
+    bool classifierComparable=false;
+    bool classifiersAgree=false;
+    AutoClosureClassifier activeClassifier=AutoClosureClassifier::Area;
     std::optional<CertifiedPrivateAutoResult> privateAuto;
     std::string autoDiagnostic;
 };
