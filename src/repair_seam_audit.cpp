@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
+#include <stdexcept>
 #include <map>
 #include <set>
 #include <tuple>
@@ -144,7 +145,8 @@ RepairSeamAudit auditPrivateRepairSeam(
             }
             result.interfaceEdges.push_back({
                 edge.first,edge.second,newSide.face,oldSide.face,
-                newSide.forward,oldSide.forward});
+                newSide.forward,oldSide.forward,
+                g==1&&gray==1&&sides.size()==2});
         }
     }
     // Deterministic, explicit finite proximity tolerance relative to the
@@ -292,7 +294,7 @@ void printRepairSeamAudit(
               <<" new_forward="<<e.generatedForward
               <<" survivor_forward="<<e.survivorForward
               <<" topological_match="
-              <<(e.generatedForward!=e.survivorForward)<<"\n";
+              <<(e.exactIncidence&&e.generatedForward!=e.survivorForward)<<"\n";
     }
     for(const auto& issue:result.issues)
         output<<std::setprecision(17)
