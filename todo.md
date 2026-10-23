@@ -408,6 +408,35 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   atomically with exact reflected coordinates; keep end-of-stage collision
   audits, finite work budgets and original q=0.10 floor unchanged. Record
   accepted fairing counts. Independently test both ordinary and paired moves.
+- [x] **R06-M11A3a1 — Bounded fixed-rim interior fairing implementation and proof.**
+  Draft #157 supplies deterministic new-interior-only local movement,
+  exact matched mirror orbits, strict q and collision validation, independent
+  unit regression. The real 5K V1 `refusal-5` now AUTO_CLOSED:
+  CAP 72 faces, q=0.100624, 3 refinement splits, ONE fairing move, versus
+  the original 512-step refusal. Historic V1 archive unchanged; reviewed
+  recovery CTest requires current CLOSED and q>=0.10. Linux/Windows CI
+  green on layered #159 head; physical GPU acceptance still needed.
+- [x] **R06-M11A3b1 — Only provably redundant 3-to-1 private cap fans.**
+  Draft #159 removes one new valence-three interior center only when
+  strict replacement q/edge quality, survivor ID freeze, fan orientation,
+  duplicate-face, and complete exact reflected pair all pass. 91/91
+  GCC/Clang/MSVC tests passed. This is NOT an unrestricted edge collapse,
+  and did not by itself remove the refusal-1/-3 geometric obstacles.
+- [ ] **R06-M11A3b2 — General interior edge contraction after rim proof.**
+  Extend the cap-aware collapse pass beyond valence-three fans to short
+  interior edges with complete link condition, proven zero old/rim deletion,
+  finite whole-neighborhood q deficit improvement, and atomic reflected
+  two-edge operations. Exact 5K V1 refusal-1/3 currently STILL refuse at
+  q~2.86e-13 and q~2.72e-13 after fairing budget=32; they need a
+  **different triangulation**, not a quality floor waiver.
+- [ ] **R06-M11A3b3 — Sharp-tip spatial front/ribbon fallback.**
+  For cases whose intrinsic R03 boundary corners are very elongated
+  and whose existing Poisson fan repeatedly subdivides unchanged
+  narrow wedges, stage a bounded patch-wide strip/medial-axis
+  triangulation with arc-length-based spacing (no parity pairing),
+  immutable directed rim, seam reflection, oriented manifold, and
+  real 3D collision verification. Accept only if q>=0.10 apart from
+  individually mathematically certified fixed planar tip exceptions.
 - [ ] **R06-M11A3b — Constrained collapse and local topology reduction.**
   After evaluating M11A3a on all five saved 5K cases, design finite
   interior edge contraction/removal of expendable NEW vertices only,
