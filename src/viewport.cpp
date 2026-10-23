@@ -400,6 +400,7 @@ class VulkanViewport {
     bool inspectionCapSucceeded_=false;
     bool inspectionAutoRequested_=false;
     bool inspectionAutoSucceeded_=false;
+    bool inspectionQualityWarningPreview_=false;
     std::array<std::string,2> classifierChoices_{};
     bool classifierComparable_=false,classifiersAgree_=false;
     int activeClassifier_=0;
@@ -706,7 +707,8 @@ class VulkanViewport {
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
         const std::string mergeText=inspectionFrozen_&&inspectionAutoRequested_?
-            (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":"R06: AUTO REFUSED"):
+            (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":
+             inspectionQualityWarningPreview_?"R06: QUALITY WARN PREVIEW":"R06: AUTO REFUSED"):
             inspectionFrozen_&&inspectionCapRequested_?
             (inspectionCapSucceeded_?"R05: CAP COMPLETE":"R05: CAP REFUSED"):
             inspectionFrozen_&&inspectionZipperRequested_?
@@ -1227,6 +1229,7 @@ class VulkanViewport {
                     inspectionCapRequested_=snapshot->inspectionCapRequested;
                     inspectionAutoRequested_=snapshot->inspectionAutoRequested;
                     inspectionAutoSucceeded_=snapshot->inspectionAutoSucceeded;
+                    inspectionQualityWarningPreview_=snapshot->inspectionQualityWarningPreview;
                     classifierChoices_=snapshot->classifierChoices;
                     classifierComparable_=snapshot->classifierComparable;
                     classifiersAgree_=snapshot->classifiersAgree;
