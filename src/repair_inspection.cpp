@@ -74,6 +74,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 else {
                     CertifiedPrivateAutoLimits policy;
                     policy.closure.requireReflectedGeometry=symmetricSource;
+                    policy.planner.classifier=classifier;
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
                         result->candidate,*result->privateCut,
                         result->excision,*result->autoPlan,result->contacts,
