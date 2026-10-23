@@ -355,6 +355,36 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   document/explicitly update its expectation instead of silently
   declaring all old refusals to pass. GCC/Clang/MSVC CTests plus physical
   replay on Linux and Windows; keep draft/unpublished pending acceptance.
+- [ ] **R06-M11A1 — Reject unsafe original-survivor midpoint children before mutation.**
+  Implement pure, deterministic read-only quality assessment of both
+  children of each original-survivor incident face at the proposed
+  conforming edge split; preflight the complete reflected orbit and
+  choose eligible safer alternative edges where possible. Refuse rather
+  than create new q<0.012 survivors or partial mirror orbits. Confirm
+  cases 2/4 remain recovered. Implemented for PR #155, but the original
+  case 1 remains REFUSED, so this narrow safety improvement is NOT
+  equivalent to solving M11A.
+- [ ] **R06-M11A2 — Diagnose and prevent degenerate, nonreflectable
+  refinement paths in physical case 1.**
+  Exact Clang/GCC post-A1 replay of original 5K V1 refusal-1 reports
+  skinny new CAP triangle q=0 with IDs 6360,6370,6369; all three edges
+  have two incident tracked faces and no uniquely resolvable exact mirror
+  partner, and none touches a survivor. Record all three precise XYZ
+  positions and number of exact mirror candidates per endpoint; audit
+  prior accepted operations for duplicate/collocated midpoint vertices
+  and incomplete seam topology. Prevent invalid operations EARLY before
+  affecting either mirrored half. Do not infer partners from approximate
+  positions or let degenerate geometry reach M04 final acceptance.
+- [ ] **R06-M11A3 — Finite quality-safe alternate repair for case 1.**
+  After A2 isolates cause, implement either bounded, geometrically
+  certified non-midpoint conforming edge subdivisions with exact
+  reflected positions and child q floors, or a separately validated
+  interior retriangulation that preserves frozen R03 old rim and full
+  reflected face orbit. Reject nonconvex/folded/duplicate vertices,
+  preserve the no-void/no-intersection and M04 q=.10/0.012 audits.
+  Update captured-case regression to require actual AUTO_CLOSED ONLY
+  after demonstrating it on case 1 (original V1 archive unchanged).
+  Full GCC/Clang/MSVC and physical GPU acceptance required.
 - [ ] **R06-M11A — Survivor-safe quality choice for real refusal-1.**
   Physical 5K V1 case 1 changes from q=.082329 cap refusal after 512
   splits to `M04B conforming split left skinny original survivor`
