@@ -65,7 +65,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
         }else {
             try {
                 result->autoPlan=planPrivateAutomaticClosure(
-                    *proposed.candidate,*result->privateCut,
+                    *result->candidate,*result->privateCut,
                     result->excision,result->contacts);
                 if(!result->autoPlan->ready())
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
@@ -74,7 +74,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     CertifiedPrivateAutoLimits policy;
                     policy.closure.requireReflectedGeometry=symmetricSource;
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
-                        proposed.candidate,*result->privateCut,
+                        result->candidate,*result->privateCut,
                         result->excision,*result->autoPlan,result->contacts,
                         policy);
                 }
