@@ -398,6 +398,42 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   and incomplete seam topology. Prevent invalid operations EARLY before
   affecting either mirrored half. Do not infer partners from approximate
   positions or let degenerate geometry reach M04 final acceptance.
+### R06-M14 — Source-backed transactional closure refactor (2026-10-23)
+
+Design decision and full independent acceptance conditions:
+[docs/R06_M14_SOURCE_BACKED_CLOSURE.md](docs/R06_M14_SOURCE_BACKED_CLOSURE.md).
+The original R03 post-excision mesh remains the immutable authority. A
+single private source-backed transaction supplies survivor lookup and
+transaction-owned edits for both original and new geometry; do not
+separately mutate disconnected copies of survivor face/vertex records.
+Current M13 warnings do **not** prove a known shared rim was split twice.
+
+- [ ] **R06-M14A — Source-backed reads and transaction-local overrides.**
+  Bind to the exact immutable R03 source, reference original survivor IDs,
+  establish effective source/override reads across the complete survivor
+  mesh (not just contour neighbors), regression-test identity,
+  override precedence and source nonmutation. No new repair acceptance.
+- [ ] **R06-M14B — Unify staging/refinement working topology.**
+  Replace mutable survivor snapshots with ID-backed effective face/vertex
+  reads, shared pending edits and source-backed traversal. Preserve
+  original replay outcomes and finite quality budgets.
+- [ ] **R06-M14C — Transaction-level conforming edge splits.**
+  Discover effective two-face incidence (including previously untracked
+  original geometry), share exactly one new midpoint ID across both sides,
+  preflight full mirrored split orbits, quality/winding and finite limits.
+- [ ] **R06-M14D — Link M13 geometric witnesses to split provenance.**
+  Distinguish new/interior vs inherited original rim IDs; classify actual
+  shared interfaces versus incidental 3D contacts and deduplicate issues.
+- [ ] **R06-M14E — Bounded geometric nonconformity recovery.**
+  Conform legitimate attachments via unified topology; change
+  excision/front or refuse on true crossings. Never coordinate-weld
+  unrelated surfaces.
+- [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
+  Preserve all historical case bytes, current valid CLOSED recoveries
+  and legitimate refusals, compare geometric witnesses, confirm
+  immutable source/history/checkpoint and exact reflected orbits.
+  Require full cross-platform CI and manual GPU acceptance.
+
 - [ ] **R06-M13A — Independent private cap/survivor shared-edge audit.**
   On explicitly requested exact-case/live R06 preview, use the final
   displayed RegionTopologyIndex and actual green/blue new FaceIds to
