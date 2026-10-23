@@ -308,6 +308,12 @@ int main(int argc, char** argv) {
             const auto frozen=mesher::replayPrivateAutomaticRepair(
                 saved,repairClassifier);
             const bool succeeded=frozen->privateAuto.has_value();
+            std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
+                     <<" proximity="<<frozen->classifierChoices[1]
+                     <<" comparable="<<frozen->classifierComparable
+                     <<" agree="<<frozen->classifiersAgree
+                     <<" active="<<mesher::autoClosureClassifierName(repairClassifier)
+                     <<" (agreement is not correctness or M04 completion)\n";
             const auto chosenCaps=frozen->autoPlan?
                 frozen->autoPlan->cappedContours.size():0;
             const auto chosenZippers=frozen->autoPlan?
@@ -949,6 +955,15 @@ int main(int argc, char** argv) {
                             }
                         }
                     }
+                    if(repairAuto)
+                        std::cout<<"[repair-r06] CLASSIFIERS area="
+                                 <<frozen->classifierChoices[0]
+                                 <<" proximity="<<frozen->classifierChoices[1]
+                                 <<" comparable="<<frozen->classifierComparable
+                                 <<" agree="<<frozen->classifiersAgree
+                                 <<" active="<<mesher::autoClosureClassifierName(
+                                     frozen->activeClassifier)
+                                 <<" (M03 only, no correctness claim)\n";
                     if(repairAuto&&frozen->autoPlan) {
                         const auto& plan=*frozen->autoPlan;
                         std::cout<<"[repair-r06] PLAN status="<<static_cast<int>(plan.status)
