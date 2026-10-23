@@ -53,6 +53,9 @@ struct RepairInspectionSnapshot {
     AutoClosureClassifier activeClassifier=AutoClosureClassifier::Area;
     std::optional<CertifiedPrivateAutoResult> privateAuto;
     std::string autoDiagnostic;
+    bool warnQualityEnabled=false;
+    std::optional<MixedPrivateClosureResult> warningPreview;
+    std::string warningPreviewDiagnostic;
 };
 
 // Thread-safe one-shot observer, called by the existing PRE-CAS sculpt
@@ -62,11 +65,13 @@ public:
     explicit RepairInspectionSession(bool preview=false,bool excise=false,
                                      bool zipper=false,bool cap=false,bool autoMode=false,
                                      bool symmetricSource=false,
-                                     AutoClosureClassifier classifier=AutoClosureClassifier::Area)
+                                     AutoClosureClassifier classifier=AutoClosureClassifier::Area,
+                                     bool warnQuality=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
-         symmetricSource_(symmetricSource),classifier_(classifier) {}
+         symmetricSource_(symmetricSource),classifier_(classifier),
+         warnQuality_(warnQuality) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -78,6 +83,7 @@ private:
     bool autoEnabled_=false;
     bool symmetricSource_=false;
     AutoClosureClassifier classifier_=AutoClosureClassifier::Area;
+    bool warnQuality_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -89,7 +95,8 @@ struct RepairCase;
 // This is a new private snapshot, never a published revision/history root.
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,
-    AutoClosureClassifier classifier=AutoClosureClassifier::Area);
+    AutoClosureClassifier classifier=AutoClosureClassifier::Area,
+    bool warnQuality=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
