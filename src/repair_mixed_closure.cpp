@@ -706,12 +706,22 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         std::vector<FaceId> newSurface=out.greenFaces;
         newSurface.insert(newSurface.end(),
                           out.blueFaces.begin(),out.blueFaces.end());
-        const auto unexpected=closed->triangleIntersections(
-            std::vector<VertexId>{},newSurface,&diagnostics,collision);
-        if(!unexpected.empty())
-            throw std::logic_error(
-                "R06-M06C spatial front intersects surviving/cap geometry "
-                "after final 3D private refinement");
+        try {
+            const auto unexpected=closed->triangleIntersections(
+                std::vector<VertexId>{},newSurface,&diagnostics,collision);
+            if(!unexpected.empty()) {
+                if(limits.inspectionWarnQuality)
+                    warn("UNTRUSTED PREVIEW: final geometry has unexpected "
+                         "triangle intersections (strict AUTO still refuses)");
+                else throw std::logic_error(
+                    "R06-M06C spatial front intersects surviving/cap geometry "
+                    "after final 3D private refinement");
+            }
+        }catch(const std::length_error& e) {
+            if(!limits.inspectionWarnQuality)throw;
+            warn(std::string("UNTRUSTED PREVIEW: finite collision audit "
+                             "incomplete: ")+e.what());
+        }
     }
     for(const auto id:proposal.proposedFaces)
         if(closed->maybeFace(id)||!closed->retiredFace(id))
