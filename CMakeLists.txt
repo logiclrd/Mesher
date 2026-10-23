@@ -259,6 +259,29 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_repair_sphere_diagnostic tests/repair_inspection_sphere_diagnostic.cpp)
     target_link_libraries(mesher_repair_sphere_diagnostic PRIVATE mesher_mesh)
     add_test(NAME repair_r01_stock_sphere_diagnostic COMMAND mesher_repair_sphere_diagnostic)
+    # R06-M07: preserve exactly the immutable post-stamp candidate + trusted
+    # R01 contacts, replay with the CURRENT R02/M03/M04 code (no Vulkan).
+    # The setup test emits real self-contained archive fixtures. Fixture
+    # dependencies keep CLI replay smoke tests deterministic under -j.
+    add_executable(mesher_repair_case_tests tests/repair_case_tests.cpp)
+    target_link_libraries(mesher_repair_case_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m07_exact_case_roundtrip COMMAND mesher_repair_case_tests)
+    set_tests_properties(repair_r06_m07_exact_case_roundtrip
+        PROPERTIES FIXTURES_SETUP r06_case_archives)
+    if(TARGET Mesher)
+        add_test(NAME repair_r06_m07_cli_positive
+            COMMAND Mesher --repair-replay-test
+                    "${CMAKE_CURRENT_BINARY_DIR}/r06-sample-success.r06case")
+        set_tests_properties(repair_r06_m07_cli_positive
+            PROPERTIES FIXTURES_REQUIRED r06_case_archives
+                       PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+        add_test(NAME repair_r06_m07_cli_refusal
+            COMMAND Mesher --repair-replay-test
+                    "${CMAKE_CURRENT_BINARY_DIR}/r06-sample-refused.r06case")
+        set_tests_properties(repair_r06_m07_cli_refusal
+            PROPERTIES FIXTURES_REQUIRED r06_case_archives
+                       PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+    endif()
     add_executable(mesher_repair_auto_inspection_tests tests/repair_auto_inspection_tests.cpp)
     target_link_libraries(mesher_repair_auto_inspection_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m05_frozen_auto_inspection COMMAND mesher_repair_auto_inspection_tests)
