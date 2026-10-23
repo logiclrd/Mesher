@@ -93,6 +93,13 @@ public:
         }
         return snapshot_;
     }
+    // Iteration only enumerates the tracked halo; read-through at(id)
+    // is available for ANY source survivor without copying its XYZ.
+    using const_iterator=std::map<VertexId,Vec3>::const_iterator;
+    const_iterator begin() const {return materialize().begin();}
+    const_iterator end() const {return materialize().end();}
+    const_iterator find(VertexId id) const {return materialize().find(id);}
+
     std::size_t originalHandles() const noexcept {
         return trackedOriginal_.size();
     }

@@ -25,9 +25,10 @@ double quality(Vec3 a,Vec3 b,Vec3 c) {
     return denominator>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/
         denominator:0;
 }
+template<class Pos>
 std::optional<Fan> makeFan(
     VertexId center,const std::vector<MixedClosureFace>& faces,
-    const std::map<VertexId,Vec3>& positions,
+    const Pos& positions,
     const std::map<VertexId,std::vector<std::size_t>>& incidences,
     double minQuality,double maxEdgeFactor) {
     const auto entry=incidences.find(center);
@@ -87,9 +88,10 @@ std::optional<Fan> makeFan(
 }
 } // namespace
 
-std::vector<VertexId> collapseOneInferiorCapFan(
+template<class Pos>
+std::vector<VertexId> collapseImpl(
     std::vector<MixedClosureFace>& faces,
-    std::map<VertexId,Vec3>& positions,
+    Pos& positions,
     const std::vector<VertexId>& createdVertices,
     bool requireReflection,double minCapQuality,double maxCapEdgeFactor) {
     std::map<VertexId,std::vector<std::size_t>> incidence;
@@ -175,5 +177,17 @@ std::vector<VertexId> collapseOneInferiorCapFan(
         positions.erase(mirror->center);
     }
     return retired;
+}
+std::vector<VertexId> collapseOneInferiorCapFan(
+    std::vector<MixedClosureFace>& faces,
+    std::map<VertexId,Vec3>& positions,const std::vector<VertexId>& created,
+    bool reflect,double minCap,double factor) {
+    return collapseImpl(faces,positions,created,reflect,minCap,factor);
+}
+std::vector<VertexId> collapseOneInferiorCapFan(
+    std::vector<MixedClosureFace>& faces,
+    MixedClosurePositions& positions,const std::vector<VertexId>& created,
+    bool reflect,double minCap,double factor) {
+    return collapseImpl(faces,positions,created,reflect,minCap,factor);
 }
 } // namespace mesher

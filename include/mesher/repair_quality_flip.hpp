@@ -17,4 +17,8 @@ std::size_t flipOneInferiorClosureDiagonal(
     bool requireReflection,
     double minCapQuality,double minZipperQuality,
     double maxCapEdgeFactor,double maxZipperEdgeFactor);
+std::size_t flipOneInferiorClosureDiagonal(
+    std::vector<MixedClosureFace>& faces,const MixedClosurePositions& positions,
+    bool requireReflection,double minCapQuality,double minZipperQuality,
+    double maxCapEdgeFactor,double maxZipperEdgeFactor);
 } // namespace mesher

@@ -21,9 +21,10 @@ double q(Vec3 a,Vec3 b,Vec3 c) {
         lengthSquare:0;
 }
 } // namespace
-std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
+template<class Pos>
+std::optional<ConstrainedRimTipQuality> rimQualityImpl(
     const MixedClosureFace& face,
-    const std::map<VertexId,Vec3>& positions,
+    const Pos& positions,
     const std::vector<RepairContour>& contours,
     double minimumQuality) {
     if(face.stableId||face.kind!=MixedClosureFaceKind::Cap||
@@ -73,5 +74,17 @@ std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
         }
     }
     return std::nullopt;
+}
+std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
+    const MixedClosureFace& face,
+    const std::map<VertexId,Vec3>& positions,
+    const std::vector<RepairContour>& contours,double quality) {
+    return rimQualityImpl(face,positions,contours,quality);
+}
+std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
+    const MixedClosureFace& face,
+    const MixedClosurePositions& positions,
+    const std::vector<RepairContour>& contours,double quality) {
+    return rimQualityImpl(face,positions,contours,quality);
 }
 } // namespace mesher

@@ -19,4 +19,7 @@ std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
     const std::map<VertexId,Vec3>& positions,
     const std::vector<RepairContour>& contours,
     double standardMinimumQuality);
+std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
+    const MixedClosureFace& face,const MixedClosurePositions& positions,
+    const std::vector<RepairContour>& contours,double standardMinimumQuality);
 }

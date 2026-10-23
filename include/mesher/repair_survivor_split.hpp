@@ -32,4 +32,10 @@ SurvivorSplitQuality assessSurvivorSplit(
     const std::map<VertexId,Vec3>& positions,
     std::pair<VertexId,VertexId> splitEdge,
     double minSurvivorQuality);
+MidpointCollision assessUniqueConformingMidpoint(
+    const MixedClosurePositions& positions,std::pair<VertexId,VertexId> edge);
+SurvivorSplitQuality assessSurvivorSplit(
+    const std::vector<MixedClosureFace>& faces,
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> splitEdge,double minSurvivorQuality);
 } // namespace mesher

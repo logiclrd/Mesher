@@ -15,4 +15,8 @@ std::vector<VertexId> collapseOneInferiorCapFan(
     std::map<VertexId,Vec3>& positions,
     const std::vector<VertexId>& createdVertices,
     bool requireReflection,double minCapQuality,double maxCapEdgeFactor);
+std::vector<VertexId> collapseOneInferiorCapFan(
+    std::vector<MixedClosureFace>& faces,MixedClosurePositions& positions,
+    const std::vector<VertexId>& createdVertices,bool requireReflection,
+    double minCapQuality,double maxCapEdgeFactor);
 }

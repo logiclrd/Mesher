@@ -11,8 +11,9 @@ double quality(Vec3 a,Vec3 b,Vec3 c) {
     return sides>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/sides:0;
 }
 } // namespace
-MidpointCollision assessUniqueConformingMidpoint(
-    const std::map<VertexId,Vec3>& positions,
+template<class Pos>
+MidpointCollision midpointImpl(
+    const Pos& positions,
     std::pair<VertexId,VertexId> e) {
     const auto pa=positions.at(e.first),pb=positions.at(e.second);
     MidpointCollision assessment;
@@ -26,9 +27,10 @@ MidpointCollision assessUniqueConformingMidpoint(
         }
     return assessment;
 }
-SurvivorSplitQuality assessSurvivorSplit(
+template<class Pos>
+SurvivorSplitQuality survivorImpl(
     const std::vector<MixedClosureFace>& faces,
-    const std::map<VertexId,Vec3>& positions,
+    const Pos& positions,
     std::pair<VertexId,VertexId> e,
     double minSurvivorQuality) {
     if(!std::isfinite(minSurvivorQuality)||minSurvivorQuality<=0)
@@ -56,5 +58,25 @@ SurvivorSplitQuality assessSurvivorSplit(
         }
     }
     return result;
+}
+MidpointCollision assessUniqueConformingMidpoint(
+    const std::map<VertexId,Vec3>& positions,std::pair<VertexId,VertexId> e) {
+    return midpointImpl(positions,e);
+}
+MidpointCollision assessUniqueConformingMidpoint(
+    const MixedClosurePositions& positions,std::pair<VertexId,VertexId> e) {
+    return midpointImpl(positions,e);
+}
+SurvivorSplitQuality assessSurvivorSplit(
+    const std::vector<MixedClosureFace>& faces,
+    const std::map<VertexId,Vec3>& positions,
+    std::pair<VertexId,VertexId> e,double quality) {
+    return survivorImpl(faces,positions,e,quality);
+}
+SurvivorSplitQuality assessSurvivorSplit(
+    const std::vector<MixedClosureFace>& faces,
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> e,double quality) {
+    return survivorImpl(faces,positions,e,quality);
 }
 } // namespace mesher

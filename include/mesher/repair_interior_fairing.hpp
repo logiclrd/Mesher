@@ -16,4 +16,9 @@ std::size_t fairOneConstrainedClosureVertex(
     const std::vector<VertexId>& createdVertices,
     bool requireReflection,double minCapQuality,double minZipperQuality,
     double maxCapEdgeFactor,double maxZipperEdgeFactor);
+std::size_t fairOneConstrainedClosureVertex(
+    const std::vector<MixedClosureFace>& faces,MixedClosurePositions& positions,
+    const std::vector<VertexId>& createdVertices,bool requireReflection,
+    double minCapQuality,double minZipperQuality,double maxCapEdgeFactor,
+    double maxZipperEdgeFactor);
 }

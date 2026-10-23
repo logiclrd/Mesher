@@ -11,6 +11,12 @@
 
 namespace mesher {
 namespace {
+void writePosition(std::map<VertexId,Vec3>& pos,VertexId id,Vec3 p) {
+    pos.at(id)=p;
+}
+void writePosition(MixedClosurePositions& pos,VertexId id,Vec3 p) {
+    pos.set(id,p);
+}
 using Point=std::tuple<double,double,double>;
 Point key(Vec3 p) {
     return {p.x==0?0:p.x,p.y==0?0:p.y,p.z==0?0:p.z};
@@ -27,9 +33,10 @@ struct Score {
 };
 } // namespace
 
-std::size_t fairOneConstrainedClosureVertex(
+template<class Pos>
+std::size_t fairImpl(
     const std::vector<MixedClosureFace>& faces,
-    std::map<VertexId,Vec3>& positions,
+    Pos& positions,
     const std::vector<VertexId>& createdVertices,
     bool requireReflection,double minCapQuality,double minZipperQuality,
     double maxCapEdgeFactor,double maxZipperEdgeFactor) {
@@ -203,8 +210,20 @@ std::size_t fairOneConstrainedClosureVertex(
         }
     }
     if(!best.a)return 0;
-    positions.at(best.a)=best.pa;
-    positions.at(best.b)=best.pb;
+    writePosition(positions,best.a,best.pa);
+    writePosition(positions,best.b,best.pb);
     return best.a==best.b?1:2;
+}
+std::size_t fairOneConstrainedClosureVertex(
+    const std::vector<MixedClosureFace>& faces,
+    std::map<VertexId,Vec3>& positions,const std::vector<VertexId>& created,
+    bool reflect,double cap,double zip,double maxCap,double maxZip) {
+    return fairImpl(faces,positions,created,reflect,cap,zip,maxCap,maxZip);
+}
+std::size_t fairOneConstrainedClosureVertex(
+    const std::vector<MixedClosureFace>& faces,
+    MixedClosurePositions& positions,const std::vector<VertexId>& created,
+    bool reflect,double cap,double zip,double maxCap,double maxZip) {
+    return fairImpl(faces,positions,created,reflect,cap,zip,maxCap,maxZip);
 }
 } // namespace mesher

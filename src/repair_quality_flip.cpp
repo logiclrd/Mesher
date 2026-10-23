@@ -23,7 +23,8 @@ double quality(Vec3 a,Vec3 b,Vec3 c) {
     const double sum=dot(a-b,a-b)+dot(b-c,b-c)+dot(c-a,c-a);
     return sum>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/sum:0;
 }
-double edgeLength(const std::map<VertexId,Vec3>& p,VertexId a,VertexId b) {
+template<class Pos>
+double edgeLength(const Pos& p,VertexId a,VertexId b) {
     return length(p.at(a)-p.at(b));
 }
 struct Candidate {
@@ -42,10 +43,11 @@ Adjacency adjacency(const std::vector<MixedClosureFace>& faces) {
     }
     return edges;
 }
+template<class Pos>
 std::optional<Candidate> evaluate(
     Edge diag,const Adjacency& edges,
     const std::vector<MixedClosureFace>& faces,
-    const std::map<VertexId,Vec3>& positions,
+    const Pos& positions,
     double capFloor,double zipperFloor,
     double capFactor,double zipperFactor) {
     const auto it=edges.find(diag);
@@ -114,9 +116,10 @@ std::optional<Candidate> evaluate(
 }
 } // namespace
 
-std::size_t flipOneInferiorClosureDiagonal(
+template<class Pos>
+std::size_t flipImpl(
     std::vector<MixedClosureFace>& faces,
-    const std::map<VertexId,Vec3>& positions,
+    const Pos& positions,
     bool requireReflection,
     double minCapQuality,double minZipperQuality,
     double maxCapEdgeFactor,double maxZipperEdgeFactor) {
@@ -179,5 +182,17 @@ std::size_t flipOneInferiorClosureDiagonal(
     apply(*best);
     if(bestMirror)apply(*bestMirror);
     return bestMirror?2:1;
+}
+std::size_t flipOneInferiorClosureDiagonal(
+    std::vector<MixedClosureFace>& faces,
+    const std::map<VertexId,Vec3>& positions,
+    bool reflect,double cap,double zip,double maxCap,double maxZip) {
+    return flipImpl(faces,positions,reflect,cap,zip,maxCap,maxZip);
+}
+std::size_t flipOneInferiorClosureDiagonal(
+    std::vector<MixedClosureFace>& faces,
+    const MixedClosurePositions& positions,
+    bool reflect,double cap,double zip,double maxCap,double maxZip) {
+    return flipImpl(faces,positions,reflect,cap,zip,maxCap,maxZip);
 }
 } // namespace mesher
