@@ -2,6 +2,7 @@
 #include "mesher/repair_quality_flip.hpp"
 #include "mesher/repair_interior_fairing.hpp"
 #include "mesher/repair_interior_collapse.hpp"
+#include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
 
 #include <algorithm>
@@ -431,7 +432,15 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             const auto& v=f.vertices;
             const auto q=quality(positions.at(v[0]),positions.at(v[1]),
                                  positions.at(v[2]));
-            if(q<score.threshold&&q<smallest) {
+            // A face spanning both unmodified R03 rays at a certified
+            // acute planar tip cannot meet q=.10 without changing the
+            // fixed corner. Do not split it forever just to repeat the
+            // same unavoidable angle. No waiver for off-ray/folded fans.
+            const bool constrainedTip=
+                f.kind==MixedClosureFaceKind::Cap&&
+                certifyPlanarRimTipQuality(
+                    f,positions,proposal.contours,score.threshold).has_value();
+            if(q<score.threshold&&!constrainedTip&&q<smallest) {
                 smallest=q;lowest=i;
             }
             for(unsigned k=0;k<3;++k) {
@@ -676,6 +685,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             it->position=positions.at(id);
         }
     std::vector<bool> deficient(faces.size(),false);
+    std::vector<bool> certifiedTip(faces.size(),false);
     for(std::size_t faceOrdinal=0;faceOrdinal<faces.size();++faceOrdinal) {
         const auto& f=faces[faceOrdinal];
         const auto& v=f.vertices;
@@ -704,8 +714,15 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             edgeSpan(positions,edge(v[1],v[2])),
             edgeSpan(positions,edge(v[2],v[0]))
         });
-        if(!std::isfinite(q)||q<requirements.threshold ||
-           largest>f.targetEdge*requirements.edgeFactor*(1+1e-8)) {
+        const bool overlong=largest>f.targetEdge*requirements.edgeFactor*(1+1e-8);
+        if(!overlong&&std::isfinite(q)&&q<requirements.threshold&&
+           f.kind==MixedClosureFaceKind::Cap&&
+           certifyPlanarRimTipQuality(
+               f,positions,proposal.contours,requirements.threshold)) {
+            certifiedTip[faceOrdinal]=true;
+        }
+        if(!certifiedTip[faceOrdinal]&&
+           (!std::isfinite(q)||q<requirements.threshold||overlong)) {
             if(limits.inspectionWarnQuality) {
                 deficient[faceOrdinal]=true;
                 warn("under-quality or overlong cap/zipper triangle");
@@ -740,11 +757,13 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 throw std::logic_error("R06-M04B stable original FaceId missing");
             it->vertices=face.vertices;
             if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
+            if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(face.stableId);
         }else {
             if(out.newFaces>=limits.maxNewFaces)
                 throw std::length_error("R06-M04B finite new-face limit exceeded");
             const auto id=view.addFace(face.owner,face.vertices);
             if(deficient[i])out.qualityWarningFaces.push_back(id);
+            if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(id);
             ++out.newFaces;
             if(face.kind==MixedClosureFaceKind::Cap)
                 out.greenFaces.push_back(id);
@@ -759,7 +778,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
     if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
        out.interiorQualityFlips>0||out.interiorFairingMoves>0||
-       out.interiorCapCollapses>0) {
+       out.interiorCapCollapses>0||!out.boundaryTipQualityExemptFaces.empty()) {
         // Neither the spatial front nor the explicit mirrored zipper
         // seam can see the full surrounding mesh during local staging.
         // Demand a separate, bounded exact triangle contact query against
