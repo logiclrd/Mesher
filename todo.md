@@ -398,6 +398,33 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   and incomplete seam topology. Prevent invalid operations EARLY before
   affecting either mirrored half. Do not infer partners from approximate
   positions or let degenerate geometry reach M04 final acceptance.
+- [ ] **R06-M13A — Independent private cap/survivor shared-edge audit.**
+  On explicitly requested exact-case/live R06 preview, use the final
+  displayed RegionTopologyIndex and actual green/blue new FaceIds to
+  inventory each cap/zipper vs surviving interface edge; log both FaceIds,
+  exact ordered VertexIds, XYZ at full precision, directional signs,
+  edge incidence and whether the boundary is topologically conforming.
+  Never infer connectivity from positions alone. Keep full audit separate
+  from the existing strict R04 manifold certificate.
+- [ ] **R06-M13B — Bounded geometric T-junction and crossing diagnostics.**
+  Independently inspect new cap edges against nearby surviving vertices,
+  surviving edges against cap vertices, and disjoint new/surviving edge pairs
+  using an explicit spatial tolerance plus complete/incomplete counters.
+  Detect coincident but differently indexed vertices. Do not report 'no
+  intersections' when finite budgets or pairwise-only coverage prevent a
+  comprehensive triangle-triangle test. Add synthetic positive/negative
+  regression fixtures and exact 5K captured refusal-1/-3 CLI census.
+- [ ] **R06-M13C — Exact inspection mode and separately marked seam edges.**
+  Add explicit CLI switch removing all per-triangle normal displacement
+  from colored cap/zipper overlays; render actual interface edge positions
+  in a distinct diagnostic color, never by creating a second mesh offset.
+  Retain ordinary inspection default and warning color distinction. Document
+  depth-test caveats and verify on Vulkan at extreme zoom with W on/off.
+- [ ] **R06-M13D — Verify archive and nonpublication invariants.**
+  Ensure neither opt-in mode modifies q threshold, R06 CLOSED/REFUSED,
+  exact source root, checkpoint/history state, or original immutable
+  .r06case files. Run CTest on Linux GCC/Clang and Windows MSVC; physical
+  GPU visual acceptance before merging.
 - [ ] **R06-M11A3a — Finite interior-vertex fairing with geometric merit.**
   In private staged closure only, try bounded deterministic moves of new
   interior vertices toward the centroid of their immediate neighbors;
