@@ -88,7 +88,12 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     std::set<PartitionId> owners;
     // Warning mode is used only for an untrusted private inspection rerun.
     const auto warn=[&](const std::string& reason) {
-        if(out.qualityWarningReason.empty())out.qualityWarningReason=reason;
+        if(out.qualityWarningReason.find(reason)!=std::string::npos)return;
+        // One label per distinct failure class, bounded even when a patch
+        // contains thousands of under-quality faces.
+        if(out.qualityWarningReason.size()+reason.size()>4096)return;
+        if(!out.qualityWarningReason.empty())out.qualityWarningReason+="; ";
+        out.qualityWarningReason+=reason;
     };
 
     // Resolve synthetic spatial front IDs ONLY inside this never-published
