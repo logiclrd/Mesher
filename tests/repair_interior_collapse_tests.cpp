@@ -63,7 +63,7 @@ void reflected() {
           !t.p.contains(4)&&!t.p.contains(8),
           "M11A3b must remove both reflected fan centers atomically");
     check(t.f[0].vertices==PrivateRepairTriangle{1,2,3}&&
-          t.f[1].vertices==PrivateRepairTriangle{6,5,7},
+          t.f[1].vertices==PrivateRepairTriangle{5,7,6},
           "M11A3b maintain oriented mirrored triangular disks");
     auto orphan=make(true);
     check(collapseOneInferiorCapFan(
