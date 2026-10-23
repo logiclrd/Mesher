@@ -109,6 +109,23 @@ void roundtrip(const Fixture& f) {
             repeated->privateAuto->greenFaces.size()==initial->privateAuto->greenFaces.size()&&
             repeated->privateAuto->postRetirementFaces==initial->privateAuto->postRetirementFaces,
             "R06 case accepted replay not deterministic");
+    // M09: replay computes BOTH planning policies on the same frozen
+    // candidate; the alternative is comparison-only and never builds M04.
+    require(initial->classifierComparable &&
+            initial->classifierChoices[0]!="UNAVAILABLE"&&
+            initial->classifierChoices[1]!="UNAVAILABLE"&&
+            initial->activeClassifier==AutoClosureClassifier::Area,
+            "R06 frozen case did not retain both read-only M03 plans");
+    const auto proximity=replayPrivateAutomaticRepair(
+        restored,AutoClosureClassifier::Proximity);
+    require(proximity->autoPlan&&
+            proximity->activeClassifier==AutoClosureClassifier::Proximity&&
+            proximity->classifierChoices==initial->classifierChoices&&
+            proximity->classifiersAgree==initial->classifiersAgree,
+            "M09 alternative M03 replay must compare the identical source/cut");
+    require(proximity->autoDiagnostic.find("stale or forged M03 closure choice")==
+                std::string::npos,
+            "M09 independently regenerated M04C must use selected proximity policy");
     require(f.index->retiredFaceCount()==0,
             "R06 replay mutated source tombstones");
     // The deliberately invalid source symmetry flag MUST refuse rather
