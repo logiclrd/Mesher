@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace mesher {
@@ -11,6 +12,7 @@ namespace mesher {
 struct MixedPrivateClosureLimits {
     MixedClosureStageSettings staging{};
     bool requireReflectedGeometry=false;
+    bool inspectionWarnQuality=false; // private diagnostic only; not a certified closure
     std::size_t maxInsertedVertices=1024;
     std::size_t maxNewFaces=4096;
     std::size_t maxRefinementSteps=512;
@@ -40,6 +42,8 @@ struct MixedPrivateClosureResult {
     std::size_t newFaces{};
     std::size_t refinementSteps{};
     std::size_t interiorQualityFlips{};
+    std::vector<FaceId> qualityWarningFaces; // all actual faces with q/edge violation
+    std::string qualityWarningReason;
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
     std::size_t spatialCapLoops{};
