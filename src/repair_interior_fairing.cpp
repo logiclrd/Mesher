@@ -183,6 +183,16 @@ std::size_t fairOneConstrainedClosureVertex(
                                          get(v[2])-get(v[0]));
                 if(length(updated)<=1e-16||
                    dot(original,updated)<=0) {safe=false;break;}
+                // A previously healthy triangle must never be turned
+                // into an under-quality triangle to subsidize its neighbor.
+                const auto floor=faces[i].kind==MixedClosureFaceKind::Cap?
+                    minCapQuality:minZipperQuality;
+                const auto qBefore=q(positions.at(v[0]),positions.at(v[1]),
+                                     positions.at(v[2]));
+                const auto qAfter=q(get(v[0]),get(v[1]),get(v[2]));
+                if(qBefore>=floor&&qAfter+1e-12<floor) {
+                    safe=false;break;
+                }
             }
             if(!safe) {safe=true;continue;}
             const auto after=assess(indexes,proposed);
