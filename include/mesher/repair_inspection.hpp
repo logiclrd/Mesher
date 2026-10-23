@@ -73,6 +73,13 @@ private:
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
 };
 
+struct RepairCase;
+// Replay bypasses the sculpt worker entirely and executes the SAME R02,
+// R03 and R06 private closure on the saved, exact POST-STAMP candidate.
+// This is a new private snapshot, never a published revision/history root.
+std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
+    const RepairCase& capture);
+
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
 std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
