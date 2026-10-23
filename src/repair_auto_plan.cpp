@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <map>
 #include <limits>
 #include <optional>
@@ -143,6 +145,10 @@ std::optional<TwoRimEvidence> inspectTwoRims(const RegionTopologyIndex& mesh,
     }
 }
 void validateSettings(const AutoClosurePlanSettings& s) {
+    require(s.classifier==AutoClosureClassifier::Area||
+            s.classifier==AutoClosureClassifier::Proximity,
+            AutoClosurePlanStatus::InvalidInput,
+            "R06-M03 unsupported closure classifier");
     require(s.maxExcisionFaces>0&&s.maxContours>0&&s.maxContourVertices>0&&
             s.maxContactPairs>0&&s.maxRegions>0&&s.maxLoopsPerRegion>0&&
             s.maxLoopsPerRegion<=4&&s.maxAuditedFaces>0&&s.maxAuditedEdges>0&&
@@ -334,6 +340,66 @@ AutoClosurePlan planPrivateAutomaticClosure(
             require(n<=limits.maxLoopsPerRegion,
                     AutoClosurePlanStatus::AmbiguousRegion,
                     "R06-M03 ambiguous many-to-many contact region (>4 loops)");
+            // M08 experimental 2-rim classifier. Provenance/region
+            // partitioning above is identical to the area-V15 default;
+            // NEVER pair different contact islands or invent R01 links.
+            if(limits.classifier==AutoClosureClassifier::Proximity&&n==2) {
+                const auto ga=region.contours[0],gb=region.contours[1];
+                const auto ringPositions=[&](std::size_t index) {
+                    std::vector<Vec3> points;
+                    const auto& ring=proposal.contours[index].vertexIds;
+                    points.reserve(ring.size());
+                    for(const auto id:ring)
+                        points.push_back(cut.index->vertex(id).position);
+                    return points;
+                };
+                try {
+                    region.proximityFitness=computeProximityFitness(
+                        ringPositions(ga),ringPositions(gb));
+                    region.proximityFitnessValid=true;
+                }catch(const std::exception& error) {
+                    throw Refusal(AutoClosurePlanStatus::AmbiguousFitness,
+                                  std::string("R06-M08 invalid proximity fitness: ")+
+                                  error.what());
+                }
+                auto patchA=loopPatch[ga],patchB=loopPatch[gb];
+                if(patchB<patchA)std::swap(patchA,patchB);
+                const bool linked=patchA==patchB||
+                                  directLinks.contains({patchA,patchB});
+                const auto& terms=region.proximityFitness;
+                const bool zipper=linked&&terms.score>0;
+                std::ostringstream audit;
+                audit<<std::setprecision(17)
+                     <<"M08 proximity: area1="<<terms.area1
+                     <<" area2="<<terms.area2
+                     <<" average_area="<<terms.averageArea
+                     <<" abs_area_difference="<<terms.areaDifference
+                     <<" weighted_nearest_distance="<<terms.weightedDistance
+                     <<" distance_squared="<<terms.distanceSquared
+                     <<" average_term="<<terms.averageAreaTerm
+                     <<" difference_term="<<terms.differenceTerm
+                     <<" distance_term="<<terms.distanceTerm
+                     <<" score="<<terms.score
+                     <<" trusted_pair="<<linked
+                     <<" decision="<<(zipper?"zipper":"caps")
+                     <<" (positive score only; M04 geometry unvalidated)";
+                region.selectionReason=audit.str();
+                if(zipper) {
+                    region.zippers.push_back({ga,gb});
+                    // Advisory 3D ribbon area; classifier decision uses ONLY
+                    // the above three weighted terms, never this estimate.
+                    const auto& first=proposal.contours[ga];
+                    const auto& second=proposal.contours[gb];
+                    region.estimatedAddedArea=terms.weightedDistance*
+                        0.5*(first.perimeter+second.perimeter);
+                }else {
+                    region.caps.push_back(ga);
+                    region.caps.push_back(gb);
+                    region.estimatedAddedArea=
+                        advisoryCapArea(*cut.index,proposal.contours[ga])+
+                        advisoryCapArea(*cut.index,proposal.contours[gb]);
+                }
+            }else {
             RepairPlan local;
             for(const auto global:region.contours)
                 local.contours.push_back(proposal.contours[global]);
@@ -475,6 +541,10 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     region.estimatedAddedArea+=found->zipperArea;
                 }
             }
+            }
+            if(limits.classifier==AutoClosureClassifier::Proximity&&n>2)
+                region.selectionReason="M08 multi-rim V15 area-DP fallback; "+
+                                       region.selectionReason;
             std::set<std::size_t> used;
             for(const auto cap:region.caps)
                 require(used.insert(cap).second,
@@ -500,7 +570,9 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 AutoClosurePlanStatus::InvalidInput,
                 "R06-M03 incomplete global region closure");
         out.status=AutoClosurePlanStatus::Ready;
-        out.diagnostic="R06-M03 topology decision only; unvalidated R06-M04 geometry";
+        out.diagnostic=std::string("R06-M03 topology decision only; classifier=")+
+            autoClosureClassifierName(limits.classifier)+
+            "; unvalidated R06-M04 geometry";
     }catch(const Refusal& e) {
         out.status=e.status;
         out.diagnostic=e.what();
