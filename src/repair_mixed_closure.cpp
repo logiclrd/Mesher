@@ -72,6 +72,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     out.cappedLoops=staged.capLoops;
     out.zipperPairs=staged.zipperPairs;
     out.spatialCapLoops=staged.spatialCapLoops;
+    out.mirroredRibbonLoops=staged.mirroredRibbonLoops;
     out.mirroredSeamZipperPairs=staged.mirroredSeamZipperPairs;
     out.mirroredSeamVertices=staged.mirroredSeamZipperVertices;
     out.spatialPoissonIterations=staged.spatialPoissonIterations;
