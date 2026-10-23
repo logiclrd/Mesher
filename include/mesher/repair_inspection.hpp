@@ -5,6 +5,7 @@
 #include "mesher/repair_zipper.hpp"
 #include "mesher/repair_cap.hpp"
 #include "mesher/repair_auto_private.hpp"
+#include "mesher/repair_seam_audit.hpp"
 
 #include <array>
 #include <atomic>
@@ -56,6 +57,9 @@ struct RepairInspectionSnapshot {
     bool warnQualityEnabled=false;
     std::optional<MixedPrivateClosureResult> warningPreview;
     std::string warningPreviewDiagnostic;
+    bool exactOverlay=false;
+    std::optional<RepairSeamAudit> seamAudit;
+    std::string seamAuditDiagnostic;
 };
 
 // Thread-safe one-shot observer, called by the existing PRE-CAS sculpt
@@ -66,12 +70,14 @@ public:
                                      bool zipper=false,bool cap=false,bool autoMode=false,
                                      bool symmetricSource=false,
                                      AutoClosureClassifier classifier=AutoClosureClassifier::Area,
-                                     bool warnQuality=false)
+                                     bool warnQuality=false,
+                                     bool auditSeam=false,bool exactOverlay=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
          symmetricSource_(symmetricSource),classifier_(classifier),
-         warnQuality_(warnQuality) {}
+         warnQuality_(warnQuality),auditSeam_(auditSeam),
+         exactOverlay_(exactOverlay) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -84,6 +90,7 @@ private:
     bool symmetricSource_=false;
     AutoClosureClassifier classifier_=AutoClosureClassifier::Area;
     bool warnQuality_=false;
+    bool auditSeam_=false,exactOverlay_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -96,7 +103,8 @@ struct RepairCase;
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,
     AutoClosureClassifier classifier=AutoClosureClassifier::Area,
-    bool warnQuality=false);
+    bool warnQuality=false,bool auditSeam=false,
+    bool exactOverlay=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
