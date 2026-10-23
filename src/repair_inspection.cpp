@@ -395,7 +395,7 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
     const RepairInspectionSnapshot& snapshot) {
     std::vector<PartitionRenderVertex> overlay;
     if(!snapshot.candidate)return overlay;
-    // Draw ACTUAL private triangles and every distinct cap/zipper edge,
+    // Shade ACTUAL private cap/zipper triangle edges in pixels,
     // even when ordinary model wireframe is toggled off. Warnings mark
     // ALL deficient faces and their three edges, including any affected
     // surviving face; they do not certify or publish this private mesh.
@@ -403,7 +403,6 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
         const RegionTopologyIndex& mesh,
         const std::vector<FaceId>& caps,const std::vector<FaceId>& zippers,
         const std::vector<FaceId>& bad) {
-        std::map<RegionTopologyIndex::Edge,bool> boundaryLines;
         const auto drawFaces=[&](const std::vector<FaceId>& ids,
                                   float material,bool warned) {
             for(const auto id:ids) {
@@ -422,21 +421,19 @@ std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
                     triangle(overlay,a+offset,b+offset,c+offset,material);
                     triangle(overlay,c-offset,b-offset,a-offset,material);
                 }
-                for(unsigned k=0;k<3;++k) {
-                    const auto e=canonical(v[k],v[(k+1)%3]);
-                    auto [it,inserted]=boundaryLines.try_emplace(e,warned);
-                    if(!inserted&&warned)it->second=true;
-                }
+                // A genuinely degenerate triangle has no rasterizable
+                // interior for barycentric line shading. Emit its three
+                // red edges as tiny diagnostic rods only in that case.
+                if(norm<=1e-18&&warned)
+                    for(unsigned k=0;k<3;++k)
+                        rod(overlay,mesh.vertex(v[k]).position,
+                            mesh.vertex(v[(k+1)%3]).position,
+                            .00015,11.0f);
             }
         };
         drawFaces(caps,9.0f,false);
         drawFaces(zippers,8.0f,false);
         drawFaces(bad,10.0f,true); // tinted light-red rejected face
-        for(const auto& [e,failed]:boundaryLines) {
-            const auto a=mesh.vertex(e.a).position;
-            const auto b=mesh.vertex(e.b).position;
-            rod(overlay,a,b,.0015,failed?11.0f:12.0f);
-        }
     };
     if(snapshot.autoEnabled&&snapshot.privateAuto) {
         const auto& result=*snapshot.privateAuto;
