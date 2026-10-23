@@ -104,6 +104,17 @@ void survivorSplitPreflight() {
     const auto mirrored=assessSurvivorSplit(faces,p,{5,6},.012);
     expect(!mirrored.safe&&mirrored.originalFace==34,
            "M11A both mirror sides must be assessed before split");
+    auto collisionPoints=p;
+    collisionPoints.emplace(9,Vec3{1,0,0});
+    const auto collision=assessUniqueConformingMidpoint(
+        collisionPoints,{1,2});
+    expect(!collision.unique&&collision.existingVertex==9,
+           "M11A2 exact duplicate midpoint must be rejected before split");
+    collisionPoints.erase(9);
+    const auto unique=assessUniqueConformingMidpoint(
+        collisionPoints,{1,2});
+    expect(unique.unique&&unique.point.x==1,
+           "M11A2 ordinary interior midpoint should remain legal");
     const auto noSource=assessSurvivorSplit(faces,p,{1,3},.00001);
     expect(noSource.safe,
            "M11A safe original-survivor alternative must stay eligible");
