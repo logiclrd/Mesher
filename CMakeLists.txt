@@ -300,6 +300,12 @@ if(MESHER_BUILD_TESTS)
               "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
               "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-2.r06case"
               -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_classifier_cli.cmake")
+        add_test(NAME repair_r06_m12_quality_warn_exact_case_1
+            COMMAND Mesher --repair-replay-test
+              "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-1.r06case"
+              --repair-quality-warn)
+        set_tests_properties(repair_r06_m12_quality_warn_exact_case_1
+            PROPERTIES PASS_REGULAR_EXPRESSION "QUALITY_WARNING_PREVIEW untrusted=1")
         # The five FULL physical 5K-vertex V1 cases, committed by the
         # operator on PR #150, are regression oracles. Do not silently
         # update expected failures if the next algorithm fixes them;
