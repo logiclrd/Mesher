@@ -55,7 +55,7 @@ void assertSameGeometry(const RegionTopologyIndex& a,
             "R06 case lost tombstone provenance");
     std::size_t faces=0,vertices=0;
     a.revision().forEachPartition([&](PartitionId id,const MeshPartition& p) {
-        const auto* rhs=b.revision().partition(id);
+        const auto rhs=b.revision().partition(id);
         require(rhs&&rhs->faces.size()==p.faces.size()&&
                 rhs->vertices.size()==p.vertices.size(),
                 "R06 case changed partition ownership or incidence counts");
