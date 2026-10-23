@@ -4,6 +4,7 @@
 #include "mesher/repair_interior_collapse.hpp"
 #include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
+#include "mesher/repair_mixed_edges.hpp"
 
 #include <algorithm>
 #include <array>
@@ -168,6 +169,24 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         }
         return result;
     };
+    // Inspect both the generated triangles and the complete effective R03
+    // source topology. Missing source sides are visible without copying
+    // their faces into the editable worklist.
+    const auto neighborhood=[&](Edge e) {
+        return inspectMixedClosureEdge(faces,*staged.sourceView,e);
+    };
+    const auto effectiveSides=[&](Edge e) {
+        const auto n=neighborhood(e);
+        std::vector<MixedClosureFace> result;
+        result.reserve(n.sides());
+        for(const auto i:n.localFaceIndexes)result.push_back(faces.at(i));
+        for(const auto id:n.missingSurvivorFaces) {
+            const auto& original=staged.sourceView->face(id);
+            result.push_back({id,original.owner,{},MixedClosureFaceKind::Survivor,
+                              0,staged.sourceView});
+        }
+        return result;
+    };
     const auto splitQuality=[&](const MixedClosureFace& f,Edge candidate) {
         const auto& v=f.triangle();
         for(unsigned k=0;k<3;++k) {
@@ -180,37 +199,22 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         throw std::logic_error("R06-M04B tracked face does not contain chosen edge");
     };
     const auto splitEdge=[&](Edge chosen) {
-        const auto adjacent=incident(chosen);
-        if(adjacent.size()!=2)
-            throw std::logic_error("R06-M04B cannot split an edge without exactly two tracked faces");
+        const auto adjacent=neighborhood(chosen);
+        if(!adjacent.conformingPair||!adjacent.missingSurvivorFaces.empty())
+            throw std::logic_error(
+                "M14C split requires a complete, oriented effective edge neighborhood");
         if(out.insertedVertices.size()>=limits.maxInsertedVertices)
             throw std::length_error("R06-M04B inserted vertex limit exceeded");
         const auto p=(positions.at(chosen.first)+positions.at(chosen.second))*.5;
-        const auto owner=vertexOwners.at(chosen.first);
+        const auto owner=staged.sourceView->source().maybeVertex(chosen.first)?
+            staged.sourceView->owner(chosen.first):vertexOwners.at(chosen.first);
         const auto middle=view.addVertex(owner,p);
         out.insertedVertices.push_back(middle);
         positions.emplace(middle,p);
         vertexOwners.emplace(middle,owner);
         owners.insert(owner);
-        for(const auto index:adjacent) {
-            const auto parent=faces.at(index);
-            bool matched=false;
-            for(unsigned k=0;k<3;++k) {
-                const auto a=parent.triangle()[k];
-                const auto b=parent.triangle()[(k+1)%3];
-                if(edge(a,b)!=chosen)continue;
-                const auto c=parent.triangle()[(k+2)%3];
-                faces[index].setTriangle({a,middle,c});
-                if(faces.size()>=limits.maxAuditedFaces+limits.maxNewFaces)
-                    throw std::length_error("R06-M04B tracked face work limit");
-                faces.push_back({0,parent.owner,{middle,b,c},
-                                 parent.kind,parent.targetEdge});
-                matched=true;
-                break;
-            }
-            if(!matched)
-                throw std::logic_error("R06-M04B lost one side of conforming edge split");
-        }
+        applyMixedConformingEdgeSplit(faces,chosen,middle,
+            limits.maxAuditedFaces+limits.maxNewFaces);
     };
 
     // If this immutable source carries intrinsic X=0 reflection, every
@@ -238,21 +242,39 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // Read-only complete mirror-orbit preflight. A conforming split can
     // bisect a skinny ORIGINAL survivor as well as the new cap/zipper.
     // Never discover that damage only after spending the split budget.
-    const auto survivorSafeOrbit=[&](Edge chosen)->bool {
+    const auto uniqueMidpoint=[&](Edge chosen) {
+        auto check=assessUniqueConformingMidpoint(positions,chosen);
+        if(!check.unique)return check;
+        // A source vertex far outside the initially staged halo can still
+        // occupy this point exactly. A geometry-only match blocks the edit;
+        // it NEVER grants a symbolic VertexId weld.
+        for(const auto id:staged.sourceView->source().querySphere(check.point,std::numeric_limits<double>::denorm_min())) {
+            const auto p=staged.sourceView->position(id);
+            if(p.x==check.point.x&&p.y==check.point.y&&p.z==check.point.z) {
+                check.unique=false;
+                check.existingVertex=id;
+                break;
+            }
+        }
+        return check;
+    };
+    const auto safeEdge=[&](Edge chosen)->bool {
+        const auto n=neighborhood(chosen);
+        if(!n.conformingPair)return false;
         if(!assessSurvivorSplit(
-                faces,positions,chosen,limits.minSurvivorQuality).safe)
+               effectiveSides(chosen),positions,chosen,
+               limits.minSurvivorQuality).safe)
             return false;
-        const auto midpoint=assessUniqueConformingMidpoint(positions,chosen);
-        if(!midpoint.unique)return false;
+        return uniqueMidpoint(chosen).unique;
+    };
+    const auto survivorSafeOrbit=[&](Edge chosen)->bool {
+        if(!safeEdge(chosen))return false;
+        const auto midpoint=uniqueMidpoint(chosen);
         if(!limits.requireReflectedGeometry)return true;
         const auto reflected=reflectedEdge(chosen);
-        if(!reflected||!assessSurvivorSplit(
-                faces,positions,*reflected,limits.minSurvivorQuality).safe)
-            return false;
+        if(!reflected||!safeEdge(*reflected))return false;
         if(*reflected==chosen)return true;
-        const auto peer=assessUniqueConformingMidpoint(positions,*reflected);
-        // Distinct reflected orbits must not insert the SAME plane vertex
-        // under two different IDs, even if both were previously absent.
+        const auto peer=uniqueMidpoint(*reflected);
         return peer.unique&&
             !(peer.point.x==midpoint.point.x&&
               peer.point.y==midpoint.point.y&&
@@ -264,75 +286,81 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             const auto found=reflectedEdge(chosen);
             if(!found) {
                 if(optional)return 0;
-                throw std::logic_error(
-                    "R06-M06C cannot find exact mirror orbit for conforming edge");
+                throw std::logic_error("R06-M06C cannot find exact mirror orbit for conforming edge");
             }
             paired=*found;
         }
         const auto count=paired==chosen?std::size_t{1}:std::size_t{2};
-        // No speculative pair split is allowed to consume half an orbit.
+        const auto first=neighborhood(chosen);
+        const auto second=paired==chosen?first:neighborhood(paired);
+        std::set<FaceId> extra;
+        extra.insert(first.missingSurvivorFaces.begin(),
+                     first.missingSurvivorFaces.end());
+        extra.insert(second.missingSurvivorFaces.begin(),
+                     second.missingSurvivorFaces.end());
+        const auto maxTracked=std::min(
+            limits.maxAuditedFaces+limits.maxNewFaces,
+            stageLimits.maxTrackedFaces);
+        // No allocation, imports, or face mutations until both sides of
+        // BOTH mirrored edges pass the full preflight. Prevent an orbit
+        // with two different split edges in the same original face from
+        // invalidating the second half's quality proof.
+        if(!first.conformingPair||!second.conformingPair) {
+            if(optional)return 0;
+            throw std::logic_error("R06-M14C conforming edge lacks two correctly oriented effective sides");
+        }
+        if(paired!=chosen) {
+            std::set<FaceId> ids;
+            for(const auto& f:effectiveSides(chosen))
+                if(f.stableId)ids.insert(f.stableId);
+            for(const auto& f:effectiveSides(paired))
+                if(f.stableId&&ids.contains(f.stableId)) {
+                    if(optional)return 0;
+                    throw std::logic_error("R06-M14C reflected edge orbit shares an original face");
+                }
+        }
         if(out.refinementSteps+count>limits.maxRefinementSteps||
            out.insertedVertices.size()+count>limits.maxInsertedVertices||
-           faces.size()+2*count>limits.maxAuditedFaces+limits.maxNewFaces) {
+           faces.size()+extra.size()+2*count>maxTracked) {
             if(optional)return 0;
-            throw std::length_error(
-                "R06-M06C complete mirrored edge-split orbit exceeds finite budget; "
-                "refinements="+std::to_string(out.refinementSteps)+
-                " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
+            throw std::length_error("R06-M14C full mirrored edge orbit exceeds finite halo/split budget");
         }
-        if(incident(chosen).size()!=2||incident(paired).size()!=2) {
-            if(optional)return 0;
-            throw std::logic_error(
-                "R06-M06C mirrored conforming edge lacks two incident tracked faces");
-        }
-
-        // BOTH surviving face stars must remain legal before EITHER
-        // new midpoint is allocated, even for mandatory quality passes.
         for(const auto& e:{chosen,paired}) {
             const auto check=assessSurvivorSplit(
-                faces,positions,e,limits.minSurvivorQuality);
+                effectiveSides(e),positions,e,limits.minSurvivorQuality);
             if(!check.safe) {
                 if(optional)return 0;
                 throw std::logic_error(
-                    "R06-M11A unsafe original-survivor midpoint split"
-                    " edge="+std::to_string(e.first)+","+
-                              std::to_string(e.second)+
+                    "R06-M11A unsafe original-survivor midpoint split edge="+
+                    std::to_string(e.first)+","+std::to_string(e.second)+
                     " stable_face="+std::to_string(check.originalFace)+
                     " child_q="+std::to_string(check.worstChildQuality)+
                     " required="+std::to_string(limits.minSurvivorQuality));
             }
         }
-        const auto firstPoint=assessUniqueConformingMidpoint(
-            positions,chosen);
-        const auto secondPoint=paired==chosen?firstPoint:
-            assessUniqueConformingMidpoint(positions,paired);
-        const bool midpointsCollide=paired!=chosen&&
+        const auto firstPoint=uniqueMidpoint(chosen);
+        const auto secondPoint=paired==chosen?firstPoint:uniqueMidpoint(paired);
+        const bool collide=paired!=chosen&&
             firstPoint.point.x==secondPoint.point.x&&
             firstPoint.point.y==secondPoint.point.y&&
             firstPoint.point.z==secondPoint.point.z;
-        if(!firstPoint.unique||!secondPoint.unique||midpointsCollide) {
+        if(!firstPoint.unique||!secondPoint.unique||collide) {
             if(optional)return 0;
             throw std::logic_error(
-                "R06-M11A2 complete mirrored midpoint orbit would "
-                "create coincident stable vertices: edge="+
-                std::to_string(chosen.first)+","+
-                std::to_string(chosen.second)+
-                " first_collision="+
-                std::to_string(firstPoint.existingVertex)+
-                " reflected_collision="+
-                std::to_string(secondPoint.existingVertex)+
-                " orbit_self_collision="+
-                std::to_string(midpointsCollide));
+                "R06-M11A2 complete mirrored midpoint orbit would create coincident stable vertices");
         }
-        if(optional) {
+        if(optional)
             for(const auto& e:{chosen,paired})
-                for(const auto index:incident(e)) {
-                    const auto q=splitQuality(faces[index],e);
+                for(const auto& f:effectiveSides(e)) {
+                    const auto q=splitQuality(f,e);
                     if(!std::isfinite(q)||
-                       q+1e-12<accepted(faces[index].kind,limits).threshold)
+                        q+1e-12<accepted(f.kind,limits).threshold)
                         return 0;
                 }
-        }
+        // Import the union once, after every check has succeeded.
+        MixedClosureEdgeNeighborhood import;
+        import.missingSurvivorFaces.assign(extra.begin(),extra.end());
+        importMixedEdgeSurvivors(staged,import,maxTracked);
         splitEdge(chosen);
         if(paired!=chosen)splitEdge(paired);
         return count;
