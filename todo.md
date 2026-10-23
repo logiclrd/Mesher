@@ -327,6 +327,37 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M09A — Revalidation matches selected replay classifier.**
+  A captured v2 AUTO_CLOSED case saved under area can be replayed with
+  proximity; M03 chooses zipper but M04C independently replans with
+  default area, falsely flagging the legitimate alternative as
+  stale/forged. Thread the selected `AutoClosurePlanSettings` into
+  the existing private M04C trust recheck and compare its independently
+  generated cap and zipper sets. Keep real source/cut validation and
+  all M04 quality/manifold/symmetry/collision refusal unchanged;
+  intentionally forged selections must still be refused.
+- [ ] **R06-M09B — Read-only classifier comparison in every frozen R06 HUD.**
+  Evaluate area and proximity M03 from the same immutable post-stamp
+  candidate, R03 cut, R02 proposal and R01 contacts (without running
+  two M04 geometry builds); on both live and exact replay, display two
+  top-left lines `AREA: ...`, `PROXIMITY: ...`, appending `<---`
+  to the enabled classifier. Green when both valid planned selections
+  are identical, red when valid selections differ; label incomplete
+  plans explicitly as unavailable, avoiding false claims about correctness.
+  HUD must not measure geometry success or auto-adjust classification,
+  and must remain available even when active M04 refuses. Shader/HUD
+  tests must prove red and green glyph materials and no changes to
+  established top-right FPS/stamps display.
+- [ ] **R06-M09C — Pairwise archived A/B regressions and physical gate.**
+  Regression covers private certifier accepting independently
+  recomputed selected proximity plans, rejecting modified forged
+  plan irrespective of classifier, comparing both planned decisions
+  on identical frozen candidates, preserving original area default,
+  V1/V2 archive contents and mismatch CLI behavior. Verify all five
+  physical 5K fixtures and the new user-held
+  `classification-zipper-1.r06case` once shared. GCC/Clang/MSVC
+  before user physical Linux/Windows Vulkan HUD check. Keep draft
+  and do not publish worker history.
 - [ ] **R06-M08A — Selectable experimental two-ring proximity fitness.**
   Keep `--repair-classifier area` as byte-for-byte default V15 area-DP
   behavior and add `--repair-classifier proximity` for eligible, proven
