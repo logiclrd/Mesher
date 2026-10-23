@@ -3,6 +3,7 @@
 #include "mesher/brush_radius.hpp"
 #include "mesher/partition_render.hpp"
 
+#include <array>
 #include <functional>
 #include <optional>
 #include <memory>
@@ -42,6 +43,12 @@ struct ViewportMeshUpdate {
     bool inspectionCapSucceeded = false;
     bool inspectionAutoRequested = false;
     bool inspectionAutoSucceeded = false;
+    // M09: frozen M03 decisions, computed from exactly one original
+    // candidate/cut and never inferred from an M04 geometry outcome.
+    std::array<std::string,2> classifierChoices{};
+    bool classifierComparable=false;
+    bool classifiersAgree=false;
+    int activeClassifier=0; // 0=area; 1=proximity
 };
 
 struct ViewportInteraction {
