@@ -1,4 +1,5 @@
 #include "mesher/repair_mixed_source_view.hpp"
+#include "mesher/repair_mixed_positions.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -103,6 +104,49 @@ void sourceBackedOverrides() {
     try{MixedClosureSourceView missing({},1);}
     catch(const std::invalid_argument&){refused=true;}
     require(refused,"M14A cannot construct an ownerless mesh view");
+    // M14B1: the working position table retains IDs for original XYZ,
+    // never independently editable copies of those survivor positions.
+    auto otherWorking=std::make_shared<MixedClosureSourceView>(source);
+    MixedClosurePositions positions(otherWorking);
+    const auto stable=verts[0];
+    positions.emplace(stable,source->vertex(stable).position);
+    require(positions.originalHandles()==1&&
+            positions.newVertexPositions()==0&&
+            positions.at(other).x==source->vertex(other).position.x&&
+            positions.materialize().contains(stable)&&
+            !positions.materialize().contains(other),
+            "M14B1 must read remote old vertex by ID without copying its XYZ into tracked staging");
+
+    auto synthetic=std::numeric_limits<VertexId>::max();
+    require(!source->maybeVertex(synthetic),
+            "M14B1 synthetic test ID must not exist in R03");
+    positions.emplace(synthetic,Vec3{2,3,4});
+    require(positions.newVertexPositions()==1&&
+            positions.materialize().contains(synthetic)&&
+            positions.at(synthetic).x==2,
+            "M14B1 pending interior vertices must reside only in transaction");
+    positions.set(synthetic,Vec3{3,4,5});
+    require(positions.materialize().at(synthetic).x==3,
+            "M14B1 fairing-style generated-vertex updates must invalidate read-only snapshots");
+    positions.erase(synthetic);
+    require(!positions.contains(synthetic)&&
+            !positions.materialize().contains(synthetic),
+            "M14B1 retirement must clear owned generated vertices");
+
+    const auto before=source->vertex(stable).position;
+    positions.set(stable,Vec3{before.x+.125,before.y,before.z});
+    require(positions.at(stable).x==before.x+.125&&
+            positions.materialize().at(stable).x==before.x+.125&&
+            source->vertex(stable).position.x==before.x&&
+            otherWorking->pendingVertexEdits()==1,
+            "M14B1 an original-vertex edit must go to the source-backed transaction, not the immutable original");
+    refused=false;
+    try{positions.erase(stable);}
+    catch(const std::logic_error&){refused=true;}
+    require(refused&&source->vertex(stable).position.x==before.x,
+            "M14B1 cannot retire an original surviving vertex");
+    std::cout<<"[r06-m14b1] original position ID handles, generated edits, "
+                "read-only snapshots, safe retirement PASS\n";
     std::cout<<"[r06-m14a] immutable R03 read-through, effective incidences, "
                 "override precedence, finite refusal PASS\n";
 }
