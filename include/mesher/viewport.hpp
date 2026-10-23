@@ -43,6 +43,7 @@ struct ViewportMeshUpdate {
     bool inspectionCapSucceeded = false;
     bool inspectionAutoRequested = false;
     bool inspectionAutoSucceeded = false;
+    bool inspectionQualityWarningPreview = false;
     // M09: frozen M03 decisions, computed from exactly one original
     // candidate/cut and never inferred from an M04 geometry outcome.
     std::array<std::string,2> classifierChoices{};
