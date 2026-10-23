@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -165,10 +166,23 @@ RepairCase readRepairCase(const std::filesystem::path& source) {
         reinterpret_cast<const char*>(bytes.data()+cursor),
         static_cast<std::size_t>(diagnosticSize));
     cursor+=static_cast<std::size_t>(diagnosticSize);
-    const auto meshPath=temporaryMesh(source);
+    // A case can be installed on a read-only filesystem (e.g. a
+    // committed CI fixture). Never demand write access beside the archive.
+    // Each invocation receives a separate temporary extracted checkpoint.
+    std::filesystem::path meshPath;
+    const auto nonce=std::chrono::steady_clock::now().time_since_epoch().count();
+    for(unsigned attempt=0;attempt<128;++attempt) {
+        const auto candidate=std::filesystem::temp_directory_path()/
+            ("mesher-r06-replay-"+std::to_string(nonce)+"-"+
+             std::to_string(attempt)+".mshr");
+        if(!std::filesystem::exists(candidate)) {
+            meshPath=candidate;
+            break;
+        }
+    }
+    if(meshPath.empty())
+        throw std::runtime_error("No unused R06 replay temporary file");
     const RemoveFile cleanup{meshPath};
-    if(std::filesystem::exists(meshPath))
-        throw std::runtime_error("R06 replay temporary mesh path already occupied");
     storeBytes(meshPath,bytes.data()+cursor,static_cast<std::size_t>(meshSize));
     capture.candidate=readCheckpoint(meshPath);
     valid(capture);
