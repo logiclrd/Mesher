@@ -1846,7 +1846,12 @@ public:
                 else if(z&&interaction_.undo)interaction_.undo();
                 else if(y&&interaction_.redo)interaction_.redo();
             }
-            if(ctrl&&!inspectionFrozen_&&save&&interaction_.checkpoint)
+            // A frozen R06 refusal is the one diagnostic state where
+            // Ctrl+S deliberately saves a CASE, never a normal worker
+            // checkpoint. All other frozen modes retain their save guard.
+            if(ctrl&&save&&interaction_.checkpoint&&
+               (!inspectionFrozen_||
+                (inspectionAutoRequested_&&!inspectionAutoSucceeded_)))
                 interaction_.checkpoint();
             if(!ctrl)updateMergeKeyboard();
             updateMouseOrbit();
