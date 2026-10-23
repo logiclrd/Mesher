@@ -42,7 +42,8 @@ struct MixedPrivateClosureResult {
     std::size_t newFaces{};
     std::size_t refinementSteps{};
     std::size_t interiorQualityFlips{};
-    std::size_t interiorFairingMoves{}; // new interior vertices only; mirrored pair counts two
+    std::size_t interiorFairingMoves{};
+    std::size_t interiorCapCollapses{}; // retired NEW valence-three cap vertices only // new interior vertices only; mirrored pair counts two
     std::vector<FaceId> qualityWarningFaces; // all actual faces with q/edge violation
     std::string qualityWarningReason;
     double minimumCapQuality{1};
