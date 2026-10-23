@@ -309,13 +309,31 @@ int main(int argc, char** argv) {
                      <<" contacts="<<saved.contacts.size()
                      <<" symmetric_source="<<saved.symmetricSource
                      <<" exact_candidate=1 worker_history_checkpoint_unchanged=1\n";
-            if(frozen->autoPlan)
+            std::cout<<"[repair-r06] RECORDED original_reason="
+                     <<saved.originalDiagnostic<<"\n";
+            if(frozen->autoPlan) {
+                const auto& plan=*frozen->autoPlan;
                 std::cout<<"[repair-r06] PLAN status="
-                         <<static_cast<int>(frozen->autoPlan->status)
-                         <<" regions="<<frozen->autoPlan->geometryRegions
-                         <<" caps="<<frozen->autoPlan->cappedContours.size()
-                         <<" zipper_pairs="<<frozen->autoPlan->zipperPairs.size()
-                         <<" contact_links="<<frozen->autoPlan->trustedContactLinks<<"\n";
+                         <<static_cast<int>(plan.status)
+                         <<" regions="<<plan.geometryRegions
+                         <<" caps="<<plan.cappedContours.size()
+                         <<" zipper_pairs="<<plan.zipperPairs.size()
+                         <<" contact_links="<<plan.trustedContactLinks<<"\n";
+                for(std::size_t i=0;i<plan.regions.size();++i) {
+                    const auto& region=plan.regions[i];
+                    std::cout<<"[repair-r06] region="<<i
+                             <<" caps="<<region.caps.size()
+                             <<" zippers="<<region.zippers.size()
+                             <<" contact_links="<<region.contactLinks
+                             <<" rim_metrics_valid="<<region.twoRimEvidenceValid
+                             <<" centroid_gap="<<region.rimCentroidSeparation
+                             <<" normals_dot="<<region.rimNormalAlignment
+                             <<" nearest_gap_in_edges="<<region.rimNearestSeparationInEdges
+                             <<" cap_area_estimate="<<region.estimatedCapArea
+                             <<" zipper_area_estimate="<<region.estimatedZipperArea
+                             <<" selection="<<region.selectionReason<<"\n";
+                }
+            }
             if(succeeded) {
                 const auto& completed=*frozen->privateAuto;
                 std::cout<<"[repair-r06] AUTO_CLOSED private_closed_mesh=1"
