@@ -327,6 +327,41 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M10A — Captured refusal census and bounded quality-flip groundwork.**
+  Keep five immutable physical V1 refusal cases, distinguishing cap q=.082329,
+  zipper q=.098881, cap q=.096550, symmetric split-orbit budget, and
+  cap q=.014067. Record deterministic current M03 plan, M04 refusal type,
+  subthreshold q, inserted vertices/refinement count (and classifier);
+  diagnostics must not be silently mistaken for a passing quality test.
+  Implement only *interior* new/new cap-cap or zipper-zipper diagonal
+  improvements, with four distinct vertices, proven two-face manifold
+  adjacency, safe orientations, bounded local improvement and full
+  post-change contact/manifold audits, without moving the old R03 rim.
+  Prefer improvement before consuming further mid-edge subdivisions;
+  cap quality >=.10 and zipper quality >=.10 remain compulsory.
+- [ ] **R06-M10B — Entire mirror-orbit flip and finite deterministic passes.**
+  For intrinsic X=0 symmetry, plan a complete reflected edge-flip
+  orbit before modifying either side, including self-mirrored orbit
+  safety; never produce one-sided geometry. Limit flip count independently
+  from split budget and refuse or skip uncertain orbit. Unit tests for
+  local improvement, nonconvex/inverted rejection, mirror equality,
+  no duplicate edge or survivor/closure swap, and no partial orbit.
+- [ ] **R06-M10C — Recorded-case regression and honest result review.**
+  Replay the five real 5K archives under their original area classifier,
+  compare with pre-change diagnostics, verify improvements don't
+  introduce orientation/mirror/collision regressions and include
+  M04 flip count in private logs. If an archived expected REFUSED
+  legitimately changes to CLOSED, review that exact archive and
+  document/explicitly update its expectation instead of silently
+  declaring all old refusals to pass. GCC/Clang/MSVC CTests plus physical
+  replay on Linux and Windows; keep draft/unpublished pending acceptance.
+- [ ] **R06-M10D — If still refusing: separately planned bounded remedies.**
+  Use actual replay results to identify which cases require nonplanar
+  interior node relocation/retriangulation or adaptive frontier repair,
+  versus changing symmetric edge-split sequencing for mirror budget.
+  Record independently complete follow-up milestones BEFORE implementing
+  additional algorithmic classes; never respond by lowering q=.10 or
+  unboundedly increasing subdivision limits.
 - [ ] **R06-M09A — Revalidation matches selected replay classifier.**
   A captured v2 AUTO_CLOSED case saved under area can be replayed with
   proximity; M03 chooses zipper but M04C independently replans with
