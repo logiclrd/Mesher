@@ -358,6 +358,12 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             break;
         }
         if(largestUnsafeRatio<=1&&lowest==faces.size())break;
+        if(largestRatio<=1&&lowest==faces.size()) {
+            if(improveQuality())continue;
+            throw std::logic_error(
+                "R06-M11A remaining closure edge-length deficit has "
+                "no survivor-safe conforming mirror-orbit split");
+        }
         // A bad local diagonal is not repairable merely by bisecting an
         // already skinny needle. Try a bounded topology-preserving 2->2
         // improvement before burning one of the finite subdivision steps.
