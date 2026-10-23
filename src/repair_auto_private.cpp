@@ -116,6 +116,7 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.generatedFaces=staged.newFaces;
     out.insertedVertices=staged.insertedVertices.size();
     out.refinementSteps=staged.refinementSteps;
+    out.interiorQualityFlips=staged.interiorQualityFlips;
     out.minimumCapQuality=staged.minimumCapQuality;
     out.minimumZipperQuality=staged.minimumZipperQuality;
     out.spatialCapLoops=staged.spatialCapLoops;
