@@ -291,6 +291,11 @@ if(MESHER_BUILD_TESTS)
               -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_case_choice.cmake")
         set_tests_properties(repair_r06_m07_cli_semantic_mismatch
             PROPERTIES FIXTURES_REQUIRED r06_case_archives)
+        add_test(NAME repair_r06_m08_same_candidate_two_classifiers
+            COMMAND "${CMAKE_COMMAND}"
+              "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+              "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-2.r06case"
+              -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_classifier_cli.cmake")
         # The five FULL physical 5K-vertex V1 cases, committed by the
         # operator on PR #150, are regression oracles. Do not silently
         # update expected failures if the next algorithm fixes them;
