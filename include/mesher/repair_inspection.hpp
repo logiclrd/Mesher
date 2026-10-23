@@ -53,11 +53,12 @@ class RepairInspectionSession {
 public:
     explicit RepairInspectionSession(bool preview=false,bool excise=false,
                                      bool zipper=false,bool cap=false,bool autoMode=false,
-                                     bool symmetricSource=false)
+                                     bool symmetricSource=false,
+                                     AutoClosureClassifier classifier=AutoClosureClassifier::Area)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
-         symmetricSource_(symmetricSource) {}
+         symmetricSource_(symmetricSource),classifier_(classifier) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -68,6 +69,7 @@ private:
     bool capEnabled_=false;
     bool autoEnabled_=false;
     bool symmetricSource_=false;
+    AutoClosureClassifier classifier_=AutoClosureClassifier::Area;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -78,7 +80,8 @@ struct RepairCase;
 // R03 and R06 private closure on the saved, exact POST-STAMP candidate.
 // This is a new private snapshot, never a published revision/history root.
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
-    const RepairCase& capture);
+    const RepairCase& capture,
+    AutoClosureClassifier classifier=AutoClosureClassifier::Area);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
