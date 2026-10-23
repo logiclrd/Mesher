@@ -21,7 +21,10 @@ void main() {
     // of ordinary material/wireframe appearance and cannot tint mesh data.
     if(surfaceMaterial>=1.5) {
         vec3 diagnostic;
-        if(surfaceMaterial>=8.5)diagnostic=vec3(0.08,0.91,0.19); // R05 real green cap faces
+        if(surfaceMaterial>=11.5)diagnostic=vec3(0.05,0.08,0.11); // cap/zipper triangulation edges
+        else if(surfaceMaterial>=10.5)diagnostic=vec3(0.97,0.09,0.13); // failed triangle edges
+        else if(surfaceMaterial>=9.5)diagnostic=vec3(1.0,0.54,0.57); // tinted failed triangle faces
+        else if(surfaceMaterial>=8.5)diagnostic=vec3(0.08,0.91,0.19); // R05 real green cap faces
         else if(surfaceMaterial>=7.5)diagnostic=vec3(0.10,0.42,1.0); // R04 actual new zipper faces
         else if(surfaceMaterial>=6.5)diagnostic=vec3(0.08,0.88,0.94); // added boundary vertex
         else if(surfaceMaterial>=5.5)diagnostic=vec3(1.0,0.83,0.07); // directed contour
