@@ -14,11 +14,15 @@ void expect(bool ok,const char* why) {
     if(!ok)throw std::runtime_error(why);
 }
 void validate(const std::vector<Vec3>& rim,const SpatialCapPatch& patch) {
-    expect(patch.boundaryCount==rim.size()&&
-           patch.positions.size()==2*rim.size()+1 &&
-           patch.faces.size()==3*rim.size()&&
-           patch.poissonIterations>0 &&
-           patch.poissonIterations<=SpatialCapSettings{}.maxPoissonIterations &&
+    const bool correctShape=patch.usedMirroredRibbonFallback?
+        (patch.positions.size()==rim.size()+(rim.size()-2)/2 &&
+         patch.faces.size()==2*rim.size()-4&&
+         patch.poissonIterations==0):
+        (patch.positions.size()==2*rim.size()+1 &&
+         patch.faces.size()==3*rim.size()&&
+         patch.poissonIterations>0&&
+         patch.poissonIterations<=SpatialCapSettings{}.maxPoissonIterations);
+    expect(patch.boundaryCount==rim.size()&&correctShape&&
            patch.minimumQuality>1e-8,
            "R06-M06C front must have bounded new vertices and nondegenerate triangles");
     for(std::size_t i=0;i<rim.size();++i)
@@ -272,6 +276,72 @@ void physicalSymmetric16Rim() {
                  <<" at spatial front: "<<error.what()<<" PASS\\n";
     }
 }
+
+void physicalFoldedMirroredRims() {
+    // Both exact R03 directed contours from the 2026-10-22 Linux physical
+    // failures #1 and #3. The missing surviving-face normals and ~11K-face
+    // sculpt mean this only certifies LOCAL self-embedding and mirror topology.
+    const std::vector<std::vector<Vec3>> examples{
+        {
+            {-0.00571563211033545,-1.2035754110900068,0.33412043231885968},
+            {-0.010910359959350479,-1.2494784377004791,0.37135150270675765},
+            {-0.0042650354788905187,-1.2187476777266326,0.40397347071817702},
+            {-0.0097296810535124848,-1.2413145426172396,0.43119455891605019},
+            {-0.015581692562461613,-1.2051700552587983,0.47861588115732845},
+            {-0.029204742260248863,-1.1754864475176601,0.51211675796614697},
+            {-0.023134210876666932,-1.1355717949919484,0.49848393401167779},
+            {0,-1.0858342243625969,0.46761069954695628},
+            {0.023134210876666932,-1.1355717949919484,0.49848393401167779},
+            {0.029204742260248863,-1.1754864475176601,0.51211675796614697},
+            {0.015581692562461613,-1.2051700552587983,0.47861588115732845},
+            {0.0097296810535124848,-1.2413145426172396,0.43119455891605019},
+            {0.0042650354788905187,-1.2187476777266326,0.40397347071817702},
+            {0.010910359959350479,-1.2494784377004791,0.37135150270675765},
+            {0.00571563211033545,-1.2035754110900068,0.33412043231885968},
+            {0,-1.1550817042834649,0.31321198480413742}
+        },
+        {
+            {-0.018687475644495237,-1.6468542840620548,0.63311572703089936},
+            {0,-1.6313878241783006,0.59839569451098551},
+            {0.018687475644495237,-1.6468542840620548,0.63311572703089936},
+            {0.040374401118989184,-1.6650423315910197,0.67353899759268809},
+            {0.043078571123703398,-1.7086687120214255,0.68856323688704568},
+            {0.050648872108918455,-1.7595262872494286,0.69996019309010693},
+            {0.023445110770740241,-1.7880627159627558,0.64783257581411302},
+            {0.019222342523619866,-1.8155047601860497,0.61336223718395511},
+            {0.02169278603656645,-1.8381293636980689,0.5757901587431391},
+            {0.012547399115915486,-1.8089989284069126,0.50883068126942921},
+            {0.0023985385738196727,-1.7696600335199852,0.52441180917821772},
+            {0,-1.7154179999421402,0.48325452843610073},
+            {-0.0023985385738196727,-1.7696600335199852,0.52441180917821772},
+            {-0.012547399115915486,-1.8089989284069126,0.50883068126942921},
+            {-0.02169278603656645,-1.8381293636980689,0.5757901587431391},
+            {-0.019222342523619866,-1.8155047601860497,0.61336223718395511},
+            {-0.023445110770740241,-1.7880627159627558,0.64783257581411302},
+            {-0.050648872108918455,-1.7595262872494286,0.69996019309010693},
+            {-0.043078571123703398,-1.7086687120214255,0.68856323688704568},
+            {-0.040374401118989184,-1.6650423315910197,0.67353899759268809}
+        }
+    };
+    for(std::size_t test=0;test<examples.size();++test) {
+        auto rim=examples[test];
+        std::reverse(rim.begin(),rim.end()); // same cap-facing order as M04A
+        SpatialCapSettings limits;
+        limits.requireMirrorPlane=true;
+        const auto patch=buildSpatialCapFrontPoisson(rim,{},limits);
+        validate(rim,patch);
+        for(const auto& face:patch.faces) {
+            const auto a=patch.positions[face[0]].x;
+            const auto b=patch.positions[face[1]].x;
+            const auto c=patch.positions[face[2]].x;
+            expect(!(std::min({a,b,c})<0&&std::max({a,b,c})>0),
+                   "R06-M06C4f mirror ribbon may never straddle the reflection plane");
+        }
+        std::cout<<"[r06-m06c4f] physical mirrored folded rim "<<test
+                 <<" local cap candidate; ribbon="<<patch.usedMirroredRibbonFallback
+                 <<" q="<<patch.minimumQuality<<" PASS\n";
+    }
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -298,6 +368,7 @@ int main() {
         mirroredSingleRimContract();
         physicalSymmetric26Rim();
         physicalSymmetric16Rim();
+        physicalFoldedMirroredRims();
         physicalLongRimSafety();
         recordedCurved18Safety();
         crossingRimMustRefuse();
