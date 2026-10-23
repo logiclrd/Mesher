@@ -305,11 +305,22 @@ if(MESHER_BUILD_TESTS)
         # update expected failures if the next algorithm fixes them;
         # review the intended outcome then update/replace the fixture.
         foreach(case_id RANGE 1 5)
-            add_test(NAME repair_r06_m07_physical_case_${case_id}
-                COMMAND Mesher --repair-replay-test
-                  "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-${case_id}.r06case")
-            set_tests_properties(repair_r06_m07_physical_case_${case_id}
-                PROPERTIES PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+            if(case_id EQUAL 2 OR case_id EQUAL 4)
+                # Reviewed M10 recoveries: preserve the V1 archive's old
+                # REFUSED bit, require explicit current CLOSED instead.
+                add_test(NAME repair_r06_m07_physical_case_${case_id}
+                    COMMAND "${CMAKE_COMMAND}"
+                      "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+                      "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-${case_id}.r06case"
+                      "-DCASE_ID=${case_id}"
+                      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_recovered_repair_case.cmake")
+            else()
+                add_test(NAME repair_r06_m07_physical_case_${case_id}
+                    COMMAND Mesher --repair-replay-test
+                      "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-${case_id}.r06case")
+                set_tests_properties(repair_r06_m07_physical_case_${case_id}
+                    PROPERTIES PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+            endif()
         endforeach()
     endif()
     add_executable(mesher_repair_auto_inspection_tests tests/repair_auto_inspection_tests.cpp)
