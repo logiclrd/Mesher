@@ -376,6 +376,20 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         out.interiorQualityFlips+=count;
         return true;
     };
+    constexpr std::size_t maxInteriorFairingMoves=32;
+    const auto improveFairing=[&]() -> bool {
+        const auto orbit=limits.requireReflectedGeometry?
+            std::size_t{2}:std::size_t{1};
+        if(out.interiorFairingMoves+orbit>maxInteriorFairingMoves)return false;
+        const auto moved=fairOneConstrainedClosureVertex(
+            faces,positions,out.insertedVertices,
+            limits.requireReflectedGeometry,
+            limits.minCapQuality,limits.minZipperQuality,
+            limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
+        if(!moved)return false;
+        out.interiorFairingMoves+=moved;
+        return true;
+    };
     std::size_t stagnant=0;
     while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
@@ -428,6 +442,13 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::logic_error(
                 "R06-M11A remaining closure edge-length deficit has "
                 "no survivor-safe conforming mirror-orbit split");
+        }
+        // When quality, rather than edge length, is the obstacle,
+        // reposition NEW interior vertices before further subdivisions
+        // simply propagate a sharp near-zero-angle needle.
+        if(lowest!=faces.size()&&largestRatio<=1&&improveFairing()) {
+            stagnant=0;
+            continue;
         }
         // A bad local diagonal is not repairable merely by bisecting an
         // already skinny needle. Try a bounded topology-preserving 2->2
@@ -493,6 +514,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                         }
                     }
                 }
+                evidence<<" fairing_moves="<<out.interiorFairingMoves;
                 if(limits.inspectionWarnQuality) {
                     warn(evidence.str());
                     break;
@@ -612,21 +634,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
 
-    // Quality-deficit fairing is a finite, private-only fallback when
-    // midpoint splitting and conforming flips leave acute interior fans.
-    // The helper never moves an R03 rim or an original survivor vertex;
-    // exact reflected position orbits are moved atomically.
-    constexpr std::size_t maxInteriorFairingMoves=32;
-    for(std::size_t n=0;n<maxInteriorFairingMoves;) {
-        const auto moved=fairOneConstrainedClosureVertex(
-            faces,positions,out.insertedVertices,
-            limits.requireReflectedGeometry,
-            limits.minCapQuality,limits.minZipperQuality,
-            limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
-        if(!moved)break;
-        n+=moved;
-        out.interiorFairingMoves+=moved;
-    }
+    // One final bounded local merit pass may rescue quality deficits
+    // remaining after the subdivision budget, including incomplete
+    // symmetric split orbits. Never touch original R03/survivor vertices.
+    while(improveFairing()) {}
     if(out.interiorFairingMoves)
         for(const auto id:out.insertedVertices) {
             const auto owner=vertexOwners.at(id);
