@@ -205,7 +205,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
            faces.size()+2*count>limits.maxAuditedFaces+limits.maxNewFaces) {
             if(optional)return 0;
             throw std::length_error(
-                "R06-M06C complete mirrored edge-split orbit exceeds finite budget");
+                "R06-M06C complete mirrored edge-split orbit exceeds finite budget; "
+                "refinements="+std::to_string(out.refinementSteps)+
+                " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
         }
         if(incident(chosen).size()!=2||incident(paired).size()!=2) {
             if(optional)return 0;
@@ -441,7 +443,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 " length_ratio="+
                 std::to_string(largest/(f.targetEdge*requirements.edgeFactor))+
                 " refinements="+std::to_string(out.refinementSteps)+
-                " inserted_vertices="+std::to_string(out.insertedVertices.size()));
+                " inserted_vertices="+std::to_string(out.insertedVertices.size())+
+                " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
         if(f.kind==MixedClosureFaceKind::Cap)
             out.minimumCapQuality=std::min(out.minimumCapQuality,q);
         else
