@@ -337,9 +337,17 @@ void physicalFoldedMirroredRims() {
             expect(!(std::min({a,b,c})<0&&std::max({a,b,c})>0),
                    "R06-M06C4f mirror ribbon may never straddle the reflection plane");
         }
+        // Force ONLY the alternate locally to exercise its independent
+        // intersection/orientation/size checks. Normal production still
+        // prefers Poisson and selects this topology solely on self-contact.
+        limits.preferMirroredRibbonForTesting=true;
+        const auto ribbon=buildSpatialCapFrontPoisson(rim,{},limits);
+        validate(rim,ribbon);
+        expect(ribbon.usedMirroredRibbonFallback,
+               "R06-M06C4f alternate mirror strip must actually be exercised");
         std::cout<<"[r06-m06c4f] physical mirrored folded rim "<<test
-                 <<" local cap candidate; ribbon="<<patch.usedMirroredRibbonFallback
-                 <<" q="<<patch.minimumQuality<<" PASS\n";
+                 <<" Poisson q="<<patch.minimumQuality
+                 <<" forced alternate q="<<ribbon.minimumQuality<<" PASS\n";
     }
 }
 void finiteRefusals() {
