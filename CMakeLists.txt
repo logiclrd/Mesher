@@ -306,6 +306,18 @@ if(MESHER_BUILD_TESTS)
               --repair-quality-warn)
         set_tests_properties(repair_r06_m12_quality_warn_exact_case_1
             PROPERTIES PASS_REGULAR_EXPRESSION "QUALITY_WARNING_PREVIEW untrusted=1")
+        add_test(NAME repair_r06_m13_exact_seam_refusal_1
+            COMMAND Mesher --repair-replay-test
+              "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-1.r06case"
+              --repair-quality-warn --repair-seam-audit --repair-overlay-exact)
+        set_tests_properties(repair_r06_m13_exact_seam_refusal_1
+            PROPERTIES PASS_REGULAR_EXPRESSION "repair-r06-seam\\] SUMMARY")
+        add_test(NAME repair_r06_m13_exact_seam_refusal_3
+            COMMAND Mesher --repair-replay-test
+              "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-3.r06case"
+              --repair-quality-warn --repair-seam-audit --repair-overlay-exact)
+        set_tests_properties(repair_r06_m13_exact_seam_refusal_3
+            PROPERTIES PASS_REGULAR_EXPRESSION "repair-r06-seam\\] SUMMARY")
         # The five FULL physical 5K-vertex V1 cases, committed by the
         # operator on PR #150, are regression oracles. Do not silently
         # update expected failures if the next algorithm fixes them;
