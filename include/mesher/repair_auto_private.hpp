@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/repair_enclosure.hpp"
+#include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_mixed_closure.hpp"
 
 #include <cstddef>
@@ -10,6 +11,7 @@
 namespace mesher {
 
 struct CertifiedPrivateAutoLimits {
+    AutoClosurePlanSettings planner{}; // M09 exact independent M03 recheck
     MixedPrivateClosureLimits closure{};
     EnclosedComponentLimits material{};
     std::size_t maxRetiredCavityFaces=20000;
