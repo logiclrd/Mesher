@@ -21,7 +21,8 @@ void main() {
     // of ordinary material/wireframe appearance and cannot tint mesh data.
     if(surfaceMaterial>=1.5) {
         vec3 diagnostic;
-        if(surfaceMaterial>=11.5)diagnostic=vec3(0.05,0.08,0.11); // cap/zipper triangulation edges
+        if(surfaceMaterial>=12.5)diagnostic=vec3(1.0,0.81,0.02); // M13 actual shared seam edge IDs, no geometry offset
+        else if(surfaceMaterial>=11.5)diagnostic=vec3(0.05,0.08,0.11); // cap/zipper triangulation edges
         else if(surfaceMaterial>=10.5)diagnostic=vec3(0.97,0.09,0.13); // failed triangle edges
         else if(surfaceMaterial>=9.5)diagnostic=vec3(1.0,0.54,0.57); // tinted failed triangle faces
         else if(surfaceMaterial>=8.5)diagnostic=vec3(0.08,0.91,0.19); // R05 real green cap faces
