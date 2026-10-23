@@ -1,5 +1,6 @@
 #include "mesher/repair_mixed_closure.hpp"
 #include "mesher/repair_quality_flip.hpp"
+#include "mesher/repair_interior_fairing.hpp"
 #include "mesher/repair_survivor_split.hpp"
 
 #include <algorithm>
@@ -611,6 +612,32 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
 
+    // Quality-deficit fairing is a finite, private-only fallback when
+    // midpoint splitting and conforming flips leave acute interior fans.
+    // The helper never moves an R03 rim or an original survivor vertex;
+    // exact reflected position orbits are moved atomically.
+    constexpr std::size_t maxInteriorFairingMoves=32;
+    for(std::size_t n=0;n<maxInteriorFairingMoves;) {
+        const auto moved=fairOneConstrainedClosureVertex(
+            faces,positions,out.insertedVertices,
+            limits.requireReflectedGeometry,
+            limits.minCapQuality,limits.minZipperQuality,
+            limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
+        if(!moved)break;
+        n+=moved;
+        out.interiorFairingMoves+=moved;
+    }
+    if(out.interiorFairingMoves)
+        for(const auto id:out.insertedVertices) {
+            const auto owner=vertexOwners.at(id);
+            auto& partition=view.editPartition(owner);
+            const auto it=std::find_if(partition.vertices.begin(),
+                                       partition.vertices.end(),
+                [id](const PartitionVertex& v){return v.id==id;});
+            if(it==partition.vertices.end())
+                throw std::logic_error("R06-M11A3a moved private vertex missing from owner");
+            it->position=positions.at(id);
+        }
     std::vector<bool> deficient(faces.size(),false);
     for(std::size_t faceOrdinal=0;faceOrdinal<faces.size();++faceOrdinal) {
         const auto& f=faces[faceOrdinal];
@@ -694,7 +721,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
     if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
-       out.interiorQualityFlips>0) {
+       out.interiorQualityFlips>0||out.interiorFairingMoves>0) {
         // Neither the spatial front nor the explicit mirrored zipper
         // seam can see the full surrounding mesh during local staging.
         // Demand a separate, bounded exact triangle contact query against
