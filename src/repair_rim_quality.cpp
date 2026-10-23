@@ -24,7 +24,7 @@ double q(Vec3 a,Vec3 b,Vec3 c) {
 std::optional<ConstrainedRimTipQuality> certifyPlanarRimTipQuality(
     const MixedClosureFace& face,
     const std::map<VertexId,Vec3>& positions,
-    const std::vector<RepairContourLoop>& contours,
+    const std::vector<RepairContour>& contours,
     double minimumQuality) {
     if(face.stableId||face.kind!=MixedClosureFaceKind::Cap||
        !(minimumQuality>0))return std::nullopt;
