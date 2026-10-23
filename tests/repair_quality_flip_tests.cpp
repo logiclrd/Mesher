@@ -1,4 +1,5 @@
 #include "mesher/repair_quality_flip.hpp"
+#include "mesher/repair_survivor_split.hpp"
 
 #include <array>
 #include <cmath>
@@ -82,6 +83,34 @@ void reflected() {
     expect(f[0].vertices==PrivateRepairTriangle{1,2,3},
         "M10 refused mirror orbit must not partially modify original face");
 }
+void survivorSplitPreflight() {
+    // The unsplit survivor was legal (q>.012); bisecting its
+    // shared edge 1->2 would create an under-quality original child.
+    const std::map<VertexId,Vec3> p{
+        {1,{0,0,0}},{2,{2,0,0}},{3,{-3,0.08,0}},
+        {5,{0,0,0}},{6,{-2,0,0}},{7,{3,0.08,0}}
+    };
+    const std::vector<MixedClosureFace> faces{
+        {33,1,{1,2,3},MixedClosureFaceKind::Survivor,1.0},
+        {34,2,{5,6,7},MixedClosureFaceKind::Survivor,1.0}
+    };
+    const auto oldQ=q(p.at(1),p.at(2),p.at(3));
+    expect(oldQ>.012,"M11A fixture original survivor must be legal");
+    const auto before=faces;
+    const auto s=assessSurvivorSplit(faces,p,{1,2},.012);
+    expect(!s.safe&&s.touchesSurvivor&&s.originalFace==33&&
+           s.worstChildQuality<.012,
+           "M11A splitting legal survivor may make skinny child");
+    const auto mirrored=assessSurvivorSplit(faces,p,{5,6},.012);
+    expect(!mirrored.safe&&mirrored.originalFace==34,
+           "M11A both mirror sides must be assessed before split");
+    const auto noSource=assessSurvivorSplit(faces,p,{1,3},.00001);
+    expect(noSource.safe,
+           "M11A safe original-survivor alternative must stay eligible");
+    expect(faces[0].vertices==before[0].vertices&&
+           faces[1].vertices==before[1].vertices,
+           "M11A read-only preflight must not mutate old survivor faces");
+}
 void unsafeNeighbors() {
     auto p=positions();
     auto f=faces();
@@ -108,6 +137,7 @@ int main() {
         ordinary();
         reflected();
         unsafeNeighbors();
+        survivorSplitPreflight();
         std::cout<<"[r06-m10] local old/new guards, strict q, complete mirror orbit, unsafe topology PASS\n";
         return 0;
     }catch(const std::exception& e) {
