@@ -120,6 +120,7 @@ Glyph hudGlyph(char ch) {
         case '/': return {1,1,2,4,8,16,16};
         case '.': return {0,0,0,0,0,12,12};
         case '-': return {0,0,0,31,0,0,0};
+        case '<': return {2,4,8,16,8,4,2};
         default: return {};
     }
 }
@@ -137,7 +138,10 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& fps, const std::string& stamps,
                              const std::string& merge,
                              const std::optional<BrushRadiusRange>& slider,
-                             double radius) {
+                             double radius,
+                             const std::array<std::string,2>& classifierChoices,
+                             bool classifierComparable,bool classifiersAgree,
+                             int activeClassifier) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
@@ -173,6 +177,31 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     textLine(fps,0);
     textLine(stamps,1);
     if(!merge.empty())textLine(merge,2);
+
+    // Independent upper-left two-line comparison, NOT part of the
+    // right-side FPS/stamps/status block. Its color means agreement only,
+    // not correctness or successful construction of either repair.
+    if(!classifierChoices[0].empty()&&!classifierChoices[1].empty()) {
+        const std::array<std::string,2> lines{{
+            "AREA: "+classifierChoices[0]+(activeClassifier==0?" <---":""),
+            "PROXIMITY: "+classifierChoices[1]+(activeClassifier==1?" <---":"")
+        }};
+        const auto widthChars=std::max(lines[0].size(),lines[1].size());
+        const int textX=margin+padding,textY=margin+padding;
+        rectangle(margin,margin,int(widthChars)*characterWidth+2*padding,
+                  2*characterHeight+2*padding,1.0f);
+        const float tint=!classifierComparable?0.0f:
+                         classifiersAgree?2.0f:3.0f;
+        for(std::size_t row=0;row<lines.size();++row)
+            for(std::size_t i=0;i<lines[row].size();++i) {
+                const auto glyph=hudGlyph(lines[row][i]);
+                for(int y=0;y<7;++y)for(int x=0;x<5;++x)
+                    if(glyph[y]&(1u<<(4-x)))
+                        rectangle(textX+int(i)*characterWidth+x*scale,
+                                  textY+int(row)*characterHeight+y*scale,
+                                  scale,scale,tint);
+            }
+    }
 
     if(slider) {
         const auto layout=radiusSliderLayout(int(height));
@@ -371,6 +400,9 @@ class VulkanViewport {
     bool inspectionCapSucceeded_=false;
     bool inspectionAutoRequested_=false;
     bool inspectionAutoSucceeded_=false;
+    std::array<std::string,2> classifierChoices_{};
+    bool classifierComparable_=false,classifiersAgree_=false;
+    int activeClassifier_=0;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -686,7 +718,9 @@ class VulkanViewport {
             mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
                      "MERGE: OFF"):"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
-                                     mergeText,slider,interaction_.radius);
+                                     mergeText,slider,interaction_.radius,
+                                     classifierChoices_,classifierComparable_,
+                                     classifiersAgree_,activeClassifier_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -1193,6 +1227,10 @@ class VulkanViewport {
                     inspectionCapRequested_=snapshot->inspectionCapRequested;
                     inspectionAutoRequested_=snapshot->inspectionAutoRequested;
                     inspectionAutoSucceeded_=snapshot->inspectionAutoSucceeded;
+                    classifierChoices_=snapshot->classifierChoices;
+                    classifierComparable_=snapshot->classifierComparable;
+                    classifiersAgree_=snapshot->classifiersAgree;
+                    activeClassifier_=snapshot->activeClassifier;
                     inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
