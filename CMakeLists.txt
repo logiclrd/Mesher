@@ -291,6 +291,10 @@ if(MESHER_BUILD_TESTS)
               -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_case_choice.cmake")
         set_tests_properties(repair_r06_m07_cli_semantic_mismatch
             PROPERTIES FIXTURES_REQUIRED r06_case_archives)
+        add_test(NAME repair_r06_m09_classifier_comparison_hud
+            COMMAND "${CMAKE_COMMAND}"
+              "-DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+              -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_classifier_comparison_hud.cmake")
         add_test(NAME repair_r06_m08_same_candidate_two_classifiers
             COMMAND "${CMAKE_COMMAND}"
               "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
