@@ -154,6 +154,20 @@ void roundtrip(const Fixture& f) {
     try{writeRepairCase(goodFile,good);}
     catch(const std::exception&){rejected=true;}
     require(rejected,"R06 case capture must never silently overwrite a previous case");
+    // Physical capture should never overwrite an earlier independent
+    // refusal when the operator saves more than one case in a session.
+    const auto uniqueDirectory=output/"r06-case-path-test";
+    const auto first=uniqueRepairCasePath(uniqueDirectory);
+    require(!std::filesystem::exists(first),"R06 unique first path already exists");
+    {
+        std::ofstream out(first,std::ios::binary);
+        out<<"existing physical capture";
+    }
+    const auto second=uniqueRepairCasePath(uniqueDirectory);
+    require(second!=first&&!std::filesystem::exists(second),
+            "R06 repeated capture must choose a distinct unused filename");
+    std::filesystem::remove(first);
+    std::filesystem::remove(uniqueDirectory);
     const auto proposed=previewApproximateExcision(*f.index,ps);
     require(proposed.complete,"R06 case tombstone setup failed R02");
     const auto cut=applyPrivateExcision(f.index,proposed);
