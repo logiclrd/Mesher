@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
     bool repairAuto = false;
     bool repairDumpContours = false;
     bool repairQualityWarn = false;
+    bool repairSeamAudit=false,repairOverlayExact=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -90,6 +91,8 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
+            else if(arg=="--repair-seam-audit")repairSeamAudit=true;
+            else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
                 if(++i>=argc)throw std::invalid_argument(
                     "--repair-classifier requires area or proximity");
@@ -221,6 +224,8 @@ int main(int argc, char** argv) {
                          <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
+                         <<"       [--repair-seam-audit] (R06 log exact new/survivor seams, T junctions and crossing edges)\n"
+                         <<"       [--repair-overlay-exact] (R06 draw undisplaced cap/zipper and exact highlighted seam)\n"
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
@@ -267,6 +272,10 @@ int main(int argc, char** argv) {
         if(classifierExplicit&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-classifier requires --repair auto, --repair-replay or --repair-replay-test");
+        if((repairSeamAudit||repairOverlayExact)&&
+           !repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-seam-audit/--repair-overlay-exact require --repair auto or --repair-replay[-test]");
         if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
@@ -311,7 +320,8 @@ int main(int argc, char** argv) {
             // sculpt and its previous worker history are never synthesized.
             const auto saved=mesher::readRepairCase(repairReplayPath);
             const auto frozen=mesher::replayPrivateAutomaticRepair(
-                saved,repairClassifier,repairQualityWarn);
+                saved,repairClassifier,repairQualityWarn,
+                repairSeamAudit,repairOverlayExact);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -401,6 +411,18 @@ int main(int argc, char** argv) {
                 }else if(!frozen->warningPreviewDiagnostic.empty())
                     std::cout<<"[repair-r06] QUALITY_WARNING_UNAVAILABLE reason="
                              <<frozen->warningPreviewDiagnostic<<"\n";
+            }
+            if(repairSeamAudit) {
+                const auto mesh=frozen->privateAuto?
+                    frozen->privateAuto->index:
+                    frozen->warningPreview?frozen->warningPreview->index:nullptr;
+                if(frozen->seamAudit&&mesh)
+                    mesher::printRepairSeamAudit(std::cout,*mesh,
+                        *frozen->seamAudit,
+                        succeeded?"CERTIFIED_PRIVATE":"UNTRUSTED_WARNING_PREVIEW");
+                else
+                    std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
+                             <<frozen->seamAuditDiagnostic<<"\n";
             }
             if(repairDumpContours&&frozen->privateCut) {
                 const auto& open=*frozen->privateCut->index;
@@ -659,7 +681,8 @@ int main(int argc, char** argv) {
         auto repairSession=repairInspect
             ?std::make_shared<mesher::RepairInspectionSession>(
                 repairPreview,repairExcise,repairZipper,repairCap,
-                repairAuto,options.symmetric,repairClassifier,repairQualityWarn):nullptr;
+                repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
+                repairSeamAudit,repairOverlayExact):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -957,6 +980,19 @@ int main(int argc, char** argv) {
                                      <<" reason="<<frozen->capDiagnostic
                                      <<" (R03 cut retained where available; no publication)\n";
                         }
+                    }
+                    if(repairAuto&&repairSeamAudit) {
+                        const auto mesh=frozen->privateAuto?
+                            frozen->privateAuto->index:
+                            frozen->warningPreview?frozen->warningPreview->index:nullptr;
+                        if(frozen->seamAudit&&mesh)
+                            mesher::printRepairSeamAudit(std::cout,*mesh,
+                                *frozen->seamAudit,
+                                frozen->privateAuto?"CERTIFIED_PRIVATE":
+                                    "UNTRUSTED_WARNING_PREVIEW");
+                        else
+                            std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
+                                     <<frozen->seamAuditDiagnostic<<"\n";
                     }
                     if(repairAuto&&repairDumpContours&&frozen->privateCut) {
                         // An opt-in exact loop-coordinate capture makes
