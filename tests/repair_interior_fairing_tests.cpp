@@ -27,7 +27,7 @@ Case sample(bool reflected) {
         }};
         t.positions.emplace(k+1,Vec3{-2,yz[k][0],yz[k][1]});
     }
-    t.positions.emplace(5,Vec3{-2,.90,.01});
+    t.positions.emplace(5,Vec3{-2,.995,.01});
     for(VertexId i=1;i<=4;++i) {
         const auto next=i==4?1:i+1;
         t.faces.push_back({0,1,{5,i,next},MixedClosureFaceKind::Cap,3});
