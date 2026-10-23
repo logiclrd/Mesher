@@ -31,6 +31,7 @@ struct SpatialCapSettings {
     double poissonTolerance=1e-9;
     double maximumInitialEdgeFactor=12; // loose gate; M04 owns quality limits
     bool requireMirrorPlane=false; // exact reflection about X=0; no coordinate welding
+    bool preferMirroredRibbonForTesting=false; // local regression only, no production caller
     double normalGuidance=0.04;  // fraction of median original rim edge
 };
 
