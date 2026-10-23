@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <limits>
 #include <optional>
 #include <set>
 #include <tuple>
@@ -33,12 +34,12 @@ std::optional<Fan> makeFan(
     if(entry==incidences.end()||entry->second.size()!=3)return std::nullopt;
     const auto& indexes=entry->second;
     std::map<VertexId,VertexId> next;
-    double minOld=1,maxTarget=0;
+    double minOld=1,maxTarget=std::numeric_limits<double>::infinity();
     for(const auto i:indexes) {
         const auto& f=faces[i];
         if(f.stableId||f.kind!=MixedClosureFaceKind::Cap||
            f.targetEdge<=0)return std::nullopt;
-        maxTarget=std::max(maxTarget,f.targetEdge);
+        maxTarget=std::min(maxTarget,f.targetEdge);
         const auto& v=f.vertices;
         unsigned centerSlot=3;
         for(unsigned k=0;k<3;++k)if(v[k]==center)centerSlot=k;
