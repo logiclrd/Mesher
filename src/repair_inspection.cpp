@@ -104,7 +104,9 @@ void compareClassifierPlans(RepairInspectionSnapshot& snapshot,
         sameClassifierChoice(area,proximity);
 }
 void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
-                          bool symmetricSource,AutoClosureClassifier classifier) {
+                          bool symmetricSource,AutoClosureClassifier classifier,
+                          bool warnQuality) {
+    snapshot.warnQualityEnabled=warnQuality;
     snapshot.activeClassifier=classifier;
     auto* result=&snapshot;
         if(!result->privateCut) {
@@ -142,6 +144,36 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     "R06 private automatic closure refused: ")+e.what();
             }
         }
+    // Never let a warning-only preview become certified automatic closure.
+    // A structurally invalid result still refuses in the M04 staging audit.
+    if(warnQuality&&!result->privateAuto&&result->privateCut&&
+       result->autoPlan&&result->autoPlan->ready()) {
+        const auto& error=result->autoDiagnostic;
+        const bool qualityFailure=
+            error.find("skinny")!=std::string::npos||
+            error.find("quality")!=std::string::npos||
+            error.find("refinement")!=std::string::npos||
+            error.find("split orbit exceeds finite budget")!=std::string::npos||
+            error.find("edge-length deficit")!=std::string::npos||
+            error.find("boundary density")!=std::string::npos;
+        if(qualityFailure) {
+            try {
+                MixedPrivateClosureLimits limits;
+                limits.requireReflectedGeometry=symmetricSource;
+                limits.inspectionWarnQuality=true;
+                auto preview=applyPrivateMixedClosure(
+                    *result->privateCut,result->excision,*result->autoPlan,limits);
+                if(preview.qualityWarningFaces.empty()&&
+                   preview.qualityWarningReason.empty())
+                    result->warningPreviewDiagnostic=
+                        "Warning-only staging produced no quality violation";
+                else result->warningPreview=std::move(preview);
+            }catch(const std::exception& e) {
+                result->warningPreviewDiagnostic=std::string(
+                    "Untrusted warning preview unavailable (other safety check): ")+e.what();
+            }
+        }
+    }
 }
 
 std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed) {
@@ -292,7 +324,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
-    if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_);
+    if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_,warnQuality_);
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -311,7 +343,7 @@ RepairInspectionSession::frozenSnapshot() const {
 
 
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
-    const RepairCase& capture,AutoClosureClassifier classifier) {
+    const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -355,7 +387,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
             result->excisionDiagnostic=std::string("R03 private cut refused: ")+error.what();
         }
     }
-    runAutomaticClosure(*result,capture.symmetricSource,classifier);
+    runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality);
     return result;
 }
 
