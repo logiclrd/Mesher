@@ -1,6 +1,7 @@
 #include "mesher/repair_mixed_closure.hpp"
 #include "mesher/repair_quality_flip.hpp"
 #include "mesher/repair_interior_fairing.hpp"
+#include "mesher/repair_interior_collapse.hpp"
 #include "mesher/repair_survivor_split.hpp"
 
 #include <algorithm>
@@ -119,6 +120,31 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 if(vertex==provisional)vertex=stable;
         positions.erase(provisional);
         vertexOwners.erase(provisional);
+    }
+
+    // Undo only fully NEW redundant 3-triangle interior cap fans,
+    // BEFORE spending scarce subdivision/reflection-orbit budget. The
+    // common outer triangle must already satisfy the original strict
+    // q and length bounds; no original surviving/rim vertex moves.
+    constexpr std::size_t maxPrivateCapFanRetirements=16;
+    while(out.interiorCapCollapses<maxPrivateCapFanRetirements) {
+        const auto retired=collapseOneInferiorCapFan(
+            faces,positions,out.insertedVertices,
+            limits.requireReflectedGeometry,
+            limits.minCapQuality,limits.maxCapEdgeFactor);
+        if(retired.empty())break;
+        for(const auto id:retired) {
+            const auto owner=vertexOwners.at(id);
+            auto& partition=view.editPartition(owner);
+            const auto count=std::erase_if(partition.vertices,
+                [id](const PartitionVertex& v){return v.id==id;});
+            if(count!=1)
+                throw std::logic_error(
+                    "R06-M11A3b redundant interior cap fan retirement must remove one new vertex");
+            std::erase(out.insertedVertices,id);
+            vertexOwners.erase(id);
+        }
+        out.interiorCapCollapses+=retired.size();
     }
 
     const auto incident=[&](Edge e) {
@@ -732,7 +758,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
     if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
-       out.interiorQualityFlips>0||out.interiorFairingMoves>0) {
+       out.interiorQualityFlips>0||out.interiorFairingMoves>0||
+       out.interiorCapCollapses>0) {
         // Neither the spatial front nor the explicit mirrored zipper
         // seam can see the full surrounding mesh during local staging.
         // Demand a separate, bounded exact triangle contact query against
