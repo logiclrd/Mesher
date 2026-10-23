@@ -1,3 +1,4 @@
+#include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_mixed_source_view.hpp"
 #include "mesher/repair_mixed_positions.hpp"
 #include "mesher/mesh_partitioning.hpp"
