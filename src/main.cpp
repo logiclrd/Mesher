@@ -10,6 +10,7 @@
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/repair_inspection.hpp"
+#include "mesher/repair_case.hpp"
 
 #include <array>
 #include <set>
@@ -57,6 +58,8 @@ int main(int argc, char** argv) {
     bool compareLocalRemesh = false;
     std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
     std::filesystem::path recoverPath;
+    std::filesystem::path repairCaseOut,repairReplayPath;
+    bool repairReplayTest=false;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
@@ -83,6 +86,12 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-cap")repairCap=true;
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
+            else if(arg=="--repair-case-out"||arg=="--repair-replay"||
+                    arg=="--repair-replay-test") {
+                if(++i>=argc)throw std::invalid_argument("Missing R06 case filename");
+                if(arg=="--repair-case-out")repairCaseOut=argv[i];
+                else {repairReplayPath=argv[i];repairReplayTest=(arg=="--repair-replay-test");}
+            }
             else if(arg=="--repair") {
                 if(++i>=argc)throw std::invalid_argument("--repair requires zipper, cap, or auto");
                 const std::string_view operation=argv[i];
@@ -194,6 +203,9 @@ int main(int argc, char** argv) {
                          <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
                          <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
+                         <<"       [--repair-case-out FILE] (Ctrl+S on refused R06; otherwise unique repair-cases/ case)\n"
+                         <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
+                         <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
@@ -234,7 +246,15 @@ int main(int argc, char** argv) {
         if(static_cast<int>(repairCap)+static_cast<int>(repairZipper)+
            static_cast<int>(repairAuto)>1)
             throw std::invalid_argument("Select only one repair: cap, zipper or auto");
-        if(repairDumpContours&&!repairAuto)
+        if(!repairCaseOut.empty()&&!repairAuto)
+            throw std::invalid_argument("--repair-case-out requires --repair auto");
+        if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
+           repairPreview||repairExcise||!recoverPath.empty()||torusFixture||
+           hollowSphereFixture||allowMergeGeometry||avoidCollisions||avoidTestSheets||
+           mergeTestTetra||mergeTestReflectedTetra||demoMode||compareRemesh||
+           compareLocalRemesh||compareMitigations))
+            throw std::invalid_argument("--repair-replay is exclusive with live repair and mesh generation/recovery modes");
+        if(repairDumpContours&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-dump-contours requires --repair auto");
         repairExcise=repairExcise||repairZipper||repairCap||repairAuto;
         repairPreview=repairPreview||repairExcise;
@@ -261,6 +281,110 @@ int main(int argc, char** argv) {
         if(allowMergeGeometry&&!recoverPath.empty())
             throw std::invalid_argument(
                 "--merge-geometry refuses V13 disk recovery without sealed first-original M29 authority");
+
+        if(!repairReplayPath.empty()) {
+            // Exact R01-approved contact evidence and entire immutable post-stamp
+            // candidate are decoded BEFORE any Vulkan/GPU setup. The source
+            // sculpt and its previous worker history are never synthesized.
+            const auto saved=mesher::readRepairCase(repairReplayPath);
+            const auto frozen=mesher::replayPrivateAutomaticRepair(saved);
+            const bool succeeded=frozen->privateAuto.has_value();
+            std::cout<<"[repair-r06] REPLAY file="<<repairReplayPath.string()
+                     <<" expected="<<(saved.expectedClosure?"AUTO_CLOSED":"AUTO_REFUSED")
+                     <<" actual="<<(succeeded?"AUTO_CLOSED":"AUTO_REFUSED")
+                     <<" contacts="<<saved.contacts.size()
+                     <<" symmetric_source="<<saved.symmetricSource
+                     <<" exact_candidate=1 worker_history_checkpoint_unchanged=1\n";
+            if(frozen->autoPlan)
+                std::cout<<"[repair-r06] PLAN status="
+                         <<static_cast<int>(frozen->autoPlan->status)
+                         <<" regions="<<frozen->autoPlan->geometryRegions
+                         <<" caps="<<frozen->autoPlan->cappedContours.size()
+                         <<" zipper_pairs="<<frozen->autoPlan->zipperPairs.size()
+                         <<" contact_links="<<frozen->autoPlan->trustedContactLinks<<"\n";
+            if(succeeded) {
+                const auto& completed=*frozen->privateAuto;
+                std::cout<<"[repair-r06] AUTO_CLOSED private_closed_mesh=1"
+                         <<" cap_loops="<<(frozen->autoPlan?
+                             frozen->autoPlan->cappedContours.size():0)
+                         <<" zipper_pairs="<<(frozen->autoPlan?
+                             frozen->autoPlan->zipperPairs.size():0)
+                         <<" green_faces="<<completed.greenFaces.size()
+                         <<" blue_faces="<<completed.blueFaces.size()
+                         <<" min_cap_quality="<<completed.minimumCapQuality
+                         <<" min_zipper_quality="<<completed.minimumZipperQuality
+                         <<" refinement_steps="<<completed.refinementSteps
+                         <<" inserted_vertices="<<completed.insertedVertices
+                         <<" mirrored_ribbon_loops="<<completed.mirroredRibbonLoops
+                         <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+            }else {
+                std::cout<<"[repair-r06] AUTO_REFUSED private_closed_mesh=0"
+                         <<" reason="<<frozen->autoDiagnostic
+                         <<" (R03 cut retained where available; unpublished=1)\n";
+            }
+            if(repairDumpContours&&frozen->privateCut) {
+                const auto& open=*frozen->privateCut->index;
+                for(std::size_t i=0;i<frozen->excision.contours.size();++i) {
+                    const auto& rim=frozen->excision.contours[i];
+                    for(std::size_t j=0;j<rim.vertexIds.size();++j) {
+                        const auto vertex=rim.vertexIds[j];
+                        const auto xyz=open.vertex(vertex).position;
+                        std::cout<<std::setprecision(17)
+                                 <<"[repair-r06-contour] loop="<<i
+                                 <<" ordinal="<<j<<" id="<<vertex
+                                 <<" xyz="<<xyz.x<<","<<xyz.y<<","<<xyz.z
+                                 <<" surviving_face="<<rim.survivingFaces.at(j)<<"\n";
+                    }
+                }
+            }
+            if(repairReplayTest) {
+                std::cout<<"[repair-r06] REPLAY_TEST "
+                         <<(succeeded==saved.expectedClosure?"PASS":"OUTCOME_MISMATCH")
+                         <<" stored_reason="<<saved.originalDiagnostic<<"\n";
+                return succeeded==saved.expectedClosure?0:2;
+            }
+            auto viewportMesh=mesher::flattenRevisionForViewport(
+                *saved.candidate.index,mesher::FlatMeshIndex{});
+            if(viewportMesh.vertices.empty())
+                throw std::runtime_error("R06 replay candidate has no displayable mesh");
+            mesher::ViewportInteraction inspect;
+            inspect.initialRevision=saved.candidate.index;
+            inspect.canBegin=[]{return false;};
+            inspect.undo=[]{};
+            inspect.redo=[]{};
+            inspect.checkpoint=[]{};
+            inspect.completedStamps=[]{return std::size_t{0};};
+            inspect.caption=[succeeded] {
+                return std::string("R06 exact case replay FROZEN | ")+
+                       (succeeded?"AUTO COMPLETE":"AUTO REFUSED");
+            };
+            inspect.takeSnapshot=[frozen,already=false]()
+                mutable -> std::optional<mesher::ViewportMeshUpdate> {
+                if(already)return std::nullopt;
+                already=true;
+                auto display=frozen->privateAuto?
+                    frozen->privateAuto->index:
+                    frozen->privateCut?frozen->privateCut->index:frozen->candidate;
+                std::set<mesher::PartitionId> touched;
+                frozen->candidate->revision().forEachPartition(
+                    [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                        touched.insert(id);
+                    });
+                display->revision().forEachPartition(
+                    [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                        touched.insert(id);
+                    });
+                return mesher::ViewportMeshUpdate{
+                    display,{touched.begin(),touched.end()},0,true,
+                    mesher::buildRepairInspectionOverlay(*frozen),
+                    true,true,frozen->privateCut.has_value(),
+                    false,false,false,false,true,
+                    frozen->privateAuto.has_value()};
+            };
+            std::cout<<"[repair-r06] Opened read-only replay viewport; orbit/W/G, Escape to exit.\n";
+            mesher::runViewport(viewportMesh,{},std::move(inspect));
+            return 0;
+        }
         mesher::Mesh mesh;
         std::optional<mesher::DurableCheckpoint> recovered;
         if(!recoverPath.empty()) {
@@ -541,7 +665,32 @@ int main(int argc, char** argv) {
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.checkpoint=[&]{
-                if(repairSession&&repairSession->frozen())return;
+                if(repairSession&&repairSession->frozen()) {
+                    const auto frozen=repairSession->frozenSnapshot();
+                    if(repairAuto&&frozen&&!frozen->privateAuto&&
+                       frozen->candidate&&!frozen->contacts.empty()) {
+                        try {
+                            const auto destination=repairCaseOut.empty()?
+                                mesher::uniqueRepairCasePath():repairCaseOut;
+                            mesher::RepairCase capture;
+                            capture.candidate.index=frozen->candidate;
+                            capture.symmetricSource=options.symmetric;
+                            capture.contacts=frozen->contacts;
+                            capture.expectedClosure=false;
+                            capture.originalDiagnostic=frozen->autoDiagnostic;
+                            mesher::writeRepairCase(destination,capture);
+                            std::cout<<"[repair-r06] CASE_SAVED "
+                                     <<destination.string()
+                                     <<" exact_candidate=1 contacts="
+                                     <<capture.contacts.size()
+                                     <<" unpublished=1\n";
+                        }catch(const std::exception& error) {
+                            std::cerr<<"[repair-r06] CASE_SAVE_REFUSED "
+                                     <<error.what()<<"\n";
+                        }
+                    }
+                    return;
+                }
                 liveWorker->saveCheckpoint(checkpointPath);
                 std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
             };
@@ -888,6 +1037,10 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
+            if(repairAuto)
+                std::cout<<"[repair-r06] On AUTO_REFUSED, Ctrl+S saves an exact post-stamp "
+                            "R06 replay case (no normal checkpoint write). Relaunch with "
+                            "--repair-replay FILE or --repair-replay-test FILE.\n";
             if(repairAuto)
                 std::cout<<"[repair-r06] Armed AUTO private closure: green caps, "
                             "blue safe zippers, proven enclosed-shell retirement. "
