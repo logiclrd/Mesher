@@ -60,6 +60,9 @@ struct ViewportInteraction {
     std::function<void()> undo;
     std::function<void()> redo;
     std::function<void()> checkpoint;
+    // Frozen R06 only: 0=ordinary, 1=prefer caps, 2=prefer zipper.
+    // This captures the ORIGINAL complete candidate even when M04 succeeded.
+    std::function<void(int)> frozenRepairCapture;
     // M48: strictly opt-in desktop contract. The user selects actual stable
     // FaceIds from this exact immutable displayed root; the host queues the
     // M47 bounded discovery, never a render-thread collision traversal.
