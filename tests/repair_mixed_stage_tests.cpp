@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include <vector>
@@ -156,6 +157,35 @@ void mixedAndTampered() {
             staging.sourceView->pendingFaceEdits()==1&&
             staging.sourceView->pendingVertexEdits()==1,
             "M14A overrides must take priority without mutating source or stale incidence");
+    const auto addedEdge=RegionTopologyIndex::Edge{
+        std::min(original.vertices[0],replacement),
+        std::max(original.vertices[0],replacement)};
+    require(hadRemote(staging.sourceView->edgeSides(addedEdge)),
+            "M14A pending face override must contribute new edge incidence");
+    bool rejected=false;
+    try {
+        staging.sourceView->overrideFace(remoteFace,
+            {original.vertices[0],original.vertices[0],replacement});
+    }catch(const std::logic_error&) {rejected=true;}
+    require(rejected,
+            "M14A duplicate-vertex face override must fail without changing pending face");
+    rejected=false;
+    try {
+        staging.sourceView->overrideFace(
+            std::numeric_limits<FaceId>::max(),original.vertices);
+    }catch(const std::out_of_range&) {rejected=true;}
+    require(rejected,
+            "M14A non-surviving FaceId must not be invented by an override");
+    MixedClosureSourceView bounded(cut.index,1);
+    bounded.overrideFace(remoteFace,
+        {original.vertices[0],original.vertices[2],replacement});
+    rejected=false;
+    try{bounded.overridePosition(remoteVertex,originalPosition);}
+    catch(const std::length_error&) {rejected=true;}
+    require(rejected&&bounded.pendingFaceEdits()==1&&
+            bounded.pendingVertexEdits()==0&&
+            cut.index->face(remoteFace).vertices==original.vertices,
+            "M14A exhausted pending-edit budget must refuse atomically");
     std::cout<<"[r06-m14a] source-backed remote survivor, override and incidence PASS\\n";
 
     auto invalid=plan;
