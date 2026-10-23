@@ -40,6 +40,7 @@ int main(int argc, char** argv) {
     bool repairCap = false;
     bool repairAuto = false;
     bool repairDumpContours = false;
+    bool repairQualityWarn = false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-cap")repairCap=true;
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
+            else if(arg=="--repair-quality-warn")repairQualityWarn=true;
             else if(arg=="--repair-classifier") {
                 if(++i>=argc)throw std::invalid_argument(
                     "--repair-classifier requires area or proximity");
@@ -218,6 +220,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
                          <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
+                         <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
@@ -264,6 +267,8 @@ int main(int argc, char** argv) {
         if(classifierExplicit&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-classifier requires --repair auto, --repair-replay or --repair-replay-test");
+        if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
             throw std::invalid_argument("--repair-case-out requires --repair auto");
         if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
@@ -306,7 +311,7 @@ int main(int argc, char** argv) {
             // sculpt and its previous worker history are never synthesized.
             const auto saved=mesher::readRepairCase(repairReplayPath);
             const auto frozen=mesher::replayPrivateAutomaticRepair(
-                saved,repairClassifier);
+                saved,repairClassifier,repairQualityWarn);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -381,6 +386,19 @@ int main(int argc, char** argv) {
                          <<" reason="<<frozen->autoDiagnostic
                          <<" (R03 cut retained where available; unpublished=1)\n";
             }
+            if(repairQualityWarn) {
+                if(const auto& preview=frozen->warningPreview) {
+                    std::cout<<"[repair-r06] QUALITY_WARNING_PREVIEW untrusted=1"
+                             <<" private_closed_mesh=0"
+                             <<" deficient_faces="<<preview->qualityWarningFaces.size()
+                             <<" green_faces="<<preview->greenFaces.size()
+                             <<" blue_faces="<<preview->blueFaces.size()
+                             <<" first_warning="<<preview->qualityWarningReason
+                             <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+                }else if(!frozen->warningPreviewDiagnostic.empty())
+                    std::cout<<"[repair-r06] QUALITY_WARNING_UNAVAILABLE reason="
+                             <<frozen->warningPreviewDiagnostic<<"\n";
+            }
             if(repairDumpContours&&frozen->privateCut) {
                 const auto& open=*frozen->privateCut->index;
                 for(std::size_t i=0;i<frozen->excision.contours.size();++i) {
@@ -428,6 +446,7 @@ int main(int argc, char** argv) {
                 already=true;
                 auto display=frozen->privateAuto?
                     frozen->privateAuto->index:
+                    frozen->warningPreview?frozen->warningPreview->index:
                     frozen->privateCut?frozen->privateCut->index:frozen->candidate;
                 std::set<mesher::PartitionId> touched;
                 frozen->candidate->revision().forEachPartition(
@@ -444,6 +463,7 @@ int main(int argc, char** argv) {
                     true,true,frozen->privateCut.has_value(),
                     false,false,false,false,true,
                     frozen->privateAuto.has_value()};
+                update.inspectionQualityWarningPreview=frozen->warningPreview.has_value();
                 update.classifierChoices=frozen->classifierChoices;
                 update.classifierComparable=frozen->classifierComparable;
                 update.classifiersAgree=frozen->classifiersAgree;
@@ -636,7 +656,7 @@ int main(int argc, char** argv) {
         auto repairSession=repairInspect
             ?std::make_shared<mesher::RepairInspectionSession>(
                 repairPreview,repairExcise,repairZipper,repairCap,
-                repairAuto,options.symmetric,repairClassifier):nullptr;
+                repairAuto,options.symmetric,repairClassifier,repairQualityWarn):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -994,6 +1014,17 @@ int main(int argc, char** argv) {
                         }
                     }
                     if(repairAuto) {
+                        if(const auto& preview=frozen->warningPreview) {
+                            std::cout<<"[repair-r06] QUALITY_WARNING_PREVIEW"
+                                     <<" untrusted=1 private_closed_mesh=0"
+                                     <<" deficient_faces="<<preview->qualityWarningFaces.size()
+                                     <<" green_faces="<<preview->greenFaces.size()
+                                     <<" blue_faces="<<preview->blueFaces.size()
+                                     <<" first_warning="<<preview->qualityWarningReason
+                                     <<" unpublished=1\n";
+                        }else if(repairQualityWarn&&!frozen->warningPreviewDiagnostic.empty())
+                            std::cout<<"[repair-r06] QUALITY_WARNING_UNAVAILABLE reason="
+                                     <<frozen->warningPreviewDiagnostic<<"\n";
                         if(const auto& automatic=frozen->privateAuto) {
                             const auto& plan=*frozen->autoPlan;
                             std::cout<<"[repair-r06] AUTO_CLOSED private_closed_mesh=1"
@@ -1042,6 +1073,8 @@ int main(int argc, char** argv) {
                     }
                     const auto displayed=repairAuto&&frozen->privateAuto
                         ?frozen->privateAuto->index:
+                        repairAuto&&frozen->warningPreview
+                        ?frozen->warningPreview->index:
                         repairCap&&frozen->privateCap
                         ?frozen->privateCap->index:
                         repairZipper&&frozen->privateZipper
@@ -1058,6 +1091,7 @@ int main(int argc, char** argv) {
                         repairZipper,repairZipper&&frozen->privateZipper.has_value(),
                         repairCap,repairCap&&frozen->privateCap.has_value(),
                         repairAuto,repairAuto&&frozen->privateAuto.has_value()};
+                    update.inspectionQualityWarningPreview=frozen->warningPreview.has_value();
                     update.classifierChoices=frozen->classifierChoices;
                     update.classifierComparable=frozen->classifierComparable;
                     update.classifiersAgree=frozen->classifiersAgree;
