@@ -327,6 +327,42 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M07A — One-file frozen automatic repair-case capture.**
+  Add a developer-only checked/versioned finite-size R06 case archive embedding
+  the complete exact immutable POST-STAMP candidate MeshRevision (including
+  stable vertex/face IDs, partition ownership, allocation watermarks and
+  tombstones) via the existing durable checkpoint codec, PLUS original
+  R01 trusted face-contact pairs, intrinsic-symmetry source flag and expected
+  final success/refusal outcome/diagnostic. The candidate and contacts are
+  precisely the input immediately before R02/R03/M03/M04 automatic repair,
+  not merely the printed contour, screenshot or original input brush gesture.
+  A failed R06 frozen viewport shall let Ctrl+S save one unique numbered
+  `repair-cases/refusal-XXXX.r06case` by default or specified `--repair-case-out`
+  path, with atomic replacement, CRC/hash/length/version bounds and no
+  actual worker/undo/history/checkpoint publication. No save for unfrozen
+  or successful AUTO; preserve ordinary Ctrl+S checkpoint semantics outside
+  frozen inspection and never destructively overwrite another recorded case.
+- [ ] **R06-M07B — Deterministic loaded-case replay and frozen Vulkan inspection.**
+  `--repair-replay FILE` restores the complete candidate and original contacts
+  and reexecutes R02 preview, R03 excision, R06 M03 planning and the current
+  R06 M04 private closure, then opens the ordinary frozen Vulkan viewport
+  with actual green/blue closed faces OR the true gold R03 refused rims.
+  Display same AUTO_CLOSED / AUTO_REFUSED diagnostics including stored-vs-
+  current outcome. No manual stamps, no previous-source regeneration,
+  no mutation of live mesh or authoritative symmetric journal, no
+  `--recover` ambiguity. Reject malformed files, incompatible CLI and
+  internally inconsistent contacts before any geometry display.
+- [ ] **R06-M07C — Headless deterministic replay regression test and docs.**
+  `--repair-replay-test FILE` runs the same actual private repair pipeline
+  without Vulkan/GLFW and checks the archived expected success/refusal status;
+  distinct mismatch exit status so fixture artifacts can be committed to
+  CI. Positive closure and quality-limited refusal roundtrip tests, corrupt/
+  truncated/oversized case rejection, exact stable ID/watermark/tombstone
+  and source symmetry persistence, single history/root nonpublication,
+  repeated replay determinism, default save-path collision preservation;
+  Linux GCC/Clang and MSVC warnings-as-errors gates. Require physical
+  Linux GUI Ctrl+S -> future-version --repair-replay confirmation and
+  Windows Vulkan test separately before checking integration parent.
 - [ ] **R06-M06C4f — Finite alternative for self-intersecting mirrored spatial fronts.**
   Latest physical Linux evidence: independent 16- and 20-vertex exact
   reflected single loops refused at the spatial-front self-contact gate;
