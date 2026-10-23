@@ -422,7 +422,15 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto requirements=accepted(f.kind,limits);
         if(f.kind==MixedClosureFaceKind::Survivor) {
             if(q<requirements.threshold)
-                throw std::logic_error("R06-M04B conforming split left skinny original survivor");
+                throw std::logic_error(
+                    "R06-M04B conforming split left skinny original survivor"
+                    " vertices="+std::to_string(v[0])+","+
+                                 std::to_string(v[1])+","+
+                                 std::to_string(v[2])+
+                    " q="+std::to_string(q)+
+                    " required="+std::to_string(requirements.threshold)+
+                    " refinements="+std::to_string(out.refinementSteps)+
+                    " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
             continue;
         }
         const auto largest=std::max({
