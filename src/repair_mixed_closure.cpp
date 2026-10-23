@@ -8,6 +8,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -386,10 +387,37 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 score+=1e-7*edgeSpan(positions,e)/candidate.targetEdge;
                 if(score>best){best=score;chosen=e;}
             }
-            if(best<0)
-                throw std::logic_error(
-                    "R06-M11A skinny cap/seam has no survivor-safe "
-                    "conforming two-sided split");
+            if(best<0) {
+                std::ostringstream evidence;
+                evidence<<"R06-M11A skinny cap/seam has no survivor-safe "
+                          "conforming two-sided split face="
+                        <<v[0]<<","<<v[1]<<","<<v[2]
+                        <<" current_q="<<smallest;
+                for(unsigned k=0;k<3;++k) {
+                    const auto e=edge(v[k],v[(k+1)%3]);
+                    const auto neighboring=incident(e);
+                    const auto local=assessSurvivorSplit(
+                        faces,positions,e,limits.minSurvivorQuality);
+                    evidence<<" edge="<<e.first<<","<<e.second
+                            <<" incident="<<neighboring.size()
+                            <<" original_face="<<local.originalFace
+                            <<" survivor_child_q="<<local.worstChildQuality
+                            <<" survivor_safe="<<local.safe;
+                    if(limits.requireReflectedGeometry) {
+                        const auto mirror=reflectedEdge(e);
+                        evidence<<" mirror="<<bool(mirror.has_value());
+                        if(mirror) {
+                            const auto other=assessSurvivorSplit(
+                                faces,positions,*mirror,
+                                limits.minSurvivorQuality);
+                            evidence<<" mirror_original_face="<<other.originalFace
+                                    <<" mirror_child_q="<<other.worstChildQuality
+                                    <<" mirror_safe="<<other.safe;
+                        }
+                    }
+                }
+                throw std::logic_error(evidence.str());
+            }
             if(best<=smallest*(1+1e-6))++stagnant;
             else stagnant=0;
         }else {
