@@ -414,9 +414,35 @@ Current M13 warnings do **not** prove a known shared rim was split twice.
   mesh (not just contour neighbors), regression-test identity,
   override precedence and source nonmutation. No new repair acceptance.
 - [ ] **R06-M14B — Unify staging/refinement working topology.**
-  Replace mutable survivor snapshots with ID-backed effective face/vertex
-  reads, shared pending edits and source-backed traversal. Preserve
-  original replay outcomes and finite quality budgets.
+  **Split into flat implementation peers before work (2026-10-23):**
+  remove the separately mutable survivor position and face copies while
+  preserving exact prior repair decisions, topology and finite limits.
+  Do not claim this parent complete until B1–B4 all pass.
+- [ ] **R06-M14B1 — Source-backed working vertex positions.**
+  Replace independently mutable original-vertex position snapshots in
+  staging/refinement with a source-backed position view: original IDs
+  resolved from the immutable R03 mesh, explicit pending overrides,
+  new provisional/permanent positions held in the transaction. Keep
+  legacy helpers operating on temporary *read-only* materializations
+  as a bounded compatibility bridge; fairing and collapse must write
+  results only into the working transaction. Test remote vertex access,
+  override precedence, no original mutation, identical case results.
+- [ ] **R06-M14B2 — Direct source-backed position access in helpers.**
+  Migrate fairing, collapse, quality flip, rim-tip certificate, survivor
+  quality/midpoint and mirror lookup to consume the source-backed
+  position view directly; remove repeated temporary position-map
+  materializations. Preserve exactly mirrored orbits and all thresholds.
+- [ ] **R06-M14B3 — Survivor face ID-backed working set.**
+  Replace mutable survivor triangle records with original FaceId handles
+  plus pending face overrides; resolve effective triangle vertices and
+  ownership from the immutable R03 source, apply local modifications
+  once in the transaction. New cap/zipper faces remain transaction-owned.
+  Keep all local incidence/edge-scoring invariants.
+- [ ] **R06-M14B4 — Remove synchronization path and certify replay.**
+  Stop replaying detached survivor-face copies into COW at commit;
+  apply source-backed transaction changes exactly once. Test all five
+  immutable cases, refusal/acceptance results, preserved root/history,
+  topology, collisions, finite budgets and Linux/Clang/Windows CI.
 - [ ] **R06-M14C — Transaction-level conforming edge splits.**
   Discover effective two-face incidence (including previously untracked
   original geometry), share exactly one new midpoint ID across both sides,
