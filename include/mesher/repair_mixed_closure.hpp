@@ -14,6 +14,7 @@ struct MixedPrivateClosureLimits {
     std::size_t maxInsertedVertices=1024;
     std::size_t maxNewFaces=4096;
     std::size_t maxRefinementSteps=512;
+    std::size_t maxInteriorQualityFlips=128; // never consumes or changes source boundary
     std::size_t maxAuditedFaces=1000000;
     double minSurvivorQuality=0.012;
     double minCapQuality=0.10;
@@ -38,6 +39,7 @@ struct MixedPrivateClosureResult {
     std::size_t zipperPairs{};
     std::size_t newFaces{};
     std::size_t refinementSteps{};
+    std::size_t interiorQualityFlips{};
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
     std::size_t spatialCapLoops{};
