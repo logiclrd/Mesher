@@ -327,6 +327,29 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M06C4f — Finite alternative for self-intersecting mirrored spatial fronts.**
+  Latest physical Linux evidence: independent 16- and 20-vertex exact
+  reflected single loops refused at the spatial-front self-contact gate;
+  a different 18-vertex loop closed with q=0.140 and no density backlog.
+  First try the existing reflected Poisson front unchanged. When its
+  generated triangles self-intersect, construct an alternative reflected
+  half-ribbon around a genuine X=0 polyline whose endpoints are the
+  existing seam IDs; never cross X=0 with off-plane faces and never weld
+  different rim IDs. Reject overlapping/skewed segments, collapsed
+  triangles, unmatched mirror triangles and finite collision-work limits.
+  Keep source rim fixed, only use new private COW seam IDs, and require
+  all original M04B quality>=0.10, survivor>=0.012, full-mesh collision,
+  manifold, symmetry and 512-step finite-budget gates. Regress both
+  full-precision physical loops as LOCAL fixtures, malformed mirror
+  refusal, and the prior accepted 18/26/32 and asymmetric paths; distinguish
+  front vs ribbon telemetry. Full original sculpted root and physical GPU
+  acceptance still need replay. This is an independent fallback peer;
+  existing C4d and M06D own quality stagnation, NOT quota increases.
+- [ ] **R06-M06C4f-acceptance — Physical ribbon and mirror-map acceptance.**
+  Record physical AUTO_CLOSED/AUTO_REFUSED with the new fallback for
+  the two recorded single-loop cases and routine mirrored successes;
+  do not check C4f or parents based on local contour-only tests. Keep
+  explicit authoritative mirror-ID journal for R07 independently open.
 - [ ] **R06-M06C4b — Full R06 spatial closure acceptance.**
   Repeat real nonplanar sphere/hollow/torus cases with profile views
   and `spatial_cap_loops` logs; check optional detail refinement,
