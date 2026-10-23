@@ -105,6 +105,7 @@ void compareClassifierPlans(RepairInspectionSnapshot& snapshot,
 }
 void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool symmetricSource,AutoClosureClassifier classifier) {
+    snapshot.activeClassifier=classifier;
     auto* result=&snapshot;
         if(!result->privateCut) {
             result->autoDiagnostic="R06 requires successful complete R03 excision: "+
