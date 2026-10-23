@@ -42,7 +42,14 @@ std::uint64_t checksum(const std::vector<std::uint8_t>& bytes,
     for(std::size_t i=0;i<length;++i)value=(value^bytes[i])*hashPrime;
     return value;
 }
+bool validIntent(RepairCaseIntent intent) {
+    return intent==RepairCaseIntent::Unspecified||
+           intent==RepairCaseIntent::PreferCaps||
+           intent==RepairCaseIntent::PreferZipper;
+}
 void valid(const RepairCase& capture) {
+    if(!validIntent(capture.intendedSelection))
+        throw std::invalid_argument("R06 case invalid desired classification intent");
     if(!capture.candidate.index||capture.contacts.empty()||
        capture.contacts.size()>maxContacts||
        capture.originalDiagnostic.size()>maxDiagnostic)
@@ -86,6 +93,15 @@ std::filesystem::path temporaryMesh(const std::filesystem::path& file) {
     auto p=file;p+=".embedded-checkpoint.mshr";return p;
 }
 }
+// Human intent labels survive archived expected CLOSED/REFUSED outcomes.
+const char* repairCaseIntentName(RepairCaseIntent intent) {
+    switch(intent) {
+        case RepairCaseIntent::Unspecified:return "unspecified";
+        case RepairCaseIntent::PreferCaps:return "caps";
+        case RepairCaseIntent::PreferZipper:return "zipper";
+    }
+    return "invalid";
+}
 void writeRepairCase(const std::filesystem::path& destination,
                      const RepairCase& capture) {
     valid(capture);
@@ -104,9 +120,10 @@ void writeRepairCase(const std::filesystem::path& destination,
     encoded.reserve(mesh.size()+capture.contacts.size()*17+128+
                     capture.originalDiagnostic.size());
     encoded.insert(encoded.end(),signature.begin(),signature.end());
-    put(encoded,1,4); // case version, independent of embedded checkpoint version
+    put(encoded,2,4); // V2 adds explicit optional human desired M03 classification
     put(encoded,capture.symmetricSource?1:0,1);
     put(encoded,capture.expectedClosure?1:0,1);
+    put(encoded,static_cast<std::uint8_t>(capture.intendedSelection),1);
     put(encoded,static_cast<std::uint32_t>(capture.contacts.size()),4);
     put(encoded,static_cast<std::uint32_t>(capture.originalDiagnostic.size()),4);
     put(encoded,mesh.size(),8);
@@ -130,15 +147,21 @@ void writeRepairCase(const std::filesystem::path& destination,
 
 RepairCase readRepairCase(const std::filesystem::path& source) {
     const auto bytes=loadBytes(source,maxArchive);
-    constexpr std::size_t header=8+4+1+1+4+4+8;
-    if(bytes.size()<header+8||
+    constexpr std::size_t legacyHeader=8+4+1+1+4+4+8;
+    if(bytes.size()<legacyHeader+8||
        !std::equal(signature.begin(),signature.end(),bytes.begin()))
         throw std::runtime_error("Unrecognized or truncated R06 case signature");
     std::size_t cursor=8;
-    if(get(bytes,cursor,4)!=1)
+    const auto version=get(bytes,cursor,4);
+    if(version!=1&&version!=2)
         throw std::runtime_error("Unsupported R06 case file version");
     const auto symmetric=get(bytes,cursor,1);
     const auto succeeded=get(bytes,cursor,1);
+    const auto desired=version==2?
+        get(bytes,cursor,1):std::uint64_t{0};
+    const auto header=legacyHeader+(version==2?1u:0u);
+    if(desired>static_cast<std::uint8_t>(RepairCaseIntent::PreferZipper))
+        throw std::runtime_error("R06 case contains invalid classifier intent");
     const auto count=get(bytes,cursor,4);
     const auto diagnosticSize=get(bytes,cursor,4);
     const auto meshSize=get(bytes,cursor,8);
@@ -153,6 +176,7 @@ RepairCase readRepairCase(const std::filesystem::path& source) {
     RepairCase capture;
     capture.symmetricSource=symmetric==1;
     capture.expectedClosure=succeeded==1;
+    capture.intendedSelection=static_cast<RepairCaseIntent>(desired);
     capture.contacts.reserve(static_cast<std::size_t>(count));
     for(std::uint64_t k=0;k<count;++k) {
         const auto a=get(bytes,cursor,8);
@@ -189,17 +213,21 @@ RepairCase readRepairCase(const std::filesystem::path& source) {
     return capture;
 }
 std::filesystem::path uniqueRepairCasePath(
-    const std::filesystem::path& directory) {
-    if(directory.empty())throw std::invalid_argument("R06 case directory empty");
+    const std::filesystem::path& directory,const std::string& stem) {
+    if(directory.empty()||stem.empty()||stem.size()>40||
+       !std::all_of(stem.begin(),stem.end(),[](char c) {
+           return (c>='a'&&c<='z')||c=='-';
+       }))
+        throw std::invalid_argument("R06 case directory/stem invalid");
     std::filesystem::create_directories(directory);
     for(unsigned i=1;i<=100000;++i) {
         auto destination=directory/
-            ("refusal-"+std::to_string(i)+".r06case");
+            (stem+"-"+std::to_string(i)+".r06case");
         if(!std::filesystem::exists(destination)&&
            !std::filesystem::exists(destination.string()+".tmp")&&
            !std::filesystem::exists(temporaryMesh(destination)))
             return destination;
     }
-    throw std::length_error("R06 refusal case name budget exhausted");
+    throw std::length_error("R06 case name budget exhausted");
 }
 } // namespace mesher
