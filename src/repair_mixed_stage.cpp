@@ -174,6 +174,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          MixedClosureFaceKind::Cap,h});
             result.usedSpatialCapFallback=true;
             ++result.spatialCapLoops;
+            if(patch.usedMirroredRibbonFallback)++result.mirroredRibbonLoops;
             result.spatialPoissonIterations+=patch.poissonIterations;
             result.minimumSpatialInitialQuality=std::min(
                 result.minimumSpatialInitialQuality,patch.minimumQuality);
