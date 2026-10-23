@@ -431,12 +431,18 @@ int main(int argc, char** argv) {
                     [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                         touched.insert(id);
                     });
-                return mesher::ViewportMeshUpdate{
+                auto update=mesher::ViewportMeshUpdate{
                     display,{touched.begin(),touched.end()},0,true,
                     mesher::buildRepairInspectionOverlay(*frozen),
                     true,true,frozen->privateCut.has_value(),
                     false,false,false,false,true,
                     frozen->privateAuto.has_value()};
+                update.classifierChoices=frozen->classifierChoices;
+                update.classifierComparable=frozen->classifierComparable;
+                update.classifiersAgree=frozen->classifiersAgree;
+                update.activeClassifier=
+                    frozen->activeClassifier==mesher::AutoClosureClassifier::Proximity?1:0;
+                return update;
             };
             std::cout<<"[repair-r06] Opened read-only replay viewport; orbit/W/G, Escape to exit.\n";
             mesher::runViewport(viewportMesh,{},std::move(inspect));
