@@ -1,5 +1,6 @@
 #include "mesher/repair_mixed_closure.hpp"
 #include "mesher/repair_quality_flip.hpp"
+#include "mesher/repair_survivor_split.hpp"
 
 #include <algorithm>
 #include <array>
@@ -187,6 +188,19 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(!a||!b)return std::nullopt;
         return edge(*a,*b);
     };
+
+    // Read-only complete mirror-orbit preflight. A conforming split can
+    // bisect a skinny ORIGINAL survivor as well as the new cap/zipper.
+    // Never discover that damage only after spending the split budget.
+    const auto survivorSafeOrbit=[&](Edge chosen)->bool {
+        if(!assessSurvivorSplit(
+                faces,positions,chosen,limits.minSurvivorQuality).safe)
+            return false;
+        if(!limits.requireReflectedGeometry)return true;
+        const auto reflected=reflectedEdge(chosen);
+        return reflected&&assessSurvivorSplit(
+            faces,positions,*reflected,limits.minSurvivorQuality).safe;
+    };
     const auto splitMirrored=[&](Edge chosen,bool optional)->std::size_t {
         Edge paired=chosen;
         if(limits.requireReflectedGeometry) {
@@ -214,6 +228,23 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::logic_error(
                 "R06-M06C mirrored conforming edge lacks two incident tracked faces");
         }
+
+        // BOTH surviving face stars must remain legal before EITHER
+        // new midpoint is allocated, even for mandatory quality passes.
+        for(const auto& e:{chosen,paired}) {
+            const auto check=assessSurvivorSplit(
+                faces,positions,e,limits.minSurvivorQuality);
+            if(!check.safe) {
+                if(optional)return 0;
+                throw std::logic_error(
+                    "R06-M11A unsafe original-survivor midpoint split"
+                    " edge="+std::to_string(e.first)+","+
+                              std::to_string(e.second)+
+                    " stable_face="+std::to_string(check.originalFace)+
+                    " child_q="+std::to_string(check.worstChildQuality)+
+                    " required="+std::to_string(limits.minSurvivorQuality));
+            }
+        }
         if(optional) {
             for(const auto& e:{chosen,paired})
                 for(const auto index:incident(e)) {
@@ -237,6 +268,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     while(true) {
         Edge worst{};
         double largestRatio=1;
+        double largestUnsafeRatio=1;
         for(const auto& face:faces) {
             if(face.kind!=MixedClosureFaceKind::Zipper)continue;
             const auto& v=face.vertices;
@@ -253,13 +285,19 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                     continue;
                 const auto ratio=edgeSpan(positions,candidate)/
                     (limits.maxZipperBoundaryEdgeFactor*face.targetEdge);
-                if(ratio>largestRatio) {
+                if(ratio>largestUnsafeRatio)
+                    largestUnsafeRatio=ratio;
+                if(ratio>largestRatio&&survivorSafeOrbit(candidate)) {
                     largestRatio=ratio;
                     worst=candidate;
                 }
             }
         }
-        if(largestRatio<=1+1e-8)break;
+        if(largestUnsafeRatio<=1+1e-8)break;
+        if(largestRatio<=1+1e-8)
+            throw std::logic_error(
+                "R06-M11A zipper boundary length deficit has no "
+                "survivor-safe conforming mirror-orbit split");
         if(out.refinementSteps>=limits.maxRefinementSteps)
             throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
         out.refinementSteps+=splitMirrored(worst,false);
@@ -281,6 +319,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
         double largestRatio=1;
+        double largestUnsafeRatio=1;
+        std::vector<std::pair<double,Edge>> longCandidates;
         std::size_t lowest=faces.size();
         double smallest=1;
         for(std::size_t i=0;i<faces.size();++i) {
@@ -297,13 +337,27 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 const auto e=edge(v[k],v[(k+1)%3]);
                 const auto ratio=edgeSpan(positions,e)/
                     (score.edgeFactor*f.targetEdge);
-                if(ratio>largestRatio) {
-                    largestRatio=ratio;
-                    longest=e;
+                if(ratio>1) {
+                    largestUnsafeRatio=std::max(largestUnsafeRatio,ratio);
+                    longCandidates.emplace_back(ratio,e);
                 }
             }
         }
-        if(largestRatio<=1&&lowest==faces.size())break;
+        // Preserve the original longest-first ordering where it is legal,
+        // but skip candidates whose complete mirrored orbit would create
+        // an under-quality ORIGINAL survivor child. Sort by score then IDs.
+        std::sort(longCandidates.begin(),longCandidates.end(),
+            [](const auto& a,const auto& b) {
+                if(a.first!=b.first)return a.first>b.first;
+                return a.second<b.second;
+            });
+        for(const auto& [ratio,e]:longCandidates) {
+            if(!survivorSafeOrbit(e))continue;
+            largestRatio=ratio;
+            longest=e;
+            break;
+        }
+        if(largestUnsafeRatio<=1&&lowest==faces.size())break;
         // A bad local diagonal is not repairable merely by bisecting an
         // already skinny needle. Try a bounded topology-preserving 2->2
         // improvement before burning one of the finite subdivision steps.
@@ -319,7 +373,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             for(unsigned k=0;k<3;++k) {
                 const auto e=edge(v[k],v[(k+1)%3]);
                 const auto adjacent=incident(e);
-                if(adjacent.size()!=2)continue;
+                if(adjacent.size()!=2||!survivorSafeOrbit(e))continue;
                 double score=1;
                 for(const auto index:adjacent)
                     score=std::min(score,splitQuality(faces[index],e));
@@ -327,10 +381,23 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 if(score>best){best=score;chosen=e;}
             }
             if(best<0)
-                throw std::logic_error("R06-M04B skinny cap/seam has no conforming two-sided split");
+                throw std::logic_error(
+                    "R06-M11A skinny cap/seam has no survivor-safe "
+                    "conforming two-sided split");
             if(best<=smallest*(1+1e-6))++stagnant;
             else stagnant=0;
-        }else stagnant=0;
+        }else {
+            stagnant=0;
+            if(largestRatio<=1) {
+                // Every long edge was unsafe for an existing survivor.
+                // A shorter safe split may still improve the skinny
+                // closure, but never waive the hard density constraint.
+                if(improveQuality())continue;
+                throw std::logic_error(
+                    "R06-M11A no survivor-safe split for remaining "
+                    "closure edge-length deficit");
+            }
+        }
         if(stagnant>64)
             throw std::logic_error("R06-M04B refinement stagnation");
         out.refinementSteps+=splitMirrored(chosen,false);
