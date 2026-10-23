@@ -355,6 +355,29 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   document/explicitly update its expectation instead of silently
   declaring all old refusals to pass. GCC/Clang/MSVC CTests plus physical
   replay on Linux and Windows; keep draft/unpublished pending acceptance.
+- [ ] **R06-M12A — Inspection-only quality-warning private staging.**
+  Add explicit opt-in CLI for live R06 auto or saved R06 replay. Attempt
+  ordinary certified AUTO first; after a quality-related refusal, perform
+  separate bounded PRIVATE M04 staging with *quality and density gates*
+  downgraded to diagnostic warnings, retaining the original candidate,
+  exact excision and contact provenance. Never change production default,
+  publish root/history/checkpoint, or mislabel a warned geometry as
+  AUTO_CLOSED; non-quality topology, manifold, collision, mirror integrity
+  and finite allocation limits remain fatal to preview. Retain per-face
+  deficient q and edge-ratio with exact IDs and refusal reason.
+- [ ] **R06-M12B — Real colored triangles plus explicit edge overlay.**
+  Render actual cap and zipper triangulation edges, whether AUTO, R04,
+  R05, or warned-private staging. Mark every quality-deficient face
+  light red and all three associated triangle edges vivid red; normal
+  cap green and zipper blue remain visible, with dark contrast edges.
+  Honor front/back inspection and prevent phantom geometry after refusal.
+  Label HUD/CLI warned previews as UNTRUSTED rather than COMPLETE.
+- [ ] **R06-M12C — Strict/no-leak CLI and archive regressions.**
+  Verify default R06 and R04/R05 unchanged, mode argument validation,
+  deterministic archived 5K cases, per-face warning inventory with
+  both low-q and long-edge cases, source and history immutability,
+  refusal where topology/collision certification fails and correct
+  overlay material palette. GCC/Clang/MSVC + physical Vulkan acceptance.
 - [ ] **R06-M11A1 — Reject unsafe original-survivor midpoint children before mutation.**
   Implement pure, deterministic read-only quality assessment of both
   children of each original-survivor incident face at the proposed
