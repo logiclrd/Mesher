@@ -57,7 +57,7 @@ void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius,flo
 }
 
 void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
-                          bool symmetricSource) {
+                          bool symmetricSource,AutoClosureClassifier classifier) {
     auto* result=&snapshot;
         if(!result->privateCut) {
             result->autoDiagnostic="R06 requires successful complete R03 excision: "+
@@ -66,7 +66,8 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
             try {
                 result->autoPlan=planPrivateAutomaticClosure(
                     *result->candidate,*result->privateCut,
-                    result->excision,result->contacts);
+                    result->excision,result->contacts,
+                    AutoClosurePlanSettings{.classifier=classifier});
                 if(!result->autoPlan->ready())
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
                         result->autoPlan->diagnostic;
@@ -233,7 +234,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
-    if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_);
+    if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_);
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -252,7 +253,7 @@ RepairInspectionSession::frozenSnapshot() const {
 
 
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
-    const RepairCase& capture) {
+    const RepairCase& capture,AutoClosureClassifier classifier) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -296,7 +297,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
             result->excisionDiagnostic=std::string("R03 private cut refused: ")+error.what();
         }
     }
-    runAutomaticClosure(*result,capture.symmetricSource);
+    runAutomaticClosure(*result,capture.symmetricSource,classifier);
     return result;
 }
 
