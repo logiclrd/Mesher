@@ -154,3 +154,54 @@ configurations; direct matched reflected face-ID journals
 for eventual R07 live CAS/history/checkpoint; bounded symmetric
 quality-improving diagonal flips in C4d. Keep PR #148 draft
 and all C4c parent, C4d, C4e, M06C parent and R06 checkboxes OPEN.
+
+## 2026-10-22 third physical Linux acceptance round (new PR #148 evidence)
+
+The user reported many successful caps and the most nonplanar captured success:
+a single **18-vertex exact mirrored rim** closed with 56 green faces, only
+one split, q=0.140, 51 Poisson sweeps, one optional density split, no
+remaining long cap edges, final ratio 1.464. This is meaningful positive
+physical evidence; do not equate it with general physical acceptance.
+
+Four independent failures on the same previous PR #148 head:
+
+- **16-vertex mirrored CAP:** front refused `folded spatial front self-intersects`.
+  Planner selected one cap correctly, and the contour retains exactly two
+  real X=0 seam vertices.
+- **17+17 mirrored ZIPPER:** M03 selected zipper with directly linked
+  saving 0.564832 and threshold 0.45. M04B reached 512 splits, then
+  refused q=0.056441 < 0.10, length ratio 0.048956. This is an
+  unrecoverable shape under midpoint-only subdivision; C4d / M06D
+  own legal paired quality-improving retriangulation, not budget inflation.
+- **20-vertex mirrored CAP:** front again refused `folded spatial front
+  self-intersects`, although the directed R03 rim was exact reflected and
+  contained two genuine X=0 vertices.
+- **22-vertex mirrored CAP:** M04B exhausted the **512 paired-split**
+  budget (`complete mirrored edge-split orbit exceeds finite budget`).
+  Capture split-orbit quality/edge and stagnation evidence before deciding
+  which legal flips or alternative faces would avoid this budget.
+
+### Experimental C4f: bounded alternative reflected seam ribbon
+
+On new stacked draft work, keep the existing fixed-rim Poisson front first.
+If it has *true local triangle self-intersection*, attempt a distinct
+mirror-invariant half-strip topology: each original half-contour connects
+to a polyline of PRIVATE synthetic X=0 vertices at matching original
+(y,z) positions, with original seam endpoints retained by identity.
+Build the opposite half via reflected, reversed-winding face IDs.
+No original rim vertex moves or coordinate weld occurs.
+
+The alternate is a candidate only: the same cumulative pairwise collision
+quota, nondegenerate triangle and hard scale gates apply; M04B must
+still certify q>=0.10, survivor q>=0.012, actual whole-root collision,
+conforming adjacent splits, closed orientable vertex fans, and exact final
+mirror symmetry before any PRIVATE success. The ribbon omits Poisson
+sweeps, and `mirrored_ribbon_loops` distinguishes this path from the
+normal `spatial_cap_loops` count.
+
+Local coordinate-only regressions reproduce the 16- and 20-vertex
+contours. Their **entire deformed survivor topology** is unavailable,
+so a local candidate is NOT a real AUTO_CLOSED replay. Physical
+Linux tests of the new fallback, Windows hardware, quality stagnation,
+and eventual R07 mirror-ID journaling remain unaccepted. Do not mark
+C4f, C4d, C4e, or R06 parents done on green CPU CI alone.
