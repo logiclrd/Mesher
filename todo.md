@@ -327,6 +327,42 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M08A — Selectable experimental two-ring proximity fitness.**
+  Keep `--repair-classifier area` as byte-for-byte default V15 area-DP
+  behavior and add `--repair-classifier proximity` for eligible, proven
+  two-rim regions only (never invent contacts/loops). Compute each ring's
+  translation-conditioned Newell/vector area, NOT PCA best-fit-plane area;
+  calculate bidirectional nearest OTHER-VERTEX distances with adjacent
+  edge-arc-length weights, normalize by total weight, and compute
+  `score=1*average_area -1*abs(area1-area2)-2*mean_distance^2`.
+  Strictly positive => zipper, otherwise caps; finite/count/geometry
+  guards and exact zero => caps. Preserve direct trusted contact/identical
+  patch prerequisites and all R06 M04 geometry/quality/manifold/symmetry,
+  sealed roots and refusal budgets. Log area1/area2/average/difference,
+  weighted bridge d/d^2, three weighted terms and score/decision plus
+  eligibility. No V15 area-savings override in proximity mode. On
+  >2-rim contact islands, explicitly diagnose use of original V15
+  multi-rim matching, rather than pretend proximity DP was implemented.
+- [ ] **R06-M08B — Exact replay comparability and classifier regressions.**
+  Thread the classifier setting through live R06 inspection and both
+  `--repair-replay`/headless-test against the SAME archived post-stamp
+  candidate; archived outcome/intent stay immutable and mismatches are
+  reported without publication. Regression for planar/nonplanar vector
+  area distinct from PCA, arc-length sampling invariance under edge
+  subdivisions (bounded error), unequal radii and 3:1 cutoff,
+  high-distance caps, exact tie, zero-length refusal, valid linked
+  two-rim topology, absence of invented separate-island pairings and
+  unchanged default area results. Use all five physical V1 cases as
+  deterministic baseline in area mode; compare proximity with explicit
+  CLI while treating changed outcomes as expected experimental evidence
+  (not silently rewriting fixture oracles). CI GCC/Clang/MSVC and
+  actual Linux GPU cap/zipper/replay needed before acceptance.
+- [ ] **R06-M08C — Future >2-contour alternative fitness pairing.**
+  Independently design bounded bitmask-DP pairing where positive local
+  proximity fitness can compete with caps over 3–4 loops, while respecting
+  R01 contact connectivity and M04 acceptance. Not part of M08A/B:
+  first gather two-rim physical results; preserve V15 fallback and
+  clearly log it in proximity mode rather than imply full support.
 - [ ] **R06-M07D — Capture all frozen R06 outcomes and explicit classifier intent.**
   The first physical acceptance stored five real 5K-vertex refusals on the
   r06-m07-captured-refusal-replay branch: cases 1/3/5 CAP quality
