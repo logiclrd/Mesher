@@ -41,11 +41,14 @@ strategy. It may stop when no safe complete mirror-orbit split remains or
 when the finite refinement budget is exhausted, then collect ALL remaining
 quality/edge violations. It does not enlarge budget caps, perform partial
 reflected edits, override R03 cut provenance, or create any worker history
-or checkpoint transition. Topological manifold validation, post-refinement
-triangle intersection validation, and structural staging failures are still
-fatal: if one fails, `QUALITY_WARNING_UNAVAILABLE` explains why, and
-the UI continues to show the real R03 cut. A structurally invalid patch
-must not masquerade as a quality-only preview.
+or checkpoint transition. Topological manifold validation and structural
+staging failures remain fatal. The post-refinement collision query is STILL
+required and fatal in the original certified AUTO path, but an explicitly
+untrusted quality preview may retain its private geometry even when that
+secondary query reports intersections or exceeds its finite contact
+reporting budget. This is logged as `UNTRUSTED PREVIEW: ...` and NEVER
+claims the geometry is intersection-free. Other structural failures yield
+`QUALITY_WARNING_UNAVAILABLE` and the real R03 cut instead.
 
 ### Physical acceptance
 Use the same archived case first with and then without warning mode.
