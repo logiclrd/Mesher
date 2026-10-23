@@ -355,6 +355,41 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   document/explicitly update its expectation instead of silently
   declaring all old refusals to pass. GCC/Clang/MSVC CTests plus physical
   replay on Linux and Windows; keep draft/unpublished pending acceptance.
+- [ ] **R06-M11A — Survivor-safe quality choice for real refusal-1.**
+  Physical 5K V1 case 1 changes from q=.082329 cap refusal after 512
+  splits to `M04B conforming split left skinny original survivor`
+  under M10 flips. Trace which mandatory split degraded a surviving
+  stable FaceId (edge endpoints, original and child q, partner kind),
+  and reject or route around that split before it happens while
+  preserving the immutable R03 cut, seam conformality, and 0.012
+  minimum survivor quality. No changing old survivor geometry beyond
+  existing bounded conforming operations; targeted replay regression.
+- [ ] **R06-M11B — Global quality-deficit merit and nonplanar correction.**
+  Physical 5K V1 case 3 remains CAP q=.096550 after 512 splits
+  AND 128 interior flips; case 5 also used 128 flips. Measure
+  number of under-quality faces, summed q deficits and worst q
+  after each accepted flip/split; replace purely local minimum-q gain
+  with a bounded deterministic global decrease rule (avoid cycles
+  and unproductive exchange), then consider a separately bounded
+  interior reposition/retriangulation of genuinely nonplanar caps
+  only if required. Never move frozen R03 boundary vertices, lower
+  q=.10, or invent a planar projection.
+- [ ] **R06-M11C — Adaptive mirrored split-orbit scheduling.**
+  Physical 5K V1 case 5 now refuses at 511 refinements and 128
+  interior flips: `complete mirrored edge-split orbit exceeds
+  finite budget`. Keep reflection atomic and mandatory adjacency
+  checks; optimize pre-split choice and only use available complete
+  orbit budget for quality/length defects that genuinely decrease
+  remaining deficit. No global relaxation of finite budget.
+- [ ] **R06-M11D — Full five-case closed acceptance and multi-platform GPU.**
+  Preserve all original V1 files as historic REFUSED capture, and
+  require current CLOSED with real good q and no material/mirror
+  collisions before treating each as recovered. Case2 now closes
+  with zipper q=.138548 after 58 splits and 4 flips, case4 caps
+  q=.102239 after 1 split and 2 mirrored flips (M10 first CI).
+  Extend explicit reviewed recovery CTest expectations only when
+  independently demonstrated; run all five in GCC/Clang/MSVC and
+  inspect Linux/Windows Vulkan screen, remain unpublished R06.
 - [ ] **R06-M10D — If still refusing: separately planned bounded remedies.**
   Use actual replay results to identify which cases require nonplanar
   interior node relocation/retriangulation or adaptive frontier repair,
