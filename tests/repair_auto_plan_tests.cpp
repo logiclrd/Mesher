@@ -69,6 +69,14 @@ void proximityFitnessMath() {
     check(std::abs(denser.score-close.score)<1e-12&&
           std::abs(denser.weightedDistance-close.weightedDistance)<1e-12,
           "M08 arc weighted matching subdivision must preserve distance and score");
+    const std::vector<Vec3> tieA{
+        {0,-1,-.5},{0,1,-.5},{0,1,.5},{0,-1,.5}};
+    const std::vector<Vec3> tieB{
+        {1,-1,-.5},{1,1,-.5},{1,1,.5},{1,-1,.5}};
+    const auto tie=computeProximityFitness(tieA,tieB);
+    check(tie.area1==2&&tie.area2==2&&tie.weightedDistance==1&&
+          tie.score==0,
+          "M08 exact neutral score must prefer caps by the strict >0 rule");
     const auto swapped=computeProximityFitness(b,a);
     check(std::abs(swapped.score-close.score)<1e-12&&
           std::abs(swapped.weightedDistance-close.weightedDistance)<1e-12,
@@ -97,7 +105,7 @@ void proximityFitnessMath() {
     catch(const std::invalid_argument&){invalid=true;}
     check(invalid,"M08 repeated zero-length rim edges must refuse");
     std::cout<<"[r06-m08] Newell vector area, term signs, arc-length sampling, "
-                 "symmetric nearest distances, 3:1 cutoff and invalid rim PASS\\n";
+                 "symmetric nearest distances, 3:1 cutoff and invalid rim PASS\n";
 }
 void torusCaps() {
     const auto f=indexed(generateTorusFixture(5000,1,5));
