@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
                          <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
-                         <<"       [--repair-case-out FILE] (Ctrl+S on refused R06; otherwise unique repair-cases/ case)\n"
+                         <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
@@ -289,9 +289,23 @@ int main(int argc, char** argv) {
             const auto saved=mesher::readRepairCase(repairReplayPath);
             const auto frozen=mesher::replayPrivateAutomaticRepair(saved);
             const bool succeeded=frozen->privateAuto.has_value();
+            const auto chosenCaps=frozen->autoPlan?
+                frozen->autoPlan->cappedContours.size():0;
+            const auto chosenZippers=frozen->autoPlan?
+                frozen->autoPlan->zipperPairs.size():0;
+            const auto choice=chosenZippers?
+                (chosenCaps?"mixed":"zipper"):
+                (chosenCaps?"caps":"none");
+            const bool intentMatches=saved.intendedSelection==
+                mesher::RepairCaseIntent::Unspecified||
+                (saved.intendedSelection==mesher::RepairCaseIntent::PreferZipper?
+                    chosenZippers>0:(chosenCaps>0&&chosenZippers==0));
             std::cout<<"[repair-r06] REPLAY file="<<repairReplayPath.string()
                      <<" expected="<<(saved.expectedClosure?"AUTO_CLOSED":"AUTO_REFUSED")
                      <<" actual="<<(succeeded?"AUTO_CLOSED":"AUTO_REFUSED")
+                     <<" expected_choice="<<mesher::repairCaseIntentName(saved.intendedSelection)
+                     <<" actual_choice="<<choice
+                     <<" choice_match="<<intentMatches
                      <<" contacts="<<saved.contacts.size()
                      <<" symmetric_source="<<saved.symmetricSource
                      <<" exact_candidate=1 worker_history_checkpoint_unchanged=1\n";
@@ -338,10 +352,15 @@ int main(int argc, char** argv) {
                 }
             }
             if(repairReplayTest) {
+                const bool outcomeMatches=succeeded==saved.expectedClosure;
                 std::cout<<"[repair-r06] REPLAY_TEST "
-                         <<(succeeded==saved.expectedClosure?"PASS":"OUTCOME_MISMATCH")
+                         <<(!outcomeMatches?"OUTCOME_MISMATCH":
+                            !intentMatches?"CHOICE_MISMATCH":"PASS")
+                         <<" expected_choice="<<mesher::repairCaseIntentName(
+                             saved.intendedSelection)
+                         <<" actual_choice="<<choice
                          <<" stored_reason="<<saved.originalDiagnostic<<"\n";
-                return succeeded==saved.expectedClosure?0:2;
+                return !outcomeMatches?2:(!intentMatches?3:0);
             }
             auto viewportMesh=mesher::flattenRevisionForViewport(
                 *saved.candidate.index,mesher::FlatMeshIndex{});
@@ -664,35 +683,56 @@ int main(int argc, char** argv) {
             }
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
-            interaction.checkpoint=[&]{
-                if(repairSession&&repairSession->frozen()) {
-                    const auto frozen=repairSession->frozenSnapshot();
-                    if(repairAuto&&frozen&&!frozen->privateAuto&&
-                       frozen->candidate&&!frozen->contacts.empty()) {
-                        try {
-                            const auto destination=repairCaseOut.empty()?
-                                mesher::uniqueRepairCasePath():repairCaseOut;
-                            mesher::RepairCase capture;
-                            capture.candidate.index=frozen->candidate;
-                            capture.symmetricSource=options.symmetric;
-                            capture.contacts=frozen->contacts;
-                            capture.expectedClosure=false;
-                            capture.originalDiagnostic=frozen->autoDiagnostic;
-                            mesher::writeRepairCase(destination,capture);
-                            std::cout<<"[repair-r06] CASE_SAVED "
-                                     <<destination.string()
-                                     <<" exact_candidate=1 contacts="
-                                     <<capture.contacts.size()
-                                     <<" unpublished=1\n";
-                        }catch(const std::exception& error) {
-                            std::cerr<<"[repair-r06] CASE_SAVE_REFUSED "
-                                     <<error.what()<<"\n";
-                        }
-                    }
-                    return;
-                }
+            interaction.checkpoint=[&] {
+                // The frozen branch uses a distinct, outcome-aware callback.
+                // Never checkpoint unpublished automatic repair geometry.
+                if(repairSession&&repairSession->frozen())return;
                 liveWorker->saveCheckpoint(checkpointPath);
                 std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
+            };
+            interaction.frozenRepairCapture=[&](int requestedIntent) {
+                if(!repairAuto||!repairSession||!repairSession->frozen())return;
+                const auto frozen=repairSession->frozenSnapshot();
+                if(!frozen||!frozen->candidate||frozen->contacts.empty()) {
+                    std::cerr<<"[repair-r06] CASE_SAVE_REFUSED no frozen candidate / complete contacts\n";
+                    return;
+                }
+                try {
+                    if(requestedIntent<0||requestedIntent>2)
+                        throw std::invalid_argument("Invalid requested classification annotation");
+                    const auto intent=static_cast<mesher::RepairCaseIntent>(requestedIntent);
+                    const bool completed=frozen->privateAuto.has_value();
+                    const auto stem=intent==mesher::RepairCaseIntent::PreferZipper?
+                        "classification-zipper":
+                        intent==mesher::RepairCaseIntent::PreferCaps?
+                        "classification-caps":
+                        completed?"closure":"refusal";
+                    const auto destination=repairCaseOut.empty()?
+                        mesher::uniqueRepairCasePath("repair-cases",stem):repairCaseOut;
+                    mesher::RepairCase capture;
+                    capture.candidate.index=frozen->candidate;
+                    capture.symmetricSource=options.symmetric;
+                    capture.contacts=frozen->contacts;
+                    capture.expectedClosure=completed;
+                    capture.intendedSelection=intent;
+                    if(completed) {
+                        const auto capCount=frozen->autoPlan?
+                            frozen->autoPlan->cappedContours.size():0;
+                        const auto zipperCount=frozen->autoPlan?
+                            frozen->autoPlan->zipperPairs.size():0;
+                        capture.originalDiagnostic="R06 AUTO_CLOSED cap_loops="+
+                            std::to_string(capCount)+" zipper_pairs="+
+                            std::to_string(zipperCount);
+                    }else capture.originalDiagnostic=frozen->autoDiagnostic;
+                    mesher::writeRepairCase(destination,capture);
+                    std::cout<<"[repair-r06] CASE_SAVED "<<destination.string()
+                             <<" original="<<(completed?"AUTO_CLOSED":"AUTO_REFUSED")
+                             <<" desired_choice="<<mesher::repairCaseIntentName(intent)
+                             <<" exact_candidate=1 contacts="<<capture.contacts.size()
+                             <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
+                }
             };
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
@@ -1038,9 +1078,11 @@ int main(int argc, char** argv) {
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
             if(repairAuto)
-                std::cout<<"[repair-r06] On AUTO_REFUSED, Ctrl+S saves an exact post-stamp "
-                            "R06 replay case (no normal checkpoint write). Relaunch with "
-                            "--repair-replay FILE or --repair-replay-test FILE.\n";
+                std::cout<<"[repair-r06] On any frozen AUTO result, Ctrl+S saves "
+                            "the exact repair candidate. Ctrl+Shift+S marks "
+                            "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
+                            "The annotation does not modify the displayed result. "
+                            "Replay via --repair-replay FILE or --repair-replay-test FILE.\n";
             if(repairAuto)
                 std::cout<<"[repair-r06] Armed AUTO private closure: green caps, "
                             "blue safe zippers, proven enclosed-shell retirement. "
