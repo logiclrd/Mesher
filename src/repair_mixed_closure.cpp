@@ -29,7 +29,7 @@ double quality(Vec3 a,Vec3 b,Vec3 c) {
     const double sum=dot(a-b,a-b)+dot(b-c,b-c)+dot(c-a,c-a);
     return sum>0?2*std::sqrt(3.0)*length(cross(b-a,c-a))/sum:0;
 }
-double edgeSpan(const std::map<VertexId,Vec3>& pos,Edge e) {
+double edgeSpan(const MixedClosurePositions& pos,Edge e) {
     return length(pos.at(e.first)-pos.at(e.second));
 }
 struct QualityInfo {
@@ -129,12 +129,14 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // q and length bounds; no original surviving/rim vertex moves.
     constexpr std::size_t maxPrivateCapFanRetirements=16;
     while(out.interiorCapCollapses<maxPrivateCapFanRetirements) {
+        auto collapsePositions=positions.materialize();
         const auto retired=collapseOneInferiorCapFan(
-            faces,positions,out.insertedVertices,
+            faces,collapsePositions,out.insertedVertices,
             limits.requireReflectedGeometry,
             limits.minCapQuality,limits.maxCapEdgeFactor);
         if(retired.empty())break;
         for(const auto id:retired) {
+            positions.erase(id);
             const auto owner=vertexOwners.at(id);
             auto& partition=view.editPartition(owner);
             const auto count=std::erase_if(partition.vertices,
@@ -215,7 +217,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto findPartner=[&](VertexId vertex)->std::optional<VertexId> {
             const auto p=positions.at(vertex);
             std::optional<VertexId> match;
-            for(const auto& [id,q]:positions) {
+            for(const auto& [id,q]:positions.materialize()) {
                 if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
                 if(match)return std::nullopt;
                 match=id;
@@ -233,17 +235,17 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // Never discover that damage only after spending the split budget.
     const auto survivorSafeOrbit=[&](Edge chosen)->bool {
         if(!assessSurvivorSplit(
-                faces,positions,chosen,limits.minSurvivorQuality).safe)
+                faces,positions.materialize(),chosen,limits.minSurvivorQuality).safe)
             return false;
-        const auto midpoint=assessUniqueConformingMidpoint(positions,chosen);
+        const auto midpoint=assessUniqueConformingMidpoint(positions.materialize(),chosen);
         if(!midpoint.unique)return false;
         if(!limits.requireReflectedGeometry)return true;
         const auto reflected=reflectedEdge(chosen);
         if(!reflected||!assessSurvivorSplit(
-                faces,positions,*reflected,limits.minSurvivorQuality).safe)
+                faces,positions.materialize(),*reflected,limits.minSurvivorQuality).safe)
             return false;
         if(*reflected==chosen)return true;
-        const auto peer=assessUniqueConformingMidpoint(positions,*reflected);
+        const auto peer=assessUniqueConformingMidpoint(positions.materialize(),*reflected);
         // Distinct reflected orbits must not insert the SAME plane vertex
         // under two different IDs, even if both were previously absent.
         return peer.unique&&
@@ -283,7 +285,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         // new midpoint is allocated, even for mandatory quality passes.
         for(const auto& e:{chosen,paired}) {
             const auto check=assessSurvivorSplit(
-                faces,positions,e,limits.minSurvivorQuality);
+                faces,positions.materialize(),e,limits.minSurvivorQuality);
             if(!check.safe) {
                 if(optional)return 0;
                 throw std::logic_error(
@@ -296,9 +298,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
         const auto firstPoint=assessUniqueConformingMidpoint(
-            positions,chosen);
+            positions.materialize(),chosen);
         const auto secondPoint=paired==chosen?firstPoint:
-            assessUniqueConformingMidpoint(positions,paired);
+            assessUniqueConformingMidpoint(positions.materialize(),paired);
         const bool midpointsCollide=paired!=chosen&&
             firstPoint.point.x==secondPoint.point.x&&
             firstPoint.point.y==secondPoint.point.y&&
@@ -396,7 +398,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(out.interiorQualityFlips+orbit>limits.maxInteriorQualityFlips)
             return false;
         const auto count=flipOneInferiorClosureDiagonal(
-            faces,positions,limits.requireReflectedGeometry,
+            faces,positions.materialize(),limits.requireReflectedGeometry,
             limits.minCapQuality,limits.minZipperQuality,
             limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
         if(!count)return false;
@@ -408,12 +410,27 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto orbit=limits.requireReflectedGeometry?
             std::size_t{2}:std::size_t{1};
         if(out.interiorFairingMoves+orbit>maxInteriorFairingMoves)return false;
+        auto fairPositions=positions.materialize();
         const auto moved=fairOneConstrainedClosureVertex(
-            faces,positions,out.insertedVertices,
+            faces,fairPositions,out.insertedVertices,
             limits.requireReflectedGeometry,
             limits.minCapQuality,limits.minZipperQuality,
             limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
         if(!moved)return false;
+        std::size_t updated=0;
+        for(const auto id:out.insertedVertices) {
+            const auto it=fairPositions.find(id);
+            if(it==fairPositions.end())continue;
+            const auto original=positions.at(id);
+            const auto p=it->second;
+            if(p.x!=original.x||p.y!=original.y||p.z!=original.z) {
+                positions.set(id,p);
+                ++updated;
+            }
+        }
+        if(updated!=moved)
+            throw std::logic_error(
+                "M14B1 fairing attempted non-transactional vertex changes");
         out.interiorFairingMoves+=moved;
         return true;
     };
@@ -439,7 +456,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             const bool constrainedTip=
                 f.kind==MixedClosureFaceKind::Cap&&
                 certifyPlanarRimTipQuality(
-                    f,positions,proposal.contours,score.threshold).has_value();
+                    f,positions.materialize(),proposal.contours,score.threshold).has_value();
             if(q<score.threshold&&!constrainedTip&&q<smallest) {
                 smallest=q;lowest=i;
             }
@@ -517,7 +534,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 for(const auto vertex:v) {
                     const auto p=positions.at(vertex);
                     std::size_t reflectedMatches=0;
-                    for(const auto& [id,q]:positions) {
+                    for(const auto& [id,q]:positions.materialize()) {
                         (void)id;
                         if(q.x==-p.x&&q.y==p.y&&q.z==p.z)
                             ++reflectedMatches;
@@ -530,7 +547,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                     const auto e=edge(v[k],v[(k+1)%3]);
                     const auto neighboring=incident(e);
                     const auto local=assessSurvivorSplit(
-                        faces,positions,e,limits.minSurvivorQuality);
+                        faces,positions.materialize(),e,limits.minSurvivorQuality);
                     evidence<<" edge="<<e.first<<","<<e.second
                             <<" incident="<<neighboring.size()
                             <<" original_face="<<local.originalFace
@@ -541,7 +558,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                         evidence<<" mirror="<<bool(mirror.has_value());
                         if(mirror) {
                             const auto other=assessSurvivorSplit(
-                                faces,positions,*mirror,
+                                faces,positions.materialize(),*mirror,
                                 limits.minSurvivorQuality);
                             evidence<<" mirror_original_face="<<other.originalFace
                                     <<" mirror_child_q="<<other.worstChildQuality
@@ -718,7 +735,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(!overlong&&std::isfinite(q)&&q<requirements.threshold&&
            f.kind==MixedClosureFaceKind::Cap&&
            certifyPlanarRimTipQuality(
-               f,positions,proposal.contours,requirements.threshold)) {
+               f,positions.materialize(),proposal.contours,requirements.threshold)) {
             certifiedTip[faceOrdinal]=true;
         }
         if(!certifiedTip[faceOrdinal]&&

@@ -47,6 +47,7 @@ MixedClosureStaging stagePrivateMixedClosure(
         throw std::logic_error("R06-M04A every R03 directed contour must be used exactly once");
     MixedClosureStaging result;
     result.sourceView=std::make_shared<MixedClosureSourceView>(cut.index);
+    result.positions.bind(result.sourceView);
     const auto& mesh=*cut.index;
     std::vector<bool> used(proposal.contours.size());
     std::set<FaceId> loadedFaces;
@@ -109,7 +110,7 @@ MixedClosureStaging stagePrivateMixedClosure(
         if(!forceSpatial) {
             try {
                 for(const auto triangle:triangulatePrivateCapDisk(
-                        loop,result.positions,h))
+                        loop,result.positions.materialize(),h))
                     addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
             }catch(const std::logic_error& e) {
                 forceSpatial=true;
@@ -273,7 +274,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             result.mirroredSeamZipperVertices+=n;
         }else {
             for(const auto triangle:triangulatePrivateZipperStrip(
-                    a.vertexIds,b.vertexIds,result.positions,bounds.zipper))
+                    a.vertexIds,b.vertexIds,result.positions.materialize(),bounds.zipper))
                 addFace({0,owner,triangle,MixedClosureFaceKind::Zipper,h});
         }
         ++result.zipperPairs;

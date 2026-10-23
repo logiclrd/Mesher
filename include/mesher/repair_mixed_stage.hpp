@@ -3,6 +3,7 @@
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_mixed_primitives.hpp"
 #include "mesher/repair_mixed_source_view.hpp"
+#include "mesher/repair_mixed_positions.hpp"
 
 #include <cstddef>
 #include <map>
@@ -29,7 +30,10 @@ struct MixedClosureStaging {
     std::shared_ptr<MixedClosureSourceView> sourceView;
     std::vector<FaceId> survivingFaceIds;
     std::vector<MixedClosureFace> faces;
-    std::map<VertexId,Vec3> positions;
+    // M14B1: source-backed survivor handles plus owned new positions.
+    // The legacy algorithms consume a bounded, read-only materialization
+    // until the direct-helper migration in M14B2.
+    MixedClosurePositions positions;
     std::map<VertexId,PartitionId> vertexOwners;
     std::size_t capLoops{};
     std::size_t zipperPairs{};
