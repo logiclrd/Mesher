@@ -281,6 +281,27 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(repair_r06_m07_cli_refusal
             PROPERTIES FIXTURES_REQUIRED r06_case_archives
                        PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+        # A full closure can still be the WRONG classifier choice. CTest
+        # intentionally expects exit 3 for a user-marked preferable ZIPPER
+        # when actual M03 chose caps. This does not relax closure safety.
+        add_test(NAME repair_r06_m07_cli_semantic_mismatch
+            COMMAND "${CMAKE_COMMAND}"
+              "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+              "-DR06_CASE_FILE=${CMAKE_CURRENT_BINARY_DIR}/r06-sample-prefer-zipper.r06case"
+              -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_case_choice.cmake")
+        set_tests_properties(repair_r06_m07_cli_semantic_mismatch
+            PROPERTIES FIXTURES_REQUIRED r06_case_archives)
+        # The five FULL physical 5K-vertex V1 cases, committed by the
+        # operator on PR #150, are regression oracles. Do not silently
+        # update expected failures if the next algorithm fixes them;
+        # review the intended outcome then update/replace the fixture.
+        foreach(case_id RANGE 1 5)
+            add_test(NAME repair_r06_m07_physical_case_${case_id}
+                COMMAND Mesher --repair-replay-test
+                  "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-${case_id}.r06case")
+            set_tests_properties(repair_r06_m07_physical_case_${case_id}
+                PROPERTIES PASS_REGULAR_EXPRESSION "REPLAY_TEST PASS")
+        endforeach()
     endif()
     add_executable(mesher_repair_auto_inspection_tests tests/repair_auto_inspection_tests.cpp)
     target_link_libraries(mesher_repair_auto_inspection_tests PRIVATE mesher_mesh)
