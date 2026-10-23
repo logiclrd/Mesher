@@ -45,7 +45,7 @@ std::size_t fairImpl(
     std::set<VertexId> protectedVertices;
     for(std::size_t i=0;i<faces.size();++i) {
         const auto& face=faces[i];
-        for(const auto v:face.vertices) {
+        for(const auto v:face.triangle()) {
             incident[v].push_back(i);
             if(face.stableId||face.kind==MixedClosureFaceKind::Survivor)
                 protectedVertices.insert(v);
@@ -73,7 +73,7 @@ std::size_t fairImpl(
     const auto neighbors=[&](VertexId id) {
         std::set<VertexId> result;
         for(const auto i:incident.at(id))
-            for(const auto v:faces[i].vertices)
+            for(const auto v:faces[i].triangle())
                 if(v!=id)result.insert(v);
         return result;
     };
@@ -91,8 +91,8 @@ std::size_t fairImpl(
                 const auto it=moved.find(id);
                 return it==moved.end()?positions.at(id):it->second;
             };
-            const auto a=get(f.vertices[0]),b=get(f.vertices[1]),
-                       c=get(f.vertices[2]);
+            const auto a=get(f.triangle()[0]),b=get(f.triangle()[1]),
+                       c=get(f.triangle()[2]);
             const auto area=length(cross(b-a,c-a));
             if(!std::isfinite(area)||area<=1e-16) {
                 score.valid=false;
@@ -179,7 +179,7 @@ std::size_t fairImpl(
             // Respect orientation of EACH changed face, not just aggregate
             // quality, including mirror-side triangles.
             for(const auto i:indexes) {
-                const auto& v=faces[i].vertices;
+                const auto& v=faces[i].triangle();
                 const auto original=cross(positions.at(v[1])-positions.at(v[0]),
                                           positions.at(v[2])-positions.at(v[0]));
                 const auto get=[&](VertexId a) {

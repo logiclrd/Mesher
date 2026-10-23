@@ -29,7 +29,7 @@ std::optional<ConstrainedRimTipQuality> rimQualityImpl(
     double minimumQuality) {
     if(face.stableId||face.kind!=MixedClosureFaceKind::Cap||
        !(minimumQuality>0))return std::nullopt;
-    const auto& v=face.vertices;
+    const auto& v=face.triangle();
     for(const auto& ring:contours) {
         const auto n=ring.vertexIds.size();
         if(n<3)continue;

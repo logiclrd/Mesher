@@ -41,9 +41,9 @@ SurvivorSplitQuality survivorImpl(
     for(const auto& face:faces) {
         if(face.kind!=MixedClosureFaceKind::Survivor)continue;
         for(unsigned k=0;k<3;++k) {
-            const auto a=face.vertices[k],b=face.vertices[(k+1)%3];
+            const auto a=face.triangle()[k],b=face.triangle()[(k+1)%3];
             if(std::min(a,b)!=e.first||std::max(a,b)!=e.second)continue;
-            const auto c=face.vertices[(k+2)%3];
+            const auto c=face.triangle()[(k+2)%3];
             const auto qa=quality(positions.at(a),middle,positions.at(c));
             const auto qb=quality(middle,positions.at(b),positions.at(c));
             const auto minimum=std::min(qa,qb);

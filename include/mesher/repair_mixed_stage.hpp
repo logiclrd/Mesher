@@ -22,17 +22,29 @@ struct MixedClosureFace {
     PrivateRepairTriangle vertices{};
     MixedClosureFaceKind kind{MixedClosureFaceKind::Survivor};
     double targetEdge{};
+    // For original R03 survivors this is a FaceId handle, NOT a duplicate
+    // editable triangle. Unbound records are transaction-new faces, or
+    // standalone legacy helper fixtures that retain local vertices.
+    std::shared_ptr<MixedClosureSourceView> sourceView{};
+
+    PrivateRepairTriangle triangle() const {
+        if(stableId&&sourceView)
+            return sourceView->face(stableId).vertices;
+        return vertices;
+    }
+    void setTriangle(PrivateRepairTriangle next) {
+        if(stableId&&sourceView)
+            sourceView->overrideFace(stableId,next);
+        else vertices=next;
+    }
 };
 struct MixedClosureStaging {
-    // M14A authoritative immutable R03 source with transaction-local
-    // survivor overrides. Legacy flattened arrays below remain only until
-    // their M14B migration; do not infer source identity from copies.
+    // The source and its transactional overrides are authoritative for
+    // every original survivor face and vertex. New triangles remain local.
     std::shared_ptr<MixedClosureSourceView> sourceView;
     std::vector<FaceId> survivingFaceIds;
     std::vector<MixedClosureFace> faces;
-    // M14B1: source-backed survivor handles plus owned new positions.
-    // The legacy algorithms consume a bounded, read-only materialization
-    // until the direct-helper migration in M14B2.
+    // Source-backed survivor handles plus owned new vertex positions.
     MixedClosurePositions positions;
     std::map<VertexId,PartitionId> vertexOwners;
     std::size_t capLoops{};

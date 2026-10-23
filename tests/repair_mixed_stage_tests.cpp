@@ -188,6 +188,17 @@ void mixedAndTampered() {
             "M14A exhausted pending-edit budget must refuse atomically");
     std::cout<<"[r06-m14a] source-backed remote survivor, override and incidence PASS\\n";
 
+    // M14B3: every originally surviving rim triangle remains a FaceId
+    // handle. Its actual vertices are obtained from the authoritative
+    // post-excision source, not a staged copy.
+    for(const auto& fhandle:staging.faces) {
+        if(fhandle.kind!=MixedClosureFaceKind::Survivor||!fhandle.stableId)
+            continue;
+        require(fhandle.sourceView==staging.sourceView&&
+                fhandle.vertices==PrivateRepairTriangle{}&&
+                fhandle.triangle()==cut.index->face(fhandle.stableId).vertices,
+                "M14B3 staging must not duplicate mutable original survivor faces");
+    }
     auto invalid=plan;
     invalid.cappedContours.push_back(plan.zipperPairs.front().first);
     bool refused=false;

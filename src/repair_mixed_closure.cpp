@@ -116,9 +116,16 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         vertexOwners.emplace(stable,owner);
         owners.insert(owner);
         out.insertedVertices.push_back(stable);
-        for(auto& face:faces)
-            for(auto& vertex:face.vertices)
-                if(vertex==provisional)vertex=stable;
+        for(auto& face:faces) {
+            auto vertices=face.triangle();
+            bool replaced=false;
+            for(auto& vertex:vertices)
+                if(vertex==provisional) {
+                    vertex=stable;
+                    replaced=true;
+                }
+            if(replaced)face.setTriangle(vertices);
+        }
         positions.erase(provisional);
         vertexOwners.erase(provisional);
     }
@@ -151,7 +158,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     const auto incident=[&](Edge e) {
         std::vector<std::size_t> result;
         for(std::size_t i=0;i<faces.size();++i) {
-            const auto& v=faces[i].vertices;
+            const auto& v=faces[i].triangle();
             for(unsigned k=0;k<3;++k) {
                 if(edge(v[k],v[(k+1)%3])==e) {
                     result.push_back(i);
@@ -162,7 +169,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         return result;
     };
     const auto splitQuality=[&](const MixedClosureFace& f,Edge candidate) {
-        const auto& v=f.vertices;
+        const auto& v=f.triangle();
         for(unsigned k=0;k<3;++k) {
             const auto a=v[k],b=v[(k+1)%3],c=v[(k+2)%3];
             if(edge(a,b)!=candidate)continue;
@@ -189,11 +196,11 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             const auto parent=faces.at(index);
             bool matched=false;
             for(unsigned k=0;k<3;++k) {
-                const auto a=parent.vertices[k];
-                const auto b=parent.vertices[(k+1)%3];
+                const auto a=parent.triangle()[k];
+                const auto b=parent.triangle()[(k+1)%3];
                 if(edge(a,b)!=chosen)continue;
-                const auto c=parent.vertices[(k+2)%3];
-                faces[index].vertices={a,middle,c};
+                const auto c=parent.triangle()[(k+2)%3];
+                faces[index].setTriangle({a,middle,c});
                 if(faces.size()>=limits.maxAuditedFaces+limits.maxNewFaces)
                     throw std::length_error("R06-M04B tracked face work limit");
                 faces.push_back({0,parent.owner,{middle,b,c},
@@ -343,7 +350,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         double largestUnsafeRatio=1;
         for(const auto& face:faces) {
             if(face.kind!=MixedClosureFaceKind::Zipper)continue;
-            const auto& v=face.vertices;
+            const auto& v=face.triangle();
             for(unsigned k=0;k<3;++k) {
                 const auto candidate=edge(v[k],v[(k+1)%3]);
                 const auto adjacent=incident(candidate);
@@ -429,7 +436,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             const auto& f=faces[i];
             if(f.kind==MixedClosureFaceKind::Survivor)continue;
             const auto score=accepted(f.kind,limits);
-            const auto& v=f.vertices;
+            const auto& v=f.triangle();
             const auto q=quality(positions.at(v[0]),positions.at(v[1]),
                                  positions.at(v[2]));
             // A face spanning both unmodified R03 rays at a certified
@@ -496,7 +503,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(largestRatio<=1) {
             double best=-1;
             const auto& candidate=faces[lowest];
-            const auto v=candidate.vertices;
+            const auto v=candidate.triangle();
             for(unsigned k=0;k<3;++k) {
                 const auto e=edge(v[k],v[(k+1)%3]);
                 const auto adjacent=incident(e);
@@ -614,8 +621,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 const auto& f=faces[i];
                 if(f.stableId==0)++newFaceCount;
                 for(unsigned k=0;k<3;++k)
-                    adjacency[edge(f.vertices[k],
-                                   f.vertices[(k+1)%3])].push_back(i);
+                    adjacency[edge(f.triangle()[k],
+                                   f.triangle()[(k+1)%3])].push_back(i);
             }
             if(newFaceCount+2>limits.maxNewFaces||
                faces.size()+2>limits.maxAuditedFaces+limits.maxNewFaces)
@@ -624,7 +631,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             double highestRatio=1;
             for(const auto& f:faces) {
                 if(f.kind!=MixedClosureFaceKind::Cap)continue;
-                const auto& v=f.vertices;
+                const auto& v=f.triangle();
                 for(unsigned k=0;k<3;++k) {
                     const auto candidate=edge(v[k],v[(k+1)%3]);
                     const auto ratio=edgeSpan(positions,candidate)/
@@ -660,7 +667,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         for(const auto& f:faces) {
             if(f.kind!=MixedClosureFaceKind::Cap)continue;
             for(unsigned k=0;k<3;++k) {
-                const auto e=edge(f.vertices[k],f.vertices[(k+1)%3]);
+                const auto e=edge(f.triangle()[k],f.triangle()[(k+1)%3]);
                 const auto ratio=edgeSpan(positions,e)/f.targetEdge;
                 out.maximumFinalSpatialCapEdgeRatio=std::max(
                     out.maximumFinalSpatialCapEdgeRatio,ratio);
@@ -688,7 +695,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     std::vector<bool> certifiedTip(faces.size(),false);
     for(std::size_t faceOrdinal=0;faceOrdinal<faces.size();++faceOrdinal) {
         const auto& f=faces[faceOrdinal];
-        const auto& v=f.vertices;
+        const auto& v=f.triangle();
         const auto q=quality(positions.at(v[0]),positions.at(v[1]),
                              positions.at(v[2]));
         const auto requirements=accepted(f.kind,limits);
@@ -749,19 +756,26 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto& face=faces[i];
         owners.insert(face.owner);
         if(face.stableId) {
+            // Only transaction-overridden source FaceIds need a COW write.
+            // Unmodified survivors remain in their original shared root.
+            if(!staged.sourceView->hasFaceOverride(face.stableId)) {
+                if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
+                if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(face.stableId);
+                continue;
+            }
             auto& partition=view.editPartition(face.owner);
             const auto it=std::find_if(partition.faces.begin(),
                                        partition.faces.end(),
                 [&](const PartitionFace& old){return old.id==face.stableId;});
             if(it==partition.faces.end())
                 throw std::logic_error("R06-M04B stable original FaceId missing");
-            it->vertices=face.vertices;
+            it->vertices=face.triangle();
             if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
             if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(face.stableId);
         }else {
             if(out.newFaces>=limits.maxNewFaces)
                 throw std::length_error("R06-M04B finite new-face limit exceeded");
-            const auto id=view.addFace(face.owner,face.vertices);
+            const auto id=view.addFace(face.owner,face.triangle());
             if(deficient[i])out.qualityWarningFaces.push_back(id);
             if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(id);
             ++out.newFaces;

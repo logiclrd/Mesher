@@ -145,6 +145,34 @@ void sourceBackedOverrides() {
     catch(const std::logic_error&){refused=true;}
     require(refused&&source->vertex(stable).position.x==before.x,
             "M14B1 cannot retire an original surviving vertex");
+    // M14B3: existing survivor geometry is held as a FaceId handle,
+    // not a second mutable triangle. An explicit override affects every
+    // handle attached to this transaction but never the immutable source.
+    auto faceView=std::make_shared<MixedClosureSourceView>(source);
+    MixedClosureFace survivor{faceId,original.owner,{},
+        MixedClosureFaceKind::Survivor,0,faceView};
+    const auto sameFace=survivor;
+    require(survivor.vertices==PrivateRepairTriangle{}&&
+            survivor.triangle()==original.vertices,
+            "M14B3 survivor handle must resolve source geometry without copying");
+    survivor.setTriangle({verts[0],verts[2],other});
+    require(survivor.triangle()==faceView->face(faceId).vertices&&
+            sameFace.triangle()==survivor.triangle()&&
+            source->face(faceId).vertices==original.vertices&&
+            faceView->hasFaceOverride(faceId),
+            "M14B3 survivor edits must be shared overrides, not disconnected face copies");
+    MixedClosurePositions facePositions(faceView);
+    facePositions.emplace(synthetic,Vec3{2,3,4});
+    survivor.setTriangle({verts[0],verts[2],synthetic});
+    require(survivor.triangle()[2]==synthetic&&
+            source->face(faceId).vertices==original.vertices,
+            "M14B3 original survivor override may reference one registered private midpoint ID");
+    facePositions.erase(synthetic);
+    // Restoration here is test-only; the actual repair never retires a
+    // midpoint while an effective survivor triangle references it.
+    survivor.setTriangle(original.vertices);
+    std::cout<<"[r06-m14b3] source FaceId handles, shared pending edits, "
+                "generated midpoint attachment PASS\n";
     std::cout<<"[r06-m14b1] original position ID handles, generated edits, "
                 "read-only snapshots, safe retirement PASS\n";
     std::cout<<"[r06-m14a] immutable R03 read-through, effective incidences, "

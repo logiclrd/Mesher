@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <stdexcept>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -49,17 +50,32 @@ public:
         return source_->vertex(id).owner;
     }
 
-    // Proposal only; the immutable source root is never mutated. This first
-    // milestone supports existing source IDs; M14B introduces new faces and
-    // transaction-local generated vertices into the same effective model.
+    // Generated vertex positions are transaction-owned by MixedClosurePositions.
+    // This records only their IDs, so existing source FaceId overrides can
+    // legally use fresh vertices without inferring identity from XYZ.
+    void registerGeneratedVertex(VertexId id) {
+        if(source_->maybeVertex(id)||!generatedIds_.insert(id).second)
+            throw std::logic_error("M14B3 generated vertex ID already exists");
+    }
+    void retireGeneratedVertex(VertexId id) {
+        if(generatedIds_.erase(id)!=1)
+            throw std::logic_error("M14B3 unknown generated vertex retirement");
+    }
+    bool hasFaceOverride(FaceId id) const noexcept {
+        return faceOverrides_.contains(id);
+    }
+
+    // Proposal only; original R03 records remain immutable. Existing
+    // FaceIds may reference real transaction-generated IDs as well as
+    // original surviving vertices.
     void overrideFace(FaceId id,std::array<VertexId,3> vertices) {
         const auto& baseline=source_->face(id);
         if(vertices[0]==vertices[1]||vertices[1]==vertices[2]||
            vertices[2]==vertices[0])
             throw std::logic_error("M14A refuses repeated face vertex IDs");
         for(const auto v:vertices)
-            if(!source_->maybeVertex(v))
-                throw std::logic_error("M14A face override references missing source vertex");
+            if(!source_->maybeVertex(v)&&!generatedIds_.contains(v))
+                throw std::logic_error("M14B3 face override references unregistered vertex");
         if(!faceOverrides_.contains(id)&&
            faceOverrides_.size()+positionOverrides_.size()>=maxOverrides_)
             throw std::length_error("M14A finite survivor override budget exceeded");
@@ -126,6 +142,7 @@ public:
 private:
     std::shared_ptr<const RegionTopologyIndex> source_;
     std::size_t maxOverrides_;
+    std::set<VertexId> generatedIds_;
     std::map<FaceId,RegionTopologyIndex::Face> faceOverrides_;
     std::map<VertexId,Vec3> positionOverrides_;
 };

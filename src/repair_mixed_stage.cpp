@@ -80,8 +80,10 @@ MixedClosureStaging stagePrivateMixedClosure(
             const auto& face=result.sourceView->face(id);
             result.survivingFaceIds.push_back(id);
             for(const auto vertex:face.vertices)loadVertex(vertex);
-            addFace({id,face.owner,face.vertices,
-                     MixedClosureFaceKind::Survivor,0});
+            // No editable survivor triangle copy is staged: stable FaceId
+            // lookups resolve through the one source-backed transaction.
+            addFace({id,face.owner,{},
+                     MixedClosureFaceKind::Survivor,0,result.sourceView});
         }
     }
     const auto consume=[&](std::size_t loop) {
@@ -310,8 +312,9 @@ MixedClosureStaging stagePrivateMixedClosure(
 
     std::map<Edge,std::vector<Side>> stagedEdges;
     for(const auto& face:result.faces) {
+        const auto vertices=face.triangle();
         for(unsigned i=0;i<3;++i) {
-            const auto a=face.vertices[i],b=face.vertices[(i+1)%3];
+            const auto a=vertices[i],b=vertices[(i+1)%3];
             if(a==b)throw std::logic_error("R06-M04A degenerate staged edge");
             auto& sides=stagedEdges[edge(a,b)];
             sides.push_back({a<b,face.kind!=MixedClosureFaceKind::Survivor});

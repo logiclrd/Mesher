@@ -41,7 +41,7 @@ std::optional<Fan> makeFan(
         if(f.stableId||f.kind!=MixedClosureFaceKind::Cap||
            f.targetEdge<=0)return std::nullopt;
         maxTarget=std::min(maxTarget,f.targetEdge);
-        const auto& v=f.vertices;
+        const auto& v=f.triangle();
         unsigned centerSlot=3;
         for(unsigned k=0;k<3;++k)if(v[k]==center)centerSlot=k;
         if(centerSlot==3)return std::nullopt;
@@ -68,7 +68,7 @@ std::optional<Fan> makeFan(
     // Replacing a convex three-triangle star must not reverse any of
     // its oriented faces, including under a mirrored companion.
     for(const auto i:indexes) {
-        const auto& v=faces[i].vertices;
+        const auto& v=faces[i].triangle();
         const auto old=cross(positions.at(v[1])-positions.at(v[0]),
                               positions.at(v[2])-positions.at(v[0]));
         if(length(old)<=1e-16||dot(n,old)<0.5*lengthNormal*length(old))
@@ -79,7 +79,7 @@ std::optional<Fan> makeFan(
     std::sort(faceKey.begin(),faceKey.end());
     for(std::size_t i=0;i<faces.size();++i) {
         if(i==indexes[0]||i==indexes[1]||i==indexes[2])continue;
-        auto v=faces[i].vertices;
+        auto v=faces[i].triangle();
         std::sort(v.begin(),v.end());
         if(v==faceKey)return std::nullopt;
     }
@@ -96,7 +96,7 @@ std::vector<VertexId> collapseImpl(
     bool requireReflection,double minCapQuality,double maxCapEdgeFactor) {
     std::map<VertexId,std::vector<std::size_t>> incidence;
     for(std::size_t i=0;i<faces.size();++i)
-        for(const auto v:faces[i].vertices)incidence[v].push_back(i);
+        for(const auto v:faces[i].triangle())incidence[v].push_back(i);
     const std::set<VertexId> liveNew(createdVertices.begin(),createdVertices.end());
     std::map<Point,VertexId> lookup;
     std::set<Point> duplicates;
@@ -166,7 +166,7 @@ std::vector<VertexId> collapseImpl(
         if(discard.contains(i))continue;
         auto f=faces[i];
         if(const auto it=replacements.find(i);it!=replacements.end())
-            f.vertices=it->second;
+            f.setTriangle(it->second);
         updated.push_back(f);
     }
     faces=std::move(updated);

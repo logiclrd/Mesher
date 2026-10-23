@@ -53,8 +53,12 @@ public:
                 throw std::logic_error(
                     "M14B1 original vertex cannot be replaced by staging");
             trackedOriginal_.insert(id);
-        }else if(!created_.emplace(id,position).second)
-            throw std::logic_error("M14B1 duplicate new vertex ID");
+        }else {
+            if(created_.contains(id))
+                throw std::logic_error("M14B1 duplicate new vertex ID");
+            source_->registerGeneratedVertex(id);
+            created_.emplace(id,position);
+        }
         invalidate();
     }
     void set(VertexId id,Vec3 position) {
@@ -75,7 +79,10 @@ public:
             throw std::logic_error(
                 "M14B1 may not erase an original survivor vertex");
         const auto removed=created_.erase(id);
-        if(removed)invalidate();
+        if(removed) {
+            source_->retireGeneratedVertex(id);
+            invalidate();
+        }
         return removed;
     }
 

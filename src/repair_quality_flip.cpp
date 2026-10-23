@@ -37,7 +37,7 @@ using Adjacency=std::map<Edge,std::vector<std::size_t>>;
 Adjacency adjacency(const std::vector<MixedClosureFace>& faces) {
     Adjacency edges;
     for(std::size_t i=0;i<faces.size();++i) {
-        const auto& v=faces[i].vertices;
+        const auto& v=faces[i].triangle();
         for(unsigned k=0;k<3;++k)
             edges[canonical(v[k],v[(k+1)%3])].push_back(i);
     }
@@ -61,13 +61,13 @@ std::optional<Candidate> evaluate(
     // The two old faces must traverse the common diagonal in opposite
     // directions (an orientable interior two-face patch).
     for(unsigned k=0;k<3;++k) {
-        const auto a=first.vertices[k],b=first.vertices[(k+1)%3];
+        const auto a=first.triangle()[k],b=first.triangle()[(k+1)%3];
         if(canonical(a,b)!=diag)continue;
-        const auto c=first.vertices[(k+2)%3];
+        const auto c=first.triangle()[(k+2)%3];
         for(unsigned n=0;n<3;++n) {
-            if(second.vertices[n]!=b||
-               second.vertices[(n+1)%3]!=a)continue;
-            const auto d=second.vertices[(n+2)%3];
+            if(second.triangle()[n]!=b||
+               second.triangle()[(n+1)%3]!=a)continue;
+            const auto d=second.triangle()[(n+2)%3];
             if(a==b||a==c||a==d||b==c||b==d||c==d||
                edges.contains(canonical(c,d)))return std::nullopt;
             const auto pa=positions.at(a),pb=positions.at(b);
@@ -176,8 +176,8 @@ std::size_t flipImpl(
     // Both orbits have been validated without mutating any positions or
     // connectivity. Commit in place atomically in this PRIVATE scratch mesh.
     const auto apply=[&](const Candidate& c) {
-        faces[c.faces[0]].vertices=c.replacement[0];
-        faces[c.faces[1]].vertices=c.replacement[1];
+        faces[c.faces[0]].setTriangle(c.replacement[0]);
+        faces[c.faces[1]].setTriangle(c.replacement[1]);
     };
     apply(*best);
     if(bestMirror)apply(*bestMirror);
