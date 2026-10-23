@@ -66,8 +66,9 @@ void torusGreenSuccessfulOverlay() {
             [material](const auto& p){return p.material==material;});
     };
     require(!vertices.empty()&&vertices.size()%3==0&&
-            hasMaterial(vertices,9.0f)&&hasMaterial(vertices,12.0f),
-            "R06-M12 successful auto torus must draw actual green faces AND triangulation edges");
+            hasMaterial(vertices,9.0f)&&!hasMaterial(vertices,12.0f)&&
+            vertices.size()==result.greenFaces.size()*6,
+            "R06-M11A3d cap faces own screen-space edge shading, no detached rods");
     // M13 exact-position visual check: normal colored overlays are
     // deliberately displaced, but the opt-in diagnostic must place its
     // actual colored face vertices at the authoritative mesh XYZ.
@@ -100,8 +101,9 @@ void torusGreenSuccessfulOverlay() {
     frozen.warningPreview=warning;
     const auto visual=buildRepairInspectionOverlay(frozen);
     require(hasMaterial(visual,9.0f)&&hasMaterial(visual,10.0f)&&
-            hasMaterial(visual,11.0f)&&hasMaterial(visual,12.0f),
-            "R06-M12 private warning overlay must show green surface and edges, light red face and red edges");
+            !hasMaterial(visual,11.0f)&&!hasMaterial(visual,12.0f)&&
+            visual.size()==(result.greenFaces.size()+1)*6,
+            "R06-M11A3d warning faces own pixel edges without detached rods");
     frozen.warningPreview.reset();
     const auto refusal=buildRepairInspectionOverlay(frozen);
     require(!refusal.empty()&&

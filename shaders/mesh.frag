@@ -33,6 +33,21 @@ void main() {
         else if(surfaceMaterial>=3.5)diagnostic=vec3(1.0,0.43,0.075); // proposed excision
         else if(surfaceMaterial>=2.5)diagnostic=vec3(0.55,0.045,0.065); // R01 edges
         else diagnostic=vec3(1.0,0.08,0.09); // R01 incident vertices
+        // M11A3d: inspection edges are shaded on their actual triangles
+        // using per-pixel barycentric derivatives, independently of W.
+        // M13 material 13 exact ID-shared seam markers stay distinct.
+        if(surfaceMaterial>=7.5&&surfaceMaterial<10.5) {
+            vec3 dx=dFdx(edgeBarycentric);
+            vec3 dy=dFdy(edgeBarycentric);
+            vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
+            vec3 distances=abs(edgeBarycentric)/perPixel;
+            float distancePx=min(distances.x,min(distances.y,distances.z));
+            float coverage=1.0-smoothstep(0.55,1.30,distancePx);
+            vec3 normalEdge=vec3(0.05,0.08,0.11);
+            vec3 warningEdge=vec3(0.97,0.09,0.13);
+            diagnostic=mix(diagnostic,
+                surfaceMaterial>=9.5?warningEdge:normalEdge,coverage);
+        }
         outColor=vec4(diagnostic,1.0);
         return;
     }

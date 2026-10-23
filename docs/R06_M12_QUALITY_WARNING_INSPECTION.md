@@ -20,17 +20,19 @@ graph, `private_closed_mesh=0` means it did NOT earn R06 certification.
 
 ### Inspection colors
 - Real successfully constructed cap surfaces stay green; zippers stay blue.
-- ALL actual new cap and zipper triangulation edges are dark and drawn even
-  when ordinary mesh wireframe is off; these edges are geometrically derived
-  from the actual private mesh, not projections or approximated contour lines.
+- ALL actual new cap and zipper triangulation edges are shaded on their
+  own real triangles using physical-pixel barycentric gradients, roughly
+  one pixel thick regardless of camera zoom, independent of W; there are
+  no overhanging thick world-space rods on normal cap/zipper faces.
 - Every face whose post-refinement quality `q` is below its existing floor
   (0.10 for a new cap or zipper; 0.012 for any bisected original survivor),
   or whose new-face edge length exceeds the existing hard target, is light
   red. All THREE edges of every such face are bright red, even if they are
   shared with other faces. These red features indicate violations, not
   that the classifier chose the wrong cap/zipper operation.
-- Zero-area faces have no visible triangle fill but still contribute every
-  nonzero edge to the red overlay.
+- Truly zero-area diagnostic faces cannot rasterize fill or barycentric
+  edges and retain only very small special-case red rods on their
+  nonzero edges. They remain UNTRUSTED.
 - An untrusted staged result shows `R06: QUALITY WARN PREVIEW` at top right;
   the `AUTO_REFUSED` diagnostic is retained in the console and
   `QUALITY_WARNING_PREVIEW untrusted=1 private_closed_mesh=0` is logged.
