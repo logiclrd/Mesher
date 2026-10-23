@@ -388,6 +388,13 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         }
         return true;
     };
+    if(limits.preferMirroredRibbonForTesting) {
+        if(!limits.requireMirrorPlane)
+            throw std::invalid_argument("R06-M06C test ribbon requires mirror plane");
+        auto ribbon=mirroredRibbon(orientedCapRim,partner,limits);
+        if(embedded(ribbon))return ribbon;
+        throw std::logic_error("R06-M06C test mirrored ribbon self-intersects");
+    }
     if(embedded(result))return result;
     // Do not raise the 512-split budget or lower q >= .10. Try different
     // reflected TOPOLOGY only after the existing front truly self-intersects.
