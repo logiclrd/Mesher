@@ -1,5 +1,6 @@
 #include "mesher/repair_inspection.hpp"
 #include "mesher/versioned_sculpt.hpp"
+#include "mesher/repair_case.hpp"
 
 #include <algorithm>
 #include <array>
@@ -53,6 +54,35 @@ void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius,flo
         triangle(out,b+ring[i],a+ring[j],b+ring[j],material);
     }
 }
+}
+
+void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
+                          bool symmetricSource) {
+    auto* result=&snapshot;
+        if(!result->privateCut) {
+            result->autoDiagnostic="R06 requires successful complete R03 excision: "+
+                result->excisionDiagnostic;
+        }else {
+            try {
+                result->autoPlan=planPrivateAutomaticClosure(
+                    *proposed.candidate,*result->privateCut,
+                    result->excision,result->contacts);
+                if(!result->autoPlan->ready())
+                    result->autoDiagnostic="R06 automatic closure plan refused: "+
+                        result->autoPlan->diagnostic;
+                else {
+                    CertifiedPrivateAutoLimits policy;
+                    policy.closure.requireReflectedGeometry=symmetricSource;
+                    result->privateAuto=applyCertifiedPrivateAutomaticClosure(
+                        proposed.candidate,*result->privateCut,
+                        result->excision,*result->autoPlan,result->contacts,
+                        policy);
+                }
+            }catch(const std::exception& e) {
+                result->autoDiagnostic=std::string(
+                    "R06 private automatic closure refused: ")+e.what();
+            }
+        }
 }
 
 std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed) {
@@ -203,32 +233,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
             }
         }
     }
-    if(autoEnabled_) {
-        if(!result->privateCut) {
-            result->autoDiagnostic="R06 requires successful complete R03 excision: "+
-                result->excisionDiagnostic;
-        }else {
-            try {
-                result->autoPlan=planPrivateAutomaticClosure(
-                    *proposed.candidate,*result->privateCut,
-                    result->excision,result->contacts);
-                if(!result->autoPlan->ready())
-                    result->autoDiagnostic="R06 automatic closure plan refused: "+
-                        result->autoPlan->diagnostic;
-                else {
-                    CertifiedPrivateAutoLimits policy;
-                    policy.closure.requireReflectedGeometry=symmetricSource_;
-                    result->privateAuto=applyCertifiedPrivateAutomaticClosure(
-                        proposed.candidate,*result->privateCut,
-                        result->excision,*result->autoPlan,result->contacts,
-                        policy);
-                }
-            }catch(const std::exception& e) {
-                result->autoDiagnostic=std::string(
-                    "R06 private automatic closure refused: ")+e.what();
-            }
-        }
-    }
+    if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_);
     {
         std::lock_guard lock(mutex_);
         if(frozen_)return "R01 diagnostic view is frozen; relaunch to sculpt again";
@@ -243,6 +248,56 @@ RepairInspectionSession::frozenSnapshot() const {
     if(!frozen())return {};
     std::lock_guard lock(mutex_);
     return snapshot_;
+}
+
+
+std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
+    const RepairCase& capture) {
+    if(!capture.candidate.index||capture.contacts.empty())
+        throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
+    auto result=std::make_shared<RepairInspectionSnapshot>();
+    result->candidate=capture.candidate.index;
+    result->contacts=capture.contacts;
+    result->previewEnabled=true;
+    result->excisionEnabled=true;
+    result->autoEnabled=true;
+    std::set<FaceId> touchedFaces;
+    std::set<VertexId> touchedVertices;
+    std::set<RegionTopologyIndex::Edge> touchedEdges;
+    for(const auto& contact:result->contacts) {
+        touchedFaces.insert(contact.first);
+        touchedFaces.insert(contact.second);
+    }
+    for(const auto id:touchedFaces) {
+        const auto& face=result->candidate->face(id).vertices;
+        for(unsigned j=0;j<3;++j) {
+            touchedVertices.insert(face[j]);
+            touchedEdges.insert(canonical(face[j],face[(j+1)%3]));
+        }
+    }
+    result->affectedFaces.assign(touchedFaces.begin(),touchedFaces.end());
+    result->incidentVertices.assign(touchedVertices.begin(),touchedVertices.end());
+    result->incidentEdges.assign(touchedEdges.begin(),touchedEdges.end());
+    try {
+        result->excision=previewApproximateExcision(
+            *result->candidate,result->contacts);
+    }catch(const std::exception& error) {
+        result->excision.complete=false;
+        result->excision.diagnostic=std::string("R02 replay refused: ")+error.what();
+    }
+    if(!result->excision.complete) {
+        result->excisionDiagnostic="R03 refuses incomplete replay cut plan: "+
+            result->excision.diagnostic;
+    }else {
+        try {
+            result->privateCut=applyPrivateExcision(
+                result->candidate,result->excision);
+        }catch(const std::exception& error) {
+            result->excisionDiagnostic=std::string("R03 private cut refused: ")+error.what();
+        }
+    }
+    runAutomaticClosure(*result,capture.symmetricSource);
+    return result;
 }
 
 std::vector<PartitionRenderVertex> buildRepairInspectionOverlay(
