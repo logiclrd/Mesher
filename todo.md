@@ -327,6 +327,37 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   q>=0.10, source collisions and all-or-nothing private refusal.
   Do not force a visual smoothness rule that incorrectly erases
   intentional sculpted creases; expose an explicit diagnostic first.
+- [ ] **R06-M07D — Capture all frozen R06 outcomes and explicit classifier intent.**
+  The first physical acceptance stored five real 5K-vertex refusals on the
+  r06-m07-captured-refusal-replay branch: cases 1/3/5 CAP quality
+  q=0.082329/0.096550/0.014067 after 512 steps; case 2 ZIPPER
+  q=0.098881 after 512; case 4 mirrored complete split-orbit budget.
+  Current Ctrl+S excludes valid AUTO_CLOSED, losing wrong-but-successful
+  V15 cap/zipper decisions. Allow **Ctrl+S for any frozen R06 outcome**
+  (retaining normal Ctrl+S checkpoint behavior outside frozen inspection).
+  Mark desired classifier separately at capture time with **Ctrl+Shift+S**
+  (prefer zipper) or **Ctrl+Alt+S** (prefer caps), not by inventing
+  inferred topology from a screenshot. Preserve a portable, checksummed
+  **case V2** semantic intent field, backward-load existing V1 exactly;
+  retain recorded actual success/refusal as its separate regression oracle.
+  Save complete POST-STAMP candidate with original R01 evidence for both
+  green/blue success and gold refusal, distinct non-overwriting case names,
+  and private-only/worker-history invariants. Headless replay must report
+  actual plan choice and independently check optional intent, with clear
+  outcome-vs-choice mismatch exit codes. Do not adjust the V15 area-DP
+  heuristic based solely on one screenshot.
+- [ ] **R06-M07E — Corpus and physical classifier acceptance.**
+  Treat committed refusal-1..5.r06case as first-class deterministic R06
+  replay fixtures, preserving original archive bytes. Add V1/V2 roundtrip
+  tests, completed closure capture, both tagged classifier intents, mixed
+  plan decision checking, invalid tag rejection, unique naming/overwrite,
+  and headless parser paths under GCC/Clang/MSVC. Physically capture the
+  pictured *completed but undesired caps* with Ctrl+Shift+S, then replay
+  the newly archived case to inspect the complete M03 region evidence.
+  Only then plan independent classifier-geometry tuning and validate that
+  desired zipper passes R06's unchanged quality, collision, manifold and
+  reflected symmetry gates. Keep PR draft until GUI key combinations and
+  replay on actual Linux/Windows Vulkan are accepted.
 - [ ] **R06-M07A — One-file frozen automatic repair-case capture.**
   Add a developer-only checked/versioned finite-size R06 case archive embedding
   the complete exact immutable POST-STAMP candidate MeshRevision (including
