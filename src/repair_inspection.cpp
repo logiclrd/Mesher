@@ -56,6 +56,52 @@ void rod(std::vector<PartitionRenderVertex>& out,Vec3 a,Vec3 b,double radius,flo
 }
 }
 
+
+std::string classifierChoiceName(const AutoClosurePlan& plan) {
+    if(!plan.ready())return "UNAVAILABLE";
+    const auto caps=plan.cappedContours.size();
+    const auto zippers=plan.zipperPairs.size();
+    if(caps&&zippers)return "MIXED";
+    if(zippers)return "ZIPPER";
+    if(caps)return "CAPS";
+    return "NO RIMS";
+}
+bool sameClassifierChoice(const AutoClosurePlan& lhs,
+                          const AutoClosurePlan& rhs) {
+    if(!lhs.ready()||!rhs.ready()||
+       lhs.cappedContours!=rhs.cappedContours||
+       lhs.zipperPairs.size()!=rhs.zipperPairs.size())
+        return false;
+    const auto normalized=[](const AutoClosurePlan& p) {
+        std::vector<std::pair<std::size_t,std::size_t>> pairs;
+        pairs.reserve(p.zipperPairs.size());
+        for(const auto& link:p.zipperPairs)
+            pairs.emplace_back(std::min(link.first,link.second),
+                               std::max(link.first,link.second));
+        std::sort(pairs.begin(),pairs.end());
+        return pairs;
+    };
+    return normalized(lhs)==normalized(rhs);
+}
+void compareClassifierPlans(RepairInspectionSnapshot& snapshot,
+                            AutoClosureClassifier active) {
+    snapshot.activeClassifier=active;
+    if(!snapshot.privateCut||!snapshot.autoPlan)return;
+    const auto other=active==AutoClosureClassifier::Area?
+        AutoClosureClassifier::Proximity:AutoClosureClassifier::Area;
+    const auto otherPlan=planPrivateAutomaticClosure(
+        *snapshot.candidate,*snapshot.privateCut,snapshot.excision,
+        snapshot.contacts,AutoClosurePlanSettings{.classifier=other});
+    const auto& area=active==AutoClosureClassifier::Area?
+        *snapshot.autoPlan:otherPlan;
+    const auto& proximity=active==AutoClosureClassifier::Proximity?
+        *snapshot.autoPlan:otherPlan;
+    snapshot.classifierChoices={{classifierChoiceName(area),
+                                 classifierChoiceName(proximity)}};
+    snapshot.classifierComparable=area.ready()&&proximity.ready();
+    snapshot.classifiersAgree=snapshot.classifierComparable&&
+        sameClassifierChoice(area,proximity);
+}
 void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool symmetricSource,AutoClosureClassifier classifier) {
     auto* result=&snapshot;
@@ -68,6 +114,15 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     *result->candidate,*result->privateCut,
                     result->excision,result->contacts,
                     AutoClosurePlanSettings{.classifier=classifier});
+                // The alternate M03 classifier is never allowed to affect
+                // the selected M04 plan. Show both before even attempting
+                // geometry, so refusals still display the disagreement.
+                try {
+                    compareClassifierPlans(*result,classifier);
+                }catch(const std::exception& e) {
+                    std::cerr<<"[repair-r06] classifier comparison unavailable: "
+                             <<e.what()<<"\n";
+                }
                 if(!result->autoPlan->ready())
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
                         result->autoPlan->diagnostic;
