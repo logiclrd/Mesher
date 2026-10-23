@@ -86,6 +86,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     auto& positions=staged.positions;
     auto& vertexOwners=staged.vertexOwners;
     std::set<PartitionId> owners;
+    // Warning mode is used only for an untrusted private inspection rerun.
+    const auto warn=[&](const std::string& reason) {
+        if(out.qualityWarningReason.empty())out.qualityWarningReason=reason;
+    };
 
     // Resolve synthetic spatial front IDs ONLY inside this never-published
     // private transaction. Boundary vertex IDs are retained exactly;
@@ -329,13 +333,29 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
         if(largestUnsafeRatio<=1+1e-8)break;
-        if(largestRatio<=1+1e-8)
+        if(largestRatio<=1+1e-8) {
+            if(limits.inspectionWarnQuality) {
+                warn("zipper boundary density has no survivor-safe split");
+                break;
+            }
             throw std::logic_error(
                 "R06-M11A zipper boundary length deficit has no "
                 "survivor-safe conforming mirror-orbit split");
-        if(out.refinementSteps>=limits.maxRefinementSteps)
+        }
+        if(out.refinementSteps>=limits.maxRefinementSteps) {
+            if(limits.inspectionWarnQuality) {
+                warn("zipper boundary density reached finite split budget");
+                break;
+            }
             throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
-        out.refinementSteps+=splitMirrored(worst,false);
+        }
+        try {
+            out.refinementSteps+=splitMirrored(worst,false);
+        }catch(const std::length_error&) {
+            if(!limits.inspectionWarnQuality)throw;
+            warn("zipper boundary density exceeded complete mirror-orbit budget");
+            break;
+        }
     }
 
     const auto improveQuality=[&]() -> bool {
@@ -395,6 +415,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(largestUnsafeRatio<=1&&lowest==faces.size())break;
         if(largestRatio<=1&&lowest==faces.size()) {
             if(improveQuality())continue;
+            if(limits.inspectionWarnQuality) {
+                warn("closure edge length cannot be refined with safe mirror orbit");
+                break;
+            }
             throw std::logic_error(
                 "R06-M11A remaining closure edge-length deficit has "
                 "no survivor-safe conforming mirror-orbit split");
@@ -463,6 +487,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                         }
                     }
                 }
+                if(limits.inspectionWarnQuality) {
+                    warn(evidence.str());
+                    break;
+                }
                 throw std::logic_error(evidence.str());
             }
             if(best<=smallest*(1+1e-6))++stagnant;
@@ -474,14 +502,29 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 // A shorter safe split may still improve the skinny
                 // closure, but never waive the hard density constraint.
                 if(improveQuality())continue;
+                if(limits.inspectionWarnQuality) {
+                    warn("remaining closure edge-length deficit has no survivor-safe split");
+                    break;
+                }
                 throw std::logic_error(
                     "R06-M11A no survivor-safe split for remaining "
                     "closure edge-length deficit");
             }
         }
-        if(stagnant>64)
+        if(stagnant>64) {
+            if(limits.inspectionWarnQuality) {
+                warn("refinement stagnation after finite work");
+                break;
+            }
             throw std::logic_error("R06-M04B refinement stagnation");
-        out.refinementSteps+=splitMirrored(chosen,false);
+        }
+        try {
+            out.refinementSteps+=splitMirrored(chosen,false);
+        }catch(const std::length_error&) {
+            if(!limits.inspectionWarnQuality)throw;
+            warn("closure refinement exceeded complete mirror-orbit budget");
+            break;
+        }
     }
     // Mandatory split budget can be exhausted with q just below .10.
     // Flips need no new vertices and may rescue such local bad
@@ -563,14 +606,19 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
         }
 
-    for(const auto& f:faces) {
+    std::vector<bool> deficient(faces.size(),false);
+    for(std::size_t faceOrdinal=0;faceOrdinal<faces.size();++faceOrdinal) {
+        const auto& f=faces[faceOrdinal];
         const auto& v=f.vertices;
         const auto q=quality(positions.at(v[0]),positions.at(v[1]),
                              positions.at(v[2]));
         const auto requirements=accepted(f.kind,limits);
         if(f.kind==MixedClosureFaceKind::Survivor) {
-            if(q<requirements.threshold)
-                throw std::logic_error(
+            if(!std::isfinite(q)||q<requirements.threshold) {
+                if(limits.inspectionWarnQuality) {
+                    deficient[faceOrdinal]=true;
+                    warn("under-quality original survivor triangle after refinement");
+                }else throw std::logic_error(
                     "R06-M04B conforming split left skinny original survivor"
                     " vertices="+std::to_string(v[0])+","+
                                  std::to_string(v[1])+","+
@@ -579,6 +627,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                     " required="+std::to_string(requirements.threshold)+
                     " refinements="+std::to_string(out.refinementSteps)+
                     " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
+            }
             continue;
         }
         const auto largest=std::max({
@@ -586,9 +635,12 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             edgeSpan(positions,edge(v[1],v[2])),
             edgeSpan(positions,edge(v[2],v[0]))
         });
-        if(q<requirements.threshold ||
-           largest>f.targetEdge*requirements.edgeFactor*(1+1e-8))
-            throw std::logic_error(
+        if(!std::isfinite(q)||q<requirements.threshold ||
+           largest>f.targetEdge*requirements.edgeFactor*(1+1e-8)) {
+            if(limits.inspectionWarnQuality) {
+                deficient[faceOrdinal]=true;
+                warn("under-quality or overlong cap/zipper triangle");
+            }else throw std::logic_error(
                 "R06-M04B mixed closure remains skinny/elongated after finite refinement: kind="+
                 std::string(f.kind==MixedClosureFaceKind::Cap?"CAP":"ZIPPER")+
                 " vertices="+std::to_string(v[0])+","+
@@ -601,12 +653,14 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 " refinements="+std::to_string(out.refinementSteps)+
                 " inserted_vertices="+std::to_string(out.insertedVertices.size())+
                 " interior_quality_flips="+std::to_string(out.interiorQualityFlips));
+        }
         if(f.kind==MixedClosureFaceKind::Cap)
             out.minimumCapQuality=std::min(out.minimumCapQuality,q);
         else
             out.minimumZipperQuality=std::min(out.minimumZipperQuality,q);
     }
-    for(const auto& face:faces) {
+    for(std::size_t i=0;i<faces.size();++i) {
+        const auto& face=faces[i];
         owners.insert(face.owner);
         if(face.stableId) {
             auto& partition=view.editPartition(face.owner);
@@ -616,10 +670,12 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             if(it==partition.faces.end())
                 throw std::logic_error("R06-M04B stable original FaceId missing");
             it->vertices=face.vertices;
+            if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
         }else {
             if(out.newFaces>=limits.maxNewFaces)
                 throw std::length_error("R06-M04B finite new-face limit exceeded");
             const auto id=view.addFace(face.owner,face.vertices);
+            if(deficient[i])out.qualityWarningFaces.push_back(id);
             ++out.newFaces;
             if(face.kind==MixedClosureFaceKind::Cap)
                 out.greenFaces.push_back(id);
