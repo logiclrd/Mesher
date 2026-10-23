@@ -87,6 +87,7 @@ void roundtrip(const Fixture& f) {
     good.contacts=ps;
     good.symmetricSource=false;
     good.expectedClosure=true;
+    good.intendedSelection=RepairCaseIntent::PreferCaps;
     good.originalDiagnostic="original physical fixture expected complete";
     // Assert the actual current algorithm, not merely the saved booleans.
     const auto initial=replayPrivateAutomaticRepair(good);
@@ -100,6 +101,7 @@ void roundtrip(const Fixture& f) {
             restored.contacts.front().first==ps.front().first&&
             restored.contacts.front().second==ps.front().second&&
             !restored.symmetricSource&&restored.expectedClosure&&
+            restored.intendedSelection==RepairCaseIntent::PreferCaps&&
             restored.originalDiagnostic==good.originalDiagnostic,
             "R06 case lost source evidence, flags or original diagnostic");
     const auto repeated=replayPrivateAutomaticRepair(restored);
@@ -114,6 +116,7 @@ void roundtrip(const Fixture& f) {
     RepairCase refused=good;
     refused.symmetricSource=true;
     refused.expectedClosure=false;
+    refused.intendedSelection=RepairCaseIntent::Unspecified;
     refused.originalDiagnostic="original mirror topology incompatible";
     const auto negative=replayPrivateAutomaticRepair(refused);
     require(!negative->privateAuto.has_value()&&
@@ -126,6 +129,28 @@ void roundtrip(const Fixture& f) {
     require(!repeatedRefusal->privateAuto.has_value()&&
             repeatedRefusal->autoDiagnostic==negative->autoDiagnostic,
             "R06 saved refusal must reproduce its exact diagnostic");
+    // A semantically bad yet geometrically CLOSED case is intentionally
+    // capturable. The headless CLI must report CHOICE_MISMATCH with exit 3
+    // even while expected CLOSED still matches current CLOSED.
+    RepairCase wrongChoice=good;
+    wrongChoice.intendedSelection=RepairCaseIntent::PreferZipper;
+    const auto wrongFile=output/"r06-sample-prefer-zipper.r06case";
+    std::filesystem::remove(wrongFile);
+    writeRepairCase(wrongFile,wrongChoice);
+    const auto wrongRead=readRepairCase(wrongFile);
+    require(wrongRead.expectedClosure&&
+            wrongRead.intendedSelection==RepairCaseIntent::PreferZipper&&
+            replayPrivateAutomaticRepair(wrongRead)->privateAuto,
+            "R06 case must save a COMPLETE but semantically misclassified result");
+    RepairCase invalidTag=good;
+    invalidTag.intendedSelection=static_cast<RepairCaseIntent>(9);
+    bool invalidIntentRefused=false;
+    try{writeRepairCase(output/"r06-invalid-intent.r06case",invalidTag);}
+    catch(const std::invalid_argument&){invalidIntentRefused=true;}
+    require(invalidIntentRefused,
+            "R06 writer must reject invalid human classifier annotation");
+    require(!std::filesystem::exists(output/"r06-invalid-intent.r06case"),
+            "R06 invalid-tag write must not create file");
     auto corrupt=output/"r06-corrupt.r06case";
     std::filesystem::copy_file(goodFile,corrupt,
         std::filesystem::copy_options::overwrite_existing);
@@ -164,6 +189,10 @@ void roundtrip(const Fixture& f) {
         out<<"existing physical capture";
     }
     const auto second=uniqueRepairCasePath(uniqueDirectory);
+    const auto wrongClassification=uniqueRepairCasePath(
+        uniqueDirectory,"classification-zipper");
+    require(wrongClassification.filename().string().find("classification-zipper-")==0,
+            "R06 desired-zipper captures need distinguishable unique filenames");
     require(second!=first&&!std::filesystem::exists(second),
             "R06 repeated capture must choose a distinct unused filename");
     std::filesystem::remove(first);
@@ -192,7 +221,7 @@ void roundtrip(const Fixture& f) {
     require(loaded.candidate.index->retiredFaceCount()>0,
             "R06 case must preserve real retired stable identities");
     std::filesystem::remove(tombstoneFile);
-    std::cout<<"[r06-case] complete root, trusted contacts, deterministic positive/refusal,"
+    std::cout<<"[r06-case] V2 complete root, desired classifier, trusted contacts, positive/refusal,"
                 " tombstones, watermarks, corruption and overwrite guards PASS\n";
 }
 }
