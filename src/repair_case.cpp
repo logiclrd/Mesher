@@ -1,5 +1,6 @@
 #include "mesher/repair_case.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
