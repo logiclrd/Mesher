@@ -398,6 +398,39 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   and incomplete seam topology. Prevent invalid operations EARLY before
   affecting either mirrored half. Do not infer partners from approximate
   positions or let degenerate geometry reach M04 final acceptance.
+- [ ] **R06-M11A3a — Finite interior-vertex fairing with geometric merit.**
+  In private staged closure only, try bounded deterministic moves of new
+  interior vertices toward the centroid of their immediate neighbors;
+  refuse moves that touch a surviving/R03 contour vertex, break oriented
+  face normals, create coincident vertices, cross the intrinsic symmetry
+  plane, lower a previously healthy face below its current quality floor,
+  or fail to improve the local aggregate quality-deficit. Move mirror orbits
+  atomically with exact reflected coordinates; keep end-of-stage collision
+  audits, finite work budgets and original q=0.10 floor unchanged. Record
+  accepted fairing counts. Independently test both ordinary and paired moves.
+- [ ] **R06-M11A3b — Constrained collapse and local topology reduction.**
+  After evaluating M11A3a on all five saved 5K cases, design finite
+  interior edge contraction/removal of expendable NEW vertices only,
+  with link-condition checks, exact reflected face orbits, signed-area
+  and winding checks, stable survivor/rim IDs frozen, no duplicate faces
+  and strict reduction of the whole neighborhood quality deficit. Do not
+  graft the brush collapser into closure: it requires a pre-stamp baseline.
+- [ ] **R06-M11A3c — Geometrically proven boundary-corner quality exemption.**
+  Restrict any exemption to a fixed original R03 rim corner whose
+  certified local planar wedge imposes a *provable* triangle quality
+  upper bound below minCapQuality; do not equate exhaustion of a
+  subdivision budget with a proof. Define precisely how this exceptional
+  boundary condition is recomputed after a future sculpt stamp,
+  with no relaxation of area>0, symmetry, manifold, collision or
+  edge-length requirements. Test acute vs merely elongated polygon,
+  3D folded wedge, and opposite mirrored tip cases.
+- [ ] **R06-M11A3d — Thin accurate inspection edges and five-case census.**
+  Replace thick world-space cap/zipper inspection rods with existing
+  depth-aware near-one-pixel screen-space edge rendering, retain color
+  distinction red vs dark and the W-independent visibility, and
+  inspect Linux/Windows Vulkan. Verify exact refusal-1/3/5 and recovered
+  2/4, document any outcome changes as reviewed regressions; do not
+  change immutable V1 case files.
 - [ ] **R06-M11A3 — Finite quality-safe alternate repair for case 1.**
   After A2 isolates cause, implement either bounded, geometrically
   certified non-midpoint conforming edge subdivisions with exact
