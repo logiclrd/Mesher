@@ -67,13 +67,12 @@ void exercise(const char* name,const Fixture& source,
     require(!green.empty()&&
             std::any_of(green.begin(),green.end(),
                 [](const PartitionRenderVertex& v){return v.material==9.0f;})&&
-            std::any_of(green.begin(),green.end(),
-                [](const PartitionRenderVertex& v){return v.material==12.0f;})&&
             std::all_of(green.begin(),green.end(),
                 [](const PartitionRenderVertex& v) {
-                    return v.material==9.0f||v.material==12.0f;
-                }),
-            "R05 successful private cap must show actual green faces AND dark triangulation edges");
+                    return v.material==9.0f;
+                })&&
+            green.size()==result.greenFaces.size()*6,
+            "R05 cap shader faces must draw pixel-space edges without thick geometry rods");
     std::cout<<"[r05] "<<name<<" caps="<<result.cappedLoops
              <<" green_faces="<<result.greenFaces.size()
              <<" vertices="<<result.insertedVertices.size()
