@@ -1846,12 +1846,19 @@ public:
                 else if(z&&interaction_.undo)interaction_.undo();
                 else if(y&&interaction_.redo)interaction_.redo();
             }
-            // A frozen R06 refusal is the one diagnostic state where
-            // Ctrl+S deliberately saves a CASE, never a normal worker
-            // checkpoint. All other frozen modes retain their save guard.
-            if(ctrl&&save&&interaction_.checkpoint&&
-               (!inspectionFrozen_||
-                (inspectionAutoRequested_&&!inspectionAutoSucceeded_)))
+            // Frozen automatic closure is always a case-capture point:
+            // success may mean the *classifier* chose the wrong topology.
+            // Ctrl+S stores observed outcome, Ctrl+Shift+S annotates
+            // "prefer zipper", Ctrl+Alt+S annotates "prefer caps".
+            // All modes remain private, with no live checkpoint publication.
+            const bool alt=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
+                           glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
+            if(ctrl&&save&&inspectionFrozen_&&inspectionAutoRequested_&&
+               interaction_.frozenRepairCapture) {
+                if(shift&&alt)
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED choose Shift OR Alt, not both\n";
+                else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
+            }else if(ctrl&&save&&!inspectionFrozen_&&interaction_.checkpoint)
                 interaction_.checkpoint();
             if(!ctrl)updateMergeKeyboard();
             updateMouseOrbit();
