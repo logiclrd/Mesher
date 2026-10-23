@@ -37,6 +37,7 @@ struct MixedClosureStaging {
     std::size_t mirroredSeamZipperPairs{};
     std::size_t mirroredSeamZipperVertices{};
     std::size_t spatialCapLoops{};
+    std::size_t mirroredRibbonLoops{};
     std::size_t spatialPoissonIterations{};
     double minimumSpatialInitialQuality{1};
 };
