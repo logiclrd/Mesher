@@ -16,12 +16,12 @@ using Edge=std::pair<VertexId,VertexId>;
 Edge edge(VertexId a,VertexId b) {
     return {std::min(a,b),std::max(a,b)};
 }
-double medianEdge(const RegionTopologyIndex& mesh,const RepairContour& loop) {
+double medianEdge(const MixedClosureSourceView& mesh,const RepairContour& loop) {
     std::vector<double> lengths;
     lengths.reserve(loop.vertexIds.size());
     for(std::size_t k=0;k<loop.vertexIds.size();++k) {
-        const auto a=mesh.vertex(loop.vertexIds[k]).position;
-        const auto b=mesh.vertex(loop.vertexIds[(k+1)%loop.vertexIds.size()]).position;
+        const auto a=mesh.position(loop.vertexIds[k]);
+        const auto b=mesh.position(loop.vertexIds[(k+1)%loop.vertexIds.size()]);
         lengths.push_back(length(a-b));
     }
     std::sort(lengths.begin(),lengths.end());
@@ -46,16 +46,18 @@ MixedClosureStaging stagePrivateMixedClosure(
        proposal.contours.size())
         throw std::logic_error("R06-M04A every R03 directed contour must be used exactly once");
     MixedClosureStaging result;
+    result.sourceView=std::make_shared<MixedClosureSourceView>(cut.index);
     const auto& mesh=*cut.index;
     std::vector<bool> used(proposal.contours.size());
     std::set<FaceId> loadedFaces;
     const auto loadVertex=[&](VertexId id) {
-        const auto& v=mesh.vertex(id);
-        if(!std::isfinite(v.position.x)||!std::isfinite(v.position.y)||
-           !std::isfinite(v.position.z))
+        const auto p=result.sourceView->position(id);
+        if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z))
             throw std::logic_error("R06-M04A nonfinite survivor position");
-        result.positions.emplace(id,v.position);
-        result.vertexOwners.emplace(id,v.owner);
+        // M14B removes this temporary legacy materialization. The source
+        // remains authoritative and is now reachable beyond the rim halo.
+        result.positions.emplace(id,p);
+        result.vertexOwners.emplace(id,result.sourceView->owner(id));
     };
     const auto addFace=[&](MixedClosureFace rec) {
         if(result.faces.size()>=bounds.maxTrackedFaces)
@@ -74,7 +76,8 @@ MixedClosureStaging stagePrivateMixedClosure(
         for(const auto id:loop.vertexIds)loadVertex(id);
         for(const auto id:loop.survivingFaces) {
             if(!loadedFaces.insert(id).second)continue;
-            const auto& face=mesh.face(id);
+            const auto& face=result.sourceView->face(id);
+            result.survivingFaceIds.push_back(id);
             for(const auto vertex:face.vertices)loadVertex(vertex);
             addFace({id,face.owner,face.vertices,
                      MixedClosureFaceKind::Survivor,0});
@@ -88,10 +91,10 @@ MixedClosureStaging stagePrivateMixedClosure(
     for(const auto id:plan.cappedContours) {
         consume(id);
         const auto& loop=proposal.contours[id];
-        const auto h=medianEdge(mesh,loop);
+        const auto h=medianEdge(*result.sourceView,loop);
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
-        const auto owner=mesh.face(loop.survivingFaces.front()).owner;
+        const auto owner=result.sourceView->face(loop.survivingFaces.front()).owner;
         bool forceSpatial=false;
         if(bounds.requireReflectedGeometry) {
             bool positive=false,negative=false;
@@ -127,7 +130,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             for(std::size_t k=0;k<n;++k) {
                 const auto r=n-k-1;
                 ordered.push_back(result.positions.at(loop.vertexIds[r]));
-                const auto& adjacent=mesh.face(loop.survivingFaces.at(r));
+                const auto& adjacent=result.sourceView->face(loop.survivingFaces.at(r));
                 const auto& v=adjacent.vertices;
                 const auto normal=cross(
                     result.positions.at(v[1])-result.positions.at(v[0]),
@@ -186,11 +189,11 @@ MixedClosureStaging stagePrivateMixedClosure(
         consume(pair.second);
         const auto& a=proposal.contours.at(pair.first);
         const auto& b=proposal.contours.at(pair.second);
-        const auto h=std::min(medianEdge(mesh,a),medianEdge(mesh,b));
+        const auto h=std::min(medianEdge(*result.sourceView,a),medianEdge(*result.sourceView,b));
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate zipper local edge scale");
-        const auto owner=mesh.face(a.survivingFaces.front()).owner;
-        const auto otherOwner=mesh.face(b.survivingFaces.front()).owner;
+        const auto owner=result.sourceView->face(a.survivingFaces.front()).owner;
+        const auto otherOwner=result.sourceView->face(b.survivingFaces.front()).owner;
         // Exact opposite-side reflected loops require a seam, not a DP
         // shortcut which crosses X=0 with unpaired triangle interiors.
         const auto entirely=[&](const RepairContour& loop,int sign) {

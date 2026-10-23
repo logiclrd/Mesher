@@ -110,6 +110,54 @@ void mixedAndTampered() {
             f.root->retiredFaceCount()==0,
             "R06-M04A must stage all actual oriented rims without mutation");
 
+    // M14A: an unrelated surviving face is accessible by its original
+    // ID even though it was not copied into the limited rim staging halo.
+    require(staging.sourceView&&
+            staging.sourceView->sourceRoot()==cut.index&&
+            !staging.survivingFaceIds.empty(),
+            "M14A staging must retain exact R03 source and original face IDs");
+    const auto remoteFace=f.flat.faceIds[remote.right];
+    require(cut.index->maybeFace(remoteFace)!=nullptr&&
+            std::find(staging.survivingFaceIds.begin(),
+                      staging.survivingFaceIds.end(),remoteFace)==
+                staging.survivingFaceIds.end(),
+            "M14A remote surviving face must lie outside loaded rim halo");
+    const auto original=staging.sourceView->face(remoteFace);
+    require(original.vertices==cut.index->face(remoteFace).vertices,
+            "M14A remote survivor FaceId must resolve through immutable R03 source");
+    const auto remoteVertex=original.vertices[0];
+    const auto originalPosition=cut.index->vertex(remoteVertex).position;
+    const auto edge=RegionTopologyIndex::Edge{
+        std::min(original.vertices[0],original.vertices[1]),
+        std::max(original.vertices[0],original.vertices[1])};
+    const auto hadRemote=[&](const auto& sides){
+        return std::any_of(sides.begin(),sides.end(),
+            [&](const auto& side){return side.face==remoteFace;});
+    };
+    require(hadRemote(staging.sourceView->edgeSides(edge)),
+            "M14A source-backed edge lookup must find remote existing incidence");
+    // A valid distinct survivor vertex outside this face replaces one
+    // corner in the private override; no immutable source face is altered.
+    const auto replacement=f.flat.vertexIds.front();
+    require(replacement!=original.vertices[0]&&
+            replacement!=original.vertices[1]&&
+            replacement!=original.vertices[2],
+            "M14A test replacement must be a distinct stable VertexId");
+    staging.sourceView->overrideFace(remoteFace,
+        {original.vertices[0],original.vertices[2],replacement});
+    staging.sourceView->overridePosition(remoteVertex,
+        originalPosition+Vec3{.125,0,0});
+    require(staging.sourceView->face(remoteFace).vertices[2]==replacement&&
+            !hadRemote(staging.sourceView->edgeSides(edge))&&
+            staging.sourceView->position(remoteVertex).x==
+                originalPosition.x+.125&&
+            cut.index->face(remoteFace).vertices==original.vertices&&
+            cut.index->vertex(remoteVertex).position.x==originalPosition.x&&
+            staging.sourceView->pendingFaceEdits()==1&&
+            staging.sourceView->pendingVertexEdits()==1,
+            "M14A overrides must take priority without mutating source or stale incidence");
+    std::cout<<"[r06-m14a] source-backed remote survivor, override and incidence PASS\\n";
+
     auto invalid=plan;
     invalid.cappedContours.push_back(plan.zipperPairs.front().first);
     bool refused=false;

@@ -2,9 +2,11 @@
 
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_mixed_primitives.hpp"
+#include "mesher/repair_mixed_source_view.hpp"
 
 #include <cstddef>
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace mesher {
@@ -21,6 +23,11 @@ struct MixedClosureFace {
     double targetEdge{};
 };
 struct MixedClosureStaging {
+    // M14A authoritative immutable R03 source with transaction-local
+    // survivor overrides. Legacy flattened arrays below remain only until
+    // their M14B migration; do not infer source identity from copies.
+    std::shared_ptr<MixedClosureSourceView> sourceView;
+    std::vector<FaceId> survivingFaceIds;
     std::vector<MixedClosureFace> faces;
     std::map<VertexId,Vec3> positions;
     std::map<VertexId,PartitionId> vertexOwners;
