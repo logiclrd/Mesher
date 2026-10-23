@@ -311,7 +311,7 @@ if(MESHER_BUILD_TESTS)
         # update expected failures if the next algorithm fixes them;
         # review the intended outcome then update/replace the fixture.
         foreach(case_id RANGE 1 5)
-            if(case_id EQUAL 2 OR case_id EQUAL 4)
+            if(case_id EQUAL 2 OR case_id EQUAL 4 OR case_id EQUAL 5)
                 # Reviewed M10 recoveries: preserve the V1 archive's old
                 # REFUSED bit, require explicit current CLOSED instead.
                 add_test(NAME repair_r06_m07_physical_case_${case_id}
