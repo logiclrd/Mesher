@@ -44,6 +44,7 @@ struct MixedPrivateClosureResult {
     std::size_t interiorQualityFlips{};
     std::size_t interiorFairingMoves{};
     std::size_t interiorCapCollapses{}; // retired NEW valence-three cap vertices only // new interior vertices only; mirrored pair counts two
+    std::vector<FaceId> boundaryTipQualityExemptFaces; // R03 immutable acute wedge certificate; not generic low-q waiver
     std::vector<FaceId> qualityWarningFaces; // all actual faces with q/edge violation
     std::string qualityWarningReason;
     double minimumCapQuality{1};
