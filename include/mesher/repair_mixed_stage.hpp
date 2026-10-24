@@ -210,6 +210,8 @@ public:
 
 struct MixedClosureStageSettings {
     bool requireReflectedGeometry=false;
+    bool optimizeSpatialFront=false; // M17D opt-in, default preserves old R06
+    double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;
     std::size_t maxTrackedFaces=1000000;
