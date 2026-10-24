@@ -43,6 +43,14 @@ struct MixedClosureFace {
         vertices=next;
     }
 };
+// An opt-in snapshot/observer failure is not evidence of geometry refusal.
+// Keep it outside logic_error, which the planar cap generator catches for
+// intentional spatial fallback.
+class RepairStepObserverFailure final : public std::runtime_error {
+public:
+    explicit RepairStepObserverFailure(const std::string& reason)
+        :std::runtime_error(reason) {}
+};
 // M15B: mandatory and optional split requests share the same stage-owned
 // finite/quality/mirror preflight. All limits concern the complete proposed
 // transaction, not just the currently tracked contour halo.
