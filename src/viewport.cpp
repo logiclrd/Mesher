@@ -445,6 +445,7 @@ class VulkanViewport {
     bool classifierComparable_=false,classifiersAgree_=false;
     int activeClassifier_=0;
     bool inspectionStepReplaceMesh_=false;
+    bool inspectionStepFinished_=false;
     std::vector<std::string> repairStepLines_;
     std::size_t repairStepScroll_=0;
     bool stepNextWasDown_=false,stepPrevWasDown_=false;
@@ -752,7 +753,9 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
-        const std::string mergeText=inspectionFrozen_&&inspectionAutoRequested_?
+        const std::string mergeText=interaction_.repairStepMode&&
+            !inspectionStepFinished_?"R06: STEP DEBUG PRIVATE":
+            inspectionFrozen_&&inspectionAutoRequested_?
             (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":
              inspectionQualityWarningPreview_?"R06: QUALITY WARN PREVIEW":"R06: AUTO REFUSED"):
             inspectionFrozen_&&inspectionCapRequested_?
@@ -1283,6 +1286,7 @@ class VulkanViewport {
                     activeClassifier_=snapshot->activeClassifier;
                     inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
                     inspectionStepReplaceMesh_=snapshot->inspectionStepReplaceMesh;
+                    inspectionStepFinished_=snapshot->inspectionStepFinished;
                     if(repairStepLines_!=snapshot->repairStepLines) {
                         repairStepLines_=std::move(snapshot->repairStepLines);
                         repairStepScroll_=0;
@@ -1382,7 +1386,9 @@ class VulkanViewport {
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
-                title+=inspectionAutoRequested_?
+                title+=interaction_.repairStepMode&&!inspectionStepFinished_?
+                    " | R06 PRIVATE STEP DEBUG":
+                    inspectionAutoRequested_?
                     (inspectionAutoSucceeded_?" | R06 AUTO CLOSED (FROZEN PRIVATE)":
                      " | R06 AUTO REFUSED (FROZEN)"):
                     inspectionCapRequested_?
