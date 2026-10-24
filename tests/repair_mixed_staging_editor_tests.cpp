@@ -184,8 +184,8 @@ void testOptInPostOperationObserver() {
           events.back().args.find(std::to_string(mids.front()))!=std::string::npos&&
           events.back().splitEvents==1&&events.back().boundarySize==0,
           "M16C2a split callback must see BOTH indexed sides updated atomically");
-    check(events.back().faces==3,
-          "M16C2a split must yield original cap and two survivor source children");
+    check(events.back().faces==4,
+          "M16C2a split must include both child faces on each shared indexed side");
     bool failed=false;
     try {(void)stage.splitEdge(view,a,b,settings);}
     catch(const std::logic_error&) {failed=true;}
@@ -197,6 +197,7 @@ void testOptInPostOperationObserver() {
           "M16C2a disabled mode must not emit an event");
     std::cout<<"[r06-m16c2a] exact postoperation observer, no-op and atomic split PASS\n";
 }
+} // namespace
 
 int main() {
     try {
