@@ -69,6 +69,7 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     const auto state=trace_->gate().view();
     const bool done=done_.load(std::memory_order_acquire);
     if(presentedInitial_&&lastFrame_==state.displayed.get()&&
+       lastSequence_==state.sequence&&
        lastFinished_==state.finished&&lastCancelled_==state.cancelled&&
        lastDone_==done&&lastWaiting_==state.waiting&&
        lastRunning_==state.running)return std::nullopt;
@@ -76,6 +77,7 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
 
     presentedInitial_=true;
     lastFrame_=state.displayed.get();
+    lastSequence_=state.sequence;
     lastFinished_=state.finished;
     lastCancelled_=state.cancelled;
     lastDone_=done;
@@ -117,11 +119,11 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     auto& lines=update.repairStepLines;
     if(state.displayed) {
         const auto& frame=*state.displayed;
-        const auto scene=buildRepairStepScene(
+        auto scene=buildRepairStepScene(
             frame,state.previous.get(),state.current.get(),
             state.showingPrevious);
         update.inspectionStepReplaceMesh=true;
-        update.inspectionOverlay=scene.triangles;
+        update.inspectionOverlay=std::move(scene.triangles);
         lines.push_back("STEP "+std::to_string(
              state.sequence-(state.showingPrevious?std::size_t{1}:std::size_t{0}))+
              (state.showingPrevious?" PREVIOUS":" CURRENT")+
