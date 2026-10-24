@@ -350,6 +350,10 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_repair_seam_audit_tests tests/repair_seam_audit_tests.cpp)
     target_link_libraries(mesher_repair_seam_audit_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m13_cap_survivor_geometry_audit COMMAND mesher_repair_seam_audit_tests)
+    add_executable(mesher_repair_mixed_staging_editor_tests tests/repair_mixed_staging_editor_tests.cpp)
+    target_link_libraries(mesher_repair_mixed_staging_editor_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m15a_stage_owned_face_and_live_boundary
+             COMMAND mesher_repair_mixed_staging_editor_tests)
     add_executable(mesher_repair_mixed_patch_tests tests/repair_mixed_patch_tests.cpp)
     target_link_libraries(mesher_repair_mixed_patch_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m14e_complete_private_patch_manifold_gate

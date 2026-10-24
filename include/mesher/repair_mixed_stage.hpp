@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace mesher {
@@ -39,11 +40,38 @@ struct MixedClosureFace {
     }
 };
 struct MixedClosureStaging {
+    // M15A foundation: bind one EXACT immutable R03 open mesh and its
+    // directed hole rims. Read-only boundary queries reflect subsequently
+    // inserted faces and source-face overrides; no stale yellow path.
+    MixedClosureStaging()=default; // staged fixture compatibility until M15C
+    MixedClosureStaging(
+        std::shared_ptr<const RegionTopologyIndex> source,
+        const std::vector<RepairContour>& contours);
+    std::size_t trackSurvivor(FaceId id,std::size_t maxFaces);
+    // Allocate an identity only inside the private COW revision. This is
+    // intentionally NOT idempotent: coordinate coincidence is not welding.
+    VertexId addVertex(MutableMeshView& privateView,Vec3 position,
+                       PartitionId owner,std::size_t maxGeneratedVertices=1024);
+    // Oriented face-existence request. Cyclic rotations are identical;
+    // reverse orientation conflicts; a repeat returns the same ordinal.
+    // A generated face's permanent FaceId is assigned at consolidation.
+    std::size_t ensureFace(
+        VertexId a,VertexId b,VertexId c,MixedClosureFaceKind kind,
+        PartitionId owner,double targetEdge=0,
+        std::size_t maxTrackedFaces=1000000);
+    bool hasEffectiveEdge(VertexId a,VertexId b) const;
+    // Current directed, closed walks of one-sided effective edges.
+    // Incomplete/forked boundary topology fails instead of rendering a
+    // stale R03 loop. Empty when completely capped/zippered.
+    std::vector<std::vector<VertexId>> currentBoundaryLoops() const;
     // The source and its transactional overrides are authoritative for
     // every original survivor face and vertex. New triangles remain local.
     std::shared_ptr<MixedClosureSourceView> sourceView;
     std::vector<FaceId> survivingFaceIds;
     std::vector<MixedClosureFace> faces;
+    // Initially immutable source contour walks (not the mutable displayed
+    // paths); currentBoundaryLoops derives new walks from edge incidence.
+    std::vector<std::vector<VertexId>> initialRimPaths;
     // Source-backed survivor handles plus owned new vertex positions.
     MixedClosurePositions positions;
     std::map<VertexId,PartitionId> vertexOwners;

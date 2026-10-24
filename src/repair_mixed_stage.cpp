@@ -45,9 +45,7 @@ MixedClosureStaging stagePrivateMixedClosure(
     if(plan.cappedContours.size()+2*plan.zipperPairs.size()!=
        proposal.contours.size())
         throw std::logic_error("R06-M04A every R03 directed contour must be used exactly once");
-    MixedClosureStaging result;
-    result.sourceView=std::make_shared<MixedClosureSourceView>(cut.index);
-    result.positions.bind(result.sourceView);
+    MixedClosureStaging result(cut.index,proposal.contours);
     const auto& mesh=*cut.index;
     std::vector<bool> used(proposal.contours.size());
     std::set<FaceId> loadedFaces;
@@ -77,13 +75,10 @@ MixedClosureStaging stagePrivateMixedClosure(
         for(const auto id:loop.vertexIds)loadVertex(id);
         for(const auto id:loop.survivingFaces) {
             if(!loadedFaces.insert(id).second)continue;
-            const auto& face=result.sourceView->face(id);
-            result.survivingFaceIds.push_back(id);
-            for(const auto vertex:face.vertices)loadVertex(vertex);
-            // No editable survivor triangle copy is staged: stable FaceId
-            // lookups resolve through the one source-backed transaction.
-            addFace({id,face.owner,{},
-                     MixedClosureFaceKind::Survivor,0,result.sourceView});
+            // Every original R03 face becomes a handle through the
+            // staging editor, including survivor geometry outside the
+            // initial write halo imported by later edge operations.
+            (void)result.trackSurvivor(id,bounds.maxTrackedFaces);
         }
     }
     const auto consume=[&](std::size_t loop) {
