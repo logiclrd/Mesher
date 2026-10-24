@@ -821,12 +821,28 @@ face, but more conforming/reflective children on the complete patch.
   **M17C remains required:** real repair does NOT yet select these new
   parameterized operations or run a hybrid cascade. M17D root-cause spatial
   cap-front correction and M17E physical GPU acceptance also remain open.
-- [ ] **R06-M17C — Hybrid execution and shape-first refinement policy.**
-  Guard coarsening/splitting above local target scale and hard budgets,
-  then prefer shape repair when under-quality (even if long);
-  re-evaluate after hybrid's first mutation; no zigzag small-edge cascade.
-  Avoid broad arbitrary survivor displacement; fail closed where flips,
-  collapses or limited repositioning cannot improve worst local quality.
+- [x] **R06-M17C — Hybrid execution and shape-first refinement policy (CPU).**
+  Opt-in `--repair-scale-aware`: scale-limited coarse density, quality-aware
+  midpoint/off-center and bounded midpoint+corrective hybrid; replans true
+  two-sided reflected subedge before second mutation, with finite event
+  and ancestry budgets. Under-quality at manageable scale first attempts
+  permitted generated-cap/zip flips, interior cap-fan retirements and bounded
+  private interior-vertex fairing. Strictly allow one quality-restorative
+  conforming split afterward ONLY when all child quality floors are met;
+  otherwise refuse without generating a progressive sliver cascade.
+  Step debugger now exposes FAILED shape attempts and split preflights as
+  no-change frames rather than concealing them. The exact archived
+  `refusal-1.r06case` reproduces FOUR no-change diagnostic events,
+  ZERO staged splits and a justified strict refusal; initial fold-back
+  is NOT YET FIXED (M17D).
+  **CPU accepted 2026-10-24:** tested code `a0dd13ee`,
+  [CI #40142700543](https://github.com/logiclrd/Mesher/actions/runs/40142700543)
+  first-attempt success on GCC, Clang, Windows MSVC `/W4 /WX`, all
+  112 CPU tests and saved-case replay. Original 531KB refusal bytes,
+  hard quality thresholds, immutable candidate and private publication
+  unchanged. [Acceptance/details](docs/R06_M17C_ACCEPTANCE.md).
+  **Not physical Vulkan accepted:** leave real-world geometry proof and
+  viewport testing for M17D/M17E.
 - [ ] **R06-M17D — Reject/avoid initial folded spatial-cap fronts.**
   Inspect pre-provisional step-53 coordinates, mirrored quad diagonals,
   inward-ring placement, fold/dihedral and initial q; evaluate alternative
