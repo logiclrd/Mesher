@@ -54,6 +54,8 @@ struct ViewportMeshUpdate {
     // intermediate scene, not just an overlay on the original candidate.
     bool inspectionStepReplaceMesh=false;
     bool inspectionStepFinished=false;
+    bool inspectionStepCancelled=false;
+    bool inspectionStepError=false;
     std::vector<std::string> repairStepLines;
 };
 
