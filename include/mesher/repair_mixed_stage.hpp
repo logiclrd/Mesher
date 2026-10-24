@@ -71,7 +71,8 @@ struct MixedClosureStaging {
     std::size_t ensureFace(
         VertexId a,VertexId b,VertexId c,MixedClosureFaceKind kind,
         PartitionId owner,double targetEdge=0,
-        std::size_t maxTrackedFaces=1000000);
+        std::size_t maxTrackedFaces=1000000,
+        std::size_t maxGeneratedFaces=4096);
     // Split the CURRENT indexed edge once. An absent AB is a hard failure
     // even when its old children AM and MB still exist. One-sided live
     // R03 boundaries are legal; two-sided survivor/patch edges update both

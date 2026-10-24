@@ -73,7 +73,8 @@ std::size_t MixedClosureStaging::trackSurvivor(
 }
 std::size_t MixedClosureStaging::ensureFace(
     VertexId a,VertexId b,VertexId c,MixedClosureFaceKind kind,
-    PartitionId owner,double targetEdge,std::size_t maxTrackedFaces) {
+    PartitionId owner,double targetEdge,std::size_t maxTrackedFaces,
+    std::size_t maxGeneratedFaces) {
     if(!sourceView)throw std::logic_error("R06-M15A unbound staging source");
     if(!a||!b||!c||a==b||b==c||c==a||
        !positions.contains(a)||!positions.contains(b)||!positions.contains(c))
@@ -99,6 +100,9 @@ std::size_t MixedClosureStaging::ensureFace(
     }
     if(faces.size()>=maxTrackedFaces)
         throw std::length_error("R06-M15A finite generated-face tracking limit");
+    if(capTriangles+zipperTriangles>=maxGeneratedFaces &&
+       kind!=MixedClosureFaceKind::Survivor)
+        throw std::length_error("R06-M15C finite generated closure-face budget");
     // All three directed edges must have at most one already existing
     // effective incident side, and that side must be reverse oriented.
     // No face or boundary state is written until all three checks pass.

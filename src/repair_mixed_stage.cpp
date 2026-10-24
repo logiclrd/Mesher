@@ -58,14 +58,15 @@ MixedClosureStaging stagePrivateMixedClosure(
         result.positions.emplace(id,p);
         result.vertexOwners.emplace(id,result.sourceView->owner(id));
     };
+    // Generators describe desired faces; only the staging editor may
+    // introduce their topology. Repeated cyclic face requests are no-ops.
     const auto addFace=[&](MixedClosureFace rec) {
-        if(result.faces.size()>=bounds.maxTrackedFaces)
-            throw std::length_error("R06-M04A tracked-face budget exceeded");
-        result.faces.push_back(rec);
-        if(rec.kind==MixedClosureFaceKind::Cap)++result.capTriangles;
-        if(rec.kind==MixedClosureFaceKind::Zipper)++result.zipperTriangles;
-        if(result.capTriangles+result.zipperTriangles>bounds.maxNewTriangles)
-            throw std::length_error("R06-M04A new-triangle budget exceeded");
+        if(rec.stableId)
+            throw std::logic_error("R06-M15C generator cannot create a source face");
+        const auto t=rec.triangle();
+        (void)result.ensureFace(t[0],t[1],t[2],rec.kind,
+            rec.owner,rec.targetEdge,
+            bounds.maxTrackedFaces,bounds.maxNewTriangles);
     };
     for(const auto& loop:proposal.contours) {
         if(loop.vertexIds.size()<3||
