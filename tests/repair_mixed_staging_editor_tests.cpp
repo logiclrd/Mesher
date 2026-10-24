@@ -71,6 +71,14 @@ void testSplitRimBeforeOrAfterCap() {
         MixedClosureSplitSettings limits;
         limits.maxTrackedFaces=64;
         const auto mids=staged.splitEdge(view,a,b,limits);
+    check(staged.splitEvents().size()==1&&
+          staged.splitEvents().front().originalR03Sides==2&&
+          staged.splitEvents().front().incidentSurvivorSides==2,
+          "M15D remote source split provenance must record both survivor sides");
+        check(staged.splitEvents().size()==1&&
+              staged.splitEvents().front().midpoint==mids.front()&&
+              staged.splitEvents().front().originalR03Sides==1,
+              "M15D recorded one-sided rim ancestry must preserve exact original edge");
         check(mids.size()==1&&mids.front()!=a&&mids.front()!=b,
               "M15B one indexed midpoint must be reserved by the staging editor");
         const auto middle=mids.front();

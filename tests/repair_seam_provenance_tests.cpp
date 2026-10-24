@@ -38,7 +38,14 @@ void testClosedBaselineAndNewContact() {
     const auto candidate=RegionTopologyIndex::build(view.commit().revision);
     const auto seam=auditPrivateRepairSeam(*candidate,{addedFace});
     require(seam.tJunctionCount>=1,"M14D fixture must contain M13 point-on-survivor-edge witness");
-    const auto explanation=explainRepairSeamWitnesses(*source,*candidate,seam);
+    const MixedClosureSplitEvent observed{
+        newVertex,initial.flatIndex.vertexIds[0],
+        initial.flatIndex.vertexIds[1],2,2,0,0};
+    const auto explanation=explainRepairSeamWitnesses(
+        *source,*candidate,seam,{}, {observed});
+    require(explanation.recordedSplits==1&&
+            explanation.witnessedSplitMidpoints>=1,
+            "M15D must count only actual stage-recorded midpoint ancestry");
     bool found=false;
     for(const auto& witness:explanation.witnesses)
         if(witness.kind=="NEW_VERTEX_INSIDE_SURVIVOR_EDGE"&&
@@ -52,6 +59,12 @@ void testClosedBaselineAndNewContact() {
                     "M14D must record full original interior-edge incident FaceId provenance");
             require(!witness.indexedTopologyWitness,
                     "M14D geometric T candidate must not assert indexed topology failure");
+            require(witness.verifiedStageSplitMidpoint&&
+                    witness.splitParentA==observed.originalA&&
+                    witness.splitParentB==observed.originalB&&
+                    witness.splitParentR03Sides==2&&
+                    witness.splitIncidentSurvivorSides==2,
+                    "M15D exact parent edge and source incidence must survive into provenance");
         }
     require(found,"M14D source-backed witness must preserve M13 generated vertex ID");
     std::ostringstream log;
@@ -59,7 +72,8 @@ void testClosedBaselineAndNewContact() {
     require(log.str().find("validation_gate=FINAL_MANIFOLD_NOT_GEOMETRIC_CONTACT")
              !=std::string::npos&&
             log.str().find("intended_attachment=UNKNOWN")!=std::string::npos&&
-            log.str().find("mandatory_refusal=0")!=std::string::npos,
+            log.str().find("mandatory_refusal=0")!=std::string::npos&&
+            log.str().find("vertex_creation=VERIFIED_EDGE_SPLIT")!=std::string::npos,
             "M14D log must not invent intent or require zero geometric intersections");
     std::cout<<"[r06-m14d] source/new IDs, surviving interior edge and advisory witness PASS\n";
 }
@@ -90,6 +104,11 @@ void testOriginalRimAndDedup() {
             result.witnesses[0].survivorEdge.sourceSides==1&&
             result.witnesses[0].survivorEdge.sourceFaces.size()==1,
             "M14D original R03 one-sided rim must not be labeled a generated vertex");
+    const auto withoutSplit=explainRepairSeamWitnesses(
+        *source,*source,audit);
+    require(withoutSplit.recordedSplits==0&&
+            !withoutSplit.witnesses.front().verifiedStageSplitMidpoint,
+            "M15D cannot invent a split from coincident XYZ alone");
     audit.issueListTruncated=true;
     result=explainRepairSeamWitnesses(*source,*source,audit);
     require(!result.complete&&result.storedOnly,
