@@ -741,6 +741,26 @@ unpublished; do not alter q, reflection, exact-case captures or M15D labels.
   Next/Continue/Previous/Current/Cancel, changed-geometry overlay,
   classifier-preserving details starting upper-left row 3. Never
   mislabel warning-only preview as accepted repair.
+  **Independent flat work split, recorded before implementation:**
+  - [ ] **R06-M16D1 — CPU scene and difference renderer.**
+    Build finite exact-position, source-backed render triangles from
+    effective R03 survivor overrides and staged faces; do not construct a
+    closed mesh or duplicate stale survivor geometry. Changed stable IDs,
+    yellow front, warning-only provenance and CPU regression.
+  - [ ] **R06-M16D2 — Viewport input and HUD contract.**
+    Explicit opt-in controls separate from animation, immutable two-state
+    status and operation/args starting at top-left row 3; preserve upper-left
+    classifier rows and upper-right FPS, W/G, orbit and Esc, test formatting.
+  - [ ] **R06-M16D3 — Interactive replay worker lifecycle and CLI.**
+    `--repair-step-debug --repair-replay FILE` only; start joined worker
+    after Vulkan construction, poll snapshots on UI thread, keep warning
+    preview untrusted, safely cancel and join on exit/exception, leave
+    ordinary synchronous replay/headless test and saved bytes unchanged.
+  - [ ] **R06-M16D4 — Three-platform CI and physical GPU gate.**
+    CPU CLI invalid-combination, scene/diff, worker cancellation,
+    all unchanged archival replays, GCC/Clang/MSVC Vulkan-enabled builds;
+    interactive Linux/Windows physical screenshots and key exercises
+    remain a distinct acceptance gate; never claim GPU acceptance from CI.
 - [ ] **R06-M16E — Live worker frozen single-step integration.**
   Inspect pre-CAS and pause repair calculation only, not Vulkan or
   input event processing; safe cancellation, worker exit, no deadlock
