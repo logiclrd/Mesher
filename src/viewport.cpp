@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/repair_step_hud.hpp"
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
@@ -208,17 +209,11 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
         const std::size_t maxColumns=std::size_t(std::max(12,leftMax/characterWidth));
         const int maxRows=std::max(3,std::min(19,
             (int(height)-2*margin-2*padding)/characterHeight));
-        std::vector<std::string> wrapped;
-        if(stepping)for(const auto& line:repairStepLines) {
-            if(line.empty()){wrapped.emplace_back();continue;}
-            for(std::size_t offset=0;offset<line.size();offset+=maxColumns)
-                wrapped.push_back(line.substr(offset,maxColumns));
-        }
-        const std::size_t availableRows=std::size_t(std::max(1,maxRows-2));
-        const std::size_t maxScroll=wrapped.size()>availableRows?
-            wrapped.size()-availableRows:0;
-        const auto from=std::min(repairStepScroll,maxScroll);
-        const std::size_t visible=std::min(availableRows,wrapped.size()-from);
+        const auto page=layoutRepairStepHud(
+            repairStepLines,maxColumns,
+            std::size_t(std::max(1,maxRows-RepairStepHudPage::firstOperationRow)),
+            repairStepScroll);
+        const std::size_t visible=stepping?page.lines.size():0;
         const int rows=2+(stepping?int(visible):0);
         const int panelWidth=stepping?int(maxColumns)*characterWidth+2*padding:
             int(std::max(lines[0].size(),lines[1].size()))*characterWidth+2*padding;
@@ -240,7 +235,7 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
         leftText(lines[0],0,tint);
         leftText(lines[1],1,tint);
         for(std::size_t i=0;i<visible;++i)
-            leftText(wrapped[from+i],int(i)+2,0.0f);
+            leftText(page.lines[i],int(i)+RepairStepHudPage::firstOperationRow,0.0f);
     }
 
     if(slider) {
