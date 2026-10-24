@@ -125,6 +125,33 @@ void jointSidesAndCanonicalOrientation() {
               "mirrored endpoints use the same canonical parameter when their IDs correspond");
     std::cout<<"[r06-m17a] two incident projections and exact canonical mirrored t PASS\n";
 }
+void actualHybridTrajectoryMerit() {
+    auto x=input({0,0,0},{10,0,0},{2,2,0},.1,2);
+    auto p=evaluateRepairSplitTemplates(x);
+    check(p.coarse&&p.hasSelection()&&
+          p.candidates[p.selected].kind==Kind::Hybrid&&
+          p.candidates[p.selected].firstT==.5&&
+          p.candidates[p.selected].operations==2&&
+          p.candidates[p.selected].correctedChildGain>=.10&&
+          p.candidates[p.selected].worstAfter>=
+             .9*p.candidates.front().worstAfter,
+          "coarse healthy face must support a quality-safe, locally useful, bounded hybrid");
+    const auto second=p.candidates[p.selected].secondT;
+    check(second>.12&&second<.5,
+          "one corrective split should target the actual left child");
+    x.policy.remainingOperations=1;
+    p=evaluateRepairSplitTemplates(x);
+    check(p.hasSelection()&&
+          p.candidates[p.selected].kind!=Kind::Hybrid,
+          "hybrid may never circumvent exhausted second-operation budget");
+    x.policy.remainingOperations=2;
+    x.sides.front().qualityFloor=.5; // parent is now below quality floor
+    p=evaluateRepairSplitTemplates(x);
+    check(!p.hasSelection()||
+          p.candidates[p.selected].kind!=Kind::Hybrid,
+          "under-quality needle must not select coarse hybrid just for local density");
+    std::cout<<"[r06-m17c] hybrid only for coarse healthy patch with real child gain and two-step budget PASS\n";
+}
 void strictInvalidAndNoUnneededEdits() {
     auto x=input({0,0,0},{10,0,0},{5,6,0},.1,20);
     const auto p=evaluateRepairSplitTemplates(x);
@@ -157,6 +184,7 @@ int main() {
         endpointChasingAndBoundedCandidates();
         jointSidesAndCanonicalOrientation();
         strictInvalidAndNoUnneededEdits();
+        actualHybridTrajectoryMerit();
     }catch(const std::exception& e) {
         std::cerr<<"[r06-m17a] FAILED "<<e.what()<<"\n";
         return 1;
