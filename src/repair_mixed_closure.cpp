@@ -517,7 +517,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
             std::set<Edge> attempted;
             bool progressed=false;
-            for(const auto e:candidates) {
+            for(const auto& e:candidates) {
                 if(!attempted.insert(e).second)continue;
                 const auto proposal=planScaleEdge(e);
                 if(!proposal||!proposal->hasSelection())continue;
