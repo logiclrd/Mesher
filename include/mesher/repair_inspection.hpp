@@ -98,6 +98,7 @@ private:
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
 };
 
+class RepairStepTrace;
 struct RepairCase;
 // Replay bypasses the sculpt worker entirely and executes the SAME R02,
 // R03 and R06 private closure on the saved, exact POST-STAMP candidate.
@@ -106,7 +107,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,
     AutoClosureClassifier classifier=AutoClosureClassifier::Area,
     bool warnQuality=false,bool auditSeam=false,
-    bool exactOverlay=false);
+    bool exactOverlay=false,
+    std::shared_ptr<RepairStepTrace> stepTrace={});
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
