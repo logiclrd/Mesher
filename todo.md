@@ -597,16 +597,25 @@ NOT correct generator attachment intent or physical GPU appearance;
 those remain M15D. Legacy spatial-front intersection admission
 remains unchanged and main is unmodified.
 
-- [ ] **R06-M15D1 — Preserve split ancestry for exact replay.**
+- [x] **R06-M15D1 — Preserve split ancestry for exact replay.**
   Stage-owned bounded records for actual split parent edge, stable midpoint,
   original-vs-generated incident sides and chronological order. Attach
   this read-only ancestry to opt-in M13/M14D seam witnesses; never infer
   intended welding from XYZ closeness.
-- [ ] **R06-M15D2 — Classify the existing 1/3 warnings using ancestry.**
+- [x] **R06-M15D2 — Classify the existing 1/3 warnings using ancestry.**
   Track whether stored T-junction vertices are verified split midpoints
   on a DIFFERENT indexed edge, front-created vertices, or unknown origin;
   report counts and sample exact IDs/distance. Do not silently fix
   a geometric near-contact or change strict quality limits.
+**D1/D2 diagnostic-only implementation and exact-case evidence:**
+[docs/R06_M15D_ACCEPTANCE.md](docs/R06_M15D_ACCEPTANCE.md).
+On Clang CI #40077555945, refusal-1/3 had 441/421 real staged
+splits, with 256/256 stored T witnesses verified as cap-only split
+midpoints in each case; none split the **same** indexed parent edge
+as the gray survivor edge to which it came geometrically close.
+See complete counts and sampling limitations in the acceptance guide.
+No repair policy or topology changes; legacy AUTO refusals preserved.
+
 - [ ] **R06-M15D3 — Exact replay regression and three-platform CI.**
   Preserve all five original .r06case captures and labels; verify
   same topology/refusal, stable witness classifications and bounded
