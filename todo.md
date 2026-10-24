@@ -529,6 +529,27 @@ rejection in certain legacy R06 spatial-front paths is unchanged
 pending independent policy review (not a newly imposed M14E rule).
 M14F physical GPU review and R07/R08 publication remain open.
 
+### R06-M15 — Staging-owned topology editor (2026-10-24)
+Normative spec: [docs/R06_M15_STAGING_TOPOLOGY_EDITOR.md](docs/R06_M15_STAGING_TOPOLOGY_EDITOR.md).
+Precedes M14F because physical review needs the topology mutation
+API, not merely the existing M14C optional helper.
+- [ ] **R06-M15A — Live R03 rim and ensure-face stage API.**
+  Source-bound staging topology, live open boundary walks, cyclic
+  idempotent face creation and reverse-winding/conflict refusal;
+  independently executable tests and unchanged replay.
+- [ ] **R06-M15B — Stage-owned split with hard repeated-split error.**
+  Split one- or two-sided existing indexed edges through shared
+  stable VertexId; update yellow boundary paths, reflected orbit,
+  finite quality and rollback; no private caller-internal face splitting.
+- [ ] **R06-M15C — Migrate and gate ALL topology writers.**
+  Rework cap/zip creation, adaptive refinement, flip/fan-collapse
+  helpers into stage operations, then seal underlying topology mutation
+  so a generator cannot bypass these invariants.
+- [ ] **R06-M15D — Exact case and physical GPU acceptance.**
+  Split before/after attachment, M13 witness counts on 1/3,
+  classifiers and all five preserved .r06case bytes, GCC/Clang/MSVC,
+  physical Vulkan W/exact overlays. M14F remains open until inspected.
+
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
