@@ -63,6 +63,8 @@ void testCompletePatchAndSourceIdentity() {
     auto patch=planPrivateMixedClosurePatch(planned.stage,64);
     require(patch.sourceR03==planned.base.source&&
             patch.changedSurvivors==2&&patch.newFaces==2&&
+            patch.generatedVertices.size()==1&&
+            patch.generatedVertices.front().id==planned.midpoint&&
             patch.faceWrites.size()==4,
             "M14E must capture BOTH source FaceId modifications and BOTH children");
     const auto initial=planned.base.source->face(
@@ -111,6 +113,22 @@ void testOpenPatchFailsFinalGate() {
     validatePrivateClosedManifold(*planned.base.source,10000);
     std::cout<<"[r06-m14e] nonmanifold consolidated candidate rejected, original intact PASS\n";
 }
+void testMissingReservedVertexRejected() {
+    Planned planned(tetra());
+    const auto patch=planPrivateMixedClosurePatch(planned.stage,64);
+    const auto owner=patch.generatedVertices.front().owner;
+    auto& vertices=planned.view.editPartition(owner).vertices;
+    std::erase_if(vertices,[&](const PartitionVertex& v) {
+        return v.id==planned.midpoint;
+    });
+    bool refused=false;
+    try {(void)applyPrivateMixedClosurePatch(
+        planned.view,*planned.base.source,patch,16);}
+    catch(const std::logic_error&) {refused=true;}
+    require(refused,
+            "M14E complete patch must refuse missing reserved generated vertex");
+    validatePrivateClosedManifold(*planned.base.source,10000);
+}
 void testForeignRootAndFiniteBudget() {
     Planned planned(tetra());
     const auto patch=planPrivateMixedClosurePatch(planned.stage,64);
@@ -153,6 +171,7 @@ int main() {
         testCompletePatchAndSourceIdentity();
         testOmittedSurvivorOverrideRefusedBeforeCommit();
         testOpenPatchFailsFinalGate();
+        testMissingReservedVertexRejected();
         testForeignRootAndFiniteBudget();
         testSelfIntersectionsNotAManifoldFailure();
         return 0;

@@ -25,7 +25,7 @@ struct MixedClosurePatchFace {
     MixedClosureFaceKind kind{MixedClosureFaceKind::Survivor};
 };
 struct MixedClosurePatchVertex {
-    VertexId original{};
+    VertexId id{};
     PartitionId owner{};
     Vec3 position{};
 };
@@ -33,6 +33,10 @@ struct MixedClosurePatch {
     std::shared_ptr<const RegionTopologyIndex> sourceR03;
     std::vector<MixedClosurePatchFace> faceWrites;
     std::vector<MixedClosurePatchVertex> vertexWrites;
+    // Reserved/staged new VertexIds have already been allocated in this
+    // private COW view during finite subdivision. Include them in the
+    // ledger and certify exact owner/position before face materialization.
+    std::vector<MixedClosurePatchVertex> generatedVertices;
     std::size_t newFaces{};
     std::size_t changedSurvivors{};
 };
@@ -88,6 +92,13 @@ inline MixedClosurePatch planPrivateMixedClosurePatch(
         patch.vertexWrites.push_back({id,original.owner,
                                       stage.sourceView->position(id)});
     }
+    for(const auto& [id,position]:stage.positions) {
+        if(patch.sourceR03->maybeVertex(id))continue;
+        const auto owner=stage.vertexOwners.find(id);
+        if(owner==stage.vertexOwners.end())
+            throw std::logic_error("R06-M14E generated vertex owner omitted from patch");
+        patch.generatedVertices.push_back({id,owner->second,position});
+    }
     return patch;
 }
 
@@ -103,13 +114,27 @@ inline AppliedMixedClosurePatch applyPrivateMixedClosurePatch(
         throw std::length_error("R06-M14E finite new face patch budget exceeded");
     AppliedMixedClosurePatch applied;
     std::set<PartitionId> owners;
+    for(const auto& created:patch.generatedVertices) {
+        if(expectedSource.maybeVertex(created.id))
+            throw std::logic_error("R06-M14E generated vertex overlaps original source ID");
+        const auto& part=view.editPartition(created.owner);
+        const auto it=std::find_if(part.vertices.begin(),part.vertices.end(),
+            [&](const PartitionVertex& v){return v.id==created.id;});
+        if(it==part.vertices.end())
+            throw std::logic_error("R06-M14E missing generated vertex in private COW view");
+        const auto& p=it->position;
+        if(p.x!=created.position.x||p.y!=created.position.y||
+           p.z!=created.position.z)
+            throw std::logic_error("R06-M14E generated vertex position disagrees with patch");
+        owners.insert(created.owner);
+    }
     for(const auto& edit:patch.vertexWrites) {
-        const auto& original=expectedSource.vertex(edit.original);
+        const auto& original=expectedSource.vertex(edit.id);
         if(original.owner!=edit.owner)
             throw std::logic_error("R06-M14E source vertex owner mismatch");
         auto& part=view.editPartition(edit.owner);
         const auto it=std::find_if(part.vertices.begin(),part.vertices.end(),
-            [&](const PartitionVertex& v){return v.id==edit.original;});
+            [&](const PartitionVertex& v){return v.id==edit.id;});
         if(it==part.vertices.end())
             throw std::logic_error("R06-M14E source vertex not present in private copy");
         it->position=edit.position;
