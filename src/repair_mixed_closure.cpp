@@ -767,6 +767,17 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     }catch(const RepairStepCancelled&) {
         // User cancellation is not an algorithmic closure refusal.
         throw;
+    }catch(const RepairStepObserverFailure& e) {
+        // No geometry inference: the staging algorithm may have been valid,
+        // but its opt-in observer failed before letting it proceed.
+        if(limits.terminalObserver) {
+            try {
+                limits.terminalObserver({
+                    MixedClosureTerminalOutcome::ObserverFailed,phase,e.what(),
+                    limits.inspectionWarnQuality});
+            }catch(...) {}
+        }
+        throw;
     }catch(const std::exception& e) {
         // Preserve the original algorithmic exception even if the observer
         // itself has failed. No private revision has been published.
