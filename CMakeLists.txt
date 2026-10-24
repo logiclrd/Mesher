@@ -369,6 +369,13 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_hud_tests)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
+    add_executable(mesher_repair_scale_aware_tests
+                   tests/repair_scale_aware_refinement_tests.cpp)
+    target_link_libraries(mesher_repair_scale_aware_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m17c_opt_in_real_shape_density_handoff
+             COMMAND mesher_repair_scale_aware_tests)
+    set_tests_properties(repair_r06_m17c_opt_in_real_shape_density_handoff
+        PROPERTIES TIMEOUT 40)
     add_executable(mesher_repair_split_parameter_tests
                    tests/repair_split_parameter_tests.cpp)
     target_link_libraries(mesher_repair_split_parameter_tests PRIVATE mesher_mesh)
