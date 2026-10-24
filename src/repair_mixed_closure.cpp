@@ -482,13 +482,13 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             if(lowest!=faces.size()) {
                 const auto& f=faces.at(lowest);
                 const auto v=f.triangle();
-                const double longest=std::max({
+                const double localLongest=std::max({
                     edgeSpan(positions,edge(v[0],v[1])),
                     edgeSpan(positions,edge(v[1],v[2])),
                     edgeSpan(positions,edge(v[2],v[0]))});
                 shapeFirst=shouldRepairShapeBeforeDensity(
                     smallest,accepted(f.kind,limits).threshold,
-                    longest,f.targetEdge,limits.shapeRepairScaleRatio);
+                    localLongest,f.targetEdge,limits.shapeRepairScaleRatio);
             }
             if(shapeFirst) {
                 ++out.scaleAwareShapeHandoffs;
@@ -540,9 +540,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             bool progressed=false;
             for(const auto& e:candidates) {
                 if(!attempted.insert(e).second)continue;
-                const auto proposal=planScaleEdge(e);
-                if(!proposal||!proposal->hasSelection())continue;
-                const auto chosen=proposal->candidates[proposal->selected];
+                const auto splitPlan=planScaleEdge(e);
+                if(!splitPlan||!splitPlan->hasSelection())continue;
+                const auto chosen=splitPlan->candidates[splitPlan->selected];
                 const auto first=scaleSplit(e,chosen.firstT);
                 progressed=true;
                 stagnant=0;
