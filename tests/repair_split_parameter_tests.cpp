@@ -220,6 +220,32 @@ void mirrorOrbitAndFiniteBudget() {
         "both incident sides and immutable roots must survive mirror orbit");
     std::cout<<"[r06-m17b] one atomic two-edge reflected transaction, t/1-t and exact XYZ PASS\n";
 }
+void remoteOriginalVertexCollision() {
+    // An unrelated source component contains a VertexId at the proposed
+    // split location. It is not registered in the cap staging halo:
+    // position coincidence is a refusal, NEVER an implicit ID weld.
+    const auto f=fixture(false,true);
+    MixedClosureStaging stage(f.root,f.rims);
+    makeCap(stage,f);
+    auto view=f.root->revision().createMutableView();
+    const auto a=f.vertices[0][0],b=f.vertices[0][1];
+    require(stage.positions().newVertexPositions()==0&&
+        stage.positions().originalHandles()==4,
+        "remote source must be outside the staged original position halo");
+    const auto faceCount=stage.faces().size();
+    bool refused=false;
+    try {(void)stage.splitEdge(view,a,b,policy(),0,0,false,.35);}
+    catch(const std::logic_error& error) {
+        refused=std::string(error.what()).find(
+            "duplicates a remote source vertex")!=std::string::npos;
+    }
+    require(refused&&stage.splitEvents().empty()&&
+        stage.faces().size()==faceCount&&
+        stage.sourceView()->pendingFaceEdits()==0&&
+        stage.positions().newVertexPositions()==0,
+        "off-halo existing original VertexId at exact XYZ must block mutation");
+    std::cout<<"[r06-m17b] remote original off-halo XYZ collision refusal PASS\n";
+}
 void missingPartnerRefused() {
     const auto f=fixture();
     MixedClosureStaging stage(f.root,f.rims);
@@ -241,6 +267,7 @@ int main() {
         rejectedRequestsDoNotMutate();
         mirrorOrbitAndFiniteBudget();
         missingPartnerRefused();
+        remoteOriginalVertexCollision();
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"[r06-m17b] FAILED: "<<e.what()<<"\n";
