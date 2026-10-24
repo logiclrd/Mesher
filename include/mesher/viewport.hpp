@@ -3,6 +3,7 @@
 #include "mesher/brush_radius.hpp"
 #include "mesher/partition_render.hpp"
 
+#include <array>
 #include <functional>
 #include <optional>
 #include <memory>
@@ -29,6 +30,33 @@ struct ViewportMeshUpdate {
     std::shared_ptr<const RegionTopologyIndex> index;
     std::vector<PartitionId> dirtyPartitions;
     std::size_t completedStamps = 0;
+    // Unpublished debug candidate only. Freeze UI editing and display
+    // separately shaded topology markers until the application exits.
+    bool inspectionFrozen = false;
+    std::vector<PartitionRenderVertex> inspectionOverlay;
+    bool inspectionPreview = false;
+    bool inspectionCutRequested = false;
+    bool inspectionCutSucceeded = false;
+    bool inspectionZipperRequested = false;
+    bool inspectionZipperSucceeded = false;
+    bool inspectionCapRequested = false;
+    bool inspectionCapSucceeded = false;
+    bool inspectionAutoRequested = false;
+    bool inspectionAutoSucceeded = false;
+    bool inspectionQualityWarningPreview = false;
+    // M09: frozen M03 decisions, computed from exactly one original
+    // candidate/cut and never inferred from an M04 geometry outcome.
+    std::array<std::string,2> classifierChoices{};
+    bool classifierComparable=false;
+    bool classifiersAgree=false;
+    int activeClassifier=0; // 0=area; 1=proximity
+    // R06-M16D: this buffer holds the COMPLETE source-backed private
+    // intermediate scene, not just an overlay on the original candidate.
+    bool inspectionStepReplaceMesh=false;
+    bool inspectionStepFinished=false;
+    bool inspectionStepCancelled=false;
+    bool inspectionStepError=false;
+    std::vector<std::string> repairStepLines{};
 };
 
 struct ViewportInteraction {
@@ -40,6 +68,13 @@ struct ViewportInteraction {
     // Async mode: consume the latest fully committed mesh snapshot. When
     // present, the Vulkan/picking thread never reads the worker's live mesh.
     std::function<std::optional<ViewportMeshUpdate>()> takeSnapshot;
+    // Called AFTER GLFW/Vulkan construction, before the first event frame.
+    // The worker must be owned and cancelled/joined by the caller.
+    std::function<void()> onReady;
+    bool repairStepMode=false;
+    // N/P/C/Enter/Backspace: next, previous, current, continue, cancel.
+    // The viewport performs no geometry changes and owns only input routing.
+    std::function<void(int)> repairStepCommand;
     // The initial immutable root is an explicit one-time full partition build;
     // each later frame only refreshes its coalesced dirty partition IDs.
     std::shared_ptr<const RegionTopologyIndex> initialRevision;
@@ -47,6 +82,9 @@ struct ViewportInteraction {
     std::function<void()> undo;
     std::function<void()> redo;
     std::function<void()> checkpoint;
+    // Frozen R06 only: 0=ordinary, 1=prefer caps, 2=prefer zipper.
+    // This captures the ORIGINAL complete candidate even when M04 succeeded.
+    std::function<void(int)> frozenRepairCapture;
     // M48: strictly opt-in desktop contract. The user selects actual stable
     // FaceIds from this exact immutable displayed root; the host queues the
     // M47 bounded discovery, never a render-thread collision traversal.

@@ -1,0 +1,112 @@
+#pragma once
+
+#include "mesher/repair_survivors.hpp"
+
+#include <cstddef>
+#include <vector>
+#include <string>
+#include <utility>
+#include <vector>
+
+namespace mesher {
+
+// R06-M03 only chooses closure topology. It NEVER edits the private R03 cut,
+// publishes a worker revision, or certifies M04's actual cap/zipper geometry.
+// Contact pairs are the complete trusted R01 pairs for the same ORIGINAL
+// candidate from which R02/R03 excised the selected faces.
+enum class AutoClosureClassifier { Area, Proximity };
+const char* autoClosureClassifierName(AutoClosureClassifier algorithm) noexcept;
+
+// Experimental mathematical score, not a certificate of a valid zipper.
+// Each ring is ordered with nonzero edges, with >=3 finite vertices.
+// Newell area = magnitude of 3D vector area (NOT least-squares PCA).
+struct ProximityFitnessTerms {
+    double area1{},area2{},averageArea{},areaDifference{};
+    double weightedDistance{},distanceSquared{};
+    double averageAreaTerm{},differenceTerm{},distanceTerm{},score{};
+};
+// Exposed for deterministic sampled-geometry tests independently of M03
+// topology and M04 acceptance. Weights are 0.5*(previous+next edge).
+ProximityFitnessTerms computeProximityFitness(
+    const std::vector<Vec3>& first,const std::vector<Vec3>& second);
+
+struct AutoClosurePlanSettings {
+    AutoClosureClassifier classifier=AutoClosureClassifier::Area;
+    std::size_t maxExcisionFaces=4096;
+    std::size_t maxContours=16;
+    std::size_t maxContourVertices=512;
+    std::size_t maxContactPairs=8192;
+    std::size_t maxRegions=32;
+    std::size_t maxLoopsPerRegion=4; // no invented 3-vs-5 matching
+    std::size_t maxAuditedFaces=1000000;
+    std::size_t maxAuditedEdges=3000000;
+    // A true zipper must be materially cheaper than two independent disks;
+    // retaining/adding a handle on one survivor requires stronger evidence.
+    double minimumZipperSavings=0.20;
+    double minimumSameOwnerZipperSavings=0.55;
+    // An exceptionally close, strongly opposing, directly contact-linked
+    // pair of DIFFERENT excision patches can weld two tentacles on one
+    // connected survivor without claiming that every same-owner pair
+    // should retain/add a handle. M04 must still certify the actual seam.
+    double minimumFacingContactZipperSavings=0.45;
+    double maximumFacingContactGapInEdges=2.5;
+    double minimumFacingContactNormalOpposition=0.95;
+    RepairPlanSettings fitness{};
+};
+
+enum class AutoClosurePlanStatus {
+    Ready, InvalidInput, BudgetExceeded, AmbiguousRegion, AmbiguousFitness
+};
+
+struct AutoClosureRegion {
+    std::vector<std::size_t> contours; // global R02 contour indices
+    std::vector<std::size_t> excisionPatches;
+    std::vector<std::size_t> caps; // global contour indices
+    std::vector<RepairContourPair> zippers; // global contour indices
+    std::size_t contactLinks{};
+    double estimatedAddedArea{};
+    bool zeroLoopComponentRetirement{}; // NOT deletion authority: R06-M04
+    // R06-M06A auditable evidence; not a substitute for M04 manifold
+    // certification and never allowed to change the selection.
+    std::string selectionReason;
+    bool usedAmbiguousCapFallback{};
+    bool twoRimEvidenceValid{};
+    bool proximityFitnessValid{};
+    ProximityFitnessTerms proximityFitness{};
+    double rimCentroidSeparation{};
+    double rimNormalAlignment{};
+    double rimNearestSeparationInEdges{}; // symmetric nearest vertex, not a certification
+    double estimatedCapArea{};
+    double estimatedZipperArea{}; // preliminary for two loops only; 0 when unavailable
+
+};
+
+struct AutoClosurePlan {
+    AutoClosurePlanStatus status{AutoClosurePlanStatus::InvalidInput};
+    std::string diagnostic;
+    RepairSurvivorInventory survivors;
+    std::vector<AutoClosureRegion> regions;
+    std::vector<std::size_t> cappedContours; // all-or-nothing flattened plan
+    std::vector<RepairContourPair> zipperPairs;
+    std::size_t excisionPatches{};
+    std::size_t trustedContactLinks{};
+    std::size_t geometryRegions{};
+    double estimatedAddedArea{};
+    bool ready() const noexcept {return status==AutoClosurePlanStatus::Ready;}
+};
+
+// Provenance contract: sourceCandidate is the precise pre-R03 immutable
+// revision; cut and proposal must agree on all stable face/edge IDs.
+// A trusted R01 contact connects excision patches only when BOTH of its
+// actual face IDs were removed. No proximity-only nearest-loop pairing.
+// Each R02 loop must have ONE R03 survivor owner and ONE excision-patch owner.
+// Disjoint contact islands never compete globally for closure pairings.
+// Unsupported many-to-many / fitness ties refuse the WHOLE plan.
+AutoClosurePlan planPrivateAutomaticClosure(
+    const RegionTopologyIndex& sourceCandidate,
+    const PrivateExcisionResult& cut,
+    const RepairExcisionPreview& proposal,
+    const std::vector<RegionTopologyIndex::CollisionPair>& trustedContacts,
+    const AutoClosurePlanSettings& limits={});
+
+} // namespace mesher

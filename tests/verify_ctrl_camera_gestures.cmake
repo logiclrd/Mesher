@@ -22,8 +22,18 @@ foreach(needle
         message(FATAL_ERROR "M61 actual Ctrl gesture route/suppression missing: ${needle}")
     endif()
 endforeach()
-string(FIND "${view}" "GLFW_KEY_LEFT_ALT" altView)
-string(FIND "${view}" "GLFW_KEY_RIGHT_ALT" altView2)
+# M61 prohibits Alt CAMERA gestures, not Alt as an unrelated modifier
+# for new private R06 case annotations. Inspect only the actual orbit input
+# routing, never all keyboard handling in the viewport translation unit.
+string(FIND "${view}" "    void updateMouseOrbit()" orbitStart)
+string(FIND "${view}" "    void updateMouseSculpt()" orbitEnd)
+if(orbitStart EQUAL -1 OR orbitEnd EQUAL -1 OR orbitEnd LESS orbitStart)
+    message(FATAL_ERROR "M61 cannot identify camera gesture input scope")
+endif()
+math(EXPR orbitLength "${orbitEnd}-${orbitStart}")
+string(SUBSTRING "${view}" "${orbitStart}" "${orbitLength}" cameraInput)
+string(FIND "${cameraInput}" "GLFW_KEY_LEFT_ALT" altView)
+string(FIND "${cameraInput}" "GLFW_KEY_RIGHT_ALT" altView2)
 if(NOT altView EQUAL -1 OR NOT altView2 EQUAL -1)
     message(FATAL_ERROR "M61 Alt must no longer select a camera control")
 endif()

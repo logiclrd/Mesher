@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/repair_step_hud.hpp"
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
 #include "mesher/picking.hpp"
@@ -10,6 +11,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cctype>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -120,6 +122,17 @@ Glyph hudGlyph(char ch) {
         case '/': return {1,1,2,4,8,16,16};
         case '.': return {0,0,0,0,0,12,12};
         case '-': return {0,0,0,31,0,0,0};
+        case '<': return {2,4,8,16,8,4,2};
+        case '>': return {8,4,2,1,2,4,8};
+        case '=': return {0,31,0,31,0,0,0};
+        case ',': return {0,0,0,0,4,4,8};
+        case '_': return {0,0,0,0,0,0,31};
+        case '(': return {2,4,8,8,8,4,2};
+        case ')': return {8,4,2,2,2,4,8};
+        case '+': return {0,4,4,31,4,4,0};
+        case '#': return {10,31,10,10,31,10,0};
+        case '?': return {14,17,1,2,4,0,4};
+        case '*': return {0,21,14,31,14,21,0};
         default: return {};
     }
 }
@@ -137,7 +150,12 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& fps, const std::string& stamps,
                              const std::string& merge,
                              const std::optional<BrushRadiusRange>& slider,
-                             double radius) {
+                             double radius,
+                             const std::array<std::string,2>& classifierChoices,
+                             bool classifierComparable,bool classifiersAgree,
+                             int activeClassifier,
+                             const std::vector<std::string>& repairStepLines,
+                             std::size_t repairStepScroll) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
@@ -173,6 +191,52 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     textLine(fps,0);
     textLine(stamps,1);
     if(!merge.empty())textLine(merge,2);
+
+    // M16D: classifier diagnostics ALWAYS occupy rows 0 and 1, and all
+    // operation/argument text starts precisely at upper-left row 2.
+    // This is a separate panel from the upper-right FPS/stamps status.
+    if((!classifierChoices[0].empty()&&!classifierChoices[1].empty())||
+       !repairStepLines.empty()) {
+        const bool stepping=!repairStepLines.empty();
+        const std::array<std::string,2> lines{{
+            "AREA: "+(classifierChoices[0].empty()?"UNAVAILABLE":classifierChoices[0])+
+                (activeClassifier==0?" <---":""),
+            "PROXIMITY: "+(classifierChoices[1].empty()?"UNAVAILABLE":classifierChoices[1])+
+                (activeClassifier==1?" <---":"")
+        }};
+        const int leftMax=std::max(160,std::min(
+            int(width)-2*margin-2*padding,int(width)*2/3));
+        const std::size_t maxColumns=std::size_t(std::max(12,leftMax/characterWidth));
+        const int maxRows=std::max(3,std::min(19,
+            (int(height)-2*margin-2*padding)/characterHeight));
+        const auto page=layoutRepairStepHud(
+            repairStepLines,maxColumns,
+            std::size_t(std::max(1,maxRows-RepairStepHudPage::firstOperationRow)),
+            repairStepScroll);
+        const std::size_t visible=stepping?page.lines.size():0;
+        const int rows=2+(stepping?int(visible):0);
+        const int panelWidth=stepping?int(maxColumns)*characterWidth+2*padding:
+            int(std::max(lines[0].size(),lines[1].size()))*characterWidth+2*padding;
+        rectangle(margin,margin,panelWidth,
+                  rows*characterHeight+2*padding,1.0f);
+        const float tint=!classifierComparable?0.0f:
+                         classifiersAgree?2.0f:3.0f;
+        const auto leftText=[&](const std::string& line,int row,float color) {
+            for(std::size_t i=0;i<line.size()&&i<maxColumns;++i) {
+                const auto ch=static_cast<unsigned char>(line[i]);
+                const auto glyph=hudGlyph(char(std::toupper(ch)));
+                for(int y=0;y<7;++y)for(int x=0;x<5;++x)
+                    if(glyph[y]&(1u<<(4-x)))
+                        rectangle(margin+padding+int(i)*characterWidth+x*scale,
+                                  margin+padding+row*characterHeight+y*scale,
+                                  scale,scale,color);
+            }
+        };
+        leftText(lines[0],0,tint);
+        leftText(lines[1],1,tint);
+        for(std::size_t i=0;i<visible;++i)
+            leftText(page.lines[i],int(i)+RepairStepHudPage::firstOperationRow,0.0f);
+    }
 
     if(slider) {
         const auto layout=radiusSliderLayout(int(height));
@@ -360,6 +424,29 @@ class VulkanViewport {
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool wireVisible_=true,wireKeyWasDown_=false;
+    bool inspectionFrozen_=false;
+    bool inspectionIncomplete_=false;
+    bool inspectionPreview_=false;
+    bool inspectionCutRequested_=false;
+    bool inspectionCutSucceeded_=false;
+    bool inspectionZipperRequested_=false;
+    bool inspectionZipperSucceeded_=false;
+    bool inspectionCapRequested_=false;
+    bool inspectionCapSucceeded_=false;
+    bool inspectionAutoRequested_=false;
+    bool inspectionAutoSucceeded_=false;
+    bool inspectionQualityWarningPreview_=false;
+    std::array<std::string,2> classifierChoices_{};
+    bool classifierComparable_=false,classifiersAgree_=false;
+    int activeClassifier_=0;
+    bool inspectionStepReplaceMesh_=false;
+    bool inspectionStepFinished_=false;
+    bool inspectionStepCancelled_=false,inspectionStepError_=false;
+    std::vector<std::string> repairStepLines_;
+    std::size_t repairStepScroll_=0;
+    bool stepNextWasDown_=false,stepPrevWasDown_=false;
+    bool stepCurrentWasDown_=false,stepContinueWasDown_=false;
+    bool stepCancelWasDown_=false,stepUpWasDown_=false,stepDownWasDown_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -421,6 +508,9 @@ class VulkanViewport {
     VkFence fence=VK_NULL_HANDLE;
     struct Buffer {VkBuffer buffer=VK_NULL_HANDLE;VkDeviceMemory memory=VK_NULL_HANDLE;std::uint32_t vertexCount=0,capacity=0;std::size_t allocatedBytes=0;};
     Buffer solid{},floorSolid{},hud{};
+    // Inspection has a separate buffer; legacy solid/floor/HUD ownership
+    // remains textually and behaviorally unchanged.
+    Buffer inspectionSolid{};
     struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
@@ -659,12 +749,29 @@ class VulkanViewport {
         const std::optional<BrushRadiusRange> slider=interaction_.setRadius
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
-        const std::string mergeText=interaction_.begin?
-            !interaction_.mergeSelected?"MERGE: DISABLED":
+        const std::string mergeText=interaction_.repairStepMode&&
+            inspectionStepCancelled_?"R06: STEP CANCELLED":
+            interaction_.repairStepMode&&inspectionStepError_?"R06: STEP ERROR":
+            interaction_.repairStepMode&&!inspectionStepFinished_?
+            "R06: STEP DEBUG PRIVATE":
+            inspectionFrozen_&&inspectionAutoRequested_?
+            (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":
+             inspectionQualityWarningPreview_?"R06: QUALITY WARN PREVIEW":"R06: AUTO REFUSED"):
+            inspectionFrozen_&&inspectionCapRequested_?
+            (inspectionCapSucceeded_?"R05: CAP COMPLETE":"R05: CAP REFUSED"):
+            inspectionFrozen_&&inspectionZipperRequested_?
+            (inspectionZipperSucceeded_?"R04: ZIPPER COMPLETE":"R04: ZIPPER REFUSED"):
+            inspectionFrozen_&&inspectionCutRequested_?
+            (inspectionCutSucceeded_?"R03: PRIVATE CUT":"R03: EXCISION REFUSED"):
+            interaction_.begin?
+            (!interaction_.mergeSelected?"MERGE: DISABLED":
             mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
-                     "MERGE: OFF":"";
+                     "MERGE: OFF"):"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
-                                     mergeText,slider,interaction_.radius);
+                                     mergeText,slider,interaction_.radius,
+                                     classifierChoices_,classifierComparable_,
+                                     classifiersAgree_,activeClassifier_,
+                                     repairStepLines_,repairStepScroll_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -981,6 +1088,18 @@ class VulkanViewport {
 
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
+        if(inspectionFrozen_) {
+            // Freeze is detected asynchronously; still close an active
+            // stroke so the worker drains queued 4D input in FIFO order.
+            if(sculpting_&&interaction_.end) {
+                interaction_.end(lastCursorHit_,
+                    std::max(0.0,glfwGetTime()-mouseStartTime_));
+                sculpting_=false;
+            }
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
         if(orbitDragging_) {
             // View-only RMB and Ctrl+LMB never sculpt or nominate Merge faces.
             mouseWasDown_=glfwGetMouseButton(
@@ -1148,6 +1267,42 @@ class VulkanViewport {
                 displayedStamps_=snapshot->completedStamps;
                 refreshPartitions(std::move(snapshot->index),
                                   snapshot->dirtyPartitions);
+                if(snapshot->inspectionFrozen) {
+                    inspectionFrozen_=true;
+                    inspectionIncomplete_=snapshot->inspectionOverlay.empty();
+                    inspectionPreview_=snapshot->inspectionPreview;
+                    inspectionCutRequested_=snapshot->inspectionCutRequested;
+                    inspectionCutSucceeded_=snapshot->inspectionCutSucceeded;
+                    inspectionZipperRequested_=snapshot->inspectionZipperRequested;
+                    inspectionZipperSucceeded_=snapshot->inspectionZipperSucceeded;
+                    inspectionCapRequested_=snapshot->inspectionCapRequested;
+                    inspectionAutoRequested_=snapshot->inspectionAutoRequested;
+                    inspectionAutoSucceeded_=snapshot->inspectionAutoSucceeded;
+                    inspectionQualityWarningPreview_=snapshot->inspectionQualityWarningPreview;
+                    classifierChoices_=snapshot->classifierChoices;
+                    classifierComparable_=snapshot->classifierComparable;
+                    classifiersAgree_=snapshot->classifiersAgree;
+                    activeClassifier_=snapshot->activeClassifier;
+                    inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
+                    inspectionStepReplaceMesh_=snapshot->inspectionStepReplaceMesh;
+                    inspectionStepFinished_=snapshot->inspectionStepFinished;
+                    inspectionStepCancelled_=snapshot->inspectionStepCancelled;
+                    inspectionStepError_=snapshot->inspectionStepError;
+                    if(repairStepLines_!=snapshot->repairStepLines) {
+                        repairStepLines_=std::move(snapshot->repairStepLines);
+                        repairStepScroll_=0;
+                    }
+                    // refreshPartitions has waited for the previous GPU
+                    // submission fence, so this buffer may be safely staged.
+                    replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
+                    // This mode is fullscreen on Linux; the window title is
+                    // not visible. Update the persistent HUD immediately so
+                    // refusal cannot masquerade as a successful orange cut.
+                    refreshHud();
+                    std::cout<<"[repair-r01] FROZEN: viewing an unpublished "
+                                "candidate; LMB/undo/save disabled; orbit, "
+                                "W/G and Escape remain available\n"<<std::flush;
+                }
                 const auto added=displayedStamps_>=previous
                     ?displayedStamps_-previous:0;
                 stampsThisInterval_+=added;
@@ -1231,6 +1386,30 @@ class VulkanViewport {
         std::string title = "Mesher";
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
+            if(inspectionFrozen_)
+                title+=interaction_.repairStepMode&&inspectionStepCancelled_?
+                    " | R06 PRIVATE STEP CANCELLED":
+                    interaction_.repairStepMode&&inspectionStepError_?
+                    " | R06 PRIVATE STEP ERROR":
+                    interaction_.repairStepMode&&!inspectionStepFinished_?
+                    " | R06 PRIVATE STEP DEBUG":
+                    inspectionAutoRequested_?
+                    (inspectionAutoSucceeded_?" | R06 AUTO CLOSED (FROZEN PRIVATE)":
+                     " | R06 AUTO REFUSED (FROZEN)"):
+                    inspectionCapRequested_?
+                    (inspectionCapSucceeded_?" | R05 CAPS (FROZEN PRIVATE)":
+                     " | R05 CAP REFUSED (FROZEN)"):
+                    (inspectionZipperRequested_?
+                    (inspectionZipperSucceeded_?" | R04 ZIPPER (FROZEN PRIVATE)":
+                     " | R04 ZIPPER REFUSED (FROZEN)"):
+                    (inspectionCutRequested_?
+                    (inspectionCutSucceeded_?" | R03 PRIVATE CUT (FROZEN)":
+                     " | R03 EXCISION REFUSED (FROZEN)"):
+                    (inspectionPreview_?
+                    " | R02 EXCISION PREVIEW (UNPUBLISHED)":
+                    (inspectionIncomplete_?
+                    " | R01 QUERY INCOMPLETE (FROZEN)":
+                    " | R01 CONTACT (FROZEN CANDIDATE)"))));
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
@@ -1580,15 +1759,22 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);
             vkCmdDraw(commandBuffer,floorSolid.vertexCount,1,0,0);
         }
-        if(solid.vertexCount) {
+        if(!inspectionStepReplaceMesh_&&solid.vertexCount) {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
             vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
         }
-        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+        if(!inspectionStepReplaceMesh_&&displayedIndex_)
+            for(const auto& [id,buffers]:partitionBuffers_) {
             (void)id;
             if(!buffers.solid.vertexCount)continue;
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
+        }
+        // R01: draw red, depth-tested inspection markers ON TOP of the
+        // diagnostic candidate, without modifying its normal mesh data.
+        if(inspectionSolid.vertexCount) {
+            vkCmdBindVertexBuffers(commandBuffer,0,1,&inspectionSolid.buffer,&offset);
+            vkCmdDraw(commandBuffer,inspectionSolid.vertexCount,1,0,0);
         }
         // M68: mesh edges and floor unit grid are shaded on their OWN
         // depth-tested solid fragments. No detached wire quads are
@@ -1701,6 +1887,7 @@ public:
             destroyBuffer(solid);
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
+            destroyBuffer(inspectionSolid);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
@@ -1719,6 +1906,7 @@ public:
         glfwTerminate();
     }
     void run(){
+        if(interaction_.onReady)interaction_.onReady();
         while(!glfwWindowShouldClose(window)) {
             stampedThisFrame_=false;
             glfwPollEvents();
@@ -1758,13 +1946,46 @@ public:
                          <<" (Z="<<floorZ_<<")\n";
                 updateTitle();
             }
-            if(ctrl&&!sculpting_&&
+            if(interaction_.repairStepMode&&interaction_.repairStepCommand) {
+                if(justPressed(GLFW_KEY_N,stepNextWasDown_))
+                    interaction_.repairStepCommand(0);
+                if(justPressed(GLFW_KEY_P,stepPrevWasDown_))
+                    interaction_.repairStepCommand(1);
+                if(justPressed(GLFW_KEY_C,stepCurrentWasDown_))
+                    interaction_.repairStepCommand(2);
+                if(justPressed(GLFW_KEY_ENTER,stepContinueWasDown_))
+                    interaction_.repairStepCommand(3);
+                if(justPressed(GLFW_KEY_BACKSPACE,stepCancelWasDown_))
+                    interaction_.repairStepCommand(4);
+                if(justPressed(GLFW_KEY_PAGE_UP,stepUpWasDown_)) {
+                    repairStepScroll_=repairStepScroll_>3?repairStepScroll_-3:0;
+                    refreshHud();
+                }
+                if(justPressed(GLFW_KEY_PAGE_DOWN,stepDownWasDown_)) {
+                    repairStepScroll_+=3;
+                    refreshHud();
+                }
+            }
+            if(ctrl&&!inspectionFrozen_&&!sculpting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
                 else if(z&&interaction_.undo)interaction_.undo();
                 else if(y&&interaction_.redo)interaction_.redo();
             }
-            if(ctrl&&save&&interaction_.checkpoint)interaction_.checkpoint();
+            // Frozen automatic closure is always a case-capture point:
+            // success may mean the *classifier* chose the wrong topology.
+            // Ctrl+S stores observed outcome, Ctrl+Shift+S annotates
+            // "prefer zipper", Ctrl+Alt+S annotates "prefer caps".
+            // All modes remain private, with no live checkpoint publication.
+            const bool alt=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
+                           glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
+            if(ctrl&&save&&inspectionFrozen_&&inspectionAutoRequested_&&
+               interaction_.frozenRepairCapture) {
+                if(shift&&alt)
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED choose Shift OR Alt, not both\n";
+                else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
+            }else if(ctrl&&save&&!inspectionFrozen_&&interaction_.checkpoint)
+                interaction_.checkpoint();
             if(!ctrl)updateMergeKeyboard();
             updateMouseOrbit();
             updateMouseSculpt();
