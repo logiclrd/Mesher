@@ -480,7 +480,7 @@ R07/R08 publication and merged-main CI remain open.
   deterministic bounded deduplication and explicit uncertain intent.
   The diagnostic cannot itself reject a candidate: self-intersections,
   including pre-existing ones, are permitted.
-- [ ] **R06-M14E — Explicit full-patch integration and manifold gate.**
+- [x] **R06-M14E — Explicit full-patch integration and manifold gate.**
   **Split into flat, separately observable tasks before coding:**
   E1 defines and audits the exact complete-patch write ledger;
   E2 applies that ledger to one private copy-on-write consolidated
@@ -498,21 +498,36 @@ completed GCC, Clang and Windows MSVC green, including
 `repair_r06_m14d_source_witness_provenance`.
 Source-candidate test reuses one exact immutable ID domain.
 
-- [ ] **R06-M14E1 — Complete source-backed patch ledger.**
+- [x] **R06-M14E1 — Complete source-backed patch ledger.**
   Capture original FaceId replacements and generated cap/zip child faces
   from one staged source-backed plan; fail before COW commit on a missing
   or duplicate survivor override, foreign source ID or unregistered vertex.
-- [ ] **R06-M14E2 — Single consolidated private revision and gate.**
+- [x] **R06-M14E2 — Single consolidated private revision and gate.**
   Apply all registered patch face changes together, commit just one private
   revision, then validate complete closed and oriented two-manifold topology
   before returning any certified result. Never publish an intermediate cut,
   unvalidated staged triangles or a failed patch.
-- [ ] **R06-M14E3 — Failure, quality and intersection-policy regressions.**
+- [x] **R06-M14E3 — Failure, quality and intersection-policy regressions.**
   Demonstrate missing-survivor-edit and incomplete connectivity refusal,
   unchanged source revision after refusal, existing successful exact-case
   replays, and GCC/Clang/Windows MSVC CI. A geometric 3D intersection alone
   must not replace the topology gate; keep legacy R06 collision refusal
   behavior unchanged pending an independently reviewed policy change.
+
+**M14E source-backed patch ledger and final private manifold gate**
+implemented through `f2054e58`; [full code CI #40048926067](https://github.com/logiclrd/Mesher/actions/runs/40048926067):
+GCC, Clang and Windows MSVC complete. Patch records modified original
+FaceIds, transaction-created SURVIVOR children, new cap/zip faces,
+original vertex overrides and exact reserved new vertex IDs/positions;
+all omitted/foreign edits and invalid reservations fail before final
+COW face writes. Materialize one private revision, then certify with the
+existing closed oriented manifold validator before any publication.
+Standalone tests prove missing original modification, missing generated
+vertex, incomplete closure, source immutability, finite limits and an
+intersecting but topologically manifold input. Existing collision
+rejection in certain legacy R06 spatial-front paths is unchanged
+pending independent policy review (not a newly imposed M14E rule).
+M14F physical GPU review and R07/R08 publication remain open.
 
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries

@@ -169,3 +169,44 @@ only; any change to old R06 collision refusal behavior needs its own
 explicitly tested admission-policy milestone. M14E concerns coherent
 patch construction and consolidation, not general-purpose Boolean
 removal of all 3D intersections.
+
+## M14E implementation details (2026-10-23)
+
+The final mixed closure now calls `planPrivateMixedClosurePatch` to
+produce an explicit source-bound ledger of (a) modified original
+FaceIds, (b) newly generated survivor children of conforming splits,
+(c) new cap/zipper faces, (d) original-vertex position overrides, and
+(e) reserved transaction-new VertexIds with their exact owner and XYZ.
+Before writing final faces, this plan rejects duplicate/foreign
+survivor handles, original edits omitted from the staged worklist,
+unregistered vertex references, absent reserved new vertices and
+foreign R03 source identity. A new survivor child has `stableId=0`
+and `kind=Survivor`; it counts as a new face but must NOT be colored
+as a cap or zipper. This distinction was reinforced by regression.
+
+`applyPrivateMixedClosurePatch` applies the entire ledger to a
+single COW view, assigning new permanent FaceIds, after which the
+caller commits exactly once and validates the consolidated
+`RegionTopologyIndex` with `validatePrivateClosedManifold`. A
+failed patch or manifold audit cannot reach worker publication,
+persistent history or checkpoints; there is no concurrent update
+writer and no source revision rebasing. New vertex ID reservations
+occur inside the same private COW view during refinement, before
+the final ledger materialization; they are expressly recorded and
+verified, never published alone.
+
+The M14E standalone regression includes a real shared-edge split
+with two changed survivor FaceIds plus two NEW survivor children,
+missing override refusal, missing reserved vertex refusal,
+missing generated face refusal by manifold audit, finite budget,
+foreign source identity, immutable original and two intersecting
+but individually manifold tetrahedral shells accepted by the
+**topological** manifold validator.
+
+**Outstanding policy distinction:** the selected legacy R06 spatial
+front path still contains a strict post-closure 3D triangle-contact
+rejection. M14E changes neither its behavior nor the historical
+archived-case admission. It is a known mismatch with the newly
+agreed best-effort self-intersection policy and should be assessed
+under an explicit, independently tested admission-policy milestone;
+it is not automatically resolved by the topological patch refactor.
