@@ -263,7 +263,24 @@ inline RepairSplitTemplateDecision evaluateRepairSplitTemplates(
     const auto hybrid=bestOf(Kind::Hybrid);
     const std::size_t missing=output.candidates.size();
     if(underQuality&&!output.coarse) {
-        output.reason="shape repair required at target scale; splitting is not a substitute";
+        // Shape operations get FIRST priority at this scale. But a truly
+        // restorative subdivision can be valid: the candidate's two-sided
+        // quality preflight already demands ALL children meet their hard
+        // floors here. Do not reject that possibility categorically.
+        // The caller invokes this branch only AFTER trying shape edits.
+        const auto bestSingle=bestOf(Kind::OffCenter);
+        output.selected=midpoint;
+        if(bestSingle!=missing&&
+           (output.selected==missing||
+            output.candidates[bestSingle].worstAfter>
+                output.candidates[output.selected].worstAfter*
+                    (1.01+policy.minimumGainFraction)))
+            output.selected=bestSingle;
+        // Do not choose a two-level hybrid at shape scale. It is a coarse
+        // density template, not an escape from an acute fixed-corner needle.
+        output.reason=output.hasSelection()?
+            "shape operations first; hard-floor-restoring one-step split may follow":
+            "shape repair required at target scale; no split reaches both quality floors";
         return output;
     }
     if(!underQuality&&output.edgeToTargetRatio<=1.) {
