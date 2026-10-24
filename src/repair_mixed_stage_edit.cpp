@@ -60,7 +60,7 @@ void MixedClosureStaging::notifyOperation(
         // try its spatial fallback. A diagnostic snapshot's byte limit or
         // observer validation failure must NEVER be mistaken for a cap
         // geometry problem or silently change the chosen algorithm.
-        throw std::runtime_error(
+        throw RepairStepObserverFailure(
             std::string("R06-M16 diagnostic observer failed at ")+
             name+": "+e.what());
     }
