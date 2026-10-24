@@ -44,6 +44,7 @@ private:
     // Only polled/updated by Vulkan thread.
     const RepairStepGeometry* lastFrame_{};
     bool lastFinished_=false,lastCancelled_=false,lastDone_=false;
+    bool lastWaiting_=false,lastRunning_=false;
     bool presentedInitial_=false;
 };
 } // namespace mesher
