@@ -43,6 +43,7 @@ private:
     std::atomic<bool> started_{false},done_{false};
     // Only polled/updated by Vulkan thread.
     const RepairStepGeometry* lastFrame_{};
+    std::size_t lastSequence_{};
     bool lastFinished_=false,lastCancelled_=false,lastDone_=false;
     bool lastWaiting_=false,lastRunning_=false;
     bool presentedInitial_=false;
