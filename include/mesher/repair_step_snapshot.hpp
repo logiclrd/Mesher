@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
@@ -78,6 +79,8 @@ struct RepairStepGeometryDelta {
     std::vector<VertexId> addedVertices,removedVertices,movedVertices;
     std::vector<RepairStepFaceKey> addedFaces,removedFaces;
     std::vector<RegionTopologyIndex::Edge> addedEdges,removedEdges;
+    std::vector<RegionTopologyIndex::Edge> addedBoundaryEdges,removedBoundaryEdges;
+    bool boundaryDiffAvailable=true;
 };
 
 inline RepairStepGeometry captureRepairStepGeometry(
@@ -229,6 +232,29 @@ inline RepairStepGeometryDelta diffRepairStepGeometry(
         const bool newExists=exists(after,newPatchEdges,e);
         if(!oldExists&&newExists)delta.addedEdges.push_back(e);
         if(oldExists&&!newExists)delta.removedEdges.push_back(e);
+    }
+    // Open-front edges are a separate visual channel. Their disappearance
+    // when a cap is attached is important even though the underlying
+    // indexed edges existed on the source survivor before attachment.
+    if(!before.boundaryDiagnostic.empty()||
+       !after.boundaryDiagnostic.empty()) {
+        delta.boundaryDiffAvailable=false;
+    }else {
+        const auto gatherBoundary=[&](const RepairStepGeometry& frame) {
+            std::set<Edge> result;
+            for(const auto& loop:frame.boundaryLoops)
+                for(std::size_t i=0;i<loop.size();++i)
+                    result.insert(edge(loop[i],loop[(i+1)%loop.size()]));
+            return result;
+        };
+        const auto beforeBoundary=gatherBoundary(before);
+        const auto afterBoundary=gatherBoundary(after);
+        std::set_difference(afterBoundary.begin(),afterBoundary.end(),
+                            beforeBoundary.begin(),beforeBoundary.end(),
+                            std::back_inserter(delta.addedBoundaryEdges));
+        std::set_difference(beforeBoundary.begin(),beforeBoundary.end(),
+                            afterBoundary.begin(),afterBoundary.end(),
+                            std::back_inserter(delta.removedBoundaryEdges));
     }
     return delta;
 }
