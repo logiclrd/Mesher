@@ -351,6 +351,13 @@ if(MESHER_BUILD_TESTS)
     target_link_libraries(mesher_repair_seam_audit_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m13_cap_survivor_geometry_audit COMMAND mesher_repair_seam_audit_tests)
     # Independent headless R06-M16C1 producer/consumer pause protocol.
+    add_executable(mesher_repair_step_operation_tests
+                   tests/repair_step_operation_tests.cpp)
+    target_link_libraries(mesher_repair_step_operation_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m16c2c_remaining_stage_operations_and_terminal_error
+             COMMAND mesher_repair_step_operation_tests)
+    set_tests_properties(repair_r06_m16c2c_remaining_stage_operations_and_terminal_error
+        PROPERTIES TIMEOUT 30)
     add_executable(mesher_repair_step_snapshot_tests
                    tests/repair_step_snapshot_tests.cpp)
     target_link_libraries(mesher_repair_step_snapshot_tests PRIVATE mesher_mesh)
