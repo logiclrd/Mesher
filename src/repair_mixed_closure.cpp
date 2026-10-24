@@ -87,6 +87,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     phase="initial_staging";
     auto stageLimits=limits.staging;
     stageLimits.requireReflectedGeometry=limits.requireReflectedGeometry;
+    stageLimits.targetInitialCapQuality=limits.minCapQuality;
     auto staged=stagePrivateMixedClosure(cut,proposal,plan,stageLimits);
     MixedPrivateClosureResult out;
     out.cappedLoops=staged.capLoops;
