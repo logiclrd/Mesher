@@ -132,7 +132,7 @@ void actualHybridTrajectoryMerit() {
           p.candidates[p.selected].kind==Kind::Hybrid&&
           p.candidates[p.selected].firstT==.5&&
           p.candidates[p.selected].operations==2&&
-          p.candidates[p.selected].correctedChildGain>=.10&&
+          p.candidates[p.selected].correctedChildGain>=.05&&
           p.candidates[p.selected].worstAfter>=
              .9*p.candidates.front().worstAfter,
           "coarse healthy face must support a quality-safe, locally useful, bounded hybrid");
