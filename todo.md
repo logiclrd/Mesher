@@ -666,7 +666,7 @@ do not alter q, reflection, exact-case captures or M15D labels.
   staging lock or affect the default fast path. Deterministic headless
   step, cancellation, no-op, error, two-frame/diff tests.
   **Flat implementation split, independent of M16B executor migration:**
-  - [ ] **R06-M16C1 — Bounded producer/consumer pause controller.**
+  - [x] **R06-M16C1 — Bounded producer/consumer pause controller.**
     Two immutable historical frame handles, latest generation, exact
     one-step Next, Previous/Current display-only switch, Continue,
     Cancel wakeup and worker terminal state; headless thread tests.
@@ -676,15 +676,28 @@ do not alter q, reflection, exact-case captures or M15D labels.
     overrides, updated true open rims, exact argument/result metadata,
     stable identity diff, bounded packet size and refusal metadata.
     **Flat split before coding:**
-    - [ ] **R06-M16C2a — Explicit opt-in postoperation observer.**
+    - [x] **R06-M16C2a — Explicit opt-in postoperation observer.**
       Notify only on completed stage edit transactions (whole mirrored
       split orbit as one event), preserve exact IDs/arguments, no
       callback for read-only queries or failed ensureFace. Independent
       editor callback tests and unchanged disabled path.
-    - [ ] **R06-M16C2b — Immutable finite geometry snapshot and diff.**
+    - [x] **R06-M16C2b — Immutable finite geometry snapshot and diff.**
       Serialize effective survivor overrides, new faces, current
       boundary, stable-ID operation evidence, previous/current changes;
       enforce bounded bytes and explicit diagnostic for invalid front.
+    **M16C1/C2a/C2b CPU accepted (2026-10-24):**
+    [CI #40107009052](https://github.com/logiclrd/Mesher/actions/runs/40107009052)
+    accepted the bounded two-frame step gate and initial editor
+    observer, and
+    [CI #40108102691](https://github.com/logiclrd/Mesher/actions/runs/40108102691)
+    accepted the source-backed immutable geometry packet and exact-ID
+    diff on Linux GCC, Linux Clang and Windows MSVC at code head
+    `6b26bdee`. Includes remote original survivor-face overrides,
+    generated cap/survivor child faces, added/removed indexed edges,
+    independently closed yellow boundary and byte-budget refusal.
+    See [the M16C2b acceptance protocol](docs/R06_M16C2B_ACCEPTANCE.md).
+    No running Vulkan debugger, new classifier, quality relaxation or
+    forced-mode migration is claimed; parent M16C2 stays open.
     - [ ] **R06-M16C2c — Complete operation coverage and error envelope.**
       Face generation, provisional staging/resolution, split, flips,
       fan retirement, fairing, actual final metadata/refusal. Include
