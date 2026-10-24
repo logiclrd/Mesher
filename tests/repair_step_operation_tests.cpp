@@ -250,6 +250,20 @@ void failureEnvelopeAndCancellation() {
     }catch(const RepairStepCancelled&) {cancelled=true;}
     check(cancelled&&callbacks==1,
           "intentional step-gate cancellation must retain its distinct type");
+    stage.setOperationObserver([](const auto&,const auto&,const auto&) {
+        throw std::length_error("finite diagnostic snapshot bytes");
+    });
+    bool diagnosticFailure=false;
+    try {
+        auto view=f.root->revision().createMutableView();
+        const auto owner=f.root->vertex(f.rim.vertexIds[0]).owner;
+        (void)stage.addVertex(view,{-10,0,0},owner);
+    }catch(const std::runtime_error& e) {
+        diagnosticFailure=std::string(e.what()).find(
+            "diagnostic observer failed at addVertex")!=std::string::npos;
+    }
+    check(diagnosticFailure,
+          "snapshot-budget logic_error must escape as diagnostic runtime_error, not a geometry fallback");
     std::cout<<"[r06-m16c2c] pre-stage failure envelope and cancellation identity PASS\n";
 }
 }
