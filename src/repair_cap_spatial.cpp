@@ -236,7 +236,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         // connectivity are NOT mirrored.
         const bool negativeHalf=limits.requireMirrorPlane&&
             (result.positions[a].x<0||result.positions[b].x<0);
-        if(negativeHalf) {
+        if(negativeHalf!=limits.alternateBandDiagonals) {
             result.faces.push_back({a,b,d});
             result.faces.push_back({b,c,d});
         }else {
