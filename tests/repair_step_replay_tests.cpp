@@ -8,6 +8,7 @@
 #include <atomic>
 #include <chrono>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -196,7 +197,21 @@ void refusalProvenanceUnchanged(const RepairCase& accepted) {
 }
 int main() {
     try {
-        const auto saved=makeRealCase();
+        const auto original=makeRealCase();
+        // Run through the actual archived .r06case serializer, not merely
+        // an in-memory approximation of the replay contract.
+        const auto path=std::filesystem::current_path()/
+            "r06-m16c3-exact-saved-case.r06case";
+        std::filesystem::remove(path);
+        writeRepairCase(path,original);
+        const auto saved=readRepairCase(path);
+        std::filesystem::remove(path);
+        require(saved.contacts==original.contacts&&
+                saved.expectedClosure==original.expectedClosure&&
+                saved.symmetricSource==original.symmetricSource&&
+                saved.candidate.index&&
+                saved.candidate.index!=original.candidate.index,
+                "real step-replay fixture must preserve exact saved R01 contact IDs");
         exactRealReplayCanPauseAndResume(saved);
         cancellationDoesNotFabricateGeometryFailure(saved);
         refusalProvenanceUnchanged(saved);
