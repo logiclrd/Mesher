@@ -70,7 +70,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     const bool done=done_.load(std::memory_order_acquire);
     if(presentedInitial_&&lastFrame_==state.displayed.get()&&
        lastFinished_==state.finished&&lastCancelled_==state.cancelled&&
-       lastDone_==done)return std::nullopt;
+       lastDone_==done&&lastWaiting_==state.waiting&&
+       lastRunning_==state.running)return std::nullopt;
     if(!state.displayed&&!done&&!state.cancelled)return std::nullopt;
 
     presentedInitial_=true;
@@ -78,6 +79,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     lastFinished_=state.finished;
     lastCancelled_=state.cancelled;
     lastDone_=done;
+    lastWaiting_=state.waiting;
+    lastRunning_=state.running;
     std::shared_ptr<const RepairInspectionSnapshot> final;
     std::string failure;
     if(done) {
