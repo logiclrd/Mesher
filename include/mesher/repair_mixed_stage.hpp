@@ -6,6 +6,9 @@
 #include "mesher/repair_mixed_positions.hpp"
 
 #include <cstddef>
+#include <functional>
+#include <string>
+#include <utility>
 #include <map>
 #include <memory>
 #include <set>
@@ -65,6 +68,12 @@ struct MixedClosureSplitSettings {
 
 class MixedClosureStaging {
 public:
+    // Opt-in diagnostic observer, invoked synchronously after a complete
+    // logical mutation. It may copy immutable geometry and block the worker;
+    // it is never called while a stage mutex is held. Default: no observer.
+    using OperationObserver=std::function<void(
+        const MixedClosureStaging&,const std::string&,const std::string&)>;
+    void setOperationObserver(OperationObserver cb) {observer_=std::move(cb);}
     // M15A foundation: bind one EXACT immutable R03 open mesh and its
     // directed hole rims. Read-only boundary queries reflect subsequently
     // inserted faces and source-face overrides; no stale yellow path.
@@ -160,6 +169,9 @@ public:
 private:
     std::vector<VertexId> provisionalSpatialVertices_;
     std::vector<MixedClosureSplitEvent> splitEvents_;
+    OperationObserver observer_;
+    bool insideAtomicSplit_=false;
+    void notifyOperation(const std::string& name,const std::string& args) const;
 public:
     bool usedSpatialCapFallback{};
     bool usedMirroredSeamZipper{};
@@ -177,6 +189,8 @@ struct MixedClosureStageSettings {
     std::size_t maxNewTriangles=4096;
     std::size_t maxTrackedFaces=1000000;
     ForcedZipperSettings zipper{};
+    // Diagnostic only; the default execution does not copy or publish steps.
+    MixedClosureStaging::OperationObserver operationObserver{};
 };
 
 // One immutable R03 root and exact global M03 contour decisions. Rejects
