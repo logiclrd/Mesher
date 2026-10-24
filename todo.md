@@ -545,6 +545,23 @@ API, not merely the existing M14C optional helper.
   Rework cap/zip creation, adaptive refinement, flip/fan-collapse
   helpers into stage operations, then seal underlying topology mutation
   so a generator cannot bypass these invariants.
+  **Flat split before implementation:**
+  - [ ] **R06-M15C1 — Route cap/zipper face creation through ensureFace.**
+    No direct generator calls to `faces.push_back`, preserve complete
+    rim coverage, winding and quality refusal, test all five .r06case.
+  - [ ] **R06-M15C2 — Route flip/collapse/fairing through stage methods.**
+    Keep existing finite budget, original-vertex and mirror restrictions;
+    add tests for no isolated mutable helper bypass.
+  - [ ] **R06-M15C3 — Seal external mutable topology access.**
+    Migrate all existing read-only callers to const accessors, move
+    source-face override writes behind private methods and remove
+    independent edge-split helper mutation access from generators;
+    reject API-level hole/fork creation and preserve diagnostics.
+  - [ ] **R06-M15C4 — Combined exact replay and three-platform CI.**
+    All five archived source bytes unchanged; no new accidental
+    one-sided shared-edge subdivisions, no default collision-policy
+    changes and no live publication.
+
 - [ ] **R06-M15D — Exact case and physical GPU acceptance.**
   Split before/after attachment, M13 witness counts on 1/3,
   classifiers and all five preserved .r06case bytes, GCC/Clang/MSVC,
