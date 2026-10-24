@@ -52,30 +52,30 @@ struct AppliedMixedClosurePatch {
 // edits have been reconciled against the source-backed working set.
 inline MixedClosurePatch planPrivateMixedClosurePatch(
     const MixedClosureStaging& stage,std::size_t maxTrackedFaces) {
-    if(!stage.sourceView||!maxTrackedFaces||
-       stage.faces.size()>maxTrackedFaces)
+    if(!stage.sourceView()||!maxTrackedFaces||
+       stage.faces().size()>maxTrackedFaces)
         throw std::length_error("R06-M14E invalid or oversized staged patch");
     MixedClosurePatch patch;
-    patch.sourceR03=stage.sourceView->sourceRoot();
+    patch.sourceR03=stage.sourceView()->sourceRoot();
     std::set<FaceId> observed;
-    for(std::size_t i=0;i<stage.faces.size();++i) {
-        const auto& face=stage.faces[i];
+    for(std::size_t i=0;i<stage.faces().size();++i) {
+        const auto& face=stage.faces()[i];
         const auto triangle=face.triangle();
         if(triangle[0]==triangle[1]||triangle[1]==triangle[2]||
            triangle[0]==triangle[2])
             throw std::logic_error("R06-M14E invalid repeated triangle vertex in patch");
         for(const auto vertex:triangle)
-            if(!stage.positions.contains(vertex))
+            if(!stage.positions().contains(vertex))
                 throw std::logic_error("R06-M14E patch face references unregistered vertex");
         if(face.stableId) {
-            if(face.sourceView!=stage.sourceView||
+            if(face.sourceView!=stage.sourceView()||
                face.kind!=MixedClosureFaceKind::Survivor||
                !observed.insert(face.stableId).second)
                 throw std::logic_error("R06-M14E duplicate/foreign original face handle");
             const auto& source=patch.sourceR03->face(face.stableId);
             if(source.owner!=face.owner)
                 throw std::logic_error("R06-M14E source survivor owner changed");
-            if(!stage.sourceView->hasFaceOverride(face.stableId))continue;
+            if(!stage.sourceView()->hasFaceOverride(face.stableId))continue;
             ++patch.changedSurvivors;
         }else if(face.sourceView)
             throw std::logic_error("R06-M14E a new face must not bind a source FaceId handle");
@@ -85,17 +85,17 @@ inline MixedClosurePatch planPrivateMixedClosurePatch(
     }
     // Catch an override of an original FaceId omitted from the patch's
     // survivor worklist. Never silently accept an incomplete proposal.
-    if(stage.sourceView->pendingFaceEdits()!=patch.changedSurvivors)
+    if(stage.sourceView()->pendingFaceEdits()!=patch.changedSurvivors)
         throw std::logic_error("R06-M14E incomplete patch: original survivor override omitted");
-    for(const auto id:stage.sourceView->editedPositionIds()) {
+    for(const auto id:stage.sourceView()->editedPositionIds()) {
         const auto original=patch.sourceR03->vertex(id);
         patch.vertexWrites.push_back({id,original.owner,
-                                      stage.sourceView->position(id)});
+                                      stage.sourceView()->position(id)});
     }
-    for(const auto& [id,position]:stage.positions) {
+    for(const auto& [id,position]:stage.positions()) {
         if(patch.sourceR03->maybeVertex(id))continue;
-        const auto owner=stage.vertexOwners.find(id);
-        if(owner==stage.vertexOwners.end())
+        const auto owner=stage.vertexOwners().find(id);
+        if(owner==stage.vertexOwners().end())
             throw std::logic_error("R06-M14E generated vertex owner omitted from patch");
         patch.generatedVertices.push_back({id,owner->second,position});
     }
