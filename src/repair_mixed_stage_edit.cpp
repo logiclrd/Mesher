@@ -244,15 +244,26 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     MutableMeshView& privateView,VertexId a,VertexId b,
     const MixedClosureSplitSettings& settings,
     std::size_t alreadyInserted,std::size_t alreadyRefined,
-    bool optionalQualityOnly) {
+    bool optionalQualityOnly,double canonicalT) {
     if(!sourceView_)throw std::logic_error("R06-M15B unbound staging source");
     const Edge firstEdge=edge(a,b);
     if(!a||!b||a==b||!hasEffectiveEdge(a,b))
         throw std::logic_error("R06-M15B requested split edge does not exist in current topology");
     if(!settings.maxTrackedFaces||!settings.maxInsertedVertices||
        !settings.maxRefinementSteps||settings.minSurvivorQuality<=0||
-       settings.minCapQuality<=0||settings.minZipperQuality<=0)
+       settings.minCapQuality<=0||settings.minZipperQuality<=0||
+       !std::isfinite(settings.minimumSplitFraction)||
+       settings.minimumSplitFraction<=0||
+       settings.minimumSplitFraction>=.5)
         throw std::invalid_argument("R06-M15B invalid split policy");
+    // Stable-ID canonical orientation is independent of the caller's
+    // endpoint order. Tiny near-endpoint cuts are rejected BEFORE any edit.
+    if(!std::isfinite(canonicalT)||
+       canonicalT<settings.minimumSplitFraction||
+       canonicalT>1.-settings.minimumSplitFraction)
+        throw std::invalid_argument(
+            "R06-M17B split parameter outside finite interior bounds");
+    const bool isMidpoint=canonicalT==.5;
 
     const auto partner=[&](VertexId id)->std::optional<VertexId> {
         const auto p=positions_.at(id);
@@ -265,6 +276,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         return candidate;
     };
     Edge otherEdge=firstEdge;
+    VertexId reflectedFirst=firstEdge.first;
     if(settings.requireReflectedGeometry) {
         const auto left=partner(firstEdge.first);
         const auto right=partner(firstEdge.second);
@@ -273,6 +285,16 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
             throw std::logic_error("R06-M15B reflected split edge partner missing");
         }
         otherEdge=edge(*left,*right);
+        reflectedFirst=*left;
+        // A self-reflected edge with swapped endpoints crosses the
+        // symmetry plane. It can only be divided at the fixed midpoint:
+        // an off-center point would require another split of SAME edge.
+        if(otherEdge==firstEdge&&reflectedFirst!=firstEdge.first&&
+           !isMidpoint) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error(
+                "R06-M17B off-center cut across self-reflected seam edge");
+        }
     }
     const bool two=otherEdge!=firstEdge;
     const std::vector<Edge> orbit=two?
@@ -284,6 +306,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         MixedClosureEdgeNeighborhood neighborhood;
         std::vector<MixedClosureFace> effective;
         Vec3 midpoint{};
+        double splitT=.5;
         std::size_t originalSides{};
     };
     std::vector<Candidate> work;
@@ -303,6 +326,8 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         c.key=item;
         c.neighborhood=std::move(n);
         c.originalSides=c.neighborhood.sides();
+        c.splitT=two&&item==otherEdge&&
+            reflectedFirst!=otherEdge.first?1.-canonicalT:canonicalT;
         children+=c.originalSides;
         for(const auto index:c.neighborhood.localFaceIndexes)
             c.effective.push_back(faces_.at(index));
@@ -317,8 +342,31 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 if(optionalQualityOnly)return {};
                 throw std::logic_error("R06-M15B reflected edge orbit shares an original face");
             }
-        const auto safe=assessSurvivorSplit(
-            c.effective,positions_,item,settings.minSurvivorQuality);
+        const auto pa=positions_.at(item.first);
+        const auto pb=positions_.at(item.second);
+        // Keep legacy midpoint arithmetic exactly intact for all
+        // previously accepted R06 cases.
+        c.midpoint=isMidpoint?(pa+pb)*.5:
+            pa+(pb-pa)*c.splitT;
+        if(two&&item==otherEdge&&!isMidpoint) {
+            // Reflection of the ORIGINAL proposed point, not a separately
+            // rounded interpolation, preserves exact X/Y/Z correspondence.
+            const auto& first=work.front().midpoint;
+            const Vec3 reflected{-first.x,first.y,first.z};
+            const auto computed=c.midpoint;
+            const double tolerance=1e-12*std::max(1.,length(pb-pa));
+            if(length(computed-reflected)>tolerance) {
+                if(optionalQualityOnly)return {};
+                throw std::logic_error(
+                    "R06-M17B mirrored edge parameter geometric mismatch");
+            }
+            c.midpoint=reflected;
+        }
+        const auto safe=isMidpoint?
+            assessSurvivorSplit(c.effective,positions_,item,
+                                settings.minSurvivorQuality):
+            assessSurvivorSplitAt(c.effective,positions_,item,c.midpoint,
+                                  settings.minSurvivorQuality);
         if(!safe.safe) {
             if(optionalQualityOnly)return {};
             throw std::logic_error(
@@ -326,7 +374,9 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 std::to_string(safe.originalFace)+
                 " child_q="+std::to_string(safe.worstChildQuality));
         }
-        const auto midpoint=assessUniqueConformingMidpoint(positions_,item);
+        const auto midpoint=isMidpoint?
+            assessUniqueConformingMidpoint(positions_,item):
+            assessUniqueConformingSplitPoint(positions_,item,c.midpoint);
         if(!midpoint.unique) {
             if(optionalQualityOnly)return {};
             throw std::logic_error("R06-M15B split midpoint duplicates a registered vertex");
@@ -342,7 +392,11 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 throw std::logic_error("R06-M15B split midpoint duplicates a remote source vertex");
             }
         }
-        if(optionalQualityOnly) {
+        // An off-center split must never silently introduce a worse
+        // closure needle. For old mandatory midpoint requests preserve
+        // the original stage behavior; optional refinements retain their
+        // historical hard floor for ALL incident sides.
+        if(optionalQualityOnly||!isMidpoint) {
             for(const auto& f:c.effective) {
                 const auto tri=f.triangle();
                 bool found=false;
@@ -360,8 +414,21 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                         settings.minSurvivorQuality:
                         f.kind==MixedClosureFaceKind::Cap?
                         settings.minCapQuality:settings.minZipperQuality;
-                    if(std::min(quality(p,m,r),quality(m,q,r))+1e-12<floor)
-                        return {};
+                    const double parent=quality(p,q,r);
+                    const double worst=std::min(
+                        quality(p,m,r),quality(m,q,r));
+                    const double required=optionalQualityOnly||
+                        f.kind==MixedClosureFaceKind::Survivor||
+                        parent>=floor?floor:parent*(1.+1e-5);
+                    if(!std::isfinite(worst)||worst+1e-12<required) {
+                        if(optionalQualityOnly)return {};
+                        throw std::logic_error(
+                            "R06-M17B off-center split worsens incident "+
+                            std::string(f.kind==MixedClosureFaceKind::Cap?
+                                "cap":f.kind==MixedClosureFaceKind::Zipper?
+                                "zipper":"survivor")+
+                            " child quality");
+                    }
                     found=true;
                     break;
                 }
@@ -411,6 +478,8 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
             throw std::logic_error("R06-M15B preflight incidence drift");
         MixedClosureSplitEvent lineage;
         lineage.midpoint=middle;
+        lineage.canonicalT=c.splitT;
+        lineage.position=c.midpoint;
         lineage.originalA=c.key.first;
         lineage.originalB=c.key.second;
         lineage.originalR03Sides=sourceView_->source().maybeEdgeSides(
@@ -452,9 +521,16 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     // effective edges; the original AB is now absent and AM/MB are real.
     if(observer_) {
         std::ostringstream args;
-        args<<"a="<<a<<" b="<<b<<" mirror_orbit="<<orbit.size()
-            <<" optional="<<optionalQualityOnly<<" midpoints=";
-        for(const auto id:midpoints)args<<id<<",";
+        args<<std::setprecision(17)
+            <<"a="<<a<<" b="<<b<<" canonical_t="<<canonicalT
+            <<" mirror_orbit="<<orbit.size()
+            <<" optional="<<optionalQualityOnly<<" split_points=";
+        for(std::size_t i=0;i<midpoints.size();++i) {
+            const auto& item=work[i];
+            args<<"id="<<midpoints[i]<<" t="<<item.splitT
+                <<" xyz="<<item.midpoint.x<<","
+                <<item.midpoint.y<<","<<item.midpoint.z<<";";
+        }
         notifyOperation("splitEdge",args.str());
     }
     return midpoints;
