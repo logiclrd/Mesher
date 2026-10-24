@@ -11,6 +11,7 @@
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/repair_inspection.hpp"
 #include "mesher/repair_case.hpp"
+#include "mesher/repair_step_replay_session.hpp"
 
 #include <array>
 #include <set>
@@ -61,7 +62,7 @@ int main(int argc, char** argv) {
     std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
     std::filesystem::path recoverPath;
     std::filesystem::path repairCaseOut,repairReplayPath;
-    bool repairReplayTest=false;
+    bool repairReplayTest=false,repairStepDebug=false;
     bool classifierExplicit=false;
     mesher::AutoClosureClassifier repairClassifier=mesher::AutoClosureClassifier::Area;
     try {
@@ -91,6 +92,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
+            else if(arg=="--repair-step-debug")repairStepDebug=true;
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
@@ -228,6 +230,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-overlay-exact] (R06 draw undisplaced cap/zipper and exact highlighted seam)\n"
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
+                         <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
@@ -280,6 +283,9 @@ int main(int argc, char** argv) {
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
             throw std::invalid_argument("--repair-case-out requires --repair auto");
+        if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
+            throw std::invalid_argument(
+                "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
         if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
            repairPreview||repairExcise||!recoverPath.empty()||torusFixture||
            hollowSphereFixture||allowMergeGeometry||avoidCollisions||avoidTestSheets||
@@ -319,6 +325,36 @@ int main(int argc, char** argv) {
             // candidate are decoded BEFORE any Vulkan/GPU setup. The source
             // sculpt and its previous worker history are never synthesized.
             const auto saved=mesher::readRepairCase(repairReplayPath);
+            if(repairStepDebug) {
+                // M16D opt-in: Vulkan is fully initialized before the replay
+                // worker starts. No private open stage enters the immutable
+                // revision publisher, picking root, history or checkpoint.
+                auto viewportMesh=mesher::flattenRevisionForViewport(
+                    *saved.candidate.index,mesher::FlatMeshIndex{});
+                if(viewportMesh.vertices.empty())
+                    throw std::runtime_error("R06 stepped replay has no candidate");
+                auto session=std::make_shared<mesher::RepairReplayStepSession>(
+                    saved,repairClassifier,repairQualityWarn,
+                    repairSeamAudit,repairOverlayExact);
+                mesher::ViewportInteraction inspect;
+                inspect.initialRevision=saved.candidate.index;
+                inspect.canBegin=[]{return false;};
+                inspect.completedStamps=[]{return std::size_t{0};};
+                inspect.repairStepMode=true;
+                inspect.onReady=[session] {session->start();};
+                inspect.repairStepCommand=[session](int key) {
+                    session->command(key);
+                };
+                inspect.takeSnapshot=[session] {return session->takeSnapshot();};
+                inspect.caption=[session] {return session->caption();};
+                std::cout<<"[repair-r06-m16d] Interactive exact replay: "
+                            "N Next, P Previous, C Current, Enter Continue, "
+                            "Backspace Cancel, PgUp/PgDn scroll arguments; "
+                            "orbit/W/G and Escape exit. Private only.\n";
+                mesher::runViewport(viewportMesh,{},std::move(inspect));
+                session->cancelAndJoin(); // also handled by destructor on throw
+                return 0;
+            }
             const auto frozen=mesher::replayPrivateAutomaticRepair(
                 saved,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact);
