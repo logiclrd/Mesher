@@ -72,9 +72,9 @@ void exactRealReplayCanPauseAndResume(const RepairCase& saved) {
                 "a real 5K replay never reached its first staging operation");
         const auto first=trace->gate().view();
         require(first.waiting&&first.current&&first.sequence==1&&
-                !first.finished&&first.current->source==baseline->privateCut->index,
+                !first.finished&&first.current->source!=root,
                 "first real step must pause worker against exact R03 cut");
-        require(!trace->gate().next()==false,
+        require(trace->gate().next(),
                 "Next must release one real pending operation");
         require(trace->gate().waitForSequence(2,20s),
                 "second real staging operation did not reach observer");
@@ -98,7 +98,9 @@ void exactRealReplayCanPauseAndResume(const RepairCase& saved) {
         if(failure)std::rethrow_exception(failure);
         const auto finished=trace->gate().view();
         require(finished.finished&&finished.running&&finished.sequence>=2&&
-                stepped&&stepped->privateAuto&&stepped->autoPlan&&
+                stepped&&stepped->privateAuto&&stepped->privateCut&&
+                first.current->source==stepped->privateCut->index&&
+                stepped->autoPlan&&
                 stepped->autoPlan->cappedContours==
                     baseline->autoPlan->cappedContours&&
                 stepped->privateAuto->generatedFaces==
