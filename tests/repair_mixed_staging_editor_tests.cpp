@@ -150,13 +150,61 @@ void testNewFaceMovesActiveBoundary() {
           "M15A overfull original rim edge rejected without adding triangle");
     std::cout<<"[r06-m15a] new vertex, incremental front and overfilled face refusal PASS\n";
 }
+void testOptInPostOperationObserver() {
+    auto f=openTetra();
+    auto view=f.source->revision().createMutableView();
+    MixedClosureStaging stage(f.source,{f.rim});
+    struct Observed {
+        std::string name,args;
+        std::size_t faces,splitEvents,boundarySize;
+    };
+    std::vector<Observed> events;
+    stage.setOperationObserver([&](const MixedClosureStaging& current,
+                                   const std::string& name,
+                                   const std::string& args) {
+        const auto rims=current.currentBoundaryLoops();
+        events.push_back({name,args,current.faces().size(),
+                          current.splitEvents().size(),
+                          rims.empty()?0:rims.front().size()});
+    });
+    const auto a=f.v[0],b=f.v[1],c=f.v[2];
+    const auto owner=f.source->vertex(a).owner;
+    const auto ordinal=stage.ensureFace(a,c,b,MixedClosureFaceKind::Cap,owner,1);
+    check(ordinal==0&&events.size()==1&&
+          events.back().name=="ensureFace"&&events.back().boundarySize==0,
+          "M16C2a ensureFace observer must see the complete edited topology");
+    (void)stage.ensureFace(c,b,a,MixedClosureFaceKind::Cap,owner,1);
+    check(events.size()==1,
+          "M16C2a idempotent ensureFace must not generate a false edit");
+    MixedClosureSplitSettings settings;
+    settings.maxTrackedFaces=64;
+    const auto mids=stage.splitEdge(view,a,b,settings);
+    check(mids.size()==1&&events.size()==2&&
+          events.back().name=="splitEdge"&&
+          events.back().args.find(std::to_string(mids.front()))!=std::string::npos&&
+          events.back().splitEvents==1&&events.back().boundarySize==0,
+          "M16C2a split callback must see BOTH indexed sides updated atomically");
+    check(events.back().faces==3,
+          "M16C2a split must yield original cap and two survivor source children");
+    bool failed=false;
+    try {(void)stage.splitEdge(view,a,b,settings);}
+    catch(const std::logic_error&) {failed=true;}
+    check(failed&&events.size()==2,
+          "M16C2a invalid duplicate split must not claim a new stage edit");
+    stage.setOperationObserver({});
+    (void)stage.addVertex(view,{1,-1,0},owner);
+    check(events.size()==2,
+          "M16C2a disabled mode must not emit an event");
+    std::cout<<"[r06-m16c2a] exact postoperation observer, no-op and atomic split PASS\n";
 }
+
 int main() {
     try {
         testLiveRimAndIdempotentFace();
         testNewFaceMovesActiveBoundary();
         testSplitRimBeforeOrAfterCap();
         testRemoteInteriorEdgeSplit();
+        testOptInPostOperationObserver();
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"R06-M15A staged topology API FAILED: "<<e.what()<<"\n";
