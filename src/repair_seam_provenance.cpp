@@ -96,15 +96,15 @@ RepairSeamProvenanceReport explainRepairSeamWitnesses(
             (introduced.contains(issue.otherVertex)||
              bool(consolidatedPrivate.maybeVertex(issue.otherVertex)));
         p.indexedTopologyWitness=isIndexedError(issue.kind);
-        if(const auto it=byMidpoint.find(issue.vertex);
-           it!=byMidpoint.end()) {
+        if(const auto splitRecord=byMidpoint.find(issue.vertex);
+           splitRecord!=byMidpoint.end()) {
             p.verifiedStageSplitMidpoint=true;
-            p.splitParentA=it->second.originalA;
-            p.splitParentB=it->second.originalB;
-            p.splitParentR03Sides=it->second.originalR03Sides;
-            p.splitIncidentSurvivorSides=it->second.incidentSurvivorSides;
-            p.splitIncidentCapSides=it->second.incidentCapSides;
-            p.splitIncidentZipperSides=it->second.incidentZipperSides;
+            p.splitParentA=splitRecord->second.originalA;
+            p.splitParentB=splitRecord->second.originalB;
+            p.splitParentR03Sides=splitRecord->second.originalR03Sides;
+            p.splitIncidentSurvivorSides=splitRecord->second.incidentSurvivorSides;
+            p.splitIncidentCapSides=splitRecord->second.incidentCapSides;
+            p.splitIncidentZipperSides=splitRecord->second.incidentZipperSides;
         }
         if(issue.kind=="NEW_VERTEX_INSIDE_SURVIVOR_EDGE") {
             if(p.verifiedStageSplitMidpoint)++report.witnessedSplitMidpoints;
