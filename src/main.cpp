@@ -420,6 +420,9 @@ int main(int argc, char** argv) {
                     mesher::printRepairSeamAudit(std::cout,*mesh,
                         *frozen->seamAudit,
                         succeeded?"CERTIFIED_PRIVATE":"UNTRUSTED_WARNING_PREVIEW");
+                if(frozen->seamProvenance)
+                    mesher::printRepairSeamProvenance(
+                        std::cout,*frozen->seamProvenance);
                 else
                     std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
                              <<frozen->seamAuditDiagnostic<<"\n";
@@ -990,6 +993,9 @@ int main(int argc, char** argv) {
                                 *frozen->seamAudit,
                                 frozen->privateAuto?"CERTIFIED_PRIVATE":
                                     "UNTRUSTED_WARNING_PREVIEW");
+                        if(frozen->seamProvenance)
+                            mesher::printRepairSeamProvenance(
+                                std::cout,*frozen->seamProvenance);
                         else
                             std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
                                      <<frozen->seamAuditDiagnostic<<"\n";

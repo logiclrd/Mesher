@@ -199,8 +199,17 @@ void buildSeamAuditIfRequested(RepairInspectionSnapshot& snapshot,
         const auto& blue=snapshot.warningPreview->blueFaces;
         ids.insert(ids.end(),blue.begin(),blue.end());
     }
-    try {snapshot.seamAudit=auditPrivateRepairSeam(*mesh,ids);}
-    catch(const std::exception& e) {
+    try {
+        snapshot.seamAudit=auditPrivateRepairSeam(*mesh,ids);
+        if(snapshot.privateCut&&snapshot.privateCut->index) {
+            // Certified AUTO exposes only a count of added vertices;
+            // provenance also resolves source/new IDs from both indexes.
+            const auto added=good?std::vector<VertexId>{}:
+                snapshot.warningPreview->insertedVertices;
+            snapshot.seamProvenance=explainRepairSeamWitnesses(
+                *snapshot.privateCut->index,*mesh,*snapshot.seamAudit,added);
+        }
+    }catch(const std::exception& e) {
         snapshot.seamAuditDiagnostic=e.what();
     }
 }

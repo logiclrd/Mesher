@@ -6,6 +6,7 @@
 #include "mesher/repair_cap.hpp"
 #include "mesher/repair_auto_private.hpp"
 #include "mesher/repair_seam_audit.hpp"
+#include "mesher/repair_seam_provenance.hpp"
 
 #include <array>
 #include <atomic>
@@ -59,6 +60,7 @@ struct RepairInspectionSnapshot {
     std::string warningPreviewDiagnostic;
     bool exactOverlay=false;
     std::optional<RepairSeamAudit> seamAudit;
+    std::optional<RepairSeamProvenanceReport> seamProvenance;
     std::string seamAuditDiagnostic;
 };
 
