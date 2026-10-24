@@ -5,6 +5,7 @@
 #include "mesher/repair_interior_collapse.hpp"
 #include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
+#include "mesher/repair_split_template.hpp"
 #include "mesher/repair_mixed_edges.hpp"
 #include "mesher/repair_mixed_patch.hpp"
 
@@ -64,7 +65,12 @@ void validate(const MixedPrivateClosureLimits& settings) {
        settings.minSurvivorQuality<=0||
        settings.minCapQuality<=0||settings.minCapQuality>=1||
        settings.minZipperQuality<=0||settings.minZipperQuality>=1||
-       settings.maxCapEdgeFactor<=1||settings.maxZipperEdgeFactor<=1)
+       settings.maxCapEdgeFactor<=1||settings.maxZipperEdgeFactor<=1||
+       !std::isfinite(settings.shapeRepairScaleRatio)||
+       settings.shapeRepairScaleRatio<=1||
+       !settings.maxScaleAwareSplitOperations||
+       !settings.maxScaleAwareSplitDepth||
+       settings.maxScaleAwareSplitDepth>8)
         throw std::invalid_argument("R06-M04B invalid finite quality/refinement limits");
 }
 } // namespace
@@ -240,7 +246,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
               peer.point.y==midpoint.point.y&&
               peer.point.z==midpoint.point.z);
     };
-    const auto splitMirrored=[&](Edge chosen,bool optional)->std::size_t {
+    const auto splitMirrored=[&](Edge chosen,bool optional,
+                               double canonicalT=.5)->std::vector<VertexId> {
         MixedClosureSplitSettings policy;
         policy.requireReflectedGeometry=limits.requireReflectedGeometry;
         policy.minSurvivorQuality=limits.minSurvivorQuality;
@@ -252,12 +259,13 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             limits.maxAuditedFaces+limits.maxNewFaces,
             stageLimits.maxTrackedFaces);
         const auto mids=staged.splitEdge(view,chosen.first,chosen.second,
-            policy,out.insertedVertices.size(),out.refinementSteps,optional);
+            policy,out.insertedVertices.size(),out.refinementSteps,
+            optional,canonicalT);
         for(const auto id:mids) {
             out.insertedVertices.push_back(id);
             owners.insert(staged.vertexOwner(id));
         }
-        return mids.size();
+        return mids;
     };
 
     // R04-like conforming PRE-subdivision along the true old-boundary /
@@ -312,7 +320,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
         }
         try {
-            out.refinementSteps+=splitMirrored(worst,false);
+            out.refinementSteps+=splitMirrored(worst,false).size();
         }catch(const std::length_error&) {
             if(!limits.inspectionWarnQuality)throw;
             warn("zipper boundary density exceeded complete mirror-orbit budget");
@@ -511,7 +519,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::logic_error("R06-M04B refinement stagnation");
         }
         try {
-            out.refinementSteps+=splitMirrored(chosen,false);
+            out.refinementSteps+=splitMirrored(chosen,false).size();
         }catch(const std::length_error&) {
             if(!limits.inspectionWarnQuality)throw;
             warn("closure refinement exceeded complete mirror-orbit budget");
@@ -579,7 +587,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 }
             }
             if(highestRatio<=1)break;
-            const auto count=splitMirrored(chosen,true);
+            const auto count=splitMirrored(chosen,true).size();
             if(!count)break;
             out.refinementSteps+=count;
             out.spatialDensitySplits+=count;
