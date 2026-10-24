@@ -3,13 +3,24 @@
 #include "mesher/repair_mixed_stage.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace mesher {
 
+// Diagnostic-only terminal report, distinct from operation snapshots.
+ // An error before staging exists has no renderable stage object.
+enum class MixedClosureTerminalOutcome {Completed,Refused};
+struct MixedClosureTerminalEvent {
+    MixedClosureTerminalOutcome outcome{MixedClosureTerminalOutcome::Refused};
+    std::string phase;
+    std::string detail;
+    bool untrustedWarningPreview=false;
+};
 struct MixedPrivateClosureLimits {
+    std::function<void(const MixedClosureTerminalEvent&)> terminalObserver{};
     MixedClosureStageSettings staging{};
     bool requireReflectedGeometry=false;
     bool inspectionWarnQuality=false; // private diagnostic only; not a certified closure
