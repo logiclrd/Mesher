@@ -212,7 +212,7 @@ void viewportBridgeSession(const RepairCase& saved) {
     session.command(1); // Previous: presentation only
     const auto older=session.takeSnapshot();
     require(older&&older->inspectionStepReplaceMesh&&
-            older->repairStepLines[0].find("PREVIOUS")!=std::string::npos,
+            older->repairStepLines[0].find("STEP 1 PREVIOUS")!=std::string::npos,
             "viewport bridge Previous must not advance source staging");
     session.command(2);
     const auto current=session.takeSnapshot();
