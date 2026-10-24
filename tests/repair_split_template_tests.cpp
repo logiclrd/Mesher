@@ -152,6 +152,27 @@ void actualHybridTrajectoryMerit() {
           "under-quality needle must not select coarse hybrid just for local density");
     std::cout<<"[r06-m17c] hybrid only for coarse healthy patch with real child gain and two-step budget PASS\n";
 }
+void hardFloorRestoringSplitAtShapeScale() {
+    // A shallow but NOT irrecoverably acute triangle is initially below
+    // q=.1 and has reached the shape-repair scale. Its base midpoint
+    // produces two children with q>.1, unlike the acute needle regression.
+    auto x=input({0,0,0},{10,0,0},{5,.4,0},.1,6);
+    const auto p=evaluateRepairSplitTemplates(x);
+    check(!p.coarse&&p.hasSelection()&&
+          p.candidates[p.selected].kind==Kind::Midpoint&&
+          p.candidates[p.selected].worstBefore<.1&&
+          p.candidates[p.selected].worstAfter>=.1&&
+          p.candidates[p.selected].operations==1,
+          "after shape-first attempt a single hard-floor-restoring split should be available");
+    auto secondSide=x;
+    // The OTHER incident face must independently meet ITS floor:
+    // two-sided constraints cannot be waived for the good side.
+    secondSide.sides.push_back({{5,-.025,0},.1});
+    const auto blocked=evaluateRepairSplitTemplates(secondSide);
+    check(!blocked.hasSelection(),
+          "a poor survivor on the opposite side must block a local-only cure");
+    std::cout<<"[r06-m17c] at-scale q-restoring split versus blocked second side PASS\n";
+}
 void strictInvalidAndNoUnneededEdits() {
     auto x=input({0,0,0},{10,0,0},{5,6,0},.1,20);
     const auto p=evaluateRepairSplitTemplates(x);
@@ -184,6 +205,7 @@ int main() {
         endpointChasingAndBoundedCandidates();
         jointSidesAndCanonicalOrientation();
         strictInvalidAndNoUnneededEdits();
+        hardFloorRestoringSplitAtShapeScale();
         actualHybridTrajectoryMerit();
     }catch(const std::exception& e) {
         std::cerr<<"[r06-m17a] FAILED "<<e.what()<<"\n";
