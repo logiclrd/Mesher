@@ -1,6 +1,7 @@
 #include "mesher/repair_mixed_closure.hpp"
 #include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/repair_case.hpp"
+#include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -207,6 +208,55 @@ void refusalOneRealSavedCaseAttemptTrace() {
                      <<p.x<<","<<p.y<<","<<p.z;
         }
         std::cout<<"\n";
+    }
+    for(const auto loopId:plan.cappedContours) {
+        const auto& rim=excision.contours.at(loopId);
+        std::vector<Vec3> ordered,normalGuide;
+        for(std::size_t k=0;k<rim.vertexIds.size();++k) {
+            const auto index=rim.vertexIds.size()-k-1;
+            ordered.push_back(cut.index->vertex(rim.vertexIds[index]).position);
+            const auto src=cut.index->face(rim.survivingFaces[index]).vertices;
+            const auto a=cut.index->vertex(src[0]).position;
+            const auto b=cut.index->vertex(src[1]).position;
+            const auto d=cut.index->vertex(src[2]).position;
+            normalGuide.push_back(cross(b-a,d-a));
+        }
+        for(const auto alternative:{false,true}) {
+            SpatialCapSettings bounds;
+            bounds.requireMirrorPlane=saved.symmetricSource&&
+                std::any_of(ordered.begin(),ordered.end(),
+                    [](Vec3 p){return p.x<0;})&&
+                std::any_of(ordered.begin(),ordered.end(),
+                    [](Vec3 p){return p.x>0;});
+            bounds.alternateBandDiagonals=alternative;
+            try {
+                const auto local=buildSpatialCapFrontPoisson(
+                    ordered,normalGuide,bounds);
+                double worst=1.;
+                std::array<std::uint32_t,3> worstIds{};
+                for(const auto& tri:local.faces) {
+                    const auto a=local.positions[tri[0]];
+                    const auto b=local.positions[tri[1]];
+                    const auto d=local.positions[tri[2]];
+                    const auto sum=dot(a-b,a-b)+dot(b-d,b-d)+dot(d-a,d-a);
+                    const auto q=sum>0?
+                        2*std::sqrt(3.)*length(cross(b-a,d-a))/sum:0.;
+                    if(q<worst){worst=q;worstIds=tri;}
+                }
+                std::cout<<"[r06-m17d-candidate] loop="<<loopId
+                         <<" alternate="<<alternative
+                         <<" q="<<worst
+                         <<" reported_q="<<local.minimumQuality
+                         <<" worst_local="<<worstIds[0]<<","
+                         <<worstIds[1]<<","<<worstIds[2]
+                         <<" Poisson="<<local.poissonIterations
+                         <<" faces="<<local.faces.size()<<"\n";
+            }catch(const std::exception& e) {
+                std::cout<<"[r06-m17d-candidate] loop="<<loopId
+                         <<" alternate="<<alternative
+                         <<" rejected="<<e.what()<<"\n";
+            }
+        }
     }
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
