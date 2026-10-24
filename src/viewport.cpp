@@ -10,6 +10,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cctype>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -121,6 +122,16 @@ Glyph hudGlyph(char ch) {
         case '.': return {0,0,0,0,0,12,12};
         case '-': return {0,0,0,31,0,0,0};
         case '<': return {2,4,8,16,8,4,2};
+        case '>': return {8,4,2,1,2,4,8};
+        case '=': return {0,31,0,31,0,0,0};
+        case ',': return {0,0,0,0,4,4,8};
+        case '_': return {0,0,0,0,0,0,31};
+        case '(': return {2,4,8,8,8,4,2};
+        case ')': return {8,4,2,2,2,4,8};
+        case '+': return {0,4,4,31,4,4,0};
+        case '#': return {10,31,10,10,31,10,0};
+        case '?': return {14,17,1,2,4,0,4};
+        case '*': return {0,21,14,31,14,21,0};
         default: return {};
     }
 }
@@ -141,7 +152,9 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              double radius,
                              const std::array<std::string,2>& classifierChoices,
                              bool classifierComparable,bool classifiersAgree,
-                             int activeClassifier) {
+                             int activeClassifier,
+                             const std::vector<std::string>& repairStepLines,
+                             std::size_t repairStepScroll) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
@@ -178,29 +191,56 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     textLine(stamps,1);
     if(!merge.empty())textLine(merge,2);
 
-    // Independent upper-left two-line comparison, NOT part of the
-    // right-side FPS/stamps/status block. Its color means agreement only,
-    // not correctness or successful construction of either repair.
-    if(!classifierChoices[0].empty()&&!classifierChoices[1].empty()) {
+    // M16D: classifier diagnostics ALWAYS occupy rows 0 and 1, and all
+    // operation/argument text starts precisely at upper-left row 2.
+    // This is a separate panel from the upper-right FPS/stamps status.
+    if((!classifierChoices[0].empty()&&!classifierChoices[1].empty())||
+       !repairStepLines.empty()) {
+        const bool stepping=!repairStepLines.empty();
         const std::array<std::string,2> lines{{
-            "AREA: "+classifierChoices[0]+(activeClassifier==0?" <---":""),
-            "PROXIMITY: "+classifierChoices[1]+(activeClassifier==1?" <---":"")
+            "AREA: "+(classifierChoices[0].empty()?"UNAVAILABLE":classifierChoices[0])+
+                (activeClassifier==0?" <---":""),
+            "PROXIMITY: "+(classifierChoices[1].empty()?"UNAVAILABLE":classifierChoices[1])+
+                (activeClassifier==1?" <---":"")
         }};
-        const auto widthChars=std::max(lines[0].size(),lines[1].size());
-        const int textX=margin+padding,textY=margin+padding;
-        rectangle(margin,margin,int(widthChars)*characterWidth+2*padding,
-                  2*characterHeight+2*padding,1.0f);
+        const int leftMax=std::max(160,std::min(
+            int(width)-2*margin-2*padding,int(width)*2/3));
+        const std::size_t maxColumns=std::size_t(std::max(12,leftMax/characterWidth));
+        const int maxRows=std::max(3,std::min(19,
+            (int(height)-2*margin-2*padding)/characterHeight));
+        std::vector<std::string> wrapped;
+        if(stepping)for(const auto& line:repairStepLines) {
+            if(line.empty()){wrapped.emplace_back();continue;}
+            for(std::size_t offset=0;offset<line.size();offset+=maxColumns)
+                wrapped.push_back(line.substr(offset,maxColumns));
+        }
+        const std::size_t availableRows=std::size_t(std::max(1,maxRows-2));
+        const std::size_t maxScroll=wrapped.size()>availableRows?
+            wrapped.size()-availableRows:0;
+        const auto from=std::min(repairStepScroll,maxScroll);
+        const std::size_t visible=std::min(availableRows,wrapped.size()-from);
+        const int rows=2+(stepping?int(visible):0);
+        const int panelWidth=stepping?int(maxColumns)*characterWidth+2*padding:
+            int(std::max(lines[0].size(),lines[1].size()))*characterWidth+2*padding;
+        rectangle(margin,margin,panelWidth,
+                  rows*characterHeight+2*padding,1.0f);
         const float tint=!classifierComparable?0.0f:
                          classifiersAgree?2.0f:3.0f;
-        for(std::size_t row=0;row<lines.size();++row)
-            for(std::size_t i=0;i<lines[row].size();++i) {
-                const auto glyph=hudGlyph(lines[row][i]);
+        const auto leftText=[&](const std::string& line,int row,float color) {
+            for(std::size_t i=0;i<line.size()&&i<maxColumns;++i) {
+                const auto ch=static_cast<unsigned char>(line[i]);
+                const auto glyph=hudGlyph(char(std::toupper(ch)));
                 for(int y=0;y<7;++y)for(int x=0;x<5;++x)
                     if(glyph[y]&(1u<<(4-x)))
-                        rectangle(textX+int(i)*characterWidth+x*scale,
-                                  textY+int(row)*characterHeight+y*scale,
-                                  scale,scale,tint);
+                        rectangle(margin+padding+int(i)*characterWidth+x*scale,
+                                  margin+padding+row*characterHeight+y*scale,
+                                  scale,scale,color);
             }
+        };
+        leftText(lines[0],0,tint);
+        leftText(lines[1],1,tint);
+        for(std::size_t i=0;i<visible;++i)
+            leftText(wrapped[from+i],int(i)+2,0.0f);
     }
 
     if(slider) {
@@ -404,6 +444,12 @@ class VulkanViewport {
     std::array<std::string,2> classifierChoices_{};
     bool classifierComparable_=false,classifiersAgree_=false;
     int activeClassifier_=0;
+    bool inspectionStepReplaceMesh_=false;
+    std::vector<std::string> repairStepLines_;
+    std::size_t repairStepScroll_=0;
+    bool stepNextWasDown_=false,stepPrevWasDown_=false;
+    bool stepCurrentWasDown_=false,stepContinueWasDown_=false;
+    bool stepCancelWasDown_=false,stepUpWasDown_=false,stepDownWasDown_=false;
     bool floorVisible_=true,floorKeyWasDown_=false;
     double floorZ_=-1.22;
     bool stampedThisFrame_=false;
@@ -722,7 +768,8 @@ class VulkanViewport {
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius,
                                      classifierChoices_,classifierComparable_,
-                                     classifiersAgree_,activeClassifier_);
+                                     classifiersAgree_,activeClassifier_,
+                                     repairStepLines_,repairStepScroll_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -1235,6 +1282,11 @@ class VulkanViewport {
                     classifiersAgree_=snapshot->classifiersAgree;
                     activeClassifier_=snapshot->activeClassifier;
                     inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
+                    inspectionStepReplaceMesh_=snapshot->inspectionStepReplaceMesh;
+                    if(repairStepLines_!=snapshot->repairStepLines) {
+                        repairStepLines_=std::move(snapshot->repairStepLines);
+                        repairStepScroll_=0;
+                    }
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
                     replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
@@ -1696,11 +1748,12 @@ class VulkanViewport {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);
             vkCmdDraw(commandBuffer,floorSolid.vertexCount,1,0,0);
         }
-        if(solid.vertexCount) {
+        if(!inspectionStepReplaceMesh_&&solid.vertexCount) {
             vkCmdBindVertexBuffers(commandBuffer,0,1,&solid.buffer,&offset);
             vkCmdDraw(commandBuffer,solid.vertexCount,1,0,0);
         }
-        if(displayedIndex_)for(const auto& [id,buffers]:partitionBuffers_) {
+        if(!inspectionStepReplaceMesh_&&displayedIndex_)
+            for(const auto& [id,buffers]:partitionBuffers_) {
             (void)id;
             if(!buffers.solid.vertexCount)continue;
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
@@ -1842,6 +1895,7 @@ public:
         glfwTerminate();
     }
     void run(){
+        if(interaction_.onReady)interaction_.onReady();
         while(!glfwWindowShouldClose(window)) {
             stampedThisFrame_=false;
             glfwPollEvents();
@@ -1880,6 +1934,26 @@ public:
                          <<(floorVisible_?"ON":"OFF")
                          <<" (Z="<<floorZ_<<")\n";
                 updateTitle();
+            }
+            if(interaction_.repairStepMode&&interaction_.repairStepCommand) {
+                if(justPressed(GLFW_KEY_N,stepNextWasDown_))
+                    interaction_.repairStepCommand(0);
+                if(justPressed(GLFW_KEY_P,stepPrevWasDown_))
+                    interaction_.repairStepCommand(1);
+                if(justPressed(GLFW_KEY_C,stepCurrentWasDown_))
+                    interaction_.repairStepCommand(2);
+                if(justPressed(GLFW_KEY_ENTER,stepContinueWasDown_))
+                    interaction_.repairStepCommand(3);
+                if(justPressed(GLFW_KEY_BACKSPACE,stepCancelWasDown_))
+                    interaction_.repairStepCommand(4);
+                if(justPressed(GLFW_KEY_PAGE_UP,stepUpWasDown_)) {
+                    repairStepScroll_=repairStepScroll_>3?repairStepScroll_-3:0;
+                    refreshHud();
+                }
+                if(justPressed(GLFW_KEY_PAGE_DOWN,stepDownWasDown_)) {
+                    repairStepScroll_+=3;
+                    refreshHud();
+                }
             }
             if(ctrl&&!inspectionFrozen_&&!sculpting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
