@@ -91,6 +91,7 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     update.inspectionPreview=true;
     update.inspectionCutRequested=true;
     update.inspectionAutoRequested=true;
+    update.inspectionStepFinished=done||state.cancelled;
     const auto comparison=trace_->classifier();
     update.classifierChoices=comparison.choices;
     update.classifierComparable=comparison.comparable;
