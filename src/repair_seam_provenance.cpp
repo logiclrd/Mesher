@@ -64,6 +64,11 @@ RepairSeamProvenanceReport explainRepairSeamWitnesses(
     const std::vector<VertexId>& introducedVertices) {
     RepairSeamProvenanceReport report;
     report.inputStoredIssues=audit.issues.size();
+    report.recordedSplits=actualSplits.size();
+    std::map<VertexId,MixedClosureSplitEvent> byMidpoint;
+    for(const auto& split:actualSplits)
+        if(!byMidpoint.emplace(split.midpoint,split).second)
+            throw std::logic_error("R06-M15D duplicate midpoint ID in split ancestry");
     report.complete=audit.complete&&!audit.issueListTruncated;
     const std::set<VertexId> introduced(
         introducedVertices.begin(),introducedVertices.end());
@@ -90,6 +95,20 @@ RepairSeamProvenanceReport explainRepairSeamWitnesses(
             (introduced.contains(issue.otherVertex)||
              bool(consolidatedPrivate.maybeVertex(issue.otherVertex)));
         p.indexedTopologyWitness=isIndexedError(issue.kind);
+        if(const auto it=byMidpoint.find(issue.vertex);
+           it!=byMidpoint.end()) {
+            p.verifiedStageSplitMidpoint=true;
+            p.splitParentA=it->second.originalA;
+            p.splitParentB=it->second.originalB;
+            p.splitParentR03Sides=it->second.originalR03Sides;
+            p.splitIncidentSurvivorSides=it->second.incidentSurvivorSides;
+            p.splitIncidentCapSides=it->second.incidentCapSides;
+            p.splitIncidentZipperSides=it->second.incidentZipperSides;
+        }
+        if(issue.kind=="NEW_VERTEX_INSIDE_SURVIVOR_EDGE") {
+            if(p.verifiedStageSplitMidpoint)++report.witnessedSplitMidpoints;
+            else if(p.vertexIntroduced)++report.witnessedOtherTransactionVertices;
+        }
         p.newEdge=inspectEdge(sourceR03,consolidatedPrivate,
                                issue.generatedA,issue.generatedB);
         p.survivorEdge=inspectEdge(sourceR03,consolidatedPrivate,
@@ -107,6 +126,9 @@ void printRepairSeamProvenance(
        <<" stored_m13_issues="<<report.inputStoredIssues
        <<" unique_witnesses="<<report.uniqueWitnesses
        <<" duplicate_id_witnesses="<<report.repeatedWitnesses
+       <<" recorded_stage_splits="<<report.recordedSplits
+       <<" stored_witness_split_midpoints="<<report.witnessedSplitMidpoints
+       <<" stored_witness_other_new_vertices="<<report.witnessedOtherTransactionVertices
        <<" validation_gate=FINAL_MANIFOLD_NOT_GEOMETRIC_CONTACT"
        <<" unpublished=1\n";
     for(const auto& w:report.witnesses) {
@@ -130,6 +152,13 @@ void printRepairSeamProvenance(
         }
         out<<" survivor_edge_final_sides="<<w.survivorEdge.candidateSides
            <<" repeats="<<w.repeats
+           <<" vertex_creation="<<(w.verifiedStageSplitMidpoint?
+                "VERIFIED_EDGE_SPLIT":"NOT_IDENTIFIED_AS_SPLIT")
+           <<" split_parent="<<w.splitParentA<<","<<w.splitParentB
+           <<" split_parent_r03_sides="<<w.splitParentR03Sides
+           <<" split_survivor_sides="<<w.splitIncidentSurvivorSides
+           <<" split_cap_sides="<<w.splitIncidentCapSides
+           <<" split_zipper_sides="<<w.splitIncidentZipperSides
            <<" intended_attachment=UNKNOWN"
            <<" mandatory_refusal=0\n";
     }

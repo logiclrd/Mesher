@@ -206,8 +206,12 @@ void buildSeamAuditIfRequested(RepairInspectionSnapshot& snapshot,
             // provenance also resolves source/new IDs from both indexes.
             const auto added=good?std::vector<VertexId>{}:
                 snapshot.warningPreview->insertedVertices;
+            const auto& ancestry=good?
+                snapshot.privateAuto->splitEvents:
+                snapshot.warningPreview->splitEvents;
             snapshot.seamProvenance=explainRepairSeamWitnesses(
-                *snapshot.privateCut->index,*mesh,*snapshot.seamAudit,added);
+                *snapshot.privateCut->index,*mesh,*snapshot.seamAudit,
+                added,ancestry);
         }
     }catch(const std::exception& e) {
         snapshot.seamAuditDiagnostic=e.what();

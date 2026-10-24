@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/repair_seam_audit.hpp"
+#include "mesher/repair_mixed_stage.hpp"
 
 #include <cstddef>
 #include <iosfwd>
@@ -29,6 +30,12 @@ struct RepairWitnessProvenance {
     bool otherInSource=false;
     bool otherIntroduced=false;
     bool indexedTopologyWitness=false;
+    bool verifiedStageSplitMidpoint=false;
+    VertexId splitParentA{},splitParentB{};
+    std::size_t splitParentR03Sides{};
+    std::size_t splitIncidentSurvivorSides{};
+    std::size_t splitIncidentCapSides{};
+    std::size_t splitIncidentZipperSides{};
     RepairWitnessSourceEdge newEdge;
     RepairWitnessSourceEdge survivorEdge;
     std::size_t repeats=1; // same exact ID witness deduplicated
@@ -38,6 +45,9 @@ struct RepairSeamProvenanceReport {
     std::size_t inputStoredIssues{};
     std::size_t uniqueWitnesses{};
     std::size_t repeatedWitnesses{};
+    std::size_t recordedSplits{};
+    std::size_t witnessedSplitMidpoints{};
+    std::size_t witnessedOtherTransactionVertices{};
     bool complete=false; // only as complete as the bounded original M13 audit
     bool storedOnly=true; // never claims an exhaustive geometric certificate
 };
@@ -46,7 +56,8 @@ RepairSeamProvenanceReport explainRepairSeamWitnesses(
     const RegionTopologyIndex& sourceR03,
     const RegionTopologyIndex& consolidatedPrivate,
     const RepairSeamAudit& audit,
-    const std::vector<VertexId>& introducedVertices={});
+    const std::vector<VertexId>& introducedVertices={},
+    const std::vector<MixedClosureSplitEvent>& actualSplits={});
 
 void printRepairSeamProvenance(
     std::ostream& out,const RepairSeamProvenanceReport& report);
