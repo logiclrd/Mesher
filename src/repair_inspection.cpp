@@ -1,6 +1,7 @@
 #include "mesher/repair_inspection.hpp"
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/repair_case.hpp"
+#include "mesher/repair_step_trace.hpp"
 
 #include <algorithm>
 #include <array>
@@ -105,13 +106,24 @@ void compareClassifierPlans(RepairInspectionSnapshot& snapshot,
 }
 void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool symmetricSource,AutoClosureClassifier classifier,
-                          bool warnQuality) {
+                          bool warnQuality,
+                          const std::shared_ptr<RepairStepTrace>& trace={}) {
+    // The opt-in producer may be paused on ANY initial cap/zipper operation.
+    // Completion, refusal or intentional cancellation must release consumers,
+    // without changing the ordinary synchronous replay or inspector path.
+    struct FinishOnExit {
+        std::shared_ptr<RepairStepTrace> value;
+        ~FinishOnExit() {if(value)value->finish();}
+    } finishOnExit{trace};
     snapshot.warnQualityEnabled=warnQuality;
     snapshot.activeClassifier=classifier;
     auto* result=&snapshot;
         if(!result->privateCut) {
             result->autoDiagnostic="R06 requires successful complete R03 excision: "+
                 result->excisionDiagnostic;
+            if(trace)trace->recordTerminal({
+                MixedClosureTerminalOutcome::Refused,"excision",
+                result->autoDiagnostic,false});
         }else {
             try {
                 result->autoPlan=planPrivateAutomaticClosure(
@@ -127,19 +139,38 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     std::cerr<<"[repair-r06] classifier comparison unavailable: "
                              <<e.what()<<"\n";
                 }
-                if(!result->autoPlan->ready())
+                if(!result->autoPlan->ready()) {
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
                         result->autoPlan->diagnostic;
-                else {
+                    if(trace)trace->recordTerminal({
+                        MixedClosureTerminalOutcome::Refused,"planning",
+                        result->autoDiagnostic,false});
+                }else {
                     CertifiedPrivateAutoLimits policy;
                     policy.closure.requireReflectedGeometry=symmetricSource;
                     policy.planner.classifier=classifier;
+                    if(trace)trace->attach(policy.closure,trace);
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
                         result->candidate,*result->privateCut,
                         result->excision,*result->autoPlan,result->contacts,
                         policy);
+                    if(trace)trace->recordTerminal({
+                        MixedClosureTerminalOutcome::Completed,"certified_auto",
+                        "R06 M04C enclosure and cavity policy passed: PRIVATE ONLY",
+                        false});
                 }
+            }catch(const RepairStepCancelled&) {
+                // This is a user request to stop, never a geometry refusal
+                // or permission to launch another warning-preview attempt.
+                throw;
+            }catch(const RepairStepObserverFailure&) {
+                // Failed visualization must not be presented as geometric
+                // closure refusal, nor provoke a warning-only rerun.
+                throw;
             }catch(const std::exception& e) {
+                if(trace)trace->recordTerminal({
+                    MixedClosureTerminalOutcome::Refused,"certified_auto",
+                    e.what(),false});
                 result->autoDiagnostic=std::string(
                     "R06 private automatic closure refused: ")+e.what();
             }
@@ -161,6 +192,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 MixedPrivateClosureLimits limits;
                 limits.requireReflectedGeometry=symmetricSource;
                 limits.inspectionWarnQuality=true;
+                if(trace)trace->attach(limits,trace,true);
                 auto preview=applyPrivateMixedClosure(
                     *result->privateCut,result->excision,*result->autoPlan,limits);
                 if(preview.qualityWarningFaces.empty()&&
@@ -168,6 +200,10 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     result->warningPreviewDiagnostic=
                         "Warning-only staging produced no quality violation";
                 else result->warningPreview=std::move(preview);
+            }catch(const RepairStepCancelled&) {
+                throw;
+            }catch(const RepairStepObserverFailure&) {
+                throw;
             }catch(const std::exception& e) {
                 result->warningPreviewDiagnostic=std::string(
                     "Untrusted warning preview unavailable (other safety check): ")+e.what();
@@ -388,7 +424,8 @@ RepairInspectionSession::frozenSnapshot() const {
 
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality,
-    bool auditSeam,bool exactOverlay) {
+    bool auditSeam,bool exactOverlay,
+    std::shared_ptr<RepairStepTrace> stepTrace) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -432,7 +469,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
             result->excisionDiagnostic=std::string("R03 private cut refused: ")+error.what();
         }
     }
-    runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality);
+    runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality,
+                        stepTrace);
     result->exactOverlay=exactOverlay;
     buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;
