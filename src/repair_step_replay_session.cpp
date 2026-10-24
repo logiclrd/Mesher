@@ -85,6 +85,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
         final=result_;
         failure=error_;
     }
+    // No repair verdict is implied by an observer/worker failure.
+    const bool diagnosticError=!failure.empty();
     ViewportMeshUpdate update;
     update.index=saved_.candidate.index;
     update.inspectionFrozen=true;
@@ -92,6 +94,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
     update.inspectionCutRequested=true;
     update.inspectionAutoRequested=true;
     update.inspectionStepFinished=done||state.cancelled;
+    update.inspectionStepCancelled=state.cancelled;
+    update.inspectionStepError=diagnosticError;
     const auto comparison=trace_->classifier();
     update.classifierChoices=comparison.choices;
     update.classifierComparable=comparison.comparable;
