@@ -115,7 +115,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
             state.showingPrevious);
         update.inspectionStepReplaceMesh=true;
         update.inspectionOverlay=scene.triangles;
-        lines.push_back("STEP "+std::to_string(state.sequence)+
+        lines.push_back("STEP "+std::to_string(
+             state.sequence-(state.showingPrevious?std::size_t{1}:std::size_t{0}))+
              (state.showingPrevious?" PREVIOUS":" CURRENT")+
              (state.waiting?" PAUSED":state.running?" CONTINUE":" READY"));
         lines.push_back("OP: "+frame.operation);
