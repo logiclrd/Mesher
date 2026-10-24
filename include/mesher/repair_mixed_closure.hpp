@@ -12,7 +12,7 @@ namespace mesher {
 
 // Diagnostic-only terminal report, distinct from operation snapshots.
  // An error before staging exists has no renderable stage object.
-enum class MixedClosureTerminalOutcome {Completed,Refused};
+enum class MixedClosureTerminalOutcome {Completed,Refused,ObserverFailed};
 struct MixedClosureTerminalEvent {
     MixedClosureTerminalOutcome outcome{MixedClosureTerminalOutcome::Refused};
     std::string phase;
