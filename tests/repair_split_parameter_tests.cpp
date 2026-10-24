@@ -54,6 +54,10 @@ Fixture fixture(bool mirrored=false,bool remoteDuplicate=false) {
     return f;
 }
 void makeCap(MixedClosureStaging& stage,const Fixture& f) {
+    // Register both complete original-source neighborhoods. The editor
+    // must not invent mirror partners from nearest XYZ during mutation.
+    for(const auto& v:f.vertices)
+        for(const auto id:v)stage.trackOriginalVertex(id);
     for(const auto& v:f.vertices) {
         const auto owner=f.root->vertex(v[0]).owner;
         const bool negative=f.root->vertex(v[0]).position.x<0;
