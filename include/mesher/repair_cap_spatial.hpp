@@ -32,6 +32,9 @@ struct SpatialCapSettings {
     double maximumInitialEdgeFactor=12; // loose gate; M04 owns quality limits
     bool requireMirrorPlane=false; // exact reflection about X=0; no coordinate welding
     bool preferMirroredRibbonForTesting=false; // local regression only, no production caller
+    // M17D candidate experiment: mirror-paired opposite diagonal in each
+    // outward strip quad. False preserves legacy exact staging topology.
+    bool alternateBandDiagonals=false;
     double normalGuidance=0.04;  // fraction of median original rim edge
 };
 
