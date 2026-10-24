@@ -459,10 +459,18 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                     if(!(size2>1e-20))continue;
                     const auto overshoot=dot(starting-from,tangent)/size2;
                     if(!(overshoot>.05))continue;
-                    for(const double fraction:{0.5,1.,1.5,2.}) {
+                    // The original failure lies almost exactly ON the
+                    // supporting line. Sliding along that line alone can
+                    // relocate the sliver. Also evaluate moving PERPENDICULAR
+                    // to the line, retaining the observed inward half-plane
+                    // rather than inventing a new surface-normal direction.
+                    const auto lateral=(starting-from)-tangent*overshoot;
+                    for(const double fraction:{0.5,1.,1.5,2.})
+                    for(const double transverse:{1.,2.,3.}) {
                         if(trials>=limits.maxCorrectionTrials)break;
-                        const auto movement=tangent*(overshoot*fraction);
-                        if(length(movement)>1.25*h)continue;
+                        const auto movement=tangent*(overshoot*fraction)-
+                                            lateral*(transverse-1.);
+                        if(length(movement)>1.5*h)continue;
                         const auto moved=starting-movement;
                         if(!finite(moved))continue;
                         if(limits.requireMirrorPlane&&mate!=vertex&&
@@ -499,6 +507,26 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         const auto [trialQ,unusedIndex]=minimum(proposed);
                         (void)unusedIndex;
                         if(!(trialQ>bestQ+1e-6))continue;
+                        // A proposal may improve the original q=.061
+                        // needle by CREATING a new q=.08 needle elsewhere.
+                        // Never turn an initially accepted q>=hard-floor
+                        // triangle into an unaccepted one to subsidize it.
+                        bool keepsHealthyFaces=true;
+                        for(const auto& tri:current.faces) {
+                            const auto before=quality(
+                                current.positions[tri[0]],
+                                current.positions[tri[1]],
+                                current.positions[tri[2]]);
+                            const auto after=quality(
+                                proposed.positions[tri[0]],
+                                proposed.positions[tri[1]],
+                                proposed.positions[tri[2]]);
+                            if(before>=limits.desiredMinimumQuality&&
+                               after+1e-12<limits.desiredMinimumQuality) {
+                                keepsHealthyFaces=false;break;
+                            }
+                        }
+                        if(!keepsHealthyFaces)continue;
                         proposed.minimumQuality=1.;
                         ++trials;
                         // Use the SAME bounded full self-contact and
