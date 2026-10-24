@@ -258,7 +258,7 @@ void failureEnvelopeAndCancellation() {
         auto view=f.root->revision().createMutableView();
         const auto owner=f.root->vertex(f.rim.vertexIds[0]).owner;
         (void)stage.addVertex(view,{-10,0,0},owner);
-    }catch(const std::runtime_error& e) {
+    }catch(const RepairStepObserverFailure& e) {
         diagnosticFailure=std::string(e.what()).find(
             "diagnostic observer failed at addVertex")!=std::string::npos;
     }
