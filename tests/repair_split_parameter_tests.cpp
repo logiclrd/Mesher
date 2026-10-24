@@ -97,7 +97,8 @@ void exactCapSurvivorAndReversedCalls() {
     const auto mids=stage.splitEdge(view,b,a,policy(),0,0,false,.35);
     require(mids.size()==1&&stage.splitEvents().size()==1&&
         events.size()==1,"reversed call must commit one complete single-edge edit");
-    const auto m=mids[0],p=stage.positions().at(m);
+    const auto m=mids[0];
+    const auto p=stage.positions().at(m);
     const auto va=stage.positions().at(std::min(a,b));
     const auto vb=stage.positions().at(std::max(a,b));
     const auto expected=va+(vb-va)*.35;
