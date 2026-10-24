@@ -8,7 +8,7 @@
 using namespace mesher;
 int main() {
     try {
-        if(RepairStepHudPage::firstOperationRow!=2)
+        if constexpr (RepairStepHudPage::firstOperationRow!=2)
             throw std::runtime_error("classifier rows must precede operation row 3");
         const std::vector<std::string> lines{
             "STEP 2 CURRENT PAUSED",
