@@ -50,6 +50,10 @@ struct ViewportMeshUpdate {
     bool classifierComparable=false;
     bool classifiersAgree=false;
     int activeClassifier=0; // 0=area; 1=proximity
+    // R06-M16D: this buffer holds the COMPLETE source-backed private
+    // intermediate scene, not just an overlay on the original candidate.
+    bool inspectionStepReplaceMesh=false;
+    std::vector<std::string> repairStepLines;
 };
 
 struct ViewportInteraction {
@@ -61,6 +65,13 @@ struct ViewportInteraction {
     // Async mode: consume the latest fully committed mesh snapshot. When
     // present, the Vulkan/picking thread never reads the worker's live mesh.
     std::function<std::optional<ViewportMeshUpdate>()> takeSnapshot;
+    // Called AFTER GLFW/Vulkan construction, before the first event frame.
+    // The worker must be owned and cancelled/joined by the caller.
+    std::function<void()> onReady;
+    bool repairStepMode=false;
+    // N/P/C/Enter/Backspace: next, previous, current, continue, cancel.
+    // The viewport performs no geometry changes and owns only input routing.
+    std::function<void(int)> repairStepCommand;
     // The initial immutable root is an explicit one-time full partition build;
     // each later frame only refreshes its coalesced dirty partition IDs.
     std::shared_ptr<const RegionTopologyIndex> initialRevision;
