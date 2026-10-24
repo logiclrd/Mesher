@@ -363,6 +363,22 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 adjacent.push_back(i);
         if(adjacent.size()!=c.originalSides)
             throw std::logic_error("R06-M15B preflight incidence drift");
+        MixedClosureSplitEvent lineage;
+        lineage.midpoint=middle;
+        lineage.originalA=c.key.first;
+        lineage.originalB=c.key.second;
+        lineage.originalR03Sides=sourceView_->source().maybeEdgeSides(
+            {c.key.first,c.key.second})?
+            sourceView_->source().maybeEdgeSides(
+                {c.key.first,c.key.second})->size():0;
+        for(const auto index:adjacent) {
+            const auto kind=faces_.at(index).kind;
+            if(kind==MixedClosureFaceKind::Survivor)
+                ++lineage.incidentSurvivorSides;
+            else if(kind==MixedClosureFaceKind::Cap)
+                ++lineage.incidentCapSides;
+            else ++lineage.incidentZipperSides;
+        }
         for(const auto index:adjacent) {
             const auto parent=faces_.at(index);
             const auto tri=parent.triangle();
@@ -384,6 +400,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
             if(!found)
                 throw std::logic_error("R06-M15B chosen edge disappeared during split");
         }
+        splitEvents_.push_back(lineage);
     }
     // currentBoundaryLoops() derives all yellow paths from these exact
     // effective edges; the original AB is now absent and AM/MB are real.
