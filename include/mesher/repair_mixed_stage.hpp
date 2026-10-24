@@ -87,6 +87,13 @@ public:
     using OperationObserver=std::function<void(
         const MixedClosureStaging&,const std::string&,const std::string&)>;
     void setOperationObserver(OperationObserver cb) {observer_=std::move(cb);}
+    // M17C: record an ATTEMPT which changed no geometry. This is an
+    // immutable diagnostic snapshot, not a mutation or a fake success.
+    // Synchronous step-gate semantics are the same as for real edits.
+    void reportRefinementAttempt(const std::string& operation,
+                                 const std::string& arguments) const {
+        notifyOperation(operation,arguments);
+    }
     // M15A foundation: bind one EXACT immutable R03 open mesh and its
     // directed hole rims. Read-only boundary queries reflect subsequently
     // inserted faces and source-face overrides; no stale yellow path.
