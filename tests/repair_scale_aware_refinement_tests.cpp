@@ -221,7 +221,8 @@ void refusalOneRealSavedCaseAttemptTrace() {
             const auto d=cut.index->vertex(src[2]).position;
             normalGuide.push_back(cross(b-a,d-a));
         }
-        for(const auto alternative:{false,true}) {
+        for(const auto alternative:{false,true})
+        for(const auto corrected:{false,true}) {
             SpatialCapSettings bounds;
             bounds.requireMirrorPlane=saved.symmetricSource&&
                 std::any_of(ordered.begin(),ordered.end(),
@@ -229,6 +230,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                 std::any_of(ordered.begin(),ordered.end(),
                     [](Vec3 p){return p.x>0;});
             bounds.alternateBandDiagonals=alternative;
+            bounds.repairTangentialOvershoot=corrected;
             try {
                 const auto local=buildSpatialCapFrontPoisson(
                     ordered,normalGuide,bounds);
@@ -244,7 +246,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     if(q<worst){worst=q;worstIds=tri;}
                 }
                 std::cout<<"[r06-m17d-candidate] loop="<<loopId
-                         <<" alternate="<<alternative
+                         <<" alternate="<<alternative<<" corrected="<<corrected
                          <<" q="<<worst
                          <<" reported_q="<<local.minimumQuality
                          <<" worst_local="<<worstIds[0]<<","
@@ -253,7 +255,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                          <<" faces="<<local.faces.size()<<"\n";
             }catch(const std::exception& e) {
                 std::cout<<"[r06-m17d-candidate] loop="<<loopId
-                         <<" alternate="<<alternative
+                         <<" alternate="<<alternative<<" corrected="<<corrected
                          <<" rejected="<<e.what()<<"\n";
             }
         }
