@@ -52,7 +52,18 @@ MixedClosureStaging::MixedClosureStaging(
 }
 void MixedClosureStaging::notifyOperation(
     const std::string& name,const std::string& args) const {
-    if(observer_)observer_(*this,name,args);
+    if(!observer_)return;
+    try {
+        observer_(*this,name,args);
+    }catch(const std::logic_error& e) {
+        // The projected-cap generator intentionally catches logic_error to
+        // try its spatial fallback. A diagnostic snapshot's byte limit or
+        // observer validation failure must NEVER be mistaken for a cap
+        // geometry problem or silently change the chosen algorithm.
+        throw std::runtime_error(
+            std::string("R06-M16 diagnostic observer failed at ")+
+            name+": "+e.what());
+    }
 }
 VertexId MixedClosureStaging::addVertex(
     MutableMeshView& privateView,Vec3 position,PartitionId owner,
