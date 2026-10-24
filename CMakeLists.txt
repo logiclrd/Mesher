@@ -361,6 +361,14 @@ if(MESHER_BUILD_TESTS)
     target_link_libraries(mesher_repair_seam_audit_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m13_cap_survivor_geometry_audit COMMAND mesher_repair_seam_audit_tests)
     # Independent headless R06-M16C1 producer/consumer pause protocol.
+    add_executable(mesher_repair_step_hud_tests
+                   tests/repair_step_hud_tests.cpp)
+    target_include_directories(mesher_repair_step_hud_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    add_test(NAME repair_r06_m16d2_hud_row_three_and_argument_scroll
+             COMMAND mesher_repair_step_hud_tests)
+    set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
+        PROPERTIES TIMEOUT 15)
     add_executable(mesher_repair_step_scene_tests
                    tests/repair_step_scene_tests.cpp)
     target_link_libraries(mesher_repair_step_scene_tests PRIVATE mesher_mesh)
