@@ -643,9 +643,9 @@ skinny-geometry pathology; D4 on the actual user's GPU remains open.
 ### R06-M16 — Shared geometry executor and single-step stage debugger (2026-10-24)
 Normative preliminary design:
 [docs/R06_M16_STAGE_DEBUGGER.md](docs/R06_M16_STAGE_DEBUGGER.md).
-**No debugger implementation or shared-executor refactor has been
-accepted at plan creation.** All private inspection remains unpublished;
-do not alter q, reflection, exact-case captures or M15D labels.
+**M16C1/C2a/C2b/C2c CPU foundations accepted; interactive debugger and
+shared forced-mode executor remain open.** All private inspection is
+unpublished; do not alter q, reflection, exact-case captures or M15D labels.
 
 - [x] **R06-M16A — Trace and record architecture/acceptance plan.**
   Verified current R04/R05 standalone generation vs R06
@@ -671,7 +671,7 @@ do not alter q, reflection, exact-case captures or M15D labels.
     one-step Next, Previous/Current display-only switch, Continue,
     Cancel wakeup and worker terminal state; headless thread tests.
     No staging writes, replay integration or UI claim.
-  - [ ] **R06-M16C2 — Attach stage operation observer and immutable geometry.**
+  - [x] **R06-M16C2 — Attach stage operation observer and immutable geometry.**
     Complete logical mutation granularity, oriented face/source
     overrides, updated true open rims, exact argument/result metadata,
     stable identity diff, bounded packet size and refusal metadata.
@@ -697,12 +697,28 @@ do not alter q, reflection, exact-case captures or M15D labels.
     independently closed yellow boundary and byte-budget refusal.
     See [the M16C2b acceptance protocol](docs/R06_M16C2B_ACCEPTANCE.md).
     No running Vulkan debugger, new classifier, quality relaxation or
-    forced-mode migration is claimed; parent M16C2 stays open.
-    - [ ] **R06-M16C2c — Complete operation coverage and error envelope.**
+    forced-mode migration is claimed; C2c separately closes M16C2 below.
+    - [x] **R06-M16C2c — Complete operation coverage and error envelope.**
       Face generation, provisional staging/resolution, split, flips,
       fan retirement, fairing, actual final metadata/refusal. Include
       exact stages missed by hooks in the basic editor; deterministic
       test captures, cancellation and normal-mode equivalence.
+    **M16C2c and parent M16C2 accepted (2026-10-24):**
+    [CI #40110431559](https://github.com/logiclrd/Mesher/actions/runs/40110431559)
+    succeeded at exact code head `6510bc77`, attempt 2, on Linux GCC,
+    Clang and Windows MSVC `/W4 /WX`. All 103 MSVC CPU tests passed
+    on retry. First attempt's ONLY Windows failure was the independent,
+    previously intermittent `asynchronous_sculpting` M39 prior-root
+    FIFO/undo regression; the new M16C2c tests passed on BOTH attempts.
+    The second Windows run passed without any source change. This
+    does NOT establish that the M39 nondeterminism is fixed.
+    See [R06_M16C2C_ACCEPTANCE.md](docs/R06_M16C2C_ACCEPTANCE.md).
+    Covered positive provisional ID map, changed-face flip, cap-fan
+    retirement, fair movement, final private-cap success and typed
+    geometric-vs-observer failure. Cancellation is distinct and cannot
+    trigger planar-cap geometry fallback; normal disabled mode and
+    strict R06 admission remain unchanged. **M16C3 still open: no actual
+    stepped repair worker or Vulkan controls exist yet.**
   - [ ] **R06-M16C3 — Wire opt-in observer to automatic repair.**
     Replay or live callback never executes when disabled, normal
     closure/refusal untouched, headless exact-case provenance and
