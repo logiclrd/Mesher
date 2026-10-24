@@ -44,6 +44,15 @@ struct MixedClosureFace {
 // finite/quality/mirror preflight. All limits concern the complete proposed
 // transaction, not just the currently tracked contour halo.
 struct MixedClosureEdgeNeighborhood;
+// Exact ID ancestry from an ACTUAL staging-owned split, never inferred
+// from a geometric proximity match. Used by opt-in M15D replay diagnosis.
+struct MixedClosureSplitEvent {
+    VertexId midpoint{},originalA{},originalB{};
+    std::size_t originalR03Sides{};
+    std::size_t incidentSurvivorSides{};
+    std::size_t incidentCapSides{};
+    std::size_t incidentZipperSides{};
+};
 struct MixedClosureSplitSettings {
     bool requireReflectedGeometry=false;
     double minSurvivorQuality=.012;
@@ -116,6 +125,7 @@ public:
     const std::map<VertexId,PartitionId>& vertexOwners() const noexcept {return vertexOwners_;}
     const std::vector<FaceId>& survivingFaceIds() const noexcept {return survivingFaceIds_;}
     const std::vector<VertexId>& provisionalSpatialVertices() const noexcept {return provisionalSpatialVertices_;}
+    const std::vector<MixedClosureSplitEvent>& splitEvents() const noexcept {return splitEvents_;}
     PartitionId vertexOwner(VertexId id) const {return vertexOwners_.at(id);}
     void trackOriginalVertex(VertexId id);
     void stageProvisionalVertex(VertexId id,Vec3 pos,PartitionId owner,
@@ -149,6 +159,7 @@ public:
     // monotonically allocated immutable IDs before its conforming audit.
 private:
     std::vector<VertexId> provisionalSpatialVertices_;
+    std::vector<MixedClosureSplitEvent> splitEvents_;
 public:
     bool usedSpatialCapFallback{};
     bool usedMirroredSeamZipper{};
