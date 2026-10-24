@@ -139,6 +139,10 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     std::cerr<<"[repair-r06] classifier comparison unavailable: "
                              <<e.what()<<"\n";
                 }
+                if(trace)trace->setClassifier({
+                    result->classifierChoices,result->classifierComparable,
+                    result->classifiersAgree,
+                    classifier==AutoClosureClassifier::Proximity?1:0});
                 if(!result->autoPlan->ready()) {
                     result->autoDiagnostic="R06 automatic closure plan refused: "+
                         result->autoPlan->diagnostic;
