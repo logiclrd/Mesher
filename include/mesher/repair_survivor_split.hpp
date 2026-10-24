@@ -38,4 +38,16 @@ SurvivorSplitQuality assessSurvivorSplit(
     const std::vector<MixedClosureFace>& faces,
     const MixedClosurePositions& positions,
     std::pair<VertexId,VertexId> splitEdge,double minSurvivorQuality);
+ 
+// M17B read-only XYZ preflight for parameterized split points. Identity is
+// NEVER inferred from coincident coordinates. Legacy midpoint helpers above
+// remain byte-for-byte equivalent for existing R06 call sites.
+MidpointCollision assessUniqueConformingSplitPoint(
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> edge,Vec3 point);
+SurvivorSplitQuality assessSurvivorSplitAt(
+    const std::vector<MixedClosureFace>& faces,
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> splitEdge,Vec3 point,
+    double minSurvivorQuality);
 } // namespace mesher
