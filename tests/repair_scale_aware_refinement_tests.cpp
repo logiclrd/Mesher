@@ -90,10 +90,14 @@ void underQualityHandsOffInsteadOfSplitting() {
     bounds.scaleAwareRefinement=true;
     bounds.minCapQuality=.95; // original planar right cap q about .866
     std::size_t splits=0;
+    std::vector<std::string> declinedAttempts;
     std::vector<MixedClosureTerminalEvent> terminal;
     bounds.staging.operationObserver=[&](const auto&,const std::string& op,
                                          const std::string&) {
         if(op=="splitEdge")++splits;
+        if(op=="TryDiagonalFlip"||op=="TryCapFanCollapse"||
+           op=="TryInteriorFairing"||op=="TryQualityRestoringSplit")
+            declinedAttempts.push_back(op);
     };
     bounds.terminalObserver=[&](const auto& event) {
         terminal.push_back(event);
@@ -116,10 +120,17 @@ void underQualityHandsOffInsteadOfSplitting() {
     }
     require(splits==0&&(shapeRefused||tipCertified),
         "shape-scale tip may refuse or retain genuine fixed-rim certificate, never split to chase q");
-    if(shapeRefused)
+    if(shapeRefused) {
         require(terminal.size()==1&&
                 terminal.front().outcome==MixedClosureTerminalOutcome::Refused,
                 "true M17C shape refusal must preserve typed terminal provenance");
+        require(declinedAttempts.size()>=4&&
+                declinedAttempts[0]=="TryDiagonalFlip"&&
+                declinedAttempts[1]=="TryCapFanCollapse"&&
+                declinedAttempts[2]=="TryInteriorFairing"&&
+                declinedAttempts[3]=="TryQualityRestoringSplit",
+                "the step debugger must show every failed shape operation and strictly-restorative split preflight");
+    }
     std::cout<<"[r06-m17c] shape priority; immutable fixed-rim tip certificate or refusal without splits PASS\n";
 }
 void budgetIsFiniteAndValidates() {
