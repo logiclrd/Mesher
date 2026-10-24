@@ -128,8 +128,15 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
              state.sequence-(state.showingPrevious?std::size_t{1}:std::size_t{0}))+
              (state.showingPrevious?" PREVIOUS":" CURRENT")+
              (state.waiting?" PAUSED":state.running?" CONTINUE":" EXECUTING"));
-        lines.push_back("OP: "+frame.operation);
-        lines.push_back("ARGS: "+frame.arguments);
+        // Operation details always describe the MOST RECENT worker edit,
+        // even when displaying its cached predecessor for comparison.
+        const auto& latest=*state.current;
+        lines.push_back("LATEST OP: "+latest.operation);
+        lines.push_back("LATEST ARGS: "+latest.arguments);
+        if(state.showingPrevious) {
+            lines.push_back("DISPLAY: STATE BEFORE LATEST OP");
+            lines.push_back("PREV OP: "+frame.operation);
+        }
         if(state.previous&&state.current) {
             const auto diff=diffRepairStepGeometry(
                 *state.previous,*state.current);
