@@ -4,7 +4,9 @@
 #include "mesher/repair_step_snapshot.hpp"
 #include "mesher/repair_mixed_closure.hpp"
 
+#include <array>
 #include <cstddef>
+#include <string>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -49,6 +51,19 @@ public:
         };
     }
 
+    struct ClassifierDisplay {
+        std::array<std::string,2> choices{{"UNAVAILABLE","UNAVAILABLE"}};
+        bool comparable=false,agree=false;
+        int active=0;
+    };
+    void setClassifier(ClassifierDisplay value) {
+        std::lock_guard lock(mutex_);
+        classifier_=std::move(value);
+    }
+    ClassifierDisplay classifier() const {
+        std::lock_guard lock(mutex_);
+        return classifier_;
+    }
     void recordTerminal(const MixedClosureTerminalEvent& event) {
         std::lock_guard lock(mutex_);
         // A strict failure followed by a warning-only rerun is legitimate;
@@ -66,6 +81,7 @@ private:
     Gate gate_;
     mutable std::mutex mutex_;
     std::vector<MixedClosureTerminalEvent> events_;
+    ClassifierDisplay classifier_{};
 };
 
 } // namespace mesher
