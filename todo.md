@@ -770,6 +770,51 @@ unpublished; do not alter q, reflection, exact-case captures or M15D labels.
   GCC/Clang/MSVC CI and real Linux/Windows Vulkan camera/HUD/diff
   inspection. Do not declare physical acceptance from CI.
 
+### R06-M17 — Scale-aware, quality-aware, bounded split and shape repair (2026-10-24)
+Detailed design and motivating images:
+[docs/R06_M17_SCALE_AWARE_REFINEMENT.md](docs/R06_M17_SCALE_AWARE_REFINEMENT.md).
+Root defect: `refusal-1` produces an acute folded-back spatial-cap triangle
+at approximately step 53. Later alternating conforming cap/survivor midpoint
+splits amplify that defect; resolving provisional IDs at step 92 is not the
+source of the bad shape. No quality threshold, strict acceptance/refusal,
+reflection, M15D case bytes or private publication semantics may be relaxed.
+Subdivision manages density; flip/collapse/reposition repair shape.
+Cap shape-changing edits at a bounded local target scale; finite splits are
+permitted on oversized geometry before shape work, never blindly recursively
+following an opposite-vertex perpendicular foot. Midpoint, joint-neighbor
+quality-aware off-center and midpoint-then-corrective hybrid are candidate
+templates; two serial split operations can produce three triangles on one
+face, but more conforming/reflective children on the complete patch.
+- [ ] **R06-M17A — Pure bounded split-template evaluation.**
+  Canonical t, projected foot, midpoint, off-center and two-step hybrid
+  (at most one corrective subedge split); joint incident-face quality,
+  minimum segment, scale ratio and conservative finite event/depth budget;
+  report why a proposal is rejected. Exact two-sided, projection-near-end,
+  asymmetric/symmetric orientation and scale tests. Read-only; no mutation.
+- [ ] **R06-M17B — Parameterized conforming split transaction.**
+  Preserve default midpoint API; preflight one chosen t against every
+  effective survivor/closure side, remote vertex collisions and entire
+  reflected orbit; record exact t, IDs and XYZ in M16 debugger. No partial
+  mirror edits. Positive fixed-ID source-backed staged COW tests.
+- [ ] **R06-M17C — Hybrid execution and shape-first refinement policy.**
+  Guard coarsening/splitting above local target scale and hard budgets,
+  then prefer shape repair when under-quality (even if long);
+  re-evaluate after hybrid's first mutation; no zigzag small-edge cascade.
+  Avoid broad arbitrary survivor displacement; fail closed where flips,
+  collapses or limited repositioning cannot improve worst local quality.
+- [ ] **R06-M17D — Reject/avoid initial folded spatial-cap fronts.**
+  Inspect pre-provisional step-53 coordinates, mirrored quad diagonals,
+  inward-ring placement, fold/dihedral and initial q; evaluate alternative
+  mirrored front candidates before staging. Do not merely increase the
+  downstream subdivision budget to mask malformed initial triangles.
+- [ ] **R06-M17E — Full acceptance.**
+  Three-platform warnings-as-errors CI and unchanged original `.r06case`
+  replays, then real Linux/Windows Vulkan tests of refusal-1/3 and healthy
+  sphere/torus/mirrored cases. Record original-vs-revised outcomes, first
+  fold-back quality, worst q trajectory, split count/depth, finished
+  mesh validity and actual private/nonpublished state. Physical acceptance
+  is NOT implied by headless CI.
+
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
