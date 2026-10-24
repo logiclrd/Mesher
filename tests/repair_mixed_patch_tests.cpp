@@ -29,8 +29,8 @@ struct Planned {
     MixedClosureStaging stage;
     MutableMeshView view;
     VertexId midpoint{};
-    explicit Planned(Fixture f)
-      : base(std::move(f)),
+    explicit Planned(Fixture initialFixture)
+      : base(std::move(initialFixture)),
         view(base.source->revision().createMutableView()) {
         stage.sourceView=std::make_shared<MixedClosureSourceView>(base.source);
         stage.positions.bind(stage.sourceView);
