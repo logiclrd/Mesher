@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <semaphore>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -18,8 +19,10 @@ void check(bool value,const char* reason) {
 void boundedTwoFrameNavigationAndOneStepPermit() {
     RepairStepGate<Packet> gate;
     std::atomic<int> completed{0};
+    std::binary_semaphore allowSecond{0};
     std::thread producer([&] {
         gate.publishAndWait({"ensureFace 1,2,3",{1}});
+        allowSecond.acquire();
         gate.publishAndWait({"splitEdge 2,3",{1,2}});
         completed.store(2);
         gate.finish();
@@ -33,6 +36,7 @@ void boundedTwoFrameNavigationAndOneStepPermit() {
         check(!gate.showPrevious(),"no previous frame exists on first step");
         check(gate.next(),"Next did not release pending operation");
         check(!gate.next(),"Next accumulated a second permit");
+        allowSecond.release();
         check(gate.waitForSequence(2,2s),"second operation never arrived");
         check(gate.view().waiting&&completed.load()==0,
               "second operation must block independently");
@@ -48,7 +52,7 @@ void boundedTwoFrameNavigationAndOneStepPermit() {
         producer.join();
         check(gate.view().finished&&completed.load()==2,
               "worker must finish after exactly two Next commands");
-    }catch(...) {gate.cancel();producer.join();throw;}
+    }catch(...) {gate.cancel();allowSecond.release();producer.join();throw;}
 }
 void continueBypassesFutureWaits() {
     RepairStepGate<Packet> gate;
