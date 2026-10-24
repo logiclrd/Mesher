@@ -260,6 +260,47 @@ void refusalOneRealSavedCaseAttemptTrace() {
             }
         }
     }
+    MixedClosureStageSettings improvedBounds;
+    improvedBounds.requireReflectedGeometry=saved.symmetricSource;
+    improvedBounds.optimizeSpatialFront=true;
+    improvedBounds.targetInitialCapQuality=.1;
+    const auto improved=stagePrivateMixedClosure(cut,excision,plan,
+                                                 improvedBounds);
+    double newWorst=1.;
+    std::size_t newWorstFace=0;
+    for(std::size_t j=0;j<improved.faces().size();++j) {
+        const auto& face=improved.faces()[j];
+        if(face.kind!=MixedClosureFaceKind::Cap)continue;
+        const auto ids=face.triangle();
+        const auto a=improved.positions().at(ids[0]);
+        const auto b=improved.positions().at(ids[1]);
+        const auto d=improved.positions().at(ids[2]);
+        const double s=dot(a-b,a-b)+dot(b-d,b-d)+dot(d-a,d-a);
+        const double q=s>0?
+            2*std::sqrt(3.)*length(cross(b-a,d-a))/s:0.;
+        if(q<newWorst) {newWorst=q;newWorstFace=j;}
+    }
+    require(newWorst+1e-12>=firstFaces.front().quality,
+        "M17D positional correction must not degrade minimum initial cap q");
+    std::cout<<"[r06-m17d-optimized] initial_q_before="
+             <<firstFaces.front().quality<<" initial_q_after="<<newWorst
+             <<" worst_face_index="<<newWorstFace
+             <<" provisional_vertices="<<improved.provisionalSpatialVertices().size()
+             <<"\n";
+    MixedPrivateClosureLimits correctedPolicy;
+    correctedPolicy.requireReflectedGeometry=saved.symmetricSource;
+    correctedPolicy.scaleAwareRefinement=true;
+    correctedPolicy.staging.optimizeSpatialFront=true;
+    try {
+        const auto closed=applyPrivateMixedClosure(
+            cut,excision,plan,correctedPolicy);
+        std::cout<<"[r06-m17d-optimized] strict_result=CLOSED"
+                 <<" refinements="<<closed.refinementSteps
+                 <<" quality="<<closed.minimumCapQuality<<"\n";
+    }catch(const std::logic_error& error) {
+        std::cout<<"[r06-m17d-optimized] strict_result=REFUSED reason="
+                 <<error.what()<<"\n";
+    }
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
