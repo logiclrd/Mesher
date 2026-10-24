@@ -144,6 +144,8 @@ void refusalOneRealSavedCaseAttemptTrace() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-1.r06case";
     const auto saved=readRepairCase(path);
+    const auto initialRetiredFaces=saved.candidate.index?
+        saved.candidate.index->retiredFaceCount():0;
     require(saved.candidate.index&&!saved.contacts.empty(),
             "real refusal-1 saved candidate and R01 contacts must load");
     const auto excision=previewApproximateExcision(
@@ -186,8 +188,8 @@ void refusalOneRealSavedCaseAttemptTrace() {
         [](const std::string& op) {
             return op.starts_with("TryInteriorFairing:");
         }),"fairing attempt must be visible rather than mistaken for a skipped phase");
-    require(!saved.candidate.index->retiredFaceCount(),
-        "source post-stamp mesh remains untouched even on refusal");
+    require(saved.candidate.index->retiredFaceCount()==initialRetiredFaces,
+        "source post-stamp tombstone count remains unchanged even on refusal");
     std::cout<<"[r06-m17c] exact refusal-1 saved case: "
              <<declined.size()<<" no-change repair diagnostics, "
              <<totalSplits<<" staged split vertices, "
