@@ -274,7 +274,7 @@ inline RepairSplitTemplateDecision evaluateRepairSplitTemplates(
             // minimum. Do not apply this density/trajectory preference to
             // an already under-quality parent or a smaller-scale sliver.
             (!underQuality&&output.edgeToTargetRatio>=3.0&&
-             output.candidates[hybrid].correctedChildGain>=.10&&
+             output.candidates[hybrid].correctedChildGain>=.05&&
              output.candidates[hybrid].worstAfter>=
                  .90*output.candidates[midpoint].worstAfter)))
             output.selected=hybrid;
