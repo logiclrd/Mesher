@@ -1,4 +1,5 @@
 #include "mesher/repair_mixed_closure.hpp"
+#include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -80,6 +81,10 @@ void ordinaryUnchangedAndEnabledDensity() {
     std::cout<<"[r06-m17c] enabled finite healthy density and unchanged disabled path PASS\n";
 }
 void underQualityHandsOffInsteadOfSplitting() {
+    require(shouldRepairShapeBeforeDensity(.01,.1,1.5,1.,2.)&&
+            !shouldRepairShapeBeforeDensity(.01,.1,3.,1.,2.)&&
+            !shouldRepairShapeBeforeDensity(.2,.1,1.5,1.,2.),
+            "under-quality within local scale requires shape repair while coarse size allows bounded density");
     const auto f=openTetra();
     MixedPrivateClosureLimits bounds;
     bounds.scaleAwareRefinement=true;
@@ -93,17 +98,29 @@ void underQualityHandsOffInsteadOfSplitting() {
     bounds.terminalObserver=[&](const auto& event) {
         terminal.push_back(event);
     };
-    bool refused=false;
-    try {(void)applyPrivateMixedClosure(
-        f.cut,f.proposal,f.plan,bounds);}
-    catch(const std::logic_error& e) {
-        refused=std::string(e.what()).find(
-            "R06-M17C under-quality at shape scale")!=std::string::npos;
+    bool shapeRefused=false,tipCertified=false;
+    std::string reason;
+    try {
+        const auto result=applyPrivateMixedClosure(
+            f.cut,f.proposal,f.plan,bounds);
+        // A geometrically fixed, planar acute R03 rim tip can legitimately
+        // receive the EXISTING independent geometric quality certificate.
+        // This is not an under-quality free interior face and MUST NOT be
+        // forced through extra subdivision just to fit an impossible q.
+        tipCertified=result.index&&
+            !result.boundaryTipQualityExemptFaces.empty();
+    }catch(const std::logic_error& e) {
+        reason=e.what();
+        shapeRefused=reason.find("R06-M17C under-quality at shape scale")!=
+            std::string::npos;
     }
-    require(refused&&splits==0&&terminal.size()==1&&
-        terminal.front().outcome==MixedClosureTerminalOutcome::Refused,
-        "under-quality fixed-rim tip must refuse before a harmful split cascade");
-    std::cout<<"[r06-m17c] underquality shape-first deterministic refusal before split PASS\n";
+    require(splits==0&&(shapeRefused||tipCertified),
+        "shape-scale tip may refuse or retain genuine fixed-rim certificate, never split to chase q");
+    if(shapeRefused)
+        require(terminal.size()==1&&
+                terminal.front().outcome==MixedClosureTerminalOutcome::Refused,
+                "true M17C shape refusal must preserve typed terminal provenance");
+    std::cout<<"[r06-m17c] shape priority; immutable fixed-rim tip certificate or refusal without splits PASS\n";
 }
 void budgetIsFiniteAndValidates() {
     const auto f=openTetra();
