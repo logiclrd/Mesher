@@ -5,6 +5,7 @@
 #include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
 #include "mesher/repair_mixed_edges.hpp"
+#include "mesher/repair_mixed_patch.hpp"
 
 #include <algorithm>
 #include <array>
@@ -780,39 +781,37 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         else
             out.minimumZipperQuality=std::min(out.minimumZipperQuality,q);
     }
+    // M14E: freeze ONE complete explicit face/vertex ledger. Every
+    // original survivor override (including a remote split neighbor)
+    // must be represented, or reject BEFORE committing this private view.
+    // Generators may have had open/nonmanifold intermediate geometry;
+    // only the consolidated candidate is evaluated for manifoldness.
+    const auto patch=planPrivateMixedClosurePatch(
+        staged,limits.maxAuditedFaces+limits.maxNewFaces);
+    const auto applied=applyPrivateMixedClosurePatch(
+        view,*cut.index,patch,limits.maxNewFaces);
+    owners.insert(applied.touchedPartitions.begin(),
+                  applied.touchedPartitions.end());
     for(std::size_t i=0;i<faces.size();++i) {
-        const auto& face=faces[i];
-        owners.insert(face.owner);
-        if(face.stableId) {
-            // Only transaction-overridden source FaceIds need a COW write.
-            // Unmodified survivors remain in their original shared root.
-            if(!staged.sourceView->hasFaceOverride(face.stableId)) {
-                if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
-                if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(face.stableId);
-                continue;
-            }
-            auto& partition=view.editPartition(face.owner);
-            const auto it=std::find_if(partition.faces.begin(),
-                                       partition.faces.end(),
-                [&](const PartitionFace& old){return old.id==face.stableId;});
-            if(it==partition.faces.end())
-                throw std::logic_error("R06-M04B stable original FaceId missing");
-            it->vertices=face.triangle();
-            if(deficient[i])out.qualityWarningFaces.push_back(face.stableId);
-            if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(face.stableId);
-        }else {
-            if(out.newFaces>=limits.maxNewFaces)
-                throw std::length_error("R06-M04B finite new-face limit exceeded");
-            const auto id=view.addFace(face.owner,face.triangle());
-            if(deficient[i])out.qualityWarningFaces.push_back(id);
-            if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(id);
-            ++out.newFaces;
-            if(face.kind==MixedClosureFaceKind::Cap)
-                out.greenFaces.push_back(id);
-            else if(face.kind==MixedClosureFaceKind::Zipper)
-                out.blueFaces.push_back(id);
+        const auto& f=faces[i];
+        owners.insert(f.owner);
+        if(f.stableId) {
+            if(deficient[i])out.qualityWarningFaces.push_back(f.stableId);
+            if(certifiedTip[i])out.boundaryTipQualityExemptFaces.push_back(f.stableId);
         }
     }
+    for(const auto& [ordinal,id]:applied.createdFaces) {
+        const auto& f=faces.at(ordinal);
+        if(deficient.at(ordinal))out.qualityWarningFaces.push_back(id);
+        if(certifiedTip.at(ordinal))out.boundaryTipQualityExemptFaces.push_back(id);
+        if(f.kind==MixedClosureFaceKind::Cap)
+            out.greenFaces.push_back(id);
+        else if(f.kind==MixedClosureFaceKind::Zipper)
+            out.blueFaces.push_back(id);
+        else throw std::logic_error(
+            "R06-M14E source-backed patch generated a survivor-only face");
+    }
+    out.newFaces=applied.createdFaces.size();
     out.touchedPartitions.assign(owners.begin(),owners.end());
     const auto revision=view.commit().revision;
     auto closed=RegionTopologyIndex::restore(

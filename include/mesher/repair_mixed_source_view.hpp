@@ -132,6 +132,12 @@ public:
         return effective;
     }
 
+    std::vector<VertexId> editedPositionIds() const {
+        std::vector<VertexId> ids;
+        ids.reserve(positionOverrides_.size());
+        for(const auto& [id,_]:positionOverrides_)ids.push_back(id);
+        return ids;
+    }
     std::size_t pendingFaceEdits() const noexcept {
         return faceOverrides_.size();
     }
