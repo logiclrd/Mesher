@@ -34,6 +34,7 @@ struct CertifiedPrivateAutoResult {
     std::size_t generatedFaces{};
     std::size_t insertedVertices{};
     std::size_t refinementSteps{};
+    std::vector<MixedClosureSplitEvent> splitEvents; // optional read-only M15D provenance
     std::size_t interiorQualityFlips{};
     std::size_t interiorFairingMoves{};
     std::size_t interiorCapCollapses{};

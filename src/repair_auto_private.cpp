@@ -116,6 +116,7 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.generatedFaces=staged.newFaces;
     out.insertedVertices=staged.insertedVertices.size();
     out.refinementSteps=staged.refinementSteps;
+    out.splitEvents=staged.splitEvents;
     out.interiorQualityFlips=staged.interiorQualityFlips;
     out.interiorFairingMoves=staged.interiorFairingMoves;
     out.interiorCapCollapses=staged.interiorCapCollapses;

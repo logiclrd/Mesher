@@ -745,6 +745,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     for(const auto id:proposal.proposedFaces)
         if(closed->maybeFace(id)||!closed->retiredFace(id))
             throw std::logic_error("R06-M04B resurrected a retired R03 FaceId");
+    out.splitEvents=staged.splitEvents();
     out.index=std::move(closed);
     return out;
 }

@@ -36,6 +36,7 @@ struct MixedPrivateClosureResult {
     std::vector<FaceId> greenFaces;
     std::vector<FaceId> blueFaces;
     std::vector<VertexId> insertedVertices;
+    std::vector<MixedClosureSplitEvent> splitEvents; // exact stage-owned refinement ancestry
     std::vector<PartitionId> touchedPartitions;
     std::size_t cappedLoops{};
     std::size_t zipperPairs{};
