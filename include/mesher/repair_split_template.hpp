@@ -45,6 +45,9 @@ struct RepairSplitTemplateCandidate {
     std::size_t resultingFacesPerSide=2;
     double worstBefore=1.;
     double worstAfter=1.;
+    // Positive ONLY when the second split genuinely improves the affected
+    // first-level child. This is not a claim that global worst q improved.
+    double correctedChildGain=0.;
     double shortestBaseFraction=1.;
     double longestRemainingBaseFraction=1.;
     bool admissible=false;
@@ -162,6 +165,19 @@ inline RepairSplitTemplateDecision evaluateRepairSplitTemplates(
                 sideWorst=std::min(sideWorst,quality(
                     onEdge(knots[i-1]),onEdge(knots[i]),side.opposite));
             after=std::min(after,sideWorst);
+            if(kind==Kind::Hybrid) {
+                const double lo=second<.5?0.:.5;
+                const double hi=second<.5?.5:1.;
+                const double oldChild=quality(
+                    onEdge(lo),onEdge(hi),side.opposite);
+                const double fixedWorst=std::min(
+                    quality(onEdge(lo),onEdge(second),side.opposite),
+                    quality(onEdge(second),onEdge(hi),side.opposite));
+                if(oldChild>0)
+                    result.correctedChildGain=std::max(
+                        result.correctedChildGain,
+                        fixedWorst/oldChild-1.);
+            }
             // A healthy survivor must meet its hard floor. An already
             // deficient face in coarse geometry must at least IMPROVE,
             // never consume a budget while propagating a worse needle.
@@ -249,9 +265,18 @@ inline RepairSplitTemplateDecision evaluateRepairSplitTemplates(
     if(output.coarse) {
         output.selected=midpoint;
         if(midpoint!=missing&&hybrid!=missing&&
-           output.candidates[hybrid].worstAfter>
+           (output.candidates[hybrid].worstAfter>
                output.candidates[midpoint].worstAfter*
-                   (1.05+policy.minimumGainFraction))
+                   (1.05+policy.minimumGainFraction)||
+            // A bounded hybrid is valuable for very coarse geometry if
+            // its SECOND split improves the selected half substantially,
+            // even when the unchanged OTHER half remains the global
+            // minimum. Do not apply this density/trajectory preference to
+            // an already under-quality parent or a smaller-scale sliver.
+            (!underQuality&&output.edgeToTargetRatio>=3.0&&
+             output.candidates[hybrid].correctedChildGain>=.10&&
+             output.candidates[hybrid].worstAfter>=
+                 .90*output.candidates[midpoint].worstAfter)))
             output.selected=hybrid;
         if(output.selected==missing)output.selected=offCenter;
     }else {
