@@ -91,6 +91,9 @@ std::size_t MixedClosureStaging::trackSurvivor(
     survivingFaceIds_.push_back(id);
     faces_.push_back({id,sourceFace.owner,{},
                      MixedClosureFaceKind::Survivor,0,sourceView_});
+    if(observer_&&!insideAtomicSplit_)
+        notifyOperation("trackSurvivor","FaceId="+std::to_string(id)+
+                        " ordinal="+std::to_string(faces_.size()-1));
     return faces_.size()-1;
 }
 std::size_t MixedClosureStaging::ensureFace(
@@ -448,23 +451,74 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
 std::size_t MixedClosureStaging::improveInteriorDiagonal(
     bool reflection,double capQuality,double zipperQuality,
     double capFactor,double zipperFactor) {
-    return flipOneInferiorClosureDiagonal(
+    std::vector<PrivateRepairTriangle> before;
+    if(observer_) {
+        before.reserve(faces_.size());
+        for(const auto& face:faces_)before.push_back(face.triangle());
+    }
+    const auto count=flipOneInferiorClosureDiagonal(
         faces_,positions_,reflection,capQuality,zipperQuality,
         capFactor,zipperFactor);
+    if(count&&observer_) {
+        std::ostringstream args;
+        args<<std::setprecision(17)<<"mirror="<<reflection
+            <<" min_cap_q="<<capQuality<<" min_zipper_q="<<zipperQuality
+            <<" max_cap_edge="<<capFactor<<" max_zipper_edge="<<zipperFactor
+            <<" flipped_orbits="<<count;
+        for(std::size_t i=0;i<before.size();++i) {
+            const auto after=faces_[i].triangle();
+            if(before[i]==after)continue;
+            args<<" face_ordinal="<<i<<" before="<<before[i][0]<<","
+                <<before[i][1]<<","<<before[i][2]<<" after="
+                <<after[0]<<","<<after[1]<<","<<after[2];
+        }
+        notifyOperation("improveInteriorDiagonal",args.str());
+    }
+    return count;
 }
 std::vector<VertexId> MixedClosureStaging::collapseInteriorCapFan(
     const std::vector<VertexId>& created,bool reflection,
     double capQuality,double capFactor) {
-    return collapseOneInferiorCapFan(
+    const auto beforeCount=faces_.size();
+    const auto retired=collapseOneInferiorCapFan(
         faces_,positions_,created,reflection,capQuality,capFactor);
+    if(!retired.empty()&&observer_) {
+        std::ostringstream args;
+        args<<std::setprecision(17)<<"mirror="<<reflection
+            <<" min_cap_q="<<capQuality<<" max_cap_edge="<<capFactor
+            <<" faces_before="<<beforeCount<<" faces_after="<<faces_.size()
+            <<" retired=";
+        for(const auto id:retired)args<<id<<",";
+        notifyOperation("collapseInteriorCapFan",args.str());
+    }
+    return retired;
 }
 std::size_t MixedClosureStaging::fairInteriorVertex(
     const std::vector<VertexId>& created,bool reflection,
     double capQuality,double zipperQuality,double capFactor,
     double zipperFactor) {
-    return fairOneConstrainedClosureVertex(
+    std::map<VertexId,Vec3> before;
+    if(observer_)
+        for(const auto id:created)
+            if(positions_.contains(id))before.emplace(id,positions_.at(id));
+    const auto count=fairOneConstrainedClosureVertex(
         faces_,positions_,created,reflection,capQuality,zipperQuality,
         capFactor,zipperFactor);
+    if(count&&observer_) {
+        std::ostringstream args;
+        args<<std::setprecision(17)<<"mirror="<<reflection
+            <<" min_cap_q="<<capQuality<<" min_zipper_q="<<zipperQuality
+            <<" max_cap_edge="<<capFactor<<" max_zipper_edge="<<zipperFactor
+            <<" moved="<<count;
+        for(const auto& [id,old]:before) {
+            const auto p=positions_.at(id);
+            if(p.x==old.x&&p.y==old.y&&p.z==old.z)continue;
+            args<<" vertex="<<id<<" from="<<old.x<<","<<old.y<<","<<old.z
+                <<" to="<<p.x<<","<<p.y<<","<<p.z;
+        }
+        notifyOperation("fairInteriorVertex",args.str());
+    }
+    return count;
 }
 void MixedClosureStaging::trackOriginalVertex(VertexId id) {
     if(!sourceView_)throw std::logic_error("R06-M15C3 unbound original source");
@@ -480,6 +534,13 @@ void MixedClosureStaging::stageProvisionalVertex(
     positions_.emplace(id,pos);
     vertexOwners_.emplace(id,owner);
     provisionalSpatialVertices_.push_back(id);
+    if(observer_) {
+        std::ostringstream args;
+        args<<std::setprecision(17)<<"provisional="<<id
+            <<" xyz="<<pos.x<<","<<pos.y<<","<<pos.z
+            <<" owner="<<owner;
+        notifyOperation("stageProvisionalVertex",args.str());
+    }
 }
 std::vector<VertexId> MixedClosureStaging::resolveProvisionalVertices(
     MutableMeshView& privateView,std::size_t maxNew) {
@@ -487,6 +548,8 @@ std::vector<VertexId> MixedClosureStaging::resolveProvisionalVertices(
         throw std::length_error("R06-M15C3 provisional permanent ID budget");
     std::vector<VertexId> inserted;
     inserted.reserve(provisionalSpatialVertices_.size());
+    std::vector<std::pair<VertexId,VertexId>> mappings;
+    if(observer_)mappings.reserve(provisionalSpatialVertices_.size());
     for(const auto provisional:provisionalSpatialVertices_) {
         const auto pos=positions_.at(provisional);
         const auto owner=vertexOwners_.at(provisional);
@@ -510,8 +573,21 @@ std::vector<VertexId> MixedClosureStaging::resolveProvisionalVertices(
             throw std::logic_error("R06-M15C3 provisional vertex missing");
         vertexOwners_.erase(provisional);
         inserted.push_back(id);
+        if(observer_)mappings.emplace_back(provisional,id);
     }
     provisionalSpatialVertices_.clear();
+    if(observer_&&!mappings.empty()) {
+        std::ostringstream args;
+        args<<"converted="<<mappings.size();
+        constexpr std::size_t maxListed=32;
+        for(std::size_t i=0;i<std::min(mappings.size(),maxListed);++i)
+            args<<" provisional="<<mappings[i].first
+                <<" stable="<<mappings[i].second;
+        if(mappings.size()>maxListed)
+            args<<" more_mappings="<<(mappings.size()-maxListed)
+                <<" (remaining IDs available in exact geometry diff)";
+        notifyOperation("resolveProvisionalVertices",args.str());
+    }
     return inserted;
 }
 void MixedClosureStaging::retirePrivateVertex(
@@ -528,6 +604,9 @@ void MixedClosureStaging::retirePrivateVertex(
     if(positions_.contains(id))
         (void)positions_.erase(id);
     vertexOwners_.erase(id);
+    if(observer_)
+        notifyOperation("retirePrivateVertex","VertexId="+std::to_string(id)+
+                        " owner="+std::to_string(owner));
 }
 MixedClosureEdgeNeighborhood MixedClosureStaging::inspectEdge(
     VertexId a,VertexId b) const {
