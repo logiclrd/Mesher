@@ -58,7 +58,11 @@ void originalFacesAndEffectiveSplit() {
           "one initial cap triangle closes the rim but never edits an original face");
     check(capDelta.addedEdges.empty(),
           "adding a cap over an existing open rim adds faces, not new indexed edges");
-    check(repairStepFaceKey(capped.generatedFaces.front()).oriented==
+    check(capDelta.boundaryDiffAvailable&&
+          capDelta.removedBoundaryEdges.size()==3&&
+          capDelta.addedBoundaryEdges.empty(),
+          "cap closes three yellow rim edges without deleting the indexed survivor edges");
+    check(capped.generatedFaces.front().vertices==
           PrivateRepairTriangle{a,c,b},
           "oriented cap corner identities must survive the capture unchanged");
     stage.ensureFace(c,b,a,MixedClosureFaceKind::Cap,owner,1);
