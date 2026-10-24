@@ -533,11 +533,11 @@ M14F physical GPU review and R07/R08 publication remain open.
 Normative spec: [docs/R06_M15_STAGING_TOPOLOGY_EDITOR.md](docs/R06_M15_STAGING_TOPOLOGY_EDITOR.md).
 Precedes M14F because physical review needs the topology mutation
 API, not merely the existing M14C optional helper.
-- [ ] **R06-M15A — Live R03 rim and ensure-face stage API.**
+- [x] **R06-M15A — Live R03 rim and ensure-face stage API.**
   Source-bound staging topology, live open boundary walks, cyclic
   idempotent face creation and reverse-winding/conflict refusal;
   independently executable tests and unchanged replay.
-- [ ] **R06-M15B — Stage-owned split with hard repeated-split error.**
+- [x] **R06-M15B — Stage-owned split with hard repeated-split error.**
   Split one- or two-sided existing indexed edges through shared
   stable VertexId; update yellow boundary paths, reflected orbit,
   finite quality and rollback; no private caller-internal face splitting.
@@ -546,13 +546,28 @@ API, not merely the existing M14C optional helper.
   helpers into stage operations, then seal underlying topology mutation
   so a generator cannot bypass these invariants.
   **Flat split before implementation:**
-  - [ ] **R06-M15C1 — Route cap/zipper face creation through ensureFace.**
+  - [x] **R06-M15C1 — Route cap/zipper face creation through ensureFace.**
     No direct generator calls to `faces.push_back`, preserve complete
     rim coverage, winding and quality refusal, test all five .r06case.
-  - [ ] **R06-M15C2 — Route flip/collapse/fairing through stage methods.**
+  - [x] **R06-M15C2 — Route flip/collapse/fairing through stage methods.**
     Keep existing finite budget, original-vertex and mirror restrictions;
     add tests for no isolated mutable helper bypass.
-  - [ ] **R06-M15C3 — Seal external mutable topology access.**
+  **M15A/B/C1/C2 implemented and CPU accepted (2026-10-24):**
+[Actions #40072521856](https://github.com/logiclrd/Mesher/actions/runs/40072521856)
+completed SUCCESS on Linux GCC, Linux Clang and Windows MSVC,
+100 CPU tests on GCC. Committed steps: `836e7d7c` editor foundation,
+`4e540828` staging-owned strict edge splitting and split-order
+regressions, `26503e03` CMake source linking, `138129e7` cap/zipper
+ensure-face routing, `208a7061` flip/fan/fairing staging methods.
+M13 warning-preview geometric witness counts are **unchanged**:
+refusal-1 382 and refusal-3 356 T-junction candidates, with zero indexed
+incidence errors; thus DO NOT claim that the suspect geometry is fixed.
+The external `MixedClosureStaging` fields and low-level source-override
+access are still publicly mutable and must be sealed in M15C3 before
+claiming an unbypassable topology-edit API. M15D physical Vulkan approval
+and actual generator attachment-intent investigation also remain open.
+
+- [ ] **R06-M15C3 — Seal external mutable topology access.**
     Migrate all existing read-only callers to const accessors, move
     source-face override writes behind private methods and remove
     independent edge-split helper mutation access from generators;

@@ -116,3 +116,41 @@ components, not merely an initial yellow display loop.
 refusal-1/3 geometric witnesses disappear. Only after M15C and M15D
 can the whole class of accidentally independent *intended shared-edge*
 splits be considered architecturally prevented.
+
+## Implementation checkpoint and unresolved defect (2026-10-24)
+
+Accepted in [three-platform CI #40072521856](https://github.com/logiclrd/Mesher/actions/runs/40072521856):
+M15A adds a source-bound staging editor, derived effective yellow
+boundary loops (as one-sided directed walks), indexed `addVertex`, cyclic
+idempotent `ensureFace`, reversed-face/overfull-edge refusal, and
+initial R03 survivor tracking. M15B moves the actual refinement split
+from the caller-local lambda into `MixedClosureStaging::splitEdge`.
+A request on a nonexistent former A-B edge is **always an error**;
+one-sided R03 rim and two-sided survivor/cap cases update all their
+incident faces using exactly one new VertexId, including mirrored
+orbit and quality/budget preflight. The regression explicitly tests
+split-before-cap, split-after-cap, original source immutability, and
+remote two-sided source geometry. M15C1 routes initial cap/zipper
+triangle insertion through `ensureFace`; M15C2 routes interior
+diagonal flips, fan retirement, and fairing through staging methods.
+
+**Do not claim completion of M15C:** The current `MixedClosureStaging`
+definition still exposes mutable `faces`, `positions`, `sourceView`,
+and `vertexOwners` for compatibility with legacy algorithms/tests.
+The internal implementation of flip/fan/fair remains the old helper
+code called by the staging methods. M15C3 must migrate remaining
+direct write paths and make the topology state private; simply
+having a canonical method does not prohibit bypassing it.
+
+**Crucial empirical result:** The exact M13 warning-preview census is
+unchanged from M14: `refusal-1` still reports 382 geometric
+T-junction candidates and 4 new/survivor crossing edges; `refusal-3`
+reports 356 candidates and 14 crossings; indexed shared-interface
+incidence and orientation errors are both zero. An incidental
+point-on-edge is not automatically an intended weld. The cap/front
+generators still need an explicit policy for when a new vertex
+*intends* to attach to a surviving edge and must use a returned
+split VertexId. Do not loosen the quality thresholds or silently
+weld by XYZ to make these two exact cases pass. M15D is not
+accepted until physical GPU inspection confirms the intended
+attachment behavior.
