@@ -1,5 +1,10 @@
 #include "mesher/repair_mixed_closure.hpp"
 #include "mesher/repair_scale_aware_policy.hpp"
+#include "mesher/repair_case.hpp"
+#include "mesher/repair_auto_plan.hpp"
+#include "mesher/repair_preview.hpp"
+#include "mesher/repair_excision.hpp"
+#include <filesystem>
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -133,6 +138,62 @@ void underQualityHandsOffInsteadOfSplitting() {
     }
     std::cout<<"[r06-m17c] shape priority; immutable fixed-rim tip certificate or refusal without splits PASS\n";
 }
+void refusalOneRealSavedCaseAttemptTrace() {
+    // This is the ORIGINAL 531KB captured post-stamp physical refusal,
+    // not a toy tetra and not recreated brush motion. M17C is opt-in.
+    const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
+        "repair-cases"/"refusal-1.r06case";
+    const auto saved=readRepairCase(path);
+    require(saved.candidate.index&&!saved.contacts.empty(),
+            "real refusal-1 saved candidate and R01 contacts must load");
+    const auto excision=previewApproximateExcision(
+        *saved.candidate.index,saved.contacts);
+    require(excision.complete,"real refusal-1 must produce full R02 cut");
+    const auto cut=applyPrivateExcision(saved.candidate.index,excision);
+    const auto plan=planPrivateAutomaticClosure(
+        *saved.candidate.index,cut,excision,saved.contacts);
+    require(plan.ready(),"real refusal-1 must reach R06 closure staging");
+    MixedPrivateClosureLimits limits;
+    limits.requireReflectedGeometry=saved.symmetricSource;
+    limits.scaleAwareRefinement=true;
+    std::vector<std::string> declined;
+    std::size_t splitsBeforeFirstAttempt=0, totalSplits=0;
+    limits.staging.operationObserver=[&](
+        const MixedClosureStaging&,const std::string& operation,
+        const std::string& arguments) {
+        if(operation=="splitEdge")++totalSplits;
+        if(operation=="TryDiagonalFlip"||
+           operation=="TryCapFanCollapse"||
+           operation=="TryInteriorFairing"||
+           operation=="TryQualityRestoringSplit") {
+            if(declined.empty())splitsBeforeFirstAttempt=totalSplits;
+            declined.push_back(operation+":"+arguments);
+        }
+    };
+    bool refused=false;
+    try {
+        const auto closed=applyPrivateMixedClosure(
+            cut,excision,plan,limits);
+        require(closed.index!=nullptr,
+            "accepted private mixed closure must produce a full index");
+    }catch(const std::logic_error&) {refused=true;}
+    require(!declined.empty()&&splitsBeforeFirstAttempt==0,
+        "refusal-1 step 92 must expose shape attempts before any split");
+    require(declined[0].starts_with("TryDiagonalFlip:")&&
+            declined[0].find("result=NO_ADMISSIBLE")!=std::string::npos,
+        "first no-op flip must be visible in source-backed step trace");
+    require(std::any_of(declined.begin(),declined.end(),
+        [](const std::string& op) {
+            return op.starts_with("TryInteriorFairing:");
+        }),"fairing attempt must be visible rather than mistaken for a skipped phase");
+    require(!saved.candidate.index->retiredFaceCount(),
+        "source post-stamp mesh remains untouched even on refusal");
+    std::cout<<"[r06-m17c] exact refusal-1 saved case: "
+             <<declined.size()<<" no-change repair diagnostics, "
+             <<totalSplits<<" staged split vertices, "
+             <<(refused?"strict refusal":"complete private closure")
+             <<" PASS\n";
+}
 void budgetIsFiniteAndValidates() {
     const auto f=openTetra();
     MixedPrivateClosureLimits bad;
@@ -156,6 +217,7 @@ int main() {
         ordinaryUnchangedAndEnabledDensity();
         underQualityHandsOffInsteadOfSplitting();
         budgetIsFiniteAndValidates();
+        refusalOneRealSavedCaseAttemptTrace();
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"[r06-m17c] FAILED "<<e.what()<<"\n";
