@@ -354,6 +354,71 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         out.interiorFairingMoves+=moved;
         return true;
     };
+    // M17C bounded policy is opt-in while the saved refusal archive is
+    // being compared. The original R06 search below remains byte-identical
+    // when disabled. This map measures lineage on CURRENT effective edges:
+    // a freshly subdivided child cannot repeatedly chase a thin corner.
+    std::map<Edge,std::size_t> scaleEdgeDepth;
+    const auto planScaleEdge=[&](Edge e)->std::optional<RepairSplitTemplateDecision> {
+        const auto n=neighborhood(e);
+        if(n.sides()!=2||!n.conformingPair)return std::nullopt;
+        const auto sides=effectiveSides(e);
+        double target=std::numeric_limits<double>::infinity();
+        for(const auto& f:sides)
+            if(f.kind!=MixedClosureFaceKind::Survivor&&
+               f.targetEdge>0&&std::isfinite(f.targetEdge))
+                target=std::min(target,f.targetEdge);
+        if(!std::isfinite(target))return std::nullopt;
+        std::size_t orbit=1;
+        if(limits.requireReflectedGeometry) {
+            const auto peer=reflectedEdge(e);
+            if(!peer||!staged.hasEffectiveEdge(peer->first,peer->second))
+                return std::nullopt;
+            orbit=*peer==e?1:2;
+        }
+        const auto remaining=std::min(
+            limits.maxRefinementSteps-out.refinementSteps,
+            limits.maxScaleAwareSplitOperations-out.scaleAwareSplitOperations);
+        const auto depth=scaleEdgeDepth[e];
+        if(depth>=limits.maxScaleAwareSplitDepth||remaining<orbit)
+            return std::nullopt;
+        RepairSplitTemplateInput input;
+        input.firstId=e.first;
+        input.secondId=e.second;
+        input.first=positions.at(e.first);
+        input.second=positions.at(e.second);
+        input.policy.targetLength=target;
+        input.policy.coarseScaleRatio=limits.shapeRepairScaleRatio;
+        input.policy.remainingOperations=std::min<std::size_t>(2,remaining/orbit);
+        input.policy.maximumDepth=std::min<std::size_t>(
+            2,limits.maxScaleAwareSplitDepth-depth);
+        for(const auto& f:sides) {
+            const auto tri=f.triangle();
+            VertexId opposite=0;
+            for(const auto vertex:tri)
+                if(vertex!=e.first&&vertex!=e.second)opposite=vertex;
+            if(!opposite)return std::nullopt;
+            input.sides.push_back({
+                positions.at(opposite),accepted(f.kind,limits).threshold});
+        }
+        return evaluateRepairSplitTemplates(std::move(input));
+    };
+    const auto scaleSplit=[&](Edge e,double t)->std::vector<VertexId> {
+        const auto depth=scaleEdgeDepth[e]+1;
+        const auto newIds=splitMirrored(e,false,t);
+        if(newIds.empty())
+            throw std::logic_error("R06-M17C selected split produced no vertices");
+        for(std::size_t k=0;k<newIds.size();++k) {
+            const auto& event=staged.splitEvents().at(
+                staged.splitEvents().size()-newIds.size()+k);
+            scaleEdgeDepth[edge(event.originalA,newIds[k])]=depth;
+            scaleEdgeDepth[edge(newIds[k],event.originalB)]=depth;
+        }
+        out.refinementSteps+=newIds.size();
+        out.scaleAwareSplitOperations+=newIds.size();
+        if(t!=.5)out.scaleAwareOffCenterSplits+=newIds.size();
+        return newIds;
+    };
     std::size_t stagnant=0;
     while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
@@ -390,6 +455,121 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 }
             }
         }
+        if(limits.scaleAwareRefinement) {
+            // A bad triangle at or below the local shape-work scale must
+            // NOT be repeatedly divided merely because some OTHER edge
+            // remains too long. Fairing/flips act on shape, not density.
+            bool badIsCoarse=false;
+            if(lowest!=faces.size()) {
+                const auto& f=faces.at(lowest);
+                for(unsigned k=0;k<3;++k) {
+                    const auto v=f.triangle();
+                    if(edgeSpan(positions,edge(v[k],v[(k+1)%3]))>
+                       f.targetEdge*limits.shapeRepairScaleRatio)
+                        badIsCoarse=true;
+                }
+            }
+            if(lowest!=faces.size()&&!badIsCoarse) {
+                ++out.scaleAwareShapeHandoffs;
+                if(improveFairing()||improveQuality()) {
+                    stagnant=0;
+                    continue;
+                }
+                const auto& v=faces[lowest].triangle();
+                const auto reason=
+                    "R06-M17C under-quality at shape scale needs a legal "
+                    "flip/collapse/reposition, not another split: face="+
+                    std::to_string(v[0])+","+
+                    std::to_string(v[1])+","+
+                    std::to_string(v[2])+
+                    " q="+std::to_string(smallest);
+                if(limits.inspectionWarnQuality) {
+                    warn(reason);break;
+                }
+                throw std::logic_error(reason);
+            }
+            if(largestUnsafeRatio<=1&&lowest==faces.size())break;
+            if(out.scaleAwareSplitOperations>=
+               limits.maxScaleAwareSplitOperations) {
+                const auto reason="R06-M17C finite scale-aware split "
+                                  "budget exhausted; no subdivision cascade";
+                if(limits.inspectionWarnQuality){warn(reason);break;}
+                throw std::length_error(reason);
+            }
+            // For an actual under-quality coarse face, address ITS scale,
+            // not an unrelated longest edge. Otherwise do density work.
+            std::vector<Edge> candidates;
+            if(lowest!=faces.size()) {
+                const auto v=faces[lowest].triangle();
+                for(unsigned k=0;k<3;++k)
+                    candidates.push_back(edge(v[k],v[(k+1)%3]));
+                std::sort(candidates.begin(),candidates.end(),
+                    [&](Edge a,Edge b) {
+                        const auto al=edgeSpan(positions,a);
+                        const auto bl=edgeSpan(positions,b);
+                        return al!=bl?al>bl:a<b;
+                    });
+            }else {
+                for(const auto& [ratio,e]:longCandidates) {
+                    (void)ratio;
+                    candidates.push_back(e);
+                }
+            }
+            std::set<Edge> attempted;
+            bool progressed=false;
+            for(const auto e:candidates) {
+                if(!attempted.insert(e).second)continue;
+                const auto proposal=planScaleEdge(e);
+                if(!proposal||!proposal->hasSelection())continue;
+                const auto chosen=proposal->candidates[proposal->selected];
+                const auto first=scaleSplit(e,chosen.firstT);
+                progressed=true;
+                stagnant=0;
+                if(chosen.kind==RepairSplitTemplateKind::Hybrid&&
+                   first.size()>0&&
+                   chosen.secondT!=.5&&
+                   out.scaleAwareSplitOperations<
+                       limits.maxScaleAwareSplitOperations) {
+                    // The follow-up is NEVER an unexamined inherited cut.
+                    // Rebuild both incident source-backed neighborhoods and
+                    // re-evaluate the proposed child parameter after the
+                    // first complete mirrored transaction.
+                    const auto child=chosen.secondT<.5?
+                        edge(e.first,first.front()):
+                        edge(first.front(),e.second);
+                    const auto desired=positions.at(e.first)+
+                        (positions.at(e.second)-positions.at(e.first))*
+                        chosen.secondT;
+                    const auto start=positions.at(child.first);
+                    const auto span=positions.at(child.second)-start;
+                    const auto span2=dot(span,span);
+                    const double childT=span2>0?
+                        dot(desired-start,span)/span2:0.;
+                    const auto revised=planScaleEdge(child);
+                    if(revised&&revised->hasSelection()) {
+                        for(const auto& choice:revised->candidates) {
+                            if(choice.kind!=RepairSplitTemplateKind::OffCenter||
+                               !choice.admissible||
+                               std::abs(choice.firstT-childT)>1e-9)
+                                continue;
+                            const auto next=scaleSplit(child,childT);
+                            out.scaleAwareHybridCorrections+=next.size();
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+            if(progressed)continue;
+            ++out.scaleAwareShapeHandoffs;
+            if(improveFairing()||improveQuality())continue;
+            const auto reason="R06-M17C no quality-safe bounded split "
+                "or admissible shape edit; refuse rather than repeat "
+                "a pathological subdivided needle";
+            if(limits.inspectionWarnQuality){warn(reason);break;}
+            throw std::logic_error(reason);
+        }
+
         // Preserve the original longest-first ordering where it is legal,
         // but skip candidates whose complete mirrored orbit would create
         // an under-quality ORIGINAL survivor child. Sort by score then IDs.
