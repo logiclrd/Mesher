@@ -12,6 +12,7 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <utility>
 
@@ -69,7 +70,7 @@ VertexId MixedClosureStaging::addVertex(
     vertexOwners_.emplace(id,owner);
     if(observer_&&!insideAtomicSplit_) {
         std::ostringstream args;
-        args<<"id="<<id<<" xyz="<<position.x<<","<<position.y<<","<<position.z
+        args<<std::setprecision(17)<<"id="<<id<<" xyz="<<position.x<<","<<position.y<<","<<position.z
             <<" owner="<<owner;
         notifyOperation("addVertex",args.str());
     }
@@ -153,7 +154,7 @@ std::size_t MixedClosureStaging::ensureFace(
     if(kind==MixedClosureFaceKind::Zipper)++zipperTriangles;
     if(observer_) {
         std::ostringstream args;
-        args<<"a="<<a<<" b="<<b<<" c="<<c
+        args<<std::setprecision(17)<<"a="<<a<<" b="<<b<<" c="<<c
             <<" kind="<<(kind==MixedClosureFaceKind::Cap?"CAP":
                          kind==MixedClosureFaceKind::Zipper?"ZIPPER":"SURVIVOR")
             <<" owner="<<owner<<" target_edge="<<targetEdge
