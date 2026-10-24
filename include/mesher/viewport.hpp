@@ -56,7 +56,7 @@ struct ViewportMeshUpdate {
     bool inspectionStepFinished=false;
     bool inspectionStepCancelled=false;
     bool inspectionStepError=false;
-    std::vector<std::string> repairStepLines;
+    std::vector<std::string> repairStepLines{};
 };
 
 struct ViewportInteraction {
