@@ -134,13 +134,27 @@ remote two-sided source geometry. M15C1 routes initial cap/zipper
 triangle insertion through `ensureFace`; M15C2 routes interior
 diagonal flips, fan retirement, and fairing through staging methods.
 
-**Do not claim completion of M15C:** The current `MixedClosureStaging`
-definition still exposes mutable `faces`, `positions`, `sourceView`,
-and `vertexOwners` for compatibility with legacy algorithms/tests.
-The internal implementation of flip/fan/fair remains the old helper
-code called by the staging methods. M15C3 must migrate remaining
-direct write paths and make the topology state private; simply
-having a canonical method does not prohibit bypassing it.
+**M15C3/C4 accepted (2026-10-24):** `MixedClosureStaging`
+now keeps its source override object, current face records, working
+positions, vertex ownership, provisional identities and initial rim
+paths **private**. The published accessors expose only `const` views,
+and original `MixedClosureFace::setTriangle` now refuses direct edits
+through a FaceId handle. Free mutable edge splitting/import helpers
+were removed, and generators, patch planning, refinement, provisional
+ID conversion and vertex retirement use the stage operations. Interior
+quality flip/collapse/fairing implementations remain private helper
+algorithms invoked by the stage (rather than by closure callers).
+A deliberately truncated or duplicate source-face patch ledger fails
+before private COW writes; independently constructed invalid candidate
+topology still fails the final full manifold validator. This enforces
+the source-backed staging API contract, not collision-free geometry.
+
+[Actions #40073922184](https://github.com/logiclrd/Mesher/actions/runs/40073922184)
+completed SUCCESS on GCC, Clang and Windows MSVC (GCC: 100/100
+CPU tests); all five original exact R06 replay regressions retained.
+`r06-integration` code head `436f1ce8` is the accepted build;
+`main` remains unchanged. M15D physical inspection and actual
+generator requests for intended survivor-edge attachment remain open.
 
 **Crucial empirical result:** The exact M13 warning-preview census is
 unchanged from M14: `refusal-1` still reports 382 geometric

@@ -541,7 +541,7 @@ API, not merely the existing M14C optional helper.
   Split one- or two-sided existing indexed edges through shared
   stable VertexId; update yellow boundary paths, reflected orbit,
   finite quality and rollback; no private caller-internal face splitting.
-- [ ] **R06-M15C — Migrate and gate ALL topology writers.**
+- [x] **R06-M15C — Migrate and gate ALL topology writers.**
   Rework cap/zip creation, adaptive refinement, flip/fan-collapse
   helpers into stage operations, then seal underlying topology mutation
   so a generator cannot bypass these invariants.
@@ -562,20 +562,40 @@ ensure-face routing, `208a7061` flip/fan/fairing staging methods.
 M13 warning-preview geometric witness counts are **unchanged**:
 refusal-1 382 and refusal-3 356 T-junction candidates, with zero indexed
 incidence errors; thus DO NOT claim that the suspect geometry is fixed.
-The external `MixedClosureStaging` fields and low-level source-override
-access are still publicly mutable and must be sealed in M15C3 before
-claiming an unbypassable topology-edit API. M15D physical Vulkan approval
-and actual generator attachment-intent investigation also remain open.
+M15C3 subsequently sealed those mutable paths, with M15C4's
+three-platform CPU regressions green on
+[Actions #40073922184](https://github.com/logiclrd/Mesher/actions/runs/40073922184).
+The geometric warnings remain present: no claim that the visible
+cap/survivor alignment has been fixed. M15D physical Vulkan approval and
+actual generator attachment-intent investigation also remain open.
 
-- [ ] **R06-M15C3 — Seal external mutable topology access.**
+- [x] **R06-M15C3 — Seal external mutable topology access.**
     Migrate all existing read-only callers to const accessors, move
     source-face override writes behind private methods and remove
     independent edge-split helper mutation access from generators;
     reject API-level hole/fork creation and preserve diagnostics.
-  - [ ] **R06-M15C4 — Combined exact replay and three-platform CI.**
+  - [x] **R06-M15C4 — Combined exact replay and three-platform CI.**
     All five archived source bytes unchanged; no new accidental
     one-sided shared-edge subdivisions, no default collision-policy
     changes and no live publication.
+
+**M15C3/C4 accepted (2026-10-24):** The editor now owns private
+survivor/cap/zip face connectivity, source face overrides, generated
+vertex IDs/positions and current boundary walks. External users get
+`const` topology/position views only; original `MixedClosureFace`
+handles reject `setTriangle`; old mutating free edge-split helpers were
+removed. Initial generator, provisional ID conversion, private vertex
+retirement, edge subdivision, flips and fan retirement are accessed
+through staging methods. Exported patch write-count mismatches refuse
+before applying private COW writes. Dedicated editor, source and patch
+regressions plus all five exact archived R06 cases passed
+[CI #40073922184](https://github.com/logiclrd/Mesher/actions/runs/40073922184)
+(GCC/Clang/MSVC; GCC 100/100 CPU tests) on code head `436f1ce8`.
+The remaining geometric witness counts are 382 / 356 and indexed
+incidence errors remain zero. This verifies structural API encapsulation,
+NOT correct generator attachment intent or physical GPU appearance;
+those remain M15D. Legacy spatial-front intersection admission
+remains unchanged and main is unmodified.
 
 - [ ] **R06-M15D — Exact case and physical GPU acceptance.**
   Split before/after attachment, M13 witness counts on 1/3,
