@@ -474,18 +474,46 @@ geometric T-junctions and unrelated surface crossings—NO claim that the
 M13 geometric census has been eliminated. M14F physical Vulkan approval,
 R07/R08 publication and merged-main CI remain open.
 
-- [ ] **R06-M14D — Diagnostic M13 witness-to-source provenance.**
+- [x] **R06-M14D — Diagnostic M13 witness-to-source provenance.**
   Annotate opt-in geometric witnesses with source/new stable IDs,
   original rim-versus-interior survivor edges, current indexed incidence,
   deterministic bounded deduplication and explicit uncertain intent.
   The diagnostic cannot itself reject a candidate: self-intersections,
   including pre-existing ones, are permitted.
 - [ ] **R06-M14E — Explicit full-patch integration and manifold gate.**
+  **Split into flat, separately observable tasks before coding:**
+  E1 defines and audits the exact complete-patch write ledger;
+  E2 applies that ledger to one private copy-on-write consolidated
+  revision and runs final manifold validation; E3 adds regression
+  coverage and verifies strict policy preservation.
+
   Require generators to propose all intended survivor splits using
   source-backed topology. Materialize the single consolidated private
   candidate, validate closed oriented manifold topology, quality,
   reflection and finite budgets, and publish or discard. No
   coordinate-welding guess or universal zero-intersection requirement.
+**M14D diagnostic-only accepted on 2026-10-23:**
+[Actions #40046776031](https://github.com/logiclrd/Mesher/actions/runs/40046776031)
+completed GCC, Clang and Windows MSVC green, including
+`repair_r06_m14d_source_witness_provenance`.
+Source-candidate test reuses one exact immutable ID domain.
+
+- [ ] **R06-M14E1 — Complete source-backed patch ledger.**
+  Capture original FaceId replacements and generated cap/zip child faces
+  from one staged source-backed plan; fail before COW commit on a missing
+  or duplicate survivor override, foreign source ID or unregistered vertex.
+- [ ] **R06-M14E2 — Single consolidated private revision and gate.**
+  Apply all registered patch face changes together, commit just one private
+  revision, then validate complete closed and oriented two-manifold topology
+  before returning any certified result. Never publish an intermediate cut,
+  unvalidated staged triangles or a failed patch.
+- [ ] **R06-M14E3 — Failure, quality and intersection-policy regressions.**
+  Demonstrate missing-survivor-edit and incomplete connectivity refusal,
+  unchanged source revision after refusal, existing successful exact-case
+  replays, and GCC/Clang/Windows MSVC CI. A geometric 3D intersection alone
+  must not replace the topology gate; keep legacy R06 collision refusal
+  behavior unchanged pending an independently reviewed policy change.
+
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
