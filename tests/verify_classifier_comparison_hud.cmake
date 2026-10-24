@@ -7,6 +7,7 @@ endif()
 file(READ "${MESHER_SOURCE_ROOT}/src/viewport.cpp" viewport)
 file(READ "${MESHER_SOURCE_ROOT}/shaders/hud.frag" fragment)
 file(READ "${MESHER_SOURCE_ROOT}/src/repair_inspection.cpp" repair)
+file(READ "${MESHER_SOURCE_ROOT}/include/mesher/repair_step_hud.hpp" layout)
 foreach(required IN ITEMS
         "AREA: "
         "PROXIMITY: "
@@ -15,7 +16,10 @@ foreach(required IN ITEMS
         "classifiersAgree?2.0f:3.0f"
         "activeClassifier==0?\" <---\":\"\""
         "activeClassifier==1?\" <---\":\"\""
-        "const int textX=margin+padding,textY=margin+padding")
+        "margin+padding+int(i)*characterWidth+x*scale"
+        "margin+padding+row*characterHeight+y*scale"
+        "leftText(lines[0],0,tint);"
+        "leftText(lines[1],1,tint);")
     string(FIND "${viewport}" "${required}" found)
     if(found EQUAL -1)
         message(FATAL_ERROR "M09 missing frozen top-left HUD contract: ${required}")
@@ -28,6 +32,16 @@ foreach(required IN ITEMS
     string(FIND "${fragment}" "${required}" found)
     if(found EQUAL -1)
         message(FATAL_ERROR "M09 missing distinct red/green glyph material: ${required}")
+    endif()
+endforeach()
+# R06-M16D shares the top-left panel but can never displace the
+# original two comparison rows with the staged operation/arguments.
+foreach(required IN ITEMS
+        "static constexpr int firstOperationRow=2"
+        "layoutRepairStepHud(")
+    string(FIND "${layout}" "${required}" found)
+    if(found EQUAL -1)
+        message(FATAL_ERROR "M16D row-three operation HUD contract missing: ${required}")
     endif()
 endforeach()
 string(FIND "${repair}" "compareClassifierPlans(*result,classifier);" found)
