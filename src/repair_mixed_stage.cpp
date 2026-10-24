@@ -138,6 +138,8 @@ MixedClosureStaging stagePrivateMixedClosure(
             SpatialCapPatch patch;
             try {
                 SpatialCapSettings spatial;
+                spatial.repairTangentialOvershoot=bounds.optimizeSpatialFront;
+                spatial.desiredMinimumQuality=bounds.targetInitialCapQuality;
                 spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x<0;})&&
