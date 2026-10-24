@@ -46,6 +46,7 @@ MixedClosureStaging stagePrivateMixedClosure(
        proposal.contours.size())
         throw std::logic_error("R06-M04A every R03 directed contour must be used exactly once");
     MixedClosureStaging result(cut.index,proposal.contours);
+    result.setOperationObserver(bounds.operationObserver);
     const auto& mesh=*cut.index;
     std::vector<bool> used(proposal.contours.size());
     std::set<FaceId> loadedFaces;
