@@ -203,6 +203,63 @@ void fairingOperation() {
               "fairing must leave boundary positions unchanged");
     std::cout<<"[r06-m16c2c] fairing interior only, exact moved identity PASS\n";
 }
+void terminalCompletionAndObserverFailure() {
+    // Use the exact already-open three-sided tetra as a synthetic R03
+    // source. Repair a single oriented rim with one legal private cap.
+    const auto f=tetra();
+    PrivateExcisionResult cut;
+    cut.index=f.root;
+    cut.boundaryLoops=1;
+    cut.boundaryEdges=3;
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    proposal.boundaryEdges=3;
+    auto rim=f.rim;
+    for(std::size_t i=0;i<rim.vertexIds.size();++i) {
+        const auto a=rim.vertexIds[i],b=rim.vertexIds[(i+1)%rim.vertexIds.size()];
+        const RegionTopologyIndex::Edge edge{std::min(a,b),std::max(a,b)};
+        const auto sides=f.root->maybeEdgeSides(edge);
+        check(sides&&sides->size()==1,
+              "synthetic R03 tetra must have exactly one source side per rim edge");
+        rim.survivingFaces.push_back(sides->front().face);
+    }
+    proposal.contours.push_back(rim);
+    AutoClosurePlan plan;
+    plan.status=AutoClosurePlanStatus::Ready;
+    plan.cappedContours={0};
+    AutoClosureRegion region;
+    region.contours={0};
+    region.caps={0};
+    plan.regions={region};
+    plan.geometryRegions=1;
+    MixedPrivateClosureLimits limits;
+    std::vector<MixedClosureTerminalEvent> terminal;
+    limits.terminalObserver=[&](const auto& event) {
+        terminal.push_back(event);
+    };
+    const auto applied=applyPrivateMixedClosure(cut,proposal,plan,limits);
+    check(applied.index&&applied.greenFaces.size()==1&&
+          applied.blueFaces.empty()&&terminal.size()==1&&
+          terminal.front().outcome==MixedClosureTerminalOutcome::Completed&&
+          terminal.front().phase=="completed"&&
+          !terminal.front().untrustedWarningPreview,
+          "certified private cap must report one genuine completion event");
+    limits.staging.operationObserver=[](const auto&,const auto&,const auto&) {
+        throw std::length_error("diagnostic limit");
+    };
+    terminal.clear();
+    bool observerFailed=false;
+    try {(void)applyPrivateMixedClosure(cut,proposal,plan,limits);}
+    catch(const RepairStepObserverFailure& e) {
+        observerFailed=std::string(e.what()).find("diagnostic observer failed")!=
+            std::string::npos;
+    }
+    check(observerFailed&&terminal.size()==1&&
+          terminal.front().outcome==MixedClosureTerminalOutcome::ObserverFailed&&
+          terminal.front().phase=="initial_staging",
+          "a diagnostic observer error must not be recorded as a geometry refusal");
+    std::cout<<"[r06-m16c2c] real closed private cap, success and diagnostic-failure terminal classification PASS\\n";
+}
 void failureEnvelopeAndCancellation() {
     MixedPrivateClosureLimits limits;
     std::vector<MixedClosureTerminalEvent> outcomes;
@@ -273,6 +330,7 @@ int main() {
         flipOperation();
         collapseOperation();
         fairingOperation();
+        terminalCompletionAndObserverFailure();
         failureEnvelopeAndCancellation();
         return 0;
     }catch(const std::exception& error) {
