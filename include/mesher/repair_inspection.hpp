@@ -73,13 +73,14 @@ public:
                                      bool symmetricSource=false,
                                      AutoClosureClassifier classifier=AutoClosureClassifier::Area,
                                      bool warnQuality=false,
-                                     bool auditSeam=false,bool exactOverlay=false)
+                                     bool auditSeam=false,bool exactOverlay=false,
+                                     bool scaleAware=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
          symmetricSource_(symmetricSource),classifier_(classifier),
          warnQuality_(warnQuality),auditSeam_(auditSeam),
-         exactOverlay_(exactOverlay) {}
+         exactOverlay_(exactOverlay),scaleAware_(scaleAware) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -93,6 +94,7 @@ private:
     AutoClosureClassifier classifier_=AutoClosureClassifier::Area;
     bool warnQuality_=false;
     bool auditSeam_=false,exactOverlay_=false;
+    bool scaleAware_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -108,7 +110,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     AutoClosureClassifier classifier=AutoClosureClassifier::Area,
     bool warnQuality=false,bool auditSeam=false,
     bool exactOverlay=false,
-    std::shared_ptr<RepairStepTrace> stepTrace={});
+    std::shared_ptr<RepairStepTrace> stepTrace={},
+    bool scaleAware=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
