@@ -233,6 +233,14 @@ inline RepairSplitTemplateDecision evaluateRepairSplitTemplates(
     const auto better=[&](std::size_t i,std::size_t j) {
         const auto& a=output.candidates[i];
         const auto& b=output.candidates[j];
+        // When the OTHER midpoint child controls global worst quality,
+        // different corrective placements can tie on worstAfter. Choose
+        // the candidate with the stronger actual edited-child gain, not
+        // a prettier interval fraction which leaves its local shape worse.
+        if(a.kind==Kind::Hybrid&&b.kind==Kind::Hybrid&&
+           std::abs(a.worstAfter-b.worstAfter)<=1e-12&&
+           a.correctedChildGain!=b.correctedChildGain)
+            return a.correctedChildGain>b.correctedChildGain;
         if(a.worstAfter!=b.worstAfter)
             return a.worstAfter>b.worstAfter;
         if(a.operations!=b.operations)
