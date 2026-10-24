@@ -238,6 +238,37 @@ void viewportBridgeSession(const RepairCase& saved) {
     session.cancelAndJoin();
     std::cout<<"[r06-m16d3] read-only viewport bridge complete R03 scene and terminal replay PASS\n";
 }
+void scaleAwareSavedCaseDeterminism(const RepairCase& saved) {
+    const auto legacy=replayPrivateAutomaticRepair(saved);
+    // Replay the same production .r06case twice through the opt-in M17C
+    // certified M04C pipeline. M17C may legitimately choose a DIFFERENT
+    // strict result; that never mutates the saved candidate or excuses a
+    // quality warning as certified geometry.
+    const auto first=replayPrivateAutomaticRepair(
+        saved,AutoClosureClassifier::Area,false,false,false,{},true);
+    const auto second=replayPrivateAutomaticRepair(
+        saved,AutoClosureClassifier::Area,false,false,false,{},true);
+    require(first&&second&&legacy&&
+        first->candidate==saved.candidate.index&&
+        second->candidate==saved.candidate.index&&
+        legacy->candidate==saved.candidate.index&&
+        first->classifierChoices==legacy->classifierChoices&&
+        first->classifierChoices==second->classifierChoices&&
+        first->autoPlan.has_value()==second->autoPlan.has_value()&&
+        first->privateAuto.has_value()==second->privateAuto.has_value()&&
+        first->autoDiagnostic==second->autoDiagnostic,
+        "opt-in real saved case must preserve immutable source, classifier, and exact deterministic outcome");
+    if(first->privateAuto) {
+        require(first->privateAuto->index&&second->privateAuto->index&&
+           first->privateAuto->generatedFaces==second->privateAuto->generatedFaces&&
+           first->privateAuto->refinementSteps==second->privateAuto->refinementSteps&&
+           first->privateAuto->splitEvents.size()==second->privateAuto->splitEvents.size(),
+           "accepted opt-in M17C result must be reproducible across exact independent replays");
+    }
+    require(saved.candidate.index->retiredFaceCount()==0,
+        "scale-aware replay cannot mutate/retire original saved post-stamp candidate");
+    std::cout<<"[r06-m17c] serialized 5K saved-case deterministic opt-in versus preserved legacy source PASS\n";
+}
 void refusalProvenanceUnchanged(const RepairCase& accepted) {
     auto refused=accepted;
     refused.symmetricSource=true; // real saved-case symmetry mismatch
@@ -283,6 +314,7 @@ int main() {
         cancellationDoesNotFabricateGeometryFailure(saved);
         viewportBridgeSession(saved);
         refusalProvenanceUnchanged(saved);
+        scaleAwareSavedCaseDeterminism(saved);
         return 0;
     }catch(const std::exception& error) {
         std::cerr<<"[r06-m16c3] FAILED: "<<error.what()<<"\n";
