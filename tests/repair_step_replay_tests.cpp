@@ -1,6 +1,7 @@
 #include "mesher/repair_case.hpp"
 #include "mesher/repair_inspection.hpp"
 #include "mesher/repair_step_trace.hpp"
+#include "mesher/repair_step_replay_session.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 
@@ -171,6 +172,72 @@ void cancellationDoesNotFabricateGeometryFailure(const RepairCase& saved) {
         throw;
     }
 }
+void viewportBridgeSession(const RepairCase& saved) {
+    RepairReplayStepSession session(
+        saved,AutoClosureClassifier::Area,false,false,false);
+    session.start(); // no Vulkan calls; production starts after onReady
+    bool gotFirst=false;
+    for(int n=0;n<3000;++n) {
+        if(auto frame=session.takeSnapshot()) {
+            if(frame->inspectionStepReplaceMesh) {
+                require(frame->inspectionFrozen&&
+                        frame->inspectionAutoRequested&&
+                        !frame->inspectionOverlay.empty()&&
+                        !frame->repairStepLines.empty()&&
+                        frame->repairStepLines[0].find("STEP 1")!=std::string::npos,
+                        "viewport bridge must receive finite exact R03 stage as replacement mesh");
+                require(frame->classifierChoices[0]!="UNAVAILABLE"&&
+                        frame->classifierChoices[1]!="UNAVAILABLE",
+                        "classifier comparison must be available BEFORE first pause");
+                gotFirst=true;
+                break;
+            }
+        }
+        std::this_thread::sleep_for(2ms);
+    }
+    require(gotFirst,"viewport bridge never displayed the first stage frame");
+    session.command(0); // Next
+    bool gotSecond=false;
+    for(int n=0;n<3000;++n) {
+        if(auto frame=session.takeSnapshot()) {
+            if(frame->inspectionStepReplaceMesh&&
+               frame->repairStepLines[0].find("STEP 2")!=std::string::npos) {
+                gotSecond=true;
+                break;
+            }
+        }
+        std::this_thread::sleep_for(2ms);
+    }
+    require(gotSecond,"viewport bridge did not display second coherent edit");
+    session.command(1); // Previous: presentation only
+    const auto older=session.takeSnapshot();
+    require(older&&older->inspectionStepReplaceMesh&&
+            older->repairStepLines[0].find("PREVIOUS")!=std::string::npos,
+            "viewport bridge Previous must not advance source staging");
+    session.command(2);
+    const auto current=session.takeSnapshot();
+    require(current&&current->repairStepLines[0].find("CURRENT")!=std::string::npos,
+            "viewport bridge Current must restore latest stage frame");
+    session.command(3); // Continue; join is performed on teardown
+    bool finished=false;
+    for(int n=0;n<4000;++n) {
+        (void)session.takeSnapshot();
+        if(session.caption().find("FINISHED")!=std::string::npos) {
+            if(auto final=session.takeSnapshot()) {
+                require(final->inspectionStepReplaceMesh&&
+                        final->inspectionAutoSucceeded&&
+                        final->repairStepLines.back().find("ESC EXIT")!=std::string::npos,
+                        "terminal viewport state must preserve last staged mesh and controls");
+            }
+            finished=true;
+            break;
+        }
+        std::this_thread::sleep_for(2ms);
+    }
+    require(finished,"viewport session worker failed to complete after Continue");
+    session.cancelAndJoin();
+    std::cout<<"[r06-m16d3] read-only viewport bridge complete R03 scene and terminal replay PASS\n";
+}
 void refusalProvenanceUnchanged(const RepairCase& accepted) {
     auto refused=accepted;
     refused.symmetricSource=true; // real saved-case symmetry mismatch
@@ -214,6 +281,7 @@ int main() {
                 "real step-replay fixture must preserve exact saved R01 contact IDs");
         exactRealReplayCanPauseAndResume(saved);
         cancellationDoesNotFabricateGeometryFailure(saved);
+        viewportBridgeSession(saved);
         refusalProvenanceUnchanged(saved);
         return 0;
     }catch(const std::exception& error) {
