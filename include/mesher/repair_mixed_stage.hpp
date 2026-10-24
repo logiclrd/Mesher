@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <vector>
 
 namespace mesher {
@@ -26,7 +27,7 @@ struct MixedClosureFace {
     // For original R03 survivors this is a FaceId handle, NOT a duplicate
     // editable triangle. Unbound records are transaction-new faces, or
     // standalone legacy helper fixtures that retain local vertices.
-    std::shared_ptr<MixedClosureSourceView> sourceView{};
+    std::shared_ptr<const MixedClosureSourceView> sourceView{};
 
     PrivateRepairTriangle triangle() const {
         if(stableId&&sourceView)
@@ -35,13 +36,14 @@ struct MixedClosureFace {
     }
     void setTriangle(PrivateRepairTriangle next) {
         if(stableId&&sourceView)
-            sourceView->overrideFace(stableId,next);
-        else vertices=next;
+            throw std::logic_error("M15C3 original survivor faces are editable only by the staging editor");
+        vertices=next;
     }
 };
 // M15B: mandatory and optional split requests share the same stage-owned
 // finite/quality/mirror preflight. All limits concern the complete proposed
 // transaction, not just the currently tracked contour halo.
+struct MixedClosureEdgeNeighborhood;
 struct MixedClosureSplitSettings {
     bool requireReflectedGeometry=false;
     double minSurvivorQuality=.012;
@@ -52,7 +54,8 @@ struct MixedClosureSplitSettings {
     std::size_t maxTrackedFaces=1000000;
 };
 
-struct MixedClosureStaging {
+class MixedClosureStaging {
+public:
     // M15A foundation: bind one EXACT immutable R03 open mesh and its
     // directed hole rims. Read-only boundary queries reflect subsequently
     // inserted faces and source-face overrides; no stale yellow path.
@@ -104,17 +107,39 @@ struct MixedClosureStaging {
     // Incomplete/forked boundary topology fails instead of rendering a
     // stale R03 loop. Empty when completely capped/zippered.
     std::vector<std::vector<VertexId>> currentBoundaryLoops() const;
+    // Read-only topology. Mutations are only available through the
+    // staging editor; callers cannot obtain mutable face arrays,
+    // working positions, or the original-source override object.
+    const std::vector<MixedClosureFace>& faces() const noexcept {return faces_;}
+    const MixedClosurePositions& positions() const noexcept {return positions_;}
+    std::shared_ptr<const MixedClosureSourceView> sourceView() const noexcept {return sourceView_;}
+    const std::map<VertexId,PartitionId>& vertexOwners() const noexcept {return vertexOwners_;}
+    const std::vector<FaceId>& survivingFaceIds() const noexcept {return survivingFaceIds_;}
+    const std::vector<VertexId>& provisionalSpatialVertices() const noexcept {return provisionalSpatialVertices_;}
+    PartitionId vertexOwner(VertexId id) const {return vertexOwners_.at(id);}
+    void trackOriginalVertex(VertexId id);
+    void stageProvisionalVertex(VertexId id,Vec3 pos,PartitionId owner,
+                                std::size_t maxProvisional);
+    std::vector<VertexId> resolveProvisionalVertices(
+        MutableMeshView& privateView,std::size_t maxNew);
+    void retirePrivateVertex(MutableMeshView& privateView,VertexId id);
+    MixedClosureEdgeNeighborhood inspectEdge(VertexId a,VertexId b) const;
+    // For tests that need a deliberately incomplete candidate, manipulate
+    // an exported patch ledger, NEVER the staging object's live topology.
+private:
     // The source and its transactional overrides are authoritative for
     // every original survivor face and vertex. New triangles remain local.
-    std::shared_ptr<MixedClosureSourceView> sourceView;
-    std::vector<FaceId> survivingFaceIds;
-    std::vector<MixedClosureFace> faces;
+    std::shared_ptr<MixedClosureSourceView> sourceView_;
+    std::vector<FaceId> survivingFaceIds_;
+    std::vector<MixedClosureFace> faces_;
     // Initially immutable source contour walks (not the mutable displayed
     // paths); currentBoundaryLoops derives new walks from edge incidence.
-    std::vector<std::vector<VertexId>> initialRimPaths;
+    std::vector<std::vector<VertexId>> initialRimPaths_;
     // Source-backed survivor handles plus owned new vertex positions.
-    MixedClosurePositions positions;
-    std::map<VertexId,PartitionId> vertexOwners;
+    MixedClosurePositions positions_;
+    std::map<VertexId,PartitionId> vertexOwners_;
+public:
+    // Descriptive metrics; these do not grant access to working topology.
     std::size_t capLoops{};
     std::size_t zipperPairs{};
     std::size_t capTriangles{};
@@ -122,7 +147,9 @@ struct MixedClosureStaging {
     std::size_t boundarySidesCovered{};
     // Temporary IDs are NEVER published. M04B replaces them with actual
     // monotonically allocated immutable IDs before its conforming audit.
-    std::vector<VertexId> provisionalSpatialVertices;
+private:
+    std::vector<VertexId> provisionalSpatialVertices_;
+public:
     bool usedSpatialCapFallback{};
     bool usedMirroredSeamZipper{};
     std::size_t mirroredSeamZipperPairs{};

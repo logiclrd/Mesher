@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
-#include <limits>
 #include <stdexcept>
 
 using namespace mesher;
@@ -16,8 +15,7 @@ Mesh tetrahedra(bool mirror) {
     Mesh mesh;
     const std::array<Vec3,4> p{{{-2,0,0},{-1,0,0},{-2,1,0},{-2,0,1}}};
     const std::array<std::array<unsigned,3>,4> t{{
-        {0,2,1},{0,1,3},{0,3,2},{1,2,3}
-    }};
+        {0,2,1},{0,1,3},{0,3,2},{1,2,3}}};
     for(const auto v:p)mesh.vertices.push_back(v);
     for(const auto triangle:t)
         mesh.triangles.push_back({triangle[0],triangle[1],triangle[2]});
@@ -40,118 +38,76 @@ Fixture fixture(bool mirrored) {
     auto imp=partitionFlatMesh(tetrahedra(mirrored),64);
     return {RegionTopologyIndex::build(imp.revision),imp.flatIndex};
 }
-void track(MixedClosureStaging& staged,FaceId id) {
-    const auto& face=staged.sourceView->face(id);
-    staged.faces.push_back({id,face.owner,{},MixedClosureFaceKind::Survivor,
-                            0,staged.sourceView});
-    staged.survivingFaceIds.push_back(id);
-    for(const auto v:face.vertices) {
-        staged.positions.emplace(v,staged.sourceView->position(v));
-        staged.vertexOwners.emplace(v,staged.sourceView->owner(v));
-    }
-}
-void testOutsideTrackedHalo() {
-    const auto fixtureData=fixture(false);
-    const auto& base=*fixtureData.source;
-    MixedClosureStaging staged;
-    staged.sourceView=std::make_shared<MixedClosureSourceView>(fixtureData.source);
-    staged.positions.bind(staged.sourceView);
-    const auto id=fixtureData.ids.faceIds.front();
-    track(staged,id);
-    const auto v=base.face(id).vertices;
-    const auto edge=canonicalMixedEdge(v[0],v[1]);
-    const auto before=inspectMixedClosureEdge(
-        staged.faces,*staged.sourceView,edge);
-    check(before.conformingPair&&before.sides()==2&&
-          before.localFaceIndexes.size()==1&&
+void testRemoteIncidenceAndNoEscapeHatch() {
+    const auto data=fixture(false);
+    MixedClosureStaging stage(data.source,{});
+    const auto id=data.ids.faceIds.front();
+    (void)stage.trackSurvivor(id,16);
+    const auto original=data.source->face(id).vertices;
+    const auto e=canonicalMixedEdge(original[0],original[1]);
+    const auto before=stage.inspectEdge(e.first,e.second);
+    check(before.conformingPair&&before.localFaceIndexes.size()==1&&
           before.missingSurvivorFaces.size()==1,
-          "M14C must discover a second source survivor through the index, outside the initial worklist");
-    const auto originallyTracked=staged.faces.size();
+          "M15C3 must discover remote source incident face without mutable halo access");
+    auto view=data.source->revision().createMutableView();
+    MixedClosureSplitSettings limits;
+    limits.maxTrackedFaces=1; // cannot import remote survivor and children
     bool refused=false;
-    try{importMixedEdgeSurvivors(staged,before,originallyTracked);}
+    try {(void)stage.splitEdge(view,e.first,e.second,limits);}
     catch(const std::length_error&) {refused=true;}
-    check(refused&&staged.faces.size()==originallyTracked&&
-          staged.sourceView->pendingFaceEdits()==0,
-          "M14C exhausted finite halo budget must refuse without staging a partial edit");
-    importMixedEdgeSurvivors(staged,before,16);
-    check(staged.faces.size()==2&&staged.positions.originalHandles()==4&&
-          staged.sourceView->sourceRoot()==fixtureData.source,
-          "M14C import must preserve precise source identity and load the missing face only");
-    const auto middle=std::numeric_limits<VertexId>::max()-17;
-    const auto pa=staged.positions.at(edge.first);
-    const auto pb=staged.positions.at(edge.second);
-    staged.positions.emplace(middle,(pa+pb)*.5);
-    applyMixedConformingEdgeSplit(staged.faces,edge,middle,16);
-    check(staged.faces.size()==4&&
-          staged.sourceView->pendingFaceEdits()==2&&
-          staged.sourceView->source().face(id).vertices==v&&
-          staged.sourceView->edgeSides({edge.first,edge.second}).empty(),
-          "M14C old edge should be replaced by two effective FaceId overrides and never change immutable source");
-    const auto left=inspectMixedClosureEdge(staged.faces,*staged.sourceView,
-        canonicalMixedEdge(edge.first,middle));
-    const auto right=inspectMixedClosureEdge(staged.faces,*staged.sourceView,
-        canonicalMixedEdge(middle,edge.second));
+    check(refused&&stage.faces().size()==1&&
+          stage.sourceView()->pendingFaceEdits()==0,
+          "M15C3 finite preflight must not partially mutate staged topology");
+    limits.maxTrackedFaces=16;
+    const auto newIds=stage.splitEdge(view,e.first,e.second,limits);
+    check(newIds.size()==1&&!stage.hasEffectiveEdge(e.first,e.second)&&
+          stage.faces().size()==4&&
+          stage.sourceView()->pendingFaceEdits()==2&&
+          data.source->face(id).vertices==original,
+          "M15C3 the only split API must update both source survivors atomically");
+    const auto midpoint=newIds.front();
+    const auto left=stage.inspectEdge(e.first,midpoint);
+    const auto right=stage.inspectEdge(midpoint,e.second);
     check(left.conformingPair&&right.conformingPair&&
           left.sides()==2&&right.sides()==2&&
           left.missingSurvivorFaces.empty()&&right.missingSurvivorFaces.empty(),
-          "M14C both surviving sides must share ONE midpoint VertexId and consistent winding");
-    std::size_t withMiddle=0;
-    for(const auto& f:staged.faces) {
-        const auto triangle=f.triangle();
-        if(std::find(triangle.begin(),triangle.end(),middle)!=triangle.end())
-            ++withMiddle;
-    }
-    check(withMiddle==4&&fixtureData.source->face(id).vertices==v,
-          "M14C every child must use the same stable new midpoint, with no mutation of source");
-    std::cout<<"[r06-m14c] source halo discovery and one-ID two-sided conforming split PASS\n";
+          "M15C3 two children must share exactly one new indexed midpoint");
+    refused=false;
+    try {(void)stage.splitEdge(view,e.first,e.second,limits,1,1);}
+    catch(const std::logic_error&) {refused=true;}
+    check(refused,"M15C3 old AB edge cannot be split a second time");
+    std::cout<<"[r06-m14c] source halo and one-ID two-sided conforming split PASS\n";
 }
-void testReflectedPairAndRefusal() {
-    const auto f=fixture(true);
-    MixedClosureStaging staged;
-    staged.sourceView=std::make_shared<MixedClosureSourceView>(f.source);
-    staged.positions.bind(staged.sourceView);
-    const auto left=f.ids.faceIds[0];
-    const auto right=f.ids.faceIds[4];
-    track(staged,left);
-    track(staged,right);
-    const auto makeEdge=[&](unsigned offset) {
-        return canonicalMixedEdge(f.ids.vertexIds[offset],
-                                  f.ids.vertexIds[offset+1]);
-    };
-    const auto first=makeEdge(0),second=makeEdge(4);
-    const auto a=inspectMixedClosureEdge(staged.faces,*staged.sourceView,first);
-    const auto b=inspectMixedClosureEdge(staged.faces,*staged.sourceView,second);
-    check(a.conformingPair&&b.conformingPair&&
-          a.missingSurvivorFaces.size()==1&&b.missingSurvivorFaces.size()==1,
-          "M14C both reflected neighborhoods must exist before any split is attempted");
-    const auto firstMid=(staged.positions.at(first.first)+
-                         staged.positions.at(first.second))*.5;
-    const auto secondMid=(staged.positions.at(second.first)+
-                          staged.positions.at(second.second))*.5;
-    check(firstMid.x==-secondMid.x&&firstMid.y==secondMid.y&&
-          firstMid.z==secondMid.z,
-          "M14C reflected source edge midpoints must form an exact orbit");
-    importMixedEdgeSurvivors(staged,a,32);
-    importMixedEdgeSurvivors(staged,b,32);
-    const auto m0=std::numeric_limits<VertexId>::max()-37;
-    const auto m1=std::numeric_limits<VertexId>::max()-38;
-    staged.positions.emplace(m0,firstMid);
-    staged.positions.emplace(m1,secondMid);
-    applyMixedConformingEdgeSplit(staged.faces,first,m0,32);
-    applyMixedConformingEdgeSplit(staged.faces,second,m1,32);
-    check(inspectMixedClosureEdge(staged.faces,*staged.sourceView,
-          canonicalMixedEdge(first.first,m0)).conformingPair&&
-          inspectMixedClosureEdge(staged.faces,*staged.sourceView,
-          canonicalMixedEdge(second.first,m1)).conformingPair&&
-          f.source->face(left).vertices==staged.sourceView->source().face(left).vertices,
-          "M14C complete reflected edit must keep both halves oriented and source immutable");
+void testMirroredOrbit() {
+    const auto data=fixture(true);
+    MixedClosureStaging stage(data.source,{});
+    (void)stage.trackSurvivor(data.ids.faceIds[0],32);
+    (void)stage.trackSurvivor(data.ids.faceIds[4],32);
+    const auto first=canonicalMixedEdge(data.ids.vertexIds[0],data.ids.vertexIds[1]);
+    const auto second=canonicalMixedEdge(data.ids.vertexIds[4],data.ids.vertexIds[5]);
+    const auto preflight=stage.inspectEdge(first.first,first.second);
+    check(preflight.sides()==2&&preflight.missingSurvivorFaces.size()==1,
+          "M15C3 mirrored source edge must resolve complete remote incidence");
+    auto view=data.source->revision().createMutableView();
+    MixedClosureSplitSettings limits;
+    limits.requireReflectedGeometry=true;
+    limits.maxTrackedFaces=64;
+    const auto mids=stage.splitEdge(view,first.first,first.second,limits);
+    check(mids.size()==2&&!stage.hasEffectiveEdge(first.first,first.second)&&
+          !stage.hasEffectiveEdge(second.first,second.second)&&
+          stage.inspectEdge(first.first,mids[0]).conformingPair&&
+          stage.inspectEdge(second.first,mids[1]).conformingPair,
+          "M15C3 one request must split both original reflected edge orbits");
     std::cout<<"[r06-m14c] paired reflection source-edge topology PASS\n";
 }
 }
 int main() {
-    try {testOutsideTrackedHalo();testReflectedPairAndRefusal();return 0;}
-    catch(const std::exception& e) {
-        std::cerr<<"R06-M14C working edge topology FAILED: "<<e.what()<<"\n";
+    try {
+        testRemoteIncidenceAndNoEscapeHatch();
+        testMirroredOrbit();
+        return 0;
+    }catch(const std::exception& e) {
+        std::cerr<<"R06-M15C3 staged edge API FAILED: "<<e.what()<<"\n";
         return 1;
     }
 }

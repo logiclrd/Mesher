@@ -33,58 +33,58 @@ bool sameCorners(PrivateRepairTriangle a,PrivateRepairTriangle b) {
 MixedClosureStaging::MixedClosureStaging(
     std::shared_ptr<const RegionTopologyIndex> source,
     const std::vector<RepairContour>& contours) {
-    sourceView=std::make_shared<MixedClosureSourceView>(std::move(source));
-    positions.bind(sourceView);
+    sourceView_=std::make_shared<MixedClosureSourceView>(std::move(source));
+    positions_.bind(sourceView_);
     for(const auto& loop:contours) {
         if(loop.vertexIds.size()<3)
             throw std::logic_error("R06-M15A initial R03 rim has fewer than three vertices");
-        initialRimPaths.push_back(loop.vertexIds);
+        initialRimPaths_.push_back(loop.vertexIds);
     }
 }
 VertexId MixedClosureStaging::addVertex(
     MutableMeshView& privateView,Vec3 position,PartitionId owner,
     std::size_t maxGeneratedVertices) {
-    if(!sourceView)throw std::logic_error("R06-M15A unbound staging source");
+    if(!sourceView_)throw std::logic_error("R06-M15A unbound staging source");
     if(!maxGeneratedVertices||
-       positions.newVertexPositions()>=maxGeneratedVertices)
+       positions_.newVertexPositions()>=maxGeneratedVertices)
         throw std::length_error("R06-M15A private generated-vertex budget");
     // The private view allocates a monotonically unique VertexId. No
     // coordinate search and no arbitrary source/provisional ID alias.
     const auto id=privateView.addVertex(owner,position);
-    if(positions.contains(id))
+    if(positions_.contains(id))
         throw std::logic_error("R06-M15A private allocator reused a vertex ID");
-    positions.emplace(id,position);
-    vertexOwners.emplace(id,owner);
+    positions_.emplace(id,position);
+    vertexOwners_.emplace(id,owner);
     return id;
 }
 std::size_t MixedClosureStaging::trackSurvivor(
     FaceId id,std::size_t maxFaces) {
-    if(!sourceView)throw std::logic_error("R06-M15A unbound staging source");
-    for(std::size_t i=0;i<faces.size();++i)
-        if(faces[i].stableId==id)return i;
-    if(faces.size()>=maxFaces)
+    if(!sourceView_)throw std::logic_error("R06-M15A unbound staging source");
+    for(std::size_t i=0;i<faces_.size();++i)
+        if(faces_[i].stableId==id)return i;
+    if(faces_.size()>=maxFaces)
         throw std::length_error("R06-M15A finite survivor tracking limit");
-    const auto& sourceFace=sourceView->face(id);
+    const auto& sourceFace=sourceView_->face(id);
     for(const auto v:sourceFace.vertices) {
-        positions.emplace(v,sourceView->position(v));
-        vertexOwners.emplace(v,sourceView->owner(v));
+        positions_.emplace(v,sourceView_->position(v));
+        vertexOwners_.emplace(v,sourceView_->owner(v));
     }
-    survivingFaceIds.push_back(id);
-    faces.push_back({id,sourceFace.owner,{},
-                     MixedClosureFaceKind::Survivor,0,sourceView});
-    return faces.size()-1;
+    survivingFaceIds_.push_back(id);
+    faces_.push_back({id,sourceFace.owner,{},
+                     MixedClosureFaceKind::Survivor,0,sourceView_});
+    return faces_.size()-1;
 }
 std::size_t MixedClosureStaging::ensureFace(
     VertexId a,VertexId b,VertexId c,MixedClosureFaceKind kind,
     PartitionId owner,double targetEdge,std::size_t maxTrackedFaces,
     std::size_t maxGeneratedFaces) {
-    if(!sourceView)throw std::logic_error("R06-M15A unbound staging source");
+    if(!sourceView_)throw std::logic_error("R06-M15A unbound staging source");
     if(!a||!b||!c||a==b||b==c||c==a||
-       !positions.contains(a)||!positions.contains(b)||!positions.contains(c))
+       !positions_.contains(a)||!positions_.contains(b)||!positions_.contains(c))
         throw std::logic_error("R06-M15A face requires three registered distinct VertexIds");
     const PrivateRepairTriangle wanted{a,b,c};
-    for(std::size_t i=0;i<faces.size();++i) {
-        const auto existing=faces[i].triangle();
+    for(std::size_t i=0;i<faces_.size();++i) {
+        const auto existing=faces_[i].triangle();
         if(!sameCorners(existing,wanted))continue;
         if(!cyclic(existing,wanted))
             throw std::logic_error("R06-M15A reversed existing triangle winding");
@@ -92,16 +92,16 @@ std::size_t MixedClosureStaging::ensureFace(
     }
     // A remote source face may not yet be loaded into the write halo.
     // Do not create an indexed duplicate of that surviving source face.
-    if(sourceView->source().maybeVertex(a)) {
-        for(const auto id:sourceView->source().vertex(a).incidentFaces) {
-            const auto existing=sourceView->face(id).vertices;
+    if(sourceView_->source().maybeVertex(a)) {
+        for(const auto id:sourceView_->source().vertex(a).incidentFaces) {
+            const auto existing=sourceView_->face(id).vertices;
             if(!sameCorners(existing,wanted))continue;
             if(!cyclic(existing,wanted))
                 throw std::logic_error("R06-M15A reversed original survivor winding");
             return trackSurvivor(id,maxTrackedFaces);
         }
     }
-    if(faces.size()>=maxTrackedFaces)
+    if(faces_.size()>=maxTrackedFaces)
         throw std::length_error("R06-M15A finite generated-face tracking limit");
     if(capTriangles+zipperTriangles>=maxGeneratedFaces &&
        kind!=MixedClosureFaceKind::Survivor)
@@ -113,11 +113,11 @@ std::size_t MixedClosureStaging::ensureFace(
         const auto key=edge(u,v);
         std::size_t count=0;
         bool previousForward=false;
-        for(const auto& side:sourceView->edgeSides({key.first,key.second})) {
+        for(const auto& side:sourceView_->edgeSides({key.first,key.second})) {
             previousForward=side.forward;
             ++count;
         }
-        for(const auto& face:faces) {
+        for(const auto& face:faces_) {
             if(face.stableId)continue; // source side already counted above
             bool forward=false;
             if(mixedFaceContainsEdge(face.triangle(),key,&forward)) {
@@ -130,27 +130,27 @@ std::size_t MixedClosureStaging::ensureFace(
         if(count==1&&previousForward==(u==key.first))
             throw std::logic_error("R06-M15A new face duplicates directed edge side");
     }
-    faces.push_back({0,owner,wanted,kind,targetEdge});
+    faces_.push_back({0,owner,wanted,kind,targetEdge});
     if(kind==MixedClosureFaceKind::Cap)++capTriangles;
     if(kind==MixedClosureFaceKind::Zipper)++zipperTriangles;
-    return faces.size()-1;
+    return faces_.size()-1;
 }
 bool MixedClosureStaging::hasEffectiveEdge(VertexId a,VertexId b) const {
-    if(!sourceView||!a||!b||a==b)return false;
+    if(!sourceView_||!a||!b||a==b)return false;
     const auto key=edge(a,b);
-    if(!sourceView->edgeSides({key.first,key.second}).empty())return true;
-    for(const auto& face:faces)
+    if(!sourceView_->edgeSides({key.first,key.second}).empty())return true;
+    for(const auto& face:faces_)
         if(!face.stableId&&mixedFaceContainsEdge(face.triangle(),key))
             return true;
     return false;
 }
 std::vector<std::vector<VertexId>> MixedClosureStaging::currentBoundaryLoops() const {
-    if(!sourceView)throw std::logic_error("R06-M15A unbound staging source");
+    if(!sourceView_)throw std::logic_error("R06-M15A unbound staging source");
     std::set<Edge> candidates;
-    for(const auto& loop:initialRimPaths)
+    for(const auto& loop:initialRimPaths_)
         for(std::size_t i=0;i<loop.size();++i)
             candidates.insert(edge(loop[i],loop[(i+1)%loop.size()]));
-    for(const auto& face:faces) {
+    for(const auto& face:faces_) {
         const auto t=face.triangle();
         for(unsigned i=0;i<3;++i)
             candidates.insert(edge(t[i],t[(i+1)%3]));
@@ -158,9 +158,9 @@ std::vector<std::vector<VertexId>> MixedClosureStaging::currentBoundaryLoops() c
     std::map<VertexId,VertexId> next,previous;
     for(const auto& e:candidates) {
         std::vector<bool> orientations;
-        for(const auto& side:sourceView->edgeSides({e.first,e.second}))
+        for(const auto& side:sourceView_->edgeSides({e.first,e.second}))
             orientations.push_back(side.forward);
-        for(const auto& face:faces) {
+        for(const auto& face:faces_) {
             if(face.stableId)continue;
             bool forward=false;
             if(mixedFaceContainsEdge(face.triangle(),e,&forward))
@@ -203,7 +203,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     const MixedClosureSplitSettings& settings,
     std::size_t alreadyInserted,std::size_t alreadyRefined,
     bool optionalQualityOnly) {
-    if(!sourceView)throw std::logic_error("R06-M15B unbound staging source");
+    if(!sourceView_)throw std::logic_error("R06-M15B unbound staging source");
     const Edge firstEdge=edge(a,b);
     if(!a||!b||a==b||!hasEffectiveEdge(a,b))
         throw std::logic_error("R06-M15B requested split edge does not exist in current topology");
@@ -213,9 +213,9 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         throw std::invalid_argument("R06-M15B invalid split policy");
 
     const auto partner=[&](VertexId id)->std::optional<VertexId> {
-        const auto p=positions.at(id);
+        const auto p=positions_.at(id);
         std::optional<VertexId> candidate;
-        for(const auto& [other,q]:positions) {
+        for(const auto& [other,q]:positions_) {
             if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
             if(candidate)return std::nullopt;
             candidate=other;
@@ -250,7 +250,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     std::set<FaceId> originalOwners;
     std::size_t children=0;
     for(const auto& item:orbit) {
-        auto n=inspectMixedClosureEdge(faces,*sourceView,item);
+        auto n=inspectMixedClosureEdge(faces_,*sourceView_,item);
         if(n.sides()==0)
             throw std::logic_error("R06-M15B requested reflected edge no longer exists");
         if(n.sides()>2||(n.sides()==2&&!n.conformingPair)) {
@@ -263,11 +263,11 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         c.originalSides=c.neighborhood.sides();
         children+=c.originalSides;
         for(const auto index:c.neighborhood.localFaceIndexes)
-            c.effective.push_back(faces.at(index));
+            c.effective.push_back(faces_.at(index));
         for(const auto id:c.neighborhood.missingSurvivorFaces) {
-            const auto& f=sourceView->face(id);
+            const auto& f=sourceView_->face(id);
             c.effective.push_back({id,f.owner,{},
-                MixedClosureFaceKind::Survivor,0,sourceView});
+                MixedClosureFaceKind::Survivor,0,sourceView_});
             remote.insert(id);
         }
         for(const auto& f:c.effective)
@@ -276,7 +276,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 throw std::logic_error("R06-M15B reflected edge orbit shares an original face");
             }
         const auto safe=assessSurvivorSplit(
-            c.effective,positions,item,settings.minSurvivorQuality);
+            c.effective,positions_,item,settings.minSurvivorQuality);
         if(!safe.safe) {
             if(optionalQualityOnly)return {};
             throw std::logic_error(
@@ -284,7 +284,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 std::to_string(safe.originalFace)+
                 " child_q="+std::to_string(safe.worstChildQuality));
         }
-        const auto midpoint=assessUniqueConformingMidpoint(positions,item);
+        const auto midpoint=assessUniqueConformingMidpoint(positions_,item);
         if(!midpoint.unique) {
             if(optionalQualityOnly)return {};
             throw std::logic_error("R06-M15B split midpoint duplicates a registered vertex");
@@ -292,9 +292,9 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
         c.midpoint=midpoint.point;
         // Original R03 vertices outside the tracked halo must also be
         // checked, but identical XYZ does NOT grant identity or welding.
-        for(const auto existing:sourceView->source().querySphere(
+        for(const auto existing:sourceView_->source().querySphere(
               c.midpoint,std::numeric_limits<double>::denorm_min())) {
-            const auto q=sourceView->position(existing);
+            const auto q=sourceView_->position(existing);
             if(q.x==c.midpoint.x&&q.y==c.midpoint.y&&q.z==c.midpoint.z) {
                 if(optionalQualityOnly)return {};
                 throw std::logic_error("R06-M15B split midpoint duplicates a remote source vertex");
@@ -307,8 +307,8 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
                 for(unsigned k=0;k<3;++k) {
                     const auto x=tri[k],y=tri[(k+1)%3],z=tri[(k+2)%3];
                     if(edge(x,y)!=item)continue;
-                    const auto p=positions.at(x),q=positions.at(y),
-                               r=positions.at(z),m=c.midpoint;
+                    const auto p=positions_.at(x),q=positions_.at(y),
+                               r=positions_.at(z),m=c.midpoint;
                     const auto quality=[](Vec3 u,Vec3 v,Vec3 w) {
                         const auto sum=dot(u-v,u-v)+dot(v-w,v-w)+dot(w-u,w-u);
                         return sum>0?2*std::sqrt(3.)*
@@ -340,7 +340,7 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     const auto count=orbit.size();
     if(alreadyInserted+count>settings.maxInsertedVertices||
        alreadyRefined+count>settings.maxRefinementSteps||
-       faces.size()+remote.size()+children>settings.maxTrackedFaces) {
+       faces_.size()+remote.size()+children>settings.maxTrackedFaces) {
         if(optionalQualityOnly)return {};
         throw std::length_error("R06-M15B complete edge split exceeds finite budget");
     }
@@ -348,30 +348,33 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     // Failure after allocation aborts the ENTIRE private stage; none
     // of these writes reach the authoritative mesh or history.
     for(const auto id:remote)(void)trackSurvivor(id,settings.maxTrackedFaces);
-    faces.reserve(faces.size()+children);
+    faces_.reserve(faces_.size()+children);
     std::vector<VertexId> midpoints;
     midpoints.reserve(count);
     for(const auto& c:work) {
-        const auto owner=sourceView->source().maybeVertex(c.key.first)?
-            sourceView->owner(c.key.first):vertexOwners.at(c.key.first);
+        const auto owner=sourceView_->source().maybeVertex(c.key.first)?
+            sourceView_->owner(c.key.first):vertexOwners_.at(c.key.first);
         const auto middle=addVertex(
             privateView,c.midpoint,owner,settings.maxInsertedVertices);
         midpoints.push_back(middle);
         std::vector<std::size_t> adjacent;
-        for(std::size_t i=0;i<faces.size();++i)
-            if(mixedFaceContainsEdge(faces[i].triangle(),c.key))
+        for(std::size_t i=0;i<faces_.size();++i)
+            if(mixedFaceContainsEdge(faces_[i].triangle(),c.key))
                 adjacent.push_back(i);
         if(adjacent.size()!=c.originalSides)
             throw std::logic_error("R06-M15B preflight incidence drift");
         for(const auto index:adjacent) {
-            const auto parent=faces.at(index);
+            const auto parent=faces_.at(index);
             const auto tri=parent.triangle();
             bool found=false;
             for(unsigned k=0;k<3;++k) {
                 const auto x=tri[k],y=tri[(k+1)%3],z=tri[(k+2)%3];
                 if(edge(x,y)!=c.key)continue;
-                faces[index].setTriangle({x,middle,z});
-                faces.push_back({0,parent.owner,{middle,y,z},
+                if(parent.stableId)
+                    sourceView_->overrideFace(parent.stableId,{x,middle,z});
+                else
+                    faces_[index].setTriangle({x,middle,z});
+                faces_.push_back({0,parent.owner,{middle,y,z},
                     parent.kind,parent.targetEdge});
                 if(parent.kind==MixedClosureFaceKind::Cap)++capTriangles;
                 if(parent.kind==MixedClosureFaceKind::Zipper)++zipperTriangles;
@@ -390,21 +393,91 @@ std::size_t MixedClosureStaging::improveInteriorDiagonal(
     bool reflection,double capQuality,double zipperQuality,
     double capFactor,double zipperFactor) {
     return flipOneInferiorClosureDiagonal(
-        faces,positions,reflection,capQuality,zipperQuality,
+        faces_,positions_,reflection,capQuality,zipperQuality,
         capFactor,zipperFactor);
 }
 std::vector<VertexId> MixedClosureStaging::collapseInteriorCapFan(
     const std::vector<VertexId>& created,bool reflection,
     double capQuality,double capFactor) {
     return collapseOneInferiorCapFan(
-        faces,positions,created,reflection,capQuality,capFactor);
+        faces_,positions_,created,reflection,capQuality,capFactor);
 }
 std::size_t MixedClosureStaging::fairInteriorVertex(
     const std::vector<VertexId>& created,bool reflection,
     double capQuality,double zipperQuality,double capFactor,
     double zipperFactor) {
     return fairOneConstrainedClosureVertex(
-        faces,positions,created,reflection,capQuality,zipperQuality,
+        faces_,positions_,created,reflection,capQuality,zipperQuality,
         capFactor,zipperFactor);
+}
+void MixedClosureStaging::trackOriginalVertex(VertexId id) {
+    if(!sourceView_)throw std::logic_error("R06-M15C3 unbound original source");
+    const auto p=sourceView_->position(id);
+    positions_.emplace(id,p);
+    vertexOwners_.emplace(id,sourceView_->owner(id));
+}
+void MixedClosureStaging::stageProvisionalVertex(
+    VertexId id,Vec3 pos,PartitionId owner,std::size_t maximum) {
+    if(!sourceView_||!maximum||provisionalSpatialVertices_.size()>=maximum||
+       positions_.contains(id))
+        throw std::length_error("R06-M15C3 invalid or overbudget provisional ID");
+    positions_.emplace(id,pos);
+    vertexOwners_.emplace(id,owner);
+    provisionalSpatialVertices_.push_back(id);
+}
+std::vector<VertexId> MixedClosureStaging::resolveProvisionalVertices(
+    MutableMeshView& privateView,std::size_t maxNew) {
+    if(provisionalSpatialVertices_.size()>maxNew)
+        throw std::length_error("R06-M15C3 provisional permanent ID budget");
+    std::vector<VertexId> inserted;
+    inserted.reserve(provisionalSpatialVertices_.size());
+    for(const auto provisional:provisionalSpatialVertices_) {
+        const auto pos=positions_.at(provisional);
+        const auto owner=vertexOwners_.at(provisional);
+        const auto id=privateView.addVertex(owner,pos);
+        if(positions_.contains(id))
+            throw std::logic_error("R06-M15C3 permanent ID collision");
+        positions_.emplace(id,pos);
+        vertexOwners_.emplace(id,owner);
+        for(auto& face:faces_) {
+            auto v=face.triangle();
+            bool changed=false;
+            for(auto& vertex:v)if(vertex==provisional) {
+                vertex=id;
+                changed=true;
+            }
+            if(!changed)continue;
+            if(face.stableId)sourceView_->overrideFace(face.stableId,v);
+            else face.setTriangle(v);
+        }
+        if(positions_.erase(provisional)!=1)
+            throw std::logic_error("R06-M15C3 provisional vertex missing");
+        vertexOwners_.erase(provisional);
+        inserted.push_back(id);
+    }
+    provisionalSpatialVertices_.clear();
+    return inserted;
+}
+void MixedClosureStaging::retirePrivateVertex(
+    MutableMeshView& privateView,VertexId id) {
+    if(sourceView_->source().maybeVertex(id))
+        throw std::logic_error("R06-M15C3 cannot retire original survivor");
+    const auto owner=vertexOwners_.at(id);
+    auto& part=privateView.editPartition(owner);
+    const auto removed=std::erase_if(part.vertices,
+        [id](const PartitionVertex& v){return v.id==id;});
+    if(removed!=1)
+        throw std::logic_error("R06-M15C3 retired private vertex not found");
+    // Collapse helper has already retired this from position view.
+    if(positions_.contains(id))
+        (void)positions_.erase(id);
+    vertexOwners_.erase(id);
+}
+MixedClosureEdgeNeighborhood MixedClosureStaging::inspectEdge(
+    VertexId a,VertexId b) const {
+    if(!sourceView_)
+        throw std::logic_error("R06-M15C3 unbound source edge query");
+    return inspectMixedClosureEdge(faces_,*sourceView_,
+        canonicalMixedEdge(a,b));
 }
 } // namespace mesher

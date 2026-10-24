@@ -112,6 +112,21 @@ inline AppliedMixedClosurePatch applyPrivateMixedClosurePatch(
         throw std::logic_error("R06-M14E patch source does not match private COW base");
     if(patch.newFaces>maxNewFaces)
         throw std::length_error("R06-M14E finite new face patch budget exceeded");
+    // An exported ledger is not an authority to bypass the staging
+    // contract. Verify full write counts and unique source IDs before
+    // touching the private copy-on-write view.
+    std::set<FaceId> originalWrites;
+    std::size_t sourceEdits=0,newWrites=0;
+    for(const auto& f:patch.faceWrites) {
+        if(f.original) {
+            ++sourceEdits;
+            if(!originalWrites.insert(f.original).second)
+                throw std::logic_error("R06-M15C3 duplicate original FaceId in patch");
+        }else ++newWrites;
+    }
+    if(sourceEdits!=patch.changedSurvivors||
+       newWrites!=patch.newFaces)
+        throw std::logic_error("R06-M15C3 incomplete or inconsistent exported patch ledger");
     AppliedMixedClosurePatch applied;
     std::set<PartitionId> owners;
     for(const auto& created:patch.generatedVertices) {

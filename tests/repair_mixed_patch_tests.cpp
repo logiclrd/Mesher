@@ -29,95 +29,87 @@ struct Planned {
     MixedClosureStaging stage;
     MutableMeshView view;
     VertexId midpoint{};
-    explicit Planned(Fixture initialFixture)
-      : base(std::move(initialFixture)),
+    explicit Planned(Fixture input)
+      : base(std::move(input)),
+        stage(base.source,{}),
         view(base.source->revision().createMutableView()) {
-        stage.sourceView=std::make_shared<MixedClosureSourceView>(base.source);
-        stage.positions.bind(stage.sourceView);
-        const auto a=base.order.vertexIds[0];
-        const auto b=base.order.vertexIds[1];
-        const auto e=canonicalMixedEdge(a,b);
-        const auto neighbors=stage.sourceView->edgeSides({e.first,e.second});
-        require(neighbors.size()==2,
-                "M14E tetra source shared edge must have two oriented sides");
-        for(const auto& side:neighbors) {
-            const auto& f=stage.sourceView->face(side.face);
-            stage.faces.push_back({side.face,f.owner,{},
-                                   MixedClosureFaceKind::Survivor,0,
-                                   stage.sourceView});
-            stage.survivingFaceIds.push_back(side.face);
-            for(const auto vertex:f.vertices) {
-                stage.positions.emplace(vertex,stage.sourceView->position(vertex));
-                stage.vertexOwners.emplace(vertex,stage.sourceView->owner(vertex));
-            }
-        }
-        const auto middle=(stage.positions.at(a)+stage.positions.at(b))*.5;
-        midpoint=view.addVertex(stage.vertexOwners.at(a),middle);
-        stage.positions.emplace(midpoint,middle);
-        stage.vertexOwners.emplace(midpoint,stage.vertexOwners.at(a));
-        applyMixedConformingEdgeSplit(stage.faces,e,midpoint,64);
+        const auto a=base.order.vertexIds[0],b=base.order.vertexIds[1];
+        MixedClosureSplitSettings limits;
+        limits.maxTrackedFaces=64;
+        const auto ids=stage.splitEdge(view,a,b,limits);
+        require(ids.size()==1,
+                "M15C3 patch fixture must perform exactly one shared indexed split");
+        midpoint=ids.front();
     }
 };
 void testCompletePatchAndSourceIdentity() {
     Planned planned(tetra());
-    auto patch=planPrivateMixedClosurePatch(planned.stage,64);
+    const auto patch=planPrivateMixedClosurePatch(planned.stage,64);
     require(patch.sourceR03==planned.base.source&&
             patch.changedSurvivors==2&&patch.newFaces==2&&
             patch.generatedVertices.size()==1&&
             patch.generatedVertices.front().id==planned.midpoint&&
             patch.faceWrites.size()==4,
-            "M14E must capture BOTH source FaceId modifications and BOTH children");
+            "M14E complete patch must include two original survivors, two new children");
     std::size_t survivorChildren=0;
     for(const auto& entry:patch.faceWrites)
         if(!entry.original&&entry.kind==MixedClosureFaceKind::Survivor)
             ++survivorChildren;
     require(survivorChildren==2,
-            "M14E original edge splits must retain newly generated SURVIVOR children");
-    const auto initial=planned.base.source->face(
-        planned.stage.survivingFaceIds.front()).vertices;
+            "M14E original edge splits retain new survivor children");
+    const auto originalId=planned.stage.survivingFaceIds().front();
+    const auto initial=planned.base.source->face(originalId).vertices;
     const auto result=applyPrivateMixedClosurePatch(
         planned.view,*planned.base.source,patch,16);
     require(result.createdFaces.size()==2&&
             result.touchedPartitions.size()==1,
-            "M14E one private application must assign both new FaceIds");
+            "M14E one private application must allocate child FaceIds");
     const auto candidate=RegionTopologyIndex::build(planned.view.commit().revision);
     validatePrivateClosedManifold(*candidate,10000);
-    require(planned.base.source->face(planned.stage.survivingFaceIds.front()).vertices==initial&&
+    require(planned.base.source->face(originalId).vertices==initial&&
             planned.base.source->revision().partitionCount()==
                 candidate->revision().partitionCount(),
-            "M14E completed COW must preserve original immutable revision");
-    std::cout<<"[r06-m14e] explicit complete source patch and final manifold PASS\n";
+            "M14E completed COW preserves original immutable revision");
+    std::cout<<"[r06-m14e] complete source patch, closed manifold PASS\n";
 }
 void testOmittedSurvivorOverrideRefusedBeforeCommit() {
     Planned planned(tetra());
-    planned.stage.faces.erase(planned.stage.faces.begin());
+    auto patch=planPrivateMixedClosurePatch(planned.stage,64);
+    auto it=std::find_if(patch.faceWrites.begin(),patch.faceWrites.end(),
+        [](const MixedClosurePatchFace& face){return face.original!=0;});
+    require(it!=patch.faceWrites.end(),"M14E test has a survivor source edit");
+    patch.faceWrites.erase(it);
     bool refused=false;
-    try {(void)planPrivateMixedClosurePatch(planned.stage,64);}
+    try {(void)applyPrivateMixedClosurePatch(
+        planned.view,*planned.base.source,patch,16);}
     catch(const std::logic_error&) {refused=true;}
-    require(refused&&planned.stage.sourceView->pendingFaceEdits()==2,
-            "M14E omitted original survivor edit must refuse before COW write");
-    const auto originalId=planned.stage.survivingFaceIds.front();
-    require(planned.base.source->face(originalId).vertices!=
-                planned.stage.sourceView->face(originalId).vertices,
-            "M14E the source is immutable even while the private override exists");
-    std::cout<<"[r06-m14e] omitted required survivor patch rejected PASS\n";
+    require(refused&&planned.stage.sourceView()->pendingFaceEdits()==2,
+            "M15C3 tampered patch missing survivor write refuses before COW edits");
+    const auto id=planned.stage.survivingFaceIds().front();
+    require(planned.base.source->face(id).vertices!=
+                planned.stage.sourceView()->face(id).vertices,
+            "M15C3 source remains immutable despite legitimate private survivor override");
+    std::cout<<"[r06-m14e] incomplete ledger preflight refusal PASS\n";
 }
 void testOpenPatchFailsFinalGate() {
     Planned planned(tetra());
-    planned.stage.faces.pop_back(); // no complete pair of new split children
-    const auto patch=planPrivateMixedClosurePatch(planned.stage,64);
-    require(patch.changedSurvivors==2&&patch.newFaces==1,
-            "M14E an incomplete patch may be syntactically valid");
+    auto patch=planPrivateMixedClosurePatch(planned.stage,64);
+    auto it=std::find_if(patch.faceWrites.begin(),patch.faceWrites.end(),
+        [](const MixedClosurePatchFace& f) {
+            return !f.original&&f.kind==MixedClosureFaceKind::Survivor;
+        });
+    require(it!=patch.faceWrites.end(),"M14E split creates child face");
+    patch.faceWrites.erase(it); // artificially remove a required child
+    --patch.newFaces; // syntactically consistent, but topologically OPEN
     (void)applyPrivateMixedClosurePatch(
         planned.view,*planned.base.source,patch,16);
     const auto candidate=RegionTopologyIndex::build(planned.view.commit().revision);
     bool refused=false;
-    try{validatePrivateClosedManifold(*candidate,10000);}
+    try {validatePrivateClosedManifold(*candidate,10000);}
     catch(const std::exception&) {refused=true;}
-    require(refused,
-            "M14E the closed manifold test must reject an incomplete generated patch");
+    require(refused,"M14E incomplete consolidated candidate cannot certify");
     validatePrivateClosedManifold(*planned.base.source,10000);
-    std::cout<<"[r06-m14e] nonmanifold consolidated candidate rejected, original intact PASS\n";
+    std::cout<<"[r06-m14e] open private candidate rejected PASS\n";
 }
 void testMissingReservedVertexRejected() {
     Planned planned(tetra());
@@ -131,8 +123,7 @@ void testMissingReservedVertexRejected() {
     try {(void)applyPrivateMixedClosurePatch(
         planned.view,*planned.base.source,patch,16);}
     catch(const std::logic_error&) {refused=true;}
-    require(refused,
-            "M14E complete patch must refuse missing reserved generated vertex");
+    require(refused,"M14E missing reserved vertex fails before final commit");
     validatePrivateClosedManifold(*planned.base.source,10000);
 }
 void testForeignRootAndFiniteBudget() {
@@ -143,12 +134,12 @@ void testForeignRootAndFiniteBudget() {
     try {(void)applyPrivateMixedClosurePatch(
         planned.view,*other.source,patch,16);}
     catch(const std::logic_error&) {refused=true;}
-    require(refused,"M14E must reject foreign root before COW patch application");
+    require(refused,"M14E foreign root cannot apply");
     refused=false;
     try {(void)applyPrivateMixedClosurePatch(
         planned.view,*planned.base.source,patch,1);}
     catch(const std::length_error&) {refused=true;}
-    require(refused,"M14E must reject exhausted new-face budget before COW edit");
+    require(refused,"M14E exhausted face budget cannot apply");
 }
 void testSelfIntersectionsNotAManifoldFailure() {
     // Two separately closed but intersecting tetrahedral surfaces form

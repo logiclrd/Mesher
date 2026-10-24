@@ -50,13 +50,11 @@ MixedClosureStaging stagePrivateMixedClosure(
     std::vector<bool> used(proposal.contours.size());
     std::set<FaceId> loadedFaces;
     const auto loadVertex=[&](VertexId id) {
-        const auto p=result.sourceView->position(id);
+        const auto p=result.sourceView()->position(id);
         if(!std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z))
             throw std::logic_error("R06-M04A nonfinite survivor position");
-        // M14B removes this temporary legacy materialization. The source
-        // remains authoritative and is now reachable beyond the rim halo.
-        result.positions.emplace(id,p);
-        result.vertexOwners.emplace(id,result.sourceView->owner(id));
+        // Original survivor registration belongs to the staging editor.
+        result.trackOriginalVertex(id);
     };
     // Generators describe desired faces; only the staging editor may
     // introduce their topology. Repeated cyclic face requests are no-ops.
@@ -90,15 +88,15 @@ MixedClosureStaging stagePrivateMixedClosure(
     for(const auto id:plan.cappedContours) {
         consume(id);
         const auto& loop=proposal.contours[id];
-        const auto h=medianEdge(*result.sourceView,loop);
+        const auto h=medianEdge(*result.sourceView(),loop);
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
-        const auto owner=result.sourceView->face(loop.survivingFaces.front()).owner;
+        const auto owner=result.sourceView()->face(loop.survivingFaces.front()).owner;
         bool forceSpatial=false;
         if(bounds.requireReflectedGeometry) {
             bool positive=false,negative=false;
             for(const auto vertex:loop.vertexIds) {
-                const auto x=result.positions.at(vertex).x;
+                const auto x=result.positions().at(vertex).x;
                 positive=positive||x>0;
                 negative=negative||x<0;
             }
@@ -108,7 +106,7 @@ MixedClosureStaging stagePrivateMixedClosure(
         if(!forceSpatial) {
             try {
                 for(const auto triangle:triangulatePrivateCapDisk(
-                        loop,result.positions.materialize(),h))
+                        loop,result.positions().materialize(),h))
                     addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
             }catch(const std::logic_error& e) {
                 forceSpatial=true;
@@ -128,12 +126,12 @@ MixedClosureStaging stagePrivateMixedClosure(
             guidance.reserve(n);
             for(std::size_t k=0;k<n;++k) {
                 const auto r=n-k-1;
-                ordered.push_back(result.positions.at(loop.vertexIds[r]));
-                const auto& adjacent=result.sourceView->face(loop.survivingFaces.at(r));
+                ordered.push_back(result.positions().at(loop.vertexIds[r]));
+                const auto& adjacent=result.sourceView()->face(loop.survivingFaces.at(r));
                 const auto& v=adjacent.vertices;
                 const auto normal=cross(
-                    result.positions.at(v[1])-result.positions.at(v[0]),
-                    result.positions.at(v[2])-result.positions.at(v[0]));
+                    result.positions().at(v[1])-result.positions().at(v[0]),
+                    result.positions().at(v[2])-result.positions().at(v[0]));
                 guidance.push_back(normal);
             }
             SpatialCapPatch patch;
@@ -156,19 +154,18 @@ MixedClosureStaging stagePrivateMixedClosure(
             for(std::size_t k=0;k<n;++k)
                 ids.push_back(loop.vertexIds[n-k-1]);
             for(std::size_t k=n;k<patch.positions.size();++k) {
-                if(result.provisionalSpatialVertices.size()>=
+                if(result.provisionalSpatialVertices().size()>=
                    bounds.maxNewTriangles)
                     throw std::length_error(
                         "R06-M06C spatial provisional vertex budget exceeded");
                 const auto provisional=std::numeric_limits<VertexId>::max()-
-                    static_cast<VertexId>(result.provisionalSpatialVertices.size());
+                    static_cast<VertexId>(result.provisionalSpatialVertices().size());
                 if(mesh.maybeVertex(provisional)||
-                   result.positions.contains(provisional))
+                   result.positions().contains(provisional))
                     throw std::logic_error(
                         "R06-M06C temporary ID collides with immutable vertex");
-                result.provisionalSpatialVertices.push_back(provisional);
-                result.positions.emplace(provisional,patch.positions[k]);
-                result.vertexOwners.emplace(provisional,owner);
+                result.stageProvisionalVertex(provisional,
+                    patch.positions[k],owner,bounds.maxNewTriangles);
                 ids.push_back(provisional);
             }
             for(const auto& t:patch.faces)
@@ -188,16 +185,16 @@ MixedClosureStaging stagePrivateMixedClosure(
         consume(pair.second);
         const auto& a=proposal.contours.at(pair.first);
         const auto& b=proposal.contours.at(pair.second);
-        const auto h=std::min(medianEdge(*result.sourceView,a),medianEdge(*result.sourceView,b));
+        const auto h=std::min(medianEdge(*result.sourceView(),a),medianEdge(*result.sourceView(),b));
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate zipper local edge scale");
-        const auto owner=result.sourceView->face(a.survivingFaces.front()).owner;
-        const auto otherOwner=result.sourceView->face(b.survivingFaces.front()).owner;
+        const auto owner=result.sourceView()->face(a.survivingFaces.front()).owner;
+        const auto otherOwner=result.sourceView()->face(b.survivingFaces.front()).owner;
         // Exact opposite-side reflected loops require a seam, not a DP
         // shortcut which crosses X=0 with unpaired triangle interiors.
         const auto entirely=[&](const RepairContour& loop,int sign) {
             return std::all_of(loop.vertexIds.begin(),loop.vertexIds.end(),
-                [&](VertexId v){return result.positions.at(v).x*sign>0;});
+                [&](VertexId v){return result.positions().at(v).x*sign>0;});
         };
         const bool mirroredPair=bounds.requireReflectedGeometry&&
             ((entirely(a,-1)&&entirely(b,+1))||
@@ -213,10 +210,10 @@ MixedClosureStaging stagePrivateMixedClosure(
             bIndices.reserve(n);
             std::set<std::size_t> foundIndices;
             for(const auto first:a.vertexIds) {
-                const auto p=result.positions.at(first);
+                const auto p=result.positions().at(first);
                 std::size_t found=n;
                 for(std::size_t k=0;k<n;++k) {
-                    const auto q=result.positions.at(b.vertexIds[k]);
+                    const auto q=result.positions().at(b.vertexIds[k]);
                     if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
                     if(found!=n)
                         throw std::logic_error(
@@ -238,19 +235,18 @@ MixedClosureStaging stagePrivateMixedClosure(
             std::vector<VertexId> seam;
             seam.reserve(n);
             for(std::size_t i=0;i<n;++i) {
-                if(result.provisionalSpatialVertices.size()>=
+                if(result.provisionalSpatialVertices().size()>=
                    bounds.maxNewTriangles)
                     throw std::length_error(
                         "R06-M06C4c mirrored zipper seam vertex budget");
-                const auto p=result.positions.at(a.vertexIds[i]);
+                const auto p=result.positions().at(a.vertexIds[i]);
                 const VertexId id=std::numeric_limits<VertexId>::max()-
-                    static_cast<VertexId>(result.provisionalSpatialVertices.size());
-                if(mesh.maybeVertex(id)||result.positions.contains(id))
+                    static_cast<VertexId>(result.provisionalSpatialVertices().size());
+                if(mesh.maybeVertex(id)||result.positions().contains(id))
                     throw std::logic_error(
                         "R06-M06C4c provisional mirror seam vertex ID collision");
-                result.provisionalSpatialVertices.push_back(id);
-                result.positions.emplace(id,Vec3{0,p.y,p.z});
-                result.vertexOwners.emplace(id,owner);
+                result.stageProvisionalVertex(id,
+                    Vec3{0,p.y,p.z},owner,bounds.maxNewTriangles);
                 seam.push_back(id);
             }
             for(std::size_t i=0;i<n;++i) {
@@ -272,7 +268,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             result.mirroredSeamZipperVertices+=n;
         }else {
             for(const auto triangle:triangulatePrivateZipperStrip(
-                    a.vertexIds,b.vertexIds,result.positions.materialize(),bounds.zipper))
+                    a.vertexIds,b.vertexIds,result.positions().materialize(),bounds.zipper))
                 addFace({0,owner,triangle,MixedClosureFaceKind::Zipper,h});
         }
         ++result.zipperPairs;
@@ -307,7 +303,7 @@ MixedClosureStaging stagePrivateMixedClosure(
         throw std::logic_error("R06-M04A cross-region zipper not authorized");
 
     std::map<Edge,std::vector<Side>> stagedEdges;
-    for(const auto& face:result.faces) {
+    for(const auto& face:result.faces()) {
         const auto vertices=face.triangle();
         for(unsigned i=0;i<3;++i) {
             const auto a=vertices[i],b=vertices[(i+1)%3];

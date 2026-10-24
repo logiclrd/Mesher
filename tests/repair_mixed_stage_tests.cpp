@@ -113,17 +113,20 @@ void mixedAndTampered() {
 
     // M14A: an unrelated surviving face is accessible by its original
     // ID even though it was not copied into the limited rim staging halo.
-    require(staging.sourceView&&
-            staging.sourceView->sourceRoot()==cut.index&&
-            !staging.survivingFaceIds.empty(),
+    require(staging.sourceView()&&
+            staging.sourceView()->sourceRoot()==cut.index&&
+            !staging.survivingFaceIds().empty(),
             "M14A staging must retain exact R03 source and original face IDs");
     const auto remoteFace=f.flat.faceIds[remote.right];
     require(cut.index->maybeFace(remoteFace)!=nullptr&&
-            std::find(staging.survivingFaceIds.begin(),
-                      staging.survivingFaceIds.end(),remoteFace)==
-                staging.survivingFaceIds.end(),
+            std::find(staging.survivingFaceIds().begin(),
+                      staging.survivingFaceIds().end(),remoteFace)==
+                staging.survivingFaceIds().end(),
             "M14A remote surviving face must lie outside loaded rim halo");
-    const auto original=staging.sourceView->face(remoteFace);
+    // Source-view override tests use an INDEPENDENT fixture; staging's
+    // own source access stays const and cannot be bypassed by callers.
+    auto sourceFixture=std::make_shared<MixedClosureSourceView>(cut.index);
+    const auto original=sourceFixture->face(remoteFace);
     require(original.vertices==cut.index->face(remoteFace).vertices,
             "M14A remote survivor FaceId must resolve through immutable R03 source");
     const auto remoteVertex=original.vertices[0];
@@ -135,7 +138,7 @@ void mixedAndTampered() {
         return std::any_of(sides.begin(),sides.end(),
             [&](const auto& side){return side.face==remoteFace;});
     };
-    require(hadRemote(staging.sourceView->edgeSides(edge)),
+    require(hadRemote(sourceFixture->edgeSides(edge)),
             "M14A source-backed edge lookup must find remote existing incidence");
     // A valid distinct survivor vertex outside this face replaces one
     // corner in the private override; no immutable source face is altered.
@@ -144,34 +147,34 @@ void mixedAndTampered() {
             replacement!=original.vertices[1]&&
             replacement!=original.vertices[2],
             "M14A test replacement must be a distinct stable VertexId");
-    staging.sourceView->overrideFace(remoteFace,
+    sourceFixture->overrideFace(remoteFace,
         {original.vertices[0],original.vertices[2],replacement});
-    staging.sourceView->overridePosition(remoteVertex,
+    sourceFixture->overridePosition(remoteVertex,
         originalPosition+Vec3{.125,0,0});
-    require(staging.sourceView->face(remoteFace).vertices[2]==replacement&&
-            !hadRemote(staging.sourceView->edgeSides(edge))&&
-            staging.sourceView->position(remoteVertex).x==
+    require(sourceFixture->face(remoteFace).vertices[2]==replacement&&
+            !hadRemote(sourceFixture->edgeSides(edge))&&
+            sourceFixture->position(remoteVertex).x==
                 originalPosition.x+.125&&
             cut.index->face(remoteFace).vertices==original.vertices&&
             cut.index->vertex(remoteVertex).position.x==originalPosition.x&&
-            staging.sourceView->pendingFaceEdits()==1&&
-            staging.sourceView->pendingVertexEdits()==1,
+            sourceFixture->pendingFaceEdits()==1&&
+            sourceFixture->pendingVertexEdits()==1,
             "M14A overrides must take priority without mutating source or stale incidence");
     const auto addedEdge=RegionTopologyIndex::Edge{
         std::min(original.vertices[0],replacement),
         std::max(original.vertices[0],replacement)};
-    require(hadRemote(staging.sourceView->edgeSides(addedEdge)),
+    require(hadRemote(sourceFixture->edgeSides(addedEdge)),
             "M14A pending face override must contribute new edge incidence");
     bool rejected=false;
     try {
-        staging.sourceView->overrideFace(remoteFace,
+        sourceFixture->overrideFace(remoteFace,
             {original.vertices[0],original.vertices[0],replacement});
     }catch(const std::logic_error&) {rejected=true;}
     require(rejected,
             "M14A duplicate-vertex face override must fail without changing pending face");
     rejected=false;
     try {
-        staging.sourceView->overrideFace(
+        sourceFixture->overrideFace(
             std::numeric_limits<FaceId>::max(),original.vertices);
     }catch(const std::out_of_range&) {rejected=true;}
     require(rejected,
@@ -191,10 +194,10 @@ void mixedAndTampered() {
     // M14B3: every originally surviving rim triangle remains a FaceId
     // handle. Its actual vertices are obtained from the authoritative
     // post-excision source, not a staged copy.
-    for(const auto& fhandle:staging.faces) {
+    for(const auto& fhandle:staging.faces()) {
         if(fhandle.kind!=MixedClosureFaceKind::Survivor||!fhandle.stableId)
             continue;
-        require(fhandle.sourceView==staging.sourceView&&
+        require(fhandle.sourceView==staging.sourceView()&&
                 fhandle.vertices==PrivateRepairTriangle{}&&
                 fhandle.triangle()==cut.index->face(fhandle.stableId).vertices,
                 "M14B3 staging must not duplicate mutable original survivor faces");
@@ -392,11 +395,11 @@ void planarMirroredCapMustNotUseUnpairedEarDiagonal() {
             staged.usedSpatialCapFallback&&
             staged.boundarySidesCovered==rim.size(),
             "R06-M06C4c1 even projected-simple mirrored caps require mirror-paired spatial triangulation");
-    for(const auto& face:staged.faces) {
+    for(const auto& face:staged.faces()) {
         if(face.kind!=MixedClosureFaceKind::Cap)continue;
-        const auto a=staged.positions.at(face.vertices[0]).x;
-        const auto b=staged.positions.at(face.vertices[1]).x;
-        const auto c=staged.positions.at(face.vertices[2]).x;
+        const auto a=staged.positions().at(face.vertices[0]).x;
+        const auto b=staged.positions().at(face.vertices[1]).x;
+        const auto c=staged.positions().at(face.vertices[2]).x;
         require(!(std::min({a,b,c})<0&&std::max({a,b,c})>0),
                 "R06-M06C4c1 mirrored cap may not straddle plane without seam");
     }
@@ -485,11 +488,11 @@ void physicalMirroredZipperStaging() {
             staged.zipperTriangles==4*n&&
             staged.boundarySidesCovered==30,
             "R06-M06C4c2 must stage one exact mirror-paired zipper with real seam");
-    for(const auto& f:staged.faces)
+    for(const auto& f:staged.faces())
         if(f.kind==MixedClosureFaceKind::Zipper) {
-            const auto x0=staged.positions.at(f.vertices[0]).x;
-            const auto x1=staged.positions.at(f.vertices[1]).x;
-            const auto x2=staged.positions.at(f.vertices[2]).x;
+            const auto x0=staged.positions().at(f.vertices[0]).x;
+            const auto x1=staged.positions().at(f.vertices[1]).x;
+            const auto x2=staged.positions().at(f.vertices[2]).x;
             require(!(std::min({x0,x1,x2})<0&&std::max({x0,x1,x2})>0),
                     "R06-M06C4c2 a staged zipper face may not cross X=0 without seam");
         }

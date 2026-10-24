@@ -87,9 +87,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     out.spatialPoissonIterations=staged.spatialPoissonIterations;
     out.minimumSpatialInitialQuality=staged.minimumSpatialInitialQuality;
     auto view=cut.index->revision().createMutableView();
-    auto& faces=staged.faces;
-    auto& positions=staged.positions;
-    auto& vertexOwners=staged.vertexOwners;
+    const auto& faces=staged.faces();
+    const auto& positions=staged.positions();
+    const auto& vertexOwners=staged.vertexOwners();
     std::set<PartitionId> owners;
     // Warning mode is used only for an untrusted private inspection rerun.
     const auto warn=[&](const std::string& reason) {
@@ -101,35 +101,12 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         out.qualityWarningReason+=reason;
     };
 
-    // Resolve synthetic spatial front IDs ONLY inside this never-published
-    // private transaction. Boundary vertex IDs are retained exactly;
-    // interior vertices receive monotonically allocated immutable IDs.
-    for(const auto provisional:staged.provisionalSpatialVertices) {
-        if(out.insertedVertices.size()>=limits.maxInsertedVertices)
-            throw std::length_error(
-                "R06-M06C mixed front interior-vertex budget exceeded");
-        const auto position=positions.at(provisional);
-        const auto owner=vertexOwners.at(provisional);
-        const auto stable=view.addVertex(owner,position);
-        if(positions.contains(stable))
-            throw std::logic_error(
-                "R06-M06C newly allocated permanent front ID already present");
-        positions.emplace(stable,position);
-        vertexOwners.emplace(stable,owner);
-        owners.insert(owner);
+    // All synthetic front ID replacement is an editor operation; caller
+    // never rewrites a survivor/cap triangle directly.
+    for(const auto stable:staged.resolveProvisionalVertices(
+            view,limits.maxInsertedVertices)) {
         out.insertedVertices.push_back(stable);
-        for(auto& face:faces) {
-            auto vertices=face.triangle();
-            bool replaced=false;
-            for(auto& vertex:vertices)
-                if(vertex==provisional) {
-                    vertex=stable;
-                    replaced=true;
-                }
-            if(replaced)face.setTriangle(vertices);
-        }
-        positions.erase(provisional);
-        vertexOwners.erase(provisional);
+        owners.insert(staged.vertexOwner(stable));
     }
 
     // Undo only fully NEW redundant 3-triangle interior cap fans,
@@ -144,15 +121,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             limits.minCapQuality,limits.maxCapEdgeFactor);
         if(retired.empty())break;
         for(const auto id:retired) {
-            const auto owner=vertexOwners.at(id);
-            auto& partition=view.editPartition(owner);
-            const auto count=std::erase_if(partition.vertices,
-                [id](const PartitionVertex& v){return v.id==id;});
-            if(count!=1)
-                throw std::logic_error(
-                    "R06-M11A3b redundant interior cap fan retirement must remove one new vertex");
+            staged.retirePrivateVertex(view,id);
             std::erase(out.insertedVertices,id);
-            vertexOwners.erase(id);
         }
         out.interiorCapCollapses+=retired.size();
     }
@@ -174,7 +144,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // source topology. Missing source sides are visible without copying
     // their faces into the editable worklist.
     const auto neighborhood=[&](Edge e) {
-        return inspectMixedClosureEdge(faces,*staged.sourceView,e);
+        return inspectMixedClosureEdge(faces,*staged.sourceView(),e);
     };
     const auto effectiveSides=[&](Edge e) {
         const auto n=neighborhood(e);
@@ -182,9 +152,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         result.reserve(n.sides());
         for(const auto i:n.localFaceIndexes)result.push_back(faces.at(i));
         for(const auto id:n.missingSurvivorFaces) {
-            const auto& original=staged.sourceView->face(id);
+            const auto& original=staged.sourceView()->face(id);
             result.push_back({id,original.owner,{},MixedClosureFaceKind::Survivor,
-                              0,staged.sourceView});
+                              0,staged.sourceView()});
         }
         return result;
     };
@@ -233,8 +203,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         // A source vertex far outside the initially staged halo can still
         // occupy this point exactly. A geometry-only match blocks the edit;
         // it NEVER grants a symbolic VertexId weld.
-        for(const auto id:staged.sourceView->source().querySphere(check.point,std::numeric_limits<double>::denorm_min())) {
-            const auto p=staged.sourceView->position(id);
+        for(const auto id:staged.sourceView()->source().querySphere(check.point,std::numeric_limits<double>::denorm_min())) {
+            const auto p=staged.sourceView()->position(id);
             if(p.x==check.point.x&&p.y==check.point.y&&p.z==check.point.z) {
                 check.unique=false;
                 check.existingVertex=id;
@@ -280,7 +250,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             policy,out.insertedVertices.size(),out.refinementSteps,optional);
         for(const auto id:mids) {
             out.insertedVertices.push_back(id);
-            owners.insert(staged.vertexOwners.at(id));
+            owners.insert(staged.vertexOwner(id));
         }
         return mids.size();
     };

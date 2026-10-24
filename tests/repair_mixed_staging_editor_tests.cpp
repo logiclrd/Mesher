@@ -46,13 +46,13 @@ void testLiveRimAndIdempotentFace() {
           "M15A cap face must remove the now-paired entire yellow rim");
     const auto twice=staged.ensureFace(
         c,b,a,MixedClosureFaceKind::Cap,owner,1);
-    check(first==twice&&staged.faces.size()==1&&staged.capTriangles==1,
+    check(first==twice&&staged.faces().size()==1&&staged.capTriangles==1,
           "M15A cyclic repeat of oriented face is a true no-op");
     bool wrong=false;
     try{(void)staged.ensureFace(
         a,b,c,MixedClosureFaceKind::Cap,owner,1);}
     catch(const std::logic_error&) {wrong=true;}
-    check(wrong&&staged.faces.size()==1,
+    check(wrong&&staged.faces().size()==1,
           "M15A reversed duplicate face must fail before mutation");
     check(f.source->maybeEdgeSides({std::min(a,b),std::max(a,b)})->size()==1,
           "M15A source open rim remains immutable");
@@ -93,7 +93,7 @@ void testSplitRimBeforeOrAfterCap() {
         }
         check(staged.currentBoundaryLoops().empty(),
               "M15B split-before/after-cap must both yield a closed working front");
-        check(staged.sourceView->sourceRoot()==f.source&&
+        check(staged.sourceView()->sourceRoot()==f.source&&
               f.source->maybeEdgeSides({
                   std::min(a,b),std::max(a,b)})->size()==1,
               "M15B no split changes the immutable R03 source");
@@ -110,8 +110,8 @@ void testRemoteInteriorEdgeSplit() {
     MixedClosureSplitSettings limits;
     limits.maxTrackedFaces=64;
     const auto mids=staged.splitEdge(view,a,b,limits);
-    check(mids.size()==1&&staged.faces.size()==4&&
-          staged.sourceView->pendingFaceEdits()==2,
+    check(mids.size()==1&&staged.faces().size()==4&&
+          staged.sourceView()->pendingFaceEdits()==2,
           "M15B interior source edge must import/split BOTH remote survivors");
     check(staged.currentBoundaryLoops().size()==1&&
           staged.currentBoundaryLoops().front().size()==3,
@@ -138,7 +138,7 @@ void testNewFaceMovesActiveBoundary() {
     try{(void)staged.ensureFace(
         a,b,another,MixedClosureFaceKind::Cap,owner,1);}
     catch(const std::logic_error&) {overfilled=true;}
-    check(overfilled&&staged.faces.size()==1,
+    check(overfilled&&staged.faces().size()==1,
           "M15A overfull original rim edge rejected without adding triangle");
     std::cout<<"[r06-m15a] new vertex, incremental front and overfilled face refusal PASS\n";
 }
