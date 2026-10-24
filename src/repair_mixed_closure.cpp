@@ -138,8 +138,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // q and length bounds; no original surviving/rim vertex moves.
     constexpr std::size_t maxPrivateCapFanRetirements=16;
     while(out.interiorCapCollapses<maxPrivateCapFanRetirements) {
-        const auto retired=collapseOneInferiorCapFan(
-            faces,positions,out.insertedVertices,
+        const auto retired=staged.collapseInteriorCapFan(
+            out.insertedVertices,
             limits.requireReflectedGeometry,
             limits.minCapQuality,limits.maxCapEdgeFactor);
         if(retired.empty())break;
@@ -349,8 +349,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto orbit=limits.requireReflectedGeometry?std::size_t{2}:std::size_t{1};
         if(out.interiorQualityFlips+orbit>limits.maxInteriorQualityFlips)
             return false;
-        const auto count=flipOneInferiorClosureDiagonal(
-            faces,positions,limits.requireReflectedGeometry,
+        const auto count=staged.improveInteriorDiagonal(
+            limits.requireReflectedGeometry,
             limits.minCapQuality,limits.minZipperQuality,
             limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);
         if(!count)return false;
@@ -362,8 +362,8 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         const auto orbit=limits.requireReflectedGeometry?
             std::size_t{2}:std::size_t{1};
         if(out.interiorFairingMoves+orbit>maxInteriorFairingMoves)return false;
-        const auto moved=fairOneConstrainedClosureVertex(
-            faces,positions,out.insertedVertices,
+        const auto moved=staged.fairInteriorVertex(
+            out.insertedVertices,
             limits.requireReflectedGeometry,
             limits.minCapQuality,limits.minZipperQuality,
             limits.maxCapEdgeFactor,limits.maxZipperEdgeFactor);

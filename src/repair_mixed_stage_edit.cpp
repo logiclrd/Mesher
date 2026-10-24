@@ -1,6 +1,9 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_mixed_edges.hpp"
 #include "mesher/repair_survivor_split.hpp"
+#include "mesher/repair_quality_flip.hpp"
+#include "mesher/repair_interior_collapse.hpp"
+#include "mesher/repair_interior_fairing.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -106,7 +109,7 @@ std::size_t MixedClosureStaging::ensureFace(
     // All three directed edges must have at most one already existing
     // effective incident side, and that side must be reverse oriented.
     // No face or boundary state is written until all three checks pass.
-    for(const auto [u,v]:{std::pair{a,b},std::pair{b,c},std::pair{c,a}}) {
+    for(const auto& [u,v]:{std::pair{a,b},std::pair{b,c},std::pair{c,a}}) {
         const auto key=edge(u,v);
         std::size_t count=0;
         bool previousForward=false;
@@ -382,5 +385,26 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     // currentBoundaryLoops() derives all yellow paths from these exact
     // effective edges; the original AB is now absent and AM/MB are real.
     return midpoints;
+}
+std::size_t MixedClosureStaging::improveInteriorDiagonal(
+    bool reflection,double capQuality,double zipperQuality,
+    double capFactor,double zipperFactor) {
+    return flipOneInferiorClosureDiagonal(
+        faces,positions,reflection,capQuality,zipperQuality,
+        capFactor,zipperFactor);
+}
+std::vector<VertexId> MixedClosureStaging::collapseInteriorCapFan(
+    const std::vector<VertexId>& created,bool reflection,
+    double capQuality,double capFactor) {
+    return collapseOneInferiorCapFan(
+        faces,positions,created,reflection,capQuality,capFactor);
+}
+std::size_t MixedClosureStaging::fairInteriorVertex(
+    const std::vector<VertexId>& created,bool reflection,
+    double capQuality,double zipperQuality,double capFactor,
+    double zipperFactor) {
+    return fairOneConstrainedClosureVertex(
+        faces,positions,created,reflection,capQuality,zipperQuality,
+        capFactor,zipperFactor);
 }
 } // namespace mesher

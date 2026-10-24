@@ -86,6 +86,19 @@ struct MixedClosureStaging {
         std::size_t alreadyInserted=0,
         std::size_t alreadyRefined=0,
         bool optionalQualityOnly=false);
+    // Other topology-changing quality operations also remain within
+    // the staging editor; no closure-algorithm caller mutates its face
+    // records directly when flipping a diagonal or collapsing a cap fan.
+    std::size_t improveInteriorDiagonal(
+        bool requireReflection,double minCapQuality,double minZipperQuality,
+        double maxCapEdgeFactor,double maxZipperEdgeFactor);
+    std::vector<VertexId> collapseInteriorCapFan(
+        const std::vector<VertexId>& createdVertices,bool requireReflection,
+        double minCapQuality,double maxCapEdgeFactor);
+    std::size_t fairInteriorVertex(
+        const std::vector<VertexId>& createdVertices,bool requireReflection,
+        double minCapQuality,double minZipperQuality,
+        double maxCapEdgeFactor,double maxZipperEdgeFactor);
     bool hasEffectiveEdge(VertexId a,VertexId b) const;
     // Current directed, closed walks of one-sided effective edges.
     // Incomplete/forked boundary topology fails instead of rendering a
