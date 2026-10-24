@@ -64,6 +64,12 @@ public:
     bool hasFaceOverride(FaceId id) const noexcept {
         return faceOverrides_.contains(id);
     }
+    // Read-only effective edits for bounded M16C2b immutable frame capture.
+    // These maps contain ONLY staged changes, never cloned source faces.
+    const std::map<FaceId,RegionTopologyIndex::Face>&
+    faceOverrides() const noexcept {return faceOverrides_;}
+    const std::map<VertexId,Vec3>&
+    positionOverrides() const noexcept {return positionOverrides_;}
 
     // Proposal only; original R03 records remain immutable. Existing
     // FaceIds may reference real transaction-generated IDs as well as
