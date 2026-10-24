@@ -162,3 +162,23 @@ M13 budget. Neither the other 126/100 point-on-edge warnings nor the
 full triangle/triangle embedding were reclassified. Do not present
 a stored-witness ratio as proof for all candidates. The warning
 preview remains untrusted, and strict refusal policy is unchanged.
+
+## Cross-platform CPU acceptance (2026-10-24)
+
+[GitHub Actions #40078110954](https://github.com/logiclrd/Mesher/actions/runs/40078110954)
+passed GCC, Clang and Windows MSVC. All five original archived
+captures retained their exact Git blob IDs and reviewed disposition,
+and the two opt-in seam diagnostics retained the original
+382/356 total geometric T witnesses and zero indexed-interface
+incidence errors. The new M15D lineages match the results above.
+A Windows warning-as-error for a shadowed local iterator in the
+new reporter was corrected in `5992ac80`; this successful
+run includes that fix. The full GPU visual evidence remains
+operator-only and M15D4 stays unchecked.
+
+**Engineering conclusion:** M15 has removed unsafe direct
+topology-mutation escape hatches and the documented witnesses
+are not evidence of a splitEdge implementation dropping one
+incident face. Remaining poor-quality/folded cap-front geometry
+requires separate scrutiny of **which geometric connection the
+generator intends**, rather than a blanket epsilon-based edge weld.

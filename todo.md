@@ -616,10 +616,20 @@ as the gray survivor edge to which it came geometrically close.
 See complete counts and sampling limitations in the acceptance guide.
 No repair policy or topology changes; legacy AUTO refusals preserved.
 
-- [ ] **R06-M15D3 — Exact replay regression and three-platform CI.**
+- [x] **R06-M15D3 — Exact replay regression and three-platform CI.**
   Preserve all five original .r06case captures and labels; verify
   same topology/refusal, stable witness classifications and bounded
   diagnostic output on GCC/Clang/MSVC.
+**M15D1/D2/D3 CPU acceptance (2026-10-24):** after MSVC
+test-only shadow-variable fix, [CI #40078110954](https://github.com/logiclrd/Mesher/actions/runs/40078110954)
+completed SUCCESS across GCC, Clang and Windows MSVC with the
+five archived cases unchanged and the exact witness totals unchanged.
+D1 stages original indexed parent-edge provenance, D2 shows 256/256
+stored geometric T witnesses in each of refusal-1/3 were midpoints
+from two-sided cap-only splits; 0/256 match the nearby gray edge
+indexed pair. This is **not** a verified repair of the visual
+skinny-geometry pathology; D4 on the actual user's GPU remains open.
+
 - [ ] **R06-M15D4 — Physical Vulkan visual acceptance.**
   On user's GPU run refusal-1 and refusal-3 with exact overlay, W and
   seam audit; inspect actual suspected unpaired cap/survivor geometry.
