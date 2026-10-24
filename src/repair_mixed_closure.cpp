@@ -808,8 +808,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             out.greenFaces.push_back(id);
         else if(f.kind==MixedClosureFaceKind::Zipper)
             out.blueFaces.push_back(id);
-        else throw std::logic_error(
-            "R06-M14E source-backed patch generated a survivor-only face");
+        // A new child of an ORIGINAL survivor edge split is legitimate
+        // survivor geometry, not a green/blue closure face. It must be
+        // materialized in the same private patch and count against budget.
     }
     out.newFaces=applied.createdFaces.size();
     out.touchedPartitions.assign(owners.begin(),owners.end());

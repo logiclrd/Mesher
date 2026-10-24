@@ -77,8 +77,8 @@ inline MixedClosurePatch planPrivateMixedClosurePatch(
                 throw std::logic_error("R06-M14E source survivor owner changed");
             if(!stage.sourceView->hasFaceOverride(face.stableId))continue;
             ++patch.changedSurvivors;
-        }else if(face.kind==MixedClosureFaceKind::Survivor||face.sourceView)
-            throw std::logic_error("R06-M14E a new face must be a local cap or zipper");
+        }else if(face.sourceView)
+            throw std::logic_error("R06-M14E a new face must not bind a source FaceId handle");
         else ++patch.newFaces;
         patch.faceWrites.push_back({i,face.stableId,face.owner,
                                     triangle,face.kind});

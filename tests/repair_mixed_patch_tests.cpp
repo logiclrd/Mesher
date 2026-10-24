@@ -67,6 +67,12 @@ void testCompletePatchAndSourceIdentity() {
             patch.generatedVertices.front().id==planned.midpoint&&
             patch.faceWrites.size()==4,
             "M14E must capture BOTH source FaceId modifications and BOTH children");
+    std::size_t survivorChildren=0;
+    for(const auto& entry:patch.faceWrites)
+        if(!entry.original&&entry.kind==MixedClosureFaceKind::Survivor)
+            ++survivorChildren;
+    require(survivorChildren==2,
+            "M14E original edge splits must retain newly generated SURVIVOR children");
     const auto initial=planned.base.source->face(
         planned.stage.survivingFaceIds.front()).vertices;
     const auto result=applyPrivateMixedClosurePatch(
