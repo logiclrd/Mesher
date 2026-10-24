@@ -63,6 +63,10 @@ struct MixedClosureSplitEvent {
     std::size_t incidentSurvivorSides{};
     std::size_t incidentCapSides{};
     std::size_t incidentZipperSides{};
+    // M17B: canonical t from smaller to larger ORIGINAL endpoint ID.
+    // The position is exact private 3D geometry, never an inferred weld.
+    double canonicalT=0.5;
+    Vec3 position{};
 };
 struct MixedClosureSplitSettings {
     bool requireReflectedGeometry=false;
@@ -72,6 +76,7 @@ struct MixedClosureSplitSettings {
     std::size_t maxInsertedVertices=1024;
     std::size_t maxRefinementSteps=512;
     std::size_t maxTrackedFaces=1000000;
+    double minimumSplitFraction=0.12; // bounded off-center child intervals
 };
 
 class MixedClosureStaging {
@@ -109,12 +114,17 @@ public:
     // Returns the one or two newly reserved stable midpoint VertexIds.
     // Optional quality refinement may return empty when it is unsafe;
     // an ABSENT edge always throws even for an optional request.
+    // canonicalT is measured from MIN(VertexId) to MAX(VertexId), even
+    // if the caller supplies reversed endpoints. For reflected edges,
+    // preflight maps t to 1-t where stable-ID orientations are reversed.
+    // Ordinary callers omitting it retain the exact midpoint path.
     std::vector<VertexId> splitEdge(
         MutableMeshView& privateView,VertexId a,VertexId b,
         const MixedClosureSplitSettings& settings,
         std::size_t alreadyInserted=0,
         std::size_t alreadyRefined=0,
-        bool optionalQualityOnly=false);
+        bool optionalQualityOnly=false,
+        double canonicalT=0.5);
     // Other topology-changing quality operations also remain within
     // the staging editor; no closure-algorithm caller mutates its face
     // records directly when flipping a diagonal or collapsing a cap fan.
