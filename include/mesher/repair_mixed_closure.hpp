@@ -24,6 +24,11 @@ struct MixedPrivateClosureLimits {
     MixedClosureStageSettings staging{};
     bool requireReflectedGeometry=false;
     bool inspectionWarnQuality=false; // private diagnostic only; not a certified closure
+    // M17C opt-in experimental policy; false preserves archival R06 replay.
+    bool scaleAwareRefinement=false;
+    double shapeRepairScaleRatio=2.0; // local edge / target length
+    std::size_t maxScaleAwareSplitOperations=64; // per private attempt
+    std::size_t maxScaleAwareSplitDepth=2; // per edge lineage
     std::size_t maxInsertedVertices=1024;
     std::size_t maxNewFaces=4096;
     std::size_t maxRefinementSteps=512;
@@ -67,6 +72,10 @@ struct MixedPrivateClosureResult {
     std::size_t mirroredSeamVertices{};
     std::size_t spatialPoissonIterations{};
     double minimumSpatialInitialQuality{1};
+    std::size_t scaleAwareSplitOperations{};
+    std::size_t scaleAwareOffCenterSplits{};
+    std::size_t scaleAwareHybridCorrections{};
+    std::size_t scaleAwareShapeHandoffs{};
     std::size_t spatialDensitySplits{};
     std::size_t spatialDensityRemainingLongEdges{};
     double maximumFinalSpatialCapEdgeRatio{};
