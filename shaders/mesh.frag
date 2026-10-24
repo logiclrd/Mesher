@@ -21,7 +21,9 @@ void main() {
     // of ordinary material/wireframe appearance and cannot tint mesh data.
     if(surfaceMaterial>=1.5) {
         vec3 diagnostic;
-        if(surfaceMaterial>=12.5)diagnostic=vec3(1.0,0.81,0.02); // M13 actual shared seam edge IDs, no geometry offset
+        if(surfaceMaterial>=14.5)diagnostic=vec3(0.05,0.94,0.92); // M16D latest indexed edit
+        else if(surfaceMaterial>=13.5)diagnostic=vec3(1.0,0.25,0.65); // M16D previous indexed edit
+        else if(surfaceMaterial>=12.5)diagnostic=vec3(1.0,0.81,0.02); // M13 actual shared seam edge IDs, no geometry offset
         else if(surfaceMaterial>=11.5)diagnostic=vec3(0.05,0.08,0.11); // cap/zipper triangulation edges
         else if(surfaceMaterial>=10.5)diagnostic=vec3(0.97,0.09,0.13); // failed triangle edges
         else if(surfaceMaterial>=9.5)diagnostic=vec3(1.0,0.54,0.57); // tinted failed triangle faces
@@ -36,7 +38,8 @@ void main() {
         // M11A3d: inspection edges are shaded on their actual triangles
         // using per-pixel barycentric derivatives, independently of W.
         // M13 material 13 exact ID-shared seam markers stay distinct.
-        if(surfaceMaterial>=7.5&&surfaceMaterial<10.5) {
+        if((surfaceMaterial>=7.5&&surfaceMaterial<10.5)||
+           (surfaceMaterial>=13.5&&surfaceMaterial<15.5)) {
             vec3 dx=dFdx(edgeBarycentric);
             vec3 dy=dFdy(edgeBarycentric);
             vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
