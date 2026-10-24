@@ -11,11 +11,19 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
 namespace mesher {
 namespace {
+struct ScopedSplitFlag {
+    bool& flag;
+    explicit ScopedSplitFlag(bool& value):flag(value) {flag=true;}
+    ~ScopedSplitFlag() {flag=false;}
+    ScopedSplitFlag(const ScopedSplitFlag&)=delete;
+    ScopedSplitFlag& operator=(const ScopedSplitFlag&)=delete;
+};
 using Edge=MixedClosureEdge;
 Edge edge(VertexId a,VertexId b) {return canonicalMixedEdge(a,b);}
 bool cyclic(PrivateRepairTriangle a,PrivateRepairTriangle b) {
@@ -41,6 +49,10 @@ MixedClosureStaging::MixedClosureStaging(
         initialRimPaths_.push_back(loop.vertexIds);
     }
 }
+void MixedClosureStaging::notifyOperation(
+    const std::string& name,const std::string& args) const {
+    if(observer_)observer_(*this,name,args);
+}
 VertexId MixedClosureStaging::addVertex(
     MutableMeshView& privateView,Vec3 position,PartitionId owner,
     std::size_t maxGeneratedVertices) {
@@ -55,6 +67,12 @@ VertexId MixedClosureStaging::addVertex(
         throw std::logic_error("R06-M15A private allocator reused a vertex ID");
     positions_.emplace(id,position);
     vertexOwners_.emplace(id,owner);
+    if(observer_&&!insideAtomicSplit_) {
+        std::ostringstream args;
+        args<<"id="<<id<<" xyz="<<position.x<<","<<position.y<<","<<position.z
+            <<" owner="<<owner;
+        notifyOperation("addVertex",args.str());
+    }
     return id;
 }
 std::size_t MixedClosureStaging::trackSurvivor(
@@ -133,6 +151,15 @@ std::size_t MixedClosureStaging::ensureFace(
     faces_.push_back({0,owner,wanted,kind,targetEdge});
     if(kind==MixedClosureFaceKind::Cap)++capTriangles;
     if(kind==MixedClosureFaceKind::Zipper)++zipperTriangles;
+    if(observer_) {
+        std::ostringstream args;
+        args<<"a="<<a<<" b="<<b<<" c="<<c
+            <<" kind="<<(kind==MixedClosureFaceKind::Cap?"CAP":
+                         kind==MixedClosureFaceKind::Zipper?"ZIPPER":"SURVIVOR")
+            <<" owner="<<owner<<" target_edge="<<targetEdge
+            <<" ordinal="<<(faces_.size()-1);
+        notifyOperation("ensureFace",args.str());
+    }
     return faces_.size()-1;
 }
 bool MixedClosureStaging::hasEffectiveEdge(VertexId a,VertexId b) const {
@@ -347,6 +374,10 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     // All semantic checks are complete before the first mutation.
     // Failure after allocation aborts the ENTIRE private stage; none
     // of these writes reach the authoritative mesh or history.
+    // A split orbit can allocate one or two vertices and replace every
+    // effective incident face. Do not report nested addVertex substeps:
+    // consumers must never inspect a half-updated edge or mirror orbit.
+    const ScopedSplitFlag atomicSplit(insideAtomicSplit_);
     for(const auto id:remote)(void)trackSurvivor(id,settings.maxTrackedFaces);
     faces_.reserve(faces_.size()+children);
     std::vector<VertexId> midpoints;
@@ -404,6 +435,13 @@ std::vector<VertexId> MixedClosureStaging::splitEdge(
     }
     // currentBoundaryLoops() derives all yellow paths from these exact
     // effective edges; the original AB is now absent and AM/MB are real.
+    if(observer_) {
+        std::ostringstream args;
+        args<<"a="<<a<<" b="<<b<<" mirror_orbit="<<orbit.size()
+            <<" optional="<<optionalQualityOnly<<" midpoints=";
+        for(const auto id:midpoints)args<<id<<",";
+        notifyOperation("splitEdge",args.str());
+    }
     return midpoints;
 }
 std::size_t MixedClosureStaging::improveInteriorDiagonal(
