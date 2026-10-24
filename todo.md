@@ -640,6 +640,45 @@ skinny-geometry pathology; D4 on the actual user's GPU remains open.
   classifiers and all five preserved .r06case bytes, GCC/Clang/MSVC,
   physical Vulkan W/exact overlays. M14F remains open until inspected.
 
+### R06-M16 — Shared geometry executor and single-step stage debugger (2026-10-24)
+Normative preliminary design:
+[docs/R06_M16_STAGE_DEBUGGER.md](docs/R06_M16_STAGE_DEBUGGER.md).
+**No debugger implementation or shared-executor refactor has been
+accepted at plan creation.** All private inspection remains unpublished;
+do not alter q, reflection, exact-case captures or M15D labels.
+
+- [x] **R06-M16A — Trace and record architecture/acceptance plan.**
+  Verified current R04/R05 standalone generation vs R06
+  `MixedClosureStaging`, synchronous pre-viewport case replay vs
+  async live sculpt, immutable viewport update and upper-left two-row
+  classifier panel. Documented cross-mode executor, operation granularity,
+  bounded previous/current snapshots, nonblocking UI, lifecycle, diff,
+  and flat individually observable downstream milestones.
+- [ ] **R06-M16B — Share one stage/refinement executor.**
+  Distinct forced-cap, forced-zipper and classifier planners, but
+  one M15 topology editor and identical private validation. Preserve
+  forced refusal fidelity, baseline R04/R05 and five R06 replays.
+- [ ] **R06-M16C — Opt-in stage event stream and bounded step gate.**
+  Exact operation names/arguments and immutable effective-geometry
+  packet after each complete logical mutation, including face creation,
+  provisional allocations, split, flip, fan retire and fairing. A
+  condition-variable Next/Continue/Cancel handshake must not hold a
+  staging lock or affect the default fast path. Deterministic headless
+  step, cancellation, no-op, error, two-frame/diff tests.
+- [ ] **R06-M16D — Actual Vulkan replay single-step and diff HUD.**
+  Move opt-in repair replay off the UI thread; enable orbit/W/G,
+  Next/Continue/Previous/Current/Cancel, changed-geometry overlay,
+  classifier-preserving details starting upper-left row 3. Never
+  mislabel warning-only preview as accepted repair.
+- [ ] **R06-M16E — Live worker frozen single-step integration.**
+  Inspect pre-CAS and pause repair calculation only, not Vulkan or
+  input event processing; safe cancellation, worker exit, no deadlock
+  with worker queues/history and no unpublished-root checkpoint.
+- [ ] **R06-M16F — Exact regression and physical acceptance.**
+  Original .r06case bytes, strict outcomes/M15D witnesses,
+  GCC/Clang/MSVC CI and real Linux/Windows Vulkan camera/HUD/diff
+  inspection. Do not declare physical acceptance from CI.
+
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
