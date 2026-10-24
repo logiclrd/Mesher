@@ -354,6 +354,24 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         out.interiorFairingMoves+=moved;
         return true;
     };
+    // M17C: collapse newly generated cap-fan vertices is a genuine
+    // local shape change. The same strict 3->1 operation is already
+    // accepted in pre-refinement, but later flips/splits may expose a
+    // newly redundant fan. Keep its shared finite retirement budget.
+    const auto improveCapShape=[&]() -> bool {
+        if(out.interiorCapCollapses>=maxPrivateCapFanRetirements)
+            return false;
+        const auto retired=staged.collapseInteriorCapFan(
+            out.insertedVertices,limits.requireReflectedGeometry,
+            limits.minCapQuality,limits.maxCapEdgeFactor);
+        if(retired.empty())return false;
+        for(const auto id:retired) {
+            staged.retirePrivateVertex(view,id);
+            std::erase(out.insertedVertices,id);
+        }
+        out.interiorCapCollapses+=retired.size();
+        return true;
+    };
     // M17C bounded policy is opt-in while the saved refusal archive is
     // being compared. The original R06 search below remains byte-identical
     // when disabled. This map measures lineage on CURRENT effective edges:
@@ -471,7 +489,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
             if(lowest!=faces.size()&&!badIsCoarse) {
                 ++out.scaleAwareShapeHandoffs;
-                if(improveFairing()||improveQuality()) {
+                if(improveQuality()||improveCapShape()||improveFairing()) {
                     stagnant=0;
                     continue;
                 }
@@ -562,7 +580,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             }
             if(progressed)continue;
             ++out.scaleAwareShapeHandoffs;
-            if(improveFairing()||improveQuality())continue;
+            if(improveQuality()||improveCapShape()||improveFairing())continue;
             const auto reason="R06-M17C no quality-safe bounded split "
                 "or admissible shape edit; refuse rather than repeat "
                 "a pathological subdivided needle";
