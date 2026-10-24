@@ -6,6 +6,7 @@
 #include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
 #include "mesher/repair_split_template.hpp"
+#include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/repair_mixed_edges.hpp"
 #include "mesher/repair_mixed_patch.hpp"
 
@@ -477,17 +478,19 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             // A bad triangle at or below the local shape-work scale must
             // NOT be repeatedly divided merely because some OTHER edge
             // remains too long. Fairing/flips act on shape, not density.
-            bool badIsCoarse=false;
+            bool shapeFirst=false;
             if(lowest!=faces.size()) {
                 const auto& f=faces.at(lowest);
-                for(unsigned k=0;k<3;++k) {
-                    const auto v=f.triangle();
-                    if(edgeSpan(positions,edge(v[k],v[(k+1)%3]))>
-                       f.targetEdge*limits.shapeRepairScaleRatio)
-                        badIsCoarse=true;
-                }
+                const auto v=f.triangle();
+                const double longest=std::max({
+                    edgeSpan(positions,edge(v[0],v[1])),
+                    edgeSpan(positions,edge(v[1],v[2])),
+                    edgeSpan(positions,edge(v[2],v[0]))});
+                shapeFirst=shouldRepairShapeBeforeDensity(
+                    smallest,accepted(f.kind,limits).threshold,
+                    longest,f.targetEdge,limits.shapeRepairScaleRatio);
             }
-            if(lowest!=faces.size()&&!badIsCoarse) {
+            if(shapeFirst) {
                 ++out.scaleAwareShapeHandoffs;
                 if(improveQuality()||improveCapShape()||improveFairing()) {
                     stagnant=0;
