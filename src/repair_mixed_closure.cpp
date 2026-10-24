@@ -1,4 +1,5 @@
 #include "mesher/repair_mixed_closure.hpp"
+#include "mesher/repair_step_gate.hpp"
 #include "mesher/repair_quality_flip.hpp"
 #include "mesher/repair_interior_fairing.hpp"
 #include "mesher/repair_interior_collapse.hpp"
@@ -73,7 +74,10 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     const RepairExcisionPreview& proposal,
     const AutoClosurePlan& plan,
     const MixedPrivateClosureLimits& limits) {
+    std::string phase="validate";
+    try {
     validate(limits);
+    phase="initial_staging";
     auto stageLimits=limits.staging;
     stageLimits.requireReflectedGeometry=limits.requireReflectedGeometry;
     auto staged=stagePrivateMixedClosure(cut,proposal,plan,stageLimits);
@@ -86,6 +90,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     out.mirroredSeamVertices=staged.mirroredSeamZipperVertices;
     out.spatialPoissonIterations=staged.spatialPoissonIterations;
     out.minimumSpatialInitialQuality=staged.minimumSpatialInitialQuality;
+    phase="provisional_resolution_and_refinement";
     auto view=cut.index->revision().createMutableView();
     const auto& faces=staged.faces();
     const auto& positions=staged.positions();
@@ -674,6 +679,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     // must be represented, or reject BEFORE committing this private view.
     // Generators may have had open/nonmanifold intermediate geometry;
     // only the consolidated candidate is evaluated for manifoldness.
+    phase="patch_consolidation";
     const auto patch=planPrivateMixedClosurePatch(
         staged,limits.maxAuditedFaces+limits.maxNewFaces);
     const auto applied=applyPrivateMixedClosurePatch(
@@ -705,6 +711,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     const auto revision=view.commit().revision;
     auto closed=RegionTopologyIndex::restore(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
+    phase="closed_manifold_audit";
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
     if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
        out.interiorQualityFlips>0||out.interiorFairingMoves>0||
@@ -747,6 +754,30 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
             throw std::logic_error("R06-M04B resurrected a retired R03 FaceId");
     out.splitEvents=staged.splitEvents();
     out.index=std::move(closed);
+    if(limits.terminalObserver) {
+        limits.terminalObserver({
+            MixedClosureTerminalOutcome::Completed,"completed",
+            "private closed index prepared; generated_faces="+
+                std::to_string(out.newFaces)+
+                " inserted_vertices="+std::to_string(out.insertedVertices.size())+
+                " warning_faces="+std::to_string(out.qualityWarningFaces.size()),
+            limits.inspectionWarnQuality});
+    }
     return out;
+    }catch(const RepairStepCancelled&) {
+        // User cancellation is not an algorithmic closure refusal.
+        throw;
+    }catch(const std::exception& e) {
+        // Preserve the original algorithmic exception even if the observer
+        // itself has failed. No private revision has been published.
+        if(limits.terminalObserver) {
+            try {
+                limits.terminalObserver({
+                    MixedClosureTerminalOutcome::Refused,phase,e.what(),
+                    limits.inspectionWarnQuality});
+            }catch(...) {}
+        }
+        throw;
+    }
 }
 } // namespace mesher
