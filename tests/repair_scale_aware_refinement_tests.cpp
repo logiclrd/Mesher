@@ -195,7 +195,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
     std::cout<<std::setprecision(17)
              <<"[r06-m17d-baseline] initial_cap_faces="<<firstFaces.size()
              <<" provisional_vertices="<<staged.provisionalSpatialVertices().size()
-             <<" min_q="<<firstFaces.front().quality<<"\\n";
+             <<" min_q="<<firstFaces.front().quality<<"\n";
     for(std::size_t k=0;k<std::min<std::size_t>(8,firstFaces.size());++k) {
         const auto& face=firstFaces[k];
         std::cout<<"[r06-m17d-baseline] rank="<<k
@@ -206,7 +206,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
             std::cout<<" vertex="<<id<<"@"
                      <<p.x<<","<<p.y<<","<<p.z;
         }
-        std::cout<<"\\n";
+        std::cout<<"\n";
     }
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
