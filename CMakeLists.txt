@@ -110,6 +110,11 @@ endif()
 if(MESHER_BUILD_TESTS)
     enable_testing()
     if(MESHER_BUILD_VIEWPORT)
+        add_test(NAME repair_r06_m17c_reject_scale_aware_without_auto
+                 COMMAND Mesher --repair-scale-aware)
+        set_tests_properties(
+            repair_r06_m17c_reject_scale_aware_without_auto
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m16d3_reject_step_mode_without_replay
                  COMMAND Mesher --repair-step-debug)
         add_test(NAME repair_r06_m16d3_reject_headless_step_mode
