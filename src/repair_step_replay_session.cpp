@@ -49,7 +49,11 @@ void RepairReplayStepSession::command(int cmd) {
     case 1:(void)trace_->gate().showPrevious();break;
     case 2:trace_->gate().showCurrent();break;
     case 3:trace_->gate().continueRunning();break;
-    case 4:trace_->cancel();break;
+    case 4:
+        // A completed repair is not retroactively "cancelled" by a
+        // late keypress; only a calculation that can still pause may stop.
+        if(!trace_->gate().view().finished)trace_->cancel();
+        break;
     default:break;
     }
 }
