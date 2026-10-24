@@ -58,6 +58,66 @@ void testLiveRimAndIdempotentFace() {
           "M15A source open rim remains immutable");
     std::cout<<"[r06-m15a] R03 yellow ring closes, same winding idempotent, reverse rejected PASS\n";
 }
+void testSplitRimBeforeOrAfterCap() {
+    for(const bool capFirst:{false,true}) {
+        auto f=openTetra();
+        MixedClosureStaging staged(f.source,{f.rim});
+        auto view=f.source->revision().createMutableView();
+        const auto a=f.v[0],b=f.v[1],c=f.v[2];
+        const auto owner=f.source->vertex(a).owner;
+        if(capFirst)
+            (void)staged.ensureFace(
+                a,c,b,MixedClosureFaceKind::Cap,owner,1);
+        MixedClosureSplitSettings limits;
+        limits.maxTrackedFaces=64;
+        const auto mids=staged.splitEdge(view,a,b,limits);
+        check(mids.size()==1&&mids.front()!=a&&mids.front()!=b,
+              "M15B one indexed midpoint must be reserved by the staging editor");
+        const auto middle=mids.front();
+        check(!staged.hasEffectiveEdge(a,b)&&
+              staged.hasEffectiveEdge(a,middle)&&
+              staged.hasEffectiveEdge(middle,b),
+              "M15B old AB must vanish and two real child edges must exist");
+        bool repeated=false;
+        try{(void)staged.splitEdge(view,a,b,limits,1,1);}
+        catch(const std::logic_error&) {repeated=true;}
+        check(repeated,"M15B second split of nonexistent AB must HARD fail");
+        if(!capFirst) {
+            const auto boundary=staged.currentBoundaryLoops();
+            check(boundary.size()==1&&boundary.front().size()==4,
+                  "M15B original yellow path must become A-M-B");
+            (void)staged.ensureFace(
+                a,c,middle,MixedClosureFaceKind::Cap,owner,1);
+            (void)staged.ensureFace(
+                middle,c,b,MixedClosureFaceKind::Cap,owner,1);
+        }
+        check(staged.currentBoundaryLoops().empty(),
+              "M15B split-before/after-cap must both yield a closed working front");
+        check(staged.sourceView->sourceRoot()==f.source&&
+              f.source->maybeEdgeSides({
+                  std::min(a,b),std::max(a,b)})->size()==1,
+              "M15B no split changes the immutable R03 source");
+    }
+    std::cout<<"[r06-m15b] split before/after cap, live rim, repeated AB hard refusal PASS\n";
+}
+void testRemoteInteriorEdgeSplit() {
+    auto f=openTetra();
+    MixedClosureStaging staged(f.source,{f.rim});
+    auto view=f.source->revision().createMutableView();
+    // BC is an R03 one-sided rim; 0-3 instead has two survivor faces
+    // and neither is initially tracked.
+    const auto a=f.v[0],b=f.v[3];
+    MixedClosureSplitSettings limits;
+    limits.maxTrackedFaces=64;
+    const auto mids=staged.splitEdge(view,a,b,limits);
+    check(mids.size()==1&&staged.faces.size()==4&&
+          staged.sourceView->pendingFaceEdits()==2,
+          "M15B interior source edge must import/split BOTH remote survivors");
+    check(staged.currentBoundaryLoops().size()==1&&
+          staged.currentBoundaryLoops().front().size()==3,
+          "M15B splitting nonboundary edge must not change yellow R03 rim");
+    std::cout<<"[r06-m15b] remote two-sided survivor split is conforming PASS\n";
+}
 void testNewFaceMovesActiveBoundary() {
     auto f=openTetra();
     MixedClosureStaging staged(f.source,{f.rim});
@@ -87,6 +147,8 @@ int main() {
     try {
         testLiveRimAndIdempotentFace();
         testNewFaceMovesActiveBoundary();
+        testSplitRimBeforeOrAfterCap();
+        testRemoteInteriorEdgeSplit();
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"R06-M15A staged topology API FAILED: "<<e.what()<<"\n";

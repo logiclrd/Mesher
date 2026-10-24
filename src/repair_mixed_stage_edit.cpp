@@ -1,8 +1,12 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_mixed_edges.hpp"
+#include "mesher/repair_survivor_split.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -185,5 +189,194 @@ std::vector<std::vector<VertexId>> MixedClosureStaging::currentBoundaryLoops() c
         result.push_back(std::move(loop));
     }
     return result;
+}
+
+std::vector<VertexId> MixedClosureStaging::splitEdge(
+    MutableMeshView& privateView,VertexId a,VertexId b,
+    const MixedClosureSplitSettings& settings,
+    std::size_t alreadyInserted,std::size_t alreadyRefined,
+    bool optionalQualityOnly) {
+    if(!sourceView)throw std::logic_error("R06-M15B unbound staging source");
+    const Edge firstEdge=edge(a,b);
+    if(!a||!b||a==b||!hasEffectiveEdge(a,b))
+        throw std::logic_error("R06-M15B requested split edge does not exist in current topology");
+    if(!settings.maxTrackedFaces||!settings.maxInsertedVertices||
+       !settings.maxRefinementSteps||settings.minSurvivorQuality<=0||
+       settings.minCapQuality<=0||settings.minZipperQuality<=0)
+        throw std::invalid_argument("R06-M15B invalid split policy");
+
+    const auto partner=[&](VertexId id)->std::optional<VertexId> {
+        const auto p=positions.at(id);
+        std::optional<VertexId> candidate;
+        for(const auto& [other,q]:positions) {
+            if(q.x!=-p.x||q.y!=p.y||q.z!=p.z)continue;
+            if(candidate)return std::nullopt;
+            candidate=other;
+        }
+        return candidate;
+    };
+    Edge otherEdge=firstEdge;
+    if(settings.requireReflectedGeometry) {
+        const auto left=partner(firstEdge.first);
+        const auto right=partner(firstEdge.second);
+        if(!left||!right) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error("R06-M15B reflected split edge partner missing");
+        }
+        otherEdge=edge(*left,*right);
+    }
+    const bool two=otherEdge!=firstEdge;
+    const std::vector<Edge> orbit=two?
+        std::vector<Edge>{firstEdge,otherEdge}:
+        std::vector<Edge>{firstEdge};
+
+    struct Candidate {
+        Edge key;
+        MixedClosureEdgeNeighborhood neighborhood;
+        std::vector<MixedClosureFace> effective;
+        Vec3 midpoint{};
+        std::size_t originalSides{};
+    };
+    std::vector<Candidate> work;
+    work.reserve(orbit.size());
+    std::set<FaceId> remote;
+    std::set<FaceId> originalOwners;
+    std::size_t children=0;
+    for(const auto& item:orbit) {
+        auto n=inspectMixedClosureEdge(faces,*sourceView,item);
+        if(n.sides()==0)
+            throw std::logic_error("R06-M15B requested reflected edge no longer exists");
+        if(n.sides()>2||(n.sides()==2&&!n.conformingPair)) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error("R06-M15B invalid current incident edge orientation");
+        }
+        Candidate c;
+        c.key=item;
+        c.neighborhood=std::move(n);
+        c.originalSides=c.neighborhood.sides();
+        children+=c.originalSides;
+        for(const auto index:c.neighborhood.localFaceIndexes)
+            c.effective.push_back(faces.at(index));
+        for(const auto id:c.neighborhood.missingSurvivorFaces) {
+            const auto& f=sourceView->face(id);
+            c.effective.push_back({id,f.owner,{},
+                MixedClosureFaceKind::Survivor,0,sourceView});
+            remote.insert(id);
+        }
+        for(const auto& f:c.effective)
+            if(f.stableId&&!originalOwners.insert(f.stableId).second) {
+                if(optionalQualityOnly)return {};
+                throw std::logic_error("R06-M15B reflected edge orbit shares an original face");
+            }
+        const auto safe=assessSurvivorSplit(
+            c.effective,positions,item,settings.minSurvivorQuality);
+        if(!safe.safe) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error(
+                "R06-M15B survivor child fails split quality face="+
+                std::to_string(safe.originalFace)+
+                " child_q="+std::to_string(safe.worstChildQuality));
+        }
+        const auto midpoint=assessUniqueConformingMidpoint(positions,item);
+        if(!midpoint.unique) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error("R06-M15B split midpoint duplicates a registered vertex");
+        }
+        c.midpoint=midpoint.point;
+        // Original R03 vertices outside the tracked halo must also be
+        // checked, but identical XYZ does NOT grant identity or welding.
+        for(const auto existing:sourceView->source().querySphere(
+              c.midpoint,std::numeric_limits<double>::denorm_min())) {
+            const auto q=sourceView->position(existing);
+            if(q.x==c.midpoint.x&&q.y==c.midpoint.y&&q.z==c.midpoint.z) {
+                if(optionalQualityOnly)return {};
+                throw std::logic_error("R06-M15B split midpoint duplicates a remote source vertex");
+            }
+        }
+        if(optionalQualityOnly) {
+            for(const auto& f:c.effective) {
+                const auto tri=f.triangle();
+                bool found=false;
+                for(unsigned k=0;k<3;++k) {
+                    const auto x=tri[k],y=tri[(k+1)%3],z=tri[(k+2)%3];
+                    if(edge(x,y)!=item)continue;
+                    const auto p=positions.at(x),q=positions.at(y),
+                               r=positions.at(z),m=c.midpoint;
+                    const auto quality=[](Vec3 u,Vec3 v,Vec3 w) {
+                        const auto sum=dot(u-v,u-v)+dot(v-w,v-w)+dot(w-u,w-u);
+                        return sum>0?2*std::sqrt(3.)*
+                            length(cross(v-u,w-u))/sum:0.;
+                    };
+                    const auto floor=f.kind==MixedClosureFaceKind::Survivor?
+                        settings.minSurvivorQuality:
+                        f.kind==MixedClosureFaceKind::Cap?
+                        settings.minCapQuality:settings.minZipperQuality;
+                    if(std::min(quality(p,m,r),quality(m,q,r))+1e-12<floor)
+                        return {};
+                    found=true;
+                    break;
+                }
+                if(!found)
+                    throw std::logic_error("R06-M15B expected incident face missing chosen edge");
+            }
+        }
+        work.push_back(std::move(c));
+    }
+    if(two) {
+        const auto& p=work.front().midpoint;
+        const auto& q=work.back().midpoint;
+        if(p.x==q.x&&p.y==q.y&&p.z==q.z) {
+            if(optionalQualityOnly)return {};
+            throw std::logic_error("R06-M15B reflected split orbit has one coincident midpoint");
+        }
+    }
+    const auto count=orbit.size();
+    if(alreadyInserted+count>settings.maxInsertedVertices||
+       alreadyRefined+count>settings.maxRefinementSteps||
+       faces.size()+remote.size()+children>settings.maxTrackedFaces) {
+        if(optionalQualityOnly)return {};
+        throw std::length_error("R06-M15B complete edge split exceeds finite budget");
+    }
+    // All semantic checks are complete before the first mutation.
+    // Failure after allocation aborts the ENTIRE private stage; none
+    // of these writes reach the authoritative mesh or history.
+    for(const auto id:remote)(void)trackSurvivor(id,settings.maxTrackedFaces);
+    faces.reserve(faces.size()+children);
+    std::vector<VertexId> midpoints;
+    midpoints.reserve(count);
+    for(const auto& c:work) {
+        const auto owner=sourceView->source().maybeVertex(c.key.first)?
+            sourceView->owner(c.key.first):vertexOwners.at(c.key.first);
+        const auto middle=addVertex(
+            privateView,c.midpoint,owner,settings.maxInsertedVertices);
+        midpoints.push_back(middle);
+        std::vector<std::size_t> adjacent;
+        for(std::size_t i=0;i<faces.size();++i)
+            if(mixedFaceContainsEdge(faces[i].triangle(),c.key))
+                adjacent.push_back(i);
+        if(adjacent.size()!=c.originalSides)
+            throw std::logic_error("R06-M15B preflight incidence drift");
+        for(const auto index:adjacent) {
+            const auto parent=faces.at(index);
+            const auto tri=parent.triangle();
+            bool found=false;
+            for(unsigned k=0;k<3;++k) {
+                const auto x=tri[k],y=tri[(k+1)%3],z=tri[(k+2)%3];
+                if(edge(x,y)!=c.key)continue;
+                faces[index].setTriangle({x,middle,z});
+                faces.push_back({0,parent.owner,{middle,y,z},
+                    parent.kind,parent.targetEdge});
+                if(parent.kind==MixedClosureFaceKind::Cap)++capTriangles;
+                if(parent.kind==MixedClosureFaceKind::Zipper)++zipperTriangles;
+                found=true;
+                break;
+            }
+            if(!found)
+                throw std::logic_error("R06-M15B chosen edge disappeared during split");
+        }
+    }
+    // currentBoundaryLoops() derives all yellow paths from these exact
+    // effective edges; the original AB is now absent and AM/MB are real.
+    return midpoints;
 }
 } // namespace mesher

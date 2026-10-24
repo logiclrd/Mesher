@@ -39,6 +39,19 @@ struct MixedClosureFace {
         else vertices=next;
     }
 };
+// M15B: mandatory and optional split requests share the same stage-owned
+// finite/quality/mirror preflight. All limits concern the complete proposed
+// transaction, not just the currently tracked contour halo.
+struct MixedClosureSplitSettings {
+    bool requireReflectedGeometry=false;
+    double minSurvivorQuality=.012;
+    double minCapQuality=.10;
+    double minZipperQuality=.10;
+    std::size_t maxInsertedVertices=1024;
+    std::size_t maxRefinementSteps=512;
+    std::size_t maxTrackedFaces=1000000;
+};
+
 struct MixedClosureStaging {
     // M15A foundation: bind one EXACT immutable R03 open mesh and its
     // directed hole rims. Read-only boundary queries reflect subsequently
@@ -59,6 +72,19 @@ struct MixedClosureStaging {
         VertexId a,VertexId b,VertexId c,MixedClosureFaceKind kind,
         PartitionId owner,double targetEdge=0,
         std::size_t maxTrackedFaces=1000000);
+    // Split the CURRENT indexed edge once. An absent AB is a hard failure
+    // even when its old children AM and MB still exist. One-sided live
+    // R03 boundaries are legal; two-sided survivor/patch edges update both
+    // triangles. Mirror companions are preflighted as one logical edit.
+    // Returns the one or two newly reserved stable midpoint VertexIds.
+    // Optional quality refinement may return empty when it is unsafe;
+    // an ABSENT edge always throws even for an optional request.
+    std::vector<VertexId> splitEdge(
+        MutableMeshView& privateView,VertexId a,VertexId b,
+        const MixedClosureSplitSettings& settings,
+        std::size_t alreadyInserted=0,
+        std::size_t alreadyRefined=0,
+        bool optionalQualityOnly=false);
     bool hasEffectiveEdge(VertexId a,VertexId b) const;
     // Current directed, closed walks of one-sided effective edges.
     // Incomplete/forked boundary topology fails instead of rendering a
