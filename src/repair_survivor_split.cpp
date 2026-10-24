@@ -32,11 +32,10 @@ SurvivorSplitQuality survivorImpl(
     const std::vector<MixedClosureFace>& faces,
     const Pos& positions,
     std::pair<VertexId,VertexId> e,
-    double minSurvivorQuality) {
+    double minSurvivorQuality,Vec3 middle) {
     if(!std::isfinite(minSurvivorQuality)||minSurvivorQuality<=0)
         throw std::invalid_argument("R06-M11A invalid survivor quality floor");
     if(e.second<e.first)std::swap(e.first,e.second);
-    const auto middle=(positions.at(e.first)+positions.at(e.second))*0.5;
     SurvivorSplitQuality result;
     for(const auto& face:faces) {
         if(face.kind!=MixedClosureFaceKind::Survivor)continue;
@@ -71,12 +70,41 @@ SurvivorSplitQuality assessSurvivorSplit(
     const std::vector<MixedClosureFace>& faces,
     const std::map<VertexId,Vec3>& positions,
     std::pair<VertexId,VertexId> e,double quality) {
-    return survivorImpl(faces,positions,e,quality);
+    return survivorImpl(faces,positions,e,quality,
+        (positions.at(e.first)+positions.at(e.second))*0.5);
 }
 SurvivorSplitQuality assessSurvivorSplit(
     const std::vector<MixedClosureFace>& faces,
     const MixedClosurePositions& positions,
     std::pair<VertexId,VertexId> e,double quality) {
-    return survivorImpl(faces,positions,e,quality);
+    return survivorImpl(faces,positions,e,quality,
+        (positions.at(e.first)+positions.at(e.second))*0.5);
+}
+MidpointCollision assessUniqueConformingSplitPoint(
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> e,Vec3 point) {
+    const auto a=positions.at(e.first),b=positions.at(e.second);
+    if(!std::isfinite(point.x)||!std::isfinite(point.y)||
+       !std::isfinite(point.z)||
+       (point.x==a.x&&point.y==a.y&&point.z==a.z)||
+       (point.x==b.x&&point.y==b.y&&point.z==b.z))
+        throw std::invalid_argument("R06-M17B proposed split point is invalid or an endpoint");
+    MidpointCollision result;
+    result.point=point;
+    for(const auto& [id,other]:positions) {
+        if(other.x==point.x&&other.y==point.y&&other.z==point.z) {
+            result.unique=false;
+            result.existingVertex=id;
+            break;
+        }
+    }
+    return result;
+}
+SurvivorSplitQuality assessSurvivorSplitAt(
+    const std::vector<MixedClosureFace>& faces,
+    const MixedClosurePositions& positions,
+    std::pair<VertexId,VertexId> edge,Vec3 point,
+    double minSurvivorQuality) {
+    return survivorImpl(faces,positions,edge,minSurvivorQuality,point);
 }
 } // namespace mesher
