@@ -446,6 +446,7 @@ class VulkanViewport {
     int activeClassifier_=0;
     bool inspectionStepReplaceMesh_=false;
     bool inspectionStepFinished_=false;
+    bool inspectionStepCancelled_=false,inspectionStepError_=false;
     std::vector<std::string> repairStepLines_;
     std::size_t repairStepScroll_=0;
     bool stepNextWasDown_=false,stepPrevWasDown_=false;
@@ -754,7 +755,10 @@ class VulkanViewport {
             ? std::optional<BrushRadiusRange>(interaction_.radiusRange)
             : std::nullopt;
         const std::string mergeText=interaction_.repairStepMode&&
-            !inspectionStepFinished_?"R06: STEP DEBUG PRIVATE":
+            inspectionStepCancelled_?"R06: STEP CANCELLED":
+            interaction_.repairStepMode&&inspectionStepError_?"R06: STEP ERROR":
+            interaction_.repairStepMode&&!inspectionStepFinished_?
+            "R06: STEP DEBUG PRIVATE":
             inspectionFrozen_&&inspectionAutoRequested_?
             (inspectionAutoSucceeded_?"R06: AUTO COMPLETE":
              inspectionQualityWarningPreview_?"R06: QUALITY WARN PREVIEW":"R06: AUTO REFUSED"):
@@ -1287,6 +1291,8 @@ class VulkanViewport {
                     inspectionCapSucceeded_=snapshot->inspectionCapSucceeded;
                     inspectionStepReplaceMesh_=snapshot->inspectionStepReplaceMesh;
                     inspectionStepFinished_=snapshot->inspectionStepFinished;
+                    inspectionStepCancelled_=snapshot->inspectionStepCancelled;
+                    inspectionStepError_=snapshot->inspectionStepError;
                     if(repairStepLines_!=snapshot->repairStepLines) {
                         repairStepLines_=std::move(snapshot->repairStepLines);
                         repairStepScroll_=0;
@@ -1386,7 +1392,11 @@ class VulkanViewport {
         if (interaction_.begin) {
             if(interaction_.caption)title+=" - "+interaction_.caption();
             if(inspectionFrozen_)
-                title+=interaction_.repairStepMode&&!inspectionStepFinished_?
+                title+=interaction_.repairStepMode&&inspectionStepCancelled_?
+                    " | R06 PRIVATE STEP CANCELLED":
+                    interaction_.repairStepMode&&inspectionStepError_?
+                    " | R06 PRIVATE STEP ERROR":
+                    interaction_.repairStepMode&&!inspectionStepFinished_?
                     " | R06 PRIVATE STEP DEBUG":
                     inspectionAutoRequested_?
                     (inspectionAutoSucceeded_?" | R06 AUTO CLOSED (FROZEN PRIVATE)":
