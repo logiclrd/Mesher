@@ -22,20 +22,20 @@ Mesh tetra() {
 }
 void testClosedBaselineAndNewContact() {
     auto sourceMesh=tetra();
-    const auto source=build(sourceMesh);
-    // New patch vertex occupies the interior of the SOURCE edge 0-1;
-    // the source edge has two incident faces, neither of which is
-    // subdivided. These are disjoint geometric interfaces, not
-    // permission to weld distinct IDs.
-    Mesh candidateMesh=sourceMesh;
-    candidateMesh.vertices.push_back({1,0,0});
-    candidateMesh.vertices.push_back({1,-.5,.2});
-    candidateMesh.vertices.push_back({1.2,-.7,.2});
-    candidateMesh.triangles.push_back({4,5,6});
-    const auto imported=partitionFlatMesh(candidateMesh,64);
-    const auto candidate=RegionTopologyIndex::build(imported.revision);
-    const auto newVertex=imported.flatIndex.vertexIds[4];
-    const auto addedFace=imported.flatIndex.faceIds.back();
+    const auto initial=partitionFlatMesh(sourceMesh,64);
+    const auto source=RegionTopologyIndex::build(initial.revision);
+    // All ORIGINAL IDs must come from the exact same source identity
+    // domain. Two independent partitionFlatMesh imports can reorder
+    // Morton-sorted IDs when a new point changes the spatial bounds.
+    // New patch vertex occupies the interior of SOURCE edge 0-1,
+    // but no original survivor triangle is subdivided.
+    auto view=source->revision().createMutableView();
+    const auto owner=source->vertex(initial.flatIndex.vertexIds[0]).owner;
+    const auto newVertex=view.addVertex(owner,{1,0,0});
+    const auto b=view.addVertex(owner,{1,-.5,.2});
+    const auto c=view.addVertex(owner,{1.2,-.7,.2});
+    const auto addedFace=view.addFace(owner,{newVertex,b,c});
+    const auto candidate=RegionTopologyIndex::build(view.commit().revision);
     const auto seam=auditPrivateRepairSeam(*candidate,{addedFace});
     require(seam.tJunctionCount>=1,"M14D fixture must contain M13 point-on-survivor-edge witness");
     const auto explanation=explainRepairSeamWitnesses(*source,*candidate,seam);
