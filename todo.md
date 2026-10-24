@@ -597,6 +597,25 @@ NOT correct generator attachment intent or physical GPU appearance;
 those remain M15D. Legacy spatial-front intersection admission
 remains unchanged and main is unmodified.
 
+- [ ] **R06-M15D1 — Preserve split ancestry for exact replay.**
+  Stage-owned bounded records for actual split parent edge, stable midpoint,
+  original-vs-generated incident sides and chronological order. Attach
+  this read-only ancestry to opt-in M13/M14D seam witnesses; never infer
+  intended welding from XYZ closeness.
+- [ ] **R06-M15D2 — Classify the existing 1/3 warnings using ancestry.**
+  Track whether stored T-junction vertices are verified split midpoints
+  on a DIFFERENT indexed edge, front-created vertices, or unknown origin;
+  report counts and sample exact IDs/distance. Do not silently fix
+  a geometric near-contact or change strict quality limits.
+- [ ] **R06-M15D3 — Exact replay regression and three-platform CI.**
+  Preserve all five original .r06case captures and labels; verify
+  same topology/refusal, stable witness classifications and bounded
+  diagnostic output on GCC/Clang/MSVC.
+- [ ] **R06-M15D4 — Physical Vulkan visual acceptance.**
+  On user's GPU run refusal-1 and refusal-3 with exact overlay, W and
+  seam audit; inspect actual suspected unpaired cap/survivor geometry.
+  Requires user-run inspection: CI cannot establish physical appearance.
+
 - [ ] **R06-M15D — Exact case and physical GPU acceptance.**
   Split before/after attachment, M13 witness counts on 1/3,
   classifiers and all five preserved .r06case bytes, GCC/Clang/MSVC,
