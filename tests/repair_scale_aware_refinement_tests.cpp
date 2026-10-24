@@ -8,6 +8,9 @@
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
+#include <iomanip>
+#include <set>
+#include <tuple>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -155,6 +158,56 @@ void refusalOneRealSavedCaseAttemptTrace() {
     const auto plan=planPrivateAutomaticClosure(
         *saved.candidate.index,cut,excision,saved.contacts);
     require(plan.ready(),"real refusal-1 must reach R06 closure staging");
+    // M17D evidence BEFORE permanent provisional-ID resolution or any
+    // refinement: distinguish initial geometric construction from later
+    // operations. Keep the original captured R03 source/contour unchanged.
+    const auto staged=stagePrivateMixedClosure(cut,excision,plan,
+        [&] {
+            MixedClosureStageSettings bounds;
+            bounds.requireReflectedGeometry=saved.symmetricSource;
+            return bounds;
+        }());
+    struct InitialFace {
+        double quality{};
+        std::array<VertexId,3> id{};
+        std::size_t temporaryCorners{};
+    };
+    std::vector<InitialFace> firstFaces;
+    for(const auto& face:staged.faces()) {
+        if(face.kind!=MixedClosureFaceKind::Cap)continue;
+        const auto ids=face.triangle();
+        const auto a=staged.positions().at(ids[0]);
+        const auto b=staged.positions().at(ids[1]);
+        const auto d=staged.positions().at(ids[2]);
+        const double sum=dot(a-b,a-b)+dot(b-d,b-d)+dot(d-a,d-a);
+        const double q=sum>0?
+            2*std::sqrt(3.)*length(cross(b-a,d-a))/sum:0.;
+        std::size_t provisional=0;
+        for(const auto id:ids)
+            if(std::find(staged.provisionalSpatialVertices().begin(),
+                         staged.provisionalSpatialVertices().end(),id)!=
+               staged.provisionalSpatialVertices().end())++provisional;
+        firstFaces.push_back({q,ids,provisional});
+    }
+    std::sort(firstFaces.begin(),firstFaces.end(),
+        [](const auto& a,const auto& b){return a.quality<b.quality;});
+    require(!firstFaces.empty(),"refusal-1 must have initial cap triangles");
+    std::cout<<std::setprecision(17)
+             <<"[r06-m17d-baseline] initial_cap_faces="<<firstFaces.size()
+             <<" provisional_vertices="<<staged.provisionalSpatialVertices().size()
+             <<" min_q="<<firstFaces.front().quality<<"\\n";
+    for(std::size_t k=0;k<std::min<std::size_t>(8,firstFaces.size());++k) {
+        const auto& face=firstFaces[k];
+        std::cout<<"[r06-m17d-baseline] rank="<<k
+                 <<" q="<<face.quality
+                 <<" provisional_corners="<<face.temporaryCorners;
+        for(const auto id:face.id) {
+            const auto p=staged.positions().at(id);
+            std::cout<<" vertex="<<id<<"@"
+                     <<p.x<<","<<p.y<<","<<p.z;
+        }
+        std::cout<<"\\n";
+    }
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
