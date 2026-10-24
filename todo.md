@@ -675,6 +675,21 @@ do not alter q, reflection, exact-case captures or M15D labels.
     Complete logical mutation granularity, oriented face/source
     overrides, updated true open rims, exact argument/result metadata,
     stable identity diff, bounded packet size and refusal metadata.
+    **Flat split before coding:**
+    - [ ] **R06-M16C2a — Explicit opt-in postoperation observer.**
+      Notify only on completed stage edit transactions (whole mirrored
+      split orbit as one event), preserve exact IDs/arguments, no
+      callback for read-only queries or failed ensureFace. Independent
+      editor callback tests and unchanged disabled path.
+    - [ ] **R06-M16C2b — Immutable finite geometry snapshot and diff.**
+      Serialize effective survivor overrides, new faces, current
+      boundary, stable-ID operation evidence, previous/current changes;
+      enforce bounded bytes and explicit diagnostic for invalid front.
+    - [ ] **R06-M16C2c — Complete operation coverage and error envelope.**
+      Face generation, provisional staging/resolution, split, flips,
+      fan retirement, fairing, actual final metadata/refusal. Include
+      exact stages missed by hooks in the basic editor; deterministic
+      test captures, cancellation and normal-mode equivalence.
   - [ ] **R06-M16C3 — Wire opt-in observer to automatic repair.**
     Replay or live callback never executes when disabled, normal
     closure/refusal untouched, headless exact-case provenance and
