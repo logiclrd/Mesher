@@ -643,8 +643,8 @@ skinny-geometry pathology; D4 on the actual user's GPU remains open.
 ### R06-M16 — Shared geometry executor and single-step stage debugger (2026-10-24)
 Normative preliminary design:
 [docs/R06_M16_STAGE_DEBUGGER.md](docs/R06_M16_STAGE_DEBUGGER.md).
-**M16C1/C2a/C2b/C2c CPU foundations accepted; interactive debugger and
-shared forced-mode executor remain open.** All private inspection is
+**M16C1/C2a/C2b/C2c/C3 CPU foundations accepted; interactive Vulkan debugger
+and shared forced-mode executor remain open.** All private inspection is
 unpublished; do not alter q, reflection, exact-case captures or M15D labels.
 
 - [x] **R06-M16A — Trace and record architecture/acceptance plan.**
@@ -658,7 +658,7 @@ unpublished; do not alter q, reflection, exact-case captures or M15D labels.
   Distinct forced-cap, forced-zipper and classifier planners, but
   one M15 topology editor and identical private validation. Preserve
   forced refusal fidelity, baseline R04/R05 and five R06 replays.
-- [ ] **R06-M16C — Opt-in stage event stream and bounded step gate.**
+- [x] **R06-M16C — Opt-in stage event stream and bounded step gate.**
   Exact operation names/arguments and immutable effective-geometry
   packet after each complete logical mutation, including face creation,
   provisional allocations, split, flip, fan retire and fairing. A
@@ -717,12 +717,25 @@ unpublished; do not alter q, reflection, exact-case captures or M15D labels.
     retirement, fair movement, final private-cap success and typed
     geometric-vs-observer failure. Cancellation is distinct and cannot
     trigger planar-cap geometry fallback; normal disabled mode and
-    strict R06 admission remain unchanged. **M16C3 still open: no actual
-    stepped repair worker or Vulkan controls exist yet.**
-  - [ ] **R06-M16C3 — Wire opt-in observer to automatic repair.**
-    Replay or live callback never executes when disabled, normal
-    closure/refusal untouched, headless exact-case provenance and
-    multithread cancellation tests.
+    strict R06 admission remain unchanged. **M16C3 now closes real replay
+    CPU integration; no interactive Vulkan controls exist yet.**
+  - [x] **R06-M16C3 — Wire opt-in observer to automatic repair.**
+    Explicit owning trace attaches actual R06 staging/refinement snapshots
+    and terminal reports to a bounded two-frame pause controller only on
+    the exact saved-case replay API; default replay/live inspector remains
+    unchanged. A separate CPU producer blocks after each logical edit;
+    Next, Previous/Current, Continue, Cancel and Finish are exercised on
+    a real 5K torus .r06case serialized and loaded through the actual case
+    format. Success/refusal classifier and exact geometry outcomes equal
+    untraced replay, original candidate never publishes, and cancellation
+    exits without a geometric refusal or an unwanted warning rerun.
+    **CPU acceptance:** [CI #40113197456](https://github.com/logiclrd/Mesher/actions/runs/40113197456),
+    code HEAD `c0a88ba0`, all Linux GCC, Linux Clang, Windows MSVC
+    `/W4 /WX` jobs successful, all 104 Windows CPU tests passed.
+    Detailed record: [R06_M16C3_ACCEPTANCE.md](docs/R06_M16C3_ACCEPTANCE.md).
+    **M16D** must provide the actual Vulkan worker/UI integration;
+    **M16E** must provide live frozen pre-CAS sculpt-worker stepping. No
+    GUI, new CLI switch, forced R04/R05 trace or GPU acceptance is claimed.
 - [ ] **R06-M16D — Actual Vulkan replay single-step and diff HUD.**
   Move opt-in repair replay off the UI thread; enable orbit/W/G,
   Next/Continue/Previous/Current/Cancel, changed-geometry overlay,
