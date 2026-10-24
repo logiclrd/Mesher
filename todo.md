@@ -800,14 +800,27 @@ face, but more conforming/reflective children on the complete patch.
   rejects midpoint and hybrid when neither improves the unchanged
   worst child, while testing a permissible read-only off-center proposal.
   [Acceptance record](docs/R06_M17A_ACCEPTANCE.md).
-  **Not yet active in R06:** real `splitEdge` remains midpoint-only.
-  M17B will perform symmetric two-sided parameterized staging edits;
-  M17C chooses policies and hybrid work under finite budgets.
-- [ ] **R06-M17B — Parameterized conforming split transaction.**
+  **Runtime selection not yet active in R06:** M17B now provides
+  parameterized two-sided staged edits, but ordinary repair still requests
+  midpoint splits. M17C chooses policies and hybrid work under finite budgets.
+- [x] **R06-M17B — Parameterized conforming split transaction.**
   Preserve default midpoint API; preflight one chosen t against every
   effective survivor/closure side, remote vertex collisions and entire
   reflected orbit; record exact t, IDs and XYZ in M16 debugger. No partial
   mirror edits. Positive fixed-ID source-backed staged COW tests.
+  **CPU accepted 2026-10-24:** [CI #40129178071](https://github.com/logiclrd/Mesher/actions/runs/40129178071)
+  at code HEAD `e8900035`, first attempt fully green on Linux GCC,
+  Linux Clang and Windows MSVC `/W4 /WX`; all **110 Windows CPU tests**
+  passed. Original mandatory/optional midpoint arithmetic and R06 behavior
+  unchanged; explicit off-center `canonicalT` is along sorted VertexIds,
+  minimum bounded segment fraction .12. Exact two-sided cap/survivor COW
+  geometry, stable source FaceId preservation, rejected invalid/underquality
+  proposals, new/remote duplicate XYZ refusal, complete mirrored t/1-t
+  orbits, finite budget denial and one post-operation debugger event
+  verified. [Acceptance evidence](docs/R06_M17B_ACCEPTANCE.md).
+  **M17C remains required:** real repair does NOT yet select these new
+  parameterized operations or run a hybrid cascade. M17D root-cause spatial
+  cap-front correction and M17E physical GPU acceptance also remain open.
 - [ ] **R06-M17C — Hybrid execution and shape-first refinement policy.**
   Guard coarsening/splitting above local target scale and hard budgets,
   then prefer shape repair when under-quality (even if long);
