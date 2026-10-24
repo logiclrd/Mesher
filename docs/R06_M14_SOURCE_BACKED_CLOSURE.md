@@ -39,15 +39,20 @@ that a recognized R03 boundary edge was split twice with different IDs.
    separate cap/survivor synchronization pass. A source FaceId may
    require one or more new child FaceIds, preserving tombstones and owner
    provenance.
-5. The editable footprint may grow through bounded discovery of nearby
-   source geometry. A geometric coincidence is not an automatic welding
-   instruction: classify authentic shared attachment vs unrelated
-   crossing/overlap. If a safe conforming edit cannot be established,
-   refuse without publication.
-6. Commit exactly one private COW revision **after** complete quality,
-   manifold, 3D-contact, mirror and finite-budget checks; maintain
-   R01–R06 untrusted-preview vs certified-result distinction. Worker CAS,
-   checkpoint and history remain unchanged.
+5. The editable footprint may grow through bounded discovery of source
+   geometry. The generator's **patch plan must explicitly include every
+   intended attachment and required surviving-face subdivision**; source
+   edges are updated using shared VertexIds. Never infer attachment merely
+   from an XYZ coincidence. A geometric self-intersection is not proof
+   of nonmanifold topology.
+6. Materialize the complete private COW candidate, then validate **closed,
+   oriented topological two-manifold connectivity** (two oppositely oriented
+   faces per edge, a single closed fan per vertex), established geometry
+   quality constraints, reflection policy and finite work. If the candidate
+   fails, discard it. If it passes, atomically publish the already-validated
+   immutable revision. No intermediate cut, cap or zipper root is published.
+   Geometric intersection audits provide diagnostic/quality evidence, not
+   a global zero-intersection admission requirement.
 
 ## Flat implementation sequence
 
@@ -74,16 +79,21 @@ that a recognized R03 boundary edge was split twice with different IDs.
   midpoint ID across surviving and new triangles; splitting an edge
   beyond the original tracked neighborhood updates *both* real
   survivor sides or refuses before mutation.
-- **M14D — Geometric encounter classification.** Link saved M13
-  vertex-on-edge/crossing witnesses to provenance: existing/new vertex,
-  actual R03 rim, original survivor face/edge, proposed patch face,
-  prior split ancestry and mirror orbit. Deduplicate witnesses and
-  distinguish intended attachment from incidental crossing.
-- **M14E — Bounded geometric conformity recovery.** For proven
-  intended attachment, propose an atomic conforming split/retessellation
-  using M14C. For unrelated intersections, rework the cap front,
-  expand R03 excision with material-side proof, or refuse. Do not weld
-  independently indexed vertices by spatial tolerance.
+- **M14D — Diagnostic provenance, without new acceptance policy.** Link
+  opt-in M13 seam witnesses to the exact R03 source and final patch:
+  original versus transaction-added VertexIds, whether a witness edge
+  existed as a one-sided rim or two-sided survivor edge in R03, and
+  whether the final mesh represents the claimed connection by indexed
+  shared incidence. Deduplicate bounded witness records. Do not infer
+  patch *intent* from proximity and do not refuse on an incidental
+  crossing or prior self-intersection.
+- **M14E — Explicit patch-plan integration contract.** Ensure every
+  generator-requested attachment includes necessary survivor edits in
+  the same transaction (using M14C conforming edge operations). Materialize
+  the consolidated candidate, audit closed manifold topology, and discard
+  on topological failure; retain quality and resource budgets. Do not
+  manufacture welds based on geometric tolerance or mandate globally
+  intersection-free output.
 - **M14F — Exact archive and GPU acceptance.** Keep immutable
   `.r06case` bytes, test all five exact replays with area and
   proximity classifiers, preserve reviewed CLOSED 2/4/5 and honest
@@ -102,5 +112,60 @@ Stable IDs and mirrored orbits are authoritative. Source surviving
 quality >= 0.012, normal new cap/zipper quality >= 0.10 (only existing
 narrow proven rim-tip exception), winding, connected manifold vertex
 fans, finite work, complete rollback and no sealed interior cavities
-are retained. Never certify from indexed manifoldness alone:
-embedding/T-junction and 3D collision safety require their own checks.
+are retained. Minor self-intersections may PRE-EXIST in the known-good
+published mesh and may also arise during a legitimate brush/closure
+sequence. They do not by themselves invalidate the topology. The
+existing strict rejection of any new triangle contact in selected R06
+paths is a policy mismatch to review separately; no incidental
+intersection should automatically be treated as proof of a bad seam.
+
+## Clarified proposal/validation/publication contract (2026-10-23)
+
+**Single writer.** `AsyncSculptWorker::run` executes sculpt stamps,
+merge, undo and redo serially on the worker; the renderer consumes
+immutable snapshots. A queued command cannot change the current
+authoritative root during cap/zipper calculations. A user-selected
+merge snapshot may become stale *before* its queued command starts,
+so source-token admission still matters. The final
+`publishIfCurrent(expected,final)` is a defensive single-writer
+invariant assertion, not a conflict-resolution/rebase mechanism.
+
+**Generator contract.** Intersection detection and R03 excision are
+private, temporary steps. The cap/zipper generator may construct
+intermediate nonmanifold geometry, but it must eventually propose
+a *complete patch*: new/retired/modified faces and vertices, including
+survivor subdivisions necessary for every intended attachment. The
+source-backed transaction applies that proposal as ONE consolidated
+private revision. Its final topology—not the intermediate geometry—is
+the object of manifold validation.
+
+**Admission.** The complete candidate is accepted only when all
+required topological, quality, symmetry and bounded-work checks pass.
+Topological manifoldness uses exactly two opposite-oriented face sides
+per surviving edge and one cyclic incident-face link per vertex. The
+local region-edit validator plus full private-closed manifold audit
+already implement this kind of test. On failure, do not publish; on
+success, atomically publish the finished revision and advance history
+and auxiliary state. There is no concurrent mesh update to rebase.
+
+**Self-intersections versus topology.** The published *starting* mesh
+is known-good in connectivity, not guaranteed free of all 3D
+self-intersections. Small transient crossings may already be present
+or appear during successive strokes. Crossing edges, coincident XYZ
+with different VertexIds, and geometric point-on-edge reports are
+useful **diagnostics**, but a geometric encounter is not automatically
+a topological hole or a mandate to weld; it must not be converted into
+a blanket intersection-free publication rule. A generator that actually
+expects to attach at the middle of a survivor edge must explicitly
+split that edge and use the resulting shared VertexId. If it omits
+these edits, the consolidated topology will contain unmatched edges
+and fail manifold validation.
+
+**M14D/E refinement.** Use M13 geometric witnesses to explain which
+source/new IDs and original rim/interior edges were involved and to
+diagnose potentially incomplete patch plans. Keep 3D-contact evidence
+separate from the definitive manifold validator. M14D is observation
+only; any change to old R06 collision refusal behavior needs its own
+explicitly tested admission-policy milestone. M14E concerns coherent
+patch construction and consolidation, not general-purpose Boolean
+removal of all 3D intersections.

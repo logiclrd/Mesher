@@ -399,6 +399,18 @@ See [docs/INDEX.md](docs/INDEX.md) for the current-vs-historical guide.
   affecting either mirrored half. Do not infer partners from approximate
   positions or let degenerate geometry reach M04 final acceptance.
 ### R06-M14 — Source-backed transactional closure refactor (2026-10-23)
+**Policy clarification (2026-10-23):** Single `AsyncSculptWorker` mesh
+writer; serialized stamps/merges/undo/redo, immutable rendered snapshots,
+single defensive final CAS (no concurrent writer or repair rebase). Cap/
+zipper proposes a COMPLETE patch including intended survivor subdivisions;
+materialize once to a private consolidated candidate and validate closed,
+oriented manifold topology before publication or discard. Transient or
+pre-existing 3D self-intersections are permissible and are not automatically
+nonmanifold. M13/M14D proximity witnesses remain advisory and must not
+override the manifold test. Retain quality, mirror and finite-work policy;
+an existing blanket collision rejection is a separate policy mismatch to
+review, not silently changed by M14D.
+
 
 Design decision and full independent acceptance conditions:
 [docs/R06_M14_SOURCE_BACKED_CLOSURE.md](docs/R06_M14_SOURCE_BACKED_CLOSURE.md).
@@ -462,13 +474,18 @@ geometric T-junctions and unrelated surface crossings—NO claim that the
 M13 geometric census has been eliminated. M14F physical Vulkan approval,
 R07/R08 publication and merged-main CI remain open.
 
-- [ ] **R06-M14D — Link M13 geometric witnesses to split provenance.**
-  Distinguish new/interior vs inherited original rim IDs; classify actual
-  shared interfaces versus incidental 3D contacts and deduplicate issues.
-- [ ] **R06-M14E — Bounded geometric nonconformity recovery.**
-  Conform legitimate attachments via unified topology; change
-  excision/front or refuse on true crossings. Never coordinate-weld
-  unrelated surfaces.
+- [ ] **R06-M14D — Diagnostic M13 witness-to-source provenance.**
+  Annotate opt-in geometric witnesses with source/new stable IDs,
+  original rim-versus-interior survivor edges, current indexed incidence,
+  deterministic bounded deduplication and explicit uncertain intent.
+  The diagnostic cannot itself reject a candidate: self-intersections,
+  including pre-existing ones, are permitted.
+- [ ] **R06-M14E — Explicit full-patch integration and manifold gate.**
+  Require generators to propose all intended survivor splits using
+  source-backed topology. Materialize the single consolidated private
+  candidate, validate closed oriented manifold topology, quality,
+  reflection and finite budgets, and publish or discard. No
+  coordinate-welding guess or universal zero-intersection requirement.
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
