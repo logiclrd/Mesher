@@ -438,6 +438,42 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         if(t!=.5)out.scaleAwareOffCenterSplits+=newIds.size();
         return newIds;
     };
+    // Return false only after ALL currently supported shape operations
+    // were actually called and refused their local admissibility/merit
+    // tests. No-change attempts are visible as explicit, unchanged-state
+    // frames in the M16 debugger; previously these calls were invisible.
+    const auto tryShapeEdits=[&](std::size_t bad,double q)->bool {
+        std::ostringstream ctx;
+        ctx<<std::setprecision(17);
+        if(bad<faces.size()) {
+            const auto& f=faces.at(bad);
+            const auto v=f.triangle();
+            std::size_t newCorners=0;
+            for(const auto id:v)
+                if(std::find(out.insertedVertices.begin(),
+                             out.insertedVertices.end(),id)!=
+                   out.insertedVertices.end())++newCorners;
+            ctx<<"face="<<v[0]<<","<<v[1]<<","<<v[2]
+               <<" kind="<<(f.kind==MixedClosureFaceKind::Cap?"CAP":
+                              f.kind==MixedClosureFaceKind::Zipper?"ZIPPER":"SURVIVOR")
+               <<" q="<<q
+               <<" new_corners="<<newCorners
+               <<" target="<<f.targetEdge<<" ";
+        }else ctx<<"face=NONE ";
+        if(improveQuality())return true;
+        staged.reportRefinementAttempt("TryDiagonalFlip",
+            ctx.str()+"result=NO_ADMISSIBLE candidate_requires="
+            "two_new_same_kind_faces_convex_near_coplanar_quality_gain");
+        if(improveCapShape())return true;
+        staged.reportRefinementAttempt("TryCapFanCollapse",
+            ctx.str()+"result=NO_ADMISSIBLE candidate_requires="
+            "new_cap_center_valence3_valid_outer_face");
+        if(improveFairing())return true;
+        staged.reportRefinementAttempt("TryInteriorFairing",
+            ctx.str()+"result=NO_ADMISSIBLE candidate_requires="
+            "new_unprotected_vertex_safe_positive_quality_gain");
+        return false;
+    };
     std::size_t stagnant=0;
     while(out.refinementSteps<limits.maxRefinementSteps) {
         Edge longest{};
@@ -490,24 +526,19 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                     smallest,accepted(f.kind,limits).threshold,
                     localLongest,f.targetEdge,limits.shapeRepairScaleRatio);
             }
+            // Shape changes remain first priority, but a shape-scale
+            // triangle that can be COMPLETELY quality-restored by a
+            // single conforming subdivision is not irreparable. Try
+            // strictly hard-floor-safe proposals only after all shape
+            // operations have demonstrably declined.
+            bool shapeAlreadyAttempted=false;
             if(shapeFirst) {
                 ++out.scaleAwareShapeHandoffs;
-                if(improveQuality()||improveCapShape()||improveFairing()) {
+                if(tryShapeEdits(lowest,smallest)) {
                     stagnant=0;
                     continue;
                 }
-                const auto& v=faces[lowest].triangle();
-                const auto reason=
-                    "R06-M17C under-quality at shape scale needs a legal "
-                    "flip/collapse/reposition, not another split: face="+
-                    std::to_string(v[0])+","+
-                    std::to_string(v[1])+","+
-                    std::to_string(v[2])+
-                    " q="+std::to_string(smallest);
-                if(limits.inspectionWarnQuality) {
-                    warn(reason);break;
-                }
-                throw std::logic_error(reason);
+                shapeAlreadyAttempted=true;
             }
             if(largestUnsafeRatio<=1&&lowest==faces.size())break;
             if(out.scaleAwareSplitOperations>=
@@ -582,9 +613,35 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
                 break;
             }
             if(progressed)continue;
-            ++out.scaleAwareShapeHandoffs;
-            if(improveQuality()||improveCapShape()||improveFairing())continue;
-            const auto reason="R06-M17C no quality-safe bounded split "
+            if(!shapeAlreadyAttempted) {
+                ++out.scaleAwareShapeHandoffs;
+                if(tryShapeEdits(lowest,smallest))continue;
+            }
+            if(shapeFirst) {
+                const auto& f=faces.at(lowest);
+                const auto v=f.triangle();
+                std::ostringstream info;
+                info<<std::setprecision(17)
+                    <<"face="<<v[0]<<","<<v[1]<<","<<v[2]
+                    <<" q="<<smallest
+                    <<" floor="<<accepted(f.kind,limits).threshold
+                    <<" local_target="<<f.targetEdge
+                    <<" scale_crossover="<<limits.shapeRepairScaleRatio
+                    <<" result=NO_HARD_FLOOR_RESTORING_CONFORMING_SPLIT"
+                    <<" operations_remaining="<<
+                       limits.maxScaleAwareSplitOperations-out.scaleAwareSplitOperations;
+                staged.reportRefinementAttempt(
+                    "TryQualityRestoringSplit",info.str());
+            }
+            const auto reason=shapeFirst?
+                "R06-M17C under-quality at shape scale; no admissible "
+                "flip/cap-fan-collapse/interior-fairing, and no one-step "
+                "two-sided split restores the hard child quality floors"
+                " face="+std::to_string(faces[lowest].triangle()[0])+","+
+                         std::to_string(faces[lowest].triangle()[1])+","+
+                         std::to_string(faces[lowest].triangle()[2])+
+                " q="+std::to_string(smallest):
+                "R06-M17C no quality-safe bounded split "
                 "or admissible shape edit; refuse rather than repeat "
                 "a pathological subdivided needle";
             if(limits.inspectionWarnQuality){warn(reason);break;}
