@@ -61,7 +61,8 @@ RepairSeamProvenanceReport explainRepairSeamWitnesses(
     const RegionTopologyIndex& sourceR03,
     const RegionTopologyIndex& consolidatedPrivate,
     const RepairSeamAudit& audit,
-    const std::vector<VertexId>& introducedVertices) {
+    const std::vector<VertexId>& introducedVertices,
+    const std::vector<MixedClosureSplitEvent>& actualSplits) {
     RepairSeamProvenanceReport report;
     report.inputStoredIssues=audit.issues.size();
     report.recordedSplits=actualSplits.size();
