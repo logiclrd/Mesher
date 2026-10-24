@@ -369,6 +369,13 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_hud_tests)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
+    add_executable(mesher_repair_split_parameter_tests
+                   tests/repair_split_parameter_tests.cpp)
+    target_link_libraries(mesher_repair_split_parameter_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m17b_canonical_two_sided_mirrored_parameter_split
+             COMMAND mesher_repair_split_parameter_tests)
+    set_tests_properties(repair_r06_m17b_canonical_two_sided_mirrored_parameter_split
+        PROPERTIES TIMEOUT 25)
     add_executable(mesher_repair_split_template_tests
                    tests/repair_split_template_tests.cpp)
     target_include_directories(mesher_repair_split_template_tests PRIVATE
