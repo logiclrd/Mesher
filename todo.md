@@ -785,12 +785,24 @@ following an opposite-vertex perpendicular foot. Midpoint, joint-neighbor
 quality-aware off-center and midpoint-then-corrective hybrid are candidate
 templates; two serial split operations can produce three triangles on one
 face, but more conforming/reflective children on the complete patch.
-- [ ] **R06-M17A — Pure bounded split-template evaluation.**
+- [x] **R06-M17A — Pure bounded split-template evaluation.**
   Canonical t, projected foot, midpoint, off-center and two-step hybrid
   (at most one corrective subedge split); joint incident-face quality,
   minimum segment, scale ratio and conservative finite event/depth budget;
   report why a proposal is rejected. Exact two-sided, projection-near-end,
   asymmetric/symmetric orientation and scale tests. Read-only; no mutation.
+  **CPU accepted 2026-10-24:** [CI #40126355956](https://github.com/logiclrd/Mesher/actions/runs/40126355956)
+  at exact code head `f0cf3798`, attempt 2 green on GCC, Clang and MSVC
+  `/W4 /WX` (109 Windows tests). First attempt's *sole* failure was
+  previously known intermittent M39 async history/redo; the new M17A
+  test passed on both attempts, and MSVC rerun passed WITHOUT source
+  edits. M39 is not fixed. The acute-needle regression deliberately
+  rejects midpoint and hybrid when neither improves the unchanged
+  worst child, while testing a permissible read-only off-center proposal.
+  [Acceptance record](docs/R06_M17A_ACCEPTANCE.md).
+  **Not yet active in R06:** real `splitEdge` remains midpoint-only.
+  M17B will perform symmetric two-sided parameterized staging edits;
+  M17C chooses policies and hybrid work under finite budgets.
 - [ ] **R06-M17B — Parameterized conforming split transaction.**
   Preserve default midpoint API; preflight one chosen t against every
   effective survivor/closure side, remote vertex collisions and entire
