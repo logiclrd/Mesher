@@ -408,17 +408,17 @@ transaction-owned edits for both original and new geometry; do not
 separately mutate disconnected copies of survivor face/vertex records.
 Current M13 warnings do **not** prove a known shared rim was split twice.
 
-- [ ] **R06-M14A — Source-backed reads and transaction-local overrides.**
+- [x] **R06-M14A — Source-backed reads and transaction-local overrides.**
   Bind to the exact immutable R03 source, reference original survivor IDs,
   establish effective source/override reads across the complete survivor
   mesh (not just contour neighbors), regression-test identity,
   override precedence and source nonmutation. No new repair acceptance.
-- [ ] **R06-M14B — Unify staging/refinement working topology.**
+- [x] **R06-M14B — Unify staging/refinement working topology.**
   **Split into flat implementation peers before work (2026-10-23):**
   remove the separately mutable survivor position and face copies while
   preserving exact prior repair decisions, topology and finite limits.
   Do not claim this parent complete until B1–B4 all pass.
-- [ ] **R06-M14B1 — Source-backed working vertex positions.**
+- [x] **R06-M14B1 — Source-backed working vertex positions.**
   Replace independently mutable original-vertex position snapshots in
   staging/refinement with a source-backed position view: original IDs
   resolved from the immutable R03 mesh, explicit pending overrides,
@@ -427,26 +427,41 @@ Current M13 warnings do **not** prove a known shared rim was split twice.
   as a bounded compatibility bridge; fairing and collapse must write
   results only into the working transaction. Test remote vertex access,
   override precedence, no original mutation, identical case results.
-- [ ] **R06-M14B2 — Direct source-backed position access in helpers.**
+- [x] **R06-M14B2 — Direct source-backed position access in helpers.**
   Migrate fairing, collapse, quality flip, rim-tip certificate, survivor
   quality/midpoint and mirror lookup to consume the source-backed
   position view directly; remove repeated temporary position-map
   materializations. Preserve exactly mirrored orbits and all thresholds.
-- [ ] **R06-M14B3 — Survivor face ID-backed working set.**
+- [x] **R06-M14B3 — Survivor face ID-backed working set.**
   Replace mutable survivor triangle records with original FaceId handles
   plus pending face overrides; resolve effective triangle vertices and
   ownership from the immutable R03 source, apply local modifications
   once in the transaction. New cap/zipper faces remain transaction-owned.
   Keep all local incidence/edge-scoring invariants.
-- [ ] **R06-M14B4 — Remove synchronization path and certify replay.**
+- [x] **R06-M14B4 — Remove synchronization path and certify replay.**
   Stop replaying detached survivor-face copies into COW at commit;
   apply source-backed transaction changes exactly once. Test all five
   immutable cases, refusal/acceptance results, preserved root/history,
   topology, collisions, finite budgets and Linux/Clang/Windows CI.
-- [ ] **R06-M14C — Transaction-level conforming edge splits.**
+- [x] **R06-M14C — Transaction-level conforming edge splits.**
   Discover effective two-face incidence (including previously untracked
   original geometry), share exactly one new midpoint ID across both sides,
   preflight full mirrored split orbits, quality/winding and finite limits.
+**M14A/B/C CPU accepted on 2026-10-23 at**
+[Actions #40042573091](https://github.com/logiclrd/Mesher/actions/runs/40042573091):
+full Linux GCC, Linux Clang and Windows MSVC workflows SUCCESS,
+including the standalone `repair_r06_m14a_source_backed_topology`,
+`repair_r06_m14c_source_backed_conforming_edge_split`, all five exact
+archived R06 cases, manifold/quality regressions, and immutable source
+tests. Source-backed read/override handles, generated-vertex positions,
+survivor FaceId handles and effective edge-neighbor import are implemented
+in the integrated private closure path. The M14C edge operation refuses
+non-two-sided/nonoriented or underquality/unbudgeted complete mirrored
+orbits before allocating new geometry. M14D/E are still required for
+geometric T-junctions and unrelated surface crossings—NO claim that the
+M13 geometric census has been eliminated. M14F physical Vulkan approval,
+R07/R08 publication and merged-main CI remain open.
+
 - [ ] **R06-M14D — Link M13 geometric witnesses to split provenance.**
   Distinguish new/interior vs inherited original rim IDs; classify actual
   shared interfaces versus incidental 3D contacts and deduplicate issues.
