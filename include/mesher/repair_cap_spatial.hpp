@@ -35,6 +35,12 @@ struct SpatialCapSettings {
     // M17D candidate experiment: mirror-paired opposite diagonal in each
     // outward strip quad. False preserves legacy exact staging topology.
     bool alternateBandDiagonals=false;
+    // M17D opt-in: correct Poisson-settled inward-ring points which shoot
+    // past a neighboring fixed boundary edge, without moving R03 vertices.
+    bool repairTangentialOvershoot=false;
+    double desiredMinimumQuality=0.10;
+    std::size_t maxCorrectionRounds=4;
+    std::size_t maxCorrectionTrials=24;
     double normalGuidance=0.04;  // fraction of median original rim edge
 };
 
