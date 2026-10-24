@@ -3,6 +3,7 @@
 #include "mesher/partition_render.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <set>
@@ -58,6 +59,8 @@ inline RepairStepScene buildRepairStepScene(
                  float(normal.x),float(normal.y),float(normal.z),material});
     };
     std::size_t total=selected.generatedFaces.size();
+    if(total>maxFaces)throw std::length_error(
+        "R06-M16D1 generated-face limit");
     selected.source->revision().forEachPartition([&](
         PartitionId,const MeshPartition& partition) {
         if(partition.faces.size()>maxFaces-total)
