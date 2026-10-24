@@ -113,6 +113,11 @@ public:
     std::size_t newVertexPositions() const noexcept {
         return created_.size();
     }
+    // The debugger copies only transaction-created positions; do not
+    // materialize the whole tracked source halo at every step.
+    const std::map<VertexId,Vec3>& createdPositions() const noexcept {
+        return created_;
+    }
 
 private:
     void requireSource() const {
