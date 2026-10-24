@@ -125,7 +125,7 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
         lines.push_back("STEP "+std::to_string(
              state.sequence-(state.showingPrevious?std::size_t{1}:std::size_t{0}))+
              (state.showingPrevious?" PREVIOUS":" CURRENT")+
-             (state.waiting?" PAUSED":state.running?" CONTINUE":" READY"));
+             (state.waiting?" PAUSED":state.running?" CONTINUE":" EXECUTING"));
         lines.push_back("OP: "+frame.operation);
         lines.push_back("ARGS: "+frame.arguments);
         if(state.previous&&state.current) {
