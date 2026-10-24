@@ -665,6 +665,20 @@ do not alter q, reflection, exact-case captures or M15D labels.
   condition-variable Next/Continue/Cancel handshake must not hold a
   staging lock or affect the default fast path. Deterministic headless
   step, cancellation, no-op, error, two-frame/diff tests.
+  **Flat implementation split, independent of M16B executor migration:**
+  - [ ] **R06-M16C1 — Bounded producer/consumer pause controller.**
+    Two immutable historical frame handles, latest generation, exact
+    one-step Next, Previous/Current display-only switch, Continue,
+    Cancel wakeup and worker terminal state; headless thread tests.
+    No staging writes, replay integration or UI claim.
+  - [ ] **R06-M16C2 — Attach stage operation observer and immutable geometry.**
+    Complete logical mutation granularity, oriented face/source
+    overrides, updated true open rims, exact argument/result metadata,
+    stable identity diff, bounded packet size and refusal metadata.
+  - [ ] **R06-M16C3 — Wire opt-in observer to automatic repair.**
+    Replay or live callback never executes when disabled, normal
+    closure/refusal untouched, headless exact-case provenance and
+    multithread cancellation tests.
 - [ ] **R06-M16D — Actual Vulkan replay single-step and diff HUD.**
   Move opt-in repair replay off the UI thread; enable orbit/W/G,
   Next/Continue/Previous/Current/Cancel, changed-geometry overlay,
