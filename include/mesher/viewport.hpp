@@ -53,6 +53,7 @@ struct ViewportMeshUpdate {
     // R06-M16D: this buffer holds the COMPLETE source-backed private
     // intermediate scene, not just an overlay on the original candidate.
     bool inspectionStepReplaceMesh=false;
+    bool inspectionStepFinished=false;
     std::vector<std::string> repairStepLines;
 };
 
