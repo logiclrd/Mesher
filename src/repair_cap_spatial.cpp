@@ -1,5 +1,6 @@
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_cap_continuity.hpp"
+#include "mesher/repair_cap_feasibility.hpp"
 
 #include <algorithm>
 #include <array>
@@ -989,6 +990,54 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" unchanged="<<(acceptedMoves==0)
                      <<" search_budget_exhausted="<<exhausted<<"\n";
             if(acceptedMoves)result=std::move(current);
+        }
+    }
+    if(limits.probeFirstRingFeasibility&&initiallyEmbedded&&
+       result.minimumQuality+1e-12>=limits.desiredMinimumQuality&&
+       !survivingFaceNormals.empty()) {
+        // M19A does NOT alter the resulting cap. This counterfactual
+        // probe consumes the very same finite cap-self-contact budget as
+        // M17D/M18D/M18E. The full survivor/contact admission still
+        // belongs to the downstream PRIVATE staging validator.
+        std::vector<SurvivorDirectionalCurvature> untrusted(n);
+        const auto& sources=incomingReference?*incomingReference:untrusted;
+        SpatialCapFeasibilityLimits probeLimits;
+        probeLimits.minimumQuality=limits.desiredMinimumQuality;
+        try {
+            const auto& mirror=limits.requireMirrorPlane?partner:
+                std::vector<std::size_t>{};
+            const auto report=probeSpatialCapFirstRingFeasibility(
+                result,survivingFaceNormals,sources,mirror,h,
+                [&](SpatialCapPatch& candidate){return embedded(candidate);},
+                probeLimits);
+            const auto deg=180./std::acos(-1.);
+            std::cerr<<"[repair-r06-m19a-feasibility] candidates="
+                     <<report.proposed
+                     <<" admissible="<<report.locallyAdmissible
+                     <<" accepted_rounds="<<report.acceptedRounds
+                     <<" before_max_seam_deg="
+                     <<report.baselineWorstSeamRadians*deg
+                     <<" best_max_seam_deg="
+                     <<report.bestWorstSeamRadians*deg
+                     <<" before_max_cap_rim_deg="
+                     <<report.baselineWorstCapRimRadians*deg
+                     <<" best_max_cap_rim_deg="
+                     <<report.bestWorstCapRimRadians*deg
+                     <<" before_mean_score="<<report.baselineMeanScore
+                     <<" best_mean_score="<<report.bestMeanScore
+                     <<" before_min_q="<<report.baselineMinimumQuality
+                     <<" best_min_q="<<report.bestMinimumQuality
+                     <<" quality_rejected="<<report.qualityRejected
+                     <<" orientation_rejected="<<report.orientationRejected
+                     <<" score_rejected="<<report.scoreRejected
+                     <<" contact_rejected="<<report.contactRejected
+                     <<" contact_budget_exhausted="
+                     <<report.contactBudgetExhausted
+                     <<" unchanged="<<!report.improved
+                     <<" note=finite_local_candidates_not_global_proof\\n";
+        }catch(const std::exception& error) {
+            std::cerr<<"[repair-r06-m19a-feasibility] unavailable="
+                     <<error.what()<<"\\n";
         }
     }
     if(initiallyEmbedded)return result;
