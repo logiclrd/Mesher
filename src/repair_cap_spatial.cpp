@@ -574,11 +574,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                                 result=std::move(guided);
                             }
                         }
-                    }catch(const std::logic_error&) {
-                        // Untrusted geometry/guidance is a no-op.
                     }catch(const std::length_error&) {
                         // Exhausted existing shared pairwise-contact quota:
                         // finite fail-closed, no extra unaccounted retries.
+                    }catch(const std::logic_error&) {
+                        // Untrusted geometry/guidance is a no-op.
                     }
                 }
             }
