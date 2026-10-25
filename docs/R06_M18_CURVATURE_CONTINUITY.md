@@ -88,6 +88,26 @@ coplanar, hinged, wrong-winding, incomplete guidance and reflection
 tests must pass. Record absolute jump as a diagnostic; it does not alone
 measure the shape-operator tensor or declare a crease defective.
 
+## Implemented M18B diagnostic reference (CPU accepted)
+
+M18B provides a bounded, source-index-only normal-difference fit of
+`S_tt`, `S_tu`, `S_uu` from at most three adjacent survivor face rings
+and 48 original faces per boundary edge. The estimator uses a
+seam-tangent/cross-seam local tangent frame, a symmetric three-parameter
+least-squares solve with bounded robust reweighting, and **explicit
+confidence** for too-few samples, deficient geometry, inconsistent
+normals, suspected creases, residual outliers or truncation. It is never
+an automatic success/failure decision. Its first-order M18A companion
+reports the cap/survivor dihedral independently.
+
+See [M18B CPU acceptance](R06_M18B_ACCEPTANCE.md):
+code `dbb708d1`, CI #40162861085 success on GCC/Clang/MSVC, 114/114
+CPU tests. Opt in with `--repair-front-optimize` in an R06 replay to
+print `[repair-r06-rim-profile-edge]` records containing the measured
+tensor and confidence. This is source-only reference curvature, **not
+yet cap-vs-survivor curvature comparison** (M18C) and not a geometry
+correction or physical GPU acceptance.
+
 ## Future acceptance
 M18F remains open until the user physically inspects the same localized
 fold on Linux and Windows Vulkan. M17E continues to cover the broader
