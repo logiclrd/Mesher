@@ -366,6 +366,44 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     probeBounds.probeFirstRingFeasibility=true;
                     const auto probedLocal=buildSpatialCapFrontPoisson(
                         ordered,normalGuide,probeBounds,&references);
+                    // M19A provisional step preview deliberately stages
+                    // the locally admissible candidate. Unlike probe-only,
+                    // the explicit preview mode MUST change the synthetic
+                    // inward ring in this immutable original regression.
+                    auto previewBounds=guidedBounds;
+                    previewBounds.stageFirstRingFeasibilityPreview=true;
+                    const auto previewLocal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,previewBounds,&references);
+                    require(previewLocal.faces==guidedLocal.faces&&
+                            previewLocal.positions.size()==guidedLocal.positions.size()&&
+                            previewLocal.minimumQuality>=.1,
+                            "M19A provisional staging preserves cap identity, topology and q");
+                    for(std::size_t k=0;k<ordered.size();++k)
+                        require(previewLocal.positions[k].x==ordered[k].x&&
+                                previewLocal.positions[k].y==ordered[k].y&&
+                                previewLocal.positions[k].z==ordered[k].z,
+                                "M19A provisional staging cannot change a surviving contour vertex");
+                    std::size_t previewMoved=0;
+                    for(std::size_t k=ordered.size();k<guidedLocal.positions.size();++k)
+                        if(previewLocal.positions[k].x!=guidedLocal.positions[k].x||
+                           previewLocal.positions[k].y!=guidedLocal.positions[k].y||
+                           previewLocal.positions[k].z!=guidedLocal.positions[k].z)
+                            ++previewMoved;
+                    require(previewMoved>0,
+                            "M19A step preview must actually stage different inward ring positions");
+                    const auto previewProfile=measureSpatialCapRimProfile(
+                        previewLocal,normalGuide);
+                    const auto originalProfile=measureSpatialCapRimProfile(
+                        guidedLocal,normalGuide);
+                    require(previewProfile.maximumAbsoluteDihedralRadians<=
+                                originalProfile.maximumAbsoluteDihedralRadians+1e-8,
+                            "M19A provisional step geometry cannot worsen the source seam");
+                    std::cout<<"[r06-m19a-preview] provisional_moved_vertices="
+                             <<previewMoved
+                             <<" original_min_q="<<guidedLocal.minimumQuality
+                             <<" preview_min_q="<<previewLocal.minimumQuality
+                             <<" preview_is_private_only=1\n";
+
                     // M19C tests local diagonal counterfactuals using
                     // the same source-indexed saved case; like M19A it
                     // MUST NOT publish or alter the selected cap.
