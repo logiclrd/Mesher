@@ -60,8 +60,11 @@ void diagnose(bool symmetric) {
             report.normalInwardProposals>0&&
             report.sampledPositivePlaneSide>0&&
             report.sampledNegativePlaneSide>0&&
-            report.minSampledNormalDeltaOverEdge<-.01&&
-            report.maxSampledNormalDeltaOverEdge>.01&&
+            // M19A4: both directions must reach the full 1.0-edge trial
+            // extent in the sampled CURRENT-point tranche.
+            std::abs(report.normalSweepMaxOverEdge-1.0)<1e-12&&
+            report.minSampledNormalDeltaOverEdge<-.95&&
+            report.maxSampledNormalDeltaOverEdge>.95&&
             report.bestWorstSeamRadians<=
                 report.baselineWorstSeamRadians+1e-10&&
             report.bestWorstCapRimRadians<=
