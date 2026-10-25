@@ -5,6 +5,7 @@
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
+#include "mesher/repair_inspection.hpp"
 #include <filesystem>
 #include "mesher/mesh_partitioning.hpp"
 
@@ -280,8 +281,8 @@ void refusalOneRealSavedCaseAttemptTrace() {
             2*std::sqrt(3.)*length(cross(b-a,d-a))/s:0.;
         if(q<newWorst) {newWorst=q;newWorstFace=j;}
     }
-    require(newWorst+1e-12>=firstFaces.front().quality,
-        "M17D positional correction must not degrade minimum initial cap q");
+    require(newWorst>=.1&&newWorst>firstFaces.front().quality+.03,
+        "M17D exact refusal-1 inward-ring correction must eliminate both initial mirrored slivers without relaxing q");
     std::cout<<"[r06-m17d-optimized] initial_q_before="
              <<firstFaces.front().quality<<" initial_q_after="<<newWorst
              <<" worst_face_index="<<newWorstFace
@@ -291,16 +292,22 @@ void refusalOneRealSavedCaseAttemptTrace() {
     correctedPolicy.requireReflectedGeometry=saved.symmetricSource;
     correctedPolicy.scaleAwareRefinement=true;
     correctedPolicy.staging.optimizeSpatialFront=true;
-    try {
-        const auto closed=applyPrivateMixedClosure(
-            cut,excision,plan,correctedPolicy);
-        std::cout<<"[r06-m17d-optimized] strict_result=CLOSED"
-                 <<" refinements="<<closed.refinementSteps
-                 <<" quality="<<closed.minimumCapQuality<<"\n";
-    }catch(const std::logic_error& error) {
-        std::cout<<"[r06-m17d-optimized] strict_result=REFUSED reason="
-                 <<error.what()<<"\n";
-    }
+    const auto closed=applyPrivateMixedClosure(
+        cut,excision,plan,correctedPolicy);
+    require(closed.index&&closed.minimumCapQuality>=.1&&
+        closed.refinementSteps<16&&
+        saved.candidate.index->retiredFaceCount()==initialRetiredFaces,
+        "strict source-backed M17D repair must close original 5K refusal-1 with healthy cap q and bounded refinement, source unchanged");
+    std::cout<<"[r06-m17d-optimized] strict_result=CLOSED"
+             <<" refinements="<<closed.refinementSteps
+             <<" quality="<<closed.minimumCapQuality<<"\n";
+    const auto certified=replayPrivateAutomaticRepair(
+        saved,AutoClosureClassifier::Area,false,false,false,{},true,true);
+    require(certified&&certified->privateAuto&&
+            certified->privateAuto->index&&
+            saved.candidate.index->retiredFaceCount()==initialRetiredFaces,
+        "full M04C certified replay must also accept M17D refusal-1, with no worker publication");
+    std::cout<<"[r06-m17d-certified] saved refusal-1 now certifies a complete private closure PASS\n";
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
