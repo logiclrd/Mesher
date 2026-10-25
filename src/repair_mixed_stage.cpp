@@ -159,10 +159,10 @@ MixedClosureStaging stagePrivateMixedClosure(
                         // Outgoing cap edge k->k+1 corresponds to the
                         // reversed ORIGINAL R03 surviving FaceId.
                         const auto original=(2*n-2-k)%n;
-                        const auto id=loop.survivingFaces.at(original);
+                        const auto survivorFaceId=loop.survivingFaces.at(original);
                         try {
                             const auto neighbors=
-                                collectSurvivorCurvatureNeighborhood(mesh,id);
+                                collectSurvivorCurvatureNeighborhood(mesh,survivorFaceId);
                             references[(k+1)%n]=
                                 estimateSurvivorDirectionalCurvature(
                                     ordered[k],ordered[(k+1)%n],neighbors);
