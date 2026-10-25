@@ -4,6 +4,7 @@
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
+#include "mesher/repair_cap_continuity.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -246,6 +247,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                         profile.unavailableEdges==0,
                         "M18A original refusal-1 must have complete sourced cap/rim diagnostics");
                 std::size_t affected=0;
+                std::vector<SurvivorDirectionalCurvature> references(ordered.size());
                 for(const auto& edge:profile.edges) {
                     const auto k=edge.rimStart;
                     const auto n=ordered.size();
@@ -266,6 +268,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     const auto curvature=estimateSurvivorDirectionalCurvature(
                         cut.index->vertex(a).position,
                         cut.index->vertex(b).position,neighborhood);
+                    references[(k+1)%n]=curvature;
                     require(curvature.contributingFaces<=
                             SurvivorCurvatureLimits{}.maxFaces&&
                             curvature.edgeLength>0&&
@@ -304,6 +307,43 @@ void refusalOneRealSavedCaseAttemptTrace() {
                                  <<" foot_t="<<edge.oppositeFootParameter<<"\\n";
                     }
                 }
+                // M18C exact archived geometry: preserve numerical closure
+                // behavior and measure the known mirrored 156-degree folds
+                // independently of the strict mean-ratio q hard gate.
+                const auto continuation=measureSpatialCapContinuity(
+                    local,normalGuide,references);
+                require(continuation.edges.size()==ordered.size()&&
+                        continuation.measuredBoundaryEdges==ordered.size()&&
+                        continuation.directionalQualifiedEdges<=ordered.size(),
+                        "M18C exact refusal-1 continuity census must remain bounded");
+                if(!alternative&&corrected) {
+                    std::size_t foldedEdges=0;
+                    for(const auto& item:continuation.edges) {
+                        if(item.boundaryNormalJumpRadians>
+                           100.*std::acos(-1.)/180.)
+                            ++foldedEdges;
+                    }
+                    require(foldedEdges>=2&&
+                            continuation.maximumBoundaryJumpRadians>
+                                150.*std::acos(-1.)/180.,
+                            "M18C must expose mirror-paired sharp fold remaining after M17D");
+                }
+                std::cout<<std::setprecision(17)
+                         <<"[r06-m18c-refusal-1] alternate="<<alternative
+                         <<" optimized="<<corrected
+                         <<" max_boundary_jump_deg="
+                         <<continuation.maximumBoundaryJumpRadians*(180./std::acos(-1.))
+                         <<" mean_boundary_jump_deg="
+                         <<continuation.meanBoundaryJumpRadians*(180./std::acos(-1.))
+                         <<" boundary_fairness_score="
+                         <<continuation.meanBoundaryAndFairnessScore
+                         <<" directional_qualified="
+                         <<continuation.directionalQualifiedEdges
+                         <<" directional_measured="
+                         <<continuation.directionalMeasuredEdges
+                         <<" qualified_mismatch="
+                         <<continuation.meanQualifiedDirectionalMismatch
+                         <<"\\n";
                 if(!alternative)
                     require(affected==1,
                         "M18A initial refusal-1 must include exact boundary edge 3207,5470");
