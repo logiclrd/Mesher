@@ -1,8 +1,12 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_cap_spatial.hpp"
+#include "mesher/repair_surface_profile.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 #include <map>
 #include <limits>
 #include <set>
@@ -151,6 +155,51 @@ MixedClosureStaging stagePrivateMixedClosure(
                     std::string("R06-M06C projected cap unavailable: ")+
                     projectedReason+"; spatial front refused: "+
                     failed.what());
+            }
+            // M18A read-only diagnostic. The original cap rim is reversed:
+            // source face on outgoing cap edge k->k+1 has ordinal
+            // (2*n-2-k)%n in the original directed R03 contour.
+            // Logging is enabled by the existing opt-in front-optimizer flag;
+            // it changes no positions, topology, or closure admission.
+            if(bounds.optimizeSpatialFront) {
+                const auto profile=measureSpatialCapRimProfile(patch,guidance);
+                std::ostringstream report;
+                report<<std::setprecision(17)
+                      <<"[repair-r06-rim-profile] loop="<<id
+                      <<" measured="<<profile.measuredEdges
+                      <<" unavailable="<<profile.unavailableEdges
+                      <<" max_abs_dihedral_deg="
+                      <<profile.maximumAbsoluteDihedralRadians*
+                         (180./std::acos(-1.))
+                      <<" mean_abs_dihedral_deg="
+                      <<profile.meanAbsoluteDihedralRadians*
+                         (180./std::acos(-1.))
+                      <<" max_abs_first_ring_normal_offset_over_edge="
+                      <<profile.maximumAbsoluteNormalizedOffset<<"\\n";
+                for(const auto& entry:profile.edges) {
+                    const auto k=entry.rimStart;
+                    const auto sourceIndex=(2*n-2-k)%n;
+                    const auto sourceId=loop.survivingFaces[sourceIndex];
+                    const auto a=loop.vertexIds[n-1-k];
+                    const auto b=loop.vertexIds[n-1-((k+1)%n)];
+                    report<<"[repair-r06-rim-profile-edge] loop="<<id
+                          <<" rim_edge="<<a<<","<<b
+                          <<" survivor_face="<<sourceId
+                          <<" cap_face_ordinal="<<entry.capFaceIndex
+                          <<" measured="
+                          <<(entry.hasSurvivorNormal&&entry.hasCapNormal)
+                          <<" edge_length="<<entry.edgeLength;
+                    if(entry.hasSurvivorNormal&&entry.hasCapNormal)
+                        report<<" signed_dihedral_deg="
+                              <<entry.signedDihedralRadians*(180./std::acos(-1.))
+                              <<" abs_dihedral_deg="
+                              <<entry.absoluteDihedralRadians*(180./std::acos(-1.))
+                              <<" first_ring_normal_offset_over_edge="
+                              <<entry.normalizedFirstRingNormalOffset
+                              <<" foot_t="<<entry.oppositeFootParameter;
+                    report<<"\\n";
+                }
+                std::cerr<<report.str();
             }
             std::vector<VertexId> ids;
             ids.reserve(patch.positions.size());
