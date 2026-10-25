@@ -144,8 +144,11 @@ inline double spatialCapLocalFairness(
         const auto m=cross(q-p,r-p);
         const auto lengthM=length(m);
         if(!(lengthM>1.e-12))continue;
-        largest=std::max(largest,std::acos(
-            std::clamp(dot(n,m)/(s*lengthM),-1.,1.)));
+        const auto cosine=std::clamp(dot(n,m)/(s*lengthM),-1.,1.);
+        // Avoid reporting 1e-8-radian phantom bends from the acos()
+        // amplification of roundoff on exactly coplanar triangles.
+        const auto angle=cosine>1.-1.e-12?0.:std::acos(cosine);
+        largest=std::max(largest,angle);
     }
     return largest;
 }
