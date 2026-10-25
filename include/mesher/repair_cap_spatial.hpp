@@ -43,6 +43,12 @@ struct SpatialCapSettings {
     // M18D independent opt-in: bounded mirror-orbit first-ring placement
     // for M18C measured boundary direction/fairness. Disabled by default.
     bool optimizeBoundaryContinuity=false;
+    // M18E independent opt-in: confidence-weighted survivor curvature
+    // enters the converged fixed-rim Poisson objective (not initial seeds).
+    bool curvatureGuidedPoisson=false;
+    double curvaturePoissonStrength=1.5; // relative to graph vertex degree
+    double curvaturePoissonMaxNormalShift=0.65; // * median rim edge
+    std::size_t maxCurvaturePoissonIterations=128;
     std::size_t maxContinuityRounds=4;
     std::size_t maxContinuityTrials=40;
     double desiredMinimumQuality=0.10;
