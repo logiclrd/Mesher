@@ -856,6 +856,33 @@ face, but more conforming/reflective children on the complete patch.
   mesh validity and actual private/nonpublished state. Physical acceptance
   is NOT implied by headless CI.
 
+### R06-M21 — Opportunistic whole-cap fairing (2026-10-25)
+
+The M20 anomaly detector and related private preview were reverted in
+`b92c6a89986e839409df8a571cde472f981bee5b`; source tree restored to
+exact M19A6 state. Preserve the valid original cap: optional M21 fairing
+**may improve but may NOT turn a successful closure into a refusal**.
+[Design and acceptance gates](docs/R06_M21_WHOLE_CAP_FAIRING.md).
+
+- [ ] **M21A — Fixed-topology whole-cap fairing first experiment.**
+  - [ ] **M21A1 — Pure fairing metric and local-copy proposer.**
+    Finite whole-cap normal-field objective with seam/worst-local guards,
+    original rim immutable, q/embedding/orientation, mirrored orbits,
+    maximum movement penalty and *bit-identical fallback*.
+  - [ ] **M21A2 — Default-OFF private step-only fairing preview.**
+    Distinct `--repair-whole-cap-fairing-preview` flag; compare against
+    unchanged R06 baseline and log metric/result. No worker publication.
+  - [ ] **M21A3 — Immutable saved-case and healthy/crease regression, CI.**
+    GCC/Clang/MSVC /W4 /WX; exact accepted baseline on no improvement.
+  - [ ] **M21A4 — GPU matching-view A/B and complete private verdict.**
+    Physical acceptance separate; no claim that fairer local cap is
+    source-complete accepted until actual inspection.
+- [ ] **M21B — Source-guided higher-order whole-patch fitting** if small
+  Laplacian proposals cannot improve normals without flattening features.
+- [ ] **M21C — Optional triangulation optimization** (safe flips/collapses)
+  under identical whole-patch validity and original fallback.
+- [ ] **M21D — Production eligibility**, distinct from PRIVATE preview.
+
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
 Extends existing open R06-M06C4e profile diagnostic instead of declaring
