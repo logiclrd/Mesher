@@ -1,9 +1,12 @@
 #include "mesher/repair_cap_spatial.hpp"
+#include "mesher/repair_cap_continuity.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
+#include <numeric>
+#include <iostream>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -108,7 +111,8 @@ SpatialCapPatch mirroredRibbon(
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
-    const SpatialCapSettings& limits) {
+    const SpatialCapSettings& limits,
+    const std::vector<SurvivorDirectionalCurvature>* incomingReference) {
     const auto n=orientedCapRim.size();
     if(n<3||n>limits.maxBoundaryVertices||
        n+1>limits.maxInteriorVertices||n*3>limits.maxFaces||
@@ -118,6 +122,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
        !std::isfinite(limits.normalGuidance)||
        limits.poissonTolerance<=0||limits.maximumInitialEdgeFactor<=1||
        limits.normalGuidance<0||limits.normalGuidance>.5||
+       (limits.optimizeBoundaryContinuity&&
+        (!limits.maxContinuityRounds||!limits.maxContinuityTrials||
+         !std::isfinite(limits.desiredMinimumQuality)||
+         limits.desiredMinimumQuality<=0||
+         limits.desiredMinimumQuality>=1))||
        (limits.repairTangentialOvershoot&&
         (!std::isfinite(limits.desiredMinimumQuality)||
          limits.desiredMinimumQuality<=0||
@@ -126,6 +135,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::length_error("R06-M06C spatial front finite-work limits refused");
     if(!survivingFaceNormals.empty()&&survivingFaceNormals.size()!=n)
         throw std::invalid_argument("R06-M06C front normals not indexed to cap rim");
+    if(incomingReference&&incomingReference->size()!=n)
+        throw std::invalid_argument("R06-M18D incoming survivor tensor orbit mismatch");
 
     SpatialCapPatch result;
     result.boundaryCount=n;
@@ -549,7 +560,205 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             current=std::move(best);
         }
         if(current.minimumQuality>result.minimumQuality+1e-6)
-            return current;
+            result=std::move(current);
+    }
+    // M18D is a separate opt-in from M17D. It works on the settled (and
+    // possibly M17D-improved) patch, not the irrelevant initial Poisson seed.
+    // A patch below the hard quality floor remains the old unmodified
+    // result; M18D is not a replacement for M17D's skinny-triangle repair.
+    if(initiallyEmbedded&&limits.optimizeBoundaryContinuity&&
+       !result.usedMirroredRibbonFallback&&
+       result.minimumQuality+1e-12>=limits.desiredMinimumQuality) {
+        SpatialCapContinuityLimits continuityLimits;
+        continuityLimits.maxPatchFaces=limits.maxFaces;
+        // When the caller supplied no source tensor, retain first-order
+        // diagnostics but NEVER manufacture reliable second-order evidence.
+        std::vector<SurvivorDirectionalCurvature> blank(n);
+        const auto& reference=incomingReference?*incomingReference:blank;
+        SpatialCapPatch current=result;
+        const auto score=[&](const SpatialCapContinuity& evaluation) {
+            double energy=0;
+            for(const auto& face:evaluation.edges) {
+                const auto jump=face.boundaryNormalJumpRadians;
+                const auto fair=face.capInteriorFairnessRadians;
+                energy+=jump*jump+.25*fair*fair;
+            }
+            return energy/static_cast<double>(evaluation.edges.size());
+        };
+        SpatialCapContinuity comparison;
+        try {
+            comparison=measureSpatialCapContinuity(
+                current,survivingFaceNormals,reference,continuityLimits);
+        }catch(const std::exception&) {
+            // A diagnostic failure does not turn a valid M17D closure
+            // into a geometry refusal, even in the independent opt-in.
+        }
+        if(comparison.edges.size()==n) {
+            const auto budgetPerEmbedding=
+                current.faces.size()*(current.faces.size()-1)/2;
+            std::size_t proposedTrials=0,acceptedMoves=0;
+            double currentScore=score(comparison);
+            bool exhausted=false;
+            for(std::size_t round=0;
+                round<limits.maxContinuityRounds&&!exhausted;++round) {
+                // Only investigate visible discontinuities; a healthy cap
+                // with smooth joins should not be gratuitously remodeled.
+                std::vector<std::size_t> ordinals(n);
+                std::iota(ordinals.begin(),ordinals.end(),0);
+                std::stable_sort(ordinals.begin(),ordinals.end(),
+                    [&](std::size_t a,std::size_t b) {
+                        return comparison.edges[a].boundaryAndFairnessScore>
+                               comparison.edges[b].boundaryAndFairnessScore;
+                    });
+                SpatialCapPatch best=current;
+                SpatialCapContinuity bestComparison=comparison;
+                double bestScore=currentScore;
+                for(const auto ordinal:ordinals) {
+                    if(exhausted)break;
+                    const auto& edgeState=comparison.edges[ordinal];
+                    if(edgeState.boundaryNormalJumpRadians<.35&&
+                       edgeState.capInteriorFairnessRadians<.8)
+                        continue;
+                    const auto vertex=
+                        static_cast<std::size_t>(edgeState.rim.capOppositeVertex);
+                    if(vertex<n||vertex>=2*n)continue;
+                    const auto mate=limits.requireMirrorPlane?
+                        partner[vertex]:vertex;
+                    // The same mirrored source triangle is reached by a
+                    // different rim ordinal; only one orbit proposal is
+                    // considered in each search round.
+                    if(mate<vertex)continue;
+                    const auto a=current.positions[edgeState.rim.rimStart];
+                    const auto b=current.positions[edgeState.rim.rimEnd];
+                    const auto t=(b-a)/edgeState.rim.edgeLength;
+                    const auto starting=current.positions[vertex];
+                    const auto foot=a+t*dot(starting-a,t);
+                    const auto relative=starting-foot;
+                    const auto referenceFoot=edgeState.rim.oppositeFootParameter;
+                    const auto repairedFoot=std::clamp(referenceFoot,.05,.95);
+                    // Rotate the opposite corner about its EXACT boundary
+                    // edge: an edge triangle's length/quality are preserved
+                    // by rotation, unlike blind vertex-projection into the
+                    // survivor tangent plane.
+                    const auto dihedral=edgeState.rim.signedDihedralRadians;
+                    for(const auto fraction:{.2,.4,.65,1.})
+                    for(const auto footRepair:{0.,.65}) {
+                        if(proposedTrials>=limits.maxContinuityTrials) {
+                            exhausted=true;break;
+                        }
+                        const auto theta=std::clamp(-dihedral*fraction,-.9,.9);
+                        if(std::abs(theta)<1.e-4&&
+                           (footRepair==0.||referenceFoot==repairedFoot))
+                            continue;
+                        auto proposed=current;
+                        const auto rotated=relative*std::cos(theta)+
+                            cross(t,relative)*std::sin(theta);
+                        const auto shift=t*((repairedFoot-referenceFoot)*
+                            edgeState.rim.edgeLength*footRepair);
+                        const auto moved=foot+rotated+shift;
+                        if(!finite(moved)||length(moved-starting)>1.5*h)
+                            continue;
+                        if(limits.requireMirrorPlane&&mate!=vertex&&
+                           moved.x*starting.x<0)
+                            continue;
+                        proposed.positions[vertex]=moved;
+                        if(mate==vertex)
+                            proposed.positions[vertex].x=0;
+                        else
+                            proposed.positions[mate]=reflect(moved);
+                        // No inverted incident face, no new face under the
+                        // original q>=.10 strict cap threshold, and no
+                        // movement of any fixed rim or center hub.
+                        bool legal=true;
+                        double minimumQuality=1.;
+                        for(const auto& tri:current.faces) {
+                            const auto p=proposed.positions[tri[0]];
+                            const auto q=proposed.positions[tri[1]];
+                            const auto r=proposed.positions[tri[2]];
+                            const auto qAfter=quality(p,q,r);
+                            minimumQuality=std::min(minimumQuality,qAfter);
+                            if(qAfter+1e-12<limits.desiredMinimumQuality){
+                                legal=false;break;
+                            }
+                            if(std::find(tri.begin(),tri.end(),
+                                         static_cast<std::uint32_t>(vertex))
+                                    ==tri.end()&&
+                               std::find(tri.begin(),tri.end(),
+                                         static_cast<std::uint32_t>(mate))
+                                    ==tri.end())continue;
+                            const auto old=cross(
+                                current.positions[tri[1]]-current.positions[tri[0]],
+                                current.positions[tri[2]]-current.positions[tri[0]]);
+                            const auto updated=cross(q-p,r-p);
+                            if(length(updated)<=1e-16||dot(old,updated)<=0) {
+                                legal=false;break;
+                            }
+                        }
+                        if(!legal)continue;
+                        SpatialCapContinuity trialComparison;
+                        try {
+                            trialComparison=measureSpatialCapContinuity(
+                                proposed,survivingFaceNormals,
+                                reference,continuityLimits);
+                        }catch(const std::exception&) {continue;}
+                        const auto candidateScore=score(trialComparison);
+                        if(!(candidateScore+1.e-5<bestScore)||
+                           trialComparison.maximumBoundaryJumpRadians>
+                           comparison.maximumBoundaryJumpRadians+1.e-8)
+                            continue;
+                        // A smooth edge must not be sacrificed to improve
+                        // the 156-degree worst defect on its opposite side.
+                        for(std::size_t k=0;k<n;++k) {
+                            const auto before=comparison.edges[k]
+                                .boundaryNormalJumpRadians;
+                            const auto after=trialComparison.edges[k]
+                                .boundaryNormalJumpRadians;
+                            if(before<.35&&after>.75) {legal=false;break;}
+                        }
+                        if(!legal)continue;
+                        if(budgetPerEmbedding>limits.maxIntersectionTests-tests) {
+                            exhausted=true;break;
+                        }
+                        ++proposedTrials;
+                        proposed.minimumQuality=1.;
+                        try {
+                            if(!embedded(proposed))continue;
+                        }catch(const std::length_error&) {
+                            exhausted=true;break;
+                        }catch(const std::logic_error&) {
+                            continue;
+                        }
+                        if(proposed.minimumQuality+1e-12<
+                           limits.desiredMinimumQuality)continue;
+                        bestScore=candidateScore;
+                        best=std::move(proposed);
+                        bestComparison=std::move(trialComparison);
+                    }
+                }
+                if(!(bestScore+1.e-5<currentScore))break;
+                current=std::move(best);
+                comparison=std::move(bestComparison);
+                currentScore=bestScore;
+                ++acceptedMoves;
+            }
+            // Diagnostic-only output on the opt-in path; even if the
+            // optimizer finds nothing legal, R06 remains unchanged.
+            std::cerr<<"[repair-r06-m18d] trials="<<proposedTrials
+                     <<" accepted_rounds="<<acceptedMoves
+                     <<" before_score="<<score(measureSpatialCapContinuity(
+                         result,survivingFaceNormals,reference,continuityLimits))
+                     <<" after_score="<<currentScore
+                     <<" before_max_boundary_jump_deg="
+                     <<measureSpatialCapRimProfile(result,survivingFaceNormals)
+                         .maximumAbsoluteDihedralRadians*(180./std::acos(-1.))
+                     <<" after_max_boundary_jump_deg="
+                     <<comparison.maximumBoundaryJumpRadians*(180./std::acos(-1.))
+                     <<" before_min_q="<<result.minimumQuality
+                     <<" after_min_q="<<current.minimumQuality
+                     <<" unchanged="<<(acceptedMoves==0)
+                     <<" collision_budget_exhausted="<<exhausted<<"\n";
+            if(acceptedMoves)result=std::move(current);
+        }
     }
     if(initiallyEmbedded)return result;
     // Do not raise the 512-split budget or lower q >= .10. Try different
