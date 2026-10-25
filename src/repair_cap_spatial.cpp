@@ -1107,7 +1107,10 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" contact_rejected="<<report.contactRejected
                      <<" contact_budget_exhausted="<<report.budgetExhausted
                      <<" unchanged="<<!report.improved
-                     <<" note=finite_local_flips_not_global_proof\n";
+                     <<" selected_quad_orbits=";
+            for(const auto& orbit:report.acceptedQuadOrbits)
+                std::cerr<<orbit[0]<<":"<<orbit[1]<<";";
+            std::cerr<<" note=finite_local_flips_not_global_proof\n";
         }catch(const std::exception& error) {
             std::cerr<<"[repair-r06-m19c-diagonals] unavailable="
                      <<error.what()<<"\n";
