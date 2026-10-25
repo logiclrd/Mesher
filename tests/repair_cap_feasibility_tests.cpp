@@ -28,8 +28,8 @@ void diagnose(bool symmetric) {
     if(symmetric) {
         mirror.resize(base.positions.size());
         for(std::size_t i=0;i<mirror.size();++i)mirror[i]=i;
-        mirror[n+1]=n+7;
-        mirror[n+7]=n+1;
+        for(std::size_t i=0;i<n;++i)
+            mirror[n+i]=n+((n-i)%n);
     }
     unsigned inspected=0;
     const auto visitor=[&](SpatialCapPatch& candidate) {
