@@ -47,6 +47,7 @@ struct SpatialCapSettings {
     // enters the converged fixed-rim Poisson objective (not initial seeds).
     bool curvatureGuidedPoisson=false;
     double curvaturePoissonStrength=1.5; // relative to graph vertex degree
+    double curvaturePoissonAnchorWeight=1.5; // retains legal M17D in-ring topology scale
     double curvaturePoissonMaxNormalShift=0.65; // * median rim edge
     std::size_t maxCurvaturePoissonIterations=128;
     std::size_t maxContinuityRounds=4;
