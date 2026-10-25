@@ -27,7 +27,8 @@ public:
         bool guideCurvaturePoisson=false,
         bool probeSeamFeasibility=false,
         bool probeDiagonalFeasibility=false,
-        bool stageFeasibilityPreview=false);
+        bool stageFeasibilityPreview=false,
+        bool stageDiagonalPreview=false);
     ~RepairReplayStepSession();
     RepairReplayStepSession(const RepairReplayStepSession&)=delete;
     RepairReplayStepSession& operator=(const RepairReplayStepSession&)=delete;
@@ -42,7 +43,7 @@ private:
     bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_,optimizeFront_,
          optimizeCurvatureFront_,guideCurvaturePoisson_,
          probeSeamFeasibility_,probeDiagonalFeasibility_,
-         stageFeasibilityPreview_;
+         stageFeasibilityPreview_,stageDiagonalPreview_;
     std::shared_ptr<RepairStepTrace> trace_;
     std::thread worker_;
     mutable std::mutex stateMutex_;
