@@ -881,8 +881,14 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
     rim and worst original seam unchanged, minimum q 0.117503.
     [Acceptance details](docs/R06_M21A_ACCEPTANCE.md).
   - [ ] **M21A4 — GPU matching-view A/B and complete private verdict.**
-    Physical acceptance separate; no claim that fairer local cap is
-    source-complete accepted until actual inspection.
+    Physical user screenshot shows the tracked small ripple still
+    apparent. At step 93 the central cyan patch is a normal
+    `SPLITEDGE` four-new/two-old-face **step delta**, NOT a fairing
+    movement highlight. M21 local score improved ~3.4% on saved
+    refusal-1 but not demonstrably at the intended ripple.
+    **Physical fairing smoothness NOT ACCEPTED.** Details:
+    [M21A4 GPU feedback](docs/R06_M21A4_GPU_FEEDBACK.md).
+    Keep complete source-backed acceptance separate.
 - [ ] **M21A5 — Source-complete improved-candidate retry fallback.**
   Implement verified atomic fallback to the previously valid original
   source-backed closed candidate if an otherwise locally better M21
@@ -890,8 +896,25 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
   the strict user policy ("fairing cannot turn a successful cap into a
   refusal") be claimed for future production R06, rather than solely
   for local cap selection.
-- [ ] **M21B — Source-guided higher-order whole-patch fitting** if small
-  Laplacian proposals cannot improve normals without flattening features.
+- [ ] **M21B — Source-guided high-frequency normal fairing** after
+  user-observed M21A mean-score improvement missed the tracked ripple.
+  - [ ] **M21B1 — Exact fairing movement observability.** Distinguish
+    `SPLITEDGE` cyan step deltas from M21's actual accepted vertex
+    relocations. Report selected/not selected, original-vs-proposed
+    local-index IDs/positions, geometric move sizes and where objective
+    improvements occurred. Ideally a private A/B ghost/delta overlay;
+    default-OFF and no changed geometry contract.
+  - [ ] **M21B2 — Signed short-scale normal oscillation objective.**
+    Evaluate normal second variation over connected face strips at
+    physical edge scale with source-crease/curvature confidence rather
+    than merely mean-square absolute CAP/CAP dihedral. Keep whole-patch
+    fitness, shape-retention guards, q>=0.10, source rim, orientation,
+    mirrored indices, all collision checks and legal-original fallback.
+  - [ ] **M21B3 — Independent CPU+GPU objective/solver A/B.** Healthy
+    smooth/crease/narrow-ripple fixtures and exact refusal-1. Show
+    measured score and geometric improvement specifically at the
+    tracked ripple before calling M21 a useful fairing stage. Retain
+    source-complete retry fallback as distinct M21A5 prerequisite.
 - [ ] **M21C — Optional triangulation optimization** (safe flips/collapses)
   under identical whole-patch validity and original fallback.
 - [ ] **M21D — Production eligibility**, distinct from PRIVATE preview.
