@@ -115,6 +115,11 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(
             repair_r06_m17d_reject_front_optimize_without_auto
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m18d_reject_curvature_optimize_without_auto
+                 COMMAND Mesher --repair-curvature-optimize)
+        set_tests_properties(
+            repair_r06_m18d_reject_curvature_optimize_without_auto
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m17c_reject_scale_aware_without_auto
                  COMMAND Mesher --repair-scale-aware)
         set_tests_properties(
