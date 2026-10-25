@@ -249,7 +249,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                           <<" directional_qualified="<<comparison.directionalQualifiedEdges
                           <<" directional_unqualified="<<comparison.lowConfidenceEdges
                           <<" mean_qualified_directional_mismatch="
-                          <<comparison.meanQualifiedDirectionalMismatch<<"\\n";
+                          <<comparison.meanQualifiedDirectionalMismatch<<"\n";
                     for(const auto& item:comparison.edges) {
                         const auto k=item.rim.rimStart;
                         const auto a=loop.vertexIds[n-1-k];
@@ -276,11 +276,11 @@ MixedClosureStaging stagePrivateMixedClosure(
                                   <<" h_delta_tu="<<item.deltaMixedScaled
                                   <<" h_delta_uu="<<item.deltaTransverseScaled
                                   <<" scaled_tensor_mismatch="<<item.directionalMismatchScaled;
-                        report<<"\\n";
+                        report<<"\n";
                     }
                 }catch(const std::exception& error) {
                     report<<"[repair-r06-continuity] loop="<<id
-                          <<" diagnostic_unavailable="<<error.what()<<"\\n";
+                          <<" diagnostic_unavailable="<<error.what()<<"\n";
                 }
                 std::cerr<<report.str();
             }
