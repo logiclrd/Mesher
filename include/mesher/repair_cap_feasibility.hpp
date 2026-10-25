@@ -25,6 +25,12 @@ struct SpatialCapFeasibility {
     double bestWorstCapRimRadians{};
     double baselineMeanScore{},bestMeanScore{};
     double baselineMinimumQuality{},bestMinimumQuality{};
+    // Normal sweep counts include geometry rejected later by q/embedding.
+    // They establish whether BOTH sides of the survivor reference surface
+    // were explicitly explored (not merely projected onto one plane).
+    std::size_t normalOutwardProposals{},normalInwardProposals{},
+                normalOutwardAdmissible{},normalInwardAdmissible{};
+    double averageNormalInitialOffsetOverEdge{},normalSweepMaxOverEdge{};
     std::size_t proposed{},normalCandidates{},locallyAdmissible{},
                 acceptedRounds{},qualityRejected{},orientationRejected{},
                 scoreRejected{},contactRejected{};
@@ -33,9 +39,10 @@ struct SpatialCapFeasibility {
 };
 
 struct SpatialCapFeasibilityLimits {
-    std::size_t maxRounds=4,maxProposals=96;
+    std::size_t maxRounds=4,maxProposals=512;
     double minimumQuality=.1;
     double maximumDisplacementInEdgeScales=1.5;
+    double normalSweepEdgeScales=0.8; // either direction around each plane target
     // Only first-ring indexed vertices may move, optionally as mirrored
     // orbits. The fixed original rim and the central hub NEVER move.
 };
@@ -101,6 +108,8 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
        !limits.maxRounds||!limits.maxProposals||
        !(limits.minimumQuality>0&&limits.minimumQuality<1)||
        !(limits.maximumDisplacementInEdgeScales>0)||
+       !(limits.normalSweepEdgeScales>0&&
+         std::isfinite(limits.normalSweepEdgeScales))||
        !(medianRimEdge>0&&std::isfinite(medianRimEdge)))
         throw std::invalid_argument("R06-M19A malformed finite probe");
     using namespace feasibility_detail;
@@ -113,6 +122,37 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
     auto best=original;
     auto metrics=start;
     auto reflect=[](Vec3 p){return Vec3{-p.x,p.y,p.z};};
+    // The survivor *set* normal is an independent third basis axis:
+    // the old M19A interpolations terminated at one plane and could
+    // neither cross it nor search along its normal in both directions.
+    // In symmetric cases the orbit-invariant direction lives in X=0.
+    Vec3 averageNormal{};
+    for(const auto source:incomingNormals) {
+        const auto magnitude=length(source);
+        if(magnitude>1e-12&&std::isfinite(magnitude))
+            averageNormal=averageNormal+source/magnitude;
+    }
+    if(!mirroredOrbits.empty())averageNormal.x=0;
+    auto averageLength=length(averageNormal);
+    if(!(averageLength>1e-10)) {
+        // Degenerate/cancelling survivor normals: use the first reliable
+        // directed original face normal, still mirrored if requested.
+        for(const auto source:incomingNormals) {
+            Vec3 direction=source;
+            if(!mirroredOrbits.empty())direction.x=0;
+            const auto magnitude=length(direction);
+            if(magnitude>1e-10&&std::isfinite(magnitude)){
+                averageNormal=direction/magnitude;
+                averageLength=1;
+                break;
+            }
+        }
+    }
+    if(!(averageLength>1e-10))
+        throw std::invalid_argument(
+            "R06-M19A no finite survivor-set normal for two-sided sweep");
+    averageNormal=averageNormal/averageLength;
+    report.normalSweepMaxOverEdge=limits.normalSweepEdgeScales;
     for(std::size_t round=0;round<limits.maxRounds;++round) {
         const auto profile=measureSpatialCapRimProfile(best,incomingNormals);
         std::vector<std::size_t> order(n);
@@ -165,25 +205,47 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
             const auto tangentTarget=a+t*foot+
                 crossTangent*crossDistance+normal*height;
             const auto planeTarget=c-normal*dot(c-a,normal);
-            for(const auto curvatureTarget:{false,true})
-            for(const auto fraction:{.25,.5,.75,1.}) {
+            // The NORMAL coordinate is independent of the in-plane
+            // choice. Search BOTH signs about (a) the existing offset,
+            // (b) the first-order tangent plane, (c) the high-confidence
+            // curvature surface. A projection/interpolation alone can
+            // never pass *through* the plane to its other side.
+            // Keep signed offsets symmetric, with small and larger
+            // excursions, and retain zero-offset plane candidates.
+            // Each proposal (even if q-refused) counts toward the finite
+            // budget. The deterministic first tranche samples signed
+            // moves from the CURRENT vertex for every visited edge.
+            const std::array<double,5> normalSteps{
+                -1.,-.5,0.,.5,1.};
+            for(unsigned baseChoice=0;baseChoice<3;++baseChoice) {
+                if(baseChoice==2&&!credible)continue;
+                const auto baseTarget=baseChoice==0?c:
+                    baseChoice==1?planeTarget:tangentTarget;
+                for(const auto fraction:{.5,1.})
+                for(const auto offset:normalSteps) {
+                if(baseChoice==0&&(fraction!=1.||offset==0.))continue;
                 if(report.proposed>=limits.maxProposals) {
                     exhausted=true;break;
                 }
-                if(curvatureTarget&&!credible)continue;
                 ++report.proposed;
-                const auto target=curvatureTarget?
-                    tangentTarget:planeTarget;
-                const auto moved=c+(target-c)*fraction;
+                if(offset<0)++report.normalInwardProposals;
+                if(offset>0)++report.normalOutwardProposals;
+                const auto target=baseTarget+
+                    averageNormal*(offset*limits.normalSweepEdgeScales*
+                                   medianRimEdge);
+                auto moved=c+(target-c)*fraction;
+                if(!mirroredOrbits.empty()&&mate==vertex)
+                    moved.x=0;
                 if(length(moved-c)>
                     limits.maximumDisplacementInEdgeScales*medianRimEdge)
                     continue;
                 ++report.normalCandidates;
                 auto candidate=best;
                 candidate.positions[vertex]=moved;
-                if(!mirroredOrbits.empty()&&mate==vertex)
-                    candidate.positions[vertex].x=0.;
-                else candidate.positions[mate]=reflect(moved);
+                // No mirror plane means NO reflection: M19A previously
+                // assigned reflect(moved) to the same vertex here.
+                if(!mirroredOrbits.empty()&&mate!=vertex)
+                    candidate.positions[mate]=reflect(moved);
                 bool legal=true;
                 for(const auto& tri:best.faces) {
                     const auto pa=candidate.positions[tri[0]];
@@ -218,8 +280,12 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
                     ++report.contactRejected;continue;
                 }
                 ++report.locallyAdmissible;
+                if(offset<0)++report.normalInwardAdmissible;
+                if(offset>0)++report.normalOutwardAdmissible;
                 roundMetric=assessment;
                 roundPatch=std::move(candidate);
+                }
+                if(exhausted)break;
             }
             if(exhausted)break;
         }
@@ -229,6 +295,18 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
         ++report.acceptedRounds;
         if(exhausted)break;
     }
+    // Sign indicates which side of the survivor-set tangent orientation
+    // the original cap offset occupies. This does not assume either sign
+    // is preferred or that the center plane is an actual tangent plane.
+    const auto profile=measureSpatialCapRimProfile(original,incomingNormals);
+    const auto& worst=*std::max_element(profile.edges.begin(),
+        profile.edges.end(),[](const auto& a,const auto& b) {
+            return a.absoluteDihedralRadians<b.absoluteDihedralRadians;
+        });
+    report.averageNormalInitialOffsetOverEdge=dot(
+        original.positions[worst.capOppositeVertex]-
+            original.positions[worst.rimStart],averageNormal)/
+        medianRimEdge;
     report.bestWorstSeamRadians=metrics.seam;
     report.bestWorstCapRimRadians=metrics.capRim;
     report.bestMeanScore=metrics.mean;
