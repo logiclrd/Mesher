@@ -758,7 +758,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" before_min_q="<<result.minimumQuality
                      <<" after_min_q="<<current.minimumQuality
                      <<" unchanged="<<(acceptedMoves==0)
-                     <<" collision_budget_exhausted="<<exhausted<<"\n";
+                     <<" search_budget_exhausted="<<exhausted<<"\n";
             if(acceptedMoves)result=std::move(current);
         }
     }
