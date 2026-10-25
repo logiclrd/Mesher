@@ -21,6 +21,10 @@ struct SpatialCapDiagonalProbe {
     std::size_t candidates{},admissible{},acceptedRounds{},qualityRejected{},
                 orientationRejected{},scoreRejected{},contactRejected{};
     bool budgetExhausted{},improved{};
+    // One accepted representative and its exact reflected strip quad
+    // per round. In an ordinary cap the second ordinal equals the first.
+    // M19D1 is pure provenance, not authorization for full-mesh staging.
+    std::vector<std::array<std::size_t,2>> acceptedQuadOrbits;
 };
 struct SpatialCapDiagonalProbeLimits {
     std::size_t maxRounds=2,maxCandidates=48;
@@ -73,7 +77,8 @@ SpatialCapDiagonalProbe probeSpatialCapDiagonalFeasibility(
     const std::vector<Vec3>& incomingNormals,
     const std::vector<std::size_t>& mirrorOrbits,
     ValidateCap&& validateCap,
-    const SpatialCapDiagonalProbeLimits& limits={}) {
+    const SpatialCapDiagonalProbeLimits& limits={},
+    SpatialCapPatch* bestCandidate=nullptr) {
     const auto n=original.boundaryCount;
     if(n<3||original.faces.size()!=3*n||
        incomingNormals.size()!=n||
@@ -92,6 +97,7 @@ SpatialCapDiagonalProbe probeSpatialCapDiagonalFeasibility(
     for(std::size_t round=0;round<limits.maxRounds;++round) {
         auto roundPatch=best;
         auto roundMetric=metrics;
+        std::array<std::size_t,2> roundChoice{n,n};
         bool stopped=false;
         for(std::size_t i=0;i<n;++i) {
             if(out.candidates>=limits.maxCandidates) {
@@ -142,12 +148,15 @@ SpatialCapDiagonalProbe probeSpatialCapDiagonalFeasibility(
             }
             ++out.admissible;
             roundMetric=candidateMetric;
+            roundChoice={i,mirrorOrbits.empty()?i:
+                mirrorOrbits[(i+1)%n]};
             roundPatch=std::move(candidate);
         }
         if(!feasibility_detail::better(roundMetric,metrics))break;
         best=std::move(roundPatch);
         metrics=roundMetric;
         ++out.acceptedRounds;
+        out.acceptedQuadOrbits.push_back(roundChoice);
         if(stopped)break;
     }
     out.bestWorstSeamRadians=metrics.seam;
@@ -155,6 +164,10 @@ SpatialCapDiagonalProbe probeSpatialCapDiagonalFeasibility(
     out.bestMeanScore=metrics.mean;
     out.bestMinimumQuality=metrics.minimumQuality;
     out.improved=out.acceptedRounds>0;
+    // Optional output is local counterfactual geometry only. Every accepted
+    // candidate has passed the caller's existing cap-local validator;
+    // original and whole-survivor mesh remain untouched and uncertified.
+    if(bestCandidate)*bestCandidate=std::move(best);
     return out;
 }
 } // namespace mesher
