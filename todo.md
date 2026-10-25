@@ -1024,6 +1024,22 @@ that would erase sculpted intentional creases.
       `5bcdc9a9b88a5fd6d9f8e4b7afb6292e3e3a82c2`.
       [Details](docs/R06_M19_FEASIBILITY_ACCEPTANCE.md).
       These are local finite counterfactuals; no staging or publication.
+    - [x] **M19A3 — Visible provisional positions in the stepped GUI.**
+      Independent, default-off `--repair-feasibility-preview` runs
+      **only** with interactive `--repair-step-debug --repair-replay FILE`.
+      It takes M19A's best locally admissible first-ring positions,
+      stages those PRIVATE provisional synthetic vertices in the
+      existing step-preview mesh, and labels the result NOT CERTIFIED.
+      Ordinary `--repair-feasibility-probe` remains strictly read-only.
+      `refusal-1` exact-case CPU regression proves **5 inward-ring
+      vertices actually move**, with source R03 rim, faces and
+      q **0.117503** retained; unmodified full-mesh certification
+      may still refuse. [CI #40207792552](https://github.com/logiclrd/Mesher/actions/runs/40207792552)
+      SUCCESS, **124/124 CPU tests on GCC/Clang/MSVC `/W4 /WX`**
+      at tested code `f88103018aa90814c7889e74a3014e15b97021f5`.
+      [Acceptance evidence](docs/R06_M19A3_STEP_PREVIEW_ACCEPTANCE.md).
+      Physical Vulkan inspection remains open, and M19D topology
+      counterfactual is not yet a staged repair.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
     - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
       Exact `refusal-1` before/after cap bytes match for both probes;
