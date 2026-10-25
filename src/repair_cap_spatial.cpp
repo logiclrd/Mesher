@@ -669,67 +669,92 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                 if(residual<=tolerance) {converged=true;break;}
             }
             bool accepted=false;
-            double beforeScore=0,afterScore=0;
+            double beforeScore=0,afterScore=0,selectedStrength=0;
+            std::size_t failedOrientation=0,failedQuality=0,
+                        failedScore=0,failedContact=0,contactTests=0;
+            bool contactBudgetExceeded=false;
             if(converged) {
-                // Reject any mirrored, orientation or quality regression
-                // BEFORE consuming the same complete contact-work budget.
-                bool legal=true;
-                double minBefore=1.,minAfter=1.;
-                for(const auto& tri:result.faces) {
-                    const auto old=cross(
-                        result.positions[tri[1]]-result.positions[tri[0]],
-                        result.positions[tri[2]]-result.positions[tri[0]]);
-                    const auto now=cross(
-                        guided.positions[tri[1]]-guided.positions[tri[0]],
-                        guided.positions[tri[2]]-guided.positions[tri[0]]);
-                    if(dot(old,now)<=0||length(now)<=1e-16) {
-                        legal=false;break;
-                    }
-                    minBefore=std::min(minBefore,quality(
-                        result.positions[tri[0]],result.positions[tri[1]],
-                        result.positions[tri[2]]));
-                    minAfter=std::min(minAfter,quality(
-                        guided.positions[tri[0]],guided.positions[tri[1]],
-                        guided.positions[tri[2]]));
-                }
-                // The original hard q floor remains strict. A healthy
-                // baseline may trade excess shape quality for continuity;
-                // an under-floor baseline may NOT become even worse.
-                if(minBefore>=limits.desiredMinimumQuality?
-                   minAfter+1e-12<limits.desiredMinimumQuality:
-                   minAfter+1e-12<minBefore)legal=false;
-                if(legal) {
-                    try {
-                        const auto compare=[&](const SpatialCapPatch& patch) {
-                            const auto continuity=measureSpatialCapContinuity(
-                                patch,survivingFaceNormals,*incomingReference);
-                            double objective=0;
-                            for(const auto& edge:continuity.edges)
-                                objective+=edge.boundaryNormalJumpRadians*
-                                    edge.boundaryNormalJumpRadians+
-                                    .25*edge.capInteriorFairnessRadians*
-                                        edge.capInteriorFairnessRadians;
-                            return std::pair<double,double>{
-                                objective/static_cast<double>(n),
-                                continuity.maximumBoundaryJumpRadians};
-                        };
-                        const auto old=compare(result);
-                        const auto proposed=compare(guided);
-                        beforeScore=old.first;afterScore=proposed.first;
-                        if(proposed.first+1e-5<old.first&&
-                           proposed.second<=old.second+1e-8) {
-                            guided.minimumQuality=1.;
-                            if(embedded(guided)) {
-                                accepted=true;
-                                result=std::move(guided);
+                try {
+                    const auto compare=[&](const SpatialCapPatch& patch) {
+                        const auto continuity=measureSpatialCapContinuity(
+                            patch,survivingFaceNormals,*incomingReference);
+                        double objective=0;
+                        for(const auto& edge:continuity.edges)
+                            objective+=edge.boundaryNormalJumpRadians*
+                                edge.boundaryNormalJumpRadians+
+                                .25*edge.capInteriorFairnessRadians*
+                                    edge.capInteriorFairnessRadians;
+                        return std::pair<double,double>{
+                            objective/static_cast<double>(n),
+                            continuity.maximumBoundaryJumpRadians};
+                    };
+                    const auto baseline=compare(result);
+                    beforeScore=baseline.first;
+                    double bestScore=baseline.first;
+                    // Damped guidance is a homotopy toward the converged
+                    // constrained Poisson solution. An overstrong curvature
+                    // term may invert a nearby cap triangle; reject that
+                    // candidate, NOT the entire guidance experiment.
+                    // Exactly three fixed, finite amplitudes; the same
+                    // cumulative global embedding budget applies to all.
+                    for(const double fraction:{.25,.5,1.}) {
+                        SpatialCapPatch proposed=result;
+                        for(std::size_t i=n;i<proposed.positions.size();++i)
+                            proposed.positions[i]=result.positions[i]+
+                                (guided.positions[i]-result.positions[i])*fraction;
+                        bool legal=true;
+                        double minimum=1.;
+                        for(const auto& tri:result.faces) {
+                            const auto beforeNormal=cross(
+                                result.positions[tri[1]]-result.positions[tri[0]],
+                                result.positions[tri[2]]-result.positions[tri[0]]);
+                            const auto newNormal=cross(
+                                proposed.positions[tri[1]]-proposed.positions[tri[0]],
+                                proposed.positions[tri[2]]-proposed.positions[tri[0]]);
+                            if(dot(beforeNormal,newNormal)<=0||
+                               length(newNormal)<=1e-16) {
+                                ++failedOrientation;legal=false;break;
                             }
+                            minimum=std::min(minimum,quality(
+                                proposed.positions[tri[0]],proposed.positions[tri[1]],
+                                proposed.positions[tri[2]]));
                         }
-                    }catch(const std::length_error&) {
-                        // Exhausted existing shared pairwise-contact quota:
-                        // finite fail-closed, no extra unaccounted retries.
-                    }catch(const std::logic_error&) {
-                        // Untrusted geometry/guidance is a no-op.
+                        if(!legal)continue;
+                        if(result.minimumQuality>=limits.desiredMinimumQuality?
+                           minimum+1e-12<limits.desiredMinimumQuality:
+                           minimum+1e-12<result.minimumQuality) {
+                            ++failedQuality;continue;
+                        }
+                        const auto proposedMetric=compare(proposed);
+                        if(!(proposedMetric.first+1e-5<bestScore)||
+                           proposedMetric.second>baseline.second+1e-8) {
+                            ++failedScore;continue;
+                        }
+                        proposed.minimumQuality=1.;
+                        ++contactTests;
+                        try {
+                            if(!embedded(proposed)) {
+                                ++failedContact;continue;
+                            }
+                        }catch(const std::length_error&) {
+                            contactBudgetExceeded=true;break;
+                        }catch(const std::logic_error&) {
+                            ++failedContact;continue;
+                        }
+                        if(proposed.minimumQuality+1e-12<
+                           limits.desiredMinimumQuality&&
+                           result.minimumQuality>=limits.desiredMinimumQuality) {
+                            ++failedQuality;continue;
+                        }
+                        bestScore=proposedMetric.first;
+                        afterScore=bestScore;
+                        selectedStrength=fraction;
+                        guided=std::move(proposed);
+                        accepted=true;
                     }
+                    if(accepted)result=std::move(guided);
+                }catch(const std::exception&) {
+                    // Missing/invalid guidance cannot alter a valid baseline.
                 }
             }
             std::cerr<<"[repair-r06-m18e] constrained_ring_vertices="
@@ -737,7 +762,14 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" residual="<<residual<<" accepted="<<accepted
                      <<" before_score="<<beforeScore
                      <<" guided_score="<<afterScore
-                     <<" before_min_q="<<result.minimumQuality<<"\\n";
+                     <<" selected_fraction="<<selectedStrength
+                     <<" orientation_rejections="<<failedOrientation
+                     <<" quality_rejections="<<failedQuality
+                     <<" score_rejections="<<failedScore
+                     <<" contact_rejections="<<failedContact
+                     <<" contact_tests="<<contactTests
+                     <<" contact_budget_exceeded="<<contactBudgetExceeded
+                     <<" final_min_q="<<result.minimumQuality<<"\\n";
         }
     }
     // M18D is a separate opt-in from M17D. It works on the settled (and
