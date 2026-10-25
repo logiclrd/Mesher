@@ -22,6 +22,9 @@ struct SpatialCapPatch {
     double poissonResidual{};
     double minimumQuality{1};
     bool usedMirroredRibbonFallback{}; // alternate exact X=0 seam strip; no Poisson sweeps
+    // Exact construction-time local-index mirror orbits. Not inferred by
+    // later diagnostics from nearby positions; empty for ordinary caps.
+    std::vector<std::size_t> reflectedOrbits;
 };
 
 struct SpatialCapSettings {
