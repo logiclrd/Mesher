@@ -26,7 +26,8 @@ public:
         bool optimizeFront=false,bool optimizeCurvatureFront=false,
         bool guideCurvaturePoisson=false,
         bool probeSeamFeasibility=false,
-        bool probeDiagonalFeasibility=false);
+        bool probeDiagonalFeasibility=false,
+        bool stageFeasibilityPreview=false);
     ~RepairReplayStepSession();
     RepairReplayStepSession(const RepairReplayStepSession&)=delete;
     RepairReplayStepSession& operator=(const RepairReplayStepSession&)=delete;
@@ -40,7 +41,8 @@ private:
     AutoClosureClassifier classifier_;
     bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_,optimizeFront_,
          optimizeCurvatureFront_,guideCurvaturePoisson_,
-         probeSeamFeasibility_,probeDiagonalFeasibility_;
+         probeSeamFeasibility_,probeDiagonalFeasibility_,
+         stageFeasibilityPreview_;
     std::shared_ptr<RepairStepTrace> trace_;
     std::thread worker_;
     mutable std::mutex stateMutex_;
