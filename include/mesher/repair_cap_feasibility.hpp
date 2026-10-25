@@ -103,7 +103,8 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
     const std::vector<std::size_t>& mirroredOrbits,
     double medianRimEdge,
     ValidateCap&& validateCap,
-    const SpatialCapFeasibilityLimits& limits={}) {
+    const SpatialCapFeasibilityLimits& limits={},
+    SpatialCapPatch* bestCandidate=nullptr) {
     const auto n=original.boundaryCount;
     if(n<3||original.positions.size()<2*n||
        incomingNormals.size()!=n||incomingCurvature.size()!=n||
@@ -328,6 +329,9 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
     report.bestMeanScore=metrics.mean;
     report.bestMinimumQuality=metrics.minimumQuality;
     report.improved=report.acceptedRounds>0;
+    // Caller opts in explicitly. The ordinary diagnostic still has NO
+    // output patch, so it remains strictly read-only.
+    if(bestCandidate)*bestCandidate=best;
     return report;
 }
 } // namespace mesher
