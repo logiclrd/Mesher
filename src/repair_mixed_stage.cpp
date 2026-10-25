@@ -151,6 +151,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 spatial.stageFirstRingFeasibilityPreview=bounds.stageFeasibilityPreview;
                 spatial.probeBandDiagonalFeasibility=bounds.probeDiagonalFeasibility;
                 spatial.stageBandDiagonalPreview=bounds.stageDiagonalPreview;
+                spatial.stageWholeCapFairingPreview=bounds.stageWholeCapFairingPreview;
                 spatial.desiredMinimumQuality=bounds.targetInitialCapQuality;
                 spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
                     std::any_of(ordered.begin(),ordered.end(),
