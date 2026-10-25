@@ -64,7 +64,8 @@ inline SpatialCapFairingScore measureSpatialCapFairing(
             throw std::logic_error("R06-M21A invalid cap face indices");
         const auto a=patch.positions[t[0]],b=patch.positions[t[1]],
                    c=patch.positions[t[2]];
-        const auto d=cross(b-a,c-a),len=length(d);
+        const Vec3 d=cross(b-a,c-a);
+        const double len=length(d);
         if(!(len>1e-14)||!std::isfinite(len))
             throw std::logic_error("R06-M21A degenerate cap face");
         normals[f]=d/len;
