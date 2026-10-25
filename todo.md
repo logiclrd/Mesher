@@ -1072,6 +1072,26 @@ that would erase sculpted intentional creases.
         visible fold, mirrored view and final PRIVATE verdict.
       This is finite sampled search, not the user's distinct proposed
       adaptive nearest-connected-neighbor bounded bilateral 1D solver.
+    - [ ] **M19A6 — Fivefold wider multiscale normal sweep.**
+      - [x] **M19A6a — Finite multiscale trial + diagnostic regression.**
+        Preserve prior signed short samples at 0.8 and 1.6 median rim
+        edges and add 4 and 8 in BOTH normal directions. Raise separate
+        maximum displacement 3->15 and finite proposal cap 512->1024
+        to permit the wider grid without simply removing the near samples.
+        Keep 4 accepted rounds, exact original rim/mirror, q>=0.10,
+        winding/contact/source certification and PRIVATE scope. Check
+        sampled coverage of all four bands and determinism, with
+        diagnostics reporting coverage by sign. See
+        [trial design](docs/R06_M19A6_FIVEFOLD_MULTISCALE_SWEEP.md).
+      - [ ] **M19A6b — Confirm cross-platform CI and physical Vulkan.**
+        Verify latest exact HEAD on GCC/Clang/Windows MSVC; compare
+        saved refusal-1 step-54 matched camera against M19A5 and
+        baseline, inspect reflected side and final private verdict.
+        Do not infer a certified smooth surface from local dihedral
+        score or a green CPU workflow.
+      This remains a finite candidate grid, NOT a binary-search solver;
+      consider a separately designed bilateral bracket/minimization
+      milestone if the residual fold persists.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
     - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
       Exact `refusal-1` before/after cap bytes match for both probes;
