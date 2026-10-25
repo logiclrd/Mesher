@@ -50,6 +50,7 @@ struct SpatialCapSettings {
     bool stageFirstRingFeasibilityPreview=false; // step-debug ONLY; not a certified closure result
     bool probeBandDiagonalFeasibility=false; // M19C read-only counterfactual
     bool stageBandDiagonalPreview=false; // M19D step-debug-only PRIVATE face candidate
+    bool stageWholeCapFairingPreview=false; // M21A optional post-M19 whole-cap fairing
     bool curvatureGuidedPoisson=false;
     double curvaturePoissonStrength=1.5; // relative to graph vertex degree
     double curvaturePoissonAnchorWeight=1.5; // retains legal M17D in-ring topology scale
