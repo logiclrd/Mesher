@@ -870,18 +870,32 @@ cap. An unchanged deterministic boundary need not yield a different solution.
 Prevent endless recursion via measured whole-patch merit and hard budgets.
 
 - [ ] **M20A — First read-only curvature anomaly / excision-contour preview.**
-  - [ ] **M20A1 — Pure local-index CAP/CAP anomaly analysis.** Bounded
+  - [x] **M20A1 — Pure local-index CAP/CAP anomaly analysis.** Bounded
     directed edge incidence, source-aware expected-normal variation with
     confidence labels, deterministic suspected face islands, one-ring halo
     and exact candidate closed secondary contour (or explicit refusal).
     Original R03 rim and stage topology are never altered.
-  - [ ] **M20A2 — Step-debug visualization, opt-in only.** Distinct
+  - [x] **M20A2 — Step-debug visualization, opt-in only.** Distinct
     anomalous faces and distinct secondary candidate rim, counts and
     trust warnings in HUD. No synthetic mesh edits or source write.
-  - [ ] **M20A3 — Exact-case, healthy/crease/reflection fixtures and CI.**
+  - [x] **M20A3 — Exact-case, healthy/crease/reflection fixtures and CI.**
     Reject forks/non-disks/budgets, preserve strict source identities,
     cap q>=0.10, normal/winding, reflection, no worker publication and
     original saved-case bytes. GCC/Clang/MSVC /W4 /WX required.
+    **CPU accepted** at implementation `5eac1ad5a2583d200128a54b3e0e3b4ead302e11`,
+    [CI #40225021188](https://github.com/logiclrd/Mesher/actions/runs/40225021188):
+    GCC/Clang/Windows MSVC **129/129 tests on each**. Exact archived
+    refusal-1 produced 6 suspect CAP faces and one closed secondary
+    contour NOT touching R03, with positions/face connectivity unchanged.
+    The new private step debugger marks suspect faces orange and proposed
+    candidate secondary rims purple; source confidence is labeled.
+    [Acceptance record](docs/R06_M20A_ACCEPTANCE.md).
+  - [ ] **M20A4 — Physical Linux/Windows Vulkan diagnosis acceptance.**
+    User compare at/after DiagnoseCapAnomaly and ENSUREFACE steps on
+    unchanged refusal-1 with M19A6 position preview, inspect mirrored
+    view; confirm orange face island and purple candidate rim surround
+    the visible ripple and do not mislabel genuine crease geometry.
+    CPU tests do NOT close visual acceptance.
 - [ ] **M20B — Private excision of candidate-generated faces.** Work
   on a local copy before M15 stage commit, leave original survivor
   geometry immutable, show an open secondary hole; never publish.
