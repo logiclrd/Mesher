@@ -889,12 +889,25 @@ that would erase sculpted intentional creases.
   R06 emits `[repair-r06-rim-profile]` and per-edge diagnostic lines
   before staging provisional cap vertices. **This is NOT yet a curvature
   tensor, surface-quality cure, or physical Vulkan acceptance.**
-- [ ] **R06-M18B — Directional survivor curvature and confidence.**
+- [x] **R06-M18B — Directional survivor curvature and confidence.**
   Fit a bounded, robust 2x2 shape-operator estimate from a small connected
   survivor neighborhood around each rim edge, with seam-tangent, inward
   tangent and mixed/twist components in a consistent local frame. Detect
   undersampling, noisy or intentionally creased neighborhoods. Pure synthetic
   flat/cylinder/sphere/saddle/reflection tests; diagnostic only.
+  **CPU accepted (diagnostic only), Oct 24–25, 2026:** code head
+  `dbb708d1596150734a992f1a1323afa9efd6d9b5`,
+  [CI #40162861085](https://github.com/logiclrd/Mesher/actions/runs/40162861085)
+  SUCCESS on GCC, Clang, Windows MSVC `/W4 /WX`, 114/114 CPU tests.
+  Exact R03 survivor FaceId adjacency BFS is capped at 3 rings / 48
+  faces, estimates k_tt, k_tu, k_uu using bounded normal-difference
+  symmetric least-squares and IRLS, records poor confidence instead of
+  inventing trusted curvature, and emits opt-in per-edge diagnostics.
+  Analytic flat, cylinder, sphere-like, saddle, twist, mirror and
+  confidence regressions plus exact immutable refusal-1 tests pass.
+  [Acceptance record](docs/R06_M18B_ACCEPTANCE.md).
+  No cap relocation, admission/publishing change or physical GPU approval;
+  M18C is the next independent milestone.
 - [ ] **R06-M18C — Pure cap curvature-continuation evaluator.**
   Compare the cap's normal/curvature against the measured survivor tensor
   on the same local scale and frame, separating crossing-rim first-order
