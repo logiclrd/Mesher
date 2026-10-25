@@ -1074,7 +1074,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<error.what()<<"\n";
         }
     }
-    if(limits.probeBandDiagonalFeasibility&&initiallyEmbedded&&
+    if((limits.probeBandDiagonalFeasibility||limits.stageBandDiagonalPreview)&&
+       initiallyEmbedded&&
        result.minimumQuality+1e-12>=limits.desiredMinimumQuality&&
        !survivingFaceNormals.empty()&&!result.usedMirroredRibbonFallback) {
         try {
@@ -1084,10 +1085,12 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                 std::vector<std::size_t>{};
             SpatialCapDiagonalProbeLimits search;
             search.minimumQuality=limits.desiredMinimumQuality;
+            SpatialCapPatch previewCandidate;
             const auto report=probeSpatialCapDiagonalFeasibility(
                 result,survivingFaceNormals,mirror,
                 [&](SpatialCapPatch& candidate){return embedded(candidate);},
-                search);
+                search,
+                limits.stageBandDiagonalPreview?&previewCandidate:nullptr);
             const auto deg=180./std::acos(-1.);
             std::cerr<<"[repair-r06-m19c-diagonals] candidates="
                      <<report.candidates
@@ -1111,6 +1114,19 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             for(const auto& orbit:report.acceptedQuadOrbits)
                 std::cerr<<orbit[0]<<":"<<orbit[1]<<";";
             std::cerr<<" note=finite_local_flips_not_global_proof\n";
+            if(limits.stageBandDiagonalPreview) {
+                // Step-debug-only counterfactual. The selected patch has
+                // passed cap-local orientation/q/embedding preflight, NOT
+                // whole survivor+cap acceptance. The downstream original
+                // PRIVATE source-backed closure validator is unchanged.
+                if(report.improved)result=std::move(previewCandidate);
+                std::cerr<<"[repair-r06-m19d-provisional-stage]"
+                         <<" candidate_applied="<<report.improved
+                         <<" changed_faces_only=1"
+                         <<" minimum_cap_quality="<<result.minimumQuality
+                         <<" whole_mesh_certified=0"
+                         <<" publication=disabled\n";
+            }
         }catch(const std::exception& error) {
             std::cerr<<"[repair-r06-m19c-diagonals] unavailable="
                      <<error.what()<<"\n";
