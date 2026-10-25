@@ -30,16 +30,18 @@ Fixture curved(double curvature) {
     for(std::size_t i=0;i<f.rim.size();++i) {
         const auto j=(i+1)%f.rim.size();
         const auto midpoint=(f.rim[i]+f.rim[j])*.5;
-        const auto n=Vec3{-curvature*midpoint.x,
-                          -curvature*midpoint.y,1.};
+        // This fixture's clockwise cap rim has its outward normals
+        // toward -Z; survivor guidance must share that winding.
+        const auto n=Vec3{curvature*midpoint.x,
+                          curvature*midpoint.y,-1.};
         f.normals[j]=n/length(n);
         auto& s=f.tensors[j];
         s.hasEstimate=true;
         s.confidence=SurvivorCurvatureConfidence::Reliable;
         s.confidenceScore=1.;
-        s.seam=curvature;
+        s.seam=-curvature;
         s.mixed=0;
-        s.transverse=curvature;
+        s.transverse=-curvature;
     }
     return f;
 }
