@@ -56,6 +56,12 @@ void diagnose(bool symmetric) {
         base,normals,references,mirror,.75,visitor,limits);
     require(report.proposed<=limits.maxProposals&&
             inspected<=limits.maxProposals&&
+            report.normalOutwardProposals>0&&
+            report.normalInwardProposals>0&&
+            report.sampledPositivePlaneSide>0&&
+            report.sampledNegativePlaneSide>0&&
+            report.minSampledNormalDeltaOverEdge<-.01&&
+            report.maxSampledNormalDeltaOverEdge>.01&&
             report.bestWorstSeamRadians<=
                 report.baselineWorstSeamRadians+1e-10&&
             report.bestWorstCapRimRadians<=
@@ -84,6 +90,10 @@ void diagnose(bool symmetric) {
     const auto repeated=probeSpatialCapFirstRingFeasibility(
         base,normals,references,mirror,.75,visitor,limits);
     require(report.proposed==repeated.proposed&&
+            report.normalOutwardProposals==repeated.normalOutwardProposals&&
+            report.normalInwardProposals==repeated.normalInwardProposals&&
+            report.sampledPositivePlaneSide==repeated.sampledPositivePlaneSide&&
+            report.sampledNegativePlaneSide==repeated.sampledNegativePlaneSide&&
             report.bestWorstSeamRadians==repeated.bestWorstSeamRadians&&
             report.bestWorstCapRimRadians==repeated.bestWorstCapRimRadians,
             "M19A bounded search must be deterministic");
@@ -94,6 +104,12 @@ void diagnose(bool symmetric) {
              <<" best_seam="<<report.bestWorstSeamRadians
              <<" before_cap="<<report.baselineWorstCapRimRadians
              <<" best_cap="<<report.bestWorstCapRimRadians
+             <<" outward_trials="<<report.normalOutwardProposals
+             <<" inward_trials="<<report.normalInwardProposals
+             <<" plane_positive="<<report.sampledPositivePlaneSide
+             <<" plane_negative="<<report.sampledNegativePlaneSide
+             <<" normal_delta_min="<<report.minSampledNormalDeltaOverEdge
+             <<" normal_delta_max="<<report.maxSampledNormalDeltaOverEdge
              <<" all_refused_callback_seen="<<rejected<<"\n";
 }
 }
