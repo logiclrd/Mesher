@@ -10,7 +10,8 @@ RepairReplayStepSession::RepairReplayStepSession(
     bool seamAudit,bool exactOverlay,bool scaleAware,
     bool optimizeFront,bool optimizeCurvatureFront,bool guideCurvaturePoisson,
     bool probeSeamFeasibility,bool probeDiagonalFeasibility,
-    bool stageFeasibilityPreview,bool stageDiagonalPreview)
+    bool stageFeasibilityPreview,bool stageDiagonalPreview,
+    bool stageWholeCapFairingPreview)
     :saved_(std::move(saved)),classifier_(classifier),
      warningOnly_(warningOnly),seamAudit_(seamAudit),exactOverlay_(exactOverlay),
      scaleAware_(scaleAware),optimizeFront_(optimizeFront),
@@ -20,6 +21,7 @@ RepairReplayStepSession::RepairReplayStepSession(
      probeDiagonalFeasibility_(probeDiagonalFeasibility),
      stageFeasibilityPreview_(stageFeasibilityPreview),
      stageDiagonalPreview_(stageDiagonalPreview),
+     stageWholeCapFairingPreview_(stageWholeCapFairingPreview),
      trace_(std::make_shared<RepairStepTrace>()) {
     if(!saved_.candidate.index||saved_.contacts.empty())
         throw std::invalid_argument("R06-M16D step replay requires an exact archived case");
@@ -36,7 +38,7 @@ void RepairReplayStepSession::start() {
                     trace_,scaleAware_,optimizeFront_,optimizeCurvatureFront_,
                     guideCurvaturePoisson_,probeSeamFeasibility_,
                     probeDiagonalFeasibility_,stageFeasibilityPreview_,
-                    stageDiagonalPreview_);
+                    stageDiagonalPreview_,stageWholeCapFairingPreview_);
                 std::lock_guard lock(stateMutex_);
                 result_=std::move(value);
             }catch(const RepairStepCancelled&) {
@@ -189,6 +191,8 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
         lines.push_back("M19A PROVISIONAL POSITION PREVIEW - NOT CERTIFIED; NO PUBLICATION");
     if(stageDiagonalPreview_)
         lines.push_back("M19D PROVISIONAL DIAGONAL PREVIEW - NOT CERTIFIED; NO PUBLICATION");
+    if(stageWholeCapFairingPreview_)
+        lines.push_back("M21A OPTIONAL WHOLE-CAP FAIRING / VALID ORIGINAL FALLBACK; PRIVATE ONLY");
     if(state.cancelled)lines.push_back("WORKER CANCELLED - NO GEOMETRY REFUSAL");
     else if(!failure.empty())lines.push_back("WORKER ERROR: "+failure);
     else if(done&&final) {
