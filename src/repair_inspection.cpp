@@ -108,7 +108,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool symmetricSource,AutoClosureClassifier classifier,
                           bool warnQuality,
                           const std::shared_ptr<RepairStepTrace>& trace={},
-                          bool scaleAware=false) {
+                          bool scaleAware=false,bool optimizeFront=false) {
     // The opt-in producer may be paused on ANY initial cap/zipper operation.
     // Completion, refusal or intentional cancellation must release consumers,
     // without changing the ordinary synchronous replay or inspector path.
@@ -154,6 +154,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     CertifiedPrivateAutoLimits policy;
                     policy.closure.requireReflectedGeometry=symmetricSource;
                     policy.closure.scaleAwareRefinement=scaleAware;
+                    policy.closure.staging.optimizeSpatialFront=optimizeFront;
                     policy.planner.classifier=classifier;
                     if(trace)trace->attach(policy.closure,trace);
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
@@ -199,6 +200,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 limits.requireReflectedGeometry=symmetricSource;
                 limits.inspectionWarnQuality=true;
                 limits.scaleAwareRefinement=scaleAware;
+                limits.staging.optimizeSpatialFront=optimizeFront;
                 if(trace)trace->attach(limits,trace,true);
                 auto preview=applyPrivateMixedClosure(
                     *result->privateCut,result->excision,*result->autoPlan,limits);
@@ -410,7 +412,7 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
         }
     }
     if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_,
-                                        warnQuality_,{},scaleAware_);
+                                        warnQuality_,{},scaleAware_,optimizeFront_);
     result->exactOverlay=exactOverlay_;
     buildSeamAuditIfRequested(*result,auditSeam_||exactOverlay_);
     {
@@ -433,7 +435,8 @@ RepairInspectionSession::frozenSnapshot() const {
 std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality,
     bool auditSeam,bool exactOverlay,
-    std::shared_ptr<RepairStepTrace> stepTrace,bool scaleAware) {
+    std::shared_ptr<RepairStepTrace> stepTrace,
+    bool scaleAware,bool optimizeFront) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -478,7 +481,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
         }
     }
     runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality,
-                        stepTrace,scaleAware);
+                        stepTrace,scaleAware,optimizeFront);
     result->exactOverlay=exactOverlay;
     buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;
