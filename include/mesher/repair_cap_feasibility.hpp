@@ -34,6 +34,9 @@ struct SpatialCapFeasibility {
     double averageNormalInitialOffsetOverEdge{},normalSweepMaxOverEdge{},
            minSampledNormalDeltaOverEdge{std::numeric_limits<double>::infinity()},
            maxSampledNormalDeltaOverEdge{-std::numeric_limits<double>::infinity()};
+    // M19A6: accepted into the trial pool on each side of four
+    // signed displacement bands: 0.8, 1.6, 4, 8 median rim edges.
+    std::array<std::size_t,4> nearToFarPositiveSamples{},nearToFarNegativeSamples{};
     std::size_t proposed{},normalCandidates{},locallyAdmissible{},
                 acceptedRounds{},qualityRejected{},orientationRejected{},
                 scoreRejected{},contactRejected{};
@@ -42,10 +45,10 @@ struct SpatialCapFeasibility {
 };
 
 struct SpatialCapFeasibilityLimits {
-    std::size_t maxRounds=4,maxProposals=512;
+    std::size_t maxRounds=4,maxProposals=1024; // wide multiscale finite sweep
     double minimumQuality=.1;
-    double maximumDisplacementInEdgeScales=3.0; // double original cap so expanded normal sweep is reachable
-    double normalSweepEdgeScales=1.6; // M19A5: double original ±0.8 median-rim-edge sweep
+    double maximumDisplacementInEdgeScales=15.0; // M19A6: permit full 5x farther +/-8 trial
+    double normalSweepEdgeScales=8.0; // M19A6: 5x M19A5 range, retain original near bands
     // Only first-ring indexed vertices may move, optionally as mirrored
     // orbits. The fixed original rim and the central hub NEVER move.
 };
@@ -219,8 +222,12 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
             // Each proposal (even if q-refused) counts toward the finite
             // budget. The deterministic first tranche samples signed
             // moves from the CURRENT vertex for every visited edge.
-            const std::array<double,5> normalSteps{
-                -1.,-.5,0.,.5,1.};
+            // Do not replace fine samples with distant extremes. The
+            // old +/-0.8 and +/-1.6 positions remain, while +/−4
+            // and +/−8 are added. With 9 rather than 5 signed levels,
+            // the total finite proposal budget is raised proportionally.
+            const std::array<double,9> normalSteps{
+                -1.,-.5,-.2,-.1,0.,.1,.2,.5,1.};
             for(unsigned baseChoice=0;baseChoice<3;++baseChoice) {
                 if(baseChoice==2&&!credible)continue;
                 const auto baseTarget=baseChoice==0?c:
@@ -249,6 +256,16 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
                     report.minSampledNormalDeltaOverEdge,sampledDelta);
                 report.maxSampledNormalDeltaOverEdge=std::max(
                     report.maxSampledNormalDeltaOverEdge,sampledDelta);
+                if(baseChoice==0&&fraction==1.&&offset!=0.) {
+                    const auto magnitude=std::abs(offset);
+                    const std::array<double,4> levels{.1,.2,.5,1.};
+                    for(std::size_t band=0;band<levels.size();++band)
+                        if(std::abs(magnitude-levels[band])<1e-12) {
+                            if(offset>0)++report.nearToFarPositiveSamples[band];
+                            else ++report.nearToFarNegativeSamples[band];
+                            break;
+                        }
+                }
                 const auto localPlaneSign=dot(moved-planeTarget,normal);
                 if(localPlaneSign>1e-12)++report.sampledPositivePlaneSide;
                 if(localPlaneSign<-1e-12)++report.sampledNegativePlaneSide;
