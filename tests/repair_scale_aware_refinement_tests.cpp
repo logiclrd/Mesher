@@ -366,6 +366,22 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     probeBounds.probeFirstRingFeasibility=true;
                     const auto probedLocal=buildSpatialCapFrontPoisson(
                         ordered,normalGuide,probeBounds,&references);
+                    // M19C tests local diagonal counterfactuals using
+                    // the same source-indexed saved case; like M19A it
+                    // MUST NOT publish or alter the selected cap.
+                    auto diagonalBounds=guidedBounds;
+                    diagonalBounds.probeBandDiagonalFeasibility=true;
+                    const auto diagonalProbed=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,diagonalBounds,&references);
+                    require(diagonalProbed.faces==guidedLocal.faces&&
+                            diagonalProbed.positions.size()==guidedLocal.positions.size()&&
+                            diagonalProbed.minimumQuality==guidedLocal.minimumQuality,
+                            "M19C cannot change original staged topology/quality");
+                    for(std::size_t k=0;k<guidedLocal.positions.size();++k)
+                        require(diagonalProbed.positions[k].x==guidedLocal.positions[k].x&&
+                                diagonalProbed.positions[k].y==guidedLocal.positions[k].y&&
+                                diagonalProbed.positions[k].z==guidedLocal.positions[k].z,
+                                "M19C counterfactual cannot change actual staged geometry");
                     require(probedLocal.faces==guidedLocal.faces&&
                             probedLocal.positions.size()==guidedLocal.positions.size()&&
                             probedLocal.minimumQuality==guidedLocal.minimumQuality,
