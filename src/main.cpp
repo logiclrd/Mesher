@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     bool repairQualityWarn = false,repairScaleAware=false,
          repairFrontOptimize=false,repairCurvatureOptimize=false,
          repairCurvaturePoisson=false,repairFeasibilityProbe=false,
-         repairDiagonalProbe=false;
+         repairDiagonalProbe=false,repairFeasibilityPreview=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
@@ -101,6 +101,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-curvature-optimize")repairCurvatureOptimize=true;
             else if(arg=="--repair-curvature-poisson")repairCurvaturePoisson=true;
             else if(arg=="--repair-feasibility-probe")repairFeasibilityProbe=true;
+            else if(arg=="--repair-feasibility-preview")repairFeasibilityPreview=true;
             else if(arg=="--repair-diagonal-probe")repairDiagonalProbe=true;
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
@@ -245,6 +246,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-curvature-optimize] (M18D opt-in bounded cap seam-continuity placement; auto/replay only, combine with --repair-front-optimize for refusal-1)\n"
                          <<"       [--repair-curvature-poisson] (M18E opt-in fixed-rim directional curvature-guided Poisson solve; auto/replay only)\n"
                          <<"       [--repair-feasibility-probe] (M19A read-only finite tangent-plane/orbit position search, no cap edits)\n"
+                         <<"       [--repair-feasibility-preview] (M19A provisional candidate positions in step debugger ONLY; private, NOT CERTIFIED)\n"
                          <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
@@ -314,6 +316,8 @@ int main(int argc, char** argv) {
         if(repairScaleAware&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
+        if(repairFeasibilityPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
+            throw std::invalid_argument("--repair-feasibility-preview requires interactive --repair-step-debug --repair-replay FILE");
         if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
             throw std::invalid_argument(
                 "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
@@ -369,7 +373,7 @@ int main(int argc, char** argv) {
                     repairSeamAudit,repairOverlayExact,repairScaleAware,
                     repairFrontOptimize,repairCurvatureOptimize,
                     repairCurvaturePoisson,repairFeasibilityProbe,
-                    repairDiagonalProbe);
+                    repairDiagonalProbe,repairFeasibilityPreview);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
