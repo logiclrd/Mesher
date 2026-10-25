@@ -2,6 +2,7 @@
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
+#include "mesher/repair_cap_continuity.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -164,6 +165,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             // it changes no positions, topology, or closure admission.
             if(bounds.optimizeSpatialFront) {
                 const auto profile=measureSpatialCapRimProfile(patch,guidance);
+                std::vector<SurvivorDirectionalCurvature> incomingReference(n);
                 std::ostringstream report;
                 report<<std::setprecision(17)
                       <<"[repair-r06-rim-profile] loop="<<id
@@ -207,6 +209,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                         const auto curvature=estimateSurvivorDirectionalCurvature(
                             result.positions().at(a),result.positions().at(b),
                             neighborhood);
+                        incomingReference[(k+1)%n]=curvature;
                         report<<" curvature_status="
                               <<survivorCurvatureConfidenceName(curvature.confidence)
                               <<" curvature_samples="<<curvature.contributingFaces
@@ -227,6 +230,57 @@ MixedClosureStaging stagePrivateMixedClosure(
                               <<" curvature_reason="<<e.what();
                     }
                     report<<"\n";
+                }
+                // M18C compares CAP-side curvature against the exact
+                // survivor tensor, without treating q>=.10 as proof of
+                // normal continuity or trusting high-error tensor fits.
+                try {
+                    const auto comparison=measureSpatialCapContinuity(
+                        patch,guidance,incomingReference);
+                    report<<"[repair-r06-continuity] loop="<<id
+                          <<" measured_boundary_edges="<<comparison.measuredBoundaryEdges
+                          <<" max_boundary_jump_deg="
+                          <<comparison.maximumBoundaryJumpRadians*(180./std::acos(-1.))
+                          <<" mean_boundary_jump_deg="
+                          <<comparison.meanBoundaryJumpRadians*(180./std::acos(-1.))
+                          <<" mean_boundary_fairness_score="
+                          <<comparison.meanBoundaryAndFairnessScore
+                          <<" directional_measured="<<comparison.directionalMeasuredEdges
+                          <<" directional_qualified="<<comparison.directionalQualifiedEdges
+                          <<" directional_unqualified="<<comparison.lowConfidenceEdges
+                          <<" mean_qualified_directional_mismatch="
+                          <<comparison.meanQualifiedDirectionalMismatch<<"\\n";
+                    for(const auto& item:comparison.edges) {
+                        const auto k=item.rim.rimStart;
+                        const auto a=loop.vertexIds[n-1-k];
+                        const auto b=loop.vertexIds[n-1-((k+1)%n)];
+                        report<<"[repair-r06-continuity-edge] loop="<<id
+                              <<" rim_edge="<<a<<","<<b
+                              <<" boundary_jump_deg="
+                              <<item.boundaryNormalJumpRadians*(180./std::acos(-1.))
+                              <<" interior_fairness_deg="
+                              <<item.capInteriorFairnessRadians*(180./std::acos(-1.))
+                              <<" boundary_fairness_score="
+                              <<item.boundaryAndFairnessScore
+                              <<" cap_status="
+                              <<survivorCurvatureConfidenceName(item.cap.confidence)
+                              <<" cap_confidence="<<item.cap.confidenceScore
+                              <<" reference_confidence="<<item.survivor.confidenceScore
+                              <<" directional_measured="<<item.directionalMeasured
+                              <<" directional_qualified="<<item.directionalQualified;
+                        if(item.directionalMeasured)
+                            report<<" cap_k_tt="<<item.cap.seam
+                                  <<" cap_k_tu="<<item.cap.mixed
+                                  <<" cap_k_uu="<<item.cap.transverse
+                                  <<" h_delta_tt="<<item.deltaSeamScaled
+                                  <<" h_delta_tu="<<item.deltaMixedScaled
+                                  <<" h_delta_uu="<<item.deltaTransverseScaled
+                                  <<" scaled_tensor_mismatch="<<item.directionalMismatchScaled;
+                        report<<"\\n";
+                    }
+                }catch(const std::exception& error) {
+                    report<<"[repair-r06-continuity] loop="<<id
+                          <<" diagnostic_unavailable="<<error.what()<<"\\n";
                 }
                 std::cerr<<report.str();
             }
