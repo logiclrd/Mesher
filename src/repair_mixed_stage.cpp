@@ -145,13 +145,37 @@ MixedClosureStaging stagePrivateMixedClosure(
             try {
                 SpatialCapSettings spatial;
                 spatial.repairTangentialOvershoot=bounds.optimizeSpatialFront;
+                spatial.optimizeBoundaryContinuity=bounds.optimizeCurvatureFront;
                 spatial.desiredMinimumQuality=bounds.targetInitialCapQuality;
                 spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x<0;})&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x>0;});
-                patch=buildSpatialCapFrontPoisson(ordered,guidance,spatial);
+                std::vector<SurvivorDirectionalCurvature> references;
+                if(bounds.optimizeCurvatureFront) {
+                    references.resize(n);
+                    for(std::size_t k=0;k<n;++k) {
+                        // Outgoing cap edge k->k+1 corresponds to the
+                        // reversed ORIGINAL R03 surviving FaceId.
+                        const auto original=(2*n-2-k)%n;
+                        const auto id=loop.survivingFaces.at(original);
+                        try {
+                            const auto neighbors=
+                                collectSurvivorCurvatureNeighborhood(mesh,id);
+                            references[(k+1)%n]=
+                                estimateSurvivorDirectionalCurvature(
+                                    ordered[k],ordered[(k+1)%n],neighbors);
+                        }catch(const std::exception&) {
+                            // The M18C evaluator rejects unknown *tensor
+                            // evidence* but can still measure real boundary
+                            // normals. Never fake a trusted curvature fit.
+                        }
+                    }
+                }
+                patch=buildSpatialCapFrontPoisson(
+                    ordered,guidance,spatial,
+                    bounds.optimizeCurvatureFront?&references:nullptr);
             }catch(const std::exception& failed) {
                 throw std::logic_error(
                     std::string("R06-M06C projected cap unavailable: ")+
