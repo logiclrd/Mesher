@@ -1055,6 +1055,23 @@ that would erase sculpted intentional creases.
         ordinary no-preview geometry. User test remains pending.
       Note: the proposed 0.5*nearest-connected-neighbor bound and
       directional binary search are NOT implemented by this experiment.
+    - [ ] **M19A5 — Actually double the original signed normal sweep.**
+      - [x] **M19A5a — Extend candidate reach with an effective guard.**
+        Replace M19A4's 1.0 median-edge normal coefficient with 1.6
+        (twice M19A2's original 0.8). Double the old independent 1.5
+        median-edge maximum displacement to 3.0 so ±1.6 samples are
+        genuinely reachable, while preserving the 512 candidate /
+        four-round finite bounds, original rim and reflection, q>=0.10,
+        contact, winding and private publication gates. A pure regression
+        checks both ±1.55-or-greater sampled offsets. See
+        [experiment/test instructions](docs/R06_M19A5_DOUBLE_NORMAL_SWEEP.md).
+      - [ ] **M19A5b — Physical Vulkan comparison/acceptance.**
+        Compare exact `refusal-1` step 53/54 against the user's
+        preceding 1.0-coefficient screenshot and unchanged no-preview
+        baseline; record actual selected offsets, quality, remaining
+        visible fold, mirrored view and final PRIVATE verdict.
+      This is finite sampled search, not the user's distinct proposed
+      adaptive nearest-connected-neighbor bounded bilateral 1D solver.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
     - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
       Exact `refusal-1` before/after cap bytes match for both probes;
