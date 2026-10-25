@@ -119,6 +119,14 @@ if(MESHER_BUILD_TESTS)
                  COMMAND Mesher --repair-diagonal-probe)
         set_tests_properties(repair_r06_m19c_reject_diagonal_probe_without_auto
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m19a_reject_preview_without_step
+                 COMMAND Mesher --repair-feasibility-preview)
+        add_test(NAME repair_r06_m19a_reject_preview_without_step_replay
+                 COMMAND Mesher --repair-feasibility-preview --repair-replay-test bogus.r06case)
+        set_tests_properties(
+            repair_r06_m19a_reject_preview_without_step
+            repair_r06_m19a_reject_preview_without_step_replay
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m19a_reject_probe_without_auto
                  COMMAND Mesher --repair-feasibility-probe)
         set_tests_properties(repair_r06_m19a_reject_probe_without_auto
