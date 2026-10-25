@@ -41,7 +41,8 @@ int main(int argc, char** argv) {
     bool repairCap = false;
     bool repairAuto = false;
     bool repairDumpContours = false;
-    bool repairQualityWarn = false,repairScaleAware=false;
+    bool repairQualityWarn = false,repairScaleAware=false,
+         repairFrontOptimize=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
@@ -94,6 +95,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
             else if(arg=="--repair-step-debug")repairStepDebug=true;
             else if(arg=="--repair-scale-aware")repairScaleAware=true;
+            else if(arg=="--repair-front-optimize")repairFrontOptimize=true;
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
@@ -233,6 +235,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
                          <<"       [--repair-scale-aware] (experimental M17C bounded quality-aware splitting; auto/replay only)\n"
+                         <<"       [--repair-front-optimize] (experimental M17D mirrored Poisson ring correction; auto/replay only)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
@@ -285,6 +288,9 @@ int main(int argc, char** argv) {
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
             throw std::invalid_argument("--repair-case-out requires --repair auto");
+        if(repairFrontOptimize&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-front-optimize requires --repair auto or --repair-replay[-test]");
         if(repairScaleAware&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
@@ -340,7 +346,8 @@ int main(int argc, char** argv) {
                     throw std::runtime_error("R06 stepped replay has no candidate");
                 auto session=std::make_shared<mesher::RepairReplayStepSession>(
                     saved,repairClassifier,repairQualityWarn,
-                    repairSeamAudit,repairOverlayExact,repairScaleAware);
+                    repairSeamAudit,repairOverlayExact,repairScaleAware,
+                    repairFrontOptimize);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
@@ -362,7 +369,8 @@ int main(int argc, char** argv) {
             }
             const auto frozen=mesher::replayPrivateAutomaticRepair(
                 saved,repairClassifier,repairQualityWarn,
-                repairSeamAudit,repairOverlayExact,{},repairScaleAware);
+                repairSeamAudit,repairOverlayExact,{},repairScaleAware,
+                repairFrontOptimize);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -726,7 +734,8 @@ int main(int argc, char** argv) {
             ?std::make_shared<mesher::RepairInspectionSession>(
                 repairPreview,repairExcise,repairZipper,repairCap,
                 repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
-                repairSeamAudit,repairOverlayExact,repairScaleAware):nullptr;
+                repairSeamAudit,repairOverlayExact,repairScaleAware,
+                repairFrontOptimize):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
