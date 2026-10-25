@@ -343,7 +343,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
                          <<continuation.directionalMeasuredEdges
                          <<" qualified_mismatch="
                          <<continuation.meanQualifiedDirectionalMismatch
-                         <<"\\n";
+                         <<"\n";
                 if(!alternative)
                     require(affected==1,
                         "M18A initial refusal-1 must include exact boundary edge 3207,5470");
