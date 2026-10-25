@@ -1000,11 +1000,30 @@ that would erase sculpted intentional creases.
   Following the M18E physical ripple, distinct read-only tests found
   meaningful LOCAL improvement by changing indexed connectivity.
   - [x] **M19A — Bounded fixed-connectivity positional probe.**
-    CPU accepted: 96 proposals, 8 cap-locally admissible;
-    worst seam **52.970 -> 52.970 deg**, worst cap-rim fold
-    **129.27 -> 124.03 deg**, minimum q unchanged .117503.
+    Original CPU-accepted plane-limited probe: 96 proposals, 8
+    cap-locally admissible; worst seam **52.970 -> 52.970 deg**,
+    worst cap-rim fold **129.27 -> 124.03 deg**, q .117503.
     No staged geometry or source vertices changed. Independent
     `--repair-feasibility-probe` defaults off.
+    - [x] **M19A2 — Bilateral survivor-average-normal 3D candidate sweep.**
+      User identified that interpolation toward a single survivor
+      tangent plane could not sample positions beyond it. Independent
+      *read-only* probe now searches signed normal offsets around
+      current, tangent-plane and confident curvature-continuation
+      origins in both directions (up to 0.8 median-edge lengths),
+      preserving all original geometric gates. Corrected accidental
+      reflection of non-symmetric proposals. On original `refusal-1`:
+      512 tested, 7 locally admissible, 3 accepted rounds; worst seam
+      **52.970 -> 52.970 deg** (still unresolved), worst cap-rim bend
+      **129.27 -> 92.28 deg**, mean score **.272759 -> .204093**,
+      q unchanged **.117503**. 216 negative + 216 positive normal
+      proposals; both sides of actual tangent planes sampled.
+      [CI #40187905326](https://github.com/logiclrd/Mesher/actions/runs/40187905326)
+      **SUCCESS**, 122/122 on GCC, Clang and Windows MSVC `/W4 /WX`
+      at tested code commit
+      `5bcdc9a9b88a5fd6d9f8e4b7afb6292e3e3a82c2`.
+      [Details](docs/R06_M19_FEASIBILITY_ACCEPTANCE.md).
+      These are local finite counterfactuals; no staging or publication.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
     - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
       Exact `refusal-1` before/after cap bytes match for both probes;
