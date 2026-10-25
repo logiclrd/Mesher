@@ -127,6 +127,14 @@ if(MESHER_BUILD_TESTS)
             repair_r06_m19a_reject_preview_without_step
             repair_r06_m19a_reject_preview_without_step_replay
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m21a_reject_fairing_preview_without_step
+                 COMMAND Mesher --repair-whole-cap-fairing-preview)
+        add_test(NAME repair_r06_m21a_reject_fairing_preview_in_headless_replay
+                 COMMAND Mesher --repair-whole-cap-fairing-preview --repair-replay-test bogus.r06case)
+        set_tests_properties(
+            repair_r06_m21a_reject_fairing_preview_without_step
+            repair_r06_m21a_reject_fairing_preview_in_headless_replay
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m19d_reject_diagonal_preview_without_step
                  COMMAND Mesher --repair-diagonal-preview)
         add_test(NAME repair_r06_m19d_reject_diagonal_preview_without_step_replay
@@ -421,6 +429,14 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m19c_diagonal_feasibility
              COMMAND mesher_repair_cap_diagonal_feasibility_tests)
     set_tests_properties(repair_r06_m19c_diagonal_feasibility
+        PROPERTIES TIMEOUT 15)
+    # M21A: opportunistic entire-cap curvature/normal fairness.
+    add_executable(mesher_repair_cap_whole_fairing_tests
+                   tests/repair_cap_whole_fairing_tests.cpp)
+    target_link_libraries(mesher_repair_cap_whole_fairing_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m21a_whole_cap_fairing_fallback
+             COMMAND mesher_repair_cap_whole_fairing_tests)
+    set_tests_properties(repair_r06_m21a_whole_cap_fairing_fallback
         PROPERTIES TIMEOUT 15)
     # M19A: diagnostics-only finite positional feasibility search.
     add_executable(mesher_repair_cap_feasibility_tests
