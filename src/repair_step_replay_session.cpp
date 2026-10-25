@@ -8,11 +8,12 @@ namespace mesher {
 RepairReplayStepSession::RepairReplayStepSession(
     RepairCase saved,AutoClosureClassifier classifier,bool warningOnly,
     bool seamAudit,bool exactOverlay,bool scaleAware,
-    bool optimizeFront,bool optimizeCurvatureFront)
+    bool optimizeFront,bool optimizeCurvatureFront,bool guideCurvaturePoisson)
     :saved_(std::move(saved)),classifier_(classifier),
      warningOnly_(warningOnly),seamAudit_(seamAudit),exactOverlay_(exactOverlay),
      scaleAware_(scaleAware),optimizeFront_(optimizeFront),
      optimizeCurvatureFront_(optimizeCurvatureFront),
+     guideCurvaturePoisson_(guideCurvaturePoisson),
      trace_(std::make_shared<RepairStepTrace>()) {
     if(!saved_.candidate.index||saved_.contacts.empty())
         throw std::invalid_argument("R06-M16D step replay requires an exact archived case");
@@ -26,7 +27,8 @@ void RepairReplayStepSession::start() {
             try {
                 auto value=replayPrivateAutomaticRepair(
                     saved_,classifier_,warningOnly_,seamAudit_,exactOverlay_,
-                    trace_,scaleAware_,optimizeFront_,optimizeCurvatureFront_);
+                    trace_,scaleAware_,optimizeFront_,optimizeCurvatureFront_,
+                    guideCurvaturePoisson_);
                 std::lock_guard lock(stateMutex_);
                 result_=std::move(value);
             }catch(const RepairStepCancelled&) {
