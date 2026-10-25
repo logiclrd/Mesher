@@ -961,24 +961,41 @@ that would erase sculpted intentional creases.
   tensor matching. [Details](docs/R06_M18D_ACCEPTANCE.md).
   **Physical Vulkan visual acceptance remains open in M18F/M17E**;
   residual 53-degree fold is not declared visually smooth.
-- [ ] **R06-M18E — Curvature guidance in spatial Poisson construction.**
+- [x] **R06-M18E — Curvature guidance in spatial Poisson construction.**
   Only after M18D gives measured benefits, incorporate trustworthy survivor
   directional guidance into the fixed-rim solver, with finite convergence,
   sensitivity and intentional-crease controls. Do not pretend new initial
   seeds alter a fully converged old Poisson solution.
-  - [ ] **M18E1 — Opt-in fixed-rim, tensor-guided Poisson objective.**
+  - [x] **M18E1 — Opt-in fixed-rim, tensor-guided Poisson objective.**
     Construct bounded, confidence-weighted normal-direction constraints
     from true survivor k_tt/k_tu/k_uu and indexed cap-edge inward vertices.
     Converge the constraint inside the Poisson iteration itself, with exact
     X=0 mirror orbits, bounded displacement, and a no-change fallback if
     guidance is unreliable or the candidate is less sound. Never modify
     source R03 boundary, hub identity, or accepted hard gates.
-  - [ ] **M18E2 — Full replay wiring, exact-case/fixture regressions.**
+  - [x] **M18E2 — Full replay wiring, exact-case/fixture regressions.**
     Separate `--repair-curvature-poisson` knob, off by default; compare
     legacy, M17C+D, M18D and M18E on original refusal-1. Synthetic
     curved, flat, crease and mirror tests must expose actual guidance
     effects and finite bounded no-op behavior; pass GCC, Clang and MSVC.
     Inspect user physical Vulkan before calling the surface visually smooth.
+  **CPU accepted (opt-in, NOT visually accepted), Oct 25, 2026:**
+  [CI #40172858372](https://github.com/logiclrd/Mesher/actions/runs/40172858372)
+  SUCCESS at tested code head `03cfb86d211b69786712d9eed4f7f64972da69c0`:
+  118/118 CPU tests on GCC, Clang and Windows MSVC `/W4 /WX`.
+  Independent `--repair-curvature-poisson` adds a second fixed-rim
+  Poisson solve with bounded, confidence-weighted k_tt/k_tu/k_uu
+  survivor-curvature constraints, M17D position fidelity and exact
+  reflected orbits. 3 bounded guidance strengths use the same local
+  pairwise-contact budget, strict shape floor and full private closure
+  certification. `refusal-1` **M18D alone -> M18D+M18E** first-ring
+  continuity score **.286845 -> .272759** (~4.9% better);
+  worst rim fold **53.0138 -> 52.9699 deg** (almost unchanged);
+  minimum initial q **.160241 -> .117503** (still >=.10).
+  Guided solve accepted after 23 converged iterations, private full
+  closure still certifies; original source and saved files remain
+  unchanged. [Acceptance report](docs/R06_M18E_ACCEPTANCE.md).
+  **M18F and M17E remain open: no smooth Vulkan result claimed.**
 - [ ] **R06-M18F — CPU and physical Vulkan acceptance.**
   Compare default/M17C/M17D/M18 on all five unchanged archived cases plus
   healthy reflected/ordinary sphere, torus, zipper, intentional crease and
