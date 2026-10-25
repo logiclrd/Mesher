@@ -691,6 +691,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                     const auto baseline=compare(result);
                     beforeScore=baseline.first;
                     double bestScore=baseline.first;
+                    SpatialCapPatch acceptedPatch=result;
                     // Damped guidance is a homotopy toward the converged
                     // constrained Poisson solution. An overstrong curvature
                     // term may invert a nearby cap triangle; reject that
@@ -749,10 +750,10 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         bestScore=proposedMetric.first;
                         afterScore=bestScore;
                         selectedStrength=fraction;
-                        guided=std::move(proposed);
+                        acceptedPatch=std::move(proposed);
                         accepted=true;
                     }
-                    if(accepted)result=std::move(guided);
+                    if(accepted)result=std::move(acceptedPatch);
                 }catch(const std::exception&) {
                     // Missing/invalid guidance cannot alter a valid baseline.
                 }
