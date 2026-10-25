@@ -154,6 +154,30 @@ certifies, and the original case remains unchanged. A residual
 53-degree fold may be visually suboptimal; CPU acceptance does not
 finish M18F or M17E physical GPU acceptance.
 
+## M18E implementation and CPU acceptance (physical fold unresolved)
+
+M18E has implemented an independently opt-in, confidence-weighted
+survivor curvature term in a second **fixed-R03-rim Poisson solve**,
+run AFTER legal M17D shape repair and before M18D's bounded final
+first-ring position search. It uses true survivor `S_tt,S_tu,S_uu`
+with source-normal confidence and a bounded positional-fidelity term
+to keep M17D's necessary tangential improvements. Correct winding,
+q, contact budgets and private-only output remain strictly unchanged.
+A three-amplitude line search allows finite strength backoff.
+
+[Detailed M18E CPU acceptance](R06_M18E_ACCEPTANCE.md) demonstrates
+[CI #40172858372](https://github.com/logiclrd/Mesher/actions/runs/40172858372)
+successful 118/118 on Linux GCC/Clang and Windows MSVC. The exact
+`refusal-1` combined M18D+E result modestly reduces normal/fairness
+score from .286845 to .272759 but retains a **52.97-degree worst
+cap/survivor fold**, while minimum q declines from .160241 to .117503
+(both above the original .10 hard floor). This is objective-level
+progress, **not** a visually smooth surface guarantee.
+
+M18F remains open: same-angle real GPU surface examination, all five
+saved cases and healthy/crease fixtures. Additional geometry/topology
+revision may be necessary if the visible ripple persists.
+
 ## Future acceptance
 M18F remains open until the user physically inspects the same localized
 fold on Linux and Windows Vulkan. M17E continues to cover the broader
