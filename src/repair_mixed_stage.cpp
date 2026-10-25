@@ -3,6 +3,7 @@
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
 #include "mesher/repair_cap_continuity.hpp"
+#include "mesher/repair_cap_anomaly.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -142,6 +143,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 guidance.push_back(normal);
             }
             SpatialCapPatch patch;
+            std::vector<SurvivorDirectionalCurvature> references;
             try {
                 SpatialCapSettings spatial;
                 spatial.repairTangentialOvershoot=bounds.optimizeSpatialFront;
@@ -157,9 +159,9 @@ MixedClosureStaging stagePrivateMixedClosure(
                                 [](Vec3 v){return v.x<0;})&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x>0;});
-                std::vector<SurvivorDirectionalCurvature> references;
                 if(bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                   bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview) {
+                   bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview||
+                   bounds.diagnoseRecursiveCap) {
                     references.resize(n);
                     for(std::size_t k=0;k<n;++k) {
                         // Outgoing cap edge k->k+1 corresponds to the
@@ -182,7 +184,8 @@ MixedClosureStaging stagePrivateMixedClosure(
                 patch=buildSpatialCapFrontPoisson(
                     ordered,guidance,spatial,
                     (bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                     bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview)?
+                     bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview||
+                     bounds.diagnoseRecursiveCap)?
                         &references:nullptr);
             }catch(const std::exception& failed) {
                 throw std::logic_error(
@@ -334,6 +337,46 @@ MixedClosureStaging stagePrivateMixedClosure(
                 result.stageProvisionalVertex(provisional,
                     patch.positions[k],owner,bounds.maxNewTriangles);
                 ids.push_back(provisional);
+            }
+            if(bounds.diagnoseRecursiveCap) {
+                std::ostringstream summary;
+                std::vector<PrivateRepairTriangle> suspectFaces;
+                std::vector<std::vector<VertexId>> candidateRims;
+                try {
+                    const auto analysis=diagnoseSpatialCapAnomaly(
+                        patch,guidance,references,patch.reflectedOrbits);
+                    for(const auto ordinal:analysis.suspectFaces) {
+                        const auto& face=patch.faces.at(ordinal);
+                        suspectFaces.push_back({ids.at(face[0]),
+                                                ids.at(face[1]),ids.at(face[2])});
+                    }
+                    for(const auto& local:analysis.secondaryContours) {
+                        std::vector<VertexId> originalIds;
+                        for(const auto vertex:local)
+                            originalIds.push_back(ids.at(vertex));
+                        candidateRims.push_back(std::move(originalIds));
+                    }
+                    summary<<"M20A DIAG CAP_FACES="<<analysis.suspectFaces.size()
+                           <<" SECONDARY_LOOPS="<<candidateRims.size()
+                           <<" INTERIOR_EDGES="<<analysis.measuredInteriorEdges
+                           <<" SUSPECT_EDGES="<<analysis.suspectedInteriorEdges
+                           <<" LOW_CONFIDENCE="<<analysis.unreliableSourceEdges
+                           <<" ORIGINAL_CREASE_EDGES="<<analysis.sourceCreaseEdges
+                           <<" TOUCHES_R03="<<analysis.touchesOriginalRim
+                           <<" WORST_UNEXPLAINED_DEG="
+                           <<analysis.worstUnexplainedJumpRadians*
+                              (180./std::acos(-1.));
+                    if(!analysis.refusal.empty())
+                        summary<<" UNAVAILABLE="<<analysis.refusal;
+                }catch(const std::exception& error) {
+                    summary<<"M20A DIAGNOSTIC_UNAVAILABLE="<<error.what();
+                }
+                result.recordCapAnomalyPreview(
+                    std::move(suspectFaces),std::move(candidateRims),
+                    summary.str());
+                // Diagnostic-only stage frame, before the first cap face.
+                result.reportRefinementAttempt("DiagnoseCapAnomaly",summary.str());
+                std::cerr<<"[repair-r06-m20a] "<<summary.str()<<"\n";
             }
             for(const auto& t:patch.faces)
                 addFace({0,owner,{ids[t[0]],ids[t[1]],ids[t[2]]},
