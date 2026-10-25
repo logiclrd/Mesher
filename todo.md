@@ -869,7 +869,7 @@ separately certified planar tips), finite budgets, intersection/topology gates,
 and private-only all-or-nothing refusal. No unwarranted hard curvature veto
 that would erase sculpted intentional creases.
 
-- [ ] **R06-M18A — Read-only rim profile and exact refusal-1 diagnosis.**
+- [x] **R06-M18A — Read-only rim profile and exact refusal-1 diagnosis.**
   Add deterministic local-cap/survivor per-edge normal/dihedral, edge scale,
   signed cross-rim first-ring offset and missing-data reporting. Correctly
   match each REVERSED cap edge to its original survivor FaceId, using stable
@@ -878,6 +878,17 @@ that would erase sculpted intentional creases.
   with regression tests for flat, angled, reversed winding, reflection and
   missing source normals. Report concrete face/edge IDs where available;
   no change to Poisson, vertex positions, topology, hard gates or publication.
+  **CPU accepted (diagnostics only), Oct 24, 2026:** exact code HEAD
+  `41283131f220e4fbe9670d194c6a035ca7962075`, [CI #40151415165](https://github.com/logiclrd/Mesher/actions/runs/40151415165)
+  SUCCESS on Linux GCC, Linux Clang and Windows MSVC `/W4 /WX`,
+  113/113 CPU tests. A pure `measureSpatialCapRimProfile` calculates
+  cap-to-original-survivor signed dihedral and cap opposite-corner offset,
+  with explicit unavailable normal status and indexed FACE matching;
+  original `refusal-1` test reports baseline/optimized edge 3207,5470
+  and verifies source FaceId identity. With `--repair-front-optimize`,
+  R06 emits `[repair-r06-rim-profile]` and per-edge diagnostic lines
+  before staging provisional cap vertices. **This is NOT yet a curvature
+  tensor, surface-quality cure, or physical Vulkan acceptance.**
 - [ ] **R06-M18B — Directional survivor curvature and confidence.**
   Fit a bounded, robust 2x2 shape-operator estimate from a small connected
   survivor neighborhood around each rim edge, with seam-tangent, inward
