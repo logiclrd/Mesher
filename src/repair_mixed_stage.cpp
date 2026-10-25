@@ -175,7 +175,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                       <<profile.meanAbsoluteDihedralRadians*
                          (180./std::acos(-1.))
                       <<" max_abs_first_ring_normal_offset_over_edge="
-                      <<profile.maximumAbsoluteNormalizedOffset<<"\\n";
+                      <<profile.maximumAbsoluteNormalizedOffset<<"\n";
                 for(const auto& entry:profile.edges) {
                     const auto k=entry.rimStart;
                     const auto sourceIndex=(2*n-2-k)%n;
@@ -197,7 +197,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                               <<" first_ring_normal_offset_over_edge="
                               <<entry.normalizedFirstRingNormalOffset
                               <<" foot_t="<<entry.oppositeFootParameter;
-                    report<<"\\n";
+                    report<<"\n";
                 }
                 std::cerr<<report.str();
             }
