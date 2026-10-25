@@ -5,6 +5,7 @@
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
 #include "mesher/repair_cap_continuity.hpp"
+#include "mesher/repair_cap_whole_fairing.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -391,6 +392,35 @@ void refusalOneRealSavedCaseAttemptTrace() {
                             ++previewMoved;
                     require(previewMoved>0,
                             "M19A step preview must actually stage different inward ring positions");
+                    // M21A exact archived counterfactual: decline is
+                    // a valid result and MUST preserve the original cap.
+                    auto fairingBounds=previewBounds;
+                    fairingBounds.stageWholeCapFairingPreview=true;
+                    const auto fairingLocal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,fairingBounds,&references);
+                    const auto fairBefore=measureSpatialCapFairing(
+                        previewLocal,normalGuide);
+                    const auto fairAfter=measureSpatialCapFairing(
+                        fairingLocal,normalGuide);
+                    require(fairingLocal.faces==previewLocal.faces&&
+                            fairingLocal.positions.size()==previewLocal.positions.size()&&
+                            fairingLocal.minimumQuality+1e-12>=.1&&
+                            fairAfter.total<=fairBefore.total+1e-8&&
+                            fairAfter.worstInteriorRadians<=
+                                fairBefore.worstInteriorRadians+1e-8&&
+                            fairAfter.worstSeamRadians<=
+                                fairBefore.worstSeamRadians+1e-8,
+                            "M21A fairing may not worsen original valid refusal-1");
+                    for(std::size_t k=0;k<ordered.size();++k)
+                        require(fairingLocal.positions[k].x==ordered[k].x&&
+                                fairingLocal.positions[k].y==ordered[k].y&&
+                                fairingLocal.positions[k].z==ordered[k].z,
+                                "M21A archived fairing changed fixed original rim");
+                    std::cout<<"[r06-m21a-refusal-1] baseline_score="
+                             <<fairBefore.total<<" fairing_score="<<fairAfter.total
+                             <<" baseline_min_q="<<previewLocal.minimumQuality
+                             <<" selected_min_q="<<fairingLocal.minimumQuality
+                             <<" original_rim_unchanged=1 private_only=1\n";
                     const auto previewProfile=measureSpatialCapRimProfile(
                         previewLocal,normalGuide);
                     const auto originalProfile=measureSpatialCapRimProfile(
