@@ -993,7 +993,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             if(acceptedMoves)result=std::move(current);
         }
     }
-    if(limits.probeFirstRingFeasibility&&initiallyEmbedded&&
+    if((limits.probeFirstRingFeasibility||limits.stageFirstRingFeasibilityPreview)&&initiallyEmbedded&&
        result.minimumQuality+1e-12>=limits.desiredMinimumQuality&&
        !survivingFaceNormals.empty()) {
         // M19A does NOT alter the resulting cap. This counterfactual
@@ -1007,10 +1007,13 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         try {
             const auto& mirror=limits.requireMirrorPlane?partner:
                 std::vector<std::size_t>{};
+            SpatialCapPatch previewCandidate;
             const auto report=probeSpatialCapFirstRingFeasibility(
                 result,survivingFaceNormals,sources,mirror,h,
                 [&](SpatialCapPatch& candidate){return embedded(candidate);},
-                probeLimits);
+                probeLimits,
+                limits.stageFirstRingFeasibilityPreview?
+                    &previewCandidate:nullptr);
             const auto deg=180./std::acos(-1.);
             std::cerr<<"[repair-r06-m19a-feasibility] candidates="
                      <<report.proposed
@@ -1052,6 +1055,20 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<report.contactBudgetExhausted
                      <<" unchanged="<<!report.improved
                      <<" note=finite_local_candidates_not_global_proof\n";
+            if(limits.stageFirstRingFeasibilityPreview) {
+                // This is deliberately restricted by the command-line
+                // contract to interactive saved-case STEP DEBUG. Geometry
+                // remains PRIVATE and all downstream whole-survivor
+                // validation is unchanged; a local cap self-contact pass
+                // does NOT certify a full-mesh repair.
+                if(report.improved)result=std::move(previewCandidate);
+                std::cerr<<"[repair-r06-m19a-provisional-stage]"
+                         <<" candidate_applied="<<report.improved
+                         <<" changed_positions_only=1"
+                         <<" minimum_cap_quality="<<result.minimumQuality
+                         <<" whole_mesh_certified=0"
+                         <<" publication=disabled\n";
+            }
         }catch(const std::exception& error) {
             std::cerr<<"[repair-r06-m19a-feasibility] unavailable="
                      <<error.what()<<"\n";
