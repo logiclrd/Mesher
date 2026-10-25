@@ -996,32 +996,50 @@ that would erase sculpted intentional creases.
   closure still certifies; original source and saved files remain
   unchanged. [Acceptance report](docs/R06_M18E_ACCEPTANCE.md).
   **M18F and M17E remain open: no smooth Vulkan result claimed.**
-- [ ] **R06-M19 — Residual fold feasibility and topology diagnosis** (follow-up
-  to M18E physical inspection; not a new acceptance claim).
-  - [ ] **M19A — Bounded indexed first-ring positional-feasibility probe.**
-    Independently opt-in diagnostics only. Preserve immutable R03 rim,
-    mirrored orbits and existing candidate checks. For the worst seam
-    and adjoining cap faces, generate survivor tangent-plane / bounded
-    curvature-continuation targets and finite interpolation candidates.
-    Log baseline, best locally admissible worst seam AND cap-cap fold,
-    min q, tested/rejected candidates and contact budget. Must not
-    alter the staged cap. Do not claim a global lower bound or topology
-    impossibility from finite sampling.
-  - [ ] **M19B — Fixed-connectivity counterfactual regression.**
-    Compare unchanged archived `refusal-1` M18D/E initial cap,
-    feasibility probes and reflected counterpart, plus smooth and
-    intentional-crease controls. Distinguish quality, local inversion,
-    cap self-contact and source-survivor whole-mesh certification; keep
-    default behavior untouched. Record GCC/Clang/MSVC CI.
-  - [ ] **M19C — Alternative-diagonal feasibility investigation.**
-    Only after M19A evidence, construct alternative same-boundary
-    local diagonals in a separate PRIVATE diagnostic proposal,
-    preserve source-backed face incidence, reflection and all strict
-    checks; compare the same maximum fold metrics, never silently
-    publish or enable a new topology. Report if no admissible
-    alternative exists in finite budget.
-  **M18F/M17E remain physically open**; do not infer visual success
-  from a lower scalar objective.
+- [ ] **R06-M19 — Residual fold feasibility and topology diagnosis.**
+  Following the M18E physical ripple, distinct read-only tests found
+  meaningful LOCAL improvement by changing indexed connectivity.
+  - [x] **M19A — Bounded fixed-connectivity positional probe.**
+    CPU accepted: 96 proposals, 8 cap-locally admissible;
+    worst seam **52.970 -> 52.970 deg**, worst cap-rim fold
+    **129.27 -> 124.03 deg**, minimum q unchanged .117503.
+    No staged geometry or source vertices changed. Independent
+    `--repair-feasibility-probe` defaults off.
+  - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
+    - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
+      Exact `refusal-1` before/after cap bytes match for both probes;
+      synthetic ordinary/reflected cases, no-op on refused proposals,
+      bounded work and deterministic repeat pass. Strict default R06
+      private closure still certified. GCC/Clang/MSVC CI green.
+    - [ ] **M19B2 — Complete candidate assembly and crease controls.**
+      Must assemble newly selected alternate faces into source-backed
+      PRIVATE staging and verify full survivor collisions, exact
+      indexed manifold, correct reflection and all original q gates,
+      plus explicit intentional-crease and healthy-replay fixtures.
+      Local cap self-contact is not source-complete certification.
+  - [x] **M19C — Read-only exact reflected diagonal counterfactual.**
+    CPU accepted: 18 strip-quad proposals, 2 admissible mirror-paired
+    correction rounds; worst seam **52.970 -> 17.597 deg**,
+    worst cap-rim fold **129.27 -> 81.58 deg**, minimum q
+    **.117503 -> .128450**, continuity objective **.272759 -> .088624**.
+    No vertex moves, staged face change or publication.
+    Independent `--repair-diagonal-probe` defaults off.
+  **Diagnostics CPU acceptance:** exact code HEAD
+  `9b14e41ea6c1682834f14cdb716eca23470fe129`,
+  [CI #40175092711](https://github.com/logiclrd/Mesher/actions/runs/40175092711)
+  SUCCESS on Linux GCC, Clang and Windows MSVC `/W4 /WX`;
+  122/122 CPU tests on each.
+  [Full measurements and limitations](docs/R06_M19_FEASIBILITY_ACCEPTANCE.md).
+  - [ ] **M19D — Opt-in PRIVATE full-mesh diagonal trial.**
+    Expose the selected exact mirrored quad ordinals; allow deliberate
+    opt-in *staged* alternate strip faces only after a complete local
+    preflight. Run the unweakened original private whole-mesh source
+    collision/incidence/manifold/quality certification. If this refuses,
+    retain the baseline, record why and seek a broader transition band.
+    Do not change R06 defaults, worker root/history/checkpoints, or
+    claim visual acceptance until user physical GPU inspection.
+  **M18F/M17E remain physically open**; the 81.58-degree residual cap
+  fold is still significant and finite searches are not global proofs.
 - [ ] **R06-M18F — CPU and physical Vulkan acceptance.**
   Compare default/M17C/M17D/M18 on all five unchanged archived cases plus
   healthy reflected/ordinary sphere, torus, zipper, intentional crease and
