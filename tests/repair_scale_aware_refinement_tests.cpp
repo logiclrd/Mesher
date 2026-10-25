@@ -327,9 +327,9 @@ void refusalOneRealSavedCaseAttemptTrace() {
     };
     bool refused=false;
     try {
-        const auto closed=applyPrivateMixedClosure(
+        const auto legacyClosed=applyPrivateMixedClosure(
             cut,excision,plan,limits);
-        require(closed.index!=nullptr,
+        require(legacyClosed.index!=nullptr,
             "accepted private mixed closure must produce a full index");
     }catch(const std::logic_error&) {refused=true;}
     require(!declined.empty()&&splitsBeforeFirstAttempt==0,
