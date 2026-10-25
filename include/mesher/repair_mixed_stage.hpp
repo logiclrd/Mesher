@@ -165,9 +165,16 @@ public:
     void recordCapAnomalyPreview(std::vector<PrivateRepairTriangle> faces,
                                  std::vector<std::vector<VertexId>> contours,
                                  std::string status) {
-        suspectCapFaces_=std::move(faces);
-        secondaryCapContours_=std::move(contours);
-        capAnomalyStatus_=std::move(status);
+        // Accumulate independent cap-loop diagnostics; later loops must
+        // not erase proposal metadata from an earlier cap on this stage.
+        suspectCapFaces_.insert(suspectCapFaces_.end(),
+                                faces.begin(),faces.end());
+        secondaryCapContours_.insert(secondaryCapContours_.end(),
+                                     contours.begin(),contours.end());
+        if(!capAnomalyStatus_.empty())capAnomalyStatus_+="; ";
+        if(capAnomalyStatus_.size()+status.size()<4096)
+            capAnomalyStatus_+=status;
+        else capAnomalyStatus_+="M20A additional loop status truncated";
     }
     const std::vector<PrivateRepairTriangle>& suspectCapFaces() const noexcept {
         return suspectCapFaces_;
