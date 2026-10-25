@@ -2,6 +2,7 @@
 #include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/repair_case.hpp"
 #include "mesher/repair_cap_spatial.hpp"
+#include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -235,6 +236,54 @@ void refusalOneRealSavedCaseAttemptTrace() {
             try {
                 const auto local=buildSpatialCapFrontPoisson(
                     ordered,normalGuide,bounds);
+                // M18A exact immutable refusal-1 regression: diagnose
+                // normal discontinuity independently from q and verify
+                // outgoing CAP rim edges use the original surviving FaceId.
+                const auto profile=measureSpatialCapRimProfile(local,normalGuide);
+                require(profile.edges.size()==ordered.size()&&
+                        profile.measuredEdges==ordered.size()&&
+                        profile.unavailableEdges==0,
+                        "M18A original refusal-1 must have complete sourced cap/rim diagnostics");
+                std::size_t affected=0;
+                for(const auto& edge:profile.edges) {
+                    const auto k=edge.rimStart;
+                    const auto n=ordered.size();
+                    const auto sourceOrdinal=(2*n-2-k)%n;
+                    const auto survivorId=rim.survivingFaces[sourceOrdinal];
+                    const auto a=rim.vertexIds[n-1-k];
+                    const auto b=rim.vertexIds[n-1-((k+1)%n)];
+                    const auto& original=cut.index->face(survivorId).vertices;
+                    require(std::find(original.begin(),original.end(),a)!=original.end()&&
+                            std::find(original.begin(),original.end(),b)!=original.end(),
+                            "M18A CAP rim edge must match its EXACT original indexed surviving FaceId");
+                    if((a==3207&&b==5470)||(a==5470&&b==3207)) {
+                        ++affected;
+                        std::cout<<std::setprecision(17)
+                                 <<"[r06-m18a-refusal-1] alternate="<<alternative
+                                 <<" optimized="<<corrected
+                                 <<" rim_edge="<<a<<","<<b
+                                 <<" survivor_face="<<survivorId
+                                 <<" signed_dihedral_deg="
+                                 <<edge.signedDihedralRadians*(180./std::acos(-1.))
+                                 <<" abs_dihedral_deg="
+                                 <<edge.absoluteDihedralRadians*(180./std::acos(-1.))
+                                 <<" first_ring_normal_offset_over_edge="
+                                 <<edge.normalizedFirstRingNormalOffset
+                                 <<" foot_t="<<edge.oppositeFootParameter<<"\\n";
+                    }
+                }
+                if(!alternative)
+                    require(affected==1,
+                        "M18A initial refusal-1 must include exact boundary edge 3207,5470");
+                std::cout<<std::setprecision(17)
+                         <<"[r06-m18a-refusal-1-summary] alternate="<<alternative
+                         <<" optimized="<<corrected
+                         <<" max_abs_dihedral_deg="
+                         <<profile.maximumAbsoluteDihedralRadians*(180./std::acos(-1.))
+                         <<" mean_abs_dihedral_deg="
+                         <<profile.meanAbsoluteDihedralRadians*(180./std::acos(-1.))
+                         <<" max_abs_first_ring_offset_over_edge="
+                         <<profile.maximumAbsoluteNormalizedOffset<<"\\n";
                 double worst=1.;
                 std::array<std::uint32_t,3> worstIds{};
                 for(const auto& tri:local.faces) {
