@@ -111,7 +111,8 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool scaleAware=false,bool optimizeFront=false,
                           bool optimizeCurvatureFront=false,bool guideCurvaturePoisson=false,
                           bool probeSeamFeasibility=false,
-                          bool probeDiagonalFeasibility=false) {
+                          bool probeDiagonalFeasibility=false,
+                          bool stageFeasibilityPreview=false) {
     // The opt-in producer may be paused on ANY initial cap/zipper operation.
     // Completion, refusal or intentional cancellation must release consumers,
     // without changing the ordinary synchronous replay or inspector path.
@@ -161,6 +162,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     policy.closure.staging.optimizeCurvatureFront=optimizeCurvatureFront;
                     policy.closure.staging.guideCurvaturePoisson=guideCurvaturePoisson;
                     policy.closure.staging.probeSeamFeasibility=probeSeamFeasibility;
+                    policy.closure.staging.stageFeasibilityPreview=stageFeasibilityPreview;
                     policy.closure.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                     policy.planner.classifier=classifier;
                     if(trace)trace->attach(policy.closure,trace);
@@ -211,6 +213,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 limits.staging.optimizeCurvatureFront=optimizeCurvatureFront;
                 limits.staging.guideCurvaturePoisson=guideCurvaturePoisson;
                 limits.staging.probeSeamFeasibility=probeSeamFeasibility;
+                limits.staging.stageFeasibilityPreview=stageFeasibilityPreview;
                 limits.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                 if(trace)trace->attach(limits,trace,true);
                 auto preview=applyPrivateMixedClosure(
@@ -451,7 +454,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     std::shared_ptr<RepairStepTrace> stepTrace,
     bool scaleAware,bool optimizeFront,bool optimizeCurvatureFront,
     bool guideCurvaturePoisson,bool probeSeamFeasibility,
-    bool probeDiagonalFeasibility) {
+    bool probeDiagonalFeasibility,bool stageFeasibilityPreview) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -498,7 +501,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality,
                         stepTrace,scaleAware,optimizeFront,optimizeCurvatureFront,
                         guideCurvaturePoisson,probeSeamFeasibility,
-                        probeDiagonalFeasibility);
+                        probeDiagonalFeasibility,stageFeasibilityPreview);
     result->exactOverlay=exactOverlay;
     buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;
