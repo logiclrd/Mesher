@@ -122,6 +122,14 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
        !std::isfinite(limits.normalGuidance)||
        limits.poissonTolerance<=0||limits.maximumInitialEdgeFactor<=1||
        limits.normalGuidance<0||limits.normalGuidance>.5||
+       (limits.curvatureGuidedPoisson&&
+        (!limits.maxCurvaturePoissonIterations||
+         !std::isfinite(limits.curvaturePoissonStrength)||
+         !(limits.curvaturePoissonStrength>0)||
+         limits.curvaturePoissonStrength>8||
+         !std::isfinite(limits.curvaturePoissonMaxNormalShift)||
+         !(limits.curvaturePoissonMaxNormalShift>0)||
+         limits.curvaturePoissonMaxNormalShift>2))||
        (limits.optimizeBoundaryContinuity&&
         (!limits.maxContinuityRounds||!limits.maxContinuityTrials||
          !std::isfinite(limits.desiredMinimumQuality)||
@@ -412,6 +420,171 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::logic_error("R06-M06C test mirrored ribbon self-intersects");
     }
     const bool initiallyEmbedded=embedded(result);
+    // M18E: solve a new, fixed-rim Poisson objective, not a replacement
+    // initial seed. The source tensor defines a second-order normal
+    // continuation whose trace on each original rim EDGE remains zero.
+    // Existing baseline candidate is retained unless a finite, embedded,
+    // quality-preserving second solve measurably improves continuity.
+    if(initiallyEmbedded&&limits.curvatureGuidedPoisson&&incomingReference&&
+       !survivingFaceNormals.empty()) {
+        struct Constraint {Vec3 normal;double projection,weight;};
+        std::vector<std::vector<Constraint>> constraints(result.positions.size());
+        const auto rimProfile=measureSpatialCapRimProfile(result,survivingFaceNormals);
+        for(const auto& edge:rimProfile.edges) {
+            const auto j=edge.rimEnd;
+            const auto& source=(*incomingReference)[j];
+            if(!edge.hasSurvivorNormal||!edge.hasCapNormal||
+               !source.hasEstimate||
+               source.confidence!=SurvivorCurvatureConfidence::Reliable||
+               source.confidenceScore<.20)continue;
+            const auto vertex=edge.capOppositeVertex;
+            if(vertex<n||vertex>=2*n)continue;
+            const auto a=result.positions[edge.rimStart];
+            const auto b=result.positions[edge.rimEnd];
+            const auto p=result.positions[vertex];
+            const auto normal=survivingFaceNormals[j]/
+                length(survivingFaceNormals[j]);
+            const auto t=(b-a)/edge.edgeLength;
+            const auto u=cross(normal,t);
+            const auto x=std::clamp(dot(p-a,t),0.,edge.edgeLength);
+            const auto y=std::clamp(dot(p-a,u),-h,h);
+            // Along-seam term vanishes at BOTH fixed rim endpoints;
+            // cross and mixed curvature remain directional. Project
+            // to a scale-bounded tensor before extrapolating.
+            const auto safe=[&](double curvature) {
+                return std::clamp(curvature,-.7/h,.7/h);
+            };
+            const auto desired=.5*safe(source.seam)*x*(x-edge.edgeLength)+
+                safe(source.mixed)*(x-.5*edge.edgeLength)*y+
+                .5*safe(source.transverse)*y*y;
+            const auto oldHeight=dot(p-a,normal);
+            const auto shift=std::clamp(desired-oldHeight,
+                -limits.curvaturePoissonMaxNormalShift*h,
+                limits.curvaturePoissonMaxNormalShift*h);
+            const auto weight=limits.curvaturePoissonStrength*
+                source.confidenceScore;
+            constraints[vertex].push_back({
+                normal,dot(p+normal*shift,normal),weight});
+        }
+        std::size_t constrained=0;
+        for(std::size_t k=n;k<2*n;++k)
+            if(!constraints[k].empty())++constrained;
+        if(constrained) {
+            SpatialCapPatch guided=result;
+            bool converged=false;
+            double residual=0;
+            for(std::size_t iteration=0;
+                iteration<limits.maxCurvaturePoissonIterations;++iteration) {
+                // Jacobi even on nonmirrored cap: no ordering bias in
+                // second-order data, exact mirrored orbit projection.
+                auto next=guided.positions;
+                for(std::size_t i=n;i<guided.positions.size();++i) {
+                    Vec3 rhs=sourceAt(i);
+                    for(const auto neighbor:adjacent[i])
+                        rhs=rhs+guided.positions[neighbor];
+                    const auto degree=static_cast<double>(adjacent[i].size());
+                    const auto unconstrained=rhs/degree;
+                    Vec3 projected=unconstrained;
+                    double totalWeight=0;
+                    for(const auto& guide:constraints[i])
+                        totalWeight+=guide.weight;
+                    for(const auto& guide:constraints[i]) {
+                        const auto alpha=guide.weight/(degree+totalWeight);
+                        projected=projected+guide.normal*(
+                            alpha*(guide.projection-
+                                   dot(unconstrained,guide.normal)));
+                    }
+                    if(!finite(projected))
+                        throw std::logic_error(
+                            "R06-M18E guided Poisson nonfinite interior");
+                    next[i]=projected;
+                }
+                if(limits.requireMirrorPlane) {
+                    for(std::size_t i=n;i<next.size();++i) {
+                        const auto mate=partner[i];
+                        if(mate<i)continue;
+                        if(mate==i)next[i].x=0;
+                        else {
+                            const auto mean=(next[i]+reflect(next[mate]))*.5;
+                            next[i]=mean;
+                            next[mate]=reflect(mean);
+                        }
+                    }
+                }
+                residual=0;
+                for(std::size_t i=n;i<next.size();++i)
+                    residual=std::max(residual,
+                        length(next[i]-guided.positions[i]));
+                guided.positions=std::move(next);
+                if(residual<=tolerance) {converged=true;break;}
+            }
+            bool accepted=false;
+            double beforeScore=0,afterScore=0;
+            if(converged) {
+                // Reject any mirrored, orientation or quality regression
+                // BEFORE consuming the same complete contact-work budget.
+                bool legal=true;
+                double minBefore=1.,minAfter=1.;
+                for(const auto& tri:result.faces) {
+                    const auto old=cross(
+                        result.positions[tri[1]]-result.positions[tri[0]],
+                        result.positions[tri[2]]-result.positions[tri[0]]);
+                    const auto now=cross(
+                        guided.positions[tri[1]]-guided.positions[tri[0]],
+                        guided.positions[tri[2]]-guided.positions[tri[0]]);
+                    if(dot(old,now)<=0||length(now)<=1e-16) {
+                        legal=false;break;
+                    }
+                    minBefore=std::min(minBefore,quality(
+                        result.positions[tri[0]],result.positions[tri[1]],
+                        result.positions[tri[2]]));
+                    minAfter=std::min(minAfter,quality(
+                        guided.positions[tri[0]],guided.positions[tri[1]],
+                        guided.positions[tri[2]]));
+                }
+                if(minAfter+1e-12<minBefore)legal=false;
+                if(legal) {
+                    try {
+                        const auto compare=[&](const SpatialCapPatch& patch) {
+                            const auto continuity=measureSpatialCapContinuity(
+                                patch,survivingFaceNormals,*incomingReference);
+                            double objective=0;
+                            for(const auto& edge:continuity.edges)
+                                objective+=edge.boundaryNormalJumpRadians*
+                                    edge.boundaryNormalJumpRadians+
+                                    .25*edge.capInteriorFairnessRadians*
+                                        edge.capInteriorFairnessRadians;
+                            return std::pair<double,double>{
+                                objective/static_cast<double>(n),
+                                continuity.maximumBoundaryJumpRadians};
+                        };
+                        const auto old=compare(result);
+                        const auto proposed=compare(guided);
+                        beforeScore=old.first;afterScore=proposed.first;
+                        if(proposed.first+1e-5<old.first&&
+                           proposed.second<=old.second+1e-8) {
+                            guided.minimumQuality=1.;
+                            if(embedded(guided)) {
+                                accepted=true;
+                                result=std::move(guided);
+                            }
+                        }
+                    }catch(const std::logic_error&) {
+                        // Untrusted geometry/guidance is a no-op.
+                    }catch(const std::length_error&) {
+                        // Exhausted existing shared pairwise-contact quota:
+                        // finite fail-closed, no extra unaccounted retries.
+                    }
+                }
+            }
+            std::cerr<<"[repair-r06-m18e] constrained_ring_vertices="
+                     <<constrained<<" converged="<<converged
+                     <<" residual="<<residual<<" accepted="<<accepted
+                     <<" before_score="<<beforeScore
+                     <<" guided_score="<<afterScore
+                     <<" before_min_q="<<result.minimumQuality<<"\\n";
+        }
+    }
     if(initiallyEmbedded&&limits.repairTangentialOvershoot&&
        result.minimumQuality<limits.desiredMinimumQuality) {
         // A Poisson-solved ring point can lie PAST its owning R03 boundary
