@@ -415,6 +415,27 @@ void refusalOneRealSavedCaseAttemptTrace() {
                             diagonalProbed.positions.size()==guidedLocal.positions.size()&&
                             diagonalProbed.minimumQuality==guidedLocal.minimumQuality,
                             "M19C cannot change original staged topology/quality");
+                    // M19D2: in the explicit step-only mode, the SAME
+                    // locally legal alternate strip topology must now be
+                    // staged, with source rim and ALL positions unchanged.
+                    auto stagedDiagonalBounds=guidedBounds;
+                    stagedDiagonalBounds.stageBandDiagonalPreview=true;
+                    const auto stagedDiagonal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,stagedDiagonalBounds,&references);
+                    require(stagedDiagonal.faces!=guidedLocal.faces&&
+                            stagedDiagonal.faces.size()==guidedLocal.faces.size()&&
+                            stagedDiagonal.positions.size()==guidedLocal.positions.size()&&
+                            stagedDiagonal.minimumQuality+1e-12>=.1,
+                            "M19D2 must stage new legal private cap faces");
+                    for(std::size_t k=0;k<guidedLocal.positions.size();++k)
+                        require(stagedDiagonal.positions[k].x==guidedLocal.positions[k].x&&
+                                stagedDiagonal.positions[k].y==guidedLocal.positions[k].y&&
+                                stagedDiagonal.positions[k].z==guidedLocal.positions[k].z,
+                                "M19D2 face-only preview cannot move any original/inner vertex");
+                    std::cout<<"[r06-m19d-preview] staged_face_diff=1"
+                             <<" source_positions_unchanged=1"
+                             <<" min_q="<<stagedDiagonal.minimumQuality
+                             <<" private_only=1\n";
                     for(std::size_t k=0;k<guidedLocal.positions.size();++k)
                         require(diagonalProbed.positions[k].x==guidedLocal.positions[k].x&&
                                 diagonalProbed.positions[k].y==guidedLocal.positions[k].y&&
