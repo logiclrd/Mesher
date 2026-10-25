@@ -928,6 +928,19 @@ that would erase sculpted intentional creases.
   [Acceptance record](docs/R06_M18C_ACCEPTANCE.md). M18D is the first
   geometry-changing stage; no physical GPU acceptance implied.
 - [ ] **R06-M18D — Bounded curvature-aware M17D position proposals.**
+  - [ ] **M18D1 — Independent opt-in local candidate search.** Search
+    bounded reflected first-ring orbits using seam-axis normal alignment
+    and M18C first-order/cap-fairness diagnostics; use trustworthy
+    directional tensor comparison only as a subordinate/tie-break
+    measure. Preserve hard quality, source identity, orientation and
+    full same-budget embedding checks; permit no-op if no legal move.
+  - [ ] **M18D2 — End-to-end flag, exact-case and CI acceptance.** Thread
+    opt-in through replay/step debugger/live R06; compare archived
+    refusal-1 M17C+D baseline and M18D result including maximum seam
+    and cap interior folds, provenance and final closure. Require
+    deterministic mirrored regression on genuine saved input plus
+    control fixtures, three-platform CI. Do not claim visual acceptance.
+
   Opt in independently, optimize movable interior first-ring vertices and
   exact mirror orbits using M18C's read-only score; do not stop purely when
   q>=.10. Keep R03 rim/hub fixed unless independently justified; rerun the
