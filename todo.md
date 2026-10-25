@@ -856,6 +856,59 @@ face, but more conforming/reflective children on the complete patch.
   mesh validity and actual private/nonpublished state. Physical acceptance
   is NOT implied by headless CI.
 
+### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
+Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
+Extends existing open R06-M06C4e profile diagnostic instead of declaring
+M17D visually accepted. M17D's q=.1056 initial refusal-1 cap is numerically
+valid but physically exhibits a tight fold against survivor edge (3207,5470).
+Curvature should CONTINUE measured survivor shape, not be minimized to zero.
+Stages are flat, independently observable CPU milestones; physical M17E
+acceptance remains open. Keep the entire R03 source and permanent IDs unchanged,
+real X=0 mirror orbits, hard q floors (.10 caps/zipper, .012 survivor except
+separately certified planar tips), finite budgets, intersection/topology gates,
+and private-only all-or-nothing refusal. No unwarranted hard curvature veto
+that would erase sculpted intentional creases.
+
+- [ ] **R06-M18A — Read-only rim profile and exact refusal-1 diagnosis.**
+  Add deterministic local-cap/survivor per-edge normal/dihedral, edge scale,
+  signed cross-rim first-ring offset and missing-data reporting. Correctly
+  match each REVERSED cap edge to its original survivor FaceId, using stable
+  indexed edges rather than the closest geometric triangle. Compare M17D
+  disabled/enabled for the original immutable refusal-1 and reflected partner,
+  with regression tests for flat, angled, reversed winding, reflection and
+  missing source normals. Report concrete face/edge IDs where available;
+  no change to Poisson, vertex positions, topology, hard gates or publication.
+- [ ] **R06-M18B — Directional survivor curvature and confidence.**
+  Fit a bounded, robust 2x2 shape-operator estimate from a small connected
+  survivor neighborhood around each rim edge, with seam-tangent, inward
+  tangent and mixed/twist components in a consistent local frame. Detect
+  undersampling, noisy or intentionally creased neighborhoods. Pure synthetic
+  flat/cylinder/sphere/saddle/reflection tests; diagnostic only.
+- [ ] **R06-M18C — Pure cap curvature-continuation evaluator.**
+  Compare the cap's normal/curvature against the measured survivor tensor
+  on the same local scale and frame, separating crossing-rim first-order
+  normal jump, along-rim bending, cross-rim bending, twist and interior fairing.
+  Rank smooth and folded synthetic candidates without changing geometry,
+  mark low-confidence estimates and keep ordinary shape quality separate.
+- [ ] **R06-M18D — Bounded curvature-aware M17D position proposals.**
+  Opt in independently, optimize movable interior first-ring vertices and
+  exact mirror orbits using M18C's read-only score; do not stop purely when
+  q>=.10. Keep R03 rim/hub fixed unless independently justified; rerun the
+  existing no-inversion, q, edge-scale, embedding and complete mesh checks
+  on every candidate; fail closed and report no legal improvement.
+- [ ] **R06-M18E — Curvature guidance in spatial Poisson construction.**
+  Only after M18D gives measured benefits, incorporate trustworthy survivor
+  directional guidance into the fixed-rim solver, with finite convergence,
+  sensitivity and intentional-crease controls. Do not pretend new initial
+  seeds alter a fully converged old Poisson solution.
+- [ ] **R06-M18F — CPU and physical Vulkan acceptance.**
+  Compare default/M17C/M17D/M18 on all five unchanged archived cases plus
+  healthy reflected/ordinary sphere, torus, zipper, intentional crease and
+  planar caps. Track min-q, seam profile, curvature confidence, mirrored
+  orbits, inserted faces/steps, root/history/checkpoint immutability and
+  genuine 3D fold clearance; require Linux GCC/Clang, Windows /W4 /WX CI,
+  and USER physical GPU inspection before declaring visual acceptance.
+
 - [ ] **R06-M14F — Archive, CI and physical Vulkan verification.**
   Preserve all historical case bytes, current valid CLOSED recoveries
   and legitimate refusals, compare geometric witnesses, confirm
