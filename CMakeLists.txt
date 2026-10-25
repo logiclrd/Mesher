@@ -380,6 +380,14 @@ if(MESHER_BUILD_TESTS)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
     # M18B pure diagnostic, including synthetic directional tensor + confidence.
+    # M18C: purely read-only profile/tensor continuity comparison.
+    add_executable(mesher_repair_cap_continuity_tests
+                   tests/repair_cap_continuity_tests.cpp)
+    target_link_libraries(mesher_repair_cap_continuity_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m18c_cap_curvature_continuity
+             COMMAND mesher_repair_cap_continuity_tests)
+    set_tests_properties(repair_r06_m18c_cap_curvature_continuity
+        PROPERTIES TIMEOUT 15)
     add_executable(mesher_repair_survivor_curvature_tests
                    tests/repair_survivor_curvature_tests.cpp)
     target_link_libraries(mesher_repair_survivor_curvature_tests PRIVATE mesher_mesh)
