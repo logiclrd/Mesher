@@ -115,6 +115,11 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(
             repair_r06_m17d_reject_front_optimize_without_auto
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m18e_reject_curvature_poisson_without_auto
+                 COMMAND Mesher --repair-curvature-poisson)
+        set_tests_properties(
+            repair_r06_m18e_reject_curvature_poisson_without_auto
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m18d_reject_curvature_optimize_without_auto
                  COMMAND Mesher --repair-curvature-optimize)
         set_tests_properties(
@@ -385,6 +390,14 @@ if(MESHER_BUILD_TESTS)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
     # M18B pure diagnostic, including synthetic directional tensor + confidence.
+    # M18E: independent fixed-rim Poisson curvature-guidance experiment.
+    add_executable(mesher_repair_curvature_poisson_tests
+                   tests/repair_curvature_poisson_tests.cpp)
+    target_link_libraries(mesher_repair_curvature_poisson_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m18e_curvature_guided_poisson
+             COMMAND mesher_repair_curvature_poisson_tests)
+    set_tests_properties(repair_r06_m18e_curvature_guided_poisson
+        PROPERTIES TIMEOUT 20)
     # M18C: purely read-only profile/tensor continuity comparison.
     add_executable(mesher_repair_cap_continuity_tests
                    tests/repair_cap_continuity_tests.cpp)
