@@ -1,4 +1,5 @@
 #include "mesher/repair_cap_spatial.hpp"
+#include "mesher/repair_surface_profile.hpp"
 
 #include <algorithm>
 #include <array>
@@ -364,6 +365,80 @@ void physicalFoldedMirroredRims() {
                  <<" forced alternate q="<<ribbon.minimumQuality<<" PASS\n";
     }
 }
+void seamProfileDiagnostics() {
+    // Three flat fan triangles: CAP edges are outgoing 0->1, 1->2, 2->0.
+    // Source guidance is in incoming edge order; all three normals equal.
+    SpatialCapPatch flat;
+    flat.boundaryCount=3;
+    flat.positions={{0,0,0},{1,0,0},{0,1,0},{.25,.25,0}};
+    flat.faces={{0,1,3},{1,2,3},{2,0,3}};
+    const std::vector<Vec3> normals(3,Vec3{0,0,1});
+    const auto planar=measureSpatialCapRimProfile(flat,normals);
+    expect(planar.edges.size()==3&&planar.measuredEdges==3&&
+           planar.unavailableEdges==0&&
+           planar.maximumAbsoluteDihedralRadians<1e-12&&
+           planar.maximumAbsoluteNormalizedOffset<1e-12,
+           "M18A planar cap/survivor should have zero boundary jump");
+
+    // A nonplanar first inward vertex bends ALL three boundary transitions.
+    // Signed normal deviation around the first rim edge should be +45deg.
+    auto folded=flat;
+    folded.positions.back().z=.25;
+    const auto bent=measureSpatialCapRimProfile(folded,normals);
+    expect(bent.measuredEdges==3&&
+           std::abs(bent.edges[0].signedDihedralRadians-
+                    std::acos(-1.)/4)<1e-12&&
+           bent.edges[0].normalizedFirstRingNormalOffset>.24&&
+           std::abs(bent.edges[0].oppositeFootParameter-.25)<1e-12&&
+           bent.maximumAbsoluteDihedralRadians>planar.maximumAbsoluteDihedralRadians,
+           "M18A signed boundary dihedral must detect a folded first inward ring");
+
+    // The survivor normal for outgoing CAP edge 0->1 is guidance[1],
+    // NOT guidance[0]; this catches the reversed-R03 off-by-one error.
+    auto incoming=normals;
+    incoming[1]={0,0,-1};
+    const auto ordered=measureSpatialCapRimProfile(flat,incoming);
+    expect(std::abs(ordered.edges[0].absoluteDihedralRadians-
+                    std::acos(-1.))<1e-12&&
+           ordered.edges[1].absoluteDihedralRadians<1e-12,
+           "M18A must associate each cap edge with its exact incoming survivor");
+
+    const auto missing=measureSpatialCapRimProfile(flat,{});
+    expect(missing.measuredEdges==0&&missing.unavailableEdges==3&&
+           !missing.edges[0].hasSurvivorNormal,
+           "M18A missing survivor guidance must be reported, not invented");
+    incoming=normals;
+    incoming[1]={0,0,0};
+    const auto incomplete=measureSpatialCapRimProfile(flat,incoming);
+    expect(incomplete.measuredEdges==2&&incomplete.unavailableEdges==1&&
+           !incomplete.edges[0].hasSurvivorNormal,
+           "M18A degenerate source normal must be unavailable");
+
+    // Reflection + reversed winding preserves absolute edge dihedrals.
+    SpatialCapPatch reflected;
+    reflected.boundaryCount=3;
+    reflected.positions={{0,0,0},{0,1,0},{-1,0,0},{-.25,.25,.25}};
+    reflected.faces={{0,1,3},{1,2,3},{2,0,3}};
+    const auto mirror=measureSpatialCapRimProfile(reflected,normals);
+    expect(mirror.measuredEdges==3&&
+           std::abs(mirror.maximumAbsoluteDihedralRadians-
+                    bent.maximumAbsoluteDihedralRadians)<1e-12,
+           "M18A absolute dihedral must be invariant under exact reflected geometry");
+
+    auto reversed=flat;
+    reversed.faces[0]={1,0,3};
+    bool refused=false;
+    try {(void)measureSpatialCapRimProfile(reversed,normals);}
+    catch(const std::logic_error&) {refused=true;}
+    expect(refused,"M18A must never match a reversed/nonexistent directed rim face");
+
+    const auto again=measureSpatialCapRimProfile(folded,normals);
+    expect(again.measuredEdges==bent.measuredEdges&&
+           again.edges[0].signedDihedralRadians==bent.edges[0].signedDihedralRadians,
+           "M18A pure diagnostics must be deterministic");
+    std::cout<<"[r06-m18a] planar, folded, incoming-edge, missing-normal,"
+                " reflected, reversed-winding and deterministic profiles PASS\\n";
+}
 void finiteRefusals() {
     std::vector<Vec3> ring;
     for(unsigned i=0;i<8;++i) {
@@ -394,6 +469,7 @@ int main() {
         physicalLongRimSafety();
         recordedCurved18Safety();
         crossingRimMustRefuse();
+        seamProfileDiagnostics();
         finiteRefusals();
         return 0;
     }catch(const std::exception& e) {
