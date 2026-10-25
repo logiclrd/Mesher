@@ -1047,6 +1047,16 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<report.minSampledNormalDeltaOverEdge
                      <<" max_normal_delta_over_edge="
                      <<report.maxSampledNormalDeltaOverEdge
+                     <<" positive_sweep_bands="
+                     <<report.nearToFarPositiveSamples[0]<<","
+                     <<report.nearToFarPositiveSamples[1]<<","
+                     <<report.nearToFarPositiveSamples[2]<<","
+                     <<report.nearToFarPositiveSamples[3]
+                     <<" negative_sweep_bands="
+                     <<report.nearToFarNegativeSamples[0]<<","
+                     <<report.nearToFarNegativeSamples[1]<<","
+                     <<report.nearToFarNegativeSamples[2]<<","
+                     <<report.nearToFarNegativeSamples[3]
                      <<" quality_rejected="<<report.qualityRejected
                      <<" orientation_rejected="<<report.orientationRejected
                      <<" score_rejected="<<report.scoreRejected
