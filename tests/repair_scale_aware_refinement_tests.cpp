@@ -353,6 +353,20 @@ void refusalOneRealSavedCaseAttemptTrace() {
                         ordered,normalGuide,curvatureBounds,&references);
                     const auto improvedContinuity=measureSpatialCapContinuity(
                         improvedLocal,normalGuide,references);
+                    SpatialCapSettings guidedBounds=curvatureBounds;
+                    guidedBounds.curvatureGuidedPoisson=true;
+                    const auto guidedLocal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,guidedBounds,&references);
+                    const auto guidedContinuity=measureSpatialCapContinuity(
+                        guidedLocal,normalGuide,references);
+                    require(guidedLocal.minimumQuality+1e-12>=.1&&
+                            guidedContinuity.measuredBoundaryEdges==ordered.size(),
+                            "M18E exact-case Poisson must retain cap quality and source normal observations");
+                    for(std::size_t k=0;k<ordered.size();++k)
+                        require(guidedLocal.positions[k].x==ordered[k].x&&
+                                guidedLocal.positions[k].y==ordered[k].y&&
+                                guidedLocal.positions[k].z==ordered[k].z,
+                                "M18E cannot modify the original exact R03 boundary");
                     const auto objective=[](const SpatialCapContinuity& report) {
                         double sum=0;
                         for(const auto& e:report.edges)
@@ -364,6 +378,17 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     };
                     const auto originalScore=objective(continuation);
                     const auto correctedScore=objective(improvedContinuity);
+                    const auto guidedScore=objective(guidedContinuity);
+                    std::cout<<std::setprecision(17)
+                             <<"[r06-m18e-refusal-1] baseline_m18d_score="
+                             <<correctedScore<<" m18e_score="<<guidedScore
+                             <<" baseline_max_jump_deg="
+                             <<improvedContinuity.maximumBoundaryJumpRadians*
+                                 (180./std::acos(-1.))
+                             <<" guided_max_jump_deg="
+                             <<guidedContinuity.maximumBoundaryJumpRadians*
+                                 (180./std::acos(-1.))
+                             <<" guided_min_q="<<guidedLocal.minimumQuality<<"\n";
                     require(improvedLocal.minimumQuality+1e-12>=.1&&
                             correctedScore<originalScore*.5&&
                             improvedContinuity.maximumBoundaryJumpRadians<
@@ -494,6 +519,13 @@ void refusalOneRealSavedCaseAttemptTrace() {
             curvatureCertified->privateAuto->index,
             "M18D complete archived refusal-1 remains strictly certifiable without publishing");
     std::cout<<"[r06-m18d-refusal-1] full private certified closure PASS\\n";
+    const auto poissonCertified=replayPrivateAutomaticRepair(
+        saved,AutoClosureClassifier::Area,false,false,false,{},
+        true,true,true,true);
+    require(poissonCertified&&poissonCertified->privateAuto&&
+            poissonCertified->privateAuto->index,
+            "M18E saved refusal-1 must retain complete private certified closure");
+    std::cout<<"[r06-m18e-refusal-1] full private certified closure PASS\n";
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
