@@ -359,6 +359,23 @@ void refusalOneRealSavedCaseAttemptTrace() {
                         ordered,normalGuide,guidedBounds,&references);
                     const auto guidedContinuity=measureSpatialCapContinuity(
                         guidedLocal,normalGuide,references);
+                    // M19A is read-only. Running the probe on the same
+                    // archived original may not move ANY staged vertex,
+                    // alter private quality or rewrite its original faces.
+                    auto probeBounds=guidedBounds;
+                    probeBounds.probeFirstRingFeasibility=true;
+                    const auto probedLocal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,probeBounds,&references);
+                    require(probedLocal.faces==guidedLocal.faces&&
+                            probedLocal.positions.size()==guidedLocal.positions.size()&&
+                            probedLocal.minimumQuality==guidedLocal.minimumQuality,
+                            "M19A may never alter archived private cap topology or q");
+                    for(std::size_t k=0;k<guidedLocal.positions.size();++k)
+                        require(probedLocal.positions[k].x==guidedLocal.positions[k].x&&
+                                probedLocal.positions[k].y==guidedLocal.positions[k].y&&
+                                probedLocal.positions[k].z==guidedLocal.positions[k].z,
+                                "M19A must preserve every bit-identical staged cap vertex");
+
                     require(guidedLocal.minimumQuality+1e-12>=.1&&
                             guidedContinuity.measuredBoundaryEdges==ordered.size(),
                             "M18E exact-case Poisson must retain cap quality and source normal observations");
