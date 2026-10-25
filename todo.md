@@ -1040,6 +1040,14 @@ that would erase sculpted intentional creases.
       [Acceptance evidence](docs/R06_M19A3_STEP_PREVIEW_ACCEPTANCE.md).
       Physical Vulkan inspection remains open, and M19D topology
       counterfactual is not yet a staged repair.
+    - [ ] **M19A4 — Wide bilateral normal sampling visual experiment.**
+      Increase the M19A2 signed-sample sweep factor from 0.8 to 1.0
+      times median original rim-edge length, without changing the
+      separate 1.5-edge displacement cap, 512 candidate budget,
+      original rim/mirror/quality/contact gates, or PRIVATE scope.
+      Record source/test CI and compare GPU step 53/54 with M19A3.
+      Note: the proposed 0.5*nearest-connected-neighbor bound and
+      directional binary search are NOT implemented by this experiment.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
     - [x] **M19B1 — Immutable saved-case, finite and mirror controls.**
       Exact `refusal-1` before/after cap bytes match for both probes;
@@ -1066,6 +1074,19 @@ that would erase sculpted intentional creases.
   122/122 CPU tests on each.
   [Full measurements and limitations](docs/R06_M19_FEASIBILITY_ACCEPTANCE.md).
   - [ ] **M19D — Opt-in PRIVATE full-mesh diagonal trial.**
+    - [ ] **M19D1 — Pure candidate and exact mirror-quad provenance.**
+      Return an optional selected cap patch plus deterministic accepted
+      quad pairs from the existing read-only M19C probe, with no mutation.
+    - [ ] **M19D2 — Explicit default-OFF private staging.**
+      Thread the selected locally legal topology into R06 staged face
+      generation without changing default or prior probe behavior.
+    - [ ] **M19D3 — Source-complete admission and refusal regression.**
+      Test full original survivor+cap incidence, collisions, q floors,
+      correct mirrored indices, intentional crease and healthy controls;
+      refuse safely rather than publishing partial or invalid closure.
+    - [ ] **M19D4 — Physical Vulkan step comparison.**
+      Inspect selected cap topology on original saved cases and mirrored
+      side, preserving PRIVATE-only publication and CI boundaries.
     Expose the selected exact mirrored quad ordinals; allow deliberate
     opt-in *staged* alternate strip faces only after a complete local
     preflight. Run the unweakened original private whole-mesh source
