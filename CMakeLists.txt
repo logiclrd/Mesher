@@ -379,6 +379,14 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_hud_tests)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
+    # M18B pure diagnostic, including synthetic directional tensor + confidence.
+    add_executable(mesher_repair_survivor_curvature_tests
+                   tests/repair_survivor_curvature_tests.cpp)
+    target_link_libraries(mesher_repair_survivor_curvature_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m18b_directional_survivor_curvature
+             COMMAND mesher_repair_survivor_curvature_tests)
+    set_tests_properties(repair_r06_m18b_directional_survivor_curvature
+        PROPERTIES TIMEOUT 15)
     add_executable(mesher_repair_scale_aware_tests
                    tests/repair_scale_aware_refinement_tests.cpp)
     target_link_libraries(mesher_repair_scale_aware_tests PRIVATE mesher_mesh)
