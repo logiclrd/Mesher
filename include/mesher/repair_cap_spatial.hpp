@@ -45,6 +45,8 @@ struct SpatialCapSettings {
     bool optimizeBoundaryContinuity=false;
     // M18E independent opt-in: confidence-weighted survivor curvature
     // enters the converged fixed-rim Poisson objective (not initial seeds).
+    // M19A diagnostic only; the counterfactual best patch is NEVER staged.
+    bool probeFirstRingFeasibility=false;
     bool curvatureGuidedPoisson=false;
     double curvaturePoissonStrength=1.5; // relative to graph vertex degree
     double curvaturePoissonAnchorWeight=1.5; // retains legal M17D in-ring topology scale
