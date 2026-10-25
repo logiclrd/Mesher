@@ -127,6 +127,9 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
          !std::isfinite(limits.curvaturePoissonStrength)||
          !(limits.curvaturePoissonStrength>0)||
          limits.curvaturePoissonStrength>8||
+         !std::isfinite(limits.curvaturePoissonAnchorWeight)||
+         limits.curvaturePoissonAnchorWeight<0||
+         limits.curvaturePoissonAnchorWeight>8||
          !std::isfinite(limits.curvaturePoissonMaxNormalShift)||
          !(limits.curvaturePoissonMaxNormalShift>0)||
          limits.curvaturePoissonMaxNormalShift>2))||
@@ -633,13 +636,21 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                     for(const auto neighbor:adjacent[i])
                         rhs=rhs+guided.positions[neighbor];
                     const auto degree=static_cast<double>(adjacent[i].size());
-                    const auto unconstrained=rhs/degree;
+                    // The homogeneous second solve would otherwise
+                    // destroy M17D's legal tangential in-ring repair.
+                    // This quadratic anchor is part of the Poisson
+                    // objective, not an after-solve vertex reset.
+                    const auto anchor=constraints[i].empty()?0.:
+                        degree*limits.curvaturePoissonAnchorWeight;
+                    rhs=rhs+result.positions[i]*anchor;
+                    const auto unconstrained=rhs/(degree+anchor);
                     Vec3 projected=unconstrained;
                     double totalWeight=0;
                     for(const auto& guide:constraints[i])
                         totalWeight+=guide.weight;
                     for(const auto& guide:constraints[i]) {
-                        const auto alpha=guide.weight/(degree+totalWeight);
+                        const auto alpha=guide.weight/
+                            (degree+anchor+totalWeight);
                         projected=projected+guide.normal*(
                             alpha*(guide.projection-
                                    dot(unconstrained,guide.normal)));
