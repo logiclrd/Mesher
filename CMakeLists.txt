@@ -127,6 +127,14 @@ if(MESHER_BUILD_TESTS)
             repair_r06_m19a_reject_preview_without_step
             repair_r06_m19a_reject_preview_without_step_replay
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m20a_reject_diagnostic_without_step
+                 COMMAND Mesher --repair-recursive-diagnostic)
+        add_test(NAME repair_r06_m20a_reject_diagnostic_in_headless_replay
+                 COMMAND Mesher --repair-recursive-diagnostic --repair-replay-test bogus.r06case)
+        set_tests_properties(
+            repair_r06_m20a_reject_diagnostic_without_step
+            repair_r06_m20a_reject_diagnostic_in_headless_replay
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m19d_reject_diagonal_preview_without_step
                  COMMAND Mesher --repair-diagonal-preview)
         add_test(NAME repair_r06_m19d_reject_diagonal_preview_without_step_replay
@@ -421,6 +429,15 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m19c_diagonal_feasibility
              COMMAND mesher_repair_cap_diagonal_feasibility_tests)
     set_tests_properties(repair_r06_m19c_diagonal_feasibility
+        PROPERTIES TIMEOUT 15)
+    # M20A: pure read-only original-source-aware local cap anomaly
+    # and deterministic proposed second-hole contour. No mesh edits.
+    add_executable(mesher_repair_cap_anomaly_tests
+                   tests/repair_cap_anomaly_tests.cpp)
+    target_link_libraries(mesher_repair_cap_anomaly_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m20a_provisional_second_hole_diagnosis
+             COMMAND mesher_repair_cap_anomaly_tests)
+    set_tests_properties(repair_r06_m20a_provisional_second_hole_diagnosis
         PROPERTIES TIMEOUT 15)
     # M19A: diagnostics-only finite positional feasibility search.
     add_executable(mesher_repair_cap_feasibility_tests
