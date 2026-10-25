@@ -650,6 +650,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         if(std::abs(theta)<1.e-4&&
                            (footRepair==0.||referenceFoot==repairedFoot))
                             continue;
+                        // Count every nontrivial proposal, including ones
+                        // rejected by cheap q/embedding preflight. Otherwise
+                        // the declared bound can hide thousands of costly
+                        // M18C tensor evaluations on a large contour.
+                        ++proposedTrials;
                         auto proposed=current;
                         const auto rotated=relative*std::cos(theta)+
                             cross(t,relative)*std::sin(theta);
@@ -717,7 +722,6 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         if(budgetPerEmbedding>limits.maxIntersectionTests-tests) {
                             exhausted=true;break;
                         }
-                        ++proposedTrials;
                         proposed.minimumQuality=1.;
                         try {
                             if(!embedded(proposed))continue;
