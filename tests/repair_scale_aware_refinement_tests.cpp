@@ -3,6 +3,7 @@
 #include "mesher/repair_case.hpp"
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_surface_profile.hpp"
+#include "mesher/repair_survivor_curvature.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -256,6 +257,37 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     require(std::find(original.begin(),original.end(),a)!=original.end()&&
                             std::find(original.begin(),original.end(),b)!=original.end(),
                             "M18A CAP rim edge must match its EXACT original indexed surviving FaceId");
+                    const auto neighborhood=
+                        collectSurvivorCurvatureNeighborhood(*cut.index,survivorId);
+                    require(!neighborhood.missingSeed&&
+                            !neighborhood.faces.empty()&&
+                            neighborhood.faces.front().face==survivorId,
+                            "M18B must anchor to exact R03 surviving FaceId");
+                    const auto curvature=estimateSurvivorDirectionalCurvature(
+                        cut.index->vertex(a).position,
+                        cut.index->vertex(b).position,neighborhood);
+                    require(curvature.contributingFaces<=
+                            SurvivorCurvatureLimits{}.maxFaces&&
+                            curvature.edgeLength>0&&
+                            std::isfinite(curvature.maximumNormalAngle),
+                            "M18B refusal-1 neighborhood must be bounded and finite");
+                    if((a==3207&&b==5470)||(a==5470&&b==3207)) {
+                        std::cout<<std::setprecision(17)
+                                 <<"[r06-m18b-refusal-1] alternate="<<alternative
+                                 <<" optimized="<<corrected
+                                 <<" rim_edge="<<a<<","<<b
+                                 <<" survivor_face="<<survivorId
+                                 <<" confidence="
+                                 <<survivorCurvatureConfidenceName(curvature.confidence)
+                                 <<" sample_count="<<curvature.contributingFaces
+                                 <<" truncated="<<neighborhood.truncated
+                                 <<" k_tt="<<curvature.seam
+                                 <<" k_tu="<<curvature.mixed
+                                 <<" k_uu="<<curvature.transverse
+                                 <<" rms="<<curvature.rmsNormalResidual
+                                 <<" max_normal_angle="<<curvature.maximumNormalAngle
+                                 <<"\n";
+                    }
                     if((a==3207&&b==5470)||(a==5470&&b==3207)) {
                         ++affected;
                         std::cout<<std::setprecision(17)
