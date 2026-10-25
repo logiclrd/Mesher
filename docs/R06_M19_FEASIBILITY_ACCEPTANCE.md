@@ -58,6 +58,90 @@ This finite probe finds small legal position improvements but
 that more coordinated or further-reaching positional edits are
 mathematically impossible.
 
+## M19A follow-up: bilateral survivor-average-normal candidates (CPU accepted)
+
+A subsequent user inspection identified an additional flaw in the
+original M19A candidate set: its positional proposals interpolated
+toward ONE survivor tangent plane or a nearby curvature target and
+could not systematically move **beyond that plane**, inward OR outward
+along the average original survivor normal. The candidate set was
+therefore unnecessarily restricted even though its points were stored
+in 3D. An unrelated non-mirrored branch also incorrectly reflected
+the candidate vertex against X=0, which suppressed asymmetric legal
+trials.
+
+**Tested source HEAD:**
+`5bcdc9a9b88a5fd6d9f8e4b7afb6292e3e3a82c2`.
+[GitHub Actions #40187905326](https://github.com/logiclrd/Mesher/actions/runs/40187905326)
+**SUCCESS** on Linux GCC, Linux Clang and Windows MSVC
+`/W4 /WX`; **122/122 CPU tests** on all three.
+The default R06 cap, staged faces, vertex identities, worker root,
+history and checkpoints are not modified.
+
+The revised M19A samples THREE reference origins: the current first
+ring position, the original exact survivor tangent-plane projection,
+and a bounded confidence-qualified curvature continuation target.
+For each it tests signed displacements in **both directions** along
+the normalized mean of the original survivor face normals. Where
+reflection applies, the mean normal is restricted to X=0 and every
+candidate is reflected as an exact orbit. Nonmirrored vertices
+retain their actual 3D coordinates, without a spurious reflection.
+The search uses signed levels up to **0.8 times the median original
+rim edge**, still subject to the previous **1.5-edge-scale displacement
+limit**, original q>=0.10 floor, face orientation, exact rim/hub,
+cap embedding and one cumulative shared collision-work budget.
+The number of explicit candidate attempts is bounded by **512**.
+Only the diagnostic probe searches this richer 3D set; no actual
+closure optimizer or fallback is changed.
+
+On original `refusal-1` with all M17C/M17D/M18D/M18E flags enabled:
+
+| Measurement | Prior M19A (plane-limited) | M19A bilateral normal sweep |
+|---|---:|---:|
+| Positional candidates evaluated | 96 | 512 |
+| Locally admissible improvements | 8 | 7 |
+| Accepted correction rounds | 2 | 3 |
+| Worst cap/survivor dihedral | 52.9699° | **52.9699°** |
+| Worst rim-adjacent cap/cap dihedral | 124.026° | **92.2785°** |
+| Mean squared boundary+fairness score | 0.264252 | **0.204093** |
+| Minimum cap q | 0.117503 | **0.117503** |
+
+The *actual same-case baseline*, unchanged by either probe, has
+worst seam **52.9699°**, worst cap-rim bend **129.270°**, mean score
+**0.272759**, min q **0.117503**.
+
+The enlarged 512-candidate run attempted **216 negative and
+216 positive** normal-offset proposals. It actually sampled
+**221 positive-side and 270 negative-side** positions with respect
+to their original local survivor tangent planes; the displacement
+range projected on the survivor-average normal was **-0.817449 to
++0.811911 median-edge units**. Of the seven admissible improvements,
+**three came from negative normal-offset proposals**, none from
+positive proposals. Other candidates were rejected by exact
+shape/orientation/fairness gates as designed (8 under-quality,
+179 orientation, 318 score rejections; no cap contact collision
+or contact-budget exhaustion). The normal projection of the
+original worst-fold first-ring position is logged as **+0.127175
+median-edge units**; this is an orientation-signed measurement,
+not a claim that this direction is universally outward/inward
+for all surfaces.
+
+A new regression explicitly requires proposals and actual sample
+positions on BOTH sides of the survivor tangent plane, signed
+average-normal displacement coverage, deterministic repeat,
+nonmirrored position handling and exact original R03 boundary
+immutability. The original complete PRIVATE closure remains
+unchanged and certified.
+
+**Interpretation:** the 2D interpolation restriction was real and
+the additional normal dimension finds substantially better
+cap-interior fairing without a topology edit. But the worst seam
+angle is unchanged in this finite search. This is not evidence
+that further coordinated vertex motion is mathematically impossible,
+nor does it supersede M19C's independent and larger diagonal
+counterfactual seam improvement. None of these changes have
+been staged or visually accepted.
+
 ## M19C read-only local diagonal probe
 
 Opt in INSTEAD with `--repair-diagonal-probe`. The pure
