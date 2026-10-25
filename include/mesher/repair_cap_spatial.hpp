@@ -9,6 +9,8 @@
 
 namespace mesher {
 
+struct SurvivorDirectionalCurvature;
+
 // Private LOCAL coordinates/indices: the first boundaryCount positions
 // correspond to the R03 directed rim in REVERSED (cap-face) order.
 // All subsequent vertices are synthetic interior vertices, not stable IDs.
@@ -38,6 +40,11 @@ struct SpatialCapSettings {
     // M17D opt-in: correct Poisson-settled inward-ring points which shoot
     // past a neighboring fixed boundary edge, without moving R03 vertices.
     bool repairTangentialOvershoot=false;
+    // M18D independent opt-in: bounded mirror-orbit first-ring placement
+    // for M18C measured boundary direction/fairness. Disabled by default.
+    bool optimizeBoundaryContinuity=false;
+    std::size_t maxContinuityRounds=4;
+    std::size_t maxContinuityTrials=40;
     double desiredMinimumQuality=0.10;
     std::size_t maxCorrectionRounds=4;
     std::size_t maxCorrectionTrials=24;
@@ -52,6 +59,7 @@ struct SpatialCapSettings {
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
-    const SpatialCapSettings& settings={});
+    const SpatialCapSettings& settings={},
+    const std::vector<SurvivorDirectionalCurvature>* incomingReference=nullptr);
 
 } // namespace mesher
