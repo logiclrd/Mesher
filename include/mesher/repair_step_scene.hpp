@@ -19,6 +19,7 @@ struct RepairStepScene {
     std::vector<PartitionRenderVertex> triangles;
     std::size_t survivorFaces=0,generatedFaces=0;
     std::size_t highlightedFaces=0,boundaryEdges=0;
+    std::size_t suspectCapFaces=0,secondaryContourEdges=0;
     bool showingPrevious=false;
     bool warningOnly=false;
 };
@@ -36,6 +37,11 @@ inline RepairStepScene buildRepairStepScene(
         "UNTRUSTED_QUALITY_WARNING_PREVIEW")!=std::string::npos;
     std::set<FaceId> modified;
     std::set<RepairStepFaceKey> changedGenerated;
+    std::set<std::array<VertexId,3>> suspected;
+    for(auto tri:selected.suspectCapFaces) {
+        std::sort(tri.begin(),tri.end());
+        suspected.insert(tri);
+    }
     std::set<VertexId> moved;
     if(previous&&current) {
         const auto delta=diffRepairStepGeometry(*previous,*current);
@@ -85,16 +91,24 @@ inline RepairStepScene buildRepairStepScene(
         const bool highlight=changedGenerated.contains(repairStepFaceKey(face))||
             std::any_of(face.vertices.begin(),face.vertices.end(),
                 [&](VertexId id){return moved.contains(id);});
-        const float material=highlight?(showPrevious?14.0f:15.0f):
+        auto identity=face.vertices;
+        std::sort(identity.begin(),identity.end());
+        const bool anomalous=face.kind==MixedClosureFaceKind::Cap&&
+            suspected.contains(identity);
+        // Orange M20 anomaly is distinct from cyan operation delta and
+        // the true yellow open R03 rim; it never changes real face data.
+        const float material=anomalous?4.0f:
+            highlight?(showPrevious?14.0f:15.0f):
             face.kind==MixedClosureFaceKind::Cap?9.0f:
             face.kind==MixedClosureFaceKind::Zipper?8.0f:0.0f;
         addTriangle(face.vertices,material);
         scene.highlightedFaces+=highlight?1:0;
+        scene.suspectCapFaces+=anomalous?1:0;
         ++scene.generatedFaces;
     }
     // Geometric boundary rods are purely diagnostic and never form part of
     // the staged topology; all endpoint positions come from THIS frame.
-    const auto rod=[&](VertexId va,VertexId vb) {
+    const auto rod=[&](VertexId va,VertexId vb,float material,bool secondary) {
         const Vec3 a=selected.position(va),b=selected.position(vb);
         const auto axis=b-a;
         if(length(axis)<=1e-15)return;
@@ -105,19 +119,25 @@ inline RepairStepScene buildRepairStepScene(
         const std::array<Vec3,4> ring{{u,v,u*-1.,v*-1.}};
         const auto push=[&](Vec3 p) {
             scene.triangles.push_back({float(p.x),float(p.y),float(p.z),
-                                       0,0,1,6.0f});
+                                       0,0,1,material});
         };
         for(std::size_t i=0;i<4;++i) {
             const auto j=(i+1)%4;
             push(a+ring[i]);push(a+ring[j]);push(b+ring[i]);
             push(b+ring[i]);push(a+ring[j]);push(b+ring[j]);
         }
-        ++scene.boundaryEdges;
+        if(secondary)++scene.secondaryContourEdges;
+        else ++scene.boundaryEdges;
     };
     if(selected.boundaryDiagnostic.empty())
         for(const auto& loop:selected.boundaryLoops)
             for(std::size_t i=0;i<loop.size();++i)
-                rod(loop[i],loop[(i+1)%loop.size()]);
+                rod(loop[i],loop[(i+1)%loop.size()],6.0f,false);
+    // Purple M20 rods are a PROPOSAL only. Do not confuse them with
+    // the stage-owned open boundary rods (yellow), or create any faces.
+    for(const auto& loop:selected.secondaryCapContours)
+        for(std::size_t i=0;i<loop.size();++i)
+            rod(loop[i],loop[(i+1)%loop.size()],5.0f,true);
     return scene;
 }
 } // namespace mesher
