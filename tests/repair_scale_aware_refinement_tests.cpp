@@ -5,7 +5,6 @@
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
 #include "mesher/repair_cap_continuity.hpp"
-#include "mesher/repair_cap_anomaly.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/repair_preview.hpp"
 #include "mesher/repair_excision.hpp"
@@ -392,24 +391,6 @@ void refusalOneRealSavedCaseAttemptTrace() {
                             ++previewMoved;
                     require(previewMoved>0,
                             "M19A step preview must actually stage different inward ring positions");
-                    // M20A is a READ-ONLY mask/secondary-contour proposal
-                    // on the exact saved case after M19's position preview.
-                    const auto sourceCopy=previewLocal;
-                    const auto anomaly=diagnoseSpatialCapAnomaly(
-                        previewLocal,normalGuide,references,
-                        previewLocal.reflectedOrbits);
-                    require(anomaly.measuredInteriorEdges>0&&
-                            anomaly.suspectedInteriorEdges>0&&
-                            anomaly.hasProposal(),
-                            "M20A must identify a finite secondary hole on refusal-1");
-                    require(previewLocal.faces==sourceCopy.faces&&
-                            previewLocal.positions.size()==sourceCopy.positions.size(),
-                            "M20A exact-case diagnostic cannot change cap faces/positions");
-                    std::cout<<"[r06-m20a-refusal-1] suspect_faces="
-                             <<anomaly.suspectFaces.size()
-                             <<" proposed_loops="<<anomaly.secondaryContours.size()
-                             <<" source_rim_touch="<<anomaly.touchesOriginalRim
-                             <<" private_only=1\n";
                     const auto previewProfile=measureSpatialCapRimProfile(
                         previewLocal,normalGuide);
                     const auto originalProfile=measureSpatialCapRimProfile(

@@ -856,59 +856,6 @@ face, but more conforming/reflective children on the complete patch.
   mesh validity and actual private/nonpublished state. Physical acceptance
   is NOT implied by headless CI.
 
-### R06-M20 — Recursive local cap defect repair (2026-10-25)
-
-Design and staged acceptance:
-[docs/R06_M20_RECURSIVE_CAP_REPAIR.md](docs/R06_M20_RECURSIVE_CAP_REPAIR.md).
-A new cap is already fresh geometry: this program diagnoses normal/curvature
-**residuals unexplained by original survivor evidence**, removes unhealthy
-CAP faces + transition halo in a future private local patch, and re-caps the
-smaller hole using original reference curvature. Do not mistake a local
-normal-jump minimization for proof of a correct surface; distinguish real
-crease, source-normal uncertainty, and distortion inherited from the first
-cap. An unchanged deterministic boundary need not yield a different solution.
-Prevent endless recursion via measured whole-patch merit and hard budgets.
-
-- [ ] **M20A — First read-only curvature anomaly / excision-contour preview.**
-  - [x] **M20A1 — Pure local-index CAP/CAP anomaly analysis.** Bounded
-    directed edge incidence, source-aware expected-normal variation with
-    confidence labels, deterministic suspected face islands, one-ring halo
-    and exact candidate closed secondary contour (or explicit refusal).
-    Original R03 rim and stage topology are never altered.
-  - [x] **M20A2 — Step-debug visualization, opt-in only.** Distinct
-    anomalous faces and distinct secondary candidate rim, counts and
-    trust warnings in HUD. No synthetic mesh edits or source write.
-  - [x] **M20A3 — Exact-case, healthy/crease/reflection fixtures and CI.**
-    Reject forks/non-disks/budgets, preserve strict source identities,
-    cap q>=0.10, normal/winding, reflection, no worker publication and
-    original saved-case bytes. GCC/Clang/MSVC /W4 /WX required.
-    **CPU accepted** at implementation `5eac1ad5a2583d200128a54b3e0e3b4ead302e11`,
-    [CI #40225021188](https://github.com/logiclrd/Mesher/actions/runs/40225021188):
-    GCC/Clang/Windows MSVC **129/129 tests on each**. Exact archived
-    refusal-1 produced 6 suspect CAP faces and one closed secondary
-    contour NOT touching R03, with positions/face connectivity unchanged.
-    The new private step debugger marks suspect faces orange and proposed
-    candidate secondary rims purple; source confidence is labeled.
-    [Acceptance record](docs/R06_M20A_ACCEPTANCE.md).
-  - [ ] **M20A4 — Physical Linux/Windows Vulkan diagnosis acceptance.**
-    User compare at/after DiagnoseCapAnomaly and ENSUREFACE steps on
-    unchanged refusal-1 with M19A6 position preview, inspect mirrored
-    view; confirm orange face island and purple candidate rim surround
-    the visible ripple and do not mislabel genuine crease geometry.
-    CPU tests do NOT close visual acceptance.
-- [ ] **M20B — Private excision of candidate-generated faces.** Work
-  on a local copy before M15 stage commit, leave original survivor
-  geometry immutable, show an open secondary hole; never publish.
-- [ ] **M20C — One constrained secondary cap replacement.** Reuse
-  original survivor curvature/confidence rather than training on the
-  untrusted first cap, test full-patch improvement/source certification.
-- [ ] **M20D — Bounded multi-round correction and physical acceptance.**
-  Iteration/work/halo bounds, stagnation/refusal fallback, mirrored
-  orbits, all saved cases/healthy crease fixtures, GPU acceptance.
-- [ ] **Future separately authorized survivor-halo replacement**, if
-  original fixed R03 rim prevents a smooth patch. Do not modify original
-  source faces or histories without full source-backed permission.
-
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
 Extends existing open R06-M06C4e profile diagnostic instead of declaring

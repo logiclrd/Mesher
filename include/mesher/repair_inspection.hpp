@@ -128,8 +128,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     bool probeSeamFeasibility=false,
     bool probeDiagonalFeasibility=false,
     bool stageFeasibilityPreview=false,
-    bool stageDiagonalPreview=false,
-    bool diagnoseRecursiveCap=false);
+    bool stageDiagonalPreview=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.

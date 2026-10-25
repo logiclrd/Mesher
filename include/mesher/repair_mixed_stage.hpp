@@ -160,29 +160,6 @@ public:
     const std::vector<FaceId>& survivingFaceIds() const noexcept {return survivingFaceIds_;}
     const std::vector<VertexId>& provisionalSpatialVertices() const noexcept {return provisionalSpatialVertices_;}
     const std::vector<MixedClosureSplitEvent>& splitEvents() const noexcept {return splitEvents_;}
-    // M20A diagnostic metadata only: local-cap FACE identities and a
-    // proposed second rim, never additions/deletions to staged topology.
-    void recordCapAnomalyPreview(std::vector<PrivateRepairTriangle> faces,
-                                 std::vector<std::vector<VertexId>> contours,
-                                 std::string status) {
-        // Accumulate independent cap-loop diagnostics; later loops must
-        // not erase proposal metadata from an earlier cap on this stage.
-        suspectCapFaces_.insert(suspectCapFaces_.end(),
-                                faces.begin(),faces.end());
-        secondaryCapContours_.insert(secondaryCapContours_.end(),
-                                     contours.begin(),contours.end());
-        if(!capAnomalyStatus_.empty())capAnomalyStatus_+="; ";
-        if(capAnomalyStatus_.size()+status.size()<4096)
-            capAnomalyStatus_+=status;
-        else capAnomalyStatus_+="M20A additional loop status truncated";
-    }
-    const std::vector<PrivateRepairTriangle>& suspectCapFaces() const noexcept {
-        return suspectCapFaces_;
-    }
-    const std::vector<std::vector<VertexId>>& secondaryCapContours() const noexcept {
-        return secondaryCapContours_;
-    }
-    const std::string& capAnomalyStatus() const noexcept {return capAnomalyStatus_;}
     PartitionId vertexOwner(VertexId id) const {return vertexOwners_.at(id);}
     void trackOriginalVertex(VertexId id);
     void stageProvisionalVertex(VertexId id,Vec3 pos,PartitionId owner,
@@ -217,9 +194,6 @@ public:
 private:
     std::vector<VertexId> provisionalSpatialVertices_;
     std::vector<MixedClosureSplitEvent> splitEvents_;
-    std::vector<PrivateRepairTriangle> suspectCapFaces_;
-    std::vector<std::vector<VertexId>> secondaryCapContours_;
-    std::string capAnomalyStatus_;
     OperationObserver observer_;
     bool insideAtomicSplit_=false;
     void notifyOperation(const std::string& name,const std::string& args) const;
@@ -243,7 +217,6 @@ struct MixedClosureStageSettings {
     bool stageFeasibilityPreview=false; // M19A interactive step-only candidate
     bool probeDiagonalFeasibility=false; // M19C diagnostic only
     bool stageDiagonalPreview=false; // M19D private step-debug topology only
-    bool diagnoseRecursiveCap=false; // M20A read-only anomaly and would-be hole
     double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;

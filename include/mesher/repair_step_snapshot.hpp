@@ -55,10 +55,6 @@ struct RepairStepGeometry {
     std::map<VertexId,Vec3> originalPositionOverrides;
     std::map<VertexId,Vec3> generatedPositions;
     std::vector<RepairStepGeneratedFace> generatedFaces;
-    // M20A diagnostic-only identifiers; staged mesh is unchanged.
-    std::vector<PrivateRepairTriangle> suspectCapFaces;
-    std::vector<std::vector<VertexId>> secondaryCapContours;
-    std::string capAnomalyStatus;
     std::vector<std::vector<VertexId>> boundaryLoops;
     std::string boundaryDiagnostic;
     std::string operation;
@@ -123,14 +119,6 @@ inline RepairStepGeometry captureRepairStepGeometry(
     for(const auto& face:staged.faces())
         if(!face.stableId)++generatedCount;
     charge(generatedCount,sizeof(RepairStepGeneratedFace));
-    charge(staged.suspectCapFaces().size(),sizeof(PrivateRepairTriangle));
-    result.suspectCapFaces=staged.suspectCapFaces();
-    charge(staged.secondaryCapContours().size(),sizeof(std::vector<VertexId>));
-    for(const auto& loop:staged.secondaryCapContours())
-        charge(loop.size(),sizeof(VertexId));
-    result.secondaryCapContours=staged.secondaryCapContours();
-    charge(staged.capAnomalyStatus().size(),1);
-    result.capAnomalyStatus=staged.capAnomalyStatus();
     result.generatedFaces.reserve(generatedCount);
     for(std::size_t i=0;i<staged.faces().size();++i) {
         const auto& face=staged.faces()[i];

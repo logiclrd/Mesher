@@ -38,28 +38,6 @@ int main() {
         const auto sceneBefore=buildRepairStepScene(before,&before,&capped,true);
         check(sceneBefore.showingPrevious&&sceneBefore.boundaryEdges==3,
               "Previous displays original gold open front without an invented cap");
-        // M20A: read-only mask and second-rim proposal become distinct
-        // orange faces and purple rods, without changing stage topology.
-        const auto unchangedFaceCount=stage.faces().size();
-        stage.recordCapAnomalyPreview({{a,c,b}},{{a,c,b}},
-                                     "M20A PROPOSED SECONDARY CONTOUR");
-        const auto annotated=captureRepairStepGeometry(
-            stage,"DiagnoseCapAnomaly","NO GEOMETRY CHANGED");
-        const auto diagnostic=buildRepairStepScene(annotated);
-        check(stage.faces().size()==unchangedFaceCount&&
-              diagnostic.suspectCapFaces==1&&
-              diagnostic.secondaryContourEdges==3&&
-              diagnostic.boundaryEdges==0,
-              "M20A overlay must be visible without new/removed stage faces");
-        check(diagnostic.triangles.size()==12+3*4*6,
-              "M20A purple proposal must draw rods independently of real boundary");
-        bool orange=false,purple=false;
-        for(const auto& vertex:diagnostic.triangles) {
-            orange|=vertex.material==4.0f;
-            purple|=vertex.material==5.0f;
-        }
-        check(orange&&purple,
-              "M20A proposed face/rim must use distinct shader materials");
         auto view=source->revision().createMutableView();
         MixedClosureSplitSettings bounds;
         bounds.maxTrackedFaces=64;
