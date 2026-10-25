@@ -211,6 +211,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         partner[2*n]=2*n;
     }
 
+    if(limits.requireMirrorPlane)result.reflectedOrbits=partner;
+
     // Advance the oriented FRONT one local mesh layer. The front is the
     // actual 3D rim, rather than a flattened projected polygon. Later
     // patch-vs-patch and candidate-vs-survivor audits may reject a folded
