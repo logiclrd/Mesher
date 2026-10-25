@@ -365,10 +365,13 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     const auto originalScore=objective(continuation);
                     const auto correctedScore=objective(improvedContinuity);
                     require(improvedLocal.minimumQuality+1e-12>=.1&&
-                            correctedScore<=originalScore+1e-8&&
-                            improvedContinuity.maximumBoundaryJumpRadians<=
+                            correctedScore<originalScore*.5&&
+                            improvedContinuity.maximumBoundaryJumpRadians<
+                                70.*std::acos(-1.)/180.,
+                            "M18D original refusal-1 must reduce 156-degree folds below 70 degrees while preserving q>=.10");
+                    require(improvedContinuity.maximumBoundaryJumpRadians<=
                                 continuation.maximumBoundaryJumpRadians+1e-8,
-                            "M18D original refusal-1 may not buy smoothness by violating q or worsening worst dihedral");
+                            "M18D may not buy smoothness by worsening the worst dihedral");
                     // Immutable X=0 and reflected orbits: no approximate
                     // vertex welding or unilateral movement of a mirror.
                     const auto count=improvedLocal.boundaryCount;
