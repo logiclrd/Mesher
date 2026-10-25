@@ -19,6 +19,7 @@ void run(bool symmetric) {
     settings.requireMirrorPlane=symmetric;
     settings.normalGuidance=0;
     auto original=buildSpatialCapFrontPoisson(rim,normal,settings);
+    const auto baseline=original;
     const auto n=original.boundaryCount;
     require(original.faces.size()==3*n,
             "M19C sample must have exact indexed three-face strip");
@@ -72,9 +73,14 @@ void run(bool symmetric) {
             report.bestWorstSeamRadians==again.bestWorstSeamRadians&&
             report.bestWorstCapRimRadians==again.bestWorstCapRimRadians,
             "M19C fixed-order mirrored proposals must be deterministic");
+    require(original.faces==baseline.faces&&
+            original.positions.size()==baseline.positions.size(),
+            "M19C source patch must remain unchanged");
     for(std::size_t k=0;k<original.positions.size();++k)
-        require(original.positions[k].x==original.positions[k].x,
-                "M19C did not manufacture any nonfinite coordinates");
+        require(original.positions[k].x==baseline.positions[k].x&&
+                original.positions[k].y==baseline.positions[k].y&&
+                original.positions[k].z==baseline.positions[k].z,
+                "M19C must not modify original source coordinates");
     std::cout<<"[r06-m19c] mirrored="<<symmetric
              <<" attempted="<<report.candidates
              <<" locally_admissible="<<report.admissible
