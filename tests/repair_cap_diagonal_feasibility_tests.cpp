@@ -57,8 +57,27 @@ void run(bool symmetric) {
     SpatialCapDiagonalProbeLimits limits;
     limits.minimumQuality=.05;
     limits.maxCandidates=24;
+    SpatialCapPatch selected;
     const auto report=probeSpatialCapDiagonalFeasibility(
-        original,normal,mirror,validator,limits);
+        original,normal,mirror,validator,limits,&selected);
+    require(report.acceptedQuadOrbits.size()==report.acceptedRounds,
+            "M19D1 selected quad provenance must match accepted rounds");
+    for(const auto& orbit:report.acceptedQuadOrbits) {
+        require(orbit[0]<n&&orbit[1]<n,
+                "M19D1 accepted quad identity outside the original strip");
+        require(mirror.empty()?orbit[0]==orbit[1]:
+                    orbit[1]==mirror[(orbit[0]+1)%n],
+                "M19D1 must report the exact reversed mirror-quad identity");
+    }
+    require(selected.faces.size()==original.faces.size()&&
+            selected.positions.size()==original.positions.size()&&
+            (report.improved||selected.faces==original.faces),
+            "M19D1 counterfactual topology is missing or false-positive");
+    for(std::size_t k=0;k<original.positions.size();++k)
+        require(selected.positions[k].x==original.positions[k].x&&
+                selected.positions[k].y==original.positions[k].y&&
+                selected.positions[k].z==original.positions[k].z,
+                "M19D1 must preserve every original vertex position");
     require(report.candidates<=limits.maxCandidates&&
             validated<=report.candidates&&
             report.bestWorstSeamRadians<=
@@ -66,13 +85,16 @@ void run(bool symmetric) {
             report.bestWorstCapRimRadians<=
                 report.baselineWorstCapRimRadians+1e-10,
             "M19C finite legal diagonal proposal cannot worsen the worst fold");
+    SpatialCapPatch selectedAgain;
     auto again=probeSpatialCapDiagonalFeasibility(
-        original,normal,mirror,validator,limits);
+        original,normal,mirror,validator,limits,&selectedAgain);
     require(report.candidates==again.candidates&&
             report.admissible==again.admissible&&
             report.bestWorstSeamRadians==again.bestWorstSeamRadians&&
-            report.bestWorstCapRimRadians==again.bestWorstCapRimRadians,
-            "M19C fixed-order mirrored proposals must be deterministic");
+            report.bestWorstCapRimRadians==again.bestWorstCapRimRadians&&
+            report.acceptedQuadOrbits==again.acceptedQuadOrbits&&
+            selected.faces==selectedAgain.faces,
+            "M19C/M19D1 mirrored proposals and selected patch must be deterministic");
     require(original.faces==baseline.faces&&
             original.positions.size()==baseline.positions.size(),
             "M19C source patch must remain unchanged");
