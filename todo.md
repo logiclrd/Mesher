@@ -865,18 +865,31 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
 [Design and acceptance gates](docs/R06_M21_WHOLE_CAP_FAIRING.md).
 
 - [ ] **M21A — Fixed-topology whole-cap fairing first experiment.**
-  - [ ] **M21A1 — Pure fairing metric and local-copy proposer.**
+  - [x] **M21A1 — Pure fairing metric and local-copy proposer.**
     Finite whole-cap normal-field objective with seam/worst-local guards,
     original rim immutable, q/embedding/orientation, mirrored orbits,
     maximum movement penalty and *bit-identical fallback*.
-  - [ ] **M21A2 — Default-OFF private step-only fairing preview.**
+  - [x] **M21A2 — Default-OFF private step-only fairing preview.**
     Distinct `--repair-whole-cap-fairing-preview` flag; compare against
     unchanged R06 baseline and log metric/result. No worker publication.
-  - [ ] **M21A3 — Immutable saved-case and healthy/crease regression, CI.**
+  - [x] **M21A3 — Immutable saved-case and healthy/crease regression, CI.**
     GCC/Clang/MSVC /W4 /WX; exact accepted baseline on no improvement.
+    **CPU accepted** at implementation `6068d80d5cfe55c863db143e041c0faf0da0ef7f`,
+    [CI #40227756478](https://github.com/logiclrd/Mesher/actions/runs/40227756478):
+    129/129 on GCC, Clang and MSVC. Exact refusal-1 score 0.332947
+    -> 0.321503, worst cap/cap 162.227 -> 153.135 degrees, original
+    rim and worst original seam unchanged, minimum q 0.117503.
+    [Acceptance details](docs/R06_M21A_ACCEPTANCE.md).
   - [ ] **M21A4 — GPU matching-view A/B and complete private verdict.**
     Physical acceptance separate; no claim that fairer local cap is
     source-complete accepted until actual inspection.
+- [ ] **M21A5 — Source-complete improved-candidate retry fallback.**
+  Implement verified atomic fallback to the previously valid original
+  source-backed closed candidate if an otherwise locally better M21
+  alternative fails downstream whole-survivor validation. Only then can
+  the strict user policy ("fairing cannot turn a successful cap into a
+  refusal") be claimed for future production R06, rather than solely
+  for local cap selection.
 - [ ] **M21B — Source-guided higher-order whole-patch fitting** if small
   Laplacian proposals cannot improve normals without flattening features.
 - [ ] **M21C — Optional triangulation optimization** (safe flips/collapses)
