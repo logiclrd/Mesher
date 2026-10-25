@@ -115,6 +115,10 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(
             repair_r06_m17d_reject_front_optimize_without_auto
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m19c_reject_diagonal_probe_without_auto
+                 COMMAND Mesher --repair-diagonal-probe)
+        set_tests_properties(repair_r06_m19c_reject_diagonal_probe_without_auto
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m19a_reject_probe_without_auto
                  COMMAND Mesher --repair-feasibility-probe)
         set_tests_properties(repair_r06_m19a_reject_probe_without_auto
@@ -394,6 +398,14 @@ if(MESHER_BUILD_TESTS)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
     # M18B pure diagnostic, including synthetic directional tensor + confidence.
+    # M19C: independent private mirrored alternate-diagonal experiment.
+    add_executable(mesher_repair_cap_diagonal_feasibility_tests
+                   tests/repair_cap_diagonal_feasibility_tests.cpp)
+    target_link_libraries(mesher_repair_cap_diagonal_feasibility_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m19c_diagonal_feasibility
+             COMMAND mesher_repair_cap_diagonal_feasibility_tests)
+    set_tests_properties(repair_r06_m19c_diagonal_feasibility
+        PROPERTIES TIMEOUT 15)
     # M19A: diagnostics-only finite positional feasibility search.
     add_executable(mesher_repair_cap_feasibility_tests
                    tests/repair_cap_feasibility_tests.cpp)
