@@ -172,6 +172,20 @@ void mirroredSingleRimContract() {
     }
     expect(result.positions.back().x==0,
            "R06-M06C4c hub must be a real self-mirrored seam vertex");
+    auto optimizedSettings=symmetric;
+    optimizedSettings.repairTangentialOvershoot=true;
+    const auto optimized=buildSpatialCapFrontPoisson(
+        rim,normals,optimizedSettings);
+    validate(rim,optimized);
+    expect(optimized.minimumQuality+1e-12>=result.minimumQuality,
+           "M17D opt-in cannot worsen an already valid reflected cap");
+    for(std::size_t i=0;i<rim.size();++i) {
+        const auto& a=optimized.positions[rim.size()+i];
+        const auto& b=optimized.positions[rim.size()+
+            (i==0?0:rim.size()-i)];
+        expect(a.x==-b.x&&a.y==b.y&&a.z==b.z,
+            "M17D corrected inward vertices preserve exact mirrored Poisson ring orbits");
+    }
     auto damaged=rim;
     damaged[2].y+=.001;
     bool refused=false;
