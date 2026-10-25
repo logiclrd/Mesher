@@ -181,7 +181,8 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
                 ++report.normalCandidates;
                 auto candidate=best;
                 candidate.positions[vertex]=moved;
-                if(mate==vertex)candidate.positions[vertex].x=0.;
+                if(!mirroredOrbits.empty()&&mate==vertex)
+                    candidate.positions[vertex].x=0.;
                 else candidate.positions[mate]=reflect(moved);
                 bool legal=true;
                 for(const auto& tri:best.faces) {
