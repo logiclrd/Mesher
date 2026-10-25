@@ -148,6 +148,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 spatial.optimizeBoundaryContinuity=bounds.optimizeCurvatureFront;
                 spatial.curvatureGuidedPoisson=bounds.guideCurvaturePoisson;
                 spatial.probeFirstRingFeasibility=bounds.probeSeamFeasibility;
+                spatial.stageFirstRingFeasibilityPreview=bounds.stageFeasibilityPreview;
                 spatial.probeBandDiagonalFeasibility=bounds.probeDiagonalFeasibility;
                 spatial.desiredMinimumQuality=bounds.targetInitialCapQuality;
                 spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
@@ -157,7 +158,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                                 [](Vec3 v){return v.x>0;});
                 std::vector<SurvivorDirectionalCurvature> references;
                 if(bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                   bounds.probeSeamFeasibility) {
+                   bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview) {
                     references.resize(n);
                     for(std::size_t k=0;k<n;++k) {
                         // Outgoing cap edge k->k+1 corresponds to the
@@ -180,7 +181,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 patch=buildSpatialCapFrontPoisson(
                     ordered,guidance,spatial,
                     (bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                     bounds.probeSeamFeasibility)?
+                     bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview)?
                         &references:nullptr);
             }catch(const std::exception& failed) {
                 throw std::logic_error(
