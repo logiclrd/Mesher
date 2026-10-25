@@ -542,7 +542,12 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         guided.positions[tri[0]],guided.positions[tri[1]],
                         guided.positions[tri[2]]));
                 }
-                if(minAfter+1e-12<minBefore)legal=false;
+                // The original hard q floor remains strict. A healthy
+                // baseline may trade excess shape quality for continuity;
+                // an under-floor baseline may NOT become even worse.
+                if(minBefore>=limits.desiredMinimumQuality?
+                   minAfter+1e-12<limits.desiredMinimumQuality:
+                   minAfter+1e-12<minBefore)legal=false;
                 if(legal) {
                     try {
                         const auto compare=[&](const SpatialCapPatch& patch) {
