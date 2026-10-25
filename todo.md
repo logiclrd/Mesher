@@ -927,14 +927,14 @@ that would erase sculpted intentional creases.
   `[repair-r06-continuity(-edge)]` console output is diagnostic only.
   [Acceptance record](docs/R06_M18C_ACCEPTANCE.md). M18D is the first
   geometry-changing stage; no physical GPU acceptance implied.
-- [ ] **R06-M18D — Bounded curvature-aware M17D position proposals.**
-  - [ ] **M18D1 — Independent opt-in local candidate search.** Search
+- [x] **R06-M18D — Bounded curvature-aware M17D position proposals.**
+  - [x] **M18D1 — Independent opt-in local candidate search.** Search
     bounded reflected first-ring orbits using seam-axis normal alignment
     and M18C first-order/cap-fairness diagnostics; use trustworthy
     directional tensor comparison only as a subordinate/tie-break
     measure. Preserve hard quality, source identity, orientation and
     full same-budget embedding checks; permit no-op if no legal move.
-  - [ ] **M18D2 — End-to-end flag, exact-case and CI acceptance.** Thread
+  - [x] **M18D2 — End-to-end flag, exact-case and CI acceptance.** Thread
     opt-in through replay/step debugger/live R06; compare archived
     refusal-1 M17C+D baseline and M18D result including maximum seam
     and cap interior folds, provenance and final closure. Require
@@ -946,6 +946,21 @@ that would erase sculpted intentional creases.
   q>=.10. Keep R03 rim/hub fixed unless independently justified; rerun the
   existing no-inversion, q, edge-scale, embedding and complete mesh checks
   on every candidate; fail closed and report no legal improvement.
+  **CPU accepted (opt-in experiment), Oct 25, 2026:** tested code
+  `2810f12a3d5a0690c3fae7db1770e86ef3a91bdd`;
+  [CI #40170070842](https://github.com/logiclrd/Mesher/actions/runs/40170070842)
+  SUCCESS: GCC, Clang and MSVC `/W4 /WX`, 116/116 tests. Original
+  `refusal-1` with M17C+D+M18D: mirror-paired worst seam dihedral
+  **156.146 to 53.014 deg**, initial minimum q **.105608 to .160241**,
+  M18C boundary/fairness energy **1.252839 to .286845**, two accepted
+  mirrored correction rounds and complete PRIVATE certified closure.
+  Independent flag `--repair-curvature-optimize` defaults off;
+  failure to find a legal improvement leaves the baseline unchanged.
+  M18D uses first-order seam/cap fairness because only 2/18 original
+  tensor comparisons are qualified; it does NOT certify second-order
+  tensor matching. [Details](docs/R06_M18D_ACCEPTANCE.md).
+  **Physical Vulkan visual acceptance remains open in M18F/M17E**;
+  residual 53-degree fold is not declared visually smooth.
 - [ ] **R06-M18E — Curvature guidance in spatial Poisson construction.**
   Only after M18D gives measured benefits, incorporate trustworthy survivor
   directional guidance into the fixed-rim solver, with finite convergence,
