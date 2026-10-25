@@ -344,6 +344,60 @@ void refusalOneRealSavedCaseAttemptTrace() {
                          <<" qualified_mismatch="
                          <<continuation.meanQualifiedDirectionalMismatch
                          <<"\n";
+                if(!alternative&&corrected) {
+                    // M18D: use the exact original survivor-indexed tensor
+                    // evidence and first-ring patch that M17D certified.
+                    SpatialCapSettings curvatureBounds=bounds;
+                    curvatureBounds.optimizeBoundaryContinuity=true;
+                    const auto improvedLocal=buildSpatialCapFrontPoisson(
+                        ordered,normalGuide,curvatureBounds,&references);
+                    const auto improvedContinuity=measureSpatialCapContinuity(
+                        improvedLocal,normalGuide,references);
+                    const auto objective=[](const SpatialCapContinuity& report) {
+                        double sum=0;
+                        for(const auto& e:report.edges)
+                            sum+=e.boundaryNormalJumpRadians*
+                                 e.boundaryNormalJumpRadians+
+                                 .25*e.capInteriorFairnessRadians*
+                                     e.capInteriorFairnessRadians;
+                        return sum/report.edges.size();
+                    };
+                    const auto originalScore=objective(continuation);
+                    const auto correctedScore=objective(improvedContinuity);
+                    require(improvedLocal.minimumQuality+1e-12>=.1&&
+                            correctedScore<=originalScore+1e-8&&
+                            improvedContinuity.maximumBoundaryJumpRadians<=
+                                continuation.maximumBoundaryJumpRadians+1e-8,
+                            "M18D original refusal-1 may not buy smoothness by violating q or worsening worst dihedral");
+                    // Immutable X=0 and reflected orbits: no approximate
+                    // vertex welding or unilateral movement of a mirror.
+                    const auto count=improvedLocal.boundaryCount;
+                    for(std::size_t v=0;v<count;++v)
+                        require(improvedLocal.positions[v].x==ordered[v].x&&
+                                improvedLocal.positions[v].y==ordered[v].y&&
+                                improvedLocal.positions[v].z==ordered[v].z,
+                                "M18D must preserve every indexed R03 boundary coordinate");
+                    for(std::size_t v=count;v<2*count;++v) {
+                        const auto p=improvedLocal.positions[v];
+                        bool hasMirror=false;
+                        for(std::size_t u=count;u<2*count;++u) {
+                            const auto q=improvedLocal.positions[u];
+                            if(q.x==-p.x&&q.y==p.y&&q.z==p.z) {
+                                hasMirror=true;break;
+                            }
+                        }
+                        require(hasMirror,"M18D must preserve exact mirrored inward-ring position orbits");
+                    }
+                    std::cout<<std::setprecision(17)
+                             <<"[r06-m18d-refusal-1] before_score="
+                             <<originalScore<<" after_score="<<correctedScore
+                             <<" before_max_jump_deg="
+                             <<continuation.maximumBoundaryJumpRadians*(180./std::acos(-1.))
+                             <<" after_max_jump_deg="
+                             <<improvedContinuity.maximumBoundaryJumpRadians*(180./std::acos(-1.))
+                             <<" before_q="<<local.minimumQuality
+                             <<" after_q="<<improvedLocal.minimumQuality<<"\\n";
+                }
                 if(!alternative)
                     require(affected==1,
                         "M18A initial refusal-1 must include exact boundary edge 3207,5470");
@@ -429,6 +483,14 @@ void refusalOneRealSavedCaseAttemptTrace() {
             saved.candidate.index->retiredFaceCount()==initialRetiredFaces,
         "full M04C certified replay must also accept M17D refusal-1, with no worker publication");
     std::cout<<"[r06-m17d-certified] saved refusal-1 now certifies a complete private closure PASS\n";
+    // Full M04C authority remains independent of M18D's local score.
+    const auto curvatureCertified=replayPrivateAutomaticRepair(
+        saved,AutoClosureClassifier::Area,false,false,false,{},
+        true,true,true);
+    require(curvatureCertified&&curvatureCertified->privateAuto&&
+            curvatureCertified->privateAuto->index,
+            "M18D complete archived refusal-1 remains strictly certifiable without publishing");
+    std::cout<<"[r06-m18d-refusal-1] full private certified closure PASS\\n";
     MixedPrivateClosureLimits limits;
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
