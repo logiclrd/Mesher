@@ -1179,12 +1179,12 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" min_q="<<result.minimumQuality
                      <<" budget_exhausted="<<report.contactBudgetExhausted
                      <<" baseline_fallback="<<!report.improved
-                     <<" whole_mesh_certified=0 publication=disabled\\n";
+                     <<" whole_mesh_certified=0 publication=disabled\n";
         }catch(const std::exception& error) {
             result=originalAccepted;
             std::cerr<<"[repair-r06-m21a-fairing] unavailable="<<error.what()
                      <<" baseline_fallback=1 whole_mesh_certified=0"
-                     <<" publication=disabled\\n";
+                     <<" publication=disabled\n";
         }
     }
     if(initiallyEmbedded)return result;
