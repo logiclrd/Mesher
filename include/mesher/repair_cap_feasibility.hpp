@@ -44,8 +44,8 @@ struct SpatialCapFeasibility {
 struct SpatialCapFeasibilityLimits {
     std::size_t maxRounds=4,maxProposals=512;
     double minimumQuality=.1;
-    double maximumDisplacementInEdgeScales=1.5;
-    double normalSweepEdgeScales=1.0; // M19A4 trial: each direction, median original rim-edge scale
+    double maximumDisplacementInEdgeScales=3.0; // double original cap so expanded normal sweep is reachable
+    double normalSweepEdgeScales=1.6; // M19A5: double original ±0.8 median-rim-edge sweep
     // Only first-ring indexed vertices may move, optionally as mirrored
     // orbits. The fixed original rim and the central hub NEVER move.
 };
