@@ -996,6 +996,32 @@ that would erase sculpted intentional creases.
   closure still certifies; original source and saved files remain
   unchanged. [Acceptance report](docs/R06_M18E_ACCEPTANCE.md).
   **M18F and M17E remain open: no smooth Vulkan result claimed.**
+- [ ] **R06-M19 — Residual fold feasibility and topology diagnosis** (follow-up
+  to M18E physical inspection; not a new acceptance claim).
+  - [ ] **M19A — Bounded indexed first-ring positional-feasibility probe.**
+    Independently opt-in diagnostics only. Preserve immutable R03 rim,
+    mirrored orbits and existing candidate checks. For the worst seam
+    and adjoining cap faces, generate survivor tangent-plane / bounded
+    curvature-continuation targets and finite interpolation candidates.
+    Log baseline, best locally admissible worst seam AND cap-cap fold,
+    min q, tested/rejected candidates and contact budget. Must not
+    alter the staged cap. Do not claim a global lower bound or topology
+    impossibility from finite sampling.
+  - [ ] **M19B — Fixed-connectivity counterfactual regression.**
+    Compare unchanged archived `refusal-1` M18D/E initial cap,
+    feasibility probes and reflected counterpart, plus smooth and
+    intentional-crease controls. Distinguish quality, local inversion,
+    cap self-contact and source-survivor whole-mesh certification; keep
+    default behavior untouched. Record GCC/Clang/MSVC CI.
+  - [ ] **M19C — Alternative-diagonal feasibility investigation.**
+    Only after M19A evidence, construct alternative same-boundary
+    local diagonals in a separate PRIVATE diagnostic proposal,
+    preserve source-backed face incidence, reflection and all strict
+    checks; compare the same maximum fold metrics, never silently
+    publish or enable a new topology. Report if no admissible
+    alternative exists in finite budget.
+  **M18F/M17E remain physically open**; do not infer visual success
+  from a lower scalar objective.
 - [ ] **R06-M18F — CPU and physical Vulkan acceptance.**
   Compare default/M17C/M17D/M18 on all five unchanged archived cases plus
   healthy reflected/ordinary sphere, torus, zipper, intentional crease and
