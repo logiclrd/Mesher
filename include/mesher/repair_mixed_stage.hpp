@@ -216,6 +216,7 @@ struct MixedClosureStageSettings {
     bool probeSeamFeasibility=false; // M19A diagnostic only
     bool stageFeasibilityPreview=false; // M19A interactive step-only candidate
     bool probeDiagonalFeasibility=false; // M19C diagnostic only
+    bool stageDiagonalPreview=false; // M19D private step-debug topology only
     double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;
