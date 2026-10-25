@@ -29,8 +29,11 @@ struct SpatialCapFeasibility {
     // They establish whether BOTH sides of the survivor reference surface
     // were explicitly explored (not merely projected onto one plane).
     std::size_t normalOutwardProposals{},normalInwardProposals{},
-                normalOutwardAdmissible{},normalInwardAdmissible{};
-    double averageNormalInitialOffsetOverEdge{},normalSweepMaxOverEdge{};
+                normalOutwardAdmissible{},normalInwardAdmissible{},
+                sampledPositivePlaneSide{},sampledNegativePlaneSide{};
+    double averageNormalInitialOffsetOverEdge{},normalSweepMaxOverEdge{},
+           minSampledNormalDeltaOverEdge{std::numeric_limits<double>::infinity()},
+           maxSampledNormalDeltaOverEdge{-std::numeric_limits<double>::infinity()};
     std::size_t proposed{},normalCandidates{},locallyAdmissible{},
                 acceptedRounds{},qualityRejected{},orientationRejected{},
                 scoreRejected{},contactRejected{};
@@ -239,6 +242,15 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
                 if(length(moved-c)>
                     limits.maximumDisplacementInEdgeScales*medianRimEdge)
                     continue;
+                const auto sampledDelta=dot(moved-c,averageNormal)/
+                    medianRimEdge;
+                report.minSampledNormalDeltaOverEdge=std::min(
+                    report.minSampledNormalDeltaOverEdge,sampledDelta);
+                report.maxSampledNormalDeltaOverEdge=std::max(
+                    report.maxSampledNormalDeltaOverEdge,sampledDelta);
+                const auto localPlaneSign=dot(moved-planeTarget,normal);
+                if(localPlaneSign>1e-12)++report.sampledPositivePlaneSide;
+                if(localPlaneSign<-1e-12)++report.sampledNegativePlaneSide;
                 ++report.normalCandidates;
                 auto candidate=best;
                 candidate.positions[vertex]=moved;
@@ -307,6 +319,10 @@ SpatialCapFeasibility probeSpatialCapFirstRingFeasibility(
         original.positions[worst.capOppositeVertex]-
             original.positions[worst.rimStart],averageNormal)/
         medianRimEdge;
+    if(report.normalCandidates==0){
+        report.minSampledNormalDeltaOverEdge=0;
+        report.maxSampledNormalDeltaOverEdge=0;
+    }
     report.bestWorstSeamRadians=metrics.seam;
     report.bestWorstCapRimRadians=metrics.capRim;
     report.bestMeanScore=metrics.mean;
