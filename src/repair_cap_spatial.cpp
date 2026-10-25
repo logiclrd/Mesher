@@ -2,6 +2,7 @@
 #include "mesher/repair_cap_continuity.hpp"
 #include "mesher/repair_cap_feasibility.hpp"
 #include "mesher/repair_cap_diagonal_feasibility.hpp"
+#include "mesher/repair_cap_whole_fairing.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1140,6 +1141,50 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         }catch(const std::exception& error) {
             std::cerr<<"[repair-r06-m19c-diagonals] unavailable="
                      <<error.what()<<"\n";
+        }
+    }
+    // M21A: Optional whole-cap fairing runs AFTER the existing M19 previews,
+    // but BEFORE any private provisional IDs are committed to the stage.
+    // Its failure/no-improvement can NEVER reject a formerly legal cap.
+    if(limits.stageWholeCapFairingPreview&&initiallyEmbedded&&
+       result.minimumQuality+1e-12>=limits.desiredMinimumQuality&&
+       !survivingFaceNormals.empty()&&!result.usedMirroredRibbonFallback) {
+        const auto originalAccepted=result; // bit-identical valid fallback
+        try {
+            SpatialCapFairingLimits search;
+            search.minimumQuality=limits.desiredMinimumQuality;
+            SpatialCapPatch alternative;
+            const auto report=proposeSpatialCapWholeFairing(
+                originalAccepted,survivingFaceNormals,
+                limits.requireMirrorPlane?partner:std::vector<std::size_t>{},
+                h,[&](SpatialCapPatch& candidate){return embedded(candidate);},
+                search,&alternative);
+            if(report.improved)result=std::move(alternative);
+            std::cerr<<"[repair-r06-m21a-fairing]"
+                     <<" candidate_applied="<<report.improved
+                     <<" trial_count="<<report.trials
+                     <<" score_improving_trials="<<report.scoreImprovingTrials
+                     <<" legally_admissible_trials="<<report.legallyAdmissibleTrials
+                     <<" rounds="<<report.acceptedRounds
+                     <<" baseline_score="<<report.baseline.total
+                     <<" selected_score="<<report.selected.total
+                     <<" baseline_worst_interior_deg="
+                     <<report.baseline.worstInteriorRadians*(180./std::acos(-1.))
+                     <<" selected_worst_interior_deg="
+                     <<report.selected.worstInteriorRadians*(180./std::acos(-1.))
+                     <<" baseline_worst_seam_deg="
+                     <<report.baseline.worstSeamRadians*(180./std::acos(-1.))
+                     <<" selected_worst_seam_deg="
+                     <<report.selected.worstSeamRadians*(180./std::acos(-1.))
+                     <<" min_q="<<result.minimumQuality
+                     <<" budget_exhausted="<<report.contactBudgetExhausted
+                     <<" baseline_fallback="<<!report.improved
+                     <<" whole_mesh_certified=0 publication=disabled\\n";
+        }catch(const std::exception& error) {
+            result=originalAccepted;
+            std::cerr<<"[repair-r06-m21a-fairing] unavailable="<<error.what()
+                     <<" baseline_fallback=1 whole_mesh_certified=0"
+                     <<" publication=disabled\\n";
         }
     }
     if(initiallyEmbedded)return result;
