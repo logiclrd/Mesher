@@ -44,7 +44,8 @@ int main(int argc, char** argv) {
     bool repairQualityWarn = false,repairScaleAware=false,
          repairFrontOptimize=false,repairCurvatureOptimize=false,
          repairCurvaturePoisson=false,repairFeasibilityProbe=false,
-         repairDiagonalProbe=false,repairFeasibilityPreview=false;
+         repairDiagonalProbe=false,repairFeasibilityPreview=false,
+         repairDiagonalPreview=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-feasibility-probe")repairFeasibilityProbe=true;
             else if(arg=="--repair-feasibility-preview")repairFeasibilityPreview=true;
             else if(arg=="--repair-diagonal-probe")repairDiagonalProbe=true;
+            else if(arg=="--repair-diagonal-preview")repairDiagonalPreview=true;
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
@@ -248,6 +250,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-feasibility-probe] (M19A read-only finite tangent-plane/orbit position search, no cap edits)\n"
                          <<"       [--repair-feasibility-preview] (M19A provisional candidate positions in step debugger ONLY; private, NOT CERTIFIED)\n"
                          <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
+                         <<"       [--repair-diagonal-preview] (M19D PRIVATE provisional mirrored diagonal topology in step debugger ONLY; NOT CERTIFIED)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
@@ -318,6 +321,10 @@ int main(int argc, char** argv) {
                 "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
         if(repairFeasibilityPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
             throw std::invalid_argument("--repair-feasibility-preview requires interactive --repair-step-debug --repair-replay FILE");
+        if(repairDiagonalPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
+            throw std::invalid_argument("--repair-diagonal-preview requires interactive --repair-step-debug --repair-replay FILE");
+        if(repairDiagonalPreview&&repairFeasibilityPreview)
+            throw std::invalid_argument("--repair-diagonal-preview and --repair-feasibility-preview must be tested separately");
         if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
             throw std::invalid_argument(
                 "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
@@ -373,7 +380,8 @@ int main(int argc, char** argv) {
                     repairSeamAudit,repairOverlayExact,repairScaleAware,
                     repairFrontOptimize,repairCurvatureOptimize,
                     repairCurvaturePoisson,repairFeasibilityProbe,
-                    repairDiagonalProbe,repairFeasibilityPreview);
+                    repairDiagonalProbe,repairFeasibilityPreview,
+                    repairDiagonalPreview);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
