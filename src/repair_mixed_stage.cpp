@@ -1,6 +1,7 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_surface_profile.hpp"
+#include "mesher/repair_survivor_curvature.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -197,6 +198,34 @@ MixedClosureStaging stagePrivateMixedClosure(
                               <<" first_ring_normal_offset_over_edge="
                               <<entry.normalizedFirstRingNormalOffset
                               <<" foot_t="<<entry.oppositeFootParameter;
+                    // M18B shape-operator reference from SOURCE-backed
+                    // surviving faces only. Never move a vertex or reject a
+                    // closure based on this diagnostic.
+                    try {
+                        const auto neighborhood=
+                            collectSurvivorCurvatureNeighborhood(mesh,sourceId);
+                        const auto curvature=estimateSurvivorDirectionalCurvature(
+                            result.positions().at(a),result.positions().at(b),
+                            neighborhood);
+                        report<<" curvature_status="
+                              <<survivorCurvatureConfidenceName(curvature.confidence)
+                              <<" curvature_samples="<<curvature.contributingFaces
+                              <<" curvature_skipped="<<curvature.skippedFaces
+                              <<" curvature_truncated="<<neighborhood.truncated
+                              <<" curvature_max_normal_angle_deg="
+                              <<curvature.maximumNormalAngle*(180./std::acos(-1.));
+                        if(curvature.hasEstimate)
+                            report<<" k_tt="<<curvature.seam
+                                  <<" k_tu="<<curvature.mixed
+                                  <<" k_uu="<<curvature.transverse
+                                  <<" curvature_rms="<<curvature.rmsNormalResidual
+                                  <<" curvature_pivot_ratio="<<curvature.pivotRatio
+                                  <<" curvature_confidence_score="
+                                  <<curvature.confidenceScore;
+                    }catch(const std::exception& e) {
+                        report<<" curvature_status=diagnostic_unavailable"
+                              <<" curvature_reason="<<e.what();
+                    }
                     report<<"\n";
                 }
                 std::cerr<<report.str();
