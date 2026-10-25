@@ -379,6 +379,10 @@ void refusalOneRealSavedCaseAttemptTrace() {
                     const auto originalScore=objective(continuation);
                     const auto correctedScore=objective(improvedContinuity);
                     const auto guidedScore=objective(guidedContinuity);
+                    require(guidedScore<correctedScore*.99&&
+                            guidedContinuity.maximumBoundaryJumpRadians<=
+                                improvedContinuity.maximumBoundaryJumpRadians+1e-8,
+                            "M18E original refusal-1 must improve continuity without worsening the worst seam fold");
                     std::cout<<std::setprecision(17)
                              <<"[r06-m18e-refusal-1] baseline_m18d_score="
                              <<correctedScore<<" m18e_score="<<guidedScore
