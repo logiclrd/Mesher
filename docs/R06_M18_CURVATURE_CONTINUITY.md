@@ -108,6 +108,29 @@ tensor and confidence. This is source-only reference curvature, **not
 yet cap-vs-survivor curvature comparison** (M18C) and not a geometry
 correction or physical GPU acceptance.
 
+## Implemented M18C curvature-comparison evaluation (CPU accepted)
+
+M18C has now independently passed all **115 CPU tests** on GCC,
+Clang and Windows MSVC `/W4 /WX` at `38c080a6`
+([CI #40168106796](https://github.com/logiclrd/Mesher/actions/runs/40168106796)).
+See [M18C acceptance](R06_M18C_ACCEPTANCE.md).
+
+M18A first-order cap/survivor edge-normal jump and M18B survivor
+reference shape tensors are now paired with a separate bounded CAP-side
+shape-tensor estimate from exact local cap-face neighborhoods.
+A cap-cap first-ring fairness angle, seam-parallel/cross-seam/twist
+curvature deltas scaled by rim edge length, and explicit comparison
+confidence are logged with the opt-in spatial front. Comparisons at
+low-confidence source regions or strongly folded seam edges are
+*unqualified*, not secretly treated as smooth. The original
+`refusal-1` now has a deterministic CPU regression proving
+two mirror-paired >150-degree seam folds still exist after M17D.
+
+No geometry is modified by M18C. **M18D** must now use the read-only
+evaluator for bounded, opt-in interior-ring position exploration and
+demonstrate actual improvement under the old strict validation gates.
+Only later M18E should touch curvature-guided Poisson construction.
+
 ## Future acceptance
 M18F remains open until the user physically inspects the same localized
 fold on Linux and Windows Vulkan. M17E continues to cover the broader
