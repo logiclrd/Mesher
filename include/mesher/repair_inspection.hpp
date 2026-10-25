@@ -77,7 +77,8 @@ public:
                                      bool scaleAware=false,
                                      bool optimizeFront=false,
                                      bool optimizeCurvatureFront=false,
-                                     bool guideCurvaturePoisson=false)
+                                     bool guideCurvaturePoisson=false,
+                                     bool probeSeamFeasibility=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
@@ -86,7 +87,8 @@ public:
          exactOverlay_(exactOverlay),scaleAware_(scaleAware),
          optimizeFront_(optimizeFront),
          optimizeCurvatureFront_(optimizeCurvatureFront),
-         guideCurvaturePoisson_(guideCurvaturePoisson) {}
+         guideCurvaturePoisson_(guideCurvaturePoisson),
+         probeSeamFeasibility_(probeSeamFeasibility) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -101,7 +103,7 @@ private:
     bool warnQuality_=false;
     bool auditSeam_=false,exactOverlay_=false;
     bool scaleAware_=false,optimizeFront_=false,optimizeCurvatureFront_=false,
-         guideCurvaturePoisson_=false;
+         guideCurvaturePoisson_=false,probeSeamFeasibility_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -119,7 +121,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     bool exactOverlay=false,
     std::shared_ptr<RepairStepTrace> stepTrace={},
     bool scaleAware=false,bool optimizeFront=false,
-    bool optimizeCurvatureFront=false,bool guideCurvaturePoisson=false);
+    bool optimizeCurvatureFront=false,bool guideCurvaturePoisson=false,
+    bool probeSeamFeasibility=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
