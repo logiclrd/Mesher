@@ -1,6 +1,7 @@
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_cap_continuity.hpp"
 #include "mesher/repair_cap_feasibility.hpp"
+#include "mesher/repair_cap_diagonal_feasibility.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1037,6 +1038,45 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" note=finite_local_candidates_not_global_proof\\n";
         }catch(const std::exception& error) {
             std::cerr<<"[repair-r06-m19a-feasibility] unavailable="
+                     <<error.what()<<"\\n";
+        }
+    }
+    if(limits.probeBandDiagonalFeasibility&&initiallyEmbedded&&
+       result.minimumQuality+1e-12>=limits.desiredMinimumQuality&&
+       !survivingFaceNormals.empty()&&!result.usedMirroredRibbonFallback) {
+        try {
+            // Same PRIVATE current cap, same cumulative collision budget;
+            // report only. No tested alternate face enters staging.
+            const auto& mirror=limits.requireMirrorPlane?partner:
+                std::vector<std::size_t>{};
+            SpatialCapDiagonalProbeLimits search;
+            search.minimumQuality=limits.desiredMinimumQuality;
+            const auto report=probeSpatialCapDiagonalFeasibility(
+                result,survivingFaceNormals,mirror,
+                [&](SpatialCapPatch& candidate){return embedded(candidate);},
+                search);
+            const auto deg=180./std::acos(-1.);
+            std::cerr<<"[repair-r06-m19c-diagonals] candidates="
+                     <<report.candidates
+                     <<" admissible="<<report.admissible
+                     <<" accepted_rounds="<<report.acceptedRounds
+                     <<" before_max_seam_deg="<<report.baselineWorstSeamRadians*deg
+                     <<" best_max_seam_deg="<<report.bestWorstSeamRadians*deg
+                     <<" before_max_cap_rim_deg="<<report.baselineWorstCapRimRadians*deg
+                     <<" best_max_cap_rim_deg="<<report.bestWorstCapRimRadians*deg
+                     <<" before_mean_score="<<report.baselineMeanScore
+                     <<" best_mean_score="<<report.bestMeanScore
+                     <<" before_min_q="<<report.baselineMinimumQuality
+                     <<" best_min_q="<<report.bestMinimumQuality
+                     <<" quality_rejected="<<report.qualityRejected
+                     <<" orientation_rejected="<<report.orientationRejected
+                     <<" score_rejected="<<report.scoreRejected
+                     <<" contact_rejected="<<report.contactRejected
+                     <<" contact_budget_exhausted="<<report.budgetExhausted
+                     <<" unchanged="<<!report.improved
+                     <<" note=finite_local_flips_not_global_proof\\n";
+        }catch(const std::exception& error) {
+            std::cerr<<"[repair-r06-m19c-diagonals] unavailable="
                      <<error.what()<<"\\n";
         }
     }
