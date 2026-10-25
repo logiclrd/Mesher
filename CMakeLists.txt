@@ -115,6 +115,10 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(
             repair_r06_m17d_reject_front_optimize_without_auto
             PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
+        add_test(NAME repair_r06_m19a_reject_probe_without_auto
+                 COMMAND Mesher --repair-feasibility-probe)
+        set_tests_properties(repair_r06_m19a_reject_probe_without_auto
+            PROPERTIES WILL_FAIL TRUE TIMEOUT 15)
         add_test(NAME repair_r06_m18e_reject_curvature_poisson_without_auto
                  COMMAND Mesher --repair-curvature-poisson)
         set_tests_properties(
@@ -390,6 +394,14 @@ if(MESHER_BUILD_TESTS)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
     # M18B pure diagnostic, including synthetic directional tensor + confidence.
+    # M19A: diagnostics-only finite positional feasibility search.
+    add_executable(mesher_repair_cap_feasibility_tests
+                   tests/repair_cap_feasibility_tests.cpp)
+    target_link_libraries(mesher_repair_cap_feasibility_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m19a_positional_feasibility
+             COMMAND mesher_repair_cap_feasibility_tests)
+    set_tests_properties(repair_r06_m19a_positional_feasibility
+        PROPERTIES TIMEOUT 15)
     # M18E: independent fixed-rim Poisson curvature-guidance experiment.
     add_executable(mesher_repair_curvature_poisson_tests
                    tests/repair_curvature_poisson_tests.cpp)
