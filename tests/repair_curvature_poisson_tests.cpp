@@ -93,6 +93,9 @@ void fixtureTest(double curvature,bool mirrored) {
     const auto now=measureSpatialCapContinuity(guided,f.normals,f.tensors);
     require(score(now)<=score(old)+1e-8,
             "M18E must not select higher-scoring guidance");
+    if(curvature!=0)
+        require(different(base,guided)&&score(now)<score(old)-1e-4,
+                "M18E directional curvature must actually improve a curved-source synthetic fixture");
     require(now.maximumBoundaryJumpRadians<=
             old.maximumBoundaryJumpRadians+1e-8,
             "M18E may not worsen the maximum dihedral");
