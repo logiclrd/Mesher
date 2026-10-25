@@ -212,6 +212,7 @@ struct MixedClosureStageSettings {
     bool requireReflectedGeometry=false;
     bool optimizeSpatialFront=false; // M17D opt-in, default preserves old R06
     bool optimizeCurvatureFront=false; // M18D independent opt-in
+    bool guideCurvaturePoisson=false; // M18E opt-in RHS constraints
     double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;
