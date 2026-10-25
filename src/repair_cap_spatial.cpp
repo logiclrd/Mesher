@@ -624,7 +624,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             if(!constraints[k].empty())++constrained;
         if(constrained) {
             SpatialCapPatch guided=result;
-            bool converged=false;
+            bool guidedConverged=false;
             double residual=0;
             for(std::size_t iteration=0;
                 iteration<limits.maxCurvaturePoissonIterations;++iteration) {
@@ -677,14 +677,14 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                     residual=std::max(residual,
                         length(next[i]-guided.positions[i]));
                 guided.positions=std::move(next);
-                if(residual<=tolerance) {converged=true;break;}
+                if(residual<=tolerance) {guidedConverged=true;break;}
             }
             bool accepted=false;
             double beforeScore=0,afterScore=0,selectedStrength=0;
             std::size_t failedOrientation=0,failedQuality=0,
                         failedScore=0,failedContact=0,contactTests=0;
             bool contactBudgetExceeded=false;
-            if(converged) {
+            if(guidedConverged) {
                 try {
                     const auto compare=[&](const SpatialCapPatch& patch) {
                         const auto continuity=measureSpatialCapContinuity(
@@ -770,7 +770,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                 }
             }
             std::cerr<<"[repair-r06-m18e] constrained_ring_vertices="
-                     <<constrained<<" converged="<<converged
+                     <<constrained<<" converged="<<guidedConverged
                      <<" residual="<<residual<<" accepted="<<accepted
                      <<" before_score="<<beforeScore
                      <<" guided_score="<<afterScore
