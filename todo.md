@@ -1041,11 +1041,18 @@ that would erase sculpted intentional creases.
       Physical Vulkan inspection remains open, and M19D topology
       counterfactual is not yet a staged repair.
     - [ ] **M19A4 — Wide bilateral normal sampling visual experiment.**
-      Increase the M19A2 signed-sample sweep factor from 0.8 to 1.0
-      times median original rim-edge length, without changing the
-      separate 1.5-edge displacement cap, 512 candidate budget,
-      original rim/mirror/quality/contact gates, or PRIVATE scope.
-      Record source/test CI and compare GPU step 53/54 with M19A3.
+      - [x] **M19A4a — 1.0 median-rim-edge sweep and CPU regression.**
+        Increased M19A2 signed-sample sweep from 0.8 to 1.0 with the
+        separate 1.5-edge displacement cap, 512 proposal budget,
+        source rim/mirror/q/contact gates and PRIVATE scope unchanged.
+        GCC/Clang/Windows MSVC /W4 /WX **126/126 CPU tests SUCCESS**
+        at `171a3f8e0116bd50d2a2dd2a122478a26c61d4ef`,
+        [workflow #40211466871](https://github.com/logiclrd/Mesher/actions/runs/40211466871).
+        [Experiment protocol](docs/R06_M19A4_WIDE_SWEEP_TRIAL.md).
+      - [ ] **M19A4b — Physical Vulkan paired screenshots.** Compare the
+        widened selected cap at steps 53/54, reflected mate, measured
+        cap/seam bends and full private repair verdict to M19A3 and
+        ordinary no-preview geometry. User test remains pending.
       Note: the proposed 0.5*nearest-connected-neighbor bound and
       directional binary search are NOT implemented by this experiment.
   - [ ] **M19B — Source-complete and edge-case counterfactual validation.**
@@ -1074,12 +1081,22 @@ that would erase sculpted intentional creases.
   122/122 CPU tests on each.
   [Full measurements and limitations](docs/R06_M19_FEASIBILITY_ACCEPTANCE.md).
   - [ ] **M19D — Opt-in PRIVATE full-mesh diagonal trial.**
-    - [ ] **M19D1 — Pure candidate and exact mirror-quad provenance.**
+    - [x] **M19D1 — Pure candidate and exact mirror-quad provenance.**
       Return an optional selected cap patch plus deterministic accepted
       quad pairs from the existing read-only M19C probe, with no mutation.
-    - [ ] **M19D2 — Explicit default-OFF private staging.**
+      Exact mirrored-orbit/determinism tests accepted; unchanged default
+      read-only M19C probe now prints selected quad pairs.
+    - [x] **M19D2 — Explicit default-OFF private staging.**
       Thread the selected locally legal topology into R06 staged face
       generation without changing default or prior probe behavior.
+      New step-only `--repair-diagonal-preview` stages only FACE topology;
+      exact original refusal-1 CPU test confirms face change, unchanged
+      every vertex, and cap q>=0.10. CLI misuse rejected. **126/126**
+      GCC/Clang/MSVC tests passed at `171a3f8e`,
+      [CI #40211466871](https://github.com/logiclrd/Mesher/actions/runs/40211466871).
+      [Acceptance record](docs/R06_M19D2_STEP_PREVIEW_ACCEPTANCE.md).
+      Private downstream source-complete certification and physical
+      acceptance are SEPARATE and still OPEN in M19D3/M19D4.
     - [ ] **M19D3 — Source-complete admission and refusal regression.**
       Test full original survivor+cap incidence, collisions, q floors,
       correct mirrored indices, intentional crease and healthy controls;
