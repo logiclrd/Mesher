@@ -625,9 +625,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         if(constrained) {
             SpatialCapPatch guided=result;
             bool guidedConverged=false;
+            std::size_t guidedIterations=0;
             double residual=0;
             for(std::size_t iteration=0;
                 iteration<limits.maxCurvaturePoissonIterations;++iteration) {
+                ++guidedIterations;
                 // Jacobi even on nonmirrored cap: no ordering bias in
                 // second-order data, exact mirrored orbit projection.
                 auto next=guided.positions;
@@ -764,14 +766,19 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         acceptedPatch=std::move(proposed);
                         accepted=true;
                     }
-                    if(accepted)result=std::move(acceptedPatch);
+                    if(accepted) {
+                        result=std::move(acceptedPatch);
+                        result.poissonIterations+=guidedIterations;
+                    }
                 }catch(const std::exception&) {
                     // Missing/invalid guidance cannot alter a valid baseline.
                 }
             }
             std::cerr<<"[repair-r06-m18e] constrained_ring_vertices="
                      <<constrained<<" converged="<<guidedConverged
-                     <<" residual="<<residual<<" accepted="<<accepted
+                     <<" residual="<<residual
+                     <<" guided_iterations="<<guidedIterations
+                     <<" accepted="<<accepted
                      <<" before_score="<<beforeScore
                      <<" guided_score="<<afterScore
                      <<" selected_fraction="<<selectedStrength
