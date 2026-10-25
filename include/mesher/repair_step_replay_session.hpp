@@ -22,7 +22,8 @@ class RepairReplayStepSession final {
 public:
     RepairReplayStepSession(RepairCase saved,
         AutoClosureClassifier classifier,bool warningOnly,
-        bool seamAudit,bool exactOverlay,bool scaleAware=false);
+        bool seamAudit,bool exactOverlay,bool scaleAware=false,
+        bool optimizeFront=false);
     ~RepairReplayStepSession();
     RepairReplayStepSession(const RepairReplayStepSession&)=delete;
     RepairReplayStepSession& operator=(const RepairReplayStepSession&)=delete;
@@ -34,7 +35,7 @@ public:
 private:
     RepairCase saved_;
     AutoClosureClassifier classifier_;
-    bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_;
+    bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_,optimizeFront_;
     std::shared_ptr<RepairStepTrace> trace_;
     std::thread worker_;
     mutable std::mutex stateMutex_;
