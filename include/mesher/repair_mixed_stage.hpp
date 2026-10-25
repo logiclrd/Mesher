@@ -214,6 +214,7 @@ struct MixedClosureStageSettings {
     bool optimizeCurvatureFront=false; // M18D independent opt-in
     bool guideCurvaturePoisson=false; // M18E opt-in RHS constraints
     bool probeSeamFeasibility=false; // M19A diagnostic only
+    bool stageFeasibilityPreview=false; // M19A interactive step-only candidate
     bool probeDiagonalFeasibility=false; // M19C diagnostic only
     double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
