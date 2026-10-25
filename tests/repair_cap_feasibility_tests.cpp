@@ -60,15 +60,21 @@ void diagnose(bool symmetric) {
             report.normalInwardProposals>0&&
             report.sampledPositivePlaneSide>0&&
             report.sampledNegativePlaneSide>0&&
-            // M19A5: double the ORIGINAL 0.8-edge normal sweep
-            // to 1.6, and enlarge the separate displacement bound.
-            // The full positive and negative CURRENT-point samples
-            // must now survive the former 1.5-edge displacement gate.
-            std::abs(limits.normalSweepEdgeScales-1.6)<1e-12&&
-            std::abs(limits.maximumDisplacementInEdgeScales-3.0)<1e-12&&
-            std::abs(report.normalSweepMaxOverEdge-1.6)<1e-12&&
-            report.minSampledNormalDeltaOverEdge<-1.55&&
-            report.maxSampledNormalDeltaOverEdge>1.55&&
+            // M19A6 retains both M19A5's near bands and extends
+            // the finite grid by exactly a factor of five to +/-8.
+            std::abs(limits.normalSweepEdgeScales-8.0)<1e-12&&
+            std::abs(limits.maximumDisplacementInEdgeScales-15.0)<1e-12&&
+            std::abs(report.normalSweepMaxOverEdge-8.0)<1e-12&&
+            report.minSampledNormalDeltaOverEdge<-7.95&&
+            report.maxSampledNormalDeltaOverEdge>7.95&&
+            report.nearToFarPositiveSamples[0]>0&&
+            report.nearToFarNegativeSamples[0]>0&&
+            report.nearToFarPositiveSamples[1]>0&&
+            report.nearToFarNegativeSamples[1]>0&&
+            report.nearToFarPositiveSamples[2]>0&&
+            report.nearToFarNegativeSamples[2]>0&&
+            report.nearToFarPositiveSamples[3]>0&&
+            report.nearToFarNegativeSamples[3]>0&&
             report.bestWorstSeamRadians<=
                 report.baselineWorstSeamRadians+1e-10&&
             report.bestWorstCapRimRadians<=
@@ -101,6 +107,8 @@ void diagnose(bool symmetric) {
             report.normalInwardProposals==repeated.normalInwardProposals&&
             report.sampledPositivePlaneSide==repeated.sampledPositivePlaneSide&&
             report.sampledNegativePlaneSide==repeated.sampledNegativePlaneSide&&
+            report.nearToFarPositiveSamples==repeated.nearToFarPositiveSamples&&
+            report.nearToFarNegativeSamples==repeated.nearToFarNegativeSamples&&
             report.bestWorstSeamRadians==repeated.bestWorstSeamRadians&&
             report.bestWorstCapRimRadians==repeated.bestWorstCapRimRadians,
             "M19A bounded search must be deterministic");
@@ -117,6 +125,8 @@ void diagnose(bool symmetric) {
              <<" plane_negative="<<report.sampledNegativePlaneSide
              <<" normal_delta_min="<<report.minSampledNormalDeltaOverEdge
              <<" normal_delta_max="<<report.maxSampledNormalDeltaOverEdge
+             <<" broad_positive_samples="<<report.nearToFarPositiveSamples[3]
+             <<" broad_negative_samples="<<report.nearToFarNegativeSamples[3]
              <<" all_refused_callback_seen="<<rejected<<"\n";
 }
 }
