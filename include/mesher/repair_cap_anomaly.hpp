@@ -149,8 +149,16 @@ inline SpatialCapAnomalyReport diagnoseSpatialCapAnomaly(
         double expected=std::min(.85,sourceBend*spacing/h*1.5+.12);
         bool reliable=false;
         if(!originalCurvature.empty()) {
-            // Only original source measurements, never re-fit to cap.
-            for(const auto& v:originalCurvature)
+            // Only rim vertices actually incident to these TWO source-
+            // adjacent cap faces can supply qualified local reference.
+            // Other cap interior edges remain explicitly low-confidence.
+            // Never borrow an unrelated confident sample from elsewhere.
+            std::set<std::size_t> anchors;
+            for(const auto faceIndex:{f,g})
+                for(const auto v:patch.faces[faceIndex])
+                    if(v<n)anchors.insert(v);
+            for(const auto i:anchors) {
+                const auto& v=originalCurvature[i];
                 if(v.hasEstimate&&
                    v.confidence==SurvivorCurvatureConfidence::Reliable&&
                    v.confidenceScore>=.5) {
@@ -162,6 +170,7 @@ inline SpatialCapAnomalyReport diagnoseSpatialCapAnomaly(
                         reliable=true;
                     }
                 }
+            }
         }
         if(!reliable)++report.unreliableSourceEdges;
         expected=std::max(.20,expected);
