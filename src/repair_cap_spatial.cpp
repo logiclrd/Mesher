@@ -420,6 +420,156 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::logic_error("R06-M06C test mirrored ribbon self-intersects");
     }
     const bool initiallyEmbedded=embedded(result);
+    if(initiallyEmbedded&&limits.repairTangentialOvershoot&&
+       result.minimumQuality<limits.desiredMinimumQuality) {
+        // A Poisson-solved ring point can lie PAST its owning R03 boundary
+        // corner in the local rim tangent direction. In refusal-1 the
+        // minimum-q strip face projects its ring tip at t=1.4867 along
+        // a preceding rim edge, creating a near-zero-area return.
+        // Changing the initial 55/45 seed cannot alter the converged
+        // Poisson solution. Search the SETTLED ring positions instead.
+        if(!std::isfinite(limits.desiredMinimumQuality)||
+           limits.desiredMinimumQuality<=0||
+           limits.desiredMinimumQuality>=1||
+           !limits.maxCorrectionRounds||!limits.maxCorrectionTrials)
+            throw std::invalid_argument(
+                "R06-M17D requires finite positive ring-correction budget");
+        SpatialCapPatch current=result;
+        std::size_t trials=0;
+        const auto minimum=[&](const SpatialCapPatch& p) {
+            double worst=1.;
+            std::size_t worstFace=p.faces.size();
+            for(std::size_t j=0;j<p.faces.size();++j) {
+                const auto& face=p.faces[j];
+                const auto q=quality(p.positions[face[0]],
+                                     p.positions[face[1]],
+                                     p.positions[face[2]]);
+                if(q<worst) {worst=q;worstFace=j;}
+            }
+            return std::pair<double,std::size_t>{worst,worstFace};
+        };
+        for(std::size_t round=0;round<limits.maxCorrectionRounds;++round) {
+            const auto [q,worstIndex]=minimum(current);
+            if(q>=limits.desiredMinimumQuality||
+               worstIndex>=current.faces.size()||
+               trials>=limits.maxCorrectionTrials)break;
+            // Restrict movement to inward-ring vertices participating in
+            // the current WORST triangle. No survivor/rim, hub or other
+            // arbitrary part of the mesh is allowed to move.
+            SpatialCapPatch best=current;
+            double bestQ=q;
+            std::set<std::size_t> ringChoices;
+            for(const auto id:current.faces[worstIndex])
+                if(id>=n&&id<2*n)
+                    ringChoices.insert(static_cast<std::size_t>(id));
+            for(const auto vertex:ringChoices) {
+                const auto i=vertex-n;
+                const auto from=orientedCapRim[i];
+                const auto starting=current.positions[vertex];
+                const auto mate=limits.requireMirrorPlane?
+                    partner[vertex]:vertex;
+                // Rim tangents point toward the current fixed R03 vertex.
+                // A positive projection of (ring-fixed) onto a tangent
+                // means the new vertex overshot the contour at that corner.
+                for(const auto neighbor:{
+                        (i+n-1)%n,(i+1)%n}) {
+                    const auto tangent=from-orientedCapRim[neighbor];
+                    const auto size2=dot(tangent,tangent);
+                    if(!(size2>1e-20))continue;
+                    const auto overshoot=dot(starting-from,tangent)/size2;
+                    if(!(overshoot>.05))continue;
+                    // The original failure lies almost exactly ON the
+                    // supporting line. Sliding along that line alone can
+                    // relocate the sliver. Also evaluate moving PERPENDICULAR
+                    // to the line, retaining the observed inward half-plane
+                    // rather than inventing a new surface-normal direction.
+                    const auto lateral=(starting-from)-tangent*overshoot;
+                    for(const double fraction:{0.5,1.,1.5,2.})
+                    for(const double transverse:{1.,2.,3.}) {
+                        if(trials>=limits.maxCorrectionTrials)break;
+                        const auto movement=tangent*(overshoot*fraction)-
+                                            lateral*(transverse-1.);
+                        if(length(movement)>1.5*h)continue;
+                        const auto moved=starting-movement;
+                        if(!finite(moved))continue;
+                        if(limits.requireMirrorPlane&&mate!=vertex&&
+                           moved.x*starting.x<0)continue;
+                        auto proposed=current;
+                        proposed.positions[vertex]=moved;
+                        if(mate==vertex)
+                            proposed.positions[vertex].x=0;
+                        else
+                            proposed.positions[mate]=reflect(moved);
+                        // Reject local normal reversal on every incident
+                        // face BEFORE the expensive complete self-contact
+                        // audit. In particular an old needle must not be
+                        // repaired by turning its cap inside out.
+                        bool orientation=true;
+                        for(const auto& tri:current.faces) {
+                            if(std::find(tri.begin(),tri.end(),
+                                         static_cast<std::uint32_t>(vertex))
+                                   ==tri.end()&&
+                               std::find(tri.begin(),tri.end(),
+                                         static_cast<std::uint32_t>(mate))
+                                   ==tri.end())continue;
+                            const auto old=cross(
+                                current.positions[tri[1]]-current.positions[tri[0]],
+                                current.positions[tri[2]]-current.positions[tri[0]]);
+                            const auto updated=cross(
+                                proposed.positions[tri[1]]-proposed.positions[tri[0]],
+                                proposed.positions[tri[2]]-proposed.positions[tri[0]]);
+                            if(length(updated)<=1e-16||dot(old,updated)<=0) {
+                                orientation=false;break;
+                            }
+                        }
+                        if(!orientation)continue;
+                        const auto [trialQ,unusedIndex]=minimum(proposed);
+                        (void)unusedIndex;
+                        if(!(trialQ>bestQ+1e-6))continue;
+                        // A proposal may improve the original q=.061
+                        // needle by CREATING a new q=.08 needle elsewhere.
+                        // Never turn an initially accepted q>=hard-floor
+                        // triangle into an unaccepted one to subsidize it.
+                        bool keepsHealthyFaces=true;
+                        for(const auto& tri:current.faces) {
+                            const auto before=quality(
+                                current.positions[tri[0]],
+                                current.positions[tri[1]],
+                                current.positions[tri[2]]);
+                            const auto after=quality(
+                                proposed.positions[tri[0]],
+                                proposed.positions[tri[1]],
+                                proposed.positions[tri[2]]);
+                            if(before>=limits.desiredMinimumQuality&&
+                               after+1e-12<limits.desiredMinimumQuality) {
+                                keepsHealthyFaces=false;break;
+                            }
+                        }
+                        if(!keepsHealthyFaces)continue;
+                        proposed.minimumQuality=1.;
+                        ++trials;
+                        // Use the SAME bounded full self-contact and
+                        // local edge-scale validation as the primary
+                        // spatial patch. No lower q tolerance or omitted
+                        // pairwise checks for a proposed new position.
+                        try {
+                            if(!embedded(proposed))continue;
+                        }catch(const std::logic_error&) {
+                            continue;
+                        }
+                        if(proposed.minimumQuality>bestQ+1e-6) {
+                            bestQ=proposed.minimumQuality;
+                            best=std::move(proposed);
+                        }
+                    }
+                }
+            }
+            if(bestQ<=q+1e-6)break;
+            current=std::move(best);
+        }
+        if(current.minimumQuality>result.minimumQuality+1e-6)
+            result=std::move(current);
+    }
     // M18E: solve a new, fixed-rim Poisson objective, not a replacement
     // initial seed. The source tensor defines a second-order normal
     // continuation whose trace on each original rim EDGE remains zero.
@@ -589,156 +739,6 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                      <<" guided_score="<<afterScore
                      <<" before_min_q="<<result.minimumQuality<<"\\n";
         }
-    }
-    if(initiallyEmbedded&&limits.repairTangentialOvershoot&&
-       result.minimumQuality<limits.desiredMinimumQuality) {
-        // A Poisson-solved ring point can lie PAST its owning R03 boundary
-        // corner in the local rim tangent direction. In refusal-1 the
-        // minimum-q strip face projects its ring tip at t=1.4867 along
-        // a preceding rim edge, creating a near-zero-area return.
-        // Changing the initial 55/45 seed cannot alter the converged
-        // Poisson solution. Search the SETTLED ring positions instead.
-        if(!std::isfinite(limits.desiredMinimumQuality)||
-           limits.desiredMinimumQuality<=0||
-           limits.desiredMinimumQuality>=1||
-           !limits.maxCorrectionRounds||!limits.maxCorrectionTrials)
-            throw std::invalid_argument(
-                "R06-M17D requires finite positive ring-correction budget");
-        SpatialCapPatch current=result;
-        std::size_t trials=0;
-        const auto minimum=[&](const SpatialCapPatch& p) {
-            double worst=1.;
-            std::size_t worstFace=p.faces.size();
-            for(std::size_t j=0;j<p.faces.size();++j) {
-                const auto& face=p.faces[j];
-                const auto q=quality(p.positions[face[0]],
-                                     p.positions[face[1]],
-                                     p.positions[face[2]]);
-                if(q<worst) {worst=q;worstFace=j;}
-            }
-            return std::pair<double,std::size_t>{worst,worstFace};
-        };
-        for(std::size_t round=0;round<limits.maxCorrectionRounds;++round) {
-            const auto [q,worstIndex]=minimum(current);
-            if(q>=limits.desiredMinimumQuality||
-               worstIndex>=current.faces.size()||
-               trials>=limits.maxCorrectionTrials)break;
-            // Restrict movement to inward-ring vertices participating in
-            // the current WORST triangle. No survivor/rim, hub or other
-            // arbitrary part of the mesh is allowed to move.
-            SpatialCapPatch best=current;
-            double bestQ=q;
-            std::set<std::size_t> ringChoices;
-            for(const auto id:current.faces[worstIndex])
-                if(id>=n&&id<2*n)
-                    ringChoices.insert(static_cast<std::size_t>(id));
-            for(const auto vertex:ringChoices) {
-                const auto i=vertex-n;
-                const auto from=orientedCapRim[i];
-                const auto starting=current.positions[vertex];
-                const auto mate=limits.requireMirrorPlane?
-                    partner[vertex]:vertex;
-                // Rim tangents point toward the current fixed R03 vertex.
-                // A positive projection of (ring-fixed) onto a tangent
-                // means the new vertex overshot the contour at that corner.
-                for(const auto neighbor:{
-                        (i+n-1)%n,(i+1)%n}) {
-                    const auto tangent=from-orientedCapRim[neighbor];
-                    const auto size2=dot(tangent,tangent);
-                    if(!(size2>1e-20))continue;
-                    const auto overshoot=dot(starting-from,tangent)/size2;
-                    if(!(overshoot>.05))continue;
-                    // The original failure lies almost exactly ON the
-                    // supporting line. Sliding along that line alone can
-                    // relocate the sliver. Also evaluate moving PERPENDICULAR
-                    // to the line, retaining the observed inward half-plane
-                    // rather than inventing a new surface-normal direction.
-                    const auto lateral=(starting-from)-tangent*overshoot;
-                    for(const double fraction:{0.5,1.,1.5,2.})
-                    for(const double transverse:{1.,2.,3.}) {
-                        if(trials>=limits.maxCorrectionTrials)break;
-                        const auto movement=tangent*(overshoot*fraction)-
-                                            lateral*(transverse-1.);
-                        if(length(movement)>1.5*h)continue;
-                        const auto moved=starting-movement;
-                        if(!finite(moved))continue;
-                        if(limits.requireMirrorPlane&&mate!=vertex&&
-                           moved.x*starting.x<0)continue;
-                        auto proposed=current;
-                        proposed.positions[vertex]=moved;
-                        if(mate==vertex)
-                            proposed.positions[vertex].x=0;
-                        else
-                            proposed.positions[mate]=reflect(moved);
-                        // Reject local normal reversal on every incident
-                        // face BEFORE the expensive complete self-contact
-                        // audit. In particular an old needle must not be
-                        // repaired by turning its cap inside out.
-                        bool orientation=true;
-                        for(const auto& tri:current.faces) {
-                            if(std::find(tri.begin(),tri.end(),
-                                         static_cast<std::uint32_t>(vertex))
-                                   ==tri.end()&&
-                               std::find(tri.begin(),tri.end(),
-                                         static_cast<std::uint32_t>(mate))
-                                   ==tri.end())continue;
-                            const auto old=cross(
-                                current.positions[tri[1]]-current.positions[tri[0]],
-                                current.positions[tri[2]]-current.positions[tri[0]]);
-                            const auto updated=cross(
-                                proposed.positions[tri[1]]-proposed.positions[tri[0]],
-                                proposed.positions[tri[2]]-proposed.positions[tri[0]]);
-                            if(length(updated)<=1e-16||dot(old,updated)<=0) {
-                                orientation=false;break;
-                            }
-                        }
-                        if(!orientation)continue;
-                        const auto [trialQ,unusedIndex]=minimum(proposed);
-                        (void)unusedIndex;
-                        if(!(trialQ>bestQ+1e-6))continue;
-                        // A proposal may improve the original q=.061
-                        // needle by CREATING a new q=.08 needle elsewhere.
-                        // Never turn an initially accepted q>=hard-floor
-                        // triangle into an unaccepted one to subsidize it.
-                        bool keepsHealthyFaces=true;
-                        for(const auto& tri:current.faces) {
-                            const auto before=quality(
-                                current.positions[tri[0]],
-                                current.positions[tri[1]],
-                                current.positions[tri[2]]);
-                            const auto after=quality(
-                                proposed.positions[tri[0]],
-                                proposed.positions[tri[1]],
-                                proposed.positions[tri[2]]);
-                            if(before>=limits.desiredMinimumQuality&&
-                               after+1e-12<limits.desiredMinimumQuality) {
-                                keepsHealthyFaces=false;break;
-                            }
-                        }
-                        if(!keepsHealthyFaces)continue;
-                        proposed.minimumQuality=1.;
-                        ++trials;
-                        // Use the SAME bounded full self-contact and
-                        // local edge-scale validation as the primary
-                        // spatial patch. No lower q tolerance or omitted
-                        // pairwise checks for a proposed new position.
-                        try {
-                            if(!embedded(proposed))continue;
-                        }catch(const std::logic_error&) {
-                            continue;
-                        }
-                        if(proposed.minimumQuality>bestQ+1e-6) {
-                            bestQ=proposed.minimumQuality;
-                            best=std::move(proposed);
-                        }
-                    }
-                }
-            }
-            if(bestQ<=q+1e-6)break;
-            current=std::move(best);
-        }
-        if(current.minimumQuality>result.minimumQuality+1e-6)
-            result=std::move(current);
     }
     // M18D is a separate opt-in from M17D. It works on the settled (and
     // possibly M17D-improved) patch, not the irrelevant initial Poisson seed.
