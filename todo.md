@@ -908,12 +908,25 @@ that would erase sculpted intentional creases.
   [Acceptance record](docs/R06_M18B_ACCEPTANCE.md).
   No cap relocation, admission/publishing change or physical GPU approval;
   M18C is the next independent milestone.
-- [ ] **R06-M18C — Pure cap curvature-continuation evaluator.**
+- [x] **R06-M18C — Pure cap curvature-continuation evaluator.**
   Compare the cap's normal/curvature against the measured survivor tensor
   on the same local scale and frame, separating crossing-rim first-order
   normal jump, along-rim bending, cross-rim bending, twist and interior fairing.
   Rank smooth and folded synthetic candidates without changing geometry,
   mark low-confidence estimates and keep ordinary shape quality separate.
+  **CPU accepted (read-only), Oct 25, 2026:** [CI #40168106796](https://github.com/logiclrd/Mesher/actions/runs/40168106796)
+  SUCCESS on Linux GCC, Linux Clang and Windows MSVC `/W4 /WX` at exact
+  tested code HEAD `38c080a643a95af0c5bacd3c8990f0294aaf6dce`,
+  **115/115 CPU tests**. Cap-side exact-index bounded face neighborhoods
+  feed the M18B shape operator; M18A signed seam angle, immediate
+  cap-to-cap normal fairness, normalized k_tt/k_tu/k_uu differences and
+  confidence-qualified comparison are distinct metrics. Synthetic
+  smooth/folded ranking, reflected parity, independent tensor deltas,
+  crease/low-confidence, missing, budget and exact archived refusal-1
+  2x >150-degree fold regressions pass. Opt-in
+  `[repair-r06-continuity(-edge)]` console output is diagnostic only.
+  [Acceptance record](docs/R06_M18C_ACCEPTANCE.md). M18D is the first
+  geometry-changing stage; no physical GPU acceptance implied.
 - [ ] **R06-M18D — Bounded curvature-aware M17D position proposals.**
   Opt in independently, optimize movable interior first-ring vertices and
   exact mirror orbits using M18C's read-only score; do not stop purely when
