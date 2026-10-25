@@ -966,6 +966,19 @@ that would erase sculpted intentional creases.
   directional guidance into the fixed-rim solver, with finite convergence,
   sensitivity and intentional-crease controls. Do not pretend new initial
   seeds alter a fully converged old Poisson solution.
+  - [ ] **M18E1 — Opt-in fixed-rim, tensor-guided Poisson objective.**
+    Construct bounded, confidence-weighted normal-direction constraints
+    from true survivor k_tt/k_tu/k_uu and indexed cap-edge inward vertices.
+    Converge the constraint inside the Poisson iteration itself, with exact
+    X=0 mirror orbits, bounded displacement, and a no-change fallback if
+    guidance is unreliable or the candidate is less sound. Never modify
+    source R03 boundary, hub identity, or accepted hard gates.
+  - [ ] **M18E2 — Full replay wiring, exact-case/fixture regressions.**
+    Separate `--repair-curvature-poisson` knob, off by default; compare
+    legacy, M17C+D, M18D and M18E on original refusal-1. Synthetic
+    curved, flat, crease and mirror tests must expose actual guidance
+    effects and finite bounded no-op behavior; pass GCC, Clang and MSVC.
+    Inspect user physical Vulkan before calling the surface visually smooth.
 - [ ] **R06-M18F — CPU and physical Vulkan acceptance.**
   Compare default/M17C/M17D/M18 on all five unchanged archived cases plus
   healthy reflected/ordinary sphere, torus, zipper, intentional crease and
