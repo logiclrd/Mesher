@@ -60,11 +60,15 @@ void diagnose(bool symmetric) {
             report.normalInwardProposals>0&&
             report.sampledPositivePlaneSide>0&&
             report.sampledNegativePlaneSide>0&&
-            // M19A4: both directions must reach the full 1.0-edge trial
-            // extent in the sampled CURRENT-point tranche.
-            std::abs(report.normalSweepMaxOverEdge-1.0)<1e-12&&
-            report.minSampledNormalDeltaOverEdge<-.95&&
-            report.maxSampledNormalDeltaOverEdge>.95&&
+            // M19A5: double the ORIGINAL 0.8-edge normal sweep
+            // to 1.6, and enlarge the separate displacement bound.
+            // The full positive and negative CURRENT-point samples
+            // must now survive the former 1.5-edge displacement gate.
+            std::abs(limits.normalSweepEdgeScales-1.6)<1e-12&&
+            std::abs(limits.maximumDisplacementInEdgeScales-3.0)<1e-12&&
+            std::abs(report.normalSweepMaxOverEdge-1.6)<1e-12&&
+            report.minSampledNormalDeltaOverEdge<-1.55&&
+            report.maxSampledNormalDeltaOverEdge>1.55&&
             report.bestWorstSeamRadians<=
                 report.baselineWorstSeamRadians+1e-10&&
             report.bestWorstCapRimRadians<=
