@@ -131,6 +131,29 @@ evaluator for bounded, opt-in interior-ring position exploration and
 demonstrate actual improvement under the old strict validation gates.
 Only later M18E should touch curvature-guided Poisson construction.
 
+## Implemented M18D opt-in front correction (CPU accepted)
+
+M18D has now passed **116 CPU tests** on GCC, Clang and Windows
+MSVC `/W4 /WX`, [CI #40170070842](https://github.com/logiclrd/Mesher/actions/runs/40170070842),
+tested code `2810f12a`. See [M18D acceptance](R06_M18D_ACCEPTANCE.md).
+
+Independent `--repair-curvature-optimize` explores finite,
+mirror-paired inward-ring candidate movements *after* the Poisson
+surface and optional M17D quality correction. It minimizes the M18C
+boundary-normal and first-ring cap-fairness evidence under the exact
+original q, no-inversion, scale, cap self-contact and downstream
+whole-mesh certification contracts; no original rim or hub vertex
+moves. Its current objective deliberately does not trust the 16/18
+unqualified curvature-tensor comparisons in `refusal-1`.
+
+Original exact `refusal-1` with M17C+D+M18D improved worst seam
+dihedral **156.146 to 53.014 deg**, initial minimum cap q
+**0.105608 to 0.160241**, combined first-order score
+**1.252839 to 0.286845**. The complete PRIVATE closure still
+certifies, and the original case remains unchanged. A residual
+53-degree fold may be visually suboptimal; CPU acceptance does not
+finish M18F or M17E physical GPU acceptance.
+
 ## Future acceptance
 M18F remains open until the user physically inspects the same localized
 fold on Linux and Windows Vulkan. M17E continues to cover the broader
