@@ -29,7 +29,9 @@ Fixture flatCircle() {
         rim.push_back({std::cos(phi),std::sin(phi),0});
     }
     fixture.guide.assign(n,{0,0,1});
-    fixture.patch=buildSpatialCapFrontPoisson(rim,fixture.guide);
+    SpatialCapSettings settings;
+    settings.normalGuidance=0; // exact planar control, not Poisson bulge
+    fixture.patch=buildSpatialCapFrontPoisson(rim,fixture.guide,settings);
     fixture.references.resize(n);
     for(auto& v:fixture.references) {
         v.hasEstimate=true;
