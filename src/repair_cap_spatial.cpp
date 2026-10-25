@@ -670,13 +670,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
                         // original q>=.10 strict cap threshold, and no
                         // movement of any fixed rim or center hub.
                         bool legal=true;
-                        double minimumQuality=1.;
                         for(const auto& tri:current.faces) {
                             const auto p=proposed.positions[tri[0]];
                             const auto q=proposed.positions[tri[1]];
                             const auto r=proposed.positions[tri[2]];
                             const auto qAfter=quality(p,q,r);
-                            minimumQuality=std::min(minimumQuality,qAfter);
                             if(qAfter+1e-12<limits.desiredMinimumQuality){
                                 legal=false;break;
                             }
