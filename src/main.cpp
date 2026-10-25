@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     bool repairDumpContours = false;
     bool repairQualityWarn = false,repairScaleAware=false,
          repairFrontOptimize=false,repairCurvatureOptimize=false,
-         repairCurvaturePoisson=false;
+         repairCurvaturePoisson=false,repairFeasibilityProbe=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-front-optimize")repairFrontOptimize=true;
             else if(arg=="--repair-curvature-optimize")repairCurvatureOptimize=true;
             else if(arg=="--repair-curvature-poisson")repairCurvaturePoisson=true;
+            else if(arg=="--repair-feasibility-probe")repairFeasibilityProbe=true;
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
@@ -241,6 +242,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-front-optimize] (experimental M17D mirrored Poisson ring correction; auto/replay only)\n"
                          <<"       [--repair-curvature-optimize] (M18D opt-in bounded cap seam-continuity placement; auto/replay only, combine with --repair-front-optimize for refusal-1)\n"
                          <<"       [--repair-curvature-poisson] (M18E opt-in fixed-rim directional curvature-guided Poisson solve; auto/replay only)\n"
+                         <<"       [--repair-feasibility-probe] (M19A read-only finite tangent-plane/orbit position search, no cap edits)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
@@ -296,6 +298,8 @@ int main(int argc, char** argv) {
         if(repairFrontOptimize&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-front-optimize requires --repair auto or --repair-replay[-test]");
+        if(repairFeasibilityProbe&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-feasibility-probe requires --repair auto or --repair-replay[-test]");
         if(repairCurvaturePoisson&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-curvature-poisson requires --repair auto or --repair-replay[-test]");
@@ -359,7 +363,7 @@ int main(int argc, char** argv) {
                     saved,repairClassifier,repairQualityWarn,
                     repairSeamAudit,repairOverlayExact,repairScaleAware,
                     repairFrontOptimize,repairCurvatureOptimize,
-                    repairCurvaturePoisson);
+                    repairCurvaturePoisson,repairFeasibilityProbe);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
@@ -383,7 +387,7 @@ int main(int argc, char** argv) {
                 saved,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact,{},repairScaleAware,
                 repairFrontOptimize,repairCurvatureOptimize,
-                    repairCurvaturePoisson);
+                    repairCurvaturePoisson,repairFeasibilityProbe);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -749,7 +753,7 @@ int main(int argc, char** argv) {
                 repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact,repairScaleAware,
                 repairFrontOptimize,repairCurvatureOptimize,
-                repairCurvaturePoisson):nullptr;
+                repairCurvaturePoisson,repairFeasibilityProbe):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
