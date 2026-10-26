@@ -64,6 +64,21 @@ struct SpatialCapSettings {
     double normalGuidance=0.04;  // fraction of median original rim edge
 };
 
+// M22A: topology-agnostic, fixed-R03-rim graph Poisson solve.
+// patch.positions[0..boundaryCount) are fixed and never overwritten.
+// interiorGuidance is indexed in the SAME order as generated patch positions,
+// NOT by original boundary ordinal or an assumed inset ring/hub layout.
+// For mirrored sources pass an exact involutive mirror partner for EVERY
+// local vertex, including all fixed boundary and synthetic interior IDs.
+// The supplied patch and source-boundary snapshot are otherwise unchanged
+// unless the finite solver converges; the caller performs contact/quality
+// and whole-survivor source-backed certification separately.
+void solveSpatialCapFixedRimPoisson(
+    SpatialCapPatch& patch,
+    const std::vector<Vec3>& interiorGuidance,
+    const SpatialCapSettings& settings,
+    const std::vector<std::size_t>& mirrorPartners={});
+
 // Bounded, nonprojective advancing-front construction + fixed-rim Poisson
 // fairing. Intentionally no source collisions/immutable ID allocation here:
 // callers MUST perform candidate-mesh intersections and M04 closed-manifold,
