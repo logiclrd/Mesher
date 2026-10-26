@@ -139,6 +139,28 @@ Candidate seed(const UnifiedZipperRim& first,
 }
 }
 
+// The core force accepts an already identified opposing set. The wrapper
+// below is the only zipper component that consults origin ancestry.
+Vec3 opposingGravity(Vec3 p,const std::vector<Vec3>& other,
+                     double h) {
+    if(other.empty()||!(h>0))return p;
+    constexpr double exponent=1.4;
+    const double epsilon=.25*h;
+    Vec3 force{};
+    for(const auto target:other) {
+        const auto d=target-p;
+        const double square=dot(d,d)+epsilon*epsilon;
+        force=force+d/std::pow(square,(exponent+1.)*.5);
+    }
+    const double scale=.2*std::pow(h,exponent)*h/
+        static_cast<double>(other.size());
+    auto delta=force*scale;
+    const auto magnitude=length(delta);
+    if(!(magnitude>0)||!finite(delta))return p;
+    if(magnitude>.3*h)delta=delta*((.3*h)/magnitude);
+    return p+delta;
+}
+
 UnifiedZipperFrontPatch buildUnifiedZipperFront(
     const UnifiedZipperRim& first,
     const UnifiedZipperRim& second,
@@ -201,9 +223,34 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     capSettings.requireMirrorPlane=selfReflected;
                     capSettings.maxBoundaryVertices=std::max(
                         settings.maxBoundaryVertices,trial.positions.size());
+                    // No zipper field affects the legacy/null ordinary cap.
+                    capSettings.placementAnchorWeight=.75;
+                    std::set<VertexId> firstIds(first.ids.begin(),first.ids.end());
+                    std::vector<std::uint8_t> ancestry;
+                    ancestry.reserve(trial.ids.size());
+                    for(const auto id:trial.ids)
+                        ancestry.push_back(!id?0:
+                            firstIds.count(id)?1:2);
+                    SpatialCapPlacementAdjustment gravity=
+                        [&](const SpatialCapPlacementProposal& proposal)->Vec3 {
+                            if(proposal.originatingSide!=1&&
+                               proposal.originatingSide!=2)
+                                return proposal.projectedPosition;
+                            const auto opposing=proposal.originatingSide==1?2:1;
+                            std::vector<Vec3> targets;
+                            for(const auto vertex:*proposal.activeFront)
+                                if(proposal.activeSides->at(vertex)==opposing)
+                                    targets.push_back(
+                                        proposal.activePositions->at(vertex));
+                            return opposingGravity(
+                                proposal.projectedPosition,targets,
+                                proposal.localEdgeScale);
+                        };
+                    // For a caller-supplied adjustment, the caller owns the
+                    // higher-level wrapper; otherwise use the zipper gravity.
                     const auto cap=buildSpatialCapFrontPoisson(
                         trial.positions,trial.normals,capSettings,nullptr,
-                        adjustment);
+                        adjustment?adjustment:&gravity,&ancestry);
                     UnifiedZipperFrontPatch answer;
                     answer.positions=cap.positions;
                     answer.boundaryIds=std::move(trial.ids);
