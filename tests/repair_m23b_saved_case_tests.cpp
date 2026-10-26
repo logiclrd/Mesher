@@ -164,9 +164,40 @@ void originalCase() {
              <<" min_zipper_q="<<result.minimumZipperQuality
              <<" inserted="<<result.insertedVertices.size()<<" PASS\n";
 }
+void firstCapNonRegression() {
+    const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
+        "repair-cases"/"refusal-1.r06case";
+    const auto saved=readRepairCase(path);
+    require(saved.candidate.index&&!saved.contacts.empty(),
+        "M23B archived refusal-1 did not load");
+    const auto proposed=previewApproximateExcision(
+        *saved.candidate.index,saved.contacts);
+    require(proposed.complete,"M23B refusal-1 R03 preview failed");
+    const auto cut=applyPrivateExcision(saved.candidate.index,proposed);
+    const auto plan=planPrivateAutomaticClosure(
+        *saved.candidate.index,cut,proposed,saved.contacts);
+    require(plan.ready()&&plan.zipperPairs.empty()&&
+            plan.cappedContours.size()==1,
+        "M23B refusal-1 must remain an ordinary cap");
+    MixedPrivateClosureLimits limits;
+    limits.requireReflectedGeometry=saved.symmetricSource;
+    const auto original=applyPrivateMixedClosure(cut,proposed,plan,limits);
+    limits.staging.useUnifiedZipper=true;
+    const auto enabled=applyPrivateMixedClosure(cut,proposed,plan,limits);
+    require(original.index&&enabled.index&&
+            original.minimumCapQuality==enabled.minimumCapQuality&&
+            original.greenFaces.size()==enabled.greenFaces.size()&&
+            original.insertedVertices.size()==enabled.insertedVertices.size()&&
+            original.refinementSteps==enabled.refinementSteps&&
+            original.newFaces==enabled.newFaces,
+        "M23B opt-in changed refusal-1 ordinary cap geometry/quality");
+    std::cout<<"[r06-m23b-refusal1] SOURCE_CLOSURE_ACCEPTED"
+             <<" identical_cap_metrics=1"
+             <<" q="<<enabled.minimumCapQuality<<" PASS\n";
+}
 }
 int main() {
-    try{originalCase();}
+    try{originalCase();firstCapNonRegression();}
     catch(const std::exception& e) {
         std::cerr<<"R06-M23B exact refusal-2: "<<e.what()<<"\n";
         return 1;
