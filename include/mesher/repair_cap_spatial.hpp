@@ -97,6 +97,9 @@ struct SpatialCapPlacementProposal {
     const std::vector<Vec3>* activePositions{};
     const std::vector<std::uint32_t>* activeFront{};
     const std::vector<std::uint8_t>* activeSides{};
+    // M23B: current geometric normal used for the zipper-only tangent
+    // projection BEFORE optional gravity. Zero when not applicable.
+    Vec3 projectionNormal{};
 };
 using SpatialCapPlacementAdjustment =
     std::function<Vec3(const SpatialCapPlacementProposal&)>;
