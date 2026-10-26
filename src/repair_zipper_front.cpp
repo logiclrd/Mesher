@@ -96,13 +96,13 @@ bool candidateEmbedded(const Candidate& c,std::size_t budget) {
 Candidate seed(const UnifiedZipperRim& first,
                const UnifiedZipperRim& second,
                std::size_t a,std::size_t b,bool mirror,
-               double factor,int direction) {
+               double factor,int direction,bool tangentGuided) {
     const auto na=first.ids.size(),nb=second.ids.size();
     const auto c=(a+1)%na,d=(b+nb-1)%nb;
     const auto A=first.positions[a],B=second.positions[b];
     const auto C=first.positions[c],D=second.positions[d];
     const auto mid=(A+B)*.5;
-    const auto seamSeed=mirror?
+    const auto seamSeed=mirror&&tangentGuided?
         projectReflectedBridgeSeamPoint(
             A,B,first.outgoingNormals[a],second.outgoingNormals[b]):
         mid;
@@ -251,6 +251,10 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
     std::string lastReason="no locally legal bridge";
     // Evaluate bounded alternatives before selecting a bridge. Each cap
     // attempt is entirely private; failure never mutates an original ID.
+    // The tangent-guided seed is preferred; keep the original midpoint
+    // seed as a geometric fallback if it alone provides legal closure.
+    for(const bool tangentGuided:{true,false}) {
+    if(!tangentGuided&&!selfReflected)break;
     for(std::size_t i=0;i<budget;++i)
         for(const double factor:{.4,.7,1.0})
             for(const int direction:{1,-1}) {
@@ -258,7 +262,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                 try {
                     trial=seed(first,second,corners[i].first,
                                corners[i].second,selfReflected,
-                               factor,direction);
+                               factor,direction,tangentGuided);
                     if(trial.seedQuality<settings.desiredMinimumQuality||
                        !candidateEmbedded(trial,settings.maxIntersectionTests))
                         continue;
@@ -308,11 +312,19 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     answer.poissonIterations=cap.poissonIterations;
                     answer.poissonResidual=cap.poissonResidual;
                     answer.selfReflected=selfReflected;
+                    answer.tangentGuidedBridge=selfReflected&&tangentGuided;
+                    if(selfReflected) {
+                        const auto midpoint=(
+                            first.positions[corners[i].first]+
+                            second.positions[corners[i].second])*.5;
+                        answer.seamSeedOffset=length(trial.positions[1]-midpoint);
+                    }
                     return answer;
                 }catch(const std::logic_error& e) {
                     lastReason=e.what();
                 }
             }
+    }
     throw std::logic_error(
         "R06-M23B no admissible finite bridge/cap: examined="+
         std::to_string(budget)+" legal_seeds="+std::to_string(legalSeeds)+
