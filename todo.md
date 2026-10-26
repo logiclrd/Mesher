@@ -919,39 +919,45 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
   under identical whole-patch validity and original fallback.
 - [ ] **M21D — Production eligibility**, distinct from PRIVATE preview.
 
-## R06-M22 — Generic Poisson first, then in-place advancing-front construction (2026-10-26)
+## R06-M22 — AFM primary R06 cap path and diagnostic comparisons (2026-10-26)
 
-Revised design and acceptance:
-[docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md](docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md).
-The old special crossing-seam bridge rules were unnecessary: original
-R03 edges never straddle X=0, and AFM must preserve that invariant.
-At an ON-seam selection, guard against creating a *new* cross-plane edge.
-Advance each reflected operation atomically. Avoid separate AFM codepath;
-generalize existing solver and then replace ring/hub initialization in place.
-Current M17–M21 enhancements depend on ring-specific vertex IDs and require
-explicit isolation/adaptation for variable topology.
+[Design/requirements](docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md).
+Only the R06 cap generator selection, not forced standalone R05, changes.
+Keep the same SpatialCapPatch -> exact source-backed staging interface.
+No extra eighth-level nested milestones. Each milestone must be
+independently testable; no partial check-offs. CI/GPU acceptance separate.
 
-- [ ] **M22A — Generalized fixed-rim graph-Poisson solver extraction.**
-  Arbitrary patch vertices/faces, explicit per-interior guidance, exact
-  involutive reflected vertex IDs, immutable original rim, finite convergence
-  and budget checks. Legacy ring/hub should produce unchanged results.
-  Standalone non-ring and symmetric/refusal unit tests, GCC/Clang/MSVC CI.
-- [ ] **M22B — In-place ordinary adaptive advancing-front construction.**
-  Replace compulsory n-vertex inset ring/hub inside existing cap entry
-  point, keep exact R03 source and seam vertex/edge constraints, select
-  mirrored orbits atomically, deny seam-vertex bridging across X=0.
-  PRIVATE step debugger and non-ring topology tests, no unsafe M17–M21
-  assumptions.
-- [ ] **M22C — Full source-backed closure acceptance and atomic fallback.**
-  Complete M04 validation of alternative; preserve accepted original
-  cap if new approach fails or has no meaningful improvement.
-- [ ] **M22D — Separate desired-normal gradient Poisson option.**
-  Compare Zhao et al. rotated triangle normal-guided reconstruction
-  with generalized graph Poisson on identical topology.
-- [ ] **M22E — Cross-platform and user-visible matched-view acceptance.**
-  Refusal-1/3 and representative healthy/crease/torus/hollow fixtures,
-  exact reflection/quality/contact, finite work, physical GPU and
-  performance before enabling replacement by default.
+- [ ] **M22A — Generic graph Poisson baseline acceptance.** Implemented
+  on integration branch; validate latest GCC/Clang/MSVC exact HEAD and
+  arbitrary-topology/legacy equivalence before asserting accepted.
+- [ ] **M22B1 — In-place ordinary AFM generator with exact symmetric orbits.**
+  75/135 degree front cases, seam-vertex two-triangle rule, near-seam
+  25%-scale candidate snapping with manifold guard, finite deterministic
+  atomic front operations; preserve R03 IDs, no crossing X=0, and
+  generalized Poisson; isolate M17-M21 ring-only optimizers.
+- [ ] **M22B2 — R06 selection and explicit CLI opt-in to projected ears.**
+  Default bypass R05 projected ear clipping; --repair-ear-clipping
+  explicitly enables first attempt, then AFM on failure. CLI flag must
+  propagate identically through headless replay and viewer paths.
+  Historical standalone R05 forced-cap path remains unchanged.
+- [ ] **M22B3 — Cheap deterministic per-candidate cap summary.**
+  For AFM and attempted projected-ear caps report method, contour index,
+  fixed/added/total vertices, unique edges, faces, Euler characteristic
+  and boundary edges, q min/p10/median/p90/max/mean, bottom/top-decile
+  counts and mean quality (the counts are rank-defined, not threshold
+  exceedances), counts below q=.10 and collapsed faces, edge span
+  min/median/max, Poisson iterations/residual, stage status and reasons.
+  Emit for fully generated candidates even if they later fail; log
+  explicit unavailable/partial stats if construction aborts earlier.
+  Distinguish local candidate validation from complete M04 acceptance.
+- [ ] **M22C — Source-backed full-closure retry/fallback.** Validate
+  alternative completely before replacing a previously legal closure;
+  on downstream failure preserve original if legal, unchanged root.
+- [ ] **M22D — Optional paper's rotated-normal gradient Poisson.**
+  Compare normal-guided Poisson on the same AFM/legacy connectivity.
+- [ ] **M22E — GCC/Clang/MSVC, replay and physical matched-view acceptance.**
+  Exact refusal-1/3, healthy sphere/torus/hollow/crease, deterministic
+  mirror and budget tests plus user-visible GPU, before publication.
 
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
