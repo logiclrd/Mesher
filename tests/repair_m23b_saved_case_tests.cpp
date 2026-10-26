@@ -9,6 +9,9 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <map>
+#include <numeric>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -35,6 +38,65 @@ double minZipperQuality(const MixedClosureStaging& staged) {
     require(count>0,"M23B refusal-2 did not stage any zipper faces");
     return result;
 }
+struct NormalMetrics {
+    std::size_t zipperFaces{};
+    std::size_t seamEdges{},internalEdges{};
+    double seamP90{},seamMax{},internalP90{},internalMax{};
+    std::size_t maxBlueValence{};
+};
+NormalMetrics normalMetrics(const MixedPrivateClosureResult& result) {
+    NormalMetrics metrics;
+    metrics.zipperFaces=result.blueFaces.size();
+    const std::set<FaceId> blues(result.blueFaces.begin(),result.blueFaces.end());
+    std::vector<double> seam,interior;
+    std::map<VertexId,std::size_t> valences;
+    const auto normal=[&](FaceId id) {
+        const auto ids=result.index->face(id).vertices;
+        const auto a=result.index->vertex(ids[0]).position;
+        const auto b=result.index->vertex(ids[1]).position;
+        const auto c=result.index->vertex(ids[2]).position;
+        const auto crossN=cross(b-a,c-a);
+        const auto len=length(crossN);
+        return len>1e-12?crossN/len:Vec3{};
+    };
+    const auto pi=std::acos(-1.);
+    for(const auto fid:result.blueFaces) {
+        const auto ids=result.index->face(fid).vertices;
+        for(unsigned i=0;i<3;++i) {
+            const auto a=ids[i],b=ids[(i+1)%3];
+            ++valences[a];
+            auto ends=std::make_pair(std::min(a,b),std::max(a,b));
+            const auto sides=result.index->maybeEdgeSides(ends);
+            if(!sides||sides->size()!=2)continue;
+            FaceId other=0;
+            for(const auto& side:*sides)
+                if(side.face!=fid)other=side.face;
+            if(!other)continue;
+            const bool otherBlue=blues.count(other)>0;
+            if(otherBlue&&fid>other)continue;
+            const auto n=normal(fid),m=normal(other);
+            if(length(n)<1e-12||length(m)<1e-12)continue;
+            const auto degrees=std::acos(std::clamp(dot(n,m),-1.,1.))*180./pi;
+            (otherBlue?interior:seam).push_back(degrees);
+        }
+    }
+    for(const auto& [vertex,valence]:valences) {
+        (void)vertex;
+        metrics.maxBlueValence=std::max(metrics.maxBlueValence,valence);
+    }
+    const auto finish=[](std::vector<double>& values,double& p90,double& max) {
+        if(values.empty())return;
+        std::sort(values.begin(),values.end());
+        p90=values[(values.size()-1)*9/10];
+        max=values.back();
+    };
+    metrics.seamEdges=seam.size();
+    metrics.internalEdges=interior.size();
+    finish(seam,metrics.seamP90,metrics.seamMax);
+    finish(interior,metrics.internalP90,metrics.internalMax);
+    return metrics;
+}
+
 void originalCase() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-2.r06case";
@@ -70,11 +132,34 @@ void originalCase() {
              <<" rim_sides="<<candidate.boundarySidesCovered<<" PASS\n";
     MixedPrivateClosureLimits settings;
     settings.requireReflectedGeometry=saved.symmetricSource;
+    const auto oldResult=applyPrivateMixedClosure(cut,excision,plan,settings);
+    const auto oldMetrics=normalMetrics(oldResult);
     settings.staging.useUnifiedZipper=true;
     const auto result=applyPrivateMixedClosure(cut,excision,plan,settings);
     require(result.index&&result.zipperPairs==1&&
             result.minimumZipperQuality>=settings.minZipperQuality,
         "M23B refusal-2 lacked certified closed source mesh");
+    const auto nextMetrics=normalMetrics(result);
+    std::cout<<"[r06-m23b-refusal2-final]"
+             <<" old_q="<<oldResult.minimumZipperQuality
+             <<" new_q="<<result.minimumZipperQuality
+             <<" old_faces="<<oldResult.blueFaces.size()
+             <<" new_faces="<<result.blueFaces.size()
+             <<" old_inserted="<<oldResult.insertedVertices.size()
+             <<" new_inserted="<<result.insertedVertices.size()
+             <<" old_refinement="<<oldResult.refinementSteps
+             <<" new_refinement="<<result.refinementSteps
+             <<" old_zip_internal_p90="<<oldMetrics.internalP90
+             <<" new_zip_internal_p90="<<nextMetrics.internalP90
+             <<" old_zip_internal_max="<<oldMetrics.internalMax
+             <<" new_zip_internal_max="<<nextMetrics.internalMax
+             <<" old_survivor_seam_p90="<<oldMetrics.seamP90
+             <<" new_survivor_seam_p90="<<nextMetrics.seamP90
+             <<" old_survivor_seam_max="<<oldMetrics.seamMax
+             <<" new_survivor_seam_max="<<nextMetrics.seamMax
+             <<" old_blue_valence_max="<<oldMetrics.maxBlueValence
+             <<" new_blue_valence_max="<<nextMetrics.maxBlueValence
+             <<" PASS\n";
     std::cout<<"[r06-m23b-refusal2] SOURCE_CLOSURE_ACCEPTED"
              <<" min_zipper_q="<<result.minimumZipperQuality
              <<" inserted="<<result.insertedVertices.size()<<" PASS\n";
