@@ -657,6 +657,24 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     // quality-preserving second solve measurably improves continuity.
     if(initiallyEmbedded&&limits.curvatureGuidedPoisson&&incomingReference&&
        !survivingFaceNormals.empty()) {
+        // M18E remains an optional legacy RING-based second solve. Its
+        // graph and baseline source must be local to this experiment:
+        // M22A moved the ordinary graph Poisson into a generic patch
+        // solver, so the old outer-scope variables no longer exist.
+        // Do not apply this index-specific refinement to future AFM caps.
+        std::vector<std::set<std::uint32_t>> adjacent(result.positions.size());
+        for(const auto& face:result.faces)
+            for(unsigned k=0;k<3;++k) {
+                const auto a=face[k],b=face[(k+1)%3];
+                adjacent[a].insert(b);
+                adjacent[b].insert(a);
+            }
+        const auto sourceAt=[&](std::size_t index) {
+            const auto direction=index<2*n?normals[index-n]:averageNormal;
+            const auto degree=static_cast<double>(adjacent[index].size());
+            return direction*(limits.normalGuidance*h*degree);
+        };
+        const auto tolerance=limits.poissonTolerance*h;
         struct Constraint {Vec3 normal;double projection,weight;};
         std::vector<std::vector<Constraint>> constraints(result.positions.size());
         const auto rimProfile=measureSpatialCapRimProfile(result,survivingFaceNormals);
