@@ -254,6 +254,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-feasibility-preview] (M19A provisional candidate positions in step debugger ONLY; private, NOT CERTIFIED)\n"
                          <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
                          <<"       [--repair-diagonal-preview] (M19D PRIVATE provisional mirrored diagonal topology in step debugger ONLY; NOT CERTIFIED)\n"
+                         <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
                          <<"       [--repair-whole-cap-fairing-preview] (M21A optional whole-cap fairing on a PRIVATE saved-case step; baseline fallback)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
@@ -303,6 +304,8 @@ int main(int argc, char** argv) {
            !repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-seam-audit/--repair-overlay-exact require --repair auto or --repair-replay[-test]");
+        if(repairEarClipping&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-ear-clipping requires --repair auto or --repair-replay[-test]");
         if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
