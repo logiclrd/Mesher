@@ -1106,9 +1106,9 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         throw;
     }catch(const RepairStepObserverFailure&) {
         throw;
-    }catch(const std::logic_error& e) {
-        rejection=e.what();
     }catch(const std::length_error& e) {
+        rejection=e.what();
+    }catch(const std::logic_error& e) {
         rejection=e.what();
     }
     std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
