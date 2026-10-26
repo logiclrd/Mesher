@@ -595,6 +595,13 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_repair_m23b_saved_case_tests
                    tests/repair_m23b_saved_case_tests.cpp)
     target_link_libraries(mesher_repair_m23b_saved_case_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m23b_refusal2_cli_opt_in
+             COMMAND "${CMAKE_COMMAND}"
+               "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+               "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-2.r06case"
+               -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_m23b_unified_zipper_replay.cmake")
+    set_tests_properties(repair_r06_m23b_refusal2_cli_opt_in
+        PROPERTIES TIMEOUT 30)
     add_test(NAME repair_r06_m23b_refusal2_new_zipper_private
              COMMAND mesher_repair_m23b_saved_case_tests)
     set_tests_properties(repair_r06_m23b_refusal2_new_zipper_private
