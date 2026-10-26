@@ -311,6 +311,7 @@ SpatialCapPatch constructAdaptiveFront(
         s.patch.faces.push_back({a,b,d});
     };
     std::size_t tests=0;
+    std::size_t attempts=0;
     const auto legal=[&](const AdaptiveFrontState& s) {
         if(s.patch.faces.size()>limits.maxFaces||
            s.patch.positions.size()-n>limits.maxInteriorVertices||
@@ -381,7 +382,6 @@ SpatialCapPatch constructAdaptiveFront(
     // Work budget includes rejected proposals: never retry indefinitely.
     const auto maxAttempts=std::min<std::size_t>(
         limits.maxFaces*8+limits.maxBoundaryVertices*8,65536);
-    std::size_t attempts=0;
     std::size_t advancesWithoutReduction=0;
     while(state.front.size()>3) {
         if(++attempts>maxAttempts)
