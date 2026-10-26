@@ -471,7 +471,14 @@ SpatialCapPatch constructAdaptiveFront(
             if(!(length(u)>1e-12&&length(v)>1e-12))continue;
             double theta=std::acos(std::clamp(
                 dot(u,v)/(length(u)*length(v)),-1.,1.));
-            if(dot(cross(u,v),normal)>1e-10*length(u)*length(v))
+            // M23B: a joined zipper contour wraps a nonplanar annulus.
+            // Its global signed-area vector does not represent the local
+            // face plane. Use surviving/propagated corner guidance only
+            // for zipper-owned fronts; ordinary caps keep M22 behavior.
+            const auto cornerNormal=(rimSides&&
+                length(state.guides[id])>1e-12)?
+                state.guides[id]:normal;
+            if(dot(cross(u,v),cornerNormal)>1e-10*length(u)*length(v))
                 theta=2*std::acos(-1.)-theta;
             choices.push_back({i,theta});
         }
