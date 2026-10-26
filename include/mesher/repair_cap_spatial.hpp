@@ -12,6 +12,27 @@ namespace mesher {
 
 struct SurvivorDirectionalCurvature;
 
+// M23B diagnostic only: one record per ACCEPTED generated AFM vertex.
+// Vertex indices are patch-local and remapped to provisional VertexIds in
+// mixed staging. A replay ENSUREFACE references those provisional IDs.
+// The recorded supporting faces are the already-built AFM faces at the
+// moment of proposal; an empty set means fallback guidance was used.
+// Original support XYZ is retained because Poisson can later move its
+// vertices. None of these records changes candidate acceptance.
+struct SpatialCapPlacementTrace {
+    std::uint32_t patchVertex{};
+    std::uint32_t frontVertex{},frontPrev{},frontNext{};
+    std::size_t proposalOrdinal{};
+    std::size_t frontOperation{};
+    std::uint8_t originatingSide{};
+    Vec3 tangentNormal{};
+    Vec3 rawProposal{},tangentProposal{},gravityProposal{};
+    Vec3 stagedProposal{},poissonPosition{};
+    std::array<std::array<std::uint32_t,3>,2> supportFaces{};
+    std::array<std::array<Vec3,3>,2> supportAtProposal{};
+    std::size_t supportCount{};
+};
+
 // Private LOCAL coordinates/indices: the first boundaryCount positions
 // correspond to the R03 directed rim in REVERSED (cap-face) order.
 // All subsequent vertices are synthetic interior vertices, not stable IDs.
@@ -24,6 +45,7 @@ struct SpatialCapPatch {
     double minimumQuality{1};
     bool usedMirroredRibbonFallback{}; // alternate exact X=0 seam strip; no Poisson sweeps
     bool usedAdaptiveFront{}; // arbitrary indexed connectivity; M17-M21 ring-only probes disabled
+    std::vector<SpatialCapPlacementTrace> placementTrace; // zipper-only debug
 };
 
 struct SpatialCapSettings {
