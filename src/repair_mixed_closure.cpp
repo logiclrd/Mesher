@@ -1023,15 +1023,19 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     out.splitEvents=staged.splitEvents();
     out.index=std::move(closed);
     if(!plan.cappedContours.empty())
-        std::cerr<<"[repair-r06-cap-verdict] status=SOURCE_CLOSURE_ACCEPTED"
+        std::cerr<<"[repair-r06-cap-verdict] status="
+                 <<(limits.inspectionWarnQuality?
+                    "SOURCE_CLOSURE_WARNING_PREVIEW":"SOURCE_CLOSURE_ACCEPTED")
                  <<" capped_loops="<<out.cappedLoops
                  <<" spatial_loops="<<out.spatialCapLoops
                  <<" generated_faces="<<out.newFaces
                  <<" inserted_vertices="<<out.insertedVertices.size()
                  <<" minimum_cap_quality="<<out.minimumCapQuality
                  <<" warnings="<<out.qualityWarningFaces.size()
-                 <<" source_certified="<<static_cast<bool>(out.index)
-                 <<"\\n";
+                 <<" source_certified="<<
+                    (static_cast<bool>(out.index)&&!limits.inspectionWarnQuality&&
+                     out.qualityWarningFaces.empty())
+                 <<"\n";
     if(limits.terminalObserver) {
         limits.terminalObserver({
             MixedClosureTerminalOutcome::Completed,"completed",
@@ -1060,7 +1064,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         if(!plan.cappedContours.empty())
             std::cerr<<"[repair-r06-cap-verdict] status=SOURCE_CLOSURE_REFUSED"
                      <<" phase="<<phase<<" capped_requested="<<plan.cappedContours.size()
-                     <<" reason="<<e.what()<<" source_certified=0\\n";
+                     <<" reason="<<e.what()<<" source_certified=0\n";
         // Preserve the original algorithmic exception even if the observer
         // itself has failed. No private revision has been published.
         if(limits.terminalObserver) {
@@ -1115,7 +1119,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
              <<" status=SOURCE_CLOSURE_REFUSED"
              <<" reason="<<rejection
              <<" next=advancing-front"
-             <<" private_retry=1 source_certified=0\\n";
+             <<" private_retry=1 source_certified=0\n";
     auto retry=limits;
     retry.staging.tryProjectedEarClipping=false;
     return applyPrivateMixedClosureOnce(cut,proposal,plan,retry);
