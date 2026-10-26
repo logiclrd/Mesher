@@ -398,7 +398,11 @@ SpatialCapPatch constructAdaptiveFront(
     // Work budget includes rejected proposals: never retry indefinitely.
     const auto maxAttempts=std::min<std::size_t>(
         limits.maxFaces*8+limits.maxBoundaryVertices*8,65536);
-    std::size_t advancesWithoutReduction=0;
+    // Every adaptive insertion must be followed by enough convex ear
+    // closure to reduce the FRONT below its last committed size. Merely
+    // insisting on one ear after two insertions permits net growth.
+    bool requireNetReduction=false;
+    std::size_t nextFrontTarget=n-1;
     while(state.front.size()>3) {
         if(++attempts>maxAttempts)
             throw std::length_error("R06-M22B advancing-front attempt budget");
@@ -479,12 +483,11 @@ SpatialCapPatch constructAdaptiveFront(
             unsigned mode=seam?2:
                 (choice.angle<=75*pi/180?1:
                  choice.angle<=135*pi/180?2:3);
-            // The paper's 2/3-face turns do not by themselves guarantee
-            // the active polygon shrinks. An inset front can otherwise
-            // keep cycling through ~120-degree corners indefinitely.
-            // After two non-reducing turns, close one legal convex ear
-            // (but never on a seam vertex), then resume adaptive turns.
-            if(!seam&&advancesWithoutReduction>=2&&choice.angle<pi)
+            // The paper's 2/3-face turns can leave the front unchanged
+            // or grow it. Once one is used, close convex ears until the
+            // new front is STRICTLY smaller than it was before that turn.
+            // A mirror-plane vertex retains its compulsory two-face mode.
+            if(!seam&&requireNetReduction&&choice.angle<pi)
                 mode=1;
             if(mode!=1&&!(bisectorLen>1e-10))continue;
             for(const double factor:{.7,1.0,.45}) {
@@ -589,8 +592,10 @@ SpatialCapPatch constructAdaptiveFront(
                 }
                 trial.front=std::move(newFront);
                 if(!legal(trial))continue;
-                advancesWithoutReduction=trial.front.size()<state.front.size()?
-                    0:advancesWithoutReduction+1;
+                if(trial.front.size()<=nextFrontTarget) {
+                    requireNetReduction=false;
+                    nextFrontTarget=trial.front.empty()?0:trial.front.size()-1;
+                }else requireNetReduction=true;
                 state=std::move(trial);
                 accepted=true;
             }
