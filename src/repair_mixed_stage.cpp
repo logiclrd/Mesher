@@ -122,7 +122,7 @@ void logCapCandidate(const char* method,std::size_t loop,
              <<" edge_max="<<percentile(edgeLengths,1)
              <<" poisson_iterations="<<iterations
              <<" poisson_residual="<<residual
-             <<" source_certified=0\\n";
+             <<" source_certified=0\n";
 }
 }
 
@@ -220,7 +220,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" status=GENERATOR_REFUSED"
                          <<" metrics=unavailable"
                          <<" reason="<<e.what()
-                         <<" next=advancing-front\\n";
+                         <<" next=advancing-front\n";
             }
             // Any failure to STAGE a generated ear is not an ordinary
             // projection failure. The outer atomic M04 retry must start
@@ -232,7 +232,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
                      <<" loop="<<id<<" status=SKIPPED"
                      <<" reason=mirror_requires_spatial_cap"
-                     <<" next=advancing-front\\n";
+                     <<" next=advancing-front\n";
         }
         if(forceSpatial) {
             // The original R05 projected-ear builder remains unchanged and
@@ -310,7 +310,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" loop="<<id<<" status=GENERATOR_REFUSED"
                          <<" metrics=unavailable reason="<<failed.what()
                          <<" prior_projected_ear="<<projectedReason
-                         <<" source_certified=0\\n";
+                         <<" source_certified=0\n";
                 throw std::logic_error(
                     std::string("R06-M22B advancing-front cap unavailable: ")+
                     failed.what());
