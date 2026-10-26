@@ -79,11 +79,12 @@ void solveSpatialCapFixedRimPoisson(
     const SpatialCapSettings& settings,
     const std::vector<std::size_t>& mirrorPartners={});
 
-// Bounded, nonprojective advancing-front construction + fixed-rim Poisson
-// fairing. Intentionally no source collisions/immutable ID allocation here:
-// callers MUST perform candidate-mesh intersections and M04 closed-manifold,
-// quality and worker-root audits before accepting the PRIVATE result.
-// Throws rather than returning a self-intersecting/degenerate candidate.
+// Current R06 cap entry point: for now it still constructs a fixed
+// n-vertex inset ring and hub, then delegates to the generic fixed-rim
+// solver above. M22B replaces ONLY the geometry-construction phase in place.
+// Existing M17–M21 post-processing still contains ring-specific assumptions.
+// No source stable-ID allocation here; callers perform the complete M04
+// source-backed quality/contact/manifold audit before PRIVATE acceptance.
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
