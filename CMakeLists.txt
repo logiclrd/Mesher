@@ -592,6 +592,12 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m22b_adaptive_front
              COMMAND mesher_repair_adaptive_front_tests)
     set_tests_properties(repair_r06_m22b_adaptive_front PROPERTIES TIMEOUT 20)
+    add_executable(mesher_repair_m23a_placement_callback_tests
+                   tests/repair_m23a_placement_callback_tests.cpp)
+    target_link_libraries(mesher_repair_m23a_placement_callback_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m23a_optional_placement_callback
+             COMMAND mesher_repair_m23a_placement_callback_tests)
+    set_tests_properties(repair_r06_m23a_optional_placement_callback PROPERTIES TIMEOUT 20)
     add_executable(mesher_repair_spatial_cap_tests tests/repair_spatial_cap_tests.cpp)
     target_link_libraries(mesher_repair_spatial_cap_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m06c_spatial_front_poisson COMMAND mesher_repair_spatial_cap_tests)
