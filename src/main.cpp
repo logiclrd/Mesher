@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
          repairDiagonalProbe=false,repairFeasibilityPreview=false,
          repairDiagonalPreview=false,repairWholeCapFairingPreview=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
+    bool repairEarClipping=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -96,6 +97,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
+            else if(arg=="--repair-ear-clipping")repairEarClipping=true;
             else if(arg=="--repair-step-debug")repairStepDebug=true;
             else if(arg=="--repair-scale-aware")repairScaleAware=true;
             else if(arg=="--repair-front-optimize")repairFrontOptimize=true;
@@ -385,7 +387,8 @@ int main(int argc, char** argv) {
                     repairFrontOptimize,repairCurvatureOptimize,
                     repairCurvaturePoisson,repairFeasibilityProbe,
                     repairDiagonalProbe,repairFeasibilityPreview,
-                    repairDiagonalPreview,repairWholeCapFairingPreview);
+                    repairDiagonalPreview,repairWholeCapFairingPreview,
+                    repairEarClipping);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
@@ -410,7 +413,8 @@ int main(int argc, char** argv) {
                 repairSeamAudit,repairOverlayExact,{},repairScaleAware,
                 repairFrontOptimize,repairCurvatureOptimize,
                     repairCurvaturePoisson,repairFeasibilityProbe,
-                    repairDiagonalProbe);
+                    repairDiagonalProbe,false,false,false,
+                    repairEarClipping);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -777,7 +781,7 @@ int main(int argc, char** argv) {
                 repairSeamAudit,repairOverlayExact,repairScaleAware,
                 repairFrontOptimize,repairCurvatureOptimize,
                 repairCurvaturePoisson,repairFeasibilityProbe,
-                repairDiagonalProbe):nullptr;
+                repairDiagonalProbe,repairEarClipping):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
