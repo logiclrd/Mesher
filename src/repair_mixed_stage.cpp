@@ -199,7 +199,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 positive=positive||x>0;
                 negative=negative||x<0;
             }
-            forceSpatial=positive&&negative;
+            forceSpatial=forceSpatial||(positive&&negative);
         }
         std::string projectedReason=bounds.tryProjectedEarClipping?
             "mirror-required crossing-plane cap":"projected-ear disabled by default";
