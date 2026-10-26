@@ -203,12 +203,15 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
         });
     if(corners.empty())
         throw std::logic_error("R06-M23B no eligible opposing zipper vertices");
-    const auto budget=std::min<std::size_t>(corners.size(),32);
+    // M23B1: expensive topological proposals are finite. Preference by
+    // proximity is preserved, but do not launch unbounded cap solves.
+    const auto budget=std::min<std::size_t>(corners.size(),12);
+    std::size_t legalSeeds=0,capAttempts=0;
     std::string lastReason="no locally legal bridge";
     // Evaluate bounded alternatives before selecting a bridge. Each cap
     // attempt is entirely private; failure never mutates an original ID.
     for(std::size_t i=0;i<budget;++i)
-        for(const double factor:{.5,1.,.75,1.25})
+        for(const double factor:{.4,.7,1.0})
             for(const int direction:{1,-1}) {
                 Candidate trial;
                 try {
@@ -218,6 +221,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     if(trial.seedQuality<settings.desiredMinimumQuality||
                        !candidateEmbedded(trial,settings.maxIntersectionTests))
                         continue;
+                    ++legalSeeds;
                     auto capSettings=settings;
                     capSettings.requireMirrorPlane=selfReflected;
                     capSettings.maxBoundaryVertices=std::max(
@@ -247,6 +251,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                         };
                     // For a caller-supplied adjustment, the caller owns the
                     // higher-level wrapper; otherwise use the zipper gravity.
+                    ++capAttempts;
                     const auto cap=buildSpatialCapFrontPoisson(
                         trial.positions,trial.normals,capSettings,nullptr,
                         adjustment?adjustment:&gravity,&ancestry);
@@ -267,6 +272,10 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     lastReason=e.what();
                 }
             }
-    throw std::logic_error("R06-M23B no admissible finite bridge / cap: "+lastReason);
+    throw std::logic_error(
+        "R06-M23B no admissible finite bridge/cap: examined="+
+        std::to_string(budget)+" legal_seeds="+std::to_string(legalSeeds)+
+        " cap_attempts="+std::to_string(capAttempts)+
+        " last="+lastReason);
 }
 }
