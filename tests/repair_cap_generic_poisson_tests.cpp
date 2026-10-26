@@ -13,6 +13,14 @@ void require(bool yes,const char* explanation) {
     if(!yes)throw std::runtime_error(explanation);
 }
 
+bool same(const std::vector<Vec3>& a,const std::vector<Vec3>& b) {
+    if(a.size()!=b.size())return false;
+    for(std::size_t i=0;i<a.size();++i)
+        if(a[i].x!=b[i].x||a[i].y!=b[i].y||a[i].z!=b[i].z)
+            return false;
+    return true;
+}
+
 void arbitraryTwoInteriorPatch() {
     // Seven triangles triangulate a non-ring pentagonal disk with two
     // independently positioned interior points; no hub or inset-ring IDs.
@@ -66,7 +74,7 @@ void exactMirroredNonRingPatch() {
     try {
         solveSpatialCapFixedRimPoisson(patch,{{.1,0,1}},mismatched,twins);
     }catch(const std::logic_error&) {refused=true;}
-    require(refused&&patch.positions==copy,
+    require(refused&&same(patch.positions,copy),
             "M22A self-mirrored guidance must be symmetric or refuse atomically");
     std::cout<<"[r06-m22a] exact reflected non-ring patch and refusal PASS\n";
 }
@@ -81,7 +89,7 @@ void finiteAndProvenanceRejections() {
     try {
         solveSpatialCapFixedRimPoisson(patch,{},SpatialCapSettings{});
     }catch(const std::invalid_argument&){refused=true;}
-    require(refused&&patch.positions==original,
+    require(refused&&same(patch.positions,original),
             "M22A missing guidance must fail without touching patch");
     refused=false;
     try {
@@ -89,7 +97,7 @@ void finiteAndProvenanceRejections() {
         bounds.maxPoissonIterations=1;
         solveSpatialCapFixedRimPoisson(patch,{{0,0,0}},bounds);
     }catch(const std::logic_error&){refused=true;}
-    require(refused&&patch.positions==original&&
+    require(refused&&same(patch.positions,original)&&
             patch.poissonIterations==0,
             "M22A incomplete convergence must preserve input and metadata");
     refused=false;
@@ -98,7 +106,7 @@ void finiteAndProvenanceRejections() {
         bounds.maxInteriorVertices=0;
         solveSpatialCapFixedRimPoisson(patch,{{0,0,1}},bounds);
     }catch(const std::invalid_argument&){refused=true;}
-    require(refused&&patch.positions==original,
+    require(refused&&same(patch.positions,original),
             "M22A vertex budget must refuse early and atomically");
     std::cout<<"[r06-m22a] guidance, convergence and budget refusals PASS\n";
 }
