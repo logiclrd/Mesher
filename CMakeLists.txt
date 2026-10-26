@@ -592,6 +592,13 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m22b_adaptive_front
              COMMAND mesher_repair_adaptive_front_tests)
     set_tests_properties(repair_r06_m22b_adaptive_front PROPERTIES TIMEOUT 20)
+    add_executable(mesher_repair_m23b_saved_case_tests
+                   tests/repair_m23b_saved_case_tests.cpp)
+    target_link_libraries(mesher_repair_m23b_saved_case_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m23b_refusal2_new_zipper_private
+             COMMAND mesher_repair_m23b_saved_case_tests)
+    set_tests_properties(repair_r06_m23b_refusal2_new_zipper_private
+        PROPERTIES TIMEOUT 60)
     add_executable(mesher_repair_m23b_bridge_tests
                    tests/repair_m23b_bridge_tests.cpp)
     target_link_libraries(mesher_repair_m23b_bridge_tests PRIVATE mesher_mesh)
