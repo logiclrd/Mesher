@@ -28,6 +28,9 @@ struct UnifiedZipperFrontPatch {
     std::vector<Vec3> positions;
     std::vector<VertexId> boundaryIds;
     std::vector<std::array<std::uint32_t,3>> faces;
+    // Same patch-local IDs as positions/faces; printed against R06's
+    // provisional VertexIds after the staging map is constructed.
+    std::vector<SpatialCapPlacementTrace> placementTrace;
     std::size_t bridgeFaceCount{};
     std::size_t bridgeVertexCount{};
     std::size_t poissonIterations{};
