@@ -71,6 +71,14 @@ void test(bool mirrored) {
             ++adjustments;
             if(proposal.originatingSide==1||proposal.originatingSide==2)
                 ++ancestralAdjustments;
+            // A real zipper proposal must be tangent to its *current*
+            // geometric surface before any gravitational displacement.
+            // This was missing in the original 3D-bisector placement.
+            const auto n=proposal.projectionNormal;
+            const auto d=proposal.projectedPosition-proposal.frontPosition;
+            if(length(n)>1e-12&&length(d)>1e-12)
+                require(std::abs(dot(n,d))<=1e-8*length(n)*length(d),
+                    "M23B AFM proposed a non-tangential point before gravity");
             return proposal.projectedPosition;
         };
     bool different=false;
