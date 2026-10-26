@@ -191,8 +191,9 @@ void solveSpatialCapFixedRimPoisson(
     // Compute in a private copy; on any refusal the original caller's
     // patch remains bit-identical (including solver metadata).
     auto candidate=patch;
-    const auto anchors=patch.positions;
     const auto anchorWeight=limits.placementAnchorWeight;
+    std::vector<Vec3> anchors;
+    if(anchorWeight>0)anchors=patch.positions;
     const auto sourceAt=[&](std::size_t i) {
         const auto direction=interiorGuidance[i-n];
         const auto degree=static_cast<double>(adjacent[i].size());
