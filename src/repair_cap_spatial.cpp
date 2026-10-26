@@ -267,7 +267,8 @@ SpatialCapPatch constructAdaptiveFront(
     const std::vector<Vec3>& rim,
     const std::vector<Vec3>& normals,
     const std::vector<std::size_t>& boundaryTwins,
-    const SpatialCapSettings& limits) {
+    const SpatialCapSettings& limits,
+    const SpatialCapPlacementAdjustment* placementAdjustment) {
     const auto n=rim.size();
     if(n<3||n>limits.maxBoundaryVertices||
        !(limits.nearSeamSnapFraction>=0&&
@@ -523,7 +524,16 @@ SpatialCapPatch constructAdaptiveFront(
                             (factor*std::min(la,lb)));
                     }
                     bool rejected=false;
-                    for(auto q:proposals) {
+                    for(std::size_t ordinal=0;ordinal<proposals.size();++ordinal) {
+                        auto q=proposals[ordinal];
+                        // M23A: zero work and identical floating-point behavior
+                        // for the null path. This hook is used only for proposed
+                        // new positions, BEFORE any snap, contact or face test.
+                        if(placementAdjustment) {
+                            q=(*placementAdjustment)(SpatialCapPlacementProposal{
+                                q,vertex,a,b,std::min(la,lb),
+                                at,vId,aId,bId,mode,ordinal});
+                        }
                         if(!finite(q)){rejected=true;break;}
                         if(limits.requireMirrorPlane&&!seam) {
                             const auto h=std::min(la,lb);
@@ -630,7 +640,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& limits,
-    const std::vector<SurvivorDirectionalCurvature>* incomingReference) {
+    const std::vector<SurvivorDirectionalCurvature>* incomingReference,
+    const SpatialCapPlacementAdjustment* placementAdjustment) {
     const auto n=orientedCapRim.size();
     if(n<3||n>limits.maxBoundaryVertices||
        (!limits.useAdvancingFront&&
@@ -667,6 +678,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::invalid_argument("R06-M06C front normals not indexed to cap rim");
     if(incomingReference&&incomingReference->size()!=n)
         throw std::invalid_argument("R06-M18D incoming survivor tensor orbit mismatch");
+    if(placementAdjustment&&!limits.useAdvancingFront)
+        throw std::invalid_argument("R06-M23A placement adjustment requires advancing-front mode");
 
     SpatialCapPatch result;
     result.boundaryCount=n;
@@ -730,7 +743,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
 
     if(limits.useAdvancingFront) {
         auto patch=constructAdaptiveFront(
-            orientedCapRim,survivingFaceNormals,partner,limits);
+            orientedCapRim,survivingFaceNormals,partner,limits,
+            placementAdjustment);
         // Generic AFM patches have no positional one-to-one n-ring or hub.
         // Intentionally bypass M17–M21 ring-index optimizations here.
         std::size_t tests=0;
