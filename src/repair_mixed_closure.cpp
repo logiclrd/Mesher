@@ -18,6 +18,7 @@
 #include <optional>
 #include <sstream>
 #include <iomanip>
+#include <iostream>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -76,7 +77,7 @@ void validate(const MixedPrivateClosureLimits& settings) {
 }
 } // namespace
 
-MixedPrivateClosureResult applyPrivateMixedClosure(
+static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     const PrivateExcisionResult& cut,
     const RepairExcisionPreview& proposal,
     const AutoClosurePlan& plan,
@@ -1057,5 +1058,52 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
         }
         throw;
     }
+}
+
+// R06-M22C: an optional projected-ear attempt is never permitted to turn
+// a potentially valid AFM closure into a final refusal. The first attempt
+// edits only a private candidate; on ANY geometric/budget rejection retry
+// the same immutable R03 source with ears disabled. Observer cancellation
+// and observer failures are not evidence of geometry failure.
+MixedPrivateClosureResult applyPrivateMixedClosure(
+    const PrivateExcisionResult& cut,
+    const RepairExcisionPreview& proposal,
+    const AutoClosurePlan& plan,
+    const MixedPrivateClosureLimits& limits) {
+    if(!limits.staging.tryProjectedEarClipping)
+        return applyPrivateMixedClosureOnce(cut,proposal,plan,limits);
+    auto first=limits;
+    // An unsuccessful speculative attempt is not a final closure outcome.
+    // Leave the terminal observer for the final success/failure verdict.
+    first.terminalObserver={};
+    std::string rejection;
+    try {
+        auto answer=applyPrivateMixedClosureOnce(cut,proposal,plan,first);
+        if(limits.terminalObserver) {
+            limits.terminalObserver({
+                MixedClosureTerminalOutcome::Completed,"completed",
+                "private closed index prepared after projected-ear enabled trial;"
+                " generated_faces="+std::to_string(answer.newFaces)+
+                " inserted_vertices="+std::to_string(answer.insertedVertices.size()),
+                limits.inspectionWarnQuality});
+        }
+        return answer;
+    }catch(const RepairStepCancelled&) {
+        throw;
+    }catch(const RepairStepObserverFailure&) {
+        throw;
+    }catch(const std::logic_error& e) {
+        rejection=e.what();
+    }catch(const std::length_error& e) {
+        rejection=e.what();
+    }
+    std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+             <<" status=SOURCE_CLOSURE_REFUSED"
+             <<" reason="<<rejection
+             <<" next=advancing-front"
+             <<" private_retry=1 source_certified=0\\n";
+    auto retry=limits;
+    retry.staging.tryProjectedEarClipping=false;
+    return applyPrivateMixedClosureOnce(cut,proposal,plan,retry);
 }
 } // namespace mesher
