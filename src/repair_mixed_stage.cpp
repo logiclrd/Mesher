@@ -621,6 +621,45 @@ MixedClosureStaging stagePrivateMixedClosure(
                      <<" support"<<k<<"_poisson_dist_final_plane="
                      <<signedPlaneDistance(trace.poissonPosition,final);
                 }
+                // The first bridge seed faces live outside the AFM
+                // constructor. Explicitly test them too, so a replay
+                // vertex attached to an initial D/K triangle can still
+                // be measured against that real adjacent face.
+                std::size_t seedSupports=0;
+                for(std::size_t faceIndex=0;
+                    faceIndex<patch.bridgeFaceCount;++faceIndex) {
+                    const auto ids=patch.faces.at(faceIndex);
+                    const auto hasEdge=[&](std::uint32_t a,
+                                          std::uint32_t b) {
+                        bool hasA=false,hasB=false;
+                        for(const auto v:ids) {
+                            hasA=hasA||v==a;
+                            hasB=hasB||v==b;
+                        }
+                        return hasA&&hasB;
+                    };
+                    if(!hasEdge(trace.frontPrev,trace.frontVertex)&&
+                       !hasEdge(trace.frontVertex,trace.frontNext))
+                        continue;
+                    const std::array<Vec3,3> triangle{
+                        patch.positions.at(ids[0]),
+                        patch.positions.at(ids[1]),
+                        patch.positions.at(ids[2])};
+                    o<<" seed_support"<<seedSupports<<"_face="<<faceIndex
+                     <<" seed_support"<<seedSupports<<"_mesh="
+                     <<map.at(ids[0])<<","<<map.at(ids[1])<<","
+                     <<map.at(ids[2])
+                     <<" seed_support"<<seedSupports<<"_raw_dist="
+                     <<signedPlaneDistance(trace.rawProposal,triangle)
+                     <<" seed_support"<<seedSupports<<"_tangent_dist="
+                     <<signedPlaneDistance(trace.tangentProposal,triangle)
+                     <<" seed_support"<<seedSupports<<"_gravity_dist="
+                     <<signedPlaneDistance(trace.gravityProposal,triangle)
+                     <<" seed_support"<<seedSupports<<"_poisson_dist="
+                     <<signedPlaneDistance(trace.poissonPosition,triangle);
+                    ++seedSupports;
+                }
+                o<<" seed_support_faces="<<seedSupports;
                 std::cerr<<o.str()<<"\n";
             }
             for(std::size_t faceIndex=0;faceIndex<patch.faces.size();++faceIndex) {
