@@ -34,6 +34,10 @@ struct UnifiedZipperFrontPatch {
     double poissonResidual{};
     double minimumSeedQuality{1};
     bool selfReflected{};
+    // Used to distinguish a genuine tangent-guided reflected bridge
+    // from a certified fallback to the preexisting midpoint seed.
+    bool tangentGuidedBridge{};
+    double seamSeedOffset{};
 };
 
 // M23B geometric bridge-seed placement. For an exact self-reflected pair,
