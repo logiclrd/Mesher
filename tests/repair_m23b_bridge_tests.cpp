@@ -100,7 +100,7 @@ void test(bool mirrored) {
              <<" callbacks="<<adjustments
              <<" sided="<<ancestralAdjustments
              <<" changed="<<different
-             <<" max_shift="<<maxDisplacement<<" PASS\\n";
+             <<" max_shift="<<maxDisplacement<<" PASS\n";
     if(mirrored) {
         for(const auto& f:p.faces) {
             const auto x0=p.positions[f[0]].x;
