@@ -22,6 +22,7 @@ struct SpatialCapPatch {
     double poissonResidual{};
     double minimumQuality{1};
     bool usedMirroredRibbonFallback{}; // alternate exact X=0 seam strip; no Poisson sweeps
+    bool usedAdaptiveFront{}; // arbitrary indexed connectivity; M17-M21 ring-only probes disabled
 };
 
 struct SpatialCapSettings {
@@ -33,6 +34,8 @@ struct SpatialCapSettings {
     double poissonTolerance=1e-9;
     double maximumInitialEdgeFactor=12; // loose gate; M04 owns quality limits
     bool requireMirrorPlane=false; // exact reflection about X=0; no coordinate welding
+    bool useAdvancingFront=false; // R06 staging enables the new primary constructor; old direct CPU fixtures remain available
+    double nearSeamSnapFraction=0.25; // candidate heuristic, not a waiver of front manifold checks
     bool preferMirroredRibbonForTesting=false; // local regression only, no production caller
     // M17D candidate experiment: mirror-paired opposite diagonal in each
     // outward strip quad. False preserves legacy exact staging topology.
