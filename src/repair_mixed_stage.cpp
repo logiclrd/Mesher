@@ -299,7 +299,8 @@ MixedClosureStaging stagePrivateMixedClosure(
                     ordered,guidance,spatial,
                     (bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
                      bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview)?
-                        &references:nullptr);
+                        &references:nullptr,
+                    nullptr); // M23A: no zipper attraction in existing R06 caps
                 logCapCandidate("advancing-front",id,n,
                     patch.faces,[&](std::uint32_t vertex) {
                         return patch.positions.at(vertex);
