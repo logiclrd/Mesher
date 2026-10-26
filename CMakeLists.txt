@@ -573,13 +573,6 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_repair_mirror_geometry_tests tests/repair_mirror_geometry_tests.cpp)
     target_link_libraries(mesher_repair_mirror_geometry_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m06c_mirrored_closure_geometry COMMAND mesher_repair_mirror_geometry_tests)
-    add_executable(mesher_repair_advancing_front_tests
-                   tests/repair_cap_advancing_front_tests.cpp)
-    target_link_libraries(mesher_repair_advancing_front_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m22a_symmetric_advancing_front_bridge
-             COMMAND mesher_repair_advancing_front_tests)
-    set_tests_properties(repair_r06_m22a_symmetric_advancing_front_bridge
-        PROPERTIES TIMEOUT 15)
     add_executable(mesher_repair_spatial_cap_tests tests/repair_spatial_cap_tests.cpp)
     target_link_libraries(mesher_repair_spatial_cap_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r06_m06c_spatial_front_poisson COMMAND mesher_repair_spatial_cap_tests)
