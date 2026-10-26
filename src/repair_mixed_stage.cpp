@@ -548,6 +548,92 @@ MixedClosureStaging stagePrivateMixedClosure(
                     map.push_back(id);
                 }
             }
+            // M23B placement provenance: step replay runs AFTER AFM and
+            // Poisson, so its ENSUREFACE arguments contain provisional mesh
+            // IDs, not AFM's patch-local indices. Emit this exact mapping
+            // only for the accepted bridge/cap patch. Each trace also keeps
+            // the original supporting triangles at proposal time, allowing
+            // comparisons before and after their vertices move in Poisson.
+            const auto vecText=[](Vec3 p) {
+                std::ostringstream o;
+                o<<std::setprecision(17)
+                 <<p.x<<","<<p.y<<","<<p.z;
+                return o.str();
+            };
+            const auto signedPlaneDistance=[](
+                Vec3 p,const std::array<Vec3,3>& tri) {
+                const auto nFace=cross(tri[1]-tri[0],tri[2]-tri[0]);
+                const auto magnitude=length(nFace);
+                if(!(magnitude>1e-14))
+                    return std::numeric_limits<double>::quiet_NaN();
+                return dot(p-tri[0],nFace)/magnitude;
+            };
+            for(const auto& trace:patch.placementTrace) {
+                const auto i=trace.patchVertex;
+                if(i>=map.size()||
+                   trace.poissonPosition.x!=patch.positions[i].x||
+                   trace.poissonPosition.y!=patch.positions[i].y||
+                   trace.poissonPosition.z!=patch.positions[i].z)
+                    throw std::logic_error(
+                        "R06-M23B trace/accepted vertex index mismatch");
+                std::ostringstream o;
+                o<<std::setprecision(17)
+                 <<"[repair-r06-m23b-placement]"
+                 <<" pair_a="<<pair.first<<" pair_b="<<pair.second
+                 <<" patch_vertex="<<i<<" provisional="<<map[i]
+                 <<" front="<<map.at(trace.frontVertex)
+                 <<" prev="<<map.at(trace.frontPrev)
+                 <<" next="<<map.at(trace.frontNext)
+                 <<" operation_face_start="<<trace.frontOperation
+                 <<" proposal_ordinal="<<trace.proposalOrdinal
+                 <<" side="<<static_cast<unsigned>(trace.originatingSide)
+                 <<" raw="<<vecText(trace.rawProposal)
+                 <<" tangent="<<vecText(trace.tangentProposal)
+                 <<" gravity="<<vecText(trace.gravityProposal)
+                 <<" staged="<<vecText(trace.stagedProposal)
+                 <<" poisson="<<vecText(trace.poissonPosition)
+                 <<" local_normal="<<vecText(trace.tangentNormal)
+                 <<" gravity_shift="<<length(
+                     trace.gravityProposal-trace.tangentProposal)
+                 <<" poisson_shift="<<length(
+                     trace.poissonPosition-trace.stagedProposal)
+                 <<" afm_support_faces="<<trace.supportCount;
+                for(std::size_t k=0;k<trace.supportCount;++k) {
+                    const auto ids=trace.supportFaces[k];
+                    const auto& initial=trace.supportAtProposal[k];
+                    const std::array<Vec3,3> final{
+                        patch.positions.at(ids[0]),
+                        patch.positions.at(ids[1]),
+                        patch.positions.at(ids[2])};
+                    o<<" support"<<k<<"_patch="
+                     <<ids[0]<<","<<ids[1]<<","<<ids[2]
+                     <<" support"<<k<<"_mesh="
+                     <<map.at(ids[0])<<","<<map.at(ids[1])<<","
+                     <<map.at(ids[2])
+                     <<" support"<<k<<"_raw_dist="
+                     <<signedPlaneDistance(trace.rawProposal,initial)
+                     <<" support"<<k<<"_tangent_dist="
+                     <<signedPlaneDistance(trace.tangentProposal,initial)
+                     <<" support"<<k<<"_gravity_dist="
+                     <<signedPlaneDistance(trace.gravityProposal,initial)
+                     <<" support"<<k<<"_poisson_dist_old_plane="
+                     <<signedPlaneDistance(trace.poissonPosition,initial)
+                     <<" support"<<k<<"_poisson_dist_final_plane="
+                     <<signedPlaneDistance(trace.poissonPosition,final);
+                }
+                std::cerr<<o.str()<<"\\n";
+            }
+            for(std::size_t faceIndex=0;faceIndex<patch.faces.size();++faceIndex) {
+                const auto& face=patch.faces[faceIndex];
+                std::cerr<<"[repair-r06-m23b-face-map]"
+                         <<" pair_a="<<pair.first<<" pair_b="<<pair.second
+                         <<" patch_face="<<faceIndex
+                         <<" kind="<<(faceIndex<patch.bridgeFaceCount?
+                            "bridge":"advancing_front")
+                         <<" A="<<map.at(face[0])
+                         <<" B="<<map.at(face[1])
+                         <<" C="<<map.at(face[2])<<"\\n";
+            }
             for(const auto& triangle:patch.faces) {
                 const auto x=(patch.positions[triangle[0]].x+
                               patch.positions[triangle[1]].x+
