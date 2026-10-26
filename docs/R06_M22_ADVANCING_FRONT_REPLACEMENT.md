@@ -1,123 +1,101 @@
-# R06-M22 — Adaptive advancing-front cap replacement (2026-10-26)
+# R06-M22 — Generic Poisson core before in-place advancing-front replacement (2026-10-26)
 
-## Decision and scope
+## Correction to initial plan
 
-Replace the fixed original-rim -> one inset vertex per rim vertex -> hub
-**construction** within `buildSpatialCapFrontPoisson` with a local adaptive
-advancing front, based on Zhao, Gao and Lin (2007), "A robust hole-filling
-algorithm for triangular mesh", §4. The paper's normal-guided rotated-gradient
-Poisson refinement (§5) is a separate, subsequent candidate. Do not conflate
-these two hypotheses when comparing the recorded `refusal-1.r06case` ripple.
+The original M22A mirrored cross-seam bridge kernel was premature and
+unnecessary as a standalone implementation. The R06 input contour already
+requires every original edge to stay in a closed half-space and intersect
+X=0 only at an **existing seam vertex**. The advancing-front constructor
+must preserve that invariant at every new front operation.
 
-The current M17–M21 variants assume `n..2*n-1` are a corresponding inward
-ring and `2*n` is a fixed hub. They MUST NOT be applied to a variable-size
-advancing-front patch without structural adaptation. Preserve the old generator
-for exact A/B comparison and as a *verified* complete-closure fallback; do not
-rename a fixed ring operation and call it advancing front.
+For a selected *off-seam* vertex whose incident front edges respect
+the invariant, both neighboring vertices lie on its own side of X=0
+or on the seam; the reflected counterpart can be advanced atomically
+using the ordinary rule. There can be no off-seam selected vertex with
+an edge to its own reflected counterpart.
 
-Use a staged, finite-work PRIVATE implementation on the same
-`r06-integration` branch and draft PR #162. Do not publish a worker root.
-Before any default change, test actual source-backed closure, not only local
-patch quality. The existing rim (first boundaryCount entries) remains fixed
-with exact original IDs/winding and no coordinate-near welding.
+Caveat: a naïve advancing-front operation *at a seam vertex* could connect
+a left neighbor to a right neighbor by a new illegal cross-plane edge.
+Thus seam vertices need an explicit **admissibility** rule: forbid actions
+that would bridge opposite half-spaces; stage symmetric half-disk work
+together and maintain true X=0 seam-edge chains. This is symmetry-aware
+choice/ledger management, not a separate three-case crossing-edge handler.
 
-## Front rules
+Do NOT resurrect `repair_cap_advancing_front.hpp` seam-bridge-only code.
 
-For every finite, oriented front contour maintain an ordered cyclic list
-of local vertex IDs. Select the minimum **interior** corner angle, measured
-consistently with the oriented local surface normal (distinguish concave
-reflex corners from acute ones); stable-ID tie breaking. The Zhao et al.
-construction uses <=75 / <=135 / >135 degrees for its ordinary corners.
-Only construct local triangles from real front edges; test orientation,
-q, collisions and budget transactionally before modifying the front.
-The front is not itself the certified survivor mesh; the patch is not
-accepted until the complete indexed source-backed validator succeeds.
+## Architectural separation
 
-For a true mirror-plane source, the original R03 contour has two *real*
-X=0 endpoints, exact mirrored point/edge orbits, and NO original boundary
-edge whose endpoints straddle X=0. Symmetric operations are selected by
-orbit and staged atomically. An off-plane operation either constructs paired
-oppositely wound faces or triggers this special **temporary front bridge**
-case, when its selected vertex A is adjacent along an active front edge
-to exact mirror A' (that edge can only be a generated FRONT edge, not an
-original R03 survivor edge).
+The old `buildSpatialCapFrontPoisson` creates an exact n-to-n inset
+ring followed by a hub; its graph-Poisson solve assumed generated vertices
+were exactly indexes n..2n and hub 2n. This mixes construction topology
+with coordinate optimization. First introduce a GENERIC fixed-rim graph
+Poisson core that accepts:
 
-Define P,A,A',P' consecutive in the temporary front and require
-P'=reflect(P), A'=reflect(A). Let S be the EXACT midpoint of AA' on X=0.
-Let Q be the forward intersection of the chosen local corner bisector
-with X=0. The user proposes three cases:
+- `SpatialCapPatch` with `boundaryCount` fixed rim positions,
+  arbitrary additional vertex count and indexed triangular faces;
+- source-backed guidance directions indexed to arbitrary interior vertices,
+  not derived from `vertex - boundaryCount` as an original rim ordinal;
+- explicit, involutive exact mirror-orbit mapping when symmetric;
+- original iteration / residual / budget / finite / source-rim checks.
 
-- angle <45: split temporary bridge AA' at S; add the two mirror
-  triangles P-A-S and S-A'-P'; front P-A-A'-P' becomes P-S-P'.
-- 45<=angle<90: insert S and Q; add P-A-Q, A-S-Q and their two mirror
-  faces (four faces, NOT the diagram's three because the self-mirrored
-  central face A-A'-Q is split along seam edge S-Q); front becomes P-Q-P'.
-- angle >=90: insert S and Q; add A-S-Q and its mirror S-A'-Q;
-  front becomes P-A-Q-A'-P'.
+Preserve *bit-compatible behavior* for existing ring/hub call by supplying
+the original n ring-normal directions plus the averaged hub normal. Test
+non-ring planar/warped patches as well as the old fixed-shape fixtures.
+The old constructor can call the generic solver without changing the R06
+closure path. `buildSpatialCapFrontPoisson` retains its public entry point.
 
-These are **front topology edits**, not permission to collapse original
-survivor edges. The original proposed central self-mirrored triangle
-A-A'-Q is mathematically reflection-symmetric, but would violate the
-existing spatial cap rule forbidding off-plane triangles crossing X=0.
-The S-Q seam construction preserves that rule. Q may coincide with S,
-the bisector may not meet the forward seam, and the candidate may make a
-skinny triangle: in each case reject/try another legal finite action and
-eventually preserve the old valid cap rather than weaken q/contact tests.
+M17–M21 position/diagonal refinements currently assume the n-ring/hub
+layout. They cannot run on a variable-topology advancing-front patch
+until adapted to generic local connectivity; give the new candidate
+explicit compatibility guards or rewrites before enabling previews.
 
-If AA' already has a generated cap face on its other side, splitting AA'
-must also split that incident face *using the same S ID* in the staged
-patch. If that cannot be done legally, refuse the transaction. There must
-be no duplication of a seam vertex under approximate coordinate welding.
-Seam vertices are single self-mirrored orbit IDs and paired off-plane
-vertices have exact reflected coordinates.
+## Later AFM in the SAME cap construction pipeline
 
-The paper's minimum-angle selection cannot be applied naively to paired
-front vertices: choose the orbit, simulate BOTH halves, then commit both
-or neither. Reflected doubles may tie at machine precision; choose a
-canonical orbit by local index/immutable provenance. Never update one
-half before deciding the other.
+After the generic solver has an independent test suite, replace the
+ring/hub geometry producer IN PLACE using Zhao, Gao and Lin (2007)
+§4 advancing front with legal ordinary corner operations, signed
+interior angles and deterministic tie breaking. Every logical front
+edit and its reflected counterpart are staged atomically. Maintain
+the original R03 rim IDs/positions/winding without approximate welds.
+The PAPER'S Poisson reconstruction from rotated desired-normal triangle
+gradients (§5) is a distinct later comparison, not part of topology
+replacement.
 
-## Constraints and acceptance
+Mirror invariants: exact X=0 seam vertices, no cross-plane edge,
+no off-plane face across X=0, explicit paired faces with opposite
+winding, connected disk/half-disk front. At a seam-selected vertex,
+reject/refine an operation if its new edge would straddle X=0.
+Avoid a topology dead end by testing legal seam-front progression;
+never silently allow crossing triangles.
 
-- Original R03 rim positional and permanent ID identity; no source-rim
-  edge splits outside the existing M15 source-backed transaction.
-- All new patch triangles q>=0.10 at final acceptance; original survivor
-  children q>=0.012 except already certified tip exceptions; no inverted
-  faces, T-junctions, folded fronts or non-adjacent contacts.
-- Exact reflection, edge incidence two, single manifold vertex fan,
-  bounded face/interior/contact/attempt budget; maintain same cavity and
-  source-owner policies as R06-M04.
-- Existing valid original cap must survive optional new generator or solver
-  failure, including **downstream full closure** failure: compare complete
-  isolated staged candidates and commit only the chosen legal one.
-- Comparative replay: (A) legacy ring/hub+legacy solver, (B) AFM
-  topology+legacy generalized solver, (C) legacy topology+normal-guided
-  rotated-gradient Poisson, (D) AFM+new Poisson. Start with (A)/(B).
-  Record topology, vertex/face counts, q, initial/settled geometry,
-  seam normal profiles, actual ripple location, collision work and
-  PRIVATE full-source verdict. Physical GPU A/B is independent of CPU CI.
-- The first limited unit tests cover the three seam-angle cases, symmetric
-  face pairing, source edge immutability, bridge generated-face splitting,
-  exact self-mirrored seam IDs, zero-area bisector, bad front, finite work,
-  and atomic rejection. Additional tests: planar and warped disk, highly
-  concave/long narrow contour, exact refusal-1 and refusal-3 replays,
-  torus, hollow sphere, intentional crease and asymmetry.
+Every intermediate/private candidate must meet finite-work and
+source-backed tests. The final capped source index must have
+original rim identity, q>=.10 for cap/zipper, existing survivor child
+q>=.012 except certified rim-tip exceptions, legal orientation, no
+new T-junction, forbidden contact, correct vertex fans and exact mirror
+orbits. Physical Vulkan judgment on refusal-1 remains separate
+from numerical/CI evidence.
 
-## Flat milestones
+The old ring/hub construction stays available temporarily for
+matched-view A/B and **validated full-closure fallback**: a speculative
+alternative must not turn a successful original cap into failure.
+Neither local patch validation nor CI alone authorizes publication.
 
-M22A — Pure symmetry-aware advancing-front *operations* and independent
-CPU cases including the three bridge rules. No default closure behavior.
+## Flat plan (short, independently testable stages)
 
-M22B — Variable-connectivity patch generation and generalized fixed-rim
-Poisson. In-place candidate through existing spatial cap entrypoint,
-initially PRIVATE controlled A/B; disable ring-dependent M17–M21
-optimizers explicitly for this candidate.
+M22A — Extract generic fixed-rim Poisson solve from existing
+`buildSpatialCapFrontPoisson`, preserving the current path; test
+variable topology including mirror maps and refusal/finite budgets.
 
-M22C — Whole source-backed closure validation and atomic original-cap
-fallback. Preserve legal closure even when speculative front fails.
+M22B — Replace ring/hub initialization with advancing front in the
+SAME entry point; exact source-rim and X=0 seam constraints; first
+PRIVATE A/B, no M17–M21 invalid ring-specific assumptions.
 
-M22D — Independent normal-guided rotated-triangle gradient Poisson
-candidate; first test against SAME triangulations and normal references.
+M22C — Source-backed end-to-end validation, completed retry/fallback
+when optional AFM fails, no worker-root publication.
 
-M22E — GPU matched-view refusal-1/3, three-platform CI, geometric
-acceptance/performance and explicit decision on making AFM default.
+M22D — Separate rotated-desirable-normal/gradient Poisson candidate,
+compare same triangulations against existing graph-Poisson.
+
+M22E — GCC/Clang/Windows MSVC CI, archived-case and physical matched-view
+A/B, performance, acceptance and only then a production-default decision.
