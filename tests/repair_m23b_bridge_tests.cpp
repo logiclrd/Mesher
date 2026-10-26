@@ -116,6 +116,27 @@ void test(bool mirrored) {
              <<" generated="<<p.positions.size()-p.boundaryIds.size()
              <<" min_seed_q="<<p.minimumSeedQuality<<" PASS\n";
 }
+void reflectedSeamFollowsSourceTangent() {
+    // Two source vertices reflected in X=0. The average outward surface
+    // normal bends towards +Y. An uncorrected B-B' midpoint would be
+    // (0,0,0), creating an immediate artificial 90-degree crease.
+    const Vec3 a{.5,0,0},b{-.5,0,0};
+    const Vec3 na{.6,.8,0},nb{-.6,.8,0};
+    const auto d=projectReflectedBridgeSeamPoint(a,b,na,nb);
+    require(d.x==0&&std::abs(d.y-.2)<1e-12&&d.z==0,
+        "M23B initial bridge seam must follow survivor tangent before X=0 projection");
+    const auto reverse=projectReflectedBridgeSeamPoint(b,a,nb,na);
+    require(reverse.x==d.x&&std::abs(reverse.y-d.y)<1e-12&&reverse.z==d.z,
+        "M23B seam seed must be independent of reflected rim ordering");
+    const auto flat=projectReflectedBridgeSeamPoint(
+        a,b,Vec3{0,1,0},Vec3{0,1,0});
+    require(flat.x==0&&flat.y==0&&flat.z==0,
+        "M23B a flat tangent crossing may legitimately produce the midpoint");
+    const auto degenerate=projectReflectedBridgeSeamPoint(
+        a,b,Vec3{1,0,0},Vec3{-1,0,0});
+    require(degenerate.x==0&&degenerate.y==0&&degenerate.z==0,
+        "M23B degenerate tangent should have a finite seam midpoint fallback");
+}
 void malformedMustRefuse() {
     auto a=circle(.6,8,100);
     auto b=circle(-.6,8,200);
@@ -132,6 +153,7 @@ int main() {
     try {
         test(false);
         test(true);
+        reflectedSeamFollowsSourceTangent();
         malformedMustRefuse();
     }catch(const std::exception& e) {
         std::cerr<<"R06-M23B: "<<e.what()<<"\n";
