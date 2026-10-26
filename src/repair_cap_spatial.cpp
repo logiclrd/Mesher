@@ -583,9 +583,10 @@ SpatialCapPatch constructAdaptiveFront(
                         // the original proposed edge length, just change its
                         // direction. This applies to both inserted vertices.
                         if(rimSides&&length(currentNormals[vId])>1e-12) {
-                            const auto n=currentNormals[vId];
+                            const auto surfaceNormal=currentNormals[vId];
                             const auto d=q-vertex;
-                            const auto projected=d-n*dot(d,n);
+                            const auto projected=d-
+                                surfaceNormal*dot(d,surfaceNormal);
                             const auto along=length(projected);
                             const auto step=length(d);
                             if(!(along>1e-10*step)&&step>0) {
