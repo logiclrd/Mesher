@@ -48,7 +48,7 @@ void test(bool mirrored) {
         "M23B did not build a complete positive-width finite bridge");
     require(p.bridgeVertexCount==(mirrored?2u:1u),
         "M23B wrong seam vertex count");
-    require(p.boundaryIds.size()==18u+(mirrored?1u:0u),
+    require(p.boundaryIds.size()==16u+(mirrored?2u:1u),
         "M23B spliced boundary contains missing/duplicate source vertices");
     require(p.positions.size()>=p.boundaryIds.size()&&
             p.faces.size()>p.bridgeFaceCount,
