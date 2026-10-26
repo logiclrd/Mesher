@@ -576,7 +576,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          (a.vertexIds.size()+b.vertexIds.size())
                      <<" min_seed_q="<<patch.minimumSeedQuality
                      <<" poisson_iterations="<<patch.poissonIterations
-                     <<" source_certified=0\\n";
+                     <<" source_certified=0\n";
         }else if(mirroredPair) {
             if(a.vertexIds.size()!=b.vertexIds.size())
                 throw std::logic_error(
