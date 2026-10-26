@@ -12,6 +12,7 @@
 #include <iostream>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -425,8 +426,10 @@ SpatialCapPatch constructAdaptiveFront(
                        trial.patch.positions[d].x==0&&
                        trial.patch.positions[b].x!=0) {
                         addFace(trial,a,b,d);
-                        addFace(trial,state.twins[d],state.twins[b],
-                                state.twins[a]);
+                        addFace(trial,
+                                static_cast<std::uint32_t>(state.twins[d]),
+                                static_cast<std::uint32_t>(state.twins[b]),
+                                static_cast<std::uint32_t>(state.twins[a]));
                         trial.front.clear();
                         if(legal(trial)){state=std::move(trial);closed=true;}
                         else throw std::logic_error(
