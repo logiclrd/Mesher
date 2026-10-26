@@ -36,6 +36,16 @@ struct UnifiedZipperFrontPatch {
     bool selfReflected{};
 };
 
+// M23B geometric bridge-seed placement. For an exact self-reflected pair,
+// follow the *existing survivor tangent planes* 1/3 of the gap from each
+// endpoint toward the other, then project their average to X=0. Do not
+// move either original rim vertex. Return a midpoint only when tangent
+// guidance is genuinely degenerate. Used by seed(), and independently
+// testable without depending on a successful entire cap.
+Vec3 projectReflectedBridgeSeamPoint(
+    Vec3 first,Vec3 reflected,
+    Vec3 firstSurfaceNormal,Vec3 reflectedSurfaceNormal);
+
 // Uses the SAME existing advancing-front spatial cap generator after
 // constructing a finite-width, positively embedded seed between the rims.
 // The generator never publishes or welds source vertex identities.
