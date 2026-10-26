@@ -12,16 +12,19 @@ void require(bool value,const char* message) {
     if(!value)throw std::runtime_error(message);
 }
 std::vector<Vec3> rim(bool mirrored) {
+    if(mirrored) {
+        // Use exactly paired coordinates: sin/cos evaluations at distinct
+        // angles do not guarantee bit-exact mirror coordinates.
+        return {{0,1,0},{.5,.86,0},{.86,.5,0},{1,0,0},
+                {.86,-.5,0},{.5,-.86,0},{0,-1,0},
+                {-.5,-.86,0},{-.86,-.5,0},{-1,0,0},
+                {-.86,.5,0},{-.5,.86,0}};
+    }
     std::vector<Vec3> points;
     const auto pi=std::acos(-1.);
     for(unsigned i=0;i<12;++i) {
         const auto a=2*pi*i/12;
         points.push_back({std::cos(a),std::sin(a),0});
-    }
-    if(mirrored) {
-        // X=0 is represented by exact source vertex IDs.
-        points[3].x=0;
-        points[9].x=0;
     }
     return points;
 }
