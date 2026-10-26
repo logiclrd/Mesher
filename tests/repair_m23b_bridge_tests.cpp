@@ -20,7 +20,7 @@ UnifiedZipperRim circle(double x,std::size_t n,VertexId base) {
         const double a=2*pi*static_cast<double>(i)/n;
         rim.ids.push_back(base+static_cast<VertexId>(i));
         rim.positions.push_back({x,.4*std::cos(a),.4*std::sin(a)});
-        rim.outgoingNormals.push_back({0,0,1});
+        rim.outgoingNormals.push_back({0,std::cos(a),std::sin(a)});
     }
     return rim;
 }
@@ -31,7 +31,8 @@ void test(bool mirrored) {
         const auto p=first.positions[i];
         second.positions.push_back({-.6,p.y,p.z});
         second.ids.push_back(static_cast<VertexId>(200+i));
-        second.outgoingNormals.push_back({0,0,1});
+        const auto n=first.outgoingNormals[i];
+        second.outgoingNormals.push_back({-n.x,n.y,n.z});
     }
     if(!mirrored) {
         // First and second remain legal oppositely oriented rim loops.
