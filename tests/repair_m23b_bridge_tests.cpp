@@ -62,6 +62,45 @@ void test(bool mirrored) {
             "M23B duplicated an original source ID in remaining front");
     require(sources.size()==first.ids.size()+second.ids.size(),
         "M23B lost original source IDs");
+    // Ablation: the same bridge+AFM with an identity adjustment must
+    // differ from the bounded opposing-side field, otherwise gravity
+    // would be a nominal callback with no actual geometric effect.
+    std::size_t adjustments=0,ancestralAdjustments=0;
+    SpatialCapPlacementAdjustment identity=
+        [&](const SpatialCapPlacementProposal& proposal) {
+            ++adjustments;
+            if(proposal.originatingSide==1||proposal.originatingSide==2)
+                ++ancestralAdjustments;
+            return proposal.projectedPosition;
+        };
+    bool different=false;
+    double maxDisplacement=0;
+    try {
+        const auto control=buildUnifiedZipperFront(
+            first,second,mirrored,settings,&identity);
+        different=p.faces!=control.faces||
+                  p.positions.size()!=control.positions.size();
+        for(std::size_t i=0;i<std::min(p.positions.size(),
+                                     control.positions.size());++i) {
+            const auto delta=length(p.positions[i]-control.positions[i]);
+            maxDisplacement=std::max(maxDisplacement,delta);
+            if(delta>1e-10)different=true;
+        }
+    }catch(const std::logic_error&) {
+        // A valid gravity-guided candidate can succeed where all identity
+        // guided topological attempts refuse; still measurable influence.
+        different=true;
+    }
+    require(adjustments>0&&ancestralAdjustments>0,
+        "M23B must invoke the adjustment on active sided front vertices");
+    if(!mirrored)
+        require(different,
+            "M23B gravity had no effect on the asymmetric candidate");
+    std::cout<<"[r06-m23b-gravity] reflected="<<mirrored
+             <<" callbacks="<<adjustments
+             <<" sided="<<ancestralAdjustments
+             <<" changed="<<different
+             <<" max_shift="<<maxDisplacement<<" PASS\\n";
     if(mirrored) {
         for(const auto& f:p.faces) {
             const auto x0=p.positions[f[0]].x;
