@@ -999,6 +999,38 @@ authorized. GPU acceptance is distinct from CI.
   The full workflow is NOT green: six older R06 tests fail on each
   platform (127/133 passing), independently of M23A. Distinguish this
   scoped acceptance from pending overall R06 integration acceptance.
+**M23B is large enough to require this complete flat peer sequence before
+implementation.** No nested substeps; each peer must produce runnable,
+independently testable behavior while R06 keeps its original zipper as the
+non-regressing path until M23B3 acceptance.
+
+- [ ] **M23B1 — Finite-width bridge and simple-front constructor (PRIVATE).**
+  Build standalone source-indexed patch candidates from two directed rims:
+  legal three-face nonsymmetric or four-face self-reflected seed, exact
+  boundary edge incidence, one distinct-ID simple remaining front,
+  optional reflected orbits, deterministic finite candidate bounds and
+  local minimum-q/contact rejection. Use existing M22 cap generation to
+  fill the remaining front without switching R06's live zipper branch.
+  Test explicit positive and refusal fixtures independently.
+- [ ] **M23B2 — Active-front gravity and ancestry handoff (PRIVATE).**
+  Extend M23A's optional callback context only when the functor is present
+  to expose source-side ancestry and opposite active-front positions
+  without reclassifying XYZ. Initial softened equal-mass 1/r^1.4 field,
+  bounded gain/shift, exact mirrored orbit and neutral bridge nodes.
+  Measure post-Poisson retention of the displacement and apply
+  source-safe optional positional anchoring if needed. Test identity
+  cap baseline, different contour densities, asymmetric and mirrored
+  candidates independently of any R06 production switching.
+- [ ] **M23B3 — Whole-source R06 zipper integration and case acceptance.**
+  Exercise new R03-to-M04 staged source IDs and face/vertex incidence,
+  checked old-vs-new quality, finite budgets and full manifold audit;
+  compare stored refusal-2 before switching both R06 zipper paths.
+  Only when complete and checked, switch R06 zipper staging to the new
+  constructor (retaining a private old-generator comparison option),
+  rerun three-platform CI, archived refusal-1 cap non-regression and
+  refusal-2 zipper quality/physical acceptance separately. Keep older
+  broken M22 tests visible until subsequent case-by-case reconciliation.
+
 - [ ] **M23B — Unified attractive-front zipper, finite bridge, and cap
   handoff.** Replace separately specialized R06 zipper construction
   with a single advancing-front zipper that considers opposing-rim
