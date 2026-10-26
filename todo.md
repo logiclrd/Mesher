@@ -959,6 +959,58 @@ independently testable; no partial check-offs. CI/GPU acceptance separate.
   Exact refusal-1/3, healthy sphere/torus/hollow/crease, deterministic
   mirror and budget tests plus user-visible GPU, before publication.
 
+## R06-M23 — Unified gravity-guided advancing-front zipper (2026-10-26)
+
+[Full geometry, callback and acceptance design](docs/R06_M23_UNIFIED_ATTRACTIVE_FRONT_ZIPPER.md).
+Two flat, independent deliverables **documented before implementation**.
+The successful M22 AFM cap is the baseline; `refusal-2` currently exposes
+low-quality mirrored fixed seam-strip topology and intrusive downstream
+refinement. One advancing-front constructor must work for ordinary caps,
+asymmetric zippers, and asymmetric zipper pairs in symmetric meshes;
+reflection imposes atomic orbit constraints, not a second zipper engine.
+Do not weaken physical quality/contact/manifold acceptance to pass the
+archived refusal tests. Old forced R04 remains unchanged unless separately
+authorized. GPU acceptance is distinct from CI.
+
+- [ ] **M23A — Optional no-op cap vertex-placement callback.** Extend
+  `buildSpatialCapFrontPoisson` / its advancing-front constructor with
+  an optional adjustment functor, called on *each* proposed generated
+  position **after initial projection and before quality, contact, mirror
+  and topology validation**. Supply `nullptr` from EVERY current caller
+  for this milestone; no geometry, source identity, Poisson, step-debug
+  or default selection changes. Carry selected front occurrence,
+  position, scale and minimal operation context; when non-null, the
+  returned point remains a proposal subject to all existing gates.
+  Independently test null-case exact baseline compatibility, identity
+  callback, modified-and-rejected proposal, one-/two-vertex turns, mirror
+  orbits, finite work and GCC/Clang/MSVC warning-as-error builds.
+  **This task is complete independently of any zipper work.**
+- [ ] **M23B — Unified attractive-front zipper, finite bridge, and cap
+  handoff.** Replace separately specialized R06 zipper construction
+  with a single advancing-front zipper that considers opposing-rim
+  proximity at the minimum-angle corner, evaluates nearby candidate
+  vertices and stages a legal finite-width 3-face nonsymmetric or
+  4-face self-reflected bridge, retaining the general reflected-orbit
+  behavior for non-self-reflected zipper pairs. NO zero-width virtual
+  joining string or duplicate-front cap special case. Once the bridge
+  makes one simple directed front, reuse the M22 cap constructor,
+  passing a thin wrapper around a bounded softened equal-mass
+  attraction field (initial 1/r^1.4) with side ancestry retained after
+  joining; optional Poisson positional guidance only if the existing
+  solve erases the attraction, with unchanged null-cap baseline.
+  Compare geometry before/after refinement: triangle quality and tail,
+  edge scale, valence, normal continuity, survivor splits, stepwise
+  evidence, exact mirror/incident-edge/vertex-fan audit, collision,
+  finite budgets and all-or-nothing source-backed closure. Include
+  `refusal-2`, an ordinary cap `refusal-1` nonregression, dissimilar
+  rings, R03 jagged rims and both symmetric and asymmetric zipper
+  configurations. **If the implementation is complete and independently
+  validated, switch the existing R06 zipper call to the new constructor
+  within M23B**; otherwise retain old production behavior and do not
+  check off M23B. Keep old-vs-new developer A/B evidence and R04
+  forced-zipper compatibility. If the complete task proves too broad,
+  preplan all remaining *flat peers* before starting any subdivision.
+
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
 Extends existing open R06-M06C4e profile diagnostic instead of declaring
