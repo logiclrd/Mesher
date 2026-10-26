@@ -65,7 +65,7 @@ NormalMetrics normalMetrics(const MixedPrivateClosureResult& result) {
         for(unsigned i=0;i<3;++i) {
             const auto a=ids[i],b=ids[(i+1)%3];
             ++valences[a];
-            auto ends=std::make_pair(std::min(a,b),std::max(a,b));
+            const RegionTopologyIndex::Edge ends{std::min(a,b),std::max(a,b)};
             const auto sides=result.index->maybeEdgeSides(ends);
             if(!sides||sides->size()!=2)continue;
             FaceId other=0;
