@@ -584,7 +584,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                  <<" front="<<map.at(trace.frontVertex)
                  <<" prev="<<map.at(trace.frontPrev)
                  <<" next="<<map.at(trace.frontNext)
-                 <<" operation_face_start="<<trace.frontOperation
+                 <<" operation_face_start="<<(patch.bridgeFaceCount+trace.frontOperation)
                  <<" proposal_ordinal="<<trace.proposalOrdinal
                  <<" side="<<static_cast<unsigned>(trace.originatingSide)
                  <<" raw="<<vecText(trace.rawProposal)
