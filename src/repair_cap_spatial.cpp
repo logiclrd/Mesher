@@ -128,6 +128,9 @@ void solveSpatialCapFixedRimPoisson(
        !std::isfinite(limits.poissonTolerance)||limits.poissonTolerance<=0||
        !std::isfinite(limits.normalGuidance)||
        limits.normalGuidance<0||limits.normalGuidance>.5||
+       !std::isfinite(limits.placementAnchorWeight)||
+       limits.placementAnchorWeight<0||
+       limits.placementAnchorWeight>4||
        interiorGuidance.size()!=patch.positions.size()-n)
         throw std::invalid_argument("R06-M22A invalid generic Poisson input or finite bounds");
 
@@ -188,6 +191,8 @@ void solveSpatialCapFixedRimPoisson(
     // Compute in a private copy; on any refusal the original caller's
     // patch remains bit-identical (including solver metadata).
     auto candidate=patch;
+    const auto anchors=patch.positions;
+    const auto anchorWeight=limits.placementAnchorWeight;
     const auto sourceAt=[&](std::size_t i) {
         const auto direction=interiorGuidance[i-n];
         const auto degree=static_cast<double>(adjacent[i].size());
@@ -204,7 +209,9 @@ void solveSpatialCapFixedRimPoisson(
                 Vec3 rhs=sourceAt(i);
                 for(const auto neighbor:adjacent[i])
                     rhs=rhs+candidate.positions[neighbor];
-                next[i]=rhs/static_cast<double>(adjacent[i].size());
+                if(anchorWeight>0)rhs=rhs+anchors[i]*anchorWeight;
+                next[i]=rhs/(static_cast<double>(adjacent[i].size())+
+                             anchorWeight);
                 if(!finite(next[i]))
                     throw std::logic_error(
                         "R06-M22A mirrored Poisson nonfinite interior vertex");
@@ -229,7 +236,9 @@ void solveSpatialCapFixedRimPoisson(
                 Vec3 rhs=sourceAt(i);
                 for(const auto neighbor:adjacent[i])
                     rhs=rhs+candidate.positions[neighbor];
-                const auto updated=rhs/static_cast<double>(adjacent[i].size());
+                if(anchorWeight>0)rhs=rhs+anchors[i]*anchorWeight;
+                const auto updated=rhs/
+                    (static_cast<double>(adjacent[i].size())+anchorWeight);
                 if(!finite(updated))
                     throw std::logic_error(
                         "R06-M22A Poisson produced nonfinite interior vertex");
