@@ -621,7 +621,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                      <<" support"<<k<<"_poisson_dist_final_plane="
                      <<signedPlaneDistance(trace.poissonPosition,final);
                 }
-                std::cerr<<o.str()<<"\\n";
+                std::cerr<<o.str()<<"\n";
             }
             for(std::size_t faceIndex=0;faceIndex<patch.faces.size();++faceIndex) {
                 const auto& face=patch.faces[faceIndex];
@@ -632,7 +632,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                             "bridge":"advancing_front")
                          <<" A="<<map.at(face[0])
                          <<" B="<<map.at(face[1])
-                         <<" C="<<map.at(face[2])<<"\\n";
+                         <<" C="<<map.at(face[2])<<"\n";
             }
             for(const auto& triangle:patch.faces) {
                 const auto x=(patch.positions[triangle[0]].x+
