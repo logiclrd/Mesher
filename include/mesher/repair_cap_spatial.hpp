@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace mesher {
@@ -67,6 +68,30 @@ struct SpatialCapSettings {
     double normalGuidance=0.04;  // fraction of median original rim edge
 };
 
+// M23A: optional geometric proposal hook for ordinary advancing-front
+// vertex INSERTIONS only. A null hook is the exact pre-M23 path.
+// The caller owns the std::function; the pointer is borrowed only during
+// this synchronous construction (no registration or deferred execution).
+// Front IDs are patch-local, not permanent mesh VertexIds. The selected
+// front occurrence and neighbors identify the sector being expanded.
+// This is a PROPOSAL, never authorization to bypass collision, finite,
+// triangle quality, orientation, X=0 mirror or manifold checks.
+struct SpatialCapPlacementProposal {
+    Vec3 projectedPosition{};
+    Vec3 frontPosition{};
+    Vec3 previousPosition{};
+    Vec3 nextPosition{};
+    double localEdgeScale{};
+    std::size_t frontOccurrence{};
+    std::uint32_t frontVertex{};
+    std::uint32_t previousVertex{};
+    std::uint32_t nextVertex{};
+    unsigned faceMode{}; // 2 -> one new vertex; 3 -> two new vertices
+    std::size_t proposalOrdinal{}; // 0 or 1 in projected-front order
+};
+using SpatialCapPlacementAdjustment =
+    std::function<Vec3(const SpatialCapPlacementProposal&)>;
+
 // M22A: topology-agnostic, fixed-R03-rim graph Poisson solve.
 // patch.positions[0..boundaryCount) are fixed and never overwritten.
 // interiorGuidance is indexed in the SAME order as generated patch positions,
@@ -92,6 +117,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& settings={},
-    const std::vector<SurvivorDirectionalCurvature>* incomingReference=nullptr);
+    const std::vector<SurvivorDirectionalCurvature>* incomingReference=nullptr,
+    const SpatialCapPlacementAdjustment* placementAdjustment=nullptr);
 
 } // namespace mesher
