@@ -931,10 +931,22 @@ existing r06-integration branch and PR #162 only; retain PRIVATE
 all-or-nothing source validation and already-valid old-cap fallback.
 
 - [ ] **M22A — Independently tested symmetric advancing-front edit core.**
-  Canonical minimum-angle orbit selection; three atomic mirror-bridge
-  cases, explicit seam-edge half-face replacement, deterministic
-  finite budgets; immutable original R03 edges and no weld by distance.
-  CPU positive/negative symmetry/manifold/degeneracy tests.
+  Split into three small independently observable peers; do not claim
+  complete AFM integration from seam-only primitive tests.
+  - [ ] **M22A1 — Pure mirrored temporary-bridge transaction.**
+    Three exact angle cases, explicit seam-midpoint and bisector IDs,
+    2/4/2 half-plane faces, generated-face split conformity,
+    original-R03 no-touch refusal, determinism, budgets and atomicity.
+    Implemented in `repair_cap_advancing_front.hpp`; cross-platform CI
+    and review must pass before checkbox acceptance.
+  - [ ] **M22A2 — Complete advancing-front orbit selection.**
+    Deterministic minimum signed interior-angle selection (reflex-aware),
+    ordinary 75/135 degree front transitions, atomic reflected orbits
+    and seam-vertex cases; legal candidate fallback on bad geometry.
+  - [ ] **M22A3 — Integrated front ledger acceptance.**
+    Indexed two-sided face/front incidence and vertex fan checks,
+    no crossing/touching source edges, finite full-front progress,
+    mirrored orientation, winding and negative test cases.
 - [ ] **M22B — True variable-connectivity advancing-front cap generator.**
   Replace in-place `buildSpatialCapFrontPoisson` initial ring/hub
   construction behind controlled PRIVATE A/B; generalized graph
