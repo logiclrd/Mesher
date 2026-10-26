@@ -66,6 +66,8 @@ struct SpatialCapSettings {
     std::size_t maxCorrectionRounds=4;
     std::size_t maxCorrectionTrials=24;
     double normalGuidance=0.04;  // fraction of median original rim edge
+    // M23B zipper-only positional retention; zero preserves old Poisson.
+    double placementAnchorWeight=0.0;
 };
 
 // M23A: optional geometric proposal hook for ordinary advancing-front
