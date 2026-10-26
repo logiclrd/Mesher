@@ -12,6 +12,37 @@
 #include <vector>
 
 namespace mesher {
+Vec3 projectReflectedBridgeSeamPoint(
+    Vec3 first,Vec3 reflected,
+    Vec3 firstSurfaceNormal,Vec3 reflectedSurfaceNormal) {
+    const auto mid=(first+reflected)*.5;
+    auto result=mid;
+    result.x=0; // Exact reflection-plane constraint.
+    const auto gap=reflected-first;
+    const auto distance=length(gap);
+    if(!(distance>1e-12)||!std::isfinite(distance))return result;
+    const auto toward=gap/distance;
+    const auto project=[&](Vec3 start,Vec3 direction,Vec3 surfaceNormal) {
+        const auto normalLength=length(surfaceNormal);
+        if(!(normalLength>1e-12)||!std::isfinite(normalLength))
+            return start+direction*(distance/3.);
+        const auto n=surfaceNormal/normalLength;
+        auto tangent=direction-n*dot(direction,n);
+        const auto lengthT=length(tangent);
+        if(!(lengthT>1e-8)||!std::isfinite(lengthT))
+            return start+direction*(distance/3.);
+        tangent=tangent/lengthT;
+        return start+tangent*(distance/3.);
+    };
+    const auto a=project(first,toward,firstSurfaceNormal);
+    const auto b=project(reflected,toward*(-1.),reflectedSurfaceNormal);
+    if(!std::isfinite(a.x)||!std::isfinite(a.y)||!std::isfinite(a.z)||
+       !std::isfinite(b.x)||!std::isfinite(b.y)||!std::isfinite(b.z))
+        return result;
+    result=(a+b)*.5;
+    result.x=0;
+    return result;
+}
 namespace {
 struct Corner {
     std::size_t first{},second{};
@@ -71,6 +102,10 @@ Candidate seed(const UnifiedZipperRim& first,
     const auto A=first.positions[a],B=second.positions[b];
     const auto C=first.positions[c],D=second.positions[d];
     const auto mid=(A+B)*.5;
+    const auto seamSeed=mirror?
+        projectReflectedBridgeSeamPoint(
+            A,B,first.outgoingNormals[a],second.outgoingNormals[b]):
+        mid;
     auto seamNormal=first.outgoingNormals[a]+second.outgoingNormals[b];
     seamNormal.x=0;
     if(length(seamNormal)>1e-12)
@@ -78,7 +113,8 @@ Candidate seed(const UnifiedZipperRim& first,
     else seamNormal={0,0,1};
     const auto span=B-A;
     const auto distance=length(span);
-    auto tangent=(C+D)*.5-mid;
+    // The strip must follow the corrected first seam point.
+    auto tangent=(C+D)*.5-seamSeed;
     tangent=tangent-span*(dot(tangent,span)/(distance*distance));
     if(mirror)tangent.x=0;
     if(length(tangent)<1e-10) {
@@ -105,14 +141,14 @@ Candidate seed(const UnifiedZipperRim& first,
     const auto ai=append(A,first.ids[a],first.outgoingNormals[a]);
     std::uint32_t seamD=0;
     if(mirror) {
-        seamD=append({0,mid.y,mid.z},0,seamNormal);
+        seamD=append(seamSeed,0,seamNormal);
     }
     const auto bi=append(B,second.ids[b],second.outgoingNormals[b]);
     for(std::size_t k=(b+1)%nb;k!=b;k=(k+1)%nb)
         append(second.positions[k],second.ids[k],second.outgoingNormals[k]);
     const auto bp=static_cast<std::uint32_t>(patch.positions.size()-1);
     const double step=std::sqrt(3.)*.5*distance*factor;
-    auto K=mid+tangent*step;
+    auto K=seamSeed+tangent*step;
     if(mirror)K.x=0;
     const auto ki=append(K,0,seamNormal);
     const auto ci=append(C,first.ids[c],first.outgoingNormals[c]);
@@ -130,7 +166,7 @@ Candidate seed(const UnifiedZipperRim& first,
     patch.seedFaces.push_back({bp,bi,ki});
     if(patch.positions.size()!=na+nb+(mirror?2u:1u))
         throw std::logic_error("R06-M23B bridge failed to splice complete contours");
-    if(!finite(K)||length(K-mid)<1e-12)
+    if(!finite(K)||length(K-seamSeed)<1e-12)
         throw std::logic_error("R06-M23B zero width bridge");
     for(const auto& face:patch.seedFaces) {
         const auto q=triangleQuality(patch.positions[face[0]],
