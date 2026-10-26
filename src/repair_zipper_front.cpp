@@ -219,8 +219,6 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     return answer;
                 }catch(const std::logic_error& e) {
                     lastReason=e.what();
-                }catch(const std::length_error& e) {
-                    lastReason=e.what();
                 }
             }
     throw std::logic_error("R06-M23B no admissible finite bridge / cap: "+lastReason);
