@@ -972,7 +972,7 @@ Do not weaken physical quality/contact/manifold acceptance to pass the
 archived refusal tests. Old forced R04 remains unchanged unless separately
 authorized. GPU acceptance is distinct from CI.
 
-- [ ] **M23A — Optional no-op cap vertex-placement callback.** Extend
+- [x] **M23A — Optional no-op cap vertex-placement callback.** Extend
   `buildSpatialCapFrontPoisson` / its advancing-front constructor with
   an optional adjustment functor, called on *each* proposed generated
   position **after initial projection and before quality, contact, mirror
@@ -984,7 +984,21 @@ authorized. GPU acceptance is distinct from CI.
   Independently test null-case exact baseline compatibility, identity
   callback, modified-and-rejected proposal, one-/two-vertex turns, mirror
   orbits, finite work and GCC/Clang/MSVC warning-as-error builds.
-  **This task is complete independently of any zipper work.**
+  **Completed 2026-10-26 at code HEAD `adb1c724aad51e4c0b0f25dc3c7e57e4b43c56ab`:**
+  public optional borrowed `SpatialCapPlacementAdjustment` receives
+  projected candidate plus selected front occurrence/neighbor IDs,
+  local scale and proposal ordinal; only used for generated AFM vertices
+  before existing snap/quality/collision/topology checks. Existing
+  R06 cap staging passes an explicit nullptr, and omitted arguments
+  also default to nullptr, preserving old callers and Poisson.
+  Independent `repair_r06_m23a_optional_placement_callback` CTest
+  verified null/identity exact parity, two-vertex proposals,
+  small displacement, nonfinite refusal and reflected geometry.
+  **GCC, Clang, Windows MSVC /W4 /WX compiled and M23A test PASSED**
+  [CI #40281156289](https://github.com/logiclrd/Mesher/actions/runs/40281156289).
+  The full workflow is NOT green: six older R06 tests fail on each
+  platform (127/133 passing), independently of M23A. Distinguish this
+  scoped acceptance from pending overall R06 integration acceptance.
 - [ ] **M23B — Unified attractive-front zipper, finite bridge, and cap
   handoff.** Replace separately specialized R06 zipper construction
   with a single advancing-front zipper that considers opposing-rim
