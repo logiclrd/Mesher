@@ -80,7 +80,8 @@ public:
                                      bool guideCurvaturePoisson=false,
                                      bool probeSeamFeasibility=false,
                                      bool probeDiagonalFeasibility=false,
-                                     bool tryProjectedEarClipping=false)
+                                     bool tryProjectedEarClipping=false,
+                                     bool useUnifiedZipper=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
          excisionEnabled_(excise||zipper||cap||autoMode),
          zipperEnabled_(zipper),capEnabled_(cap),autoEnabled_(autoMode),
@@ -92,7 +93,8 @@ public:
          guideCurvaturePoisson_(guideCurvaturePoisson),
          probeSeamFeasibility_(probeSeamFeasibility),
          probeDiagonalFeasibility_(probeDiagonalFeasibility),
-         tryProjectedEarClipping_(tryProjectedEarClipping) {}
+         tryProjectedEarClipping_(tryProjectedEarClipping),
+         useUnifiedZipper_(useUnifiedZipper) {}
     std::string inspect(const ProposedSculptStep& proposed);
     std::shared_ptr<const RepairInspectionSnapshot> frozenSnapshot() const;
     bool frozen() const noexcept {return frozen_.load(std::memory_order_acquire);}
@@ -108,7 +110,8 @@ private:
     bool auditSeam_=false,exactOverlay_=false;
     bool scaleAware_=false,optimizeFront_=false,optimizeCurvatureFront_=false,
          guideCurvaturePoisson_=false,probeSeamFeasibility_=false,
-         probeDiagonalFeasibility_=false,tryProjectedEarClipping_=false;
+         probeDiagonalFeasibility_=false,tryProjectedEarClipping_=false,
+         useUnifiedZipper_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
     std::shared_ptr<const RepairInspectionSnapshot> snapshot_;
@@ -132,7 +135,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     bool stageFeasibilityPreview=false,
     bool stageDiagonalPreview=false,
     bool stageWholeCapFairingPreview=false,
-    bool tryProjectedEarClipping=false);
+    bool tryProjectedEarClipping=false,
+    bool useUnifiedZipper=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may
 // upload this once, and orbit inside/outside the frozen candidate freely.
