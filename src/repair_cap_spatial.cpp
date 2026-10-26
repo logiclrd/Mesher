@@ -634,9 +634,19 @@ SpatialCapPatch constructAdaptiveFront(
                 accepted=true;
             }
         }
-        if(!accepted)
+        if(!accepted) {
+            if(rimSides) {
+                throw std::logic_error(
+                    "R06-M23B advancing-front dead end front="+
+                    std::to_string(state.front.size())+
+                    " seed_boundary="+std::to_string(n)+
+                    " generated_faces="+std::to_string(state.patch.faces.size())+
+                    " attempts="+std::to_string(attempts)+
+                    " require_mirror="+std::to_string(limits.requireMirrorPlane));
+            }
             throw std::logic_error(
                 "R06-M22B no admissible advancing-front mirrored operation");
+        }
     }
     if(state.front.size()==3) {
         if(limits.requireMirrorPlane)
