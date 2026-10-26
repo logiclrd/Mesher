@@ -261,6 +261,7 @@ struct AdaptiveFrontState {
     std::vector<std::uint32_t> front;
     std::vector<std::size_t> twins;
     std::vector<Vec3> guides; // indexed by all positions (rim included)
+    std::vector<std::uint8_t> originSides; // 0=unattributed ordinary cap
 };
 
 SpatialCapPatch constructAdaptiveFront(
@@ -268,7 +269,8 @@ SpatialCapPatch constructAdaptiveFront(
     const std::vector<Vec3>& normals,
     const std::vector<std::size_t>& boundaryTwins,
     const SpatialCapSettings& limits,
-    const SpatialCapPlacementAdjustment* placementAdjustment) {
+    const SpatialCapPlacementAdjustment* placementAdjustment,
+    const std::vector<std::uint8_t>* rimSides) {
     const auto n=rim.size();
     if(n<3||n>limits.maxBoundaryVertices||
        !(limits.nearSeamSnapFraction>=0&&
@@ -282,6 +284,9 @@ SpatialCapPatch constructAdaptiveFront(
     state.front.reserve(n+limits.maxInteriorVertices);
     state.guides.reserve(n+limits.maxInteriorVertices);
     state.twins.reserve(n+limits.maxInteriorVertices);
+    state.originSides.reserve(n+limits.maxInteriorVertices);
+    if(rimSides&&rimSides->size()!=n)
+        throw std::invalid_argument("R06-M23B invalid seed-front side ancestry");
     Vec3 area{};
     for(std::size_t i=0;i<n;++i) {
         const auto j=(i+1)%n;
@@ -292,6 +297,7 @@ SpatialCapPatch constructAdaptiveFront(
         const auto m=length(g);
         state.guides.push_back(m>1e-12?g/m:Vec3{});
         state.twins.push_back(limits.requireMirrorPlane?boundaryTwins[i]:i);
+        state.originSides.push_back(rimSides?rimSides->at(i):0);
     }
     const auto reflect=[](Vec3 p){return Vec3{-p.x,p.y,p.z};};
     const auto rimScale=[&]() {
@@ -532,7 +538,9 @@ SpatialCapPatch constructAdaptiveFront(
                         if(placementAdjustment) {
                             q=(*placementAdjustment)(SpatialCapPlacementProposal{
                                 q,vertex,a,b,std::min(la,lb),
-                                at,vId,aId,bId,mode,ordinal});
+                                at,vId,aId,bId,mode,ordinal,
+                                state.originSides[vId],&state.patch.positions,
+                                &state.front,&state.originSides});
                         }
                         if(!finite(q)){rejected=true;break;}
                         if(limits.requireMirrorPlane&&!seam) {
@@ -557,12 +565,16 @@ SpatialCapPatch constructAdaptiveFront(
                         trial.patch.positions.push_back(q);
                         trial.guides.push_back(state.guides[vId]);
                         trial.twins.push_back(id);
+                        trial.originSides.push_back(state.originSides[vId]);
                         if(limits.requireMirrorPlane&&q.x!=0) {
                             const auto mate=static_cast<std::uint32_t>(
                                 trial.patch.positions.size());
                             trial.patch.positions.push_back(reflect(q));
                             trial.guides.push_back(reflect(state.guides[vId]));
                             trial.twins.push_back(id);
+                            trial.originSides.push_back(
+                                state.originSides[vId]==1?2:
+                                state.originSides[vId]==2?1:0);
                             trial.twins[id]=mate;
                         }else if(limits.requireMirrorPlane) {
                             trial.guides[id].x=0;
@@ -641,7 +653,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& limits,
     const std::vector<SurvivorDirectionalCurvature>* incomingReference,
-    const SpatialCapPlacementAdjustment* placementAdjustment) {
+    const SpatialCapPlacementAdjustment* placementAdjustment,
+    const std::vector<std::uint8_t>* boundarySides) {
     const auto n=orientedCapRim.size();
     if(n<3||n>limits.maxBoundaryVertices||
        (!limits.useAdvancingFront&&
@@ -680,6 +693,11 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::invalid_argument("R06-M18D incoming survivor tensor orbit mismatch");
     if(placementAdjustment&&!limits.useAdvancingFront)
         throw std::invalid_argument("R06-M23A placement adjustment requires advancing-front mode");
+    if(boundarySides&&(!limits.useAdvancingFront||
+       boundarySides->size()!=n||
+       std::any_of(boundarySides->begin(),boundarySides->end(),
+           [](std::uint8_t side){return side>2;})))
+        throw std::invalid_argument("R06-M23B invalid advancing-front ancestry");
 
     SpatialCapPatch result;
     result.boundaryCount=n;
@@ -744,7 +762,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     if(limits.useAdvancingFront) {
         auto patch=constructAdaptiveFront(
             orientedCapRim,survivingFaceNormals,partner,limits,
-            placementAdjustment);
+            placementAdjustment,boundarySides);
         // Generic AFM patches have no positional one-to-one n-ring or hub.
         // Intentionally bypass M17–M21 ring-index optimizations here.
         std::size_t tests=0;
