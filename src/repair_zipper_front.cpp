@@ -302,6 +302,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                         adjustment?adjustment:&gravity,&ancestry);
                     UnifiedZipperFrontPatch answer;
                     answer.positions=cap.positions;
+                    answer.placementTrace=cap.placementTrace;
                     answer.boundaryIds=std::move(trial.ids);
                     answer.bridgeFaceCount=trial.seedFaces.size();
                     answer.bridgeVertexCount=selfReflected?2:1;
