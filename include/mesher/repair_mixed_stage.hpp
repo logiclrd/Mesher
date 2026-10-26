@@ -210,6 +210,7 @@ public:
 
 struct MixedClosureStageSettings {
     bool requireReflectedGeometry=false;
+    bool tryProjectedEarClipping=false; // opt-in R06 first pass; default goes directly to adaptive front
     bool optimizeSpatialFront=false; // M17D opt-in, default preserves old R06
     bool optimizeCurvatureFront=false; // M18D independent opt-in
     bool guideCurvaturePoisson=false; // M18E opt-in RHS constraints
