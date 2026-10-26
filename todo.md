@@ -919,6 +919,40 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
   under identical whole-patch validity and original fallback.
 - [ ] **M21D — Production eligibility**, distinct from PRIVATE preview.
 
+## R06-M22 — Replace fixed ring/hub cap with symmetry-aware advancing front (2026-10-26)
+
+User provided three mirror-bridge angle cases (<45, <90, >=90 degrees);
+use a seam-midpoint subdivision to keep exact half-plane faces instead
+of a self-mirrored cross-plane triangle. Design and acceptance:
+[docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md](docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md).
+The current M17–M21 routines are ring/hub specific and must not
+silently execute on the new variable-connectivity patch. Work on the
+existing r06-integration branch and PR #162 only; retain PRIVATE
+all-or-nothing source validation and already-valid old-cap fallback.
+
+- [ ] **M22A — Independently tested symmetric advancing-front edit core.**
+  Canonical minimum-angle orbit selection; three atomic mirror-bridge
+  cases, explicit seam-edge half-face replacement, deterministic
+  finite budgets; immutable original R03 edges and no weld by distance.
+  CPU positive/negative symmetry/manifold/degeneracy tests.
+- [ ] **M22B — True variable-connectivity advancing-front cap generator.**
+  Replace in-place `buildSpatialCapFrontPoisson` initial ring/hub
+  construction behind controlled PRIVATE A/B; generalized graph
+  Poisson that never assumes n-ring+hub, with legitimate reflex-angle
+  and exact mirror geometry. Compare planar/warped/long narrow/archived.
+- [ ] **M22C — Whole-survivor validation and atomic legal fallback.**
+  Full M04 source certificate for both candidates; if alternate fails
+  or does not meaningfully improve accepted cap, retain valid original.
+  No default worker publication.
+- [ ] **M22D — Independent rotated-normal gradient Poisson option.**
+  Reconstruct fixed-rim positions from predicted desirable normals as
+  described by Zhao et al. Compare identical topology, healthy and
+  curved/crease examples before combining with M22B.
+- [ ] **M22E — Three-platform CI and physical matched-view acceptance.**
+  Compare exact refusal-1/3 ripple and fully reconstructed surfaces,
+  symmetry, source quality, contact budgets and runtime. Only then
+  decide default replacement of ring/hub.
+
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
 Extends existing open R06-M06C4e profile diagnostic instead of declaring
