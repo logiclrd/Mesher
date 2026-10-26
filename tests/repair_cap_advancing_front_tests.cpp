@@ -1,5 +1,6 @@
 #include "mesher/repair_cap_spatial.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
