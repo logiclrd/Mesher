@@ -354,6 +354,10 @@ SpatialCapPatch constructAdaptiveFront(
         // caused by otherwise plausible but folded advancing-front turns.
         for(std::size_t i=0;i<s.patch.faces.size();++i)
         for(std::size_t j=i+1;j<s.patch.faces.size();++j) {
+            // Previous committed faces were already checked. Only contact
+            // pairs involving this candidate's new faces need rechecking.
+            if(i<state.patch.faces.size()&&
+               j<state.patch.faces.size())continue;
             if(++tests>limits.maxIntersectionTests)
                 throw std::length_error("R06-M22B advancing-front contact budget");
             std::array<Vec3,3> p{},q{};
