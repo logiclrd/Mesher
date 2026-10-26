@@ -29,7 +29,8 @@ public:
         bool probeDiagonalFeasibility=false,
         bool stageFeasibilityPreview=false,
         bool stageDiagonalPreview=false,
-        bool stageWholeCapFairingPreview=false);
+        bool stageWholeCapFairingPreview=false,
+        bool tryProjectedEarClipping=false);
     ~RepairReplayStepSession();
     RepairReplayStepSession(const RepairReplayStepSession&)=delete;
     RepairReplayStepSession& operator=(const RepairReplayStepSession&)=delete;
@@ -45,7 +46,7 @@ private:
          optimizeCurvatureFront_,guideCurvaturePoisson_,
          probeSeamFeasibility_,probeDiagonalFeasibility_,
          stageFeasibilityPreview_,stageDiagonalPreview_,
-         stageWholeCapFairingPreview_;
+         stageWholeCapFairingPreview_,tryProjectedEarClipping_;
     std::shared_ptr<RepairStepTrace> trace_;
     std::thread worker_;
     mutable std::mutex stateMutex_;
