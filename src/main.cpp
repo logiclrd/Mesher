@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
          repairDiagonalProbe=false,repairFeasibilityPreview=false,
          repairDiagonalPreview=false,repairWholeCapFairingPreview=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
-    bool repairEarClipping=false;
+    bool repairEarClipping=false,repairUnifiedZipper=false;
     bool torusFixture = false, hollowSphereFixture = false;
     bool explicitSymmetric = false;
     bool mergeTestTetra = false;
@@ -98,6 +98,7 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
             else if(arg=="--repair-ear-clipping")repairEarClipping=true;
+            else if(arg=="--repair-unified-zipper")repairUnifiedZipper=true;
             else if(arg=="--repair-step-debug")repairStepDebug=true;
             else if(arg=="--repair-scale-aware")repairScaleAware=true;
             else if(arg=="--repair-front-optimize")repairFrontOptimize=true;
@@ -255,6 +256,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
                          <<"       [--repair-diagonal-preview] (M19D PRIVATE provisional mirrored diagonal topology in step debugger ONLY; NOT CERTIFIED)\n"
                          <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
+                         <<"       [--repair-unified-zipper] (M23B private: finite-width bridge + gravity-guided AFM zipper; old zipper remains default)\\n"
                          <<"       [--repair-whole-cap-fairing-preview] (M21A optional whole-cap fairing on a PRIVATE saved-case step; baseline fallback)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
@@ -306,6 +308,8 @@ int main(int argc, char** argv) {
                 "--repair-seam-audit/--repair-overlay-exact require --repair auto or --repair-replay[-test]");
         if(repairEarClipping&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-ear-clipping requires --repair auto or --repair-replay[-test]");
+        if(repairUnifiedZipper&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-unified-zipper requires --repair auto or --repair-replay[-test]");
         if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
@@ -391,7 +395,7 @@ int main(int argc, char** argv) {
                     repairCurvaturePoisson,repairFeasibilityProbe,
                     repairDiagonalProbe,repairFeasibilityPreview,
                     repairDiagonalPreview,repairWholeCapFairingPreview,
-                    repairEarClipping);
+                    repairEarClipping,repairUnifiedZipper);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
                 inspect.canBegin=[]{return false;};
@@ -417,7 +421,7 @@ int main(int argc, char** argv) {
                 repairFrontOptimize,repairCurvatureOptimize,
                     repairCurvaturePoisson,repairFeasibilityProbe,
                     repairDiagonalProbe,false,false,false,
-                    repairEarClipping);
+                    repairEarClipping,repairUnifiedZipper);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -784,7 +788,7 @@ int main(int argc, char** argv) {
                 repairSeamAudit,repairOverlayExact,repairScaleAware,
                 repairFrontOptimize,repairCurvatureOptimize,
                 repairCurvaturePoisson,repairFeasibilityProbe,
-                repairDiagonalProbe,repairEarClipping):nullptr;
+                repairDiagonalProbe,repairEarClipping,repairUnifiedZipper):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
