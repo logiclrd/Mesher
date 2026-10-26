@@ -204,17 +204,14 @@ MixedClosureStaging stagePrivateMixedClosure(
         std::string projectedReason=bounds.tryProjectedEarClipping?
             "mirror-required crossing-plane cap":"projected-ear disabled by default";
         if(!forceSpatial) {
+            std::vector<PrivateRepairTriangle> triangles;
             try {
-                const auto triangles=triangulatePrivateCapDisk(
+                triangles=triangulatePrivateCapDisk(
                     loop,result.positions().materialize(),h);
                 logCapCandidate("projected-ear",id,loop.vertexIds.size(),
                     triangles,[&](VertexId vertex) {
                         return result.positions().at(vertex);
                     },0,0.,"CANDIDATE_READY");
-                // Staging must not partially retain ear faces if
-                // generation fails. The full M04 retry is separate.
-                for(const auto& triangle:triangles)
-                    addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
             }catch(const std::logic_error& e) {
                 forceSpatial=true;
                 projectedReason=e.what();
@@ -225,6 +222,17 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" reason="<<e.what()
                          <<" next=advancing-front\\n";
             }
+            // Any failure to STAGE a generated ear is not an ordinary
+            // projection failure. The outer atomic M04 retry must start
+            // again from the immutable R03 source, with AFM enabled.
+            if(!forceSpatial)
+                for(const auto& triangle:triangles)
+                    addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
+        }else if(bounds.tryProjectedEarClipping) {
+            std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+                     <<" loop="<<id<<" status=SKIPPED"
+                     <<" reason=mirror_requires_spatial_cap"
+                     <<" next=advancing-front\\n";
         }
         if(forceSpatial) {
             // The original R05 projected-ear builder remains unchanged and
