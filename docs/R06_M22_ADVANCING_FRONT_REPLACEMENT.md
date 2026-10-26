@@ -152,3 +152,38 @@ compare same triangulations against existing graph-Poisson.
 
 M22E — GCC/Clang/Windows MSVC CI, archived-case and physical matched-view
 A/B, performance, acceptance and only then a production-default decision.
+
+## M22B R06 default and cap quality log contract (2026-10-26)
+
+The R06 stage now **attempts AFM first unconditionally**, with R05
+projected ear clipping attempted only when explicitly enabled using
+`--repair-ear-clipping`. When enabled, a failed projected ear
+candidate (e.g. projection overlap, no ear, nonfinite or degeneracy)
+records an explicit refusal diagnostic and proceeds to AFM. Standalone
+forced R05 does not change. The new switch must propagate through
+saved-case replay, headless and Vulkan UI paths; no hidden default
+path may continue to run projected-ear first.
+
+Every *attempted* cap generator emits a structured record including
+method, loop, fixed rim / generated / total vertices, unique edges,
+faces, boundary edges, Euler number, min/median/max edge length,
+q min/p10/median/p90/max/mean, lowest and highest 10% **ranked** face
+counts and their mean q, face counts with q<.10, zero area and
+failed local tests, Poisson iterations/residual. Rank-decile counts
+are deliberately not diagnostic by themselves (roughly 10% by
+construction); means/ranges are what allow comparison. Bound the
+work to candidate vertices/faces/edges without whole-mesh scans.
+Where a proposed candidate cannot be constructed, state that no full
+candidate exists rather than invent metrics; retain partial count
+when available. Distinguish `CANDIDATE_READY`, `GENERATOR_REFUSED`,
+`LOCAL_REFUSED`, and the later `SOURCE_CLOSURE_REFUSED`; a locally
+valid candidate never claims source-certified closure.
+
+For symmetric AFM, ordinary off-seam operations are paired atomically;
+selected seam vertices use the mirrored two-triangle rule and must
+remain on X=0. New off-plane candidates crossing/near X=0 are
+reprojected/snap-*considered* within 0.25 times the shorter incident
+front edge, but accepted only if the resulting indexed front is a
+single legal disk, no pinched seams or duplicate vertex fan. Do not
+silently merge coordinate-near different original IDs. Maintain
+q and contact/refusal gates, including non-self intersecting front.
