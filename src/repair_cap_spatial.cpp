@@ -359,12 +359,6 @@ SpatialCapPatch constructAdaptiveFront(
             // pairs involving this candidate's new faces need rechecking.
             if(i<state.patch.faces.size()&&
                j<state.patch.faces.size())continue;
-            if(++tests>limits.maxIntersectionTests)
-                throw std::length_error(
-                    "R06-M22B advancing-front contact budget front="+
-                    std::to_string(s.front.size())+
-                    " faces="+std::to_string(s.patch.faces.size())+
-                    " attempts="+std::to_string(attempts));
             std::array<Vec3,3> p{},q{};
             std::array<VertexId,3> pi{},qi{};
             for(unsigned k=0;k<3;++k) {
@@ -373,6 +367,28 @@ SpatialCapPatch constructAdaptiveFront(
                 p[k]=s.patch.positions[s.patch.faces[i][k]];
                 q[k]=s.patch.positions[s.patch.faces[j][k]];
             }
+            // Cheap conservative broad-phase: a spatially disjoint AABB
+            // proves noncontact and does not spend a narrow-phase test.
+            const auto apart=[&](auto coordinate) {
+                const auto amin=std::min({coordinate(p[0]),coordinate(p[1]),
+                                          coordinate(p[2])});
+                const auto amax=std::max({coordinate(p[0]),coordinate(p[1]),
+                                          coordinate(p[2])});
+                const auto bmin=std::min({coordinate(q[0]),coordinate(q[1]),
+                                          coordinate(q[2])});
+                const auto bmax=std::max({coordinate(q[0]),coordinate(q[1]),
+                                          coordinate(q[2])});
+                return amax<bmin||bmax<amin;
+            };
+            if(apart([](Vec3 v){return v.x;})||
+               apart([](Vec3 v){return v.y;})||
+               apart([](Vec3 v){return v.z;}))continue;
+            if(++tests>limits.maxIntersectionTests)
+                throw std::length_error(
+                    "R06-M22B advancing-front contact budget front="+
+                    std::to_string(s.front.size())+
+                    " faces="+std::to_string(s.patch.faces.size())+
+                    " attempts="+std::to_string(attempts));
             const auto hit=triangleContact(p,pi,q,qi);
             if(hit!=TriangleContact::Disjoint&&
                hit!=TriangleContact::ExpectedAdjacency)return false;
