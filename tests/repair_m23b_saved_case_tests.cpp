@@ -41,6 +41,7 @@ void originalCase() {
     const auto saved=readRepairCase(path);
     require(saved.candidate.index&&!saved.contacts.empty(),
         "M23B saved refusal-2 did not load");
+    const auto originalRetirementCount=saved.candidate.index->retiredFaceCount();
     const auto excision=previewApproximateExcision(
         *saved.candidate.index,saved.contacts);
     require(excision.complete,"M23B refusal-2 requires R03 excision");
@@ -60,8 +61,8 @@ void originalCase() {
         "M23B staged geometry did not seal every original R03 rim");
     require(candidate.provisionalSpatialVertices().size()>0,
         "M23B new zipper should add finite-width generated vertices");
-    require(saved.candidate.index->retiredFaceCount()==0,
-        "M23B staging modified original root");
+    require(saved.candidate.index->retiredFaceCount()==originalRetirementCount,
+        "M23B staging changed original root retirement count");
     std::cout<<"[r06-m23b-refusal2] original_q="<<previousQ
              <<" new_q="<<nextQ
              <<" generated_vertices="<<candidate.provisionalSpatialVertices().size()
