@@ -591,7 +591,8 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<SurvivorDirectionalCurvature>* incomingReference) {
     const auto n=orientedCapRim.size();
     if(n<3||n>limits.maxBoundaryVertices||
-       n+1>limits.maxInteriorVertices||n*3>limits.maxFaces||
+       (!limits.useAdvancingFront&&
+        (n+1>limits.maxInteriorVertices||n*3>limits.maxFaces))||
        !limits.maxPoissonIterations||!limits.maxIntersectionTests||
        !std::isfinite(limits.poissonTolerance)||
        !std::isfinite(limits.maximumInitialEdgeFactor)||
