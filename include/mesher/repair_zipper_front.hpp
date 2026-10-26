@@ -53,13 +53,6 @@ Vec3 projectReflectedBridgeSeamPoint(
     Vec3 first,Vec3 reflected,
     Vec3 firstSurfaceNormal,Vec3 reflectedSurfaceNormal);
 
-// Same softened, bounded M23B attraction used by the private zipper.
-// Side 1/2 sees the opposite active front; neutral side 0 sees BOTH
-// sided sets (but not other neutral vertices). Reflection seams remain X=0.
-// Exposed for direct invariant tests; not a separate construction path.
-Vec3 unifiedZipperGravity(const SpatialCapPlacementProposal& proposal,
-                          bool requireMirrorPlane);
-
 // Uses the SAME existing advancing-front spatial cap generator after
 // constructing a finite-width, positively embedded seed between the rims.
 // The generator never publishes or welds source vertex identities.

@@ -62,16 +62,6 @@ boundary position). The face-map identifies these seed faces as
 `kind=bridge`. A zero count for *both* kinds indicates no actual
 already-created supporting face was found at the selected front edges.
 
-On the optional M23B combined-neutral-gravity experiment, side-0
-(neutral) seam-front proposals attract toward **both** origin-side 1 and 2
-active vertices, excluding other neutral vertices. Side-1/side-2
-proposals still use the other side only, with the unchanged softened,
-mass-normalized force and 0.3*h cap. Exact self-reflected seam vertices
-remain at X=0. Thus a neutral placement can now have a nonzero
-`gravity_shift`; compare the new trace with the previous zero-shift
-baseline to see whether it survives Poisson and improves visible curvature.
-This change is still PRIVATE and opt-in and does not certify smoothness.
-
 Only **accepted** AFM candidate vertices have placement records.
 Rejected speculative trials are never mapped or printed. A vertex
 introduced by the finite bridge has a face-map entry but does not have
