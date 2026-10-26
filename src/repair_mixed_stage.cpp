@@ -1,5 +1,6 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_cap_spatial.hpp"
+#include "mesher/repair_zipper_front.hpp"
 #include "mesher/repair_surface_profile.hpp"
 #include "mesher/repair_survivor_curvature.hpp"
 #include "mesher/repair_cap_continuity.hpp"
@@ -492,7 +493,91 @@ MixedClosureStaging stagePrivateMixedClosure(
         const bool mirroredPair=bounds.requireReflectedGeometry&&
             ((entirely(a,-1)&&entirely(b,+1))||
              (entirely(a,+1)&&entirely(b,-1)));
-        if(mirroredPair) {
+        if(bounds.useUnifiedZipper) {
+            const auto toCapFacingRim=[&](const RepairContour& loop) {
+                UnifiedZipperRim output;
+                const auto n=loop.vertexIds.size();
+                output.ids.reserve(n);
+                output.positions.reserve(n);
+                output.outgoingNormals.reserve(n);
+                for(std::size_t k=0;k<n;++k) {
+                    const auto r=n-1-k;
+                    const auto id=loop.vertexIds[r];
+                    output.ids.push_back(id);
+                    output.positions.push_back(result.positions().at(id));
+                    const auto face=result.sourceView()->face(
+                        loop.survivingFaces.at(r));
+                    const auto& v=face.vertices;
+                    output.outgoingNormals.push_back(cross(
+                        result.positions().at(v[1])-result.positions().at(v[0]),
+                        result.positions().at(v[2])-result.positions().at(v[0])));
+                }
+                return output;
+            };
+            SpatialCapSettings spatial;
+            spatial.useAdvancingFront=true;
+            spatial.maxBoundaryVertices=std::min<std::size_t>(
+                512,bounds.zipper.maxContourVertices*2+2);
+            spatial.maxInteriorVertices=bounds.maxNewTriangles;
+            spatial.maxFaces=bounds.maxNewTriangles;
+            spatial.maxIntersectionTests=50000;
+            spatial.desiredMinimumQuality=.10;
+            const auto patch=buildUnifiedZipperFront(
+                toCapFacingRim(a),toCapFacingRim(b),
+                mirroredPair,spatial);
+            std::vector<VertexId> map;
+            map.reserve(patch.positions.size());
+            for(std::size_t k=0;k<patch.positions.size();++k) {
+                if(k<patch.boundaryIds.size()&&patch.boundaryIds[k]) {
+                    const auto id=patch.boundaryIds[k];
+                    const auto source=result.positions().at(id);
+                    const auto p=patch.positions[k];
+                    if(source.x!=p.x||source.y!=p.y||source.z!=p.z)
+                        throw std::logic_error(
+                            "R06-M23B changed original R03 rim coordinates");
+                    map.push_back(id);
+                }else {
+                    const VertexId id=std::numeric_limits<VertexId>::max()-
+                        static_cast<VertexId>(
+                            result.provisionalSpatialVertices().size());
+                    if(mesh.maybeVertex(id)||result.positions().contains(id))
+                        throw std::logic_error(
+                            "R06-M23B provisional zipper ID collision");
+                    result.stageProvisionalVertex(
+                        id,patch.positions[k],owner,bounds.maxNewTriangles);
+                    map.push_back(id);
+                }
+            }
+            for(const auto& triangle:patch.faces) {
+                const auto x=(patch.positions[triangle[0]].x+
+                              patch.positions[triangle[1]].x+
+                              patch.positions[triangle[2]].x)/3.;
+                const auto firstX=result.positions().at(a.vertexIds[0]).x;
+                const auto faceOwner=mirroredPair&&x*firstX<0?
+                    otherOwner:owner;
+                addFace({0,faceOwner,
+                         {map[triangle[0]],map[triangle[1]],map[triangle[2]]},
+                         MixedClosureFaceKind::Zipper,h});
+            }
+            result.spatialPoissonIterations+=patch.poissonIterations;
+            result.minimumSpatialInitialQuality=std::min(
+                result.minimumSpatialInitialQuality,patch.minimumSeedQuality);
+            if(mirroredPair) {
+                result.usedMirroredSeamZipper=true;
+                ++result.mirroredSeamZipperPairs;
+                result.mirroredSeamZipperVertices+=patch.bridgeVertexCount;
+            }
+            std::cerr<<"[repair-r06-zipper-unified]"
+                     <<" rim_a="<<a.vertexIds.size()
+                     <<" rim_b="<<b.vertexIds.size()
+                     <<" seed_faces="<<patch.bridgeFaceCount
+                     <<" generated_faces="<<patch.faces.size()
+                     <<" generated_vertices="<<patch.positions.size()-
+                         (a.vertexIds.size()+b.vertexIds.size())
+                     <<" min_seed_q="<<patch.minimumSeedQuality
+                     <<" poisson_iterations="<<patch.poissonIterations
+                     <<" source_certified=0\\n";
+        }else if(mirroredPair) {
             if(a.vertexIds.size()!=b.vertexIds.size())
                 throw std::logic_error(
                     "R06-M06C4c mirrored zipper rim counts disagree");
