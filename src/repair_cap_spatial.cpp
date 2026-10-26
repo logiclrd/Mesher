@@ -359,7 +359,11 @@ SpatialCapPatch constructAdaptiveFront(
             if(i<state.patch.faces.size()&&
                j<state.patch.faces.size())continue;
             if(++tests>limits.maxIntersectionTests)
-                throw std::length_error("R06-M22B advancing-front contact budget");
+                throw std::length_error(
+                    "R06-M22B advancing-front contact budget front="+
+                    std::to_string(s.front.size())+
+                    " faces="+std::to_string(s.patch.faces.size())+
+                    " attempts="+std::to_string(attempts));
             std::array<Vec3,3> p{},q{};
             std::array<VertexId,3> pi{},qi{};
             for(unsigned k=0;k<3;++k) {
@@ -378,6 +382,7 @@ SpatialCapPatch constructAdaptiveFront(
     const auto maxAttempts=std::min<std::size_t>(
         limits.maxFaces*8+limits.maxBoundaryVertices*8,65536);
     std::size_t attempts=0;
+    std::size_t advancesWithoutReduction=0;
     while(state.front.size()>3) {
         if(++attempts>maxAttempts)
             throw std::length_error("R06-M22B advancing-front attempt budget");
@@ -455,9 +460,16 @@ SpatialCapPatch constructAdaptiveFront(
             const auto bisectorLen=length(bisector);
             const bool seam=limits.requireMirrorPlane&&vertex.x==0;
             const auto pi=std::acos(-1.);
-            const unsigned mode=seam?2:
+            unsigned mode=seam?2:
                 (choice.angle<=75*pi/180?1:
                  choice.angle<=135*pi/180?2:3);
+            // The paper's 2/3-face turns do not by themselves guarantee
+            // the active polygon shrinks. An inset front can otherwise
+            // keep cycling through ~120-degree corners indefinitely.
+            // After two non-reducing turns, close one legal convex ear
+            // (but never on a seam vertex), then resume adaptive turns.
+            if(!seam&&advancesWithoutReduction>=2&&choice.angle<pi)
+                mode=1;
             if(mode!=1&&!(bisectorLen>1e-10))continue;
             for(const double factor:{.7,1.0,.45}) {
                 if(accepted)break;
@@ -561,6 +573,8 @@ SpatialCapPatch constructAdaptiveFront(
                 }
                 trial.front=std::move(newFront);
                 if(!legal(trial))continue;
+                advancesWithoutReduction=trial.front.size()<state.front.size()?
+                    0:advancesWithoutReduction+1;
                 state=std::move(trial);
                 accepted=true;
             }
