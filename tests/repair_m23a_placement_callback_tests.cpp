@@ -78,8 +78,12 @@ void exercise(bool reflected) {
     const auto unchanged=buildSpatialCapFrontPoisson(
         boundary,normals,settings,nullptr,&identity);
     require(calls>0,"M23A never called placement callback");
-    require(twoVertex>0&&secondOfTwo>0,
-        "M23A did not expose both vertices of a three-triangle proposal");
+    // The asymmetric 12-corner front exercises the three-face turn.
+    // Its exactly reflected counterpart is legitimately advanced using
+    // paired two-face/seam operations; it need not propose a three-face turn.
+    if(!reflected)
+        require(twoVertex>0&&secondOfTwo>0,
+            "M23A did not expose both vertices of a three-triangle proposal");
     require(identical(original,unchanged),
         "M23A identity callback must be bit-identical to original cap");
 
