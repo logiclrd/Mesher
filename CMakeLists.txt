@@ -580,6 +580,12 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_generic_poisson_tests)
     set_tests_properties(repair_r06_m22a_topology_independent_poisson
         PROPERTIES TIMEOUT 15)
+    add_executable(mesher_repair_m22_cap_method_tests
+                   tests/repair_m22_cap_method_tests.cpp)
+    target_link_libraries(mesher_repair_m22_cap_method_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_m22b_cap_selection_and_metrics
+             COMMAND mesher_repair_m22_cap_method_tests)
+    set_tests_properties(repair_r06_m22b_cap_selection_and_metrics PROPERTIES TIMEOUT 20)
     add_executable(mesher_repair_adaptive_front_tests
                    tests/repair_cap_advancing_front_tests.cpp)
     target_link_libraries(mesher_repair_adaptive_front_tests PRIVATE mesher_mesh)
