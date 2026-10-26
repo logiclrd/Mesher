@@ -456,6 +456,34 @@ SpatialCapPatch constructAdaptiveFront(
                 if(closed)break;
             }
         }
+        // M23B zipper fronts: the current surface is the already-created
+        // AFM triangles, NOT a normal copied indefinitely from the R03 rim.
+        // Area-weighted triangle normals give each new front vertex the
+        // geometric tangent plane of its actual preceding faces.
+        // Recompute once per accepted advancing-front step, not per trial.
+        // Ordinary caps preserve the original M22 path byte-for-byte.
+        std::vector<Vec3> currentNormals;
+        if(rimSides) {
+            currentNormals.assign(state.patch.positions.size(),Vec3{});
+            for(const auto& face:state.patch.faces) {
+                const auto p=state.patch.positions[face[0]];
+                const auto q=state.patch.positions[face[1]];
+                const auto r=state.patch.positions[face[2]];
+                const auto nFace=cross(q-p,r-p);
+                for(const auto id:face)
+                    currentNormals[id]=currentNormals[id]+nFace;
+            }
+            for(std::size_t id=0;id<currentNormals.size();++id) {
+                auto nFace=currentNormals[id];
+                if(limits.requireMirrorPlane&&
+                   state.patch.positions[id].x==0)
+                    nFace.x=0;
+                const auto magnitude=length(nFace);
+                if(magnitude>1e-12*rimScale*rimScale&&finite(nFace))
+                    currentNormals[id]=nFace/magnitude;
+                else currentNormals[id]=state.guides[id];
+            }
+        }
         // Evaluate all corners, preferring the smallest oriented angle.
         // Reflected off-seam corners form one indivisible orbit.
         struct Corner {std::size_t index;double angle;};
@@ -477,8 +505,8 @@ SpatialCapPatch constructAdaptiveFront(
             // face plane. Use surviving/propagated corner guidance only
             // for zipper-owned fronts; ordinary caps keep M22 behavior.
             const auto cornerNormal=(rimSides&&
-                length(state.guides[id])>1e-12)?
-                state.guides[id]:normal;
+                length(currentNormals[id])>1e-12)?
+                currentNormals[id]:normal;
             if(dot(cross(u,v),cornerNormal)>1e-10*length(u)*length(v))
                 theta=2*std::acos(-1.)-theta;
             choices.push_back({i,theta});
@@ -549,6 +577,23 @@ SpatialCapPatch constructAdaptiveFront(
                     bool rejected=false;
                     for(std::size_t ordinal=0;ordinal<proposals.size();++ordinal) {
                         auto q=proposals[ordinal];
+                        // M23B: an advancing front follows its LOCAL tangent
+                        // plane; the zipper's gravitational callback then
+                        // bends the point toward the opposing side. Preserve
+                        // the original proposed edge length, just change its
+                        // direction. This applies to both inserted vertices.
+                        if(rimSides&&length(currentNormals[vId])>1e-12) {
+                            const auto n=currentNormals[vId];
+                            const auto d=q-vertex;
+                            const auto projected=d-n*dot(d,n);
+                            const auto along=length(projected);
+                            const auto step=length(d);
+                            if(!(along>1e-10*step)&&step>0) {
+                                rejected=true;break;
+                            }
+                            if(along>0)q=vertex+projected*(step/along);
+                            if(seam)q.x=0;
+                        }
                         // M23A: zero work and identical floating-point behavior
                         // for the null path. This hook is used only for proposed
                         // new positions, BEFORE any snap, contact or face test.
@@ -557,7 +602,8 @@ SpatialCapPatch constructAdaptiveFront(
                                 q,vertex,a,b,std::min(la,lb),
                                 at,vId,aId,bId,mode,ordinal,
                                 state.originSides[vId],&state.patch.positions,
-                                &state.front,&state.originSides});
+                                &state.front,&state.originSides,
+                                rimSides?currentNormals[vId]:Vec3{}});
                         }
                         if(!finite(q)){rejected=true;break;}
                         if(limits.requireMirrorPlane&&!seam) {
