@@ -24,7 +24,6 @@ double triangleQuality(Vec3 a,Vec3 b,Vec3 c) {
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
 }
-Vec3 reflect(Vec3 p) {return {-p.x,p.y,p.z};}
 void checkRim(const UnifiedZipperRim& rim) {
     const auto n=rim.ids.size();
     if(n<3||n!=rim.positions.size()||n!=rim.outgoingNormals.size())
