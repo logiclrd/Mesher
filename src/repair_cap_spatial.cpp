@@ -111,6 +111,145 @@ SpatialCapPatch mirroredRibbon(
     return patch;
 }
 
+// M22A: the fixed-rim Poisson stage depends on indexed connectivity and
+// explicit interior guidance, NEVER on a ring vertex ordinal or a hub.
+void solveSpatialCapFixedRimPoisson(
+    SpatialCapPatch& patch,
+    const std::vector<Vec3>& interiorGuidance,
+    const SpatialCapSettings& limits,
+    const std::vector<std::size_t>& mirrorPartners) {
+    const auto n=patch.boundaryCount;
+    if(n<3||n>limits.maxBoundaryVertices||
+       patch.positions.size()<n||
+       patch.positions.size()-n>limits.maxInteriorVertices||
+       patch.faces.empty()||patch.faces.size()>limits.maxFaces||
+       !limits.maxPoissonIterations||
+       !std::isfinite(limits.poissonTolerance)||limits.poissonTolerance<=0||
+       !std::isfinite(limits.normalGuidance)||
+       limits.normalGuidance<0||limits.normalGuidance>.5||
+       interiorGuidance.size()!=patch.positions.size()-n)
+        throw std::invalid_argument("R06-M22A invalid generic Poisson input or finite bounds");
+
+    for(const auto p:patch.positions)
+        if(!finite(p))throw std::logic_error("R06-M22A nonfinite patch position");
+    for(const auto direction:interiorGuidance)
+        if(!finite(direction))
+            throw std::logic_error("R06-M22A nonfinite interior guidance");
+    std::vector<double> originalEdges;
+    originalEdges.reserve(n);
+    for(std::size_t i=0;i<n;++i)
+        originalEdges.push_back(length(
+            patch.positions[(i+1)%n]-patch.positions[i]));
+    std::sort(originalEdges.begin(),originalEdges.end());
+    const auto h=originalEdges[n/2];
+    if(!(h>1e-12)||!std::isfinite(h))
+        throw std::logic_error("R06-M22A degenerate fixed boundary scale");
+
+    const auto reflect=[](Vec3 p) {return Vec3{-p.x,p.y,p.z};};
+    if(limits.requireMirrorPlane) {
+        if(mirrorPartners.size()!=patch.positions.size())
+            throw std::logic_error("R06-M22A missing exact mirror partner map");
+        for(std::size_t i=0;i<patch.positions.size();++i) {
+            const auto j=mirrorPartners[i];
+            if(j>=patch.positions.size()||mirrorPartners[j]!=i||
+               ((i<n)!=(j<n)))
+                throw std::logic_error("R06-M22A invalid reflected vertex orbit");
+            const auto p=patch.positions[i],q=patch.positions[j];
+            if(q.x!=-p.x||q.y!=p.y||q.z!=p.z||
+               (j==i&&p.x!=0))
+                throw std::logic_error("R06-M22A inaccurate reflected vertex positions");
+            if(i>=n) {
+                const auto a=interiorGuidance[i-n],b=interiorGuidance[j-n];
+                if(b.x!=-a.x||b.y!=a.y||b.z!=a.z)
+                    throw std::logic_error("R06-M22A non-reflected Poisson guidance");
+            }
+        }
+    }else if(!mirrorPartners.empty()) {
+        throw std::invalid_argument("R06-M22A unexpected asymmetric mirror mapping");
+    }
+
+    std::vector<std::set<std::uint32_t>> adjacent(patch.positions.size());
+    for(const auto& face:patch.faces) {
+        for(unsigned k=0;k<3;++k)
+            if(face[k]>=patch.positions.size()||
+               face[k]==face[(k+1)%3])
+                throw std::logic_error("R06-M22A malformed patch face");
+        for(unsigned k=0;k<3;++k) {
+            const auto a=face[k],b=face[(k+1)%3];
+            adjacent[a].insert(b);
+            adjacent[b].insert(a);
+        }
+    }
+    for(std::size_t i=n;i<patch.positions.size();++i)
+        if(adjacent[i].empty())
+            throw std::logic_error("R06-M22A orphan interior Poisson vertex");
+
+    // Compute in a private copy; on any refusal the original caller's
+    // patch remains bit-identical (including solver metadata).
+    auto candidate=patch;
+    const auto sourceAt=[&](std::size_t i) {
+        const auto direction=interiorGuidance[i-n];
+        const auto degree=static_cast<double>(adjacent[i].size());
+        return direction*(limits.normalGuidance*h*degree);
+    };
+    bool converged=false;
+    const auto tolerance=limits.poissonTolerance*h;
+    for(std::size_t iteration=0;iteration<limits.maxPoissonIterations;++iteration) {
+        double residual=0;
+        if(limits.requireMirrorPlane) {
+            // Jacobi updates and exact pair projection commute with reflection.
+            auto next=candidate.positions;
+            for(std::size_t i=n;i<candidate.positions.size();++i) {
+                Vec3 rhs=sourceAt(i);
+                for(const auto neighbor:adjacent[i])
+                    rhs=rhs+candidate.positions[neighbor];
+                next[i]=rhs/static_cast<double>(adjacent[i].size());
+                if(!finite(next[i]))
+                    throw std::logic_error(
+                        "R06-M22A mirrored Poisson nonfinite interior vertex");
+            }
+            for(std::size_t i=n;i<next.size();++i) {
+                const auto j=mirrorPartners[i];
+                if(j<i)continue;
+                if(j==i) {
+                    next[i].x=0;
+                }else {
+                    const auto mean=(next[i]+reflect(next[j]))*.5;
+                    next[i]=mean;
+                    next[j]=reflect(mean);
+                }
+            }
+            for(std::size_t i=n;i<next.size();++i)
+                residual=std::max(residual,
+                    length(next[i]-candidate.positions[i]));
+            candidate.positions=std::move(next);
+        }else {
+            for(std::size_t i=n;i<candidate.positions.size();++i) {
+                Vec3 rhs=sourceAt(i);
+                for(const auto neighbor:adjacent[i])
+                    rhs=rhs+candidate.positions[neighbor];
+                const auto updated=rhs/static_cast<double>(adjacent[i].size());
+                if(!finite(updated))
+                    throw std::logic_error(
+                        "R06-M22A Poisson produced nonfinite interior vertex");
+                residual=std::max(residual,length(updated-candidate.positions[i]));
+                candidate.positions[i]=updated;
+            }
+        }
+        candidate.poissonIterations=iteration+1;
+        candidate.poissonResidual=residual;
+        if(residual<=tolerance){converged=true;break;}
+    }
+    if(!converged)
+        throw std::logic_error("R06-M22A Poisson did not meet finite residual bound");
+    for(std::size_t i=0;i<n;++i)
+        if(candidate.positions[i].x!=patch.positions[i].x||
+           candidate.positions[i].y!=patch.positions[i].y||
+           candidate.positions[i].z!=patch.positions[i].z)
+            throw std::logic_error("R06-M22A fixed R03 rim moved");
+    patch=std::move(candidate);
+}
+
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
@@ -304,78 +443,13 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         }
     }
 
-    // Sparse graph Laplacian with hard Dirichlet boundary coordinates.
-    // Normal-driven RHS is a bounded approximate curvature source.
-    // Unlike pure harmonic relaxation this can resist an inwardly
-    // sunken patch. Local normals are inherited from surviving faces,
-    // interpolated to the hub, and remain guidance, not certification.
-    std::vector<std::set<std::uint32_t>> adjacent(2*n+1);
-    for(const auto& face:result.faces)
-        for(unsigned k=0;k<3;++k) {
-            const auto a=face[k],b=face[(k+1)%3];
-            adjacent[a].insert(b);
-            adjacent[b].insert(a);
-        }
-    const auto sourceAt=[&](std::size_t index) {
-        const auto direction=index<2*n?normals[index-n]:averageNormal;
-        const auto degree=static_cast<double>(adjacent[index].size());
-        return direction*(limits.normalGuidance*h*degree);
-    };
-    bool converged=false;
-    const auto tolerance=limits.poissonTolerance*h;
-    for(std::size_t iteration=0;iteration<limits.maxPoissonIterations;++iteration) {
-        double residual=0;
-        if(limits.requireMirrorPlane) {
-            // Jacobi updates, followed by exact orbit projection, commute
-            // with reflection. Sequential Gauss-Seidel does not.
-            auto next=result.positions;
-            for(std::size_t i=n;i<result.positions.size();++i) {
-                Vec3 rhs=sourceAt(i);
-                for(const auto neighbor:adjacent[i])
-                    rhs=rhs+result.positions[neighbor];
-                next[i]=rhs/static_cast<double>(adjacent[i].size());
-                if(!finite(next[i]))
-                    throw std::logic_error(
-                        "R06-M06C mirrored Poisson generated nonfinite interior vertex");
-            }
-            for(std::size_t i=n;i<next.size();++i) {
-                const auto j=partner[i];
-                if(j<i)continue;
-                if(j==i) {
-                    next[i].x=0;
-                }else {
-                    const auto mean=(next[i]+reflect(next[j]))*.5;
-                    next[i]=mean;
-                    next[j]=reflect(mean);
-                }
-            }
-            for(std::size_t i=n;i<next.size();++i)
-                residual=std::max(residual,length(next[i]-result.positions[i]));
-            result.positions=std::move(next);
-        }else {
-            for(std::size_t i=n;i<result.positions.size();++i) {
-                Vec3 rhs=sourceAt(i);
-                for(const auto neighbor:adjacent[i])
-                    rhs=rhs+result.positions[neighbor];
-                const auto updated=rhs/static_cast<double>(adjacent[i].size());
-                if(!finite(updated))
-                    throw std::logic_error(
-                        "R06-M06C Poisson produced nonfinite interior vertex");
-                residual=std::max(residual,length(updated-result.positions[i]));
-                result.positions[i]=updated;
-            }
-        }
-        result.poissonIterations=iteration+1;
-        result.poissonResidual=residual;
-        if(residual<=tolerance){converged=true;break;}
-    }
-    if(!converged)
-        throw std::logic_error("R06-M06C Poisson did not meet finite residual bound");
-    for(std::size_t i=0;i<n;++i)
-        if(result.positions[i].x!=orientedCapRim[i].x||
-           result.positions[i].y!=orientedCapRim[i].y||
-           result.positions[i].z!=orientedCapRim[i].z)
-            throw std::logic_error("R06-M06C fixed Dirichlet rim moved");
+    // M22A: legacy n-ring+hub coordinates now go through the SAME
+    // topology-agnostic solver used by future advancing-front patches.
+    // Retain precisely the original per-ring and hub guidance field.
+    std::vector<Vec3> interiorGuidance=normals;
+    interiorGuidance.push_back(averageNormal);
+    solveSpatialCapFixedRimPoisson(result,interiorGuidance,limits,
+        limits.requireMirrorPlane?partner:std::vector<std::size_t>{});
 
     std::size_t tests=0;
     const auto embedded=[&](SpatialCapPatch& candidate) {
