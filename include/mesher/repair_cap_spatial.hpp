@@ -88,6 +88,13 @@ struct SpatialCapPlacementProposal {
     std::uint32_t nextVertex{};
     unsigned faceMode{}; // 2 -> one new vertex; 3 -> two new vertices
     std::size_t proposalOrdinal{}; // 0 or 1 in projected-front order
+    // M23B: only initialized for a non-null caller functor. These views
+    // refer to live, accepted FRONT state, never to an uncommitted trial.
+    // The callback may inspect but MUST NOT retain or mutate them.
+    std::uint8_t originatingSide{}; // 0 neutral, 1 or 2 seed contour
+    const std::vector<Vec3>* activePositions{};
+    const std::vector<std::uint32_t>* activeFront{};
+    const std::vector<std::uint8_t>* activeSides{};
 };
 using SpatialCapPlacementAdjustment =
     std::function<Vec3(const SpatialCapPlacementProposal&)>;
@@ -118,6 +125,7 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& settings={},
     const std::vector<SurvivorDirectionalCurvature>* incomingReference=nullptr,
-    const SpatialCapPlacementAdjustment* placementAdjustment=nullptr);
+    const SpatialCapPlacementAdjustment* placementAdjustment=nullptr,
+    const std::vector<std::uint8_t>* boundarySides=nullptr);
 
 } // namespace mesher
