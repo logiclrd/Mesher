@@ -7,6 +7,8 @@ technical details that should not be rewritten as broad promises.
 
 ## Repair architecture rebaseline (2026-10-21)
 
+- [R06-M23 unified gravity-guided advancing-front zipper design](R06_M23_UNIFIED_ATTRACTIVE_FRONT_ZIPPER.md): one shared AFM cap/zipper constructor, optional no-op placement callback, finite-width bridge, side-aware attraction after handoff, exact general symmetry-orbit rules, and two flat implementation tasks (not yet implemented).
+
 - [R05 forced cap and green visual acceptance](R05_FORCED_CAP_ACCEPTANCE.md): multiple independent hole disks, quality-aware subdivision, frozen private closure and explicit refusal.
 
 - [R04 forced zipper and refinement physical acceptance](R04_FORCED_ZIPPER_ACCEPTANCE.md): full private stitch, blue seam triangles, neighbor-aware subdivision, no auto caps or durable publication.
