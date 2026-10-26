@@ -919,51 +919,39 @@ exact M19A6 state. Preserve the valid original cap: optional M21 fairing
   under identical whole-patch validity and original fallback.
 - [ ] **M21D — Production eligibility**, distinct from PRIVATE preview.
 
-## R06-M22 — Replace fixed ring/hub cap with symmetry-aware advancing front (2026-10-26)
+## R06-M22 — Generic Poisson first, then in-place advancing-front construction (2026-10-26)
 
-User provided three mirror-bridge angle cases (<45, <90, >=90 degrees);
-use a seam-midpoint subdivision to keep exact half-plane faces instead
-of a self-mirrored cross-plane triangle. Design and acceptance:
+Revised design and acceptance:
 [docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md](docs/R06_M22_ADVANCING_FRONT_REPLACEMENT.md).
-The current M17–M21 routines are ring/hub specific and must not
-silently execute on the new variable-connectivity patch. Work on the
-existing r06-integration branch and PR #162 only; retain PRIVATE
-all-or-nothing source validation and already-valid old-cap fallback.
+The old special crossing-seam bridge rules were unnecessary: original
+R03 edges never straddle X=0, and AFM must preserve that invariant.
+At an ON-seam selection, guard against creating a *new* cross-plane edge.
+Advance each reflected operation atomically. Avoid separate AFM codepath;
+generalize existing solver and then replace ring/hub initialization in place.
+Current M17–M21 enhancements depend on ring-specific vertex IDs and require
+explicit isolation/adaptation for variable topology.
 
-- [ ] **M22A — Independently tested symmetric advancing-front edit core.**
-  Split into three small independently observable peers; do not claim
-  complete AFM integration from seam-only primitive tests.
-  - [ ] **M22A1 — Pure mirrored temporary-bridge transaction.**
-    Three exact angle cases, explicit seam-midpoint and bisector IDs,
-    2/4/2 half-plane faces, generated-face split conformity,
-    original-R03 no-touch refusal, determinism, budgets and atomicity.
-    Implemented in `repair_cap_advancing_front.hpp`; cross-platform CI
-    and review must pass before checkbox acceptance.
-  - [ ] **M22A2 — Complete advancing-front orbit selection.**
-    Deterministic minimum signed interior-angle selection (reflex-aware),
-    ordinary 75/135 degree front transitions, atomic reflected orbits
-    and seam-vertex cases; legal candidate fallback on bad geometry.
-  - [ ] **M22A3 — Integrated front ledger acceptance.**
-    Indexed two-sided face/front incidence and vertex fan checks,
-    no crossing/touching source edges, finite full-front progress,
-    mirrored orientation, winding and negative test cases.
-- [ ] **M22B — True variable-connectivity advancing-front cap generator.**
-  Replace in-place `buildSpatialCapFrontPoisson` initial ring/hub
-  construction behind controlled PRIVATE A/B; generalized graph
-  Poisson that never assumes n-ring+hub, with legitimate reflex-angle
-  and exact mirror geometry. Compare planar/warped/long narrow/archived.
-- [ ] **M22C — Whole-survivor validation and atomic legal fallback.**
-  Full M04 source certificate for both candidates; if alternate fails
-  or does not meaningfully improve accepted cap, retain valid original.
-  No default worker publication.
-- [ ] **M22D — Independent rotated-normal gradient Poisson option.**
-  Reconstruct fixed-rim positions from predicted desirable normals as
-  described by Zhao et al. Compare identical topology, healthy and
-  curved/crease examples before combining with M22B.
-- [ ] **M22E — Three-platform CI and physical matched-view acceptance.**
-  Compare exact refusal-1/3 ripple and fully reconstructed surfaces,
-  symmetry, source quality, contact budgets and runtime. Only then
-  decide default replacement of ring/hub.
+- [ ] **M22A — Generalized fixed-rim graph-Poisson solver extraction.**
+  Arbitrary patch vertices/faces, explicit per-interior guidance, exact
+  involutive reflected vertex IDs, immutable original rim, finite convergence
+  and budget checks. Legacy ring/hub should produce unchanged results.
+  Standalone non-ring and symmetric/refusal unit tests, GCC/Clang/MSVC CI.
+- [ ] **M22B — In-place ordinary adaptive advancing-front construction.**
+  Replace compulsory n-vertex inset ring/hub inside existing cap entry
+  point, keep exact R03 source and seam vertex/edge constraints, select
+  mirrored orbits atomically, deny seam-vertex bridging across X=0.
+  PRIVATE step debugger and non-ring topology tests, no unsafe M17–M21
+  assumptions.
+- [ ] **M22C — Full source-backed closure acceptance and atomic fallback.**
+  Complete M04 validation of alternative; preserve accepted original
+  cap if new approach fails or has no meaningful improvement.
+- [ ] **M22D — Separate desired-normal gradient Poisson option.**
+  Compare Zhao et al. rotated triangle normal-guided reconstruction
+  with generalized graph Poisson on identical topology.
+- [ ] **M22E — Cross-platform and user-visible matched-view acceptance.**
+  Refusal-1/3 and representative healthy/crease/torus/hollow fixtures,
+  exact reflection/quality/contact, finite work, physical GPU and
+  performance before enabling replacement by default.
 
 ### R06-M18 — Directional cap/survivor curvature continuity (2026-10-24)
 Design: [docs/R06_M18_CURVATURE_CONTINUITY.md](docs/R06_M18_CURVATURE_CONTINUITY.md).
