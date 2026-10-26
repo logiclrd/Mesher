@@ -12,7 +12,7 @@ RepairReplayStepSession::RepairReplayStepSession(
     bool probeSeamFeasibility,bool probeDiagonalFeasibility,
     bool stageFeasibilityPreview,bool stageDiagonalPreview,
     bool stageWholeCapFairingPreview,
-    bool tryProjectedEarClipping)
+    bool tryProjectedEarClipping,bool useUnifiedZipper)
     :saved_(std::move(saved)),classifier_(classifier),
      warningOnly_(warningOnly),seamAudit_(seamAudit),exactOverlay_(exactOverlay),
      scaleAware_(scaleAware),optimizeFront_(optimizeFront),
@@ -24,6 +24,7 @@ RepairReplayStepSession::RepairReplayStepSession(
      stageDiagonalPreview_(stageDiagonalPreview),
      stageWholeCapFairingPreview_(stageWholeCapFairingPreview),
      tryProjectedEarClipping_(tryProjectedEarClipping),
+     useUnifiedZipper_(useUnifiedZipper),
      trace_(std::make_shared<RepairStepTrace>()) {
     if(!saved_.candidate.index||saved_.contacts.empty())
         throw std::invalid_argument("R06-M16D step replay requires an exact archived case");
@@ -41,7 +42,7 @@ void RepairReplayStepSession::start() {
                     guideCurvaturePoisson_,probeSeamFeasibility_,
                     probeDiagonalFeasibility_,stageFeasibilityPreview_,
                     stageDiagonalPreview_,stageWholeCapFairingPreview_,
-                    tryProjectedEarClipping_);
+                    tryProjectedEarClipping_,useUnifiedZipper_);
                 std::lock_guard lock(stateMutex_);
                 result_=std::move(value);
             }catch(const RepairStepCancelled&) {
