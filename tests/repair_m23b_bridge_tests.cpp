@@ -65,7 +65,7 @@ void test(bool mirrored) {
     // Ablation: the same bridge+AFM with an identity adjustment must
     // differ from the bounded opposing-side field, otherwise gravity
     // would be a nominal callback with no actual geometric effect.
-    std::size_t adjustments=0,ancestralAdjustments=0;
+    std::size_t adjustments=0,ancestralAdjustments=0,tangentChecks=0;
     SpatialCapPlacementAdjustment identity=
         [&](const SpatialCapPlacementProposal& proposal) {
             ++adjustments;
@@ -76,9 +76,11 @@ void test(bool mirrored) {
             // This was missing in the original 3D-bisector placement.
             const auto n=proposal.projectionNormal;
             const auto d=proposal.projectedPosition-proposal.frontPosition;
-            if(length(n)>1e-12&&length(d)>1e-12)
+            if(length(n)>1e-12&&length(d)>1e-12) {
+                ++tangentChecks;
                 require(std::abs(dot(n,d))<=1e-8*length(n)*length(d),
                     "M23B AFM proposed a non-tangential point before gravity");
+            }
             return proposal.projectedPosition;
         };
     bool different=false;
@@ -101,6 +103,8 @@ void test(bool mirrored) {
     }
     require(adjustments>0&&ancestralAdjustments>0,
         "M23B must invoke the adjustment on active sided front vertices");
+    require(tangentChecks>0,
+        "M23B must supply a real tangent-normal projection to gravity");
     if(!mirrored)
         require(different,
             "M23B gravity had no effect on the asymmetric candidate");
