@@ -115,7 +115,8 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool stageFeasibilityPreview=false,
                           bool stageDiagonalPreview=false,
                           bool stageWholeCapFairingPreview=false,
-                          bool tryProjectedEarClipping=false) {
+                          bool tryProjectedEarClipping=false,
+                          bool useUnifiedZipper=false) {
     // The opt-in producer may be paused on ANY initial cap/zipper operation.
     // Completion, refusal or intentional cancellation must release consumers,
     // without changing the ordinary synchronous replay or inspector path.
@@ -169,6 +170,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     policy.closure.staging.stageDiagonalPreview=stageDiagonalPreview;
                     policy.closure.staging.stageWholeCapFairingPreview=stageWholeCapFairingPreview;
                     policy.closure.staging.tryProjectedEarClipping=tryProjectedEarClipping;
+                    policy.closure.staging.useUnifiedZipper=useUnifiedZipper;
                     policy.closure.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                     policy.planner.classifier=classifier;
                     if(trace)trace->attach(policy.closure,trace);
@@ -438,7 +440,8 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
                                         warnQuality_,{},scaleAware_,optimizeFront_,
                                         optimizeCurvatureFront_,guideCurvaturePoisson_,
                                         probeSeamFeasibility_,probeDiagonalFeasibility_,
-                                        false,false,false,tryProjectedEarClipping_);
+                                        false,false,false,tryProjectedEarClipping_,
+                                        useUnifiedZipper_);
     result->exactOverlay=exactOverlay_;
     buildSeamAuditIfRequested(*result,auditSeam_||exactOverlay_);
     {
@@ -466,7 +469,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     bool guideCurvaturePoisson,bool probeSeamFeasibility,
     bool probeDiagonalFeasibility,bool stageFeasibilityPreview,
     bool stageDiagonalPreview,bool stageWholeCapFairingPreview,
-    bool tryProjectedEarClipping) {
+    bool tryProjectedEarClipping,bool useUnifiedZipper) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -515,7 +518,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
                         guideCurvaturePoisson,probeSeamFeasibility,
                         probeDiagonalFeasibility,stageFeasibilityPreview,
                         stageDiagonalPreview,stageWholeCapFairingPreview,
-                        tryProjectedEarClipping);
+                        tryProjectedEarClipping,useUnifiedZipper);
     result->exactOverlay=exactOverlay;
     buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;
