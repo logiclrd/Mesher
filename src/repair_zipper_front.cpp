@@ -71,6 +71,11 @@ Candidate seed(const UnifiedZipperRim& first,
     const auto A=first.positions[a],B=second.positions[b];
     const auto C=first.positions[c],D=second.positions[d];
     const auto mid=(A+B)*.5;
+    auto seamNormal=first.outgoingNormals[a]+second.outgoingNormals[b];
+    seamNormal.x=0;
+    if(length(seamNormal)>1e-12)
+        seamNormal=normalized(seamNormal);
+    else seamNormal={0,0,1};
     const auto span=B-A;
     const auto distance=length(span);
     auto tangent=(C+D)*.5-mid;
@@ -100,7 +105,7 @@ Candidate seed(const UnifiedZipperRim& first,
     const auto ai=append(A,first.ids[a],first.outgoingNormals[a]);
     std::uint32_t seamD=0;
     if(mirror) {
-        seamD=append({0,mid.y,mid.z},0,{0,0,1});
+        seamD=append({0,mid.y,mid.z},0,seamNormal);
     }
     const auto bi=append(B,second.ids[b],second.outgoingNormals[b]);
     for(std::size_t k=(b+1)%nb;k!=b;k=(k+1)%nb)
@@ -109,7 +114,7 @@ Candidate seed(const UnifiedZipperRim& first,
     const double step=std::sqrt(3.)*.5*distance*factor;
     auto K=mid+tangent*step;
     if(mirror)K.x=0;
-    const auto ki=append(K,0,{0,0,1});
+    const auto ki=append(K,0,seamNormal);
     const auto ci=append(C,first.ids[c],first.outgoingNormals[c]);
     for(std::size_t k=(c+1)%na;k!=a;k=(k+1)%na)
         append(first.positions[k],first.ids[k],first.outgoingNormals[k]);
