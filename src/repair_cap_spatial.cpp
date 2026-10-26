@@ -577,6 +577,41 @@ SpatialCapPatch constructAdaptiveFront(
                     bool rejected=false;
                     for(std::size_t ordinal=0;ordinal<proposals.size();++ordinal) {
                         auto q=proposals[ordinal];
+                        SpatialCapPlacementTrace trace;
+                        if(rimSides) {
+                            trace.rawProposal=q;
+                            trace.frontVertex=vId;
+                            trace.frontPrev=aId;
+                            trace.frontNext=bId;
+                            trace.proposalOrdinal=ordinal;
+                            trace.frontOperation=state.patch.faces.size();
+                            trace.originatingSide=state.originSides[vId];
+                            trace.tangentNormal=currentNormals[vId];
+                            // Capture the actual already-created supporting
+                            // faces at this front edge, not hypothetical
+                            // normals or future faces. Bridge seed triangles
+                            // are outside this cap generator's face list.
+                            for(const auto& face:state.patch.faces) {
+                                const auto sharesEdge=[&](std::uint32_t x,
+                                                          std::uint32_t y) {
+                                    bool hasX=false,hasY=false;
+                                    for(const auto id:face) {
+                                        hasX=hasX||id==x;
+                                        hasY=hasY||id==y;
+                                    }
+                                    return hasX&&hasY;
+                                };
+                                if(!sharesEdge(aId,vId)&&
+                                   !sharesEdge(vId,bId))continue;
+                                if(trace.supportCount==trace.supportFaces.size())
+                                    break;
+                                const auto k=trace.supportCount++;
+                                trace.supportFaces[k]=face;
+                                for(std::size_t corner=0;corner<3;++corner)
+                                    trace.supportAtProposal[k][corner]=
+                                        state.patch.positions[face[corner]];
+                            }
+                        }
                         // M23B: an advancing front follows its LOCAL tangent
                         // plane; the zipper's gravitational callback then
                         // bends the point toward the opposing side. Preserve
@@ -595,6 +630,7 @@ SpatialCapPatch constructAdaptiveFront(
                             if(along>0)q=vertex+projected*(step/along);
                             if(seam)q.x=0;
                         }
+                        if(rimSides)trace.tangentProposal=q;
                         // M23A: zero work and identical floating-point behavior
                         // for the null path. This hook is used only for proposed
                         // new positions, BEFORE any snap, contact or face test.
@@ -606,6 +642,7 @@ SpatialCapPatch constructAdaptiveFront(
                                 &state.front,&state.originSides,
                                 rimSides?currentNormals[vId]:Vec3{}});
                         }
+                        if(rimSides)trace.gravityProposal=q;
                         if(!finite(q)){rejected=true;break;}
                         if(limits.requireMirrorPlane&&!seam) {
                             const auto h=std::min(la,lb);
@@ -626,6 +663,11 @@ SpatialCapPatch constructAdaptiveFront(
                         }
                         const auto id=static_cast<std::uint32_t>(
                             trial.patch.positions.size());
+                        if(rimSides) {
+                            trace.patchVertex=id;
+                            trace.stagedProposal=q;
+                            trial.patch.placementTrace.push_back(trace);
+                        }
                         trial.patch.positions.push_back(q);
                         trial.guides.push_back(state.guides[vId]);
                         trial.twins.push_back(id);
@@ -640,6 +682,39 @@ SpatialCapPatch constructAdaptiveFront(
                                 state.originSides[vId]==1?2:
                                 state.originSides[vId]==2?1:0);
                             trial.twins[id]=mate;
+                            if(rimSides) {
+                                auto reflectedTrace=trace;
+                                reflectedTrace.patchVertex=mate;
+                                reflectedTrace.frontVertex=
+                                    static_cast<std::uint32_t>(
+                                        state.twins[vId]);
+                                reflectedTrace.frontPrev=
+                                    static_cast<std::uint32_t>(
+                                        state.twins[bId]);
+                                reflectedTrace.frontNext=
+                                    static_cast<std::uint32_t>(
+                                        state.twins[aId]);
+                                reflectedTrace.originatingSide=
+                                    trace.originatingSide==1?2:
+                                    trace.originatingSide==2?1:0;
+                                reflectedTrace.rawProposal=reflect(trace.rawProposal);
+                                reflectedTrace.tangentProposal=reflect(trace.tangentProposal);
+                                reflectedTrace.gravityProposal=reflect(trace.gravityProposal);
+                                reflectedTrace.stagedProposal=reflect(trace.stagedProposal);
+                                reflectedTrace.tangentNormal=reflect(trace.tangentNormal);
+                                for(std::size_t k=0;k<trace.supportCount;++k) {
+                                    const auto& support=trace.supportFaces[k];
+                                    for(std::size_t c=0;c<3;++c) {
+                                        reflectedTrace.supportFaces[k][c]=
+                                            static_cast<std::uint32_t>(
+                                                state.twins[support[c]]);
+                                        reflectedTrace.supportAtProposal[k][c]=
+                                            reflect(trace.supportAtProposal[k][c]);
+                                    }
+                                }
+                                trial.patch.placementTrace.push_back(
+                                    std::move(reflectedTrace));
+                            }
                         }else if(limits.requireMirrorPlane) {
                             trial.guides[id].x=0;
                         }
@@ -718,6 +793,10 @@ SpatialCapPatch constructAdaptiveFront(
     solveSpatialCapFixedRimPoisson(state.patch,interior,limits,
         limits.requireMirrorPlane?state.twins:
             std::vector<std::size_t>{});
+    if(rimSides) {
+        for(auto& trace:state.patch.placementTrace)
+            trace.poissonPosition=state.patch.positions.at(trace.patchVertex);
+    }
     return state.patch;
 }
 } // namespace
