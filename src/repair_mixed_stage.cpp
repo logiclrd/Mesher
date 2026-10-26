@@ -575,6 +575,8 @@ MixedClosureStaging stagePrivateMixedClosure(
                      <<" generated_vertices="<<patch.positions.size()-
                          (a.vertexIds.size()+b.vertexIds.size())
                      <<" min_seed_q="<<patch.minimumSeedQuality
+                     <<" tangent_seed="<<patch.tangentGuidedBridge
+                     <<" seam_D_offset="<<patch.seamSeedOffset
                      <<" poisson_iterations="<<patch.poissonIterations
                      <<" source_certified=0\n";
         }else if(mirroredPair) {
