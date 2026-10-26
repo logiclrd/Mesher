@@ -34,6 +34,96 @@ double medianEdge(const MixedClosureSourceView& mesh,const RepairContour& loop) 
     return lengths[lengths.size()/2];
 }
 struct Side {bool forward{};bool inserted{};};
+// M22B3: local O(F log F) diagnostic, independent of whole-mesh source
+// validation. Every completed candidate is measured before staging.
+template<class Id,class Lookup>
+void logCapCandidate(const char* method,std::size_t loop,
+                     std::size_t boundaryVertices,
+                     const std::vector<std::array<Id,3>>& faces,
+                     Lookup&& position,std::size_t iterations,
+                     double residual,const char* status) {
+    std::set<Id> vertices;
+    std::set<std::pair<Id,Id>> edges;
+    std::vector<double> qValues,edgeLengths;
+    qValues.reserve(faces.size());
+    std::size_t underQuality=0,zeroArea=0;
+    for(const auto& f:faces) {
+        const auto a=position(f[0]),b=position(f[1]),d=position(f[2]);
+        vertices.insert(f.begin(),f.end());
+        const auto sum=dot(a-b,a-b)+dot(b-d,b-d)+dot(d-a,d-a);
+        const auto q=sum>0?
+            2*std::sqrt(3.)*length(cross(b-a,d-a))/sum:0.;
+        qValues.push_back(q);
+        if(q<.10)++underQuality;
+        if(!(q>1e-8)||!std::isfinite(q))++zeroArea;
+        for(unsigned k=0;k<3;++k) {
+            const auto x=f[k],y=f[(k+1)%3];
+            const auto pair=std::minmax(x,y);
+            if(edges.emplace(pair.first,pair.second).second)
+                edgeLengths.push_back(length(position(x)-position(y)));
+        }
+    }
+    std::map<std::pair<Id,Id>,unsigned> incidence;
+    for(const auto& f:faces)
+        for(unsigned k=0;k<3;++k) {
+            const auto pair=std::minmax(f[k],f[(k+1)%3]);
+            ++incidence[{pair.first,pair.second}];
+        }
+    std::size_t boundaryEdges=0,nonmanifoldEdges=0;
+    for(const auto& [edge,count]:incidence) {
+        (void)edge;
+        if(count==1)++boundaryEdges;
+        if(count>2)++nonmanifoldEdges;
+    }
+    std::sort(qValues.begin(),qValues.end());
+    std::sort(edgeLengths.begin(),edgeLengths.end());
+    const auto percentile=[](const std::vector<double>& v,double fraction) {
+        if(v.empty())return 0.;
+        const auto index=static_cast<std::size_t>(fraction*(v.size()-1));
+        return v[index];
+    };
+    const auto decileCount=(qValues.size()+9)/10;
+    double lowSum=0,highSum=0,mean=0;
+    for(std::size_t i=0;i<qValues.size();++i) {
+        mean+=qValues[i];
+        if(i<decileCount)lowSum+=qValues[i];
+        if(i>=qValues.size()-decileCount)highSum+=qValues[i];
+    }
+    if(!qValues.empty())mean/=static_cast<double>(qValues.size());
+    const auto decile=static_cast<double>(decileCount);
+    std::cerr<<std::setprecision(10)
+             <<"[repair-r06-cap-metrics] method="<<method
+             <<" loop="<<loop<<" status="<<status
+             <<" fixed_boundary_vertices="<<boundaryVertices
+             <<" vertices="<<vertices.size()
+             <<" generated_vertices="<<(vertices.size()>boundaryVertices?
+                 vertices.size()-boundaryVertices:0)
+             <<" edges="<<edges.size()
+             <<" faces="<<faces.size()
+             <<" boundary_edges="<<boundaryEdges
+             <<" overincident_edges="<<nonmanifoldEdges
+             <<" euler="<<(static_cast<std::int64_t>(vertices.size())-
+                 static_cast<std::int64_t>(edges.size())+
+                 static_cast<std::int64_t>(faces.size()))
+             <<" q_min="<<percentile(qValues,0)
+             <<" q_p10="<<percentile(qValues,.10)
+             <<" q_median="<<percentile(qValues,.5)
+             <<" q_p90="<<percentile(qValues,.9)
+             <<" q_max="<<percentile(qValues,1)
+             <<" q_mean="<<mean
+             <<" bottom_decile_faces="<<decileCount
+             <<" bottom_decile_mean_q="<<(decileCount?lowSum/decile:0.)
+             <<" top_decile_faces="<<decileCount
+             <<" top_decile_mean_q="<<(decileCount?highSum/decile:0.)
+             <<" q_below_0_10="<<underQuality
+             <<" degenerate_faces="<<zeroArea
+             <<" edge_min="<<percentile(edgeLengths,0)
+             <<" edge_median="<<percentile(edgeLengths,.5)
+             <<" edge_max="<<percentile(edgeLengths,1)
+             <<" poisson_iterations="<<iterations
+             <<" poisson_residual="<<residual
+             <<" source_certified=0\\n";
+}
 }
 
 MixedClosureStaging stagePrivateMixedClosure(
@@ -99,7 +189,9 @@ MixedClosureStaging stagePrivateMixedClosure(
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
         const auto owner=result.sourceView()->face(loop.survivingFaces.front()).owner;
-        bool forceSpatial=false;
+        // AFM is the default R06 cap generator. Projected ear clipping
+        // is a diagnostic/compatibility first-pass only when requested.
+        bool forceSpatial=!bounds.tryProjectedEarClipping;
         if(bounds.requireReflectedGeometry) {
             bool positive=false,negative=false;
             for(const auto vertex:loop.vertexIds) {
@@ -109,15 +201,29 @@ MixedClosureStaging stagePrivateMixedClosure(
             }
             forceSpatial=positive&&negative;
         }
-        std::string projectedReason="mirror-required crossing-plane cap";
+        std::string projectedReason=bounds.tryProjectedEarClipping?
+            "mirror-required crossing-plane cap":"projected-ear disabled by default";
         if(!forceSpatial) {
             try {
-                for(const auto triangle:triangulatePrivateCapDisk(
-                        loop,result.positions().materialize(),h))
+                const auto triangles=triangulatePrivateCapDisk(
+                    loop,result.positions().materialize(),h);
+                logCapCandidate("projected-ear",id,loop.vertexIds.size(),
+                    triangles,[&](VertexId vertex) {
+                        return result.positions().at(vertex);
+                    },0,0.,"CANDIDATE_READY");
+                // Staging must not partially retain ear faces if
+                // generation fails. The full M04 retry is separate.
+                for(const auto& triangle:triangles)
                     addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
             }catch(const std::logic_error& e) {
                 forceSpatial=true;
                 projectedReason=e.what();
+                std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+                         <<" loop="<<id
+                         <<" status=GENERATOR_REFUSED"
+                         <<" metrics=unavailable"
+                         <<" reason="<<e.what()
+                         <<" next=advancing-front\\n";
             }
         }
         if(forceSpatial) {
@@ -144,6 +250,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             SpatialCapPatch patch;
             try {
                 SpatialCapSettings spatial;
+                spatial.useAdvancingFront=true;
                 spatial.repairTangentialOvershoot=bounds.optimizeSpatialFront;
                 spatial.optimizeBoundaryContinuity=bounds.optimizeCurvatureFront;
                 spatial.curvatureGuidedPoisson=bounds.guideCurvaturePoisson;
@@ -185,10 +292,19 @@ MixedClosureStaging stagePrivateMixedClosure(
                     (bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
                      bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview)?
                         &references:nullptr);
+                logCapCandidate("advancing-front",id,n,
+                    patch.faces,[&](std::uint32_t vertex) {
+                        return patch.positions.at(vertex);
+                    },patch.poissonIterations,patch.poissonResidual,
+                    "CANDIDATE_READY");
             }catch(const std::exception& failed) {
+                std::cerr<<"[repair-r06-cap-metrics] method=advancing-front"
+                         <<" loop="<<id<<" status=GENERATOR_REFUSED"
+                         <<" metrics=unavailable reason="<<failed.what()
+                         <<" prior_projected_ear="<<projectedReason
+                         <<" source_certified=0\\n";
                 throw std::logic_error(
-                    std::string("R06-M06C projected cap unavailable: ")+
-                    projectedReason+"; spatial front refused: "+
+                    std::string("R06-M22B advancing-front cap unavailable: ")+
                     failed.what());
             }
             // M18A read-only diagnostic. The original cap rim is reversed:
