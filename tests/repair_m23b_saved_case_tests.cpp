@@ -12,6 +12,7 @@
 #include <map>
 #include <numeric>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -117,7 +118,66 @@ void originalCase() {
     const auto prior=stagePrivateMixedClosure(cut,excision,plan,old);
     const auto previousQ=minZipperQuality(prior);
     old.useUnifiedZipper=true;
-    const auto candidate=stagePrivateMixedClosure(cut,excision,plan,old);
+    std::ostringstream capturedTrace;
+    // The staging operation is synchronous: capture its diagnostics, then
+    // verify that BOTH the face-map IDs and placement IDs are exactly the
+    // same VertexIds used in the staged private geometry.
+    const auto candidate=[&]() {
+        struct Capture {
+            explicit Capture(std::ostringstream& out)
+                :previous(std::cerr.rdbuf(out.rdbuf())) {}
+            ~Capture() {std::cerr.rdbuf(previous);}
+            std::streambuf* previous;
+        } capture(capturedTrace);
+        return stagePrivateMixedClosure(cut,excision,plan,old);
+    }();
+    std::size_t placed=0,mappedFaces=0,actualFaceMatches=0;
+    std::set<VertexId> tracedIds;
+    std::istringstream lines(capturedTrace.str());
+    std::string line;
+    const auto number=[&](const std::string& text,
+                          const std::string& key)->VertexId {
+        const auto i=text.find(key);
+        require(i!=std::string::npos,"M23B trace missing replay join field");
+        return static_cast<VertexId>(
+            std::stoull(text.substr(i+key.size())));
+    };
+    while(std::getline(lines,line)) {
+        if(line.find("[repair-r06-m23b-placement]")!=std::string::npos) {
+            ++placed;
+            const auto id=number(line," provisional=");
+            require(candidate.positions().contains(id)&&
+                    std::find(candidate.provisionalSpatialVertices().begin(),
+                              candidate.provisionalSpatialVertices().end(),id)!=
+                        candidate.provisionalSpatialVertices().end(),
+                "M23B placement trace has no corresponding replay VertexId");
+            require(line.find(" raw=")!=std::string::npos&&
+                    line.find(" tangent=")!=std::string::npos&&
+                    line.find(" gravity=")!=std::string::npos&&
+                    line.find(" poisson=")!=std::string::npos&&
+                    line.find(" afm_support_faces=")!=std::string::npos,
+                "M23B trace missing one of the four diagnostic positions");
+            tracedIds.insert(id);
+        }else if(line.find("[repair-r06-m23b-face-map]")!=std::string::npos) {
+            ++mappedFaces;
+            const auto a=number(line," A="),b=number(line," B="),
+                       c=number(line," C=");
+            for(const auto& f:candidate.faces()) {
+                if(f.kind!=MixedClosureFaceKind::Zipper)continue;
+                const auto v=f.triangle();
+                if(v[0]==a&&v[1]==b&&v[2]==c) {
+                    ++actualFaceMatches;
+                    break;
+                }
+            }
+        }
+    }
+    require(placed>0&&tracedIds.size()==placed,
+        "M23B accepted AFM proposals lack unique provisional vertex IDs");
+    require(mappedFaces>0&&mappedFaces==actualFaceMatches,
+        "M23B face-map arguments do not match staged ENSUREFACE IDs");
+    std::cout<<"[r06-m23b-replay-join] vertices="<<placed
+             <<" mapped_faces="<<mappedFaces<<" PASS\\n";
     const auto nextQ=minZipperQuality(candidate);
     require(candidate.boundarySidesCovered==cut.boundaryEdges,
         "M23B staged geometry did not seal every original R03 rim");
