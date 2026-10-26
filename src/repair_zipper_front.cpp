@@ -201,6 +201,32 @@ Vec3 opposingGravity(Vec3 p,const std::vector<Vec3>& other,
     return p+delta;
 }
 
+// The original two-sided zipper field is also meaningful at a neutral
+// bridge/front vertex: transverse pulls cancel under reflection, but the
+// along-surface components need not. Keep the same bounded force law.
+Vec3 unifiedZipperGravity(const SpatialCapPlacementProposal& proposal,
+                          bool requireMirrorPlane) {
+    const auto side=proposal.originatingSide;
+    if(side>2||!proposal.activePositions||!proposal.activeFront||
+       !proposal.activeSides)
+        return proposal.projectedPosition;
+    const auto opposing=side==1?2:1;
+    std::vector<Vec3> targets;
+    for(const auto vertex:*proposal.activeFront) {
+        const auto targetSide=proposal.activeSides->at(vertex);
+        const bool eligible=side==0?
+            (targetSide==1||targetSide==2):targetSide==opposing;
+        if(eligible)targets.push_back(proposal.activePositions->at(vertex));
+    }
+    auto moved=opposingGravity(
+        proposal.projectedPosition,targets,proposal.localEdgeScale);
+    // A neutral point already on the exact reflection seam must remain
+    // there. Do not apply this constraint to asymmetric zipper meshes.
+    if(requireMirrorPlane&&side==0&&proposal.frontPosition.x==0)
+        moved.x=0;
+    return moved;
+}
+
 UnifiedZipperFrontPatch buildUnifiedZipperFront(
     const UnifiedZipperRim& first,
     const UnifiedZipperRim& second,
@@ -281,18 +307,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                             firstIds.count(id)?1:2);
                     SpatialCapPlacementAdjustment gravity=
                         [&](const SpatialCapPlacementProposal& proposal)->Vec3 {
-                            if(proposal.originatingSide!=1&&
-                               proposal.originatingSide!=2)
-                                return proposal.projectedPosition;
-                            const auto opposing=proposal.originatingSide==1?2:1;
-                            std::vector<Vec3> targets;
-                            for(const auto vertex:*proposal.activeFront)
-                                if(proposal.activeSides->at(vertex)==opposing)
-                                    targets.push_back(
-                                        proposal.activePositions->at(vertex));
-                            return opposingGravity(
-                                proposal.projectedPosition,targets,
-                                proposal.localEdgeScale);
+                            return unifiedZipperGravity(proposal,selfReflected);
                         };
                     // For a caller-supplied adjustment, the caller owns the
                     // higher-level wrapper; otherwise use the zipper gravity.

@@ -1031,6 +1031,18 @@ non-regressing path until M23B3 acceptance.
   refusal-2 zipper quality/physical acceptance separately. Keep older
   broken M22 tests visible until subsequent case-by-case reconciliation.
 
+- [ ] **M23B4 — Neutral-front combined gravity experiment (PRIVATE).**
+  Previously side-0 proposals received no attraction. Use both side-1
+  and side-2 live front vertices for neutral proposals, excluding neutral
+  targets; preserve the original force exponent/gain/bound, sided
+  opposite-only semantics, and exact reflected X=0 seam. Add direct
+  non-cancelling three-dimensional and no-regression invariants. Compare
+  accepted proposal gravity/Poisson shifts and physical step-58 geometry
+  in `refusal-2`, then verify whole-source closure/quality, ordinary-cap
+  invariance and three-platform CI before deciding whether to keep
+  this experiment. Do not change the old zipper default or declare
+  visual acceptance merely from a passing geometry test.
+
 - [ ] **M23B — Unified attractive-front zipper, finite bridge, and cap
   handoff.** Replace separately specialized R06 zipper construction
   with a single advancing-front zipper that considers opposing-rim
