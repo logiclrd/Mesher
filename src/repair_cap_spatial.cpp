@@ -250,6 +250,340 @@ void solveSpatialCapFixedRimPoisson(
     patch=std::move(candidate);
 }
 
+// M22B: ordinary advancing-front construction. This produces the SAME
+// SpatialCapPatch interface consumed by the existing source-backed M04 stage.
+// All edits are local copies. The only mirror-specific rules are paired
+// operations, a seam-vertex two-triangle turn, and no cross-plane edge.
+namespace {
+struct AdaptiveFrontState {
+    SpatialCapPatch patch;
+    std::vector<std::uint32_t> front;
+    std::vector<std::size_t> twins;
+    std::vector<Vec3> guides; // indexed by all positions (rim included)
+};
+
+SpatialCapPatch constructAdaptiveFront(
+    const std::vector<Vec3>& rim,
+    const std::vector<Vec3>& normals,
+    const std::vector<std::size_t>& boundaryTwins,
+    const SpatialCapSettings& limits) {
+    const auto n=rim.size();
+    if(n<3||n>limits.maxBoundaryVertices||
+       !(limits.nearSeamSnapFraction>=0&&
+         limits.nearSeamSnapFraction<=.5&&
+         std::isfinite(limits.nearSeamSnapFraction)))
+        throw std::invalid_argument("R06-M22B invalid advancing-front limits");
+    AdaptiveFrontState state;
+    state.patch.boundaryCount=n;
+    state.patch.usedAdaptiveFront=true;
+    state.patch.positions=rim;
+    state.front.reserve(n+limits.maxInteriorVertices);
+    state.guides.reserve(n+limits.maxInteriorVertices);
+    state.twins.reserve(n+limits.maxInteriorVertices);
+    Vec3 area{};
+    for(std::size_t i=0;i<n;++i) {
+        const auto j=(i+1)%n;
+        state.front.push_back(static_cast<std::uint32_t>(i));
+        area=area+cross(rim[i],rim[j]);
+        auto g=normals.empty()?Vec3{}:normals[i];
+        if(!finite(g))throw std::logic_error("R06-M22B nonfinite rim guidance");
+        const auto m=length(g);
+        state.guides.push_back(m>1e-12?g/m:Vec3{});
+        state.twins.push_back(limits.requireMirrorPlane?boundaryTwins[i]:i);
+    }
+    const auto reflect=[](Vec3 p){return Vec3{-p.x,p.y,p.z};};
+    const auto rimScale=[&]() {
+        std::vector<double> lengths;
+        lengths.reserve(n);
+        for(std::size_t i=0;i<n;++i)
+            lengths.push_back(length(rim[(i+1)%n]-rim[i]));
+        std::sort(lengths.begin(),lengths.end());
+        return lengths[n/2];
+    }();
+    if(!(rimScale>1e-12&&std::isfinite(rimScale)))
+        throw std::logic_error("R06-M22B degenerate front scale");
+    const auto normal=length(area)>1e-12?normalized(area):Vec3{0,0,1};
+    const auto samePoint=[](Vec3 a,Vec3 b) {
+        return a.x==b.x&&a.y==b.y&&a.z==b.z;
+    };
+    const auto addFace=[&](AdaptiveFrontState& s,
+                          std::uint32_t a,std::uint32_t b,std::uint32_t d) {
+        s.patch.faces.push_back({a,b,d});
+    };
+    std::size_t tests=0;
+    const auto legal=[&](const AdaptiveFrontState& s) {
+        if(s.patch.faces.size()>limits.maxFaces||
+           s.patch.positions.size()-n>limits.maxInteriorVertices||
+           s.front.size()>limits.maxFaces+2)
+            return false;
+        std::set<std::uint32_t> unique;
+        for(const auto id:s.front) {
+            if(id>=s.patch.positions.size()||!unique.insert(id).second)
+                return false;
+        }
+        if(limits.requireMirrorPlane) {
+            if(s.twins.size()!=s.patch.positions.size())return false;
+            for(std::size_t i=0;i<s.twins.size();++i) {
+                const auto j=s.twins[i];
+                if(j>=s.twins.size()||s.twins[j]!=i||
+                   !samePoint(s.patch.positions[j],
+                              reflect(s.patch.positions[i])))
+                    return false;
+            }
+        }
+        // No front edge may straddle X=0 without a real seam vertex.
+        for(std::size_t i=0;i<s.front.size();++i) {
+            const auto a=s.patch.positions[s.front[i]];
+            const auto b=s.patch.positions[s.front[(i+1)%s.front.size()]];
+            if(limits.requireMirrorPlane&&a.x*b.x<0)return false;
+        }
+        for(const auto& face:s.patch.faces) {
+            if(face[0]>=s.patch.positions.size()||
+               face[1]>=s.patch.positions.size()||
+               face[2]>=s.patch.positions.size())
+                return false;
+            const auto a=s.patch.positions[face[0]];
+            const auto b=s.patch.positions[face[1]];
+            const auto d=s.patch.positions[face[2]];
+            if(limits.requireMirrorPlane&&
+               std::min({a.x,b.x,d.x})<0&&
+               std::max({a.x,b.x,d.x})>0)return false;
+            if(!(quality(a,b,d)>1e-8))return false;
+        }
+        // Bounded contact checks on generated faces, including intersections
+        // caused by otherwise plausible but folded advancing-front turns.
+        for(std::size_t i=0;i<s.patch.faces.size();++i)
+        for(std::size_t j=i+1;j<s.patch.faces.size();++j) {
+            if(++tests>limits.maxIntersectionTests)
+                throw std::length_error("R06-M22B advancing-front contact budget");
+            std::array<Vec3,3> p{},q{};
+            std::array<VertexId,3> pi{},qi{};
+            for(unsigned k=0;k<3;++k) {
+                pi[k]=static_cast<VertexId>(s.patch.faces[i][k])+1;
+                qi[k]=static_cast<VertexId>(s.patch.faces[j][k])+1;
+                p[k]=s.patch.positions[s.patch.faces[i][k]];
+                q[k]=s.patch.positions[s.patch.faces[j][k]];
+            }
+            const auto hit=triangleContact(p,pi,q,qi);
+            if(hit!=TriangleContact::Disjoint&&
+               hit!=TriangleContact::ExpectedAdjacency)return false;
+        }
+        return true;
+    };
+    // Work budget includes rejected proposals: never retry indefinitely.
+    const auto maxAttempts=std::min<std::size_t>(
+        limits.maxFaces*8+limits.maxBoundaryVertices*8,65536);
+    std::size_t attempts=0;
+    while(state.front.size()>3) {
+        if(++attempts>maxAttempts)
+            throw std::length_error("R06-M22B advancing-front attempt budget");
+        // Exact mirrored terminal: the final two half-disks close by one
+        // shared real seam edge, NEVER by a crossing-plane triangle.
+        if(limits.requireMirrorPlane&&state.front.size()==4) {
+            std::vector<std::uint32_t> seams,off;
+            for(const auto id:state.front)
+                (state.patch.positions[id].x==0?seams:off).push_back(id);
+            if(seams.size()==2&&off.size()==2&&
+               state.twins[off[0]]==off[1]) {
+                auto trial=state;
+                // Find one candidate half triangle from cyclic front order.
+                bool closed=false;
+                for(std::size_t i=0;i<4&&!closed;++i) {
+                    const auto a=trial.front[i];
+                    const auto b=trial.front[(i+1)%4];
+                    const auto d=trial.front[(i+2)%4];
+                    if(trial.patch.positions[a].x==0&&
+                       trial.patch.positions[d].x==0&&
+                       trial.patch.positions[b].x!=0) {
+                        addFace(trial,a,b,d);
+                        addFace(trial,state.twins[d],state.twins[b],
+                                state.twins[a]);
+                        trial.front.clear();
+                        if(legal(trial)){state=std::move(trial);closed=true;}
+                        else throw std::logic_error(
+                            "R06-M22B symmetric terminal half-disks not embedded");
+                    }
+                }
+                if(closed)break;
+            }
+        }
+        // Evaluate all corners, preferring the smallest oriented angle.
+        // Reflected off-seam corners form one indivisible orbit.
+        struct Corner {std::size_t index;double angle;};
+        std::vector<Corner> choices;
+        for(std::size_t i=0;i<state.front.size();++i) {
+            const auto id=state.front[i];
+            if(limits.requireMirrorPlane&&state.twins[id]<id)continue;
+            const auto a=state.patch.positions[state.front[
+                (i+state.front.size()-1)%state.front.size()]];
+            const auto b=state.patch.positions[id];
+            const auto d=state.patch.positions[state.front[
+                (i+1)%state.front.size()]];
+            const auto u=a-b,v=d-b;
+            if(!(length(u)>1e-12&&length(v)>1e-12))continue;
+            double theta=std::acos(std::clamp(
+                dot(u,v)/(length(u)*length(v)),-1.,1.));
+            if(dot(cross(u,v),normal)>1e-10*length(u)*length(v))
+                theta=2*std::acos(-1.)-theta;
+            choices.push_back({i,theta});
+        }
+        std::stable_sort(choices.begin(),choices.end(),
+            [](const Corner& a,const Corner& b) {
+                if(a.angle!=b.angle)return a.angle<b.angle;
+                return a.index<b.index;
+            });
+        bool accepted=false;
+        for(const auto& choice:choices) {
+            if(accepted)break;
+            const auto size=state.front.size();
+            const auto at=choice.index;
+            const auto vId=state.front[at];
+            const auto aId=state.front[(at+size-1)%size];
+            const auto bId=state.front[(at+1)%size];
+            const auto vertex=state.patch.positions[vId];
+            const auto a=state.patch.positions[aId];
+            const auto b=state.patch.positions[bId];
+            const auto ua=a-vertex,ub=b-vertex;
+            const auto la=length(ua),lb=length(ub);
+            if(!(la>1e-12&&lb>1e-12))continue;
+            const auto dirA=ua/la,dirB=ub/lb;
+            const auto bisector=dirA+dirB;
+            const auto bisectorLen=length(bisector);
+            const bool seam=limits.requireMirrorPlane&&vertex.x==0;
+            const auto pi=std::acos(-1.);
+            const unsigned mode=seam?2:
+                (choice.angle<=75*pi/180?1:
+                 choice.angle<=135*pi/180?2:3);
+            if(mode!=1&&!(bisectorLen>1e-10))continue;
+            for(const double factor:{.7,1.0,.45}) {
+                if(accepted)break;
+                if(++attempts>maxAttempts)
+                    throw std::length_error("R06-M22B front proposal budget");
+                AdaptiveFrontState trial=state;
+                std::vector<std::uint32_t> replacement;
+                std::vector<std::array<std::uint32_t,3>> localFaces;
+                if(mode==1) {
+                    localFaces.push_back({aId,vId,bId});
+                }else {
+                    std::vector<Vec3> proposals;
+                    if(seam&&choice.angle<75*pi/180) {
+                        // Two mirrored right triangles, seam midpoint.
+                        proposals.push_back({0,(a.y+b.y)*.5,(a.z+b.z)*.5});
+                    }else if(mode==2) {
+                        auto q=vertex+bisector/bisectorLen*
+                            (factor*std::min(la,lb));
+                        if(seam)q.x=0;
+                        proposals.push_back(q);
+                    }else {
+                        auto first=dirA*2.+dirB;
+                        auto second=dirA+dirB*2.;
+                        if(!(length(first)>1e-12&&length(second)>1e-12))
+                            continue;
+                        proposals.push_back(vertex+normalized(first)*
+                            (factor*std::min(la,lb)));
+                        proposals.push_back(vertex+normalized(second)*
+                            (factor*std::min(la,lb)));
+                    }
+                    bool rejected=false;
+                    for(auto q:proposals) {
+                        if(!finite(q)){rejected=true;break;}
+                        if(limits.requireMirrorPlane&&!seam) {
+                            const auto h=std::min(la,lb);
+                            const bool crossing=vertex.x*q.x<0;
+                            if(crossing||std::abs(q.x)<=
+                               limits.nearSeamSnapFraction*h) {
+                                // Distinct *candidate* positions; do not
+                                // force a topologically pinched seam.
+                                if(crossing) {
+                                    const auto t=vertex.x/(vertex.x-q.x);
+                                    q=vertex+(q-vertex)*t;
+                                }
+                                q.x=0;
+                            }
+                        }
+                        if(length(q-vertex)<1e-10*rimScale) {
+                            rejected=true;break;
+                        }
+                        const auto id=static_cast<std::uint32_t>(
+                            trial.patch.positions.size());
+                        trial.patch.positions.push_back(q);
+                        trial.guides.push_back(state.guides[vId]);
+                        trial.twins.push_back(id);
+                        if(limits.requireMirrorPlane&&q.x!=0) {
+                            const auto mate=static_cast<std::uint32_t>(
+                                trial.patch.positions.size());
+                            trial.patch.positions.push_back(reflect(q));
+                            trial.guides.push_back(reflect(state.guides[vId]));
+                            trial.twins.push_back(id);
+                            trial.twins[id]=mate;
+                        }else if(limits.requireMirrorPlane) {
+                            trial.guides[id].x=0;
+                        }
+                        replacement.push_back(id);
+                    }
+                    if(rejected)continue;
+                    if(mode==2) {
+                        localFaces.push_back({aId,vId,replacement[0]});
+                        localFaces.push_back({vId,bId,replacement[0]});
+                    }else {
+                        localFaces.push_back({aId,vId,replacement[0]});
+                        localFaces.push_back({vId,replacement[1],replacement[0]});
+                        localFaces.push_back({vId,bId,replacement[1]});
+                    }
+                }
+                for(const auto& tri:localFaces) {
+                    addFace(trial,tri[0],tri[1],tri[2]);
+                    if(limits.requireMirrorPlane&&!seam)
+                        addFace(trial,
+                            static_cast<std::uint32_t>(trial.twins[tri[2]]),
+                            static_cast<std::uint32_t>(trial.twins[tri[1]]),
+                            static_cast<std::uint32_t>(trial.twins[tri[0]]));
+                }
+                // Replace the selected front corner and its mirrored
+                // counterpart in the SAME original cyclic walk.
+                std::vector<std::uint32_t> newFront;
+                newFront.reserve(size+4);
+                for(std::size_t j=0;j<size;++j) {
+                    const auto old=state.front[j];
+                    if(j==at) {
+                        newFront.insert(newFront.end(),
+                            replacement.begin(),replacement.end());
+                    }else if(limits.requireMirrorPlane&&!seam&&
+                             old==state.twins[vId]) {
+                        for(auto it=replacement.rbegin();it!=replacement.rend();++it)
+                            newFront.push_back(static_cast<std::uint32_t>(
+                                trial.twins[*it]));
+                    }else newFront.push_back(old);
+                }
+                trial.front=std::move(newFront);
+                if(!legal(trial))continue;
+                state=std::move(trial);
+                accepted=true;
+            }
+        }
+        if(!accepted)
+            throw std::logic_error(
+                "R06-M22B no admissible advancing-front mirrored operation");
+    }
+    if(state.front.size()==3) {
+        if(limits.requireMirrorPlane)
+            throw std::logic_error("R06-M22B symmetric front reached odd terminal face");
+        addFace(state,state.front[0],state.front[1],state.front[2]);
+        state.front.clear();
+    }
+    if(!state.front.empty()||!legal(state))
+        throw std::logic_error("R06-M22B final advancing-front patch invalid");
+    std::vector<Vec3> interior;
+    interior.reserve(state.patch.positions.size()-n);
+    for(std::size_t i=n;i<state.patch.positions.size();++i)
+        interior.push_back(state.guides[i]);
+    solveSpatialCapFixedRimPoisson(state.patch,interior,limits,
+        limits.requireMirrorPlane?state.twins:
+            std::vector<std::size_t>{});
+    return state.patch;
+}
+} // namespace
+
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
@@ -349,6 +683,44 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             partner[n+i]=n+partner[i];
         }
         partner[2*n]=2*n;
+    }
+
+    if(limits.useAdvancingFront) {
+        auto patch=constructAdaptiveFront(
+            orientedCapRim,survivingFaceNormals,partner,limits);
+        // Generic AFM patches have no positional one-to-one n-ring or hub.
+        // Intentionally bypass M17–M21 ring-index optimizations here.
+        std::size_t tests=0;
+        patch.minimumQuality=1.;
+        for(const auto& face:patch.faces) {
+            const auto a=patch.positions[face[0]],b=patch.positions[face[1]],
+                       c=patch.positions[face[2]];
+            const auto q=quality(a,b,c);
+            if(!(q>1e-8&&std::isfinite(q)))
+                throw std::logic_error("R06-M22B Poisson collapsed advancing-front face");
+            patch.minimumQuality=std::min(patch.minimumQuality,q);
+            if(std::max({length(a-b),length(b-c),length(c-a)})>
+               h*limits.maximumInitialEdgeFactor)
+                throw std::logic_error("R06-M22B advancing-front edge scale exceeded");
+        }
+        for(std::size_t x=0;x<patch.faces.size();++x)
+        for(std::size_t y=x+1;y<patch.faces.size();++y) {
+            if(++tests>limits.maxIntersectionTests)
+                throw std::length_error("R06-M22B final cap contact budget");
+            std::array<Vec3,3> a{},b{};
+            std::array<VertexId,3> ai{},bi{};
+            for(unsigned k=0;k<3;++k) {
+                ai[k]=patch.faces[x][k]+1;
+                bi[k]=patch.faces[y][k]+1;
+                a[k]=patch.positions[patch.faces[x][k]];
+                b[k]=patch.positions[patch.faces[y][k]];
+            }
+            const auto contact=triangleContact(a,ai,b,bi);
+            if(contact!=TriangleContact::Disjoint&&
+               contact!=TriangleContact::ExpectedAdjacency)
+                throw std::logic_error("R06-M22B settled advancing-front self contact");
+        }
+        return patch;
     }
 
     // Advance the oriented FRONT one local mesh layer. The front is the
