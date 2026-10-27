@@ -517,7 +517,6 @@ void physicalMirroredZipperStaging() {
             caps.provisionalSpatialVertices().size()>0,
             "R06-M06C must stage two exact reflected AFM disks, not independent triangulations");
     const auto& positions=caps.positions();
-    const auto& vertices=caps.faces();
     std::map<std::tuple<double,double,double>,VertexId> at;
     for(const auto& [id,p]:positions) {
         require(at.emplace(std::make_tuple(p.x,p.y,p.z),id).second,
