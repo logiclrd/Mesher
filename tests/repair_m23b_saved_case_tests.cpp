@@ -126,8 +126,8 @@ void originalCase() {
     const auto candidate=[&]() {
         struct Capture {
             explicit Capture(std::ostringstream& out)
-                :previous(std::cerr.rdbuf(out.rdbuf())) {}
-            ~Capture() {std::cerr.rdbuf(previous);}
+                :previous(std::cout.rdbuf(out.rdbuf())) {}
+            ~Capture() {std::cout.rdbuf(previous);}
             std::streambuf* previous;
         } capture(capturedTrace);
         return stagePrivateMixedClosure(cut,excision,plan,old);
