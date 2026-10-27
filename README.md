@@ -20,6 +20,36 @@ remain V19. For exact completion status see the
 The earlier README's complete prototype-era text is archived
 [unchanged here](docs/archive/README_PRE_ROADMAP_CLEANUP.md).
 
+## Certified automatic repair (R06/R07)
+
+The accepted repair constructor uses **advancing-front triangulation (AFM)**
+for both ordinary caps and the joined contours of the M23B unified zipper,
+followed by the shared fixed-rim graph Poisson solver and M24 shape-based
+zipper refinement. The retired ring-and-hub and mirrored-ribbon constructors
+and M17D–M21A ring-specific optimizations are **not** production fallbacks.
+
+```sh
+# Live AUTO: certified repair is published atomically and Inflate continues
+./build/Mesher --repair-auto
+
+# Opt-in frozen, unpublished inspection
+./build/Mesher --repair-inspect --repair-auto
+
+# Exact archived-case debugger, with selected unified zipper
+./build/Mesher --repair-replay repair-cases/refusal-2.r06case \
+  --repair-step-debug --repair-unified-zipper
+```
+
+Historical M17D–M21A ring optimizer flags now fail explicitly instead of
+silently having no effect. `--repair-scale-aware` remains an independent,
+optional downstream refinement policy; the accepted M24 zipper shape rules
+do not require it. Saved-case archive bytes remain unchanged; the current
+positive tests require certified closures in all five reviewed cases.
+See [AFM retirement](docs/R06_AFM_RETIREMENT.md),
+[R06 zipper shape rules](docs/R06_M24_ZIPPER_SHAPE_REFINEMENT.md),
+and [R07 publication](docs/R07_LIVE_AUTO_PUBLICATION.md).
+Broad live GPU self-contact acceptance remains separate from CPU/CI tests.
+
 ## Repair architecture rebaseline (developer diagnostic R01)
 
 The [geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md) defines the intended iterative, approximate manifold-preserving Merge pipeline and independent nonpenetrating brush response, superseding *product* assumptions that every local residual intersection must be an exact certified Boolean refusal. Historical V17/V18 implementation and tests remain supported only for their documented domains. The new [R01 diagnostic acceptance protocol](docs/R01_GPU_ACCEPTANCE.md) describes the opt-in `--repair-inspect` read-only first-intersection freeze, red vertices/edges and physical GPU verification. No automatic repair is enabled by R01; see `todo.md` for the flat R01–R08 plan.

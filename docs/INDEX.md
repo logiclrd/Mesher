@@ -109,3 +109,5 @@ leave a partly completed item ambiguously checked. Each milestone
 requires actual positive and refusal coverage and exact PR-head
 plus independent merged-main CI on GCC/Clang/MSVC. Retain human
 GPU observations and CPU proofs as separate evidence.
+
+Current AFM production cleanup: [R06 AFM retirement](R06_AFM_RETIREMENT.md).

@@ -2057,3 +2057,20 @@ mirrored, collision, survivor and final q/length admission remains.
   confirmed before declaring release readiness.
 
 Design and safety notes: `docs/R07_LIVE_AUTO_PUBLICATION.md`.
+
+## R06 AFM-only production cleanup (2026-10-27)
+
+- [x] Replace the unreachable inset-ring/hub and mirrored-ribbon branches
+  with the already-accepted M22B AFM-only generator, preserving M22A generic
+  fixed-rim Poisson, M23B gravity-guided unified zipper and M24 shape splits.
+- [x] Retire ring-index M17D–M21A source/headers/tests and the dead
+  experiment flags. CLI now refuses removed flags explicitly rather than
+  accepting no-op requests. Keep M17C scale-aware as an independent optional
+  source-backed postprocessing policy, and preserve all step-debug/trace,
+  seam audit, exact-overlay and saved-case diagnostics.
+- [x] Retain strict R06 audits, immutable archived cases, supported
+  historical repairs, full R07 publication, undo/redo and mirror journals.
+  Positive AFM and CPU source-isolation regression tests remain mandatory.
+- [ ] Reconfirm the cleaned exact-head GCC/Clang/MSVC full CI and physically
+  test a live AUTO self-contact brush operation before declaring release
+  acceptance. See `docs/R06_AFM_RETIREMENT.md`.
