@@ -88,12 +88,14 @@ PrivateExcisionResult applyPrivateExcision(
 
     // Everything from here on remains private. No worker publication.
     const auto revision=view.commit().revision;
-    auto vertexTombstones=candidate->retiredVertexIds();
-    auto faceTombstones=candidate->retiredFaceIds();
-    vertexTombstones.insert(vertexTombstones.end(),vertices.begin(),vertices.end());
-    faceTombstones.insert(faceTombstones.end(),faces.begin(),faces.end());
-    auto cut=RegionTopologyIndex::restore(
-        revision,vertexTombstones,faceTombstones);
+    // Preserve the original R03 deletion witness and face/vertex audit
+    // above, but update ONLY the removed stable IDs and their incidence
+    // neighborhoods. The prior immutable candidate supplies persistent
+    // index/picking roots; no full rebuild of the surviving 10K faces.
+    const std::vector<VertexId> removedVertices(vertices.begin(),vertices.end());
+    const std::vector<FaceId> removedFaces(faces.begin(),faces.end());
+    auto cut=RegionTopologyIndex::privateExcision(
+        *candidate,revision,removedVertices,removedFaces);
 
     std::map<Edge,EdgeInfo> edges;
     std::size_t surviving=0;
