@@ -258,7 +258,7 @@ void terminalCompletionAndObserverFailure() {
           terminal.front().outcome==MixedClosureTerminalOutcome::ObserverFailed&&
           terminal.front().phase=="initial_staging",
           "a diagnostic observer error must not be recorded as a geometry refusal");
-    std::cout<<"[r06-m16c2c] real closed private cap, success and diagnostic-failure terminal classification PASS\\n";
+    std::cout<<"[r06-m16c2c] real closed private cap, success and diagnostic-failure terminal classification PASS\n";
 }
 void failureEnvelopeAndCancellation() {
     MixedPrivateClosureLimits limits;
