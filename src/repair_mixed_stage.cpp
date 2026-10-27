@@ -91,7 +91,7 @@ void logCapCandidate(const char* method,std::size_t loop,
     }
     if(!qValues.empty())mean/=static_cast<double>(qValues.size());
     const auto decile=static_cast<double>(decileCount);
-    std::cerr<<std::setprecision(10)
+    std::cout<<std::setprecision(10)
              <<"[repair-r06-cap-metrics] method="<<method
              <<" loop="<<loop<<" status="<<status
              <<" fixed_boundary_vertices="<<boundaryVertices
@@ -284,7 +284,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             }catch(const std::logic_error& e) {
                 forceSpatial=true;
                 projectedReason=e.what();
-                std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+                std::cout<<"[repair-r06-cap-metrics] method=projected-ear"
                          <<" loop="<<id
                          <<" status=GENERATOR_REFUSED"
                          <<" metrics=unavailable"
@@ -298,7 +298,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 for(const auto& triangle:triangles)
                     addFace({0,owner,triangle,MixedClosureFaceKind::Cap,h});
         }else if(bounds.tryProjectedEarClipping) {
-            std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+            std::cout<<"[repair-r06-cap-metrics] method=projected-ear"
                      <<" loop="<<id<<" status=SKIPPED"
                      <<" reason=mirror_requires_spatial_cap"
                      <<" next=advancing-front\n";
@@ -341,7 +341,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                     },patch.poissonIterations,patch.poissonResidual,
                     "CANDIDATE_READY");
             }catch(const std::exception& failed) {
-                std::cerr<<"[repair-r06-cap-metrics] method=advancing-front"
+                std::cout<<"[repair-r06-cap-metrics] method=advancing-front"
                          <<" loop="<<id<<" status=GENERATOR_REFUSED"
                          <<" metrics=unavailable reason="<<failed.what()
                          <<" prior_projected_ear="<<projectedReason
@@ -721,11 +721,11 @@ MixedClosureStaging stagePrivateMixedClosure(
                     ++seedSupports;
                 }
                 o<<" seed_support_faces="<<seedSupports;
-                std::cerr<<o.str()<<"\n";
+                std::cout<<o.str()<<"\n";
             }
             for(std::size_t faceIndex=0;faceIndex<patch.faces.size();++faceIndex) {
                 const auto& face=patch.faces[faceIndex];
-                std::cerr<<"[repair-r06-m23b-face-map]"
+                std::cout<<"[repair-r06-m23b-face-map]"
                          <<" pair_a="<<pair.first<<" pair_b="<<pair.second
                          <<" patch_face="<<faceIndex
                          <<" kind="<<(faceIndex<patch.bridgeFaceCount?
@@ -776,7 +776,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                               mirrored[triangle[1]]},
                              MixedClosureFaceKind::Zipper,h});
                 ++result.zipperPairs;
-                std::cerr<<"[repair-r06-mirror-zipper]"
+                std::cout<<"[repair-r06-mirror-zipper]"
                          <<" first="<<pair.first<<","<<pair.second
                          <<" reflected="<<reflectedPair->first<<","
                                       <<reflectedPair->second
@@ -805,7 +805,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 result.mirroredSeamZipperVertices+=patch.bridgeVertexCount;
             }
             if(bounds.emitTrace)
-            std::cerr<<"[repair-r06-zipper-unified]"
+            std::cout<<"[repair-r06-zipper-unified]"
                      <<" rim_a="<<a.vertexIds.size()
                      <<" rim_b="<<b.vertexIds.size()
                      <<" seed_faces="<<patch.bridgeFaceCount
