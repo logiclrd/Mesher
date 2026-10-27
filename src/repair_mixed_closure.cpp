@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <map>
@@ -28,6 +29,10 @@
 
 namespace mesher {
 namespace {
+using ProfileClock=std::chrono::steady_clock;
+double profileMs(ProfileClock::time_point first,ProfileClock::time_point last) {
+    return std::chrono::duration<double,std::milli>(last-first).count();
+}
 using Edge=std::pair<VertexId,VertexId>;
 Edge edge(VertexId a,VertexId b) {
     return {std::min(a,b),std::max(a,b)};
@@ -82,12 +87,14 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     const MixedPrivateClosureLimits& limits) {
     std::string phase="validate";
     try {
+    const auto phaseStart=ProfileClock::now();
     validate(limits);
     phase="initial_staging";
     auto stageLimits=limits.staging;
     stageLimits.requireReflectedGeometry=limits.requireReflectedGeometry;
     stageLimits.targetInitialCapQuality=limits.minCapQuality;
     auto staged=stagePrivateMixedClosure(cut,proposal,plan,stageLimits);
+    const auto stagedAt=ProfileClock::now();
     MixedPrivateClosureResult out;
     out.cappedLoops=staged.capLoops;
     out.zipperPairs=staged.zipperPairs;
@@ -1005,6 +1012,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     // Generators may have had open/nonmanifold intermediate geometry;
     // only the consolidated candidate is evaluated for manifoldness.
     phase="patch_consolidation";
+    const auto refinementAt=ProfileClock::now();
     const auto patch=planPrivateMixedClosurePatch(
         staged,limits.maxAuditedFaces+limits.maxNewFaces);
     const auto applied=applyPrivateMixedClosurePatch(
@@ -1037,12 +1045,14 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     // the NEXT RegionEdit stamp would reject as over capacity.
     // Overflow is entirely private until the certified root is published.
     boundPrivateMixedClosurePartitions(view,*cut.index,owners);
+    const auto patchedAt=ProfileClock::now();
     out.touchedPartitions.assign(owners.begin(),owners.end());
     const auto revision=view.commit().revision;
     auto closed=RegionTopologyIndex::restore(
         revision,cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
     phase="closed_manifold_audit";
     validatePrivateClosedManifold(*closed,limits.maxAuditedFaces);
+    const auto manifoldAt=ProfileClock::now();
     if(staged.usedSpatialCapFallback||staged.usedMirroredSeamZipper||
        out.interiorQualityFlips>0||out.interiorFairingMoves>0||
        out.interiorCapCollapses>0||!out.boundaryTipQualityExemptFaces.empty()) {
@@ -1079,11 +1089,23 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
                              "incomplete: ")+e.what());
         }
     }
+    const auto collisionAuditedAt=ProfileClock::now();
     for(const auto id:proposal.proposedFaces)
         if(closed->maybeFace(id)||!closed->retiredFace(id))
             throw std::logic_error("R06-M04B resurrected a retired R03 FaceId");
     out.splitEvents=staged.splitEvents();
     out.index=std::move(closed);
+    const auto allDone=ProfileClock::now();
+    std::cerr<<"[repair-r06-mixed-timing]"
+             <<" front_ms="<<profileMs(phaseStart,stagedAt)
+             <<" refine_ms="<<profileMs(stagedAt,refinementAt)
+             <<" patch_ms="<<profileMs(refinementAt,patchedAt)
+             <<" index_manifold_ms="<<profileMs(patchedAt,manifoldAt)
+             <<" collision_ms="<<profileMs(manifoldAt,collisionAuditedAt)
+             <<" finish_ms="<<profileMs(collisionAuditedAt,allDone)
+             <<" total_ms="<<profileMs(phaseStart,allDone)
+             <<" new_faces="<<out.newFaces
+             <<" refinements="<<out.refinementSteps<<"\n";
     if(!plan.cappedContours.empty())
         std::cerr<<"[repair-r06-cap-verdict] status="
                  <<(limits.inspectionWarnQuality?
