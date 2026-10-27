@@ -891,7 +891,7 @@ int main(int argc, char** argv) {
                 if(!repairAuto||!repairSession||!repairSession->frozen())return;
                 const auto frozen=repairSession->frozenSnapshot();
                 if(!frozen||!frozen->candidate||frozen->contacts.empty()) {
-                    std::cerr<<"[repair-r06] CASE_SAVE_REFUSED no frozen candidate / complete contacts\n";
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED no frozen candidate / complete contacts\n";
                     return;
                 }
                 try {
@@ -939,7 +939,7 @@ int main(int argc, char** argv) {
                              <<" exact_candidate=1 contacts="<<capture.contacts.size()
                              <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
                 }catch(const std::exception& error) {
-                    std::cerr<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
                 }
             };
             interaction.radiusRange=brushRange;
@@ -1465,7 +1465,7 @@ int main(int argc, char** argv) {
         }
         mesher::runViewport(mesh, std::move(playback),std::move(interaction));
     }catch(const std::exception& e) {
-        std::cerr<<"Mesher: "<<e.what()<<'\n';
+        std::cout<<"Mesher: "<<e.what()<<'\n';
         return 1;
     }
 }
