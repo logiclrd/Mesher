@@ -69,7 +69,9 @@ struct SculptAnchoredSurfaceGuard {
 // a selected dirty-face subset. No Boolean cut, welding, CAS or history.
 // Every result is either the complete strictly finite source-pair graph,
 // conclusively clean, or an empty refused certificate with diagnostics.
-enum class SculptSourceContactStatus {Clean,CompleteTransverse,Refused};
+enum class SculptSourceContactStatus {
+    Clean,CompleteTransverse,CompleteIntersecting,Refused
+};
 struct SculptSourceContactLimits {
     std::size_t maxVertices=16384;
     std::size_t maxFaces=32768;
@@ -80,20 +82,24 @@ struct SculptSourceContactLimits {
 struct SculptSourceContactAssessment {
     SculptSourceContactStatus status{SculptSourceContactStatus::Refused};
     std::shared_ptr<const RegionTopologyIndex> originalCandidate;
-    // Populated only for fully certified transverse original V13 pairs.
+    // Fully bounded contacts: protected V13 requires finite transverse
+    // splits; R07 AUTO permits non-ambiguous face intersection pairs for
+    // whole-face R02/R03 excision, which does not use V13 split patches.
     std::vector<RegionTopologyIndex::CollisionPair> contacts;
     RegionTopologyIndex::CollisionStatistics work{};
     std::size_t discoveredPairs{};
     std::string refusal;
     bool ready() const noexcept {
-        return status==SculptSourceContactStatus::CompleteTransverse;
+        return status==SculptSourceContactStatus::CompleteTransverse||
+               status==SculptSourceContactStatus::CompleteIntersecting;
     }
 };
 SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* mirrors=nullptr,
-    std::size_t groupedSeeds=1);
+    std::size_t groupedSeeds=1,
+    bool requireFiniteTransverseSections=true);
 
 // R07 live AUTO: classify *new contacts involving this stamp's changed
 // neighborhood*, then exclude pairs already present in the immutable

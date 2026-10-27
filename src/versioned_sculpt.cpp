@@ -111,7 +111,8 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits,
     const std::unordered_map<VertexId,VertexId>* mirrors,
-    std::size_t groupedSeeds) {
+    std::size_t groupedSeeds,
+    bool requireFiniteTransverseSections) {
     SculptSourceContactAssessment result;
     const auto refuse=[&](std::string reason) {
         result.refusal=std::move(reason);
@@ -177,6 +178,7 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         for(const auto& pair:all) {
             if(pair.ambiguous)
                 return refuse("Post-sculpt original V13 face pair is ambiguous");
+            if(!requireFiniteTransverseSections)continue;
             const auto a=proposed.candidate->face(pair.first).vertices;
             const auto b=proposed.candidate->face(pair.second).vertices;
             const auto points=[&](const std::array<VertexId,3>& ids) {
@@ -193,7 +195,9 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         }
         result.contacts=std::move(all);
         result.originalCandidate=proposed.candidate;
-        result.status=SculptSourceContactStatus::CompleteTransverse;
+        result.status=requireFiniteTransverseSections?
+            SculptSourceContactStatus::CompleteTransverse:
+            SculptSourceContactStatus::CompleteIntersecting;
     }catch(const std::length_error& error) {
         return refuse(std::string("Post-sculpt bounded original V13 discovery: ")+
                       error.what());
@@ -312,26 +316,17 @@ SculptSourceContactAssessment assessPostSculptRepairContacts(
         }
         if(all.size()>limits.maxSectionTests)
             return refuse("Post-sculpt original transverse section work budget exhausted");
-        for(const auto& pair:all) {
+        // R07's R02/R03 excision works from whole intersecting face
+        // stars, not exact V13 section patches. A non-ambiguous contact
+        // can therefore be admitted to private repair without requiring
+        // local section triangulation that R02 never uses. Ambiguous
+        // collision predicates remain a hard refusal.
+        for(const auto& pair:all)
             if(pair.ambiguous)
-                return refuse("Post-sculpt original V13 face pair is ambiguous");
-            const auto a=proposed.candidate->face(pair.first).vertices;
-            const auto b=proposed.candidate->face(pair.second).vertices;
-            const auto points=[&](const std::array<VertexId,3>& ids) {
-                return std::array<Vec3,3>{{
-                    proposed.candidate->vertex(ids[0]).position,
-                    proposed.candidate->vertex(ids[1]).position,
-                    proposed.candidate->vertex(ids[2]).position
-                }};
-            };
-            if(splitTransverseTriangleContact(
-                   points(a),a,points(b),b).status!=
-               IntersectionSectionStatus::TransverseSegment)
-                return refuse("Post-sculpt original V13 pair has no supported finite transverse section");
-        }
+                return refuse("R07 AUTO face pair has ambiguous contact");
         result.contacts=std::move(all);
         result.originalCandidate=proposed.candidate;
-        result.status=SculptSourceContactStatus::CompleteTransverse;
+        result.status=SculptSourceContactStatus::CompleteIntersecting;
     }catch(const std::length_error& error) {
         return refuse(std::string("Post-sculpt bounded original V13 discovery: ")+
                       error.what());
@@ -1297,7 +1292,7 @@ void VersionedSculptBrush::stamp(
                 const auto complete=assessPostSculptOriginalContacts(
                     {old,updated,changedVertices,changedFaces},symmetric_,
                     collision_.certifiedAutoCompleteSourceLimits,
-                    symmetric_?&collapser_.mirrors():nullptr,16);
+                    symmetric_?&collapser_.mirrors():nullptr,16,false);
                 if(!complete.ready()||
                    complete.originalCandidate!=updated)
                     throw std::logic_error(

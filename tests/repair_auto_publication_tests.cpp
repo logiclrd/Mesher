@@ -251,7 +251,7 @@ void liveAutoChangedNeighborhoodDiscovery() {
     const auto contacted=move(clean,first,{3.9,0,0});
     const auto report=assessPostSculptRepairContacts(
         {clean,contacted,first,{}},false);
-    require(report.status==SculptSourceContactStatus::CompleteTransverse&&
+    require(report.status==SculptSourceContactStatus::CompleteIntersecting&&
             report.ready()&&!report.contacts.empty()&&
             report.originalCandidate==contacted,
             "R07 must detect new transverse contacts with unchanged opposing faces");
@@ -259,7 +259,9 @@ void liveAutoChangedNeighborhoodDiscovery() {
     // localized candidate contact. The independent full query uses the
     // identical exact geometry but a spatially grouped BVH traversal.
     const auto complete=assessPostSculptOriginalContacts(
-        {clean,contacted,first,{}},false,{},nullptr,16);
+        {clean,contacted,first,{}},false,{},nullptr,16,false);
+    require(complete.status==SculptSourceContactStatus::CompleteIntersecting,
+        "R07 full source must use face-contact evidence, not obsolete split-patch admission");
     require(complete.ready()&&complete.originalCandidate==contacted&&
             complete.contacts.size()>=report.contacts.size(),
         "R07 must obtain complete trusted source contact evidence before excision");
