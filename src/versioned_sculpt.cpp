@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
@@ -109,7 +110,8 @@ void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
 SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits,
-    const std::unordered_map<VertexId,VertexId>* mirrors) {
+    const std::unordered_map<VertexId,VertexId>* mirrors,
+    std::size_t groupedSeeds) {
     SculptSourceContactAssessment result;
     const auto refuse=[&](std::string reason) {
         result.refusal=std::move(reason);
@@ -163,7 +165,7 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         // the BVH still performs bounded local pair tests, not a global
         // O(F^2) triangle loop.
         auto all=proposed.candidate->triangleIntersections(
-            vertices,{},&result.work,limits.query);
+            vertices,{},&result.work,limits.query,groupedSeeds);
         result.discoveredPairs=all.size();
         if(all.empty()) {
             result.originalCandidate=proposed.candidate;
@@ -1278,6 +1280,7 @@ void VersionedSculptBrush::stamp(
                 {old,updated,changedVertices,changedFaces},symmetric_,
                 collision_.certifiedAutoSourceLimits,
                 symmetric_?&collapser_.mirrors():nullptr);
+            lastStepResourceWork_.autoDetectionWork=discovered.work;
             classifiedEpisodeStep=true;
             if(discovered.status==SculptSourceContactStatus::Refused) {
                 certifiedAutoRefusal="R07 live AUTO source refusal: "+
@@ -1286,16 +1289,37 @@ void VersionedSculptBrush::stamp(
                 episodeClassification=false;
             }else {
                 episodeClassification=true;
-                const auto source=discovered.originalCandidate;
+                // R01's new-contact detector is deliberately localized,
+                // but R02/R03/M03 need COMPLETE original contact evidence.
+                // Escalate only when it finds a genuine new transverse
+                // intersection. No whole-mesh scan is done for Clean
+                // stamps, and protected Merge keeps its own source policy.
+                const auto complete=assessPostSculptOriginalContacts(
+                    {old,updated,changedVertices,changedFaces},symmetric_,
+                    collision_.certifiedAutoCompleteSourceLimits,
+                    symmetric_?&collapser_.mirrors():nullptr,16);
+                if(!complete.ready()||
+                   complete.originalCandidate!=updated)
+                    throw std::logic_error(
+                        "R07 live AUTO complete original contact graph refused: "+
+                        (complete.refusal.empty()?
+                         std::string("local/full contact evidence disagrees"):
+                         complete.refusal));
+                std::cerr<<"[repair-r07] CONTACT local_pairs="
+                         <<discovered.contacts.size()
+                         <<" all_source_pairs="<<complete.contacts.size()
+                         <<" complete_box_tests="<<complete.work.boxesTested
+                         <<" (repair stages remain private)\n";
+                const auto source=complete.originalCandidate;
                 const auto preview=previewApproximateExcision(
-                    *source,discovered.contacts);
+                    *source,complete.contacts);
                 if(!preview.complete)
                     throw std::logic_error(
                         "R07 live AUTO incomplete source-backed R03 preview: "+
                         preview.diagnostic);
                 const auto cut=applyPrivateExcision(source,preview);
                 auto plan=planPrivateAutomaticClosure(
-                    *source,cut,preview,discovered.contacts);
+                    *source,cut,preview,complete.contacts);
                 if(!plan.ready())
                     throw std::logic_error(
                         "R07 live AUTO M03 closure plan refused: "+plan.diagnostic);
@@ -1304,7 +1328,7 @@ void VersionedSculptBrush::stamp(
                 limits.closure.staging.useUnifiedZipper=
                     collision_.certifiedAutoUnifiedZipper;
                 auto result=applyCertifiedPrivateAutomaticClosure(
-                    source,cut,preview,plan,discovered.contacts,limits);
+                    source,cut,preview,plan,complete.contacts,limits);
                 if(!result.index)
                     throw std::logic_error(
                         "R07 certified AUTO produced no final closed source root");

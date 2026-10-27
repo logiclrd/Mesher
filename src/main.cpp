@@ -837,7 +837,11 @@ int main(int argc, char** argv) {
                            <<" R "<<status.rejectedStamps
                            <<" P "<<status.publishedRevisions
                            <<" checked "<<status.collisionCheckedStamps
-                           <<" repaired "<<status.collisionRepairedStamps;
+                           <<" repaired "<<status.collisionRepairedStamps
+                           <<" seed "<<status.stepResources.autoDetectionWork.seedFaces
+                           <<" boxes "<<status.stepResources.autoDetectionWork.boxesTested
+                           <<" source_ms "<<std::fixed<<std::setprecision(1)
+                           <<status.stepResources.stageWall.sourceGeometryMs;
                     }else {
                         const auto& bt=status.stepResources.backtracking;
                         out<<"ON R "<<status.rejectedStamps
@@ -1297,6 +1301,10 @@ int main(int argc, char** argv) {
                       <<" checked_stamps="<<status.collisionCheckedStamps
                       <<" repaired_stamps="<<status.collisionRepairedStamps
                       <<" rejected_stamps="<<status.rejectedStamps
+                      <<" auto_query_seed_faces="<<status.stepResources.autoDetectionWork.seedFaces
+                      <<" auto_query_bvh_boxes="<<status.stepResources.autoDetectionWork.boxesTested
+                      <<" auto_query_narrow_tests="<<status.stepResources.autoDetectionWork.narrowPhaseTests
+                      <<" auto_source_ms="<<status.stepResources.stageWall.sourceGeometryMs
                       <<" step_refused="<<(status.stepResources.refused?1:0);
                     if(status.stepResources.refused)
                         os<<" refusal_reason="<<status.lastRejection;

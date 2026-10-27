@@ -9,6 +9,7 @@
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
 
+#include <algorithm>
 #include <array>
 #include <filesystem>
 #include <iostream>
@@ -254,6 +255,22 @@ void liveAutoChangedNeighborhoodDiscovery() {
             report.ready()&&!report.contacts.empty()&&
             report.originalCandidate==contacted,
             "R07 must detect new transverse contacts with unchanged opposing faces");
+    // Repair admission needs whole-source provenance, not just the first
+    // localized candidate contact. The independent full query uses the
+    // identical exact geometry but a spatially grouped BVH traversal.
+    const auto complete=assessPostSculptOriginalContacts(
+        {clean,contacted,first,{}},false,{},nullptr,16);
+    require(complete.ready()&&complete.originalCandidate==contacted&&
+            complete.contacts.size()>=report.contacts.size(),
+        "R07 must obtain complete trusted source contact evidence before excision");
+    for(const auto& candidate:report.contacts)
+        require(std::any_of(complete.contacts.begin(),complete.contacts.end(),
+                [&](const auto& full) {
+                    return full.first==candidate.first&&
+                           full.second==candidate.second&&
+                           full.ambiguous==candidate.ambiguous;
+                }),
+                "Every local new contact must be present in full-source R06 evidence");
     SculptSourceContactLimits tight;
     tight.query.maxBoxTests=1;
     const auto bounded=assessPostSculptRepairContacts(

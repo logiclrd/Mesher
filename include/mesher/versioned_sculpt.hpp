@@ -92,7 +92,8 @@ struct SculptSourceContactAssessment {
 SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits={},
-    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr,
+    std::size_t groupedSeeds=1);
 
 // R07 live AUTO: classify *new contacts involving this stamp's changed
 // neighborhood*, then exclude pairs already present in the immutable
@@ -165,6 +166,7 @@ struct SculptStepResourceWork {
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
     ExactStageWork exactStage{}; // all actual M41–M45 geometry and original-source proof operations
     SculptBacktrackWork backtracking{}; // rejected and accepted private V18 trials
+    RegionTopologyIndex::CollisionStatistics autoDetectionWork{}; // R07 local source query only
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
     SculptStageWallObservations stageWall{};
     SculptRefusalCategory refusalCategory{SculptRefusalCategory::None};
@@ -207,6 +209,12 @@ struct SculptCollisionSettings {
     // do not globally relax the strict protected Merge source budget.
     SculptSourceContactLimits certifiedAutoSourceLimits{
         16384,32768,{16384,4194304,1048576,524288,262144,512},128};
+    // Only after the *local* classifier finds a new transverse contact,
+    // collect the entire source contact graph for R02/R03/M03. This is
+    // never charged to ordinary clean brush stamps. Protected Merge keeps
+    // its separate strict V13 limits.
+    SculptSourceContactLimits certifiedAutoCompleteSourceLimits{
+        16384,32768,{32768,33554432,8388608,2097152,1048576,2048},2048};
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};
