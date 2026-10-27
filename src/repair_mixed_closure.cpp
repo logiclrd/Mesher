@@ -281,7 +281,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
           out.insertedVertices.size()<limits.maxInsertedVertices) {
         struct Choice {
             std::array<VertexId,3> vertices{};
-            ZipperShapeProposal plan;
+            ZipperShapeProposal shapePlan;
             double score=0;
         };
         std::optional<Choice> chosen;
@@ -292,22 +292,22 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
             const std::array<Vec3,3> xyz{
                 positions.at(ids[0]),positions.at(ids[1]),
                 positions.at(ids[2])};
-            const auto proposal=chooseZipperShape(
+            const auto shapeProposal=chooseZipperShape(
                 xyz,face.targetEdge,limits.minZipperQuality);
-            if(!proposal)continue;
-            const auto a=ids[proposal->corners[0]];
-            const auto b=ids[proposal->corners[1]];
-            const auto c=ids[proposal->corners[2]];
+            if(!shapeProposal)continue;
+            const auto a=ids[shapeProposal->corners[0]];
+            const auto b=ids[shapeProposal->corners[1]];
+            const auto c=ids[shapeProposal->corners[2]];
             const auto base=edge(a,b);
             if(!survivorSafeOrbit(base))continue;
             const auto basePoint=positions.at(a)+
-                (positions.at(b)-positions.at(a))*proposal->baseT;
+                (positions.at(b)-positions.at(a))*shapeProposal->baseT;
             // Off-centre cuts must respect the SAME original-survivor
             // floor on the complete source-backed neighborhood.
             if(!assessSurvivorSplitAt(effectiveSides(base),positions,
                    base,basePoint,limits.minSurvivorQuality).safe)
                 continue;
-            if(proposal->kind==ZipperShapeProposal::Kind::TwoEdge) {
+            if(shapeProposal->kind==ZipperShapeProposal::Kind::TwoEdge) {
                 const auto far=edge(b,c);
                 if(!survivorSafeOrbit(far))continue;
                 // Check both original incident sides BEFORE any edit.
@@ -324,26 +324,26 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
                 return mirror&&*mirror!=target?2:1;
             };
             const auto needed=orbitCount(base)+
-                (proposal->kind==ZipperShapeProposal::Kind::TwoEdge?
+                (shapeProposal->kind==ZipperShapeProposal::Kind::TwoEdge?
                     orbitCount(edge(b,c)):0);
             if(needed>remaining||needed>
                limits.maxInsertedVertices-out.insertedVertices.size())
                 continue;
             // Prefer the most distorted eligible region; stable face IDs
             // and original ledger ordering break ties deterministically.
-            const auto score=proposal->baseToHeight;
+            const auto score=shapeProposal->baseToHeight;
             if(!chosen||score>chosen->score+1e-12)
-                chosen=Choice{ids,*proposal,score};
+                chosen=Choice{ids,*shapeProposal,score};
         }
         if(!chosen)break;
         const auto ids=chosen->vertices;
-        const auto& plan=chosen->plan;
-        const auto a=ids[plan.corners[0]];
-        const auto b=ids[plan.corners[1]];
-        const auto c=ids[plan.corners[2]];
+        const auto& shapePlan=chosen->shapePlan;
+        const auto a=ids[shapePlan.corners[0]];
+        const auto b=ids[shapePlan.corners[1]];
+        const auto c=ids[shapePlan.corners[2]];
         const auto first=edge(a,b);
         const double canonicalT=(a==first.first)?
-            plan.baseT:1.-plan.baseT;
+            shapePlan.baseT:1.-shapePlan.baseT;
         const auto beforeShapeSplits=out.refinementSteps;
         // Both diagonals are obtained using the SAME two points D and E:
         //   CD: split AB at D, then BC at E.
@@ -351,10 +351,10 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         // The staging editor handles all incident survivor faces and
         // exact mirrored edge orbits for each complete split. Neither
         // route performs an uncontrolled face-level subdivision.
-        if(plan.kind==ZipperShapeProposal::Kind::ApexToBase) {
+        if(shapePlan.kind==ZipperShapeProposal::Kind::ApexToBase) {
             const auto inserted=splitMirrored(first,false,canonicalT);
             out.refinementSteps+=inserted.size();
-        }else if(plan.useAlternateDiagonal) {
+        }else if(shapePlan.useAlternateDiagonal) {
             const auto inserted=splitMirrored(edge(b,c),false);
             out.refinementSteps+=inserted.size();
             const auto next=splitMirrored(first,false,canonicalT);
@@ -368,13 +368,13 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         ++zipperShapeTurns;
         zipperShapeVertices+=out.refinementSteps-beforeShapeSplits;
         std::cerr<<"[repair-r06-zipper-shape] kind="<<
-            (plan.kind==ZipperShapeProposal::Kind::ApexToBase?
+            (shapePlan.kind==ZipperShapeProposal::Kind::ApexToBase?
                 "apex_to_base":"two_edge")
-            <<" diagonal="<<(plan.useAlternateDiagonal?"AE":"CD")
+            <<" diagonal="<<(shapePlan.useAlternateDiagonal?"AE":"CD")
             <<" base="<<a<<","<<b<<" apex="<<c
-            <<" t="<<plan.baseT
-            <<" old_q="<<plan.parentQuality
-            <<" selected_min_child_q="<<plan.minimumChildQuality
+            <<" t="<<shapePlan.baseT
+            <<" old_q="<<shapePlan.parentQuality
+            <<" selected_min_child_q="<<shapePlan.minimumChildQuality
             <<" inserted="<<(out.refinementSteps-beforeShapeSplits)
             <<" total_refinements="<<out.refinementSteps<<"\n";
     }
