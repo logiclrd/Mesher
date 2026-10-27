@@ -739,7 +739,7 @@ MixedClosureStaging stagePrivateMixedClosure(
             // separately triangulated; its entire private AFM/Poisson patch
             // inherits the source-based exact reflection involution.
             if(reflectedPair) {
-                const auto otherOwner=result.sourceView()->face(
+                const auto reflectedPatchOwner=result.sourceView()->face(
                     proposal.contours[reflectedPair->first]
                         .survivingFaces.front()).owner;
                 std::vector<VertexId> mirrored;
@@ -766,12 +766,12 @@ MixedClosureStaging stagePrivateMixedClosure(
                                 "R06-M06C mirrored zipper provisional ID collision");
                         result.stageProvisionalVertex(
                             provisional,{-p.x,p.y,p.z},
-                            otherOwner,bounds.maxNewTriangles);
+                            reflectedPatchOwner,bounds.maxNewTriangles);
                         mirrored.push_back(provisional);
                     }
                 }
                 for(const auto& triangle:patch.faces)
-                    addFace({0,otherOwner,
+                    addFace({0,reflectedPatchOwner,
                              {mirrored[triangle[0]],mirrored[triangle[2]],
                               mirrored[triangle[1]]},
                              MixedClosureFaceKind::Zipper,h});
