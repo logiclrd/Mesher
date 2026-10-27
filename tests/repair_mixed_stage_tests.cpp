@@ -191,7 +191,7 @@ void mixedAndTampered() {
             bounded.pendingVertexEdits()==0&&
             cut.index->face(remoteFace).vertices==original.vertices,
             "M14A exhausted pending-edit budget must refuse atomically");
-    std::cout<<"[r06-m14a] source-backed remote survivor, override and incidence PASS\\n";
+    std::cout<<"[r06-m14a] source-backed remote survivor, override and incidence PASS\n";
 
     // M14B3: every originally surviving rim triangle remains a FaceId
     // handle. Its actual vertices are obtained from the authoritative
@@ -410,7 +410,7 @@ void planarMirroredCapMustNotUseUnpairedEarDiagonal() {
         require(!(std::min({a,b,c})<0&&std::max({a,b,c})>0),
                 "R06-M06C4c1 mirrored cap may not straddle plane without seam");
     }
-    std::cout<<"[r06-m06c4c1] projected-simple symmetric single rim stages mirrored spatial patch PASS\\n";
+    std::cout<<"[r06-m06c4c1] projected-simple symmetric single rim stages mirrored spatial patch PASS\n";
 }
 
 void physicalMirroredZipperStaging() {
@@ -548,7 +548,7 @@ void physicalMirroredZipperStaging() {
             require(capFaces.contains(mirror),
                     "R06-M06C every staged cap face must have an exact reflected face");
         }
-    std::cout<<"[r06-m06c-paired-caps] two spatial disks staged as one exact reflected AFM patch PASS\\n";
+    std::cout<<"[r06-m06c-paired-caps] two spatial disks staged as one exact reflected AFM patch PASS\n";
     // Deliberate mismatch cannot be healed by approximate welding.
     auto corrupt=proposal;
     const auto old=corrupt.contours[1].vertexIds;
@@ -570,7 +570,7 @@ void physicalMirroredZipperStaging() {
             "R06-M06C4c2 twisted opposing loop must refuse rather than weld mismatched topology");
     require(source.root->retiredFaceCount()==0,
             "R06-M06C4c2 local staging cannot publish or mutate original source");
-    std::cout<<"[r06-m06c4c2] physical 15+15 rim stages two reflected halves around real seam PASS\\n";
+    std::cout<<"[r06-m06c4c2] physical 15+15 rim stages two reflected halves around real seam PASS\n";
 }
 
 void independentMirroredZipperOrbits() {
@@ -672,7 +672,7 @@ void independentMirroredZipperOrbits() {
         }
     require(staged.boundarySidesCovered==proposal.boundaryEdges,
             "R06 mirrored zipper pair must consume every original rim edge");
-    std::cout<<"[r06-mirror-zipper] disjoint mirrored AFM zipper operations exact PASS\\n";
+    std::cout<<"[r06-mirror-zipper] disjoint mirrored AFM zipper operations exact PASS\n";
 }
 
 void tightTorus() {
