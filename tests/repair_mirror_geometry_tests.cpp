@@ -50,10 +50,10 @@ int main() {
         // cross-plane shortcut that omits the actual X=0 seam.
         m.triangles[0]={4,0,1};
         inspect(m,false);
-        std::cout<<"[r06-m06c4c] exact reflection geometry, reciprocal winding, and tamper refusal PASS\\n";
+        std::cout<<"[r06-m06c4c] exact reflection geometry, reciprocal winding, and tamper refusal PASS\n";
         return 0;
     }catch(const std::exception& e){
-        std::cerr<<"R06-M06C4c mirror audit FAILED: "<<e.what()<<"\\n";
+        std::cerr<<"R06-M06C4c mirror audit FAILED: "<<e.what()<<"\n";
         return 1;
     }
 }
