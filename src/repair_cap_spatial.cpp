@@ -760,7 +760,6 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     if(!(h>1e-12)||!std::isfinite(h))
         throw std::logic_error("R06-M06C front degenerate edge scale");
 
-    const auto reflect=[](Vec3 p) {return Vec3{-p.x,p.y,p.z};};
     std::vector<std::size_t> partner(2*n+1);
     if(limits.requireMirrorPlane) {
         std::size_t seam=0;
