@@ -460,7 +460,9 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     origin+"; R01 direct contact and 3D rim geometry qualified; "
                     "M04 must still certify actual seam";
             };
-            if(!choice.ready()&&directFacingBridge) {
+            if(!choice.ready()&&
+               choice.status==RepairPlanStatus::AmbiguousClosure&&
+               directFacingBridge) {
                 // An unsupported V15 frustum is NOT an affirmative cap
                 // decision when two physically touching patches provide
                 // the narrowly qualified M06B bridge witness.
