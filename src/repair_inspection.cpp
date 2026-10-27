@@ -171,6 +171,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     policy.closure.staging.stageWholeCapFairingPreview=stageWholeCapFairingPreview;
                     policy.closure.staging.tryProjectedEarClipping=tryProjectedEarClipping;
                     policy.closure.staging.useUnifiedZipper=useUnifiedZipper;
+                    policy.closure.staging.emitTrace=true;
                     policy.closure.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                     policy.planner.classifier=classifier;
                     if(trace)trace->attach(policy.closure,trace);
@@ -226,6 +227,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 limits.staging.stageWholeCapFairingPreview=stageWholeCapFairingPreview;
                 limits.staging.tryProjectedEarClipping=tryProjectedEarClipping;
                 limits.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
+                limits.staging.emitTrace=true;
                 if(trace)trace->attach(limits,trace,true);
                 auto preview=applyPrivateMixedClosure(
                     *result->privateCut,result->excision,*result->autoPlan,limits);

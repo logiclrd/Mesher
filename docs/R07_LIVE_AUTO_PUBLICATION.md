@@ -67,6 +67,16 @@ but the current full-certificate test now requires AUTO_CLOSED for the
 five reviewed recovered cases. Negative tests continue to assert that
 invalid/stale/incomplete contacts and mirror journals cannot publish.
 
+## Trace isolation
+
+The accepted M23B zipper can generate detailed accepted-vertex placement
+derivations and face-ID maps. In live production these are strictly disabled:
+`MixedClosureStageSettings::emitTrace` defaults to false. The same
+source-backed constructor remains in use without snapshot creation or
+per-vertex text emission. Explicit private inspection and saved-case replay
+set `emitTrace=true`; archived diagnostics tests request it explicitly.
+The M24 per-split shape trace is controlled by the same flag.
+
 ## Residual constraints
 
 R06 source fidelity remains a stricter separate concern in authenticated

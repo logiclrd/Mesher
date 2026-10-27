@@ -2029,3 +2029,31 @@ mirrored, collision, survivor and final q/length admission remains.
   q=0.24973; opt-in unified zipper q=0.12082 and 44 refinement steps
   (the latter is not the 0.24973 case). Follow-up instrumentation
   distinguishes template splits from residual remeshing.
+
+## R07 — Live published certified AUTO repair (2026-10-27)
+
+- [x] **R07A — Separate live AUTO from opt-in frozen diagnostics.**
+  `--repair-auto` alone uses the normal worker and immutable-root
+  publication path; `--repair-inspect --repair-auto` retains read-only
+  snapshot and case capture; step-debug remains exclusive to exact replay.
+  No step observer is installed in live mode.
+- [x] **R07B — Certified source-backed publication journal.** A complete
+  R06 M04C certificate is audited against its immutable pre-cut source,
+  deriving stable changed IDs, canonical new/retired reciprocal mirror
+  orbits, and one root publication plus undo/redo/checkpoint history.
+  Any refusal aborts the private Step; no open R03 root can publish.
+- [x] **R07C — Positive regression tests.** All five historical V1
+  refusal cases now require current **certified AUTO_CLOSED** without
+  rewriting their original archive bits; case 1's warning-only test now
+  verifies that successful certification is not demoted to an untrusted
+  preview. Legacy M17D/legacy-cap tests are adjusted to assert the current
+  healthy advancing-front and source-isolation invariants, never the old
+  broken geometry.
+- [ ] **R07D — Final cross-platform CI and live GPU review.** The exact
+  refusal-2 replay and its mirrored stable-ID/history proof passed on
+  GCC; clean live stamping, two consecutive stamps, undo/redo and no
+  debugger freeze passed. Exact-head Windows, GCC, Clang results and
+  operator inspection of an actual live self-contact stamp remain to be
+  confirmed before declaring release readiness.
+
+Design and safety notes: `docs/R07_LIVE_AUTO_PUBLICATION.md`.

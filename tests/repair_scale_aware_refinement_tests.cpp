@@ -661,7 +661,7 @@ void refusalOneRealSavedCaseAttemptTrace() {
     limits.requireReflectedGeometry=saved.symmetricSource;
     limits.scaleAwareRefinement=true;
     std::vector<std::string> declined;
-    std::size_t splitsBeforeFirstAttempt=0, totalSplits=0;
+    std::size_t totalSplits=0;
     limits.staging.operationObserver=[&](
         const MixedClosureStaging&,const std::string& operation,
         const std::string& arguments) {
@@ -670,33 +670,24 @@ void refusalOneRealSavedCaseAttemptTrace() {
            operation=="TryCapFanCollapse"||
            operation=="TryInteriorFairing"||
            operation=="TryQualityRestoringSplit") {
-            if(declined.empty())splitsBeforeFirstAttempt=totalSplits;
+
             declined.push_back(operation+":"+arguments);
         }
     };
-    bool refused=false;
-    try {
-        const auto legacyClosed=applyPrivateMixedClosure(
-            cut,excision,plan,limits);
-        require(legacyClosed.index!=nullptr,
-            "accepted private mixed closure must produce a full index");
-    }catch(const std::logic_error&) {refused=true;}
-    require(!declined.empty()&&splitsBeforeFirstAttempt==0,
-        "refusal-1 step 92 must expose shape attempts before any split");
-    require(declined[0].starts_with("TryDiagonalFlip:")&&
-            declined[0].find("result=NO_ADMISSIBLE")!=std::string::npos,
-        "first no-op flip must be visible in source-backed step trace");
-    require(std::any_of(declined.begin(),declined.end(),
-        [](const std::string& op) {
-            return op.starts_with("TryInteriorFairing:");
-        }),"fairing attempt must be visible rather than mistaken for a skipped phase");
+    const auto healthy=applyPrivateMixedClosure(cut,excision,plan,limits);
+    // The advancing-front fix made this once-pathological saved case
+    // HEALTHY. It must not attempt old M17C no-op repairs merely to
+    // reproduce the previous step-92 failure. Dedicated under-quality
+    // fixtures earlier in this test still require actual diagnostics.
+    require(healthy.index&&healthy.minimumCapQuality>=limits.minCapQuality&&
+            declined.empty()&&totalSplits==0&&
+            healthy.refinementSteps==0,
+        "healthy default AFM must close refusal-1 without phantom M17C repair attempts or subdivision");
     require(saved.candidate.index->retiredFaceCount()==initialRetiredFaces,
-        "source post-stamp tombstone count remains unchanged even on refusal");
-    std::cout<<"[r06-m17c] exact refusal-1 saved case: "
-             <<declined.size()<<" no-change repair diagnostics, "
-             <<totalSplits<<" staged split vertices, "
-             <<(refused?"strict refusal":"complete private closure")
-             <<" PASS\n";
+        "successful private R06 must not modify original source");
+    std::cout<<"[r06-m22b-m17c] certified healthy refusal-1"
+             <<" unnecessary_shape_attempts="<<declined.size()
+             <<" unnecessary_splits="<<totalSplits<<" PASS\n";
 }
 void budgetIsFiniteAndValidates() {
     const auto f=openTetra();

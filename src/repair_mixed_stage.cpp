@@ -568,6 +568,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                     return std::numeric_limits<double>::quiet_NaN();
                 return dot(p-tri[0],nFace)/magnitude;
             };
+            if(bounds.emitTrace) {
             for(const auto& trace:patch.placementTrace) {
                 const auto i=trace.patchVertex;
                 if(i>=map.size()||
@@ -673,6 +674,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" B="<<map.at(face[1])
                          <<" C="<<map.at(face[2])<<"\n";
             }
+            }
             for(const auto& triangle:patch.faces) {
                 const auto x=(patch.positions[triangle[0]].x+
                               patch.positions[triangle[1]].x+
@@ -692,6 +694,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                 ++result.mirroredSeamZipperPairs;
                 result.mirroredSeamZipperVertices+=patch.bridgeVertexCount;
             }
+            if(bounds.emitTrace)
             std::cerr<<"[repair-r06-zipper-unified]"
                      <<" rim_a="<<a.vertexIds.size()
                      <<" rim_b="<<b.vertexIds.size()

@@ -367,6 +367,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         }
         ++zipperShapeTurns;
         zipperShapeVertices+=out.refinementSteps-beforeShapeSplits;
+        if(limits.staging.emitTrace)
         std::cerr<<"[repair-r06-zipper-shape] kind="<<
             (shapePlan.kind==ZipperShapeProposal::Kind::ApexToBase?
                 "apex_to_base":"two_edge")
@@ -378,7 +379,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
             <<" inserted="<<(out.refinementSteps-beforeShapeSplits)
             <<" total_refinements="<<out.refinementSteps<<"\n";
     }
-    if(out.zipperPairs)
+    if(out.zipperPairs&&limits.staging.emitTrace)
         std::cerr<<"[repair-r06-zipper-shape] SUMMARY turns="<<zipperShapeTurns
                  <<" inserted_vertices="<<zipperShapeVertices
                  <<" min_eligible_long_edge_over_target=0.8"

@@ -118,6 +118,7 @@ void originalCase() {
     const auto prior=stagePrivateMixedClosure(cut,excision,plan,old);
     const auto previousQ=minZipperQuality(prior);
     old.useUnifiedZipper=true;
+    old.emitTrace=true; // exact archived placement/join diagnostics remain opt-in
     std::ostringstream capturedTrace;
     // The staging operation is synchronous: capture its diagnostics, then
     // verify that BOTH the face-map IDs and placement IDs are exactly the
