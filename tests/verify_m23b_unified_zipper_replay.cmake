@@ -13,9 +13,9 @@ if(NOT "${code}" STREQUAL "2" OR
    NOT output MATCHES "AUTO_CLOSED private_closed_mesh=1" OR
    NOT output MATCHES "zipper_pairs=1" OR
    NOT output MATCHES "worker_history_checkpoint_unchanged=1" OR
-   NOT err MATCHES "repair-r06-zipper-unified" OR
-   NOT err MATCHES "repair-r06-m23b-placement" OR
-   NOT err MATCHES "repair-r06-m23b-face-map")
+   NOT output MATCHES "repair-r06-zipper-unified" OR
+   NOT output MATCHES "repair-r06-m23b-placement" OR
+   NOT output MATCHES "repair-r06-m23b-face-map")
     message(FATAL_ERROR
         "M23B archived private zipper CLI changed/missing: code=${code}, stdout=${output}, stderr=${err}")
 endif()
