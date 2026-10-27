@@ -6,6 +6,8 @@
 #include "mesher/revision_history.hpp"
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/sculpt_fixtures.hpp"
+#include "mesher/mesh_partitioning.hpp"
+#include "mesher/region_edit.hpp"
 
 #include <array>
 #include <filesystem>
@@ -176,6 +178,79 @@ void desktopScaleLiveAutoFirstStamp() {
             brush.snapshot()!=before,
         "ordinary default-size collision-free AUTO stamp must publish");
 }
+void liveAutoChangedNeighborhoodDiscovery() {
+    // The physical candidate must be checked against the COMPLETE BVH,
+    // but only changed faces/vertices are collision-query seeds. In
+    // particular, a fresh contact against a distant unchanged face is
+    // discovered, while existing unrelated intersections are not an
+    // artificial new contact.
+    const auto addTetra=[](Mesh& mesh,Vec3 origin,double half) {
+        const auto base=static_cast<std::uint32_t>(mesh.vertices.size());
+        const std::array<Vec3,4> local{{
+            {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}}};
+        for(const auto v:local)
+            mesh.vertices.push_back(origin+v*half);
+        const std::array<std::array<std::uint32_t,3>,4> tris{{
+            {0,1,2},{0,2,3},{0,3,1},{1,3,2}}};
+        for(const auto t:tris)
+            mesh.triangles.push_back({
+                base+t[0],base+t[1],base+t[2]});
+    };
+    const auto move=[&](
+        const std::shared_ptr<const RegionTopologyIndex>& old,
+        const std::vector<VertexId>& ids,Vec3 offset) {
+        RegionEdit edit(old,ids,{},2);
+        for(const auto id:ids)
+            edit.moveVertex(id,old->vertex(id).position+offset);
+        (void)edit.commit();
+        return edit.updatedIndex();
+    };
+    Mesh fixture;
+    addTetra(fixture,{-2,0,0},.5);
+    addTetra(fixture,{2,0,0},.5);
+    addTetra(fixture,{10,0,0},.5);
+    auto built=partitionFlatMesh(fixture,2);
+    auto root=RegionTopologyIndex::build(built.revision);
+    const std::vector<VertexId> first(built.flatIndex.vertexIds.begin(),
+                                      built.flatIndex.vertexIds.begin()+4);
+    const std::vector<VertexId> far(built.flatIndex.vertexIds.begin()+8,
+                                    built.flatIndex.vertexIds.end());
+    const auto clean=move(root,far,{0,.1,0});
+    const auto cleanResult=assessPostSculptRepairContacts(
+        {root,clean,far,{}},false);
+    require(cleanResult.status==SculptSourceContactStatus::Clean,
+            "R07 changed-neighborhood query must admit unrelated clean edits");
+    const auto contacted=move(clean,first,{3.9,0,0});
+    const auto report=assessPostSculptRepairContacts(
+        {clean,contacted,first,{}},false);
+    require(report.status==SculptSourceContactStatus::CompleteTransverse&&
+            report.ready()&&!report.contacts.empty()&&
+            report.originalCandidate==contacted,
+            "R07 must detect new transverse contacts with unchanged opposing faces");
+    SculptSourceContactLimits tight;
+    tight.query.maxBoxTests=1;
+    const auto bounded=assessPostSculptRepairContacts(
+        {clean,contacted,first,{}},false,tight);
+    require(bounded.status==SculptSourceContactStatus::Refused&&
+            bounded.contacts.empty(),
+            "R07 exhausted finite work must refuse, never return partial contact evidence");
+
+    Mesh imperfect;
+    addTetra(imperfect,{0,0,0},1);
+    addTetra(imperfect,{0,0,0},1);
+    addTetra(imperfect,{10,0,0},.5);
+    const auto builtOld=partitionFlatMesh(imperfect,2);
+    const auto previous=RegionTopologyIndex::build(builtOld.revision);
+    const std::vector<VertexId> remote(builtOld.flatIndex.vertexIds.begin()+8,
+                                       builtOld.flatIndex.vertexIds.end());
+    const auto modified=move(previous,remote,{0,.1,0});
+    const auto independent=assessPostSculptRepairContacts(
+        {previous,modified,remote,{}},false);
+    require(independent.status==SculptSourceContactStatus::Clean,
+        "R07 must not reject a clean changed region because unrelated old collisions already exist");
+    std::cout<<"[r07-source] full-BVH neighborhood contacts, unrelated old "
+                "intersections and exact finite-work refusal PASS\n";
+}
 void invalidSourceMirrorsCannotPublish() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-1.r06case";
@@ -196,7 +271,8 @@ void invalidSourceMirrorsCannotPublish() {
 int main() {
     try {acceptedPhysicalArchive();invalidSourceMirrorsCannotPublish();
          cleanLiveSculptDoesNotFreeze();
-         desktopScaleLiveAutoFirstStamp();}
+         desktopScaleLiveAutoFirstStamp();
+         liveAutoChangedNeighborhoodDiscovery();}
     catch(const std::exception& e) {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
         return 1;
