@@ -586,6 +586,12 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m22b_cap_selection_and_metrics
              COMMAND mesher_repair_m22_cap_method_tests)
     set_tests_properties(repair_r06_m22b_cap_selection_and_metrics PROPERTIES TIMEOUT 20)
+    add_executable(mesher_repair_zipper_shape_tests
+                   tests/repair_zipper_shape_tests.cpp)
+    target_link_libraries(mesher_repair_zipper_shape_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r06_zipper_shape_templates
+             COMMAND mesher_repair_zipper_shape_tests)
+    set_tests_properties(repair_r06_zipper_shape_templates PROPERTIES TIMEOUT 20)
     add_executable(mesher_repair_adaptive_front_tests
                    tests/repair_cap_advancing_front_tests.cpp)
     target_link_libraries(mesher_repair_adaptive_front_tests PRIVATE mesher_mesh)

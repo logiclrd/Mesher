@@ -6,6 +6,7 @@
 #include "mesher/repair_rim_quality.hpp"
 #include "mesher/repair_survivor_split.hpp"
 #include "mesher/repair_split_template.hpp"
+#include "mesher/repair_zipper_shape.hpp"
 #include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/repair_mixed_edges.hpp"
 #include "mesher/repair_mixed_patch.hpp"
@@ -271,64 +272,106 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         return mids;
     };
 
-    // R04-like conforming PRE-subdivision along the true old-boundary /
-    // new-zipper seam. A narrow zipper across sparsely sampled loops cannot
-    // be fixed reliably by repeatedly bisecting skinny interior needles:
-    // first shorten BOTH incident surface sides on the same actual edge.
-    // This shares the single transaction and the same finite vertex/step
-    // budget with later adaptive refinement (no private half-publication).
-    while(true) {
-        Edge worst{};
-        double largestRatio=1;
-        double largestUnsafeRatio=1;
+    // Shape-driven zipper refinement replaces M04B's 0.5*h zipper/rim
+    // density pass. A long, thin triangle is eligible ONLY while its
+    // longest edge is >=0.8*targetEdge and its base/height ratio >2.5.
+    // The two geometric templates use source-backed, mirrored edge splits,
+    // so their neighboring survivor triangles remain conforming. There is
+    // no length-only zipper subdivision cascade.
+    std::set<std::array<VertexId,3>> rejectedShapes;
+    while(out.refinementSteps<limits.maxRefinementSteps &&
+          out.insertedVertices.size()<limits.maxInsertedVertices) {
+        struct Choice {
+            std::array<VertexId,3> vertices{};
+            ZipperShapeProposal plan;
+            double score=0;
+        };
+        std::optional<Choice> chosen;
         for(const auto& face:faces) {
-            if(face.kind!=MixedClosureFaceKind::Zipper)continue;
-            const auto& v=face.triangle();
-            for(unsigned k=0;k<3;++k) {
-                const auto candidate=edge(v[k],v[(k+1)%3]);
-                const auto adjacent=incident(candidate);
-                if(adjacent.size()!=2)continue;
-                const auto first=faces[adjacent[0]].kind;
-                const auto second=faces[adjacent[1]].kind;
-                if(!((first==MixedClosureFaceKind::Survivor&&
-                       second==MixedClosureFaceKind::Zipper)||
-                      (first==MixedClosureFaceKind::Zipper&&
-                       second==MixedClosureFaceKind::Survivor)))
+            if(face.kind!=MixedClosureFaceKind::Zipper ||
+               !(face.targetEdge>0))continue;
+            const auto ids=face.triangle();
+            auto key=ids;
+            std::sort(key.begin(),key.end());
+            if(rejectedShapes.count(key))continue;
+            const std::array<Vec3,3> xyz{
+                positions.at(ids[0]),positions.at(ids[1]),
+                positions.at(ids[2])};
+            const auto proposal=chooseZipperShape(
+                xyz,face.targetEdge,limits.minZipperQuality);
+            if(!proposal)continue;
+            const auto a=ids[proposal->corners[0]];
+            const auto b=ids[proposal->corners[1]];
+            const auto c=ids[proposal->corners[2]];
+            const auto base=edge(a,b);
+            if(!survivorSafeOrbit(base))continue;
+            const auto basePoint=positions.at(a)+
+                (positions.at(b)-positions.at(a))*proposal->baseT;
+            // Off-centre cuts must respect the SAME original-survivor
+            // floor on the complete source-backed neighborhood.
+            if(!assessSurvivorSplitAt(effectiveSides(base),positions,
+                   base,basePoint,limits.minSurvivorQuality).safe)
+                continue;
+            if(proposal->kind==ZipperShapeProposal::Kind::TwoEdge) {
+                const auto far=edge(b,c);
+                if(!survivorSafeOrbit(far))continue;
+                // Check both original incident sides BEFORE any edit.
+                if(!assessSurvivorSplit(
+                        effectiveSides(far),positions,far,
+                        limits.minSurvivorQuality).safe)
                     continue;
-                const auto ratio=edgeSpan(positions,candidate)/
-                    (limits.maxZipperBoundaryEdgeFactor*face.targetEdge);
-                if(ratio>largestUnsafeRatio)
-                    largestUnsafeRatio=ratio;
-                if(ratio>largestRatio&&survivorSafeOrbit(candidate)) {
-                    largestRatio=ratio;
-                    worst=candidate;
-                }
             }
+            const auto remaining=limits.maxRefinementSteps-
+                out.refinementSteps;
+            const auto orbitCount=[&](Edge target)->std::size_t {
+                if(!limits.requireReflectedGeometry)return 1;
+                const auto mirror=reflectedEdge(target);
+                return mirror&&*mirror!=target?2:1;
+            };
+            const auto needed=orbitCount(base)+
+                (proposal->kind==ZipperShapeProposal::Kind::TwoEdge?
+                    orbitCount(edge(b,c)):0);
+            if(needed>remaining||needed>
+               limits.maxInsertedVertices-out.insertedVertices.size())
+                continue;
+            // Prefer the most distorted eligible region; stable face IDs
+            // and original ledger ordering break ties deterministically.
+            const auto score=proposal->baseToHeight;
+            if(!chosen||score>chosen->score+1e-12)
+                chosen=Choice{ids,*proposal,score};
         }
-        if(largestUnsafeRatio<=1+1e-8)break;
-        if(largestRatio<=1+1e-8) {
-            if(limits.inspectionWarnQuality) {
-                warn("zipper boundary density has no survivor-safe split");
-                break;
-            }
-            throw std::logic_error(
-                "R06-M11A zipper boundary length deficit has no "
-                "survivor-safe conforming mirror-orbit split");
+        if(!chosen)break;
+        const auto ids=chosen->vertices;
+        const auto& plan=chosen->plan;
+        const auto a=ids[plan.corners[0]];
+        const auto b=ids[plan.corners[1]];
+        const auto c=ids[plan.corners[2]];
+        const auto first=edge(a,b);
+        const double canonicalT=(a==first.first)?
+            plan.baseT:1.-plan.baseT;
+        // Both diagonals are obtained using the SAME two points D and E:
+        //   CD: split AB at D, then BC at E.
+        //   AE: split BC at E, then AB at D.
+        // The staging editor handles all incident survivor faces and
+        // exact mirrored edge orbits for each complete split. Neither
+        // route performs an uncontrolled face-level subdivision.
+        if(plan.kind==ZipperShapeProposal::Kind::ApexToBase) {
+            const auto inserted=splitMirrored(first,false,canonicalT);
+            out.refinementSteps+=inserted.size();
+        }else if(plan.useAlternateDiagonal) {
+            const auto inserted=splitMirrored(edge(b,c),false);
+            out.refinementSteps+=inserted.size();
+            const auto next=splitMirrored(first,false,canonicalT);
+            out.refinementSteps+=next.size();
+        }else {
+            const auto inserted=splitMirrored(first,false,canonicalT);
+            out.refinementSteps+=inserted.size();
+            const auto next=splitMirrored(edge(b,c),false);
+            out.refinementSteps+=next.size();
         }
-        if(out.refinementSteps>=limits.maxRefinementSteps) {
-            if(limits.inspectionWarnQuality) {
-                warn("zipper boundary density reached finite split budget");
-                break;
-            }
-            throw std::length_error("R06-M04B zipper boundary density requires too many subdivisions");
-        }
-        try {
-            out.refinementSteps+=splitMirrored(worst,false).size();
-        }catch(const std::length_error&) {
-            if(!limits.inspectionWarnQuality)throw;
-            warn("zipper boundary density exceeded complete mirror-orbit budget");
-            break;
-        }
+        // Retain the result of this legal shape edit, but never claim
+        // that repeating the same parent would improve its acute corner.
+        rejectedShapes.clear();
     }
 
     const auto improveQuality=[&]() -> bool {
@@ -486,7 +529,10 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         double smallest=1;
         for(std::size_t i=0;i<faces.size();++i) {
             const auto& f=faces[i];
-            if(f.kind==MixedClosureFaceKind::Survivor)continue;
+            // The zipper has its own shape template pass above. Its
+            // remaining hard quality/length conditions are certified
+            // below, not chased by the former longest-edge midpoint pass.
+            if(f.kind!=MixedClosureFaceKind::Cap)continue;
             const auto score=accepted(f.kind,limits);
             const auto& v=f.triangle();
             const auto q=quality(positions.at(v[0]),positions.at(v[1]),
