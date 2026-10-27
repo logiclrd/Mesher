@@ -573,6 +573,108 @@ void physicalMirroredZipperStaging() {
     std::cout<<"[r06-m06c4c2] physical 15+15 rim stages two reflected halves around real seam PASS\\n";
 }
 
+void independentMirroredZipperOrbits() {
+    // Two distinct physical zipper patches, each wholly within its own
+    // half-space. Their contours are paired under exact source reflection,
+    // but NEITHER patch is the self-reflected X=0 bridge exercised elsewhere.
+    Mesh m;
+    const auto rightFirst=prism(m,1.,2.,1.);
+    const auto rightSecond=prism(m,2.5,3.5,1.);
+    const auto leftFirst=prism(m,-2.,-1.,1.);
+    const auto leftSecond=prism(m,-3.5,-2.5,1.);
+    std::vector<std::size_t> removed;
+    addCapFaces(removed,rightFirst,true);
+    addCapFaces(removed,rightSecond,false);
+    addCapFaces(removed,leftFirst,false);
+    addCapFaces(removed,leftSecond,true);
+    const auto source=fixture(std::move(m));
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    for(const auto index:removed)
+        proposal.proposedFaces.push_back(source.flat.faceIds.at(index));
+    std::sort(proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    const std::set<FaceId> retired(
+        proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    for(const auto id:source.flat.vertexIds) {
+        const auto& incident=source.root->vertex(id).incidentFaces;
+        if(!incident.empty()&&std::all_of(
+              incident.begin(),incident.end(),
+              [&](FaceId f){return retired.contains(f);}))
+            proposal.proposedVertices.push_back(id);
+    }
+    const auto rims=planRemovalContours(
+        *source.root,proposal.proposedFaces);
+    proposal.contours=rims.contours;
+    for(const auto& rim:proposal.contours)
+        proposal.boundaryEdges+=rim.vertexIds.size();
+    require(proposal.contours.size()==4,
+            "R06 independent reflected zipper fixture needs four real R03 contours");
+    const auto cut=applyPrivateExcision(source.root,proposal);
+    std::array<std::size_t,4> loopAt{};
+    loopAt.fill(proposal.contours.size());
+    for(std::size_t i=0;i<proposal.contours.size();++i) {
+        Vec3 average{};
+        for(const auto id:proposal.contours[i].vertexIds)
+            average=average+cut.index->vertex(id).position;
+        average=average/static_cast<double>(proposal.contours[i].vertexIds.size());
+        const std::array<double,4> expected{2.,2.5,-2.,-2.5};
+        for(std::size_t k=0;k<expected.size();++k)
+            if(std::abs(average.x-expected[k])<1e-12)
+                loopAt[k]=i;
+    }
+    for(const auto loop:loopAt)
+        require(loop<proposal.contours.size(),
+                "R06 reflected zipper fixture failed to find one physical rim");
+    AutoClosurePlan plan;
+    plan.status=AutoClosurePlanStatus::Ready;
+    plan.zipperPairs={{loopAt[0],loopAt[1]},
+                      {loopAt[2],loopAt[3]}};
+    for(const auto& pair:plan.zipperPairs) {
+        AutoClosureRegion region;
+        region.contours={pair.first,pair.second};
+        region.zippers={pair};
+        plan.regions.push_back(region);
+    }
+    MixedClosureStageSettings options;
+    options.requireReflectedGeometry=true;
+    options.useUnifiedZipper=true;
+    const auto staged=stagePrivateMixedClosure(cut,proposal,plan,options);
+    require(staged.zipperPairs==2&&staged.zipperTriangles>0&&
+            staged.provisionalSpatialVertices().size()>=2,
+            "R06 independent mirrored zippers must stage BOTH complete AFM patches");
+    const auto& positions=staged.positions();
+    std::map<std::tuple<double,double,double>,VertexId> byPosition;
+    for(const auto& [id,p]:positions)
+        require(byPosition.emplace(std::make_tuple(p.x,p.y,p.z),id).second,
+                "R06 independent mirrored zipper must retain distinct vertex identities");
+    const auto mirror=[&](VertexId id) {
+        const auto p=positions.at(id);
+        const auto it=byPosition.find(std::make_tuple(-p.x,p.y,p.z));
+        require(it!=byPosition.end(),
+                "R06 separate zipper AFM interior lost exact mirror vertex");
+        return it->second;
+    };
+    std::set<std::array<VertexId,3>> faces;
+    for(const auto& face:staged.faces())
+        if(face.kind==MixedClosureFaceKind::Zipper) {
+            auto ids=face.triangle();
+            std::sort(ids.begin(),ids.end());
+            faces.insert(ids);
+        }
+    for(const auto& face:staged.faces())
+        if(face.kind==MixedClosureFaceKind::Zipper) {
+            const auto tri=face.triangle();
+            std::array<VertexId,3> reflected{
+                mirror(tri[0]),mirror(tri[2]),mirror(tri[1])};
+            std::sort(reflected.begin(),reflected.end());
+            require(faces.contains(reflected),
+                    "R06 separate zipper triangle has no reflected face");
+        }
+    require(staged.boundarySidesCovered==proposal.boundaryEdges,
+            "R06 mirrored zipper pair must consume every original rim edge");
+    std::cout<<"[r06-mirror-zipper] disjoint mirrored AFM zipper operations exact PASS\\n";
+}
+
 void tightTorus() {
     const auto f=fixture(generateTorusFixture(5000,1,5));
     const auto contacts=std::vector<RegionTopologyIndex::CollisionPair>{
@@ -616,6 +718,7 @@ int main() {
         narrowZipperMustNeverReturnUnderQuality();
         tightTorus();
         physicalMirroredZipperStaging();
+        independentMirroredZipperOrbits();
         planarMirroredCapMustNotUseUnpairedEarDiagonal();
         return 0;
     }catch(const std::exception& error) {
