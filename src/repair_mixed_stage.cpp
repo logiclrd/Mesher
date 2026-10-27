@@ -12,6 +12,8 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <tuple>
+#include <optional>
 #include <utility>
 
 namespace mesher {
@@ -420,9 +422,121 @@ MixedClosureStaging stagePrivateMixedClosure(
         }
         ++result.capLoops;
     }
+    // A reflected sculpt can have TWO independent zippers wholly on
+    // opposite sides of X=0. Neither zipper individually crosses X=0:
+    // running AFM twice independently would destroy exact reflected
+    // provisional vertex orbits. Match complete contour-pair orbits from
+    // the immutable rim IDs, then reflect the first full zipper patch.
+    std::map<VertexId,VertexId> reflectedContourVertices;
+    std::vector<std::size_t> reflectedContour(
+        proposal.contours.size(),proposal.contours.size());
+    if(bounds.requireReflectedGeometry) {
+        using PositionKey=std::tuple<double,double,double>;
+        std::map<PositionKey,VertexId> verticesByPosition;
+        std::map<VertexId,std::size_t> owningContour;
+        for(std::size_t i=0;i<proposal.contours.size();++i)
+            for(const auto id:proposal.contours[i].vertexIds) {
+                const auto p=result.positions().at(id);
+                const auto [it,inserted]=verticesByPosition.emplace(
+                    PositionKey{p.x,p.y,p.z},id);
+                if(!inserted&&it->second!=id)
+                    throw std::logic_error(
+                        "R06-M06C ambiguous independent rim vertex coordinates");
+                owningContour.emplace(id,i);
+            }
+        for(const auto& [id,i]:owningContour) {
+            const auto p=result.positions().at(id);
+            const auto found=verticesByPosition.find(
+                PositionKey{-p.x,p.y,p.z});
+            if(found==verticesByPosition.end())continue;
+            reflectedContourVertices[id]=found->second;
+        }
+        for(std::size_t i=0;i<proposal.contours.size();++i) {
+            const auto& rim=proposal.contours[i].vertexIds;
+            std::size_t foundContour=proposal.contours.size();
+            bool complete=true;
+            for(const auto id:rim) {
+                const auto it=reflectedContourVertices.find(id);
+                if(it==reflectedContourVertices.end()) {
+                    complete=false;break;
+                }
+                const auto destination=owningContour.at(it->second);
+                if(foundContour==proposal.contours.size())
+                    foundContour=destination;
+                else if(foundContour!=destination) {
+                    complete=false;break;
+                }
+            }
+            if(!complete)continue;
+            const auto& other=proposal.contours[foundContour].vertexIds;
+            if(other.size()!=rim.size())continue;
+            std::vector<std::size_t> indices;
+            for(const auto id:rim) {
+                const auto match=reflectedContourVertices.at(id);
+                const auto it=std::find(other.begin(),other.end(),match);
+                if(it==other.end()) {complete=false;break;}
+                indices.push_back(
+                    static_cast<std::size_t>(it-other.begin()));
+            }
+            if(!complete)continue;
+            for(std::size_t k=0;k<indices.size();++k)
+                if(indices[(k+1)%indices.size()]!=
+                   (indices[k]+indices.size()-1)%indices.size())
+                    complete=false;
+            if(complete)reflectedContour[i]=foundContour;
+        }
+    }
+    std::set<std::pair<std::size_t,std::size_t>> mirroredZippersAlreadyGenerated;
     for(const auto& pair:plan.zipperPairs) {
+        auto current=std::minmax(pair.first,pair.second);
+        if(used.at(pair.first)||used.at(pair.second)) {
+            if(mirroredZippersAlreadyGenerated.erase(current))continue;
+            throw std::logic_error(
+                "R06-M04A duplicate or overlapping selected zipper contours");
+        }
         consume(pair.first);
         consume(pair.second);
+        std::optional<std::pair<std::size_t,std::size_t>> reflectedPair;
+        if(bounds.requireReflectedGeometry) {
+            const auto& first=proposal.contours.at(pair.first);
+            const auto& second=proposal.contours.at(pair.second);
+            const auto side=[&](const RepairContour& rim)->int {
+                int sign=0;
+                for(const auto id:rim.vertexIds) {
+                    const auto x=result.positions().at(id).x;
+                    if(x==0)return 0;
+                    if(sign&&sign!=(x<0?-1:1))return 0;
+                    sign=x<0?-1:1;
+                }
+                return sign;
+            };
+            const auto aSide=side(first),bSide=side(second);
+            if(aSide&&aSide==bSide) {
+                const auto mirroredA=reflectedContour[pair.first];
+                const auto mirroredB=reflectedContour[pair.second];
+                if(mirroredA==proposal.contours.size()||
+                   mirroredB==proposal.contours.size()||
+                   mirroredA==mirroredB)
+                    throw std::logic_error(
+                        "R06-M06C one-sided zipper lacks exact reflected pair of rims");
+                const auto other=std::minmax(mirroredA,mirroredB);
+                const auto match=std::find_if(
+                    plan.zipperPairs.begin(),plan.zipperPairs.end(),
+                    [&](const RepairContourPair& chosen) {
+                        return std::minmax(chosen.first,chosen.second)==other;
+                    });
+                if(match==plan.zipperPairs.end())
+                    throw std::logic_error(
+                        "R06-M06C one-sided zipper lacks selected reflected zipper");
+                if(used[mirroredA]||used[mirroredB])
+                    throw std::logic_error(
+                        "R06-M06C reflected zipper already consumed");
+                consume(mirroredA);
+                consume(mirroredB);
+                mirroredZippersAlreadyGenerated.insert(other);
+                reflectedPair=std::pair{mirroredA,mirroredB};
+            }
+        }
         const auto& a=proposal.contours.at(pair.first);
         const auto& b=proposal.contours.at(pair.second);
         const auto h=std::min(medianEdge(*result.sourceView(),a),medianEdge(*result.sourceView(),b));
@@ -620,6 +734,56 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" B="<<map.at(face[1])
                          <<" C="<<map.at(face[2])<<"\n";
             }
+            }
+            // A second disjoint zipper in the same mirror orbit is not
+            // separately triangulated; its entire private AFM/Poisson patch
+            // inherits the source-based exact reflection involution.
+            if(reflectedPair) {
+                const auto otherOwner=result.sourceView()->face(
+                    proposal.contours[reflectedPair->first]
+                        .survivingFaces.front()).owner;
+                std::vector<VertexId> mirrored;
+                mirrored.reserve(map.size());
+                for(std::size_t k=0;k<map.size();++k) {
+                    if(k<patch.boundaryIds.size()&&patch.boundaryIds[k]) {
+                        const auto it=reflectedContourVertices.find(map[k]);
+                        if(it==reflectedContourVertices.end())
+                            throw std::logic_error(
+                                "R06-M06C zipper source rim missing exact reflected VertexId");
+                        mirrored.push_back(it->second);
+                    }else {
+                        if(result.provisionalSpatialVertices().size()>=
+                           bounds.maxNewTriangles)
+                            throw std::length_error(
+                                "R06-M06C mirrored zipper vertex budget");
+                        const auto p=patch.positions[k];
+                        const auto provisional=std::numeric_limits<VertexId>::max()-
+                            static_cast<VertexId>(
+                                result.provisionalSpatialVertices().size());
+                        if(mesh.maybeVertex(provisional)||
+                           result.positions().contains(provisional))
+                            throw std::logic_error(
+                                "R06-M06C mirrored zipper provisional ID collision");
+                        result.stageProvisionalVertex(
+                            provisional,{-p.x,p.y,p.z},
+                            otherOwner,bounds.maxNewTriangles);
+                        mirrored.push_back(provisional);
+                    }
+                }
+                for(const auto& triangle:patch.faces)
+                    addFace({0,otherOwner,
+                             {mirrored[triangle[0]],mirrored[triangle[2]],
+                              mirrored[triangle[1]]},
+                             MixedClosureFaceKind::Zipper,h});
+                ++result.zipperPairs;
+                std::cerr<<"[repair-r06-mirror-zipper]"
+                         <<" first="<<pair.first<<","<<pair.second
+                         <<" reflected="<<reflectedPair->first<<","
+                                      <<reflectedPair->second
+                         <<" faces="<<patch.faces.size()
+                         <<" new_vertices="<<
+                             (patch.positions.size()-patch.boundaryIds.size())
+                         <<" exact_orbit=1 source_certified=0\\n";
             }
             for(const auto& triangle:patch.faces) {
                 const auto x=(patch.positions[triangle[0]].x+
