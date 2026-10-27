@@ -62,9 +62,6 @@ void validate(const MixedPrivateClosureLimits& settings) {
        settings.spatialCapDensityEdgeFactor<=1||
        settings.spatialCapDensityEdgeFactor>settings.maxCapEdgeFactor||
        !std::isfinite(settings.maxZipperEdgeFactor)||
-       !std::isfinite(settings.maxZipperBoundaryEdgeFactor)||
-       settings.maxZipperBoundaryEdgeFactor<=0||
-       settings.maxZipperBoundaryEdgeFactor>1||
        settings.minSurvivorQuality<=0||
        settings.minCapQuality<=0||settings.minCapQuality>=1||
        settings.minZipperQuality<=0||settings.minZipperQuality>=1||
@@ -278,7 +275,8 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     // The two geometric templates use source-backed, mirrored edge splits,
     // so their neighboring survivor triangles remain conforming. There is
     // no length-only zipper subdivision cascade.
-    std::set<std::array<VertexId,3>> rejectedShapes;
+    std::size_t zipperShapeTurns=0;
+    std::size_t zipperShapeVertices=0;
     while(out.refinementSteps<limits.maxRefinementSteps &&
           out.insertedVertices.size()<limits.maxInsertedVertices) {
         struct Choice {
@@ -291,9 +289,6 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
             if(face.kind!=MixedClosureFaceKind::Zipper ||
                !(face.targetEdge>0))continue;
             const auto ids=face.triangle();
-            auto key=ids;
-            std::sort(key.begin(),key.end());
-            if(rejectedShapes.count(key))continue;
             const std::array<Vec3,3> xyz{
                 positions.at(ids[0]),positions.at(ids[1]),
                 positions.at(ids[2])};
@@ -349,6 +344,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         const auto first=edge(a,b);
         const double canonicalT=(a==first.first)?
             plan.baseT:1.-plan.baseT;
+        const auto beforeShapeSplits=out.refinementSteps;
         // Both diagonals are obtained using the SAME two points D and E:
         //   CD: split AB at D, then BC at E.
         //   AE: split BC at E, then AB at D.
@@ -369,10 +365,25 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
             const auto next=splitMirrored(edge(b,c),false);
             out.refinementSteps+=next.size();
         }
-        // Retain the result of this legal shape edit, but never claim
-        // that repeating the same parent would improve its acute corner.
-        rejectedShapes.clear();
+        ++zipperShapeTurns;
+        zipperShapeVertices+=out.refinementSteps-beforeShapeSplits;
+        std::cerr<<"[repair-r06-zipper-shape] kind="<<
+            (plan.kind==ZipperShapeProposal::Kind::ApexToBase?
+                "apex_to_base":"two_edge")
+            <<" diagonal="<<(plan.useAlternateDiagonal?"AE":"CD")
+            <<" base="<<a<<","<<b<<" apex="<<c
+            <<" t="<<plan.baseT
+            <<" old_q="<<plan.parentQuality
+            <<" selected_min_child_q="<<plan.minimumChildQuality
+            <<" inserted="<<(out.refinementSteps-beforeShapeSplits)
+            <<" total_refinements="<<out.refinementSteps<<"\n";
     }
+    if(out.zipperPairs)
+        std::cerr<<"[repair-r06-zipper-shape] SUMMARY turns="<<zipperShapeTurns
+                 <<" inserted_vertices="<<zipperShapeVertices
+                 <<" min_eligible_long_edge_over_target=0.8"
+                 <<" min_base_over_height=2.5"
+                 <<" legacy_boundary_density_disabled=1\n";
 
     const auto improveQuality=[&]() -> bool {
         const auto orbit=limits.requireReflectedGeometry?std::size_t{2}:std::size_t{1};

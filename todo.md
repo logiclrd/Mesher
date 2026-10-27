@@ -2009,3 +2009,23 @@ streaming, vertex-colour and UV fidelity, import/export and
 painting tools, preserving brush-radius independence from editing
 density. The original detailed acceptance/non-goals are retained
 in [the full historical TODO](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
+
+## R06-M24 — Shape-guided zipper postprocessing (2026-10-27)
+
+[Full design and acceptance criteria](docs/R06_M24_ZIPPER_SHAPE_REFINEMENT.md).
+Replaces the zipper-only M04 pre-density and generic longest-edge
+subdivision policy. Selects one- or two-edge templates based on
+base/height > 2.5, both base angles <45 degrees vs overhang, and
+longest edge >=0.8 * targetEdge. The two-edge CD/AE diagonal is
+selected by maximizing minimum child quality. All source-backed,
+mirrored, collision, survivor and final q/length admission remains.
+
+- [ ] **M24A — Two shape templates / source-backed application.**
+  Implemented on draft PR #162, awaiting complete exact-head CI and
+  physical GPU comparison against the old repetitive survivor fans.
+  The pure template and saved-case tests pass in first GCC run
+  [CI #40522579951](https://github.com/logiclrd/Mesher/actions/runs/40522579951),
+  with the same four old failures. Original default zipper refusal-2
+  q=0.24973; opt-in unified zipper q=0.12082 and 44 refinement steps
+  (the latter is not the 0.24973 case). Follow-up instrumentation
+  distinguishes template splits from residual remeshing.

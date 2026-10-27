@@ -43,7 +43,8 @@ struct MixedPrivateClosureLimits {
     double spatialCapDensityEdgeFactor=1.5;
     std::size_t maxOptionalSpatialDensitySplits=128;
     double maxZipperEdgeFactor=2.5;
-    // Conforming pre-refinement of zipper boundary/retained-face edges.
+    // Deprecated input retained for source compatibility. Zipper edge
+    // pre-density subdivision is removed; this value is no longer used.
     double maxZipperBoundaryEdgeFactor=0.5;
 };
 

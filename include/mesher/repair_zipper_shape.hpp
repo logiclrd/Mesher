@@ -33,7 +33,6 @@ inline double zipperShapeQuality(Vec3 a,Vec3 b,Vec3 c) {
 // visually useful base need not be the mathematically longest side.
 inline std::optional<ZipperShapeProposal> chooseZipperShape(
     const std::array<Vec3,3>& p,double targetEdge,double qualityFloor) {
-    if(!(targetEdge>0)&&!std::isfinite(targetEdge))return std::nullopt;
     if(!(targetEdge>0)||!std::isfinite(targetEdge)||
        !(qualityFloor>0)||!std::isfinite(qualityFloor))
         return std::nullopt;
@@ -47,9 +46,6 @@ inline std::optional<ZipperShapeProposal> chooseZipperShape(
     const auto consider=[&](ZipperShapeProposal candidate) {
         if(!std::isfinite(candidate.minimumChildQuality)||
            candidate.minimumChildQuality+1e-12<qualityFloor)return;
-        // A bounded loss of worst-child quality is acceptable if the
-        // elongation is reduced, but a large regression is not.
-        if(candidate.minimumChildQuality+1e-12<parent*.95)return;
         if(!best||candidate.minimumChildQuality>
                     best->minimumChildQuality+1e-12||
            (std::abs(candidate.minimumChildQuality-
