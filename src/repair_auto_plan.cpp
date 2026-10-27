@@ -157,9 +157,6 @@ void validateSettings(const AutoClosurePlanSettings& s) {
             s.minimumZipperSavings>0&&s.minimumZipperSavings<1&&
             s.minimumSameOwnerZipperSavings>=s.minimumZipperSavings&&
             s.minimumSameOwnerZipperSavings<1&&
-            std::isfinite(s.minimumFacingContactZipperSavings)&&
-            s.minimumFacingContactZipperSavings>=s.minimumZipperSavings&&
-            s.minimumFacingContactZipperSavings<=s.minimumSameOwnerZipperSavings&&
             std::isfinite(s.maximumFacingContactGapInEdges)&&
             s.maximumFacingContactGapInEdges>0&&
             std::isfinite(s.minimumFacingContactNormalOpposition)&&
@@ -442,11 +439,16 @@ AutoClosurePlan planPrivateAutomaticClosure(
                    region.rimNearestSeparationInEdges>
                      limits.maximumFacingContactGapInEdges)
                     return false;
+                // A verified direct collision between distinct excision
+                // patches and strongly opposed, close rims is a TOPOLOGY
+                // witness. Do not make the choice flip from caps to zipper
+                // as a noisy V15 approximate area ratio crosses 45%.
+                // Both estimates still need to be finite; the private M04
+                // geometry/material audit remains authoritative.
                 return region.estimatedCapArea>0&&
-                    std::isfinite(region.estimatedZipperArea)&&
-                    region.estimatedZipperArea<=
-                        region.estimatedCapArea*
-                        (1-limits.minimumFacingContactZipperSavings);
+                    std::isfinite(region.estimatedCapArea)&&
+                    region.estimatedZipperArea>=0&&
+                    std::isfinite(region.estimatedZipperArea);
             };
             const bool directFacingBridge=trustedFacingBridge();
             const auto selectTrustedFacingBridge=[&](const char* origin) {
@@ -539,26 +541,28 @@ AutoClosurePlan planPrivateAutomaticClosure(
                             limits.maximumFacingContactGapInEdges;
                     const double threshold=!sameSurvivor?
                         limits.minimumZipperSavings:
-                        (facingContact?
-                            limits.minimumFacingContactZipperSavings:
-                            limits.minimumSameOwnerZipperSavings);
+                        limits.minimumSameOwnerZipperSavings;
                     if(facingContact)
-                        region.selectionReason+="; directly linked close opposing rims";
-                    if(savings<threshold) {
+                        region.selectionReason+=
+                            "; directly linked close opposing rims: zipper intent "
+                            "from R01 provenance and 3D rim evidence; "
+                            "estimated saving advisory only";
+                    if(!facingContact&&savings<threshold) {
                         region.selectionReason+="; zipper downgraded to caps: "+
                             std::to_string(savings)+" < "+
                             std::to_string(threshold)+
                             (!sameSurvivor?" separate-surface threshold":
-                             (facingContact?" close-opposing same-surface threshold":
-                              " ordinary same-surface threshold"));
+                             " ordinary same-surface threshold");
                         // Reject a long/slender unnecessary same-shell seam:
                         // two caps are preferable to retaining a tunnel.
                         region.caps.push_back(ga);
                         region.caps.push_back(gb);
                     }else {
                         region.selectionReason+="; zipper accepted: saving="+
-                            std::to_string(savings)+" threshold="+
-                            std::to_string(threshold);
+                            std::to_string(savings)+
+                            (facingContact?
+                                " (direct-contact geometry overrides ordinary same-surface area threshold)":
+                                " threshold="+std::to_string(threshold));
                         auto globalMatch=matched;
                         globalMatch.first=ga;globalMatch.second=gb;
                         region.zippers.push_back(globalMatch);
@@ -590,10 +594,10 @@ AutoClosurePlan planPrivateAutomaticClosure(
                     region.estimatedAddedArea+=found->zipperArea;
                 }
                 // V15 can choose independent caps without exposing any
-                // zipper candidate to the M06B downgrade check. Override
-                // only that all-cap V15 result, after its own cost audit;
-                // never reclassify a zipper explicitly rejected by the
-                // configured same-shell threshold.
+                // zipper candidate to M06B. Preserve the independent
+                // direct-contact topology witness even when its approximate
+                // area estimate prefers disks; never infer this from mere
+                // proximity or from a single removed patch.
                 if(directFacingBridge&&choice.pairs.empty()&&
                    region.zippers.empty()&&region.caps.size()==2)
                     selectTrustedFacingBridge("V15 selected independent caps");
