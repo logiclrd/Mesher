@@ -475,16 +475,37 @@ RegionTopologyIndex::triangleIntersections(
         }
         seeds.push_back(seed);
     }
-    // Sorting makes batches spatially local even when stable IDs are far
-    // apart, e.g. after large conforming refinement or mirror insertion.
-    // No geometry is discarded: only the BVH query envelopes are grouped.
-    if(groupedSeeds>1)
-        std::sort(seeds.begin(),seeds.end(),[](const Seed& a,const Seed& b) {
-            if(a.center.x!=b.center.x)return a.center.x<b.center.x;
-            if(a.center.y!=b.center.y)return a.center.y<b.center.y;
-            if(a.center.z!=b.center.z)return a.center.z<b.center.z;
-            return a.id<b.id;
+    // A one-axis sort can group faces on opposite sides of a round
+    // shape into one giant Y/Z AABB, defeating BVH locality. A bounded
+    // 10-bit-per-axis Morton key keeps each batch spatially coherent in
+    // THREE dimensions, including on a symmetric bulging sculpt. This
+    // only changes broad-phase envelopes, never candidate contact tests.
+    if(groupedSeeds>1) {
+        Bounds volume;
+        for(const auto& seed:seeds)mergeBounds(volume,seed.bounds);
+        const auto extent=volume.high-volume.low;
+        const auto quantize=[](double p,double lo,double span) {
+            if(span<=0)return std::uint32_t{0};
+            const double t=std::clamp((p-lo)/span,0.0,1.0);
+            return static_cast<std::uint32_t>(t*1023.0);
+        };
+        const auto morton=[&](Vec3 p) {
+            const auto x=quantize(p.x,volume.low.x,extent.x);
+            const auto y=quantize(p.y,volume.low.y,extent.y);
+            const auto z=quantize(p.z,volume.low.z,extent.z);
+            std::uint64_t key=0;
+            for(unsigned bit=0;bit<10;++bit) {
+                key|=static_cast<std::uint64_t>((x>>bit)&1u)<<(3*bit);
+                key|=static_cast<std::uint64_t>((y>>bit)&1u)<<(3*bit+1);
+                key|=static_cast<std::uint64_t>((z>>bit)&1u)<<(3*bit+2);
+            }
+            return key;
+        };
+        std::sort(seeds.begin(),seeds.end(),[&](const Seed& a,const Seed& b) {
+            const auto ac=morton(a.center),bc=morton(b.center);
+            return ac==bc?a.id<b.id:ac<bc;
         });
+    }
     const auto evaluate=[&](const Seed& seed,const Triangle& candidate) {
         if(candidate.id==seed.id)return;
         if(!intersectsBounds(seed.bounds,candidate.bounds))return;
