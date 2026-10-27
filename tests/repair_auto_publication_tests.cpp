@@ -295,6 +295,62 @@ void liveAutoChangedNeighborhoodDiscovery() {
     std::cout<<"[r07-source] full-BVH neighborhood contacts, unrelated old "
                 "intersections and exact finite-work refusal PASS\n";
 }
+void actualInflateContactCanPublishCertifiedAuto() {
+    // Red/green R07 integration coverage: physical contacts must be
+    // produced by Inflate itself, not smuggled in as a prebuilt R06 case.
+    // Two initially disjoint tetra shells are the existing tested M18
+    // genuine-contact stimulus, but this path runs R07 AUTO (not Merge).
+    Mesh dummy;
+    bool accepted=false;
+    std::size_t contactAttempts=0;
+    std::string lastRefusal;
+    for(const double halfGap:{.15,.25,.35}) {
+        if(accepted)break;
+        Mesh gap;
+        const auto tetra=[&](Vec3 center) {
+            const auto start=static_cast<std::uint32_t>(gap.vertices.size());
+            for(const auto p:std::array<Vec3,4>{{
+                {-1,-1,-1},{1,1,-1},{1,-1,1},{-1,1,1}}})
+                gap.vertices.push_back(center+p);
+            for(const auto tri:std::array<std::array<unsigned,3>,4>{{
+                {0,1,2},{0,2,3},{0,3,1},{1,3,2}}})
+                gap.triangles.push_back({
+                    start+tri[0],start+tri[1],start+tri[2]});
+        };
+        tetra({-1-halfGap,0,0});
+        tetra({1+halfGap,.19,-.11});
+        for(const double strength:{.35,.55,.8,1.0,1.3}) {
+            SculptCollisionSettings settings;
+            settings.certifiedAutoClosure=true;
+            settings.certifiedAutoUnifiedZipper=true;
+            VersionedSculptBrush brush(gap,strength,{},{},{},
+                                       false,256,{},settings);
+            const auto before=brush.snapshot();
+            const std::array<BrushArea,1> areas{{{{0,0,0},6,.95}}};
+            brush.stamp(dummy,areas);
+            if(brush.collisionRepairedStamps()==1) {
+                require(brush.rejectedStamps()==0&&
+                        brush.publishedRevisions()==1&&
+                        brush.snapshot()!=before&&
+                        brush.undo()&&brush.snapshot()==before,
+                    "Physical live AUTO collision must publish one complete undoable certified root");
+                accepted=true;
+                std::cout<<"[r07-physical-contact] accepted half_gap="<<halfGap
+                         <<" strength="<<strength<<" PASS\n";
+                break;
+            }
+            if(brush.contactStatistics().contactChecks>0||
+               brush.lastRejection().find("R07 live AUTO")!=std::string::npos) {
+                ++contactAttempts;
+                lastRefusal=brush.lastRejection();
+            }
+        }
+    }
+    require(accepted,
+        ("R07 must close at least one real Inflate-created self-contact; "
+         "attempted="+std::to_string(contactAttempts)+
+         " last_refusal="+lastRefusal).c_str());
+}
 void invalidSourceMirrorsCannotPublish() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-1.r06case";
@@ -316,7 +372,8 @@ int main() {
     try {acceptedPhysicalArchive();invalidSourceMirrorsCannotPublish();
          cleanLiveSculptDoesNotFreeze();
          desktopScaleLiveAutoFirstStamp();
-         liveAutoChangedNeighborhoodDiscovery();}
+         liveAutoChangedNeighborhoodDiscovery();
+         actualInflateContactCanPublishCertifiedAuto();}
     catch(const std::exception& e) {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
         return 1;
