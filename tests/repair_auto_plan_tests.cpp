@@ -243,7 +243,7 @@ void append(std::vector<std::size_t>& output,PrismCaps c,bool left) {
     for(std::size_t i=0;i<c.size;++i)
         output.push_back((left?c.left:c.right)+i);
 }
-void closeOpposingMouthsOnOneSurvivor() {
+void closeOpposingMouthsOnOneSurvivor(double halfGap=.28) {
     // One topological tube curved into a wide U. Its two ends face each
     // other at a short gap: two independent disk caps would preserve a
     // sphere, whereas one zipper would intentionally create a handle.
@@ -252,8 +252,8 @@ void closeOpposingMouthsOnOneSurvivor() {
     // are computed from actual indexed triangles.
     Mesh mesh;
     const std::array<Vec3,6> centers{{
-        {-.28,0,0},{-3,0,0},{-3,4,0},
-        {3,4,0},{3,0,0},{.28,0,0}
+        {-halfGap,0,0},{-3,0,0},{-3,4,0},
+        {3,4,0},{3,0,0},{halfGap,0,0}
     }};
     constexpr std::array<std::array<double,2>,4> section{{
         {-1,-1},{1,-1},{1,1},{-1,1}
@@ -299,6 +299,12 @@ void closeOpposingMouthsOnOneSurvivor() {
           planned.survivors.components.size()==1,
           "R06-M06B close and directly linked opposing SAME-SURVIVOR mouths must zipper");
     const auto& decision=planned.regions.front();
+    if(halfGap>.28) {
+        const auto estimatedSavings=1.-
+            decision.estimatedZipperArea/decision.estimatedCapArea;
+        check(estimatedSavings>0&&estimatedSavings<.45,
+              "R06-M06B wider directly contacting opposing mouths must exercise genuine sub-45%-savings bridge");
+    }
     check(decision.contactLinks==1&&
           decision.excisionPatches.size()==2&&
           decision.rimNormalAlignment<-.95&&
@@ -557,6 +563,7 @@ int main() {
         torusCaps();
         sphereSeparatedRepairs();
         closeOpposingMouthsOnOneSurvivor();
+        closeOpposingMouthsOnOneSurvivor(.42); // genuine low-saving, strong-contact case
         physicalSixPointIndependentCaps();
         mixedCapAndZipper();
         nearTieMustRefuse();
