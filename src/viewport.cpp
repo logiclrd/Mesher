@@ -1346,7 +1346,9 @@ class VulkanViewport {
                 now-lastCollisionReportTime_>=1.0)) {
                 lastCollisionStatus_=value;
                 lastCollisionReportTime_=now;
-                std::cout<<"[collision] "<<value<<"\n"<<std::flush;
+                std::cout<<(value.rfind("AUTO ",0)==0?
+                               "[repair-r07] ":"[collision] ")
+                         <<value<<"\n"<<std::flush;
                 updateTitle();
             }
         }
@@ -1417,6 +1419,19 @@ class VulkanViewport {
                 interaction_.mergeSelected?
                 " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
             if(interaction_.mergeStatus)title+=" | "+interaction_.mergeStatus();
+            // Live AUTO reports an immediate visible acceptance/refusal
+            // state; the console retains the full diagnostic explanation.
+            if(interaction_.collisionStatus&&
+               lastCollisionStatus_.rfind("AUTO ",0)==0) {
+                auto summary=lastCollisionStatus_;
+                const auto refusal=summary.find(" REFUSED ");
+                if(refusal!=std::string::npos)
+                    summary=summary.substr(0,refusal)+" REFUSED";
+                const auto terminal=summary.find(" TERMINAL ");
+                if(terminal!=std::string::npos)
+                    summary=summary.substr(0,terminal)+" TERMINAL";
+                title+=" | "+summary;
+            }
             title+=" | Esc: exit";
         } else if (animation_.advance) {
             if (animation_.caption) title += " - " + animation_.caption();

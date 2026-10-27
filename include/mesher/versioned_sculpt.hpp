@@ -94,6 +94,15 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const SculptSourceContactLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
 
+// R07 live AUTO: classify *new contacts involving this stamp's changed
+// neighborhood*, then exclude pairs already present in the immutable
+// before root. Full post-state mirror and element-budget validation remains.
+// This is NOT the protected V13 whole-original contact discovery above.
+SculptSourceContactAssessment assessPostSculptRepairContacts(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptSourceContactLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
+
 // V17d1: opt-in private classified collision evaluation. The desktop
 // Merge geometry UI remains disabled, with current sculpt default unchanged.
 // M31: finite caller INPUT validation. The active terminal gate is M32/M33.
@@ -193,6 +202,11 @@ struct SculptCollisionSettings {
     // The read-only R06 inspector and replay debugger never set this.
     bool certifiedAutoClosure=false;
     bool certifiedAutoUnifiedZipper=true;
+    // R07's per-stamp changed-neighborhood BVH has different costs than
+    // protected whole-original Merge. Retain finite limits for both, but
+    // do not globally relax the strict protected Merge source budget.
+    SculptSourceContactLimits certifiedAutoSourceLimits{
+        16384,32768,{16384,4194304,1048576,524288,262144,512},128};
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};

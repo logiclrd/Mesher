@@ -1292,6 +1292,15 @@ int main(int argc, char** argv) {
                    <<" checkpoints_saved="<<status.checkpoints.completed
                    <<" checkpoint_failures="<<status.checkpoints.failed
                    <<" renderer=dirty_partitions";
+                if(liveCertifiedAuto) {
+                    os<<" certified_auto=ON"
+                      <<" checked_stamps="<<status.collisionCheckedStamps
+                      <<" repaired_stamps="<<status.collisionRepairedStamps
+                      <<" rejected_stamps="<<status.rejectedStamps
+                      <<" step_refused="<<(status.stepResources.refused?1:0);
+                    if(status.stepResources.refused)
+                        os<<" refusal_reason="<<status.lastRejection;
+                }
                 if(avoidCollisions) {
                     const auto& bt=status.stepResources.backtracking;
                     os<<" collision_avoidance=ON"
@@ -1321,6 +1330,10 @@ int main(int argc, char** argv) {
                        " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric")+
                        (avoidCollisions?" | collision avoidance ON (Merge OFF)":"")+
+                       (liveCertifiedAuto?
+                            " | AUTO ON | published "+
+                                std::to_string(status.publishedRevisions)+
+                                " | rejected "+std::to_string(status.rejectedStamps):"")+
                        (repairInspect?(repairSession->frozen()?
                          " | R01 inspection FROZEN":" | R01 inspection armed"):"");
             };
@@ -1329,7 +1342,7 @@ int main(int argc, char** argv) {
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
-            if(repairAuto)
+            if(repairAuto&&repairInspect)
                 std::cout<<"[repair-r06] On any frozen AUTO result, Ctrl+S saves "
                             "the exact repair candidate. Ctrl+Shift+S marks "
                             "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
@@ -1340,10 +1353,16 @@ int main(int argc, char** argv) {
                          <<mesher::autoClosureClassifierName(repairClassifier)
                          <<" (M08 experimental proximity for trusted two-rim regions only; "
                             "V15 multi-rim fallback)\n";
-            if(repairAuto)
+            if(repairAuto&&repairInspect)
                 std::cout<<"[repair-r06] Armed AUTO private closure: green caps, "
                             "blue safe zippers, proven enclosed-shell retirement. "
                             "First contact freezes; no worker/history/checkpoint publication.\n";
+            if(liveCertifiedAuto)
+                std::cout<<"[repair-r07] Live AUTO enabled: stamps are repaired "
+                            "privately when needed, then published atomically. "
+                            "The brush continues after a refusal; see [repair-r07] "
+                            "status lines for checked, repaired, refused and "
+                            "published stamp counts.\n";
             if(repairCap)
                 std::cout<<"[repair-r05] Armed ALWAYS CAP (independent green caps on R03 holes, "
                             "private and frozen; never zippers).\n";

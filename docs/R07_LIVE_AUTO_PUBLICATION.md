@@ -7,12 +7,20 @@ inspection session, freeze the viewport, stall the brush stroke or store
 unpublished candidate geometry in renderer buffers.
 
 Every nontrivial stamp is still staged privately by the existing
-inflate/refine/collapse worker. The complete post-stamp source is subject
-to the same bounded R01 original-contact query used by the authenticated
-physical path. If the candidate is clean, it follows the existing ordinary
-single-CAS publication path. If transverse contact is proven, R07 runs
-R02/R03, independently replans the M03 choice, and invokes the identical
-certified R06-M04C automatic closure used in saved-case inspection.
+inflate/refine/collapse worker. R07 performs **changed-neighborhood**
+contact discovery: it uses current moved/inserted vertices and changed
+faces as query seeds against the COMPLETE candidate BVH, so any new
+intersection touching the stamp is found even if the opposing face is
+outside the brush region. Existing contacts already present in the
+immutable before root are excluded by a second bounded query. The full
+post-state stable-ID and exact-reflection mirror map are still audited.
+This is a separate finite-work policy from protected Merge's strict
+whole-original V13 source scan, which remains unchanged.
+
+A source-clean candidate follows the normal single-CAS publication path.
+If new transverse contact is proven, R07 runs R02/R03, independently
+replans the M03 choice and invokes the identical certified R06-M04C
+automatic closure used in saved-case inspection.
 
 The live mode chooses the accepted unified AFM zipper for zipper regions
 without requiring the diagnostic `--repair-unified-zipper` flag. Cap
@@ -87,3 +95,16 @@ same time. All three remain independent opt-in policies.
 The screen-visible quality of the finished M24 zipper was manually
 accepted on refusal-2. CI can prove the numeric/topological/transactional
 invariants, not subjective smoothness.
+
+## Default-sphere regression (R07)
+
+The earlier R07 clean-stamp test used a 600-vertex sphere with a tiny
+deformation. A normal default 5000-vertex mirrored sphere with the desktop
+strength and brush radius failed to publish, because scanning every triangle
+on each stamp exhausted the old V13 `maxBoxTests=524288` work budget.
+The accepted fix seeds the BVH from the stamp's changed faces and validates
+their complete collision neighbors, with independent R07 finite limits.
+The test must require a published changed root with zero refusals; it is
+not acceptable to lock in the previous silent rejection as passing behavior.
+Live AUTO worker status shows applied, rejected, published and repaired
+counts, and logs the complete refusal when one occurs.
