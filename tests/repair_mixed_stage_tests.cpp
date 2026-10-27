@@ -7,8 +7,10 @@
 #include <array>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <set>
 #include <stdexcept>
+#include <tuple>
 #include <vector>
 
 using namespace mesher;
