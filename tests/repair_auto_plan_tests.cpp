@@ -303,11 +303,11 @@ void closeOpposingMouthsOnOneSurvivor() {
           decision.excisionPatches.size()==2&&
           decision.rimNormalAlignment<-.95&&
           decision.rimNearestSeparationInEdges<=2.5&&
-          decision.estimatedZipperArea<decision.estimatedCapArea*.55&&
-          decision.estimatedZipperArea>decision.estimatedCapArea*.45&&
+          std::isfinite(decision.estimatedCapArea)&&
+          std::isfinite(decision.estimatedZipperArea)&&
           decision.selectionReason.find("directly linked close opposing rims")!=
               std::string::npos,
-          "R06-M06B must require meaningful facing provenance and approximately 50% area saving");
+          "R06-M06B trusted facing geometry, not an arbitrary area ratio, must control topology");
     AutoClosurePlanSettings experimental;
     experimental.classifier=AutoClosureClassifier::Proximity;
     const auto proximityPlan=planPrivateAutomaticClosure(
@@ -330,12 +330,12 @@ void closeOpposingMouthsOnOneSurvivor() {
           unlinked.zipperPairs.empty(),
           "R06-M06B spatially close SAME-survivor rims must not zipper without trusted contacts");
     auto conservative=AutoClosurePlanSettings{};
-    conservative.minimumFacingContactZipperSavings=.55;
-    const auto oldPolicy=planPrivateAutomaticClosure(
+    conservative.minimumSameOwnerZipperSavings=.95;
+    const auto stillConnected=planPrivateAutomaticClosure(
         *f.original.mesh,f.cut,f.preview,f.links,conservative);
-    check(oldPolicy.ready()&&oldPolicy.cappedContours.size()==2&&
-          oldPolicy.zipperPairs.empty(),
-          "R06-M06B synthetic fixture must reproduce the former over-conservative 55% decision");
+    check(stillConnected.ready()&&stillConnected.cappedContours.empty()&&
+          stillConnected.zipperPairs.size()==1,
+          "R06-M06B direct-contact facing intent cannot be vetoed by generic 95% same-owner area threshold");
     // Positive invariant: a genuinely directly contacting pair of
     // separate, strongly facing excision patches must not be silently
     // converted to two disks just because V15's *advisory* frustum
@@ -355,12 +355,13 @@ void closeOpposingMouthsOnOneSurvivor() {
     check(withoutContact.ready()&&withoutContact.zipperPairs.empty()&&
           withoutContact.cappedContours.size()==2,
           "R06-M06B unsupported V15 cannot create a zipper from proximity alone");
-    unsupportedV15.minimumFacingContactZipperSavings=.55;
-    const auto insufficientSaving=planPrivateAutomaticClosure(
+    unsupportedV15.minimumSameOwnerZipperSavings=.95;
+    const auto rescuedWithoutAreaVeto=planPrivateAutomaticClosure(
         *f.original.mesh,f.cut,f.preview,f.links,unsupportedV15);
-    check(insufficientSaving.ready()&&insufficientSaving.zipperPairs.empty()&&
-          insufficientSaving.cappedContours.size()==2,
-          "R06-M06B direct link never bypasses the configured minimum zipper savings");
+    check(rescuedWithoutAreaVeto.ready()&&
+          rescuedWithoutAreaVeto.zipperPairs.size()==1&&
+          rescuedWithoutAreaVeto.cappedContours.empty(),
+          "R06-M06B trusted physical contact must rescue an ambiguous V15 fit even when generic same-owner savings threshold is 95%");
     std::cout<<"[r06-m06b] two opposite mouths on one U tube: 50% area saving now zips, unlinked stays caps PASS\n";
 }
 void physicalSixPointIndependentCaps() {
