@@ -1456,7 +1456,7 @@ void VersionedSculptBrush::stamp(
                           (autoContactPhase==std::string("complete")?0.0:
                            seconds(autoContactPrevious,Clock::now())*1000))
                      <<" refused="<<!certifiedAutoRefusal.empty()
-                     <<" (incomplete stages show 0)\n";
+                     <<" (incomplete stages show 0)\n"<<std::flush;
         }
     }
     // A selected collision policy first classifies the FULL post-remesh
