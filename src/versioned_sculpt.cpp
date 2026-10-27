@@ -5,6 +5,7 @@
 #include "mesher/repair_excision.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -1268,6 +1269,19 @@ void VersionedSculptBrush::stamp(
     std::optional<CertifiedPrivateAutoResult> certifiedAutoRepair;
     std::optional<CertifiedAutoPublicationDelta> certifiedAutoDelta;
     std::string certifiedAutoRefusal;
+    // Timed only for an actual new-contact escalation; clean stamps incur
+    // no diagnostic I/O. Measurements are wall time on the worker, and
+    // include all private certification (not just collision BVH traversal).
+    std::array<double,7> autoContactStageMs{};
+    const char* autoContactPhase="local_detection";
+    bool autoContactEscalated=false;
+    auto autoContactPrevious=Clock::now();
+    const auto markAutoContactStage=[&](std::size_t ordinal,const char* next) {
+        const auto now=Clock::now();
+        autoContactStageMs.at(ordinal)=seconds(autoContactPrevious,now)*1000;
+        autoContactPrevious=now;
+        autoContactPhase=next;
+    };
     if(collision_.certifiedAutoClosure&&updated!=old) {
         ++collisionChecked_;
         try {
@@ -1276,6 +1290,7 @@ void VersionedSculptBrush::stamp(
                 collision_.certifiedAutoSourceLimits,
                 symmetric_?&collapser_.mirrors():nullptr);
             lastStepResourceWork_.autoDetectionWork=discovered.work;
+            markAutoContactStage(0,"complete_contact_graph");
             classifiedEpisodeStep=true;
             if(discovered.status==SculptSourceContactStatus::Refused) {
                 certifiedAutoRefusal="R07 live AUTO source refusal: "+
@@ -1284,6 +1299,7 @@ void VersionedSculptBrush::stamp(
                 episodeClassification=false;
             }else {
                 episodeClassification=true;
+                autoContactEscalated=true;
                 // R01's new-contact detector is deliberately localized,
                 // but R02/R03/M03 need COMPLETE original contact evidence.
                 // Escalate only when it finds a genuine new transverse
@@ -1305,6 +1321,7 @@ void VersionedSculptBrush::stamp(
                          <<" all_source_pairs="<<complete.contacts.size()
                          <<" complete_box_tests="<<complete.work.boxesTested
                          <<" (repair stages remain private)\n";
+                markAutoContactStage(1,"excision_preview");
                 const auto source=complete.originalCandidate;
                 const auto preview=previewApproximateExcision(
                     *source,complete.contacts);
@@ -1312,12 +1329,15 @@ void VersionedSculptBrush::stamp(
                     throw std::logic_error(
                         "R07 live AUTO incomplete source-backed R03 preview: "+
                         preview.diagnostic);
+                markAutoContactStage(2,"private_excision");
                 const auto cut=applyPrivateExcision(source,preview);
+                markAutoContactStage(3,"closure_planning");
                 auto plan=planPrivateAutomaticClosure(
                     *source,cut,preview,complete.contacts);
                 if(!plan.ready())
                     throw std::logic_error(
                         "R07 live AUTO M03 closure plan refused: "+plan.diagnostic);
+                markAutoContactStage(4,"certified_private_closure");
                 CertifiedPrivateAutoLimits limits;
                 limits.closure.requireReflectedGeometry=symmetric_;
                 limits.closure.staging.useUnifiedZipper=
@@ -1327,6 +1347,7 @@ void VersionedSculptBrush::stamp(
                 if(!result.index)
                     throw std::logic_error(
                         "R07 certified AUTO produced no final closed source root");
+                markAutoContactStage(5,"publication_provenance");
                 auto delta=inspectCertifiedAutoPublication(
                     *source,*result.index,
                     symmetric_?&collapser_.mirrors():nullptr,
@@ -1351,6 +1372,7 @@ void VersionedSculptBrush::stamp(
                 updated=result.index;
                 certifiedAutoDelta=std::move(delta);
                 certifiedAutoRepair=std::move(result);
+                markAutoContactStage(6,"complete");
             }
         }catch(const std::length_error& error) {
             certifiedAutoRefusal=std::string(
@@ -1358,6 +1380,26 @@ void VersionedSculptBrush::stamp(
         }catch(const std::exception& error) {
             certifiedAutoRefusal=std::string(
                 "R07 live AUTO geometry/provenance refusal: ")+error.what();
+        }
+        if(autoContactEscalated) {
+            std::cerr<<"[repair-r07-timing]"
+                     <<" phase="<<autoContactPhase
+                     <<" local_ms="<<autoContactStageMs[0]
+                     <<" complete_ms="<<autoContactStageMs[1]
+                     <<" preview_ms="<<autoContactStageMs[2]
+                     <<" excision_ms="<<autoContactStageMs[3]
+                     <<" plan_ms="<<autoContactStageMs[4]
+                     <<" closure_ms="<<autoContactStageMs[5]
+                     <<" provenance_ms="<<autoContactStageMs[6]
+                     <<" elapsed_ms="<<
+                         (autoContactStageMs[0]+autoContactStageMs[1]+
+                          autoContactStageMs[2]+autoContactStageMs[3]+
+                          autoContactStageMs[4]+autoContactStageMs[5]+
+                          autoContactStageMs[6]+
+                          (autoContactPhase==std::string("complete")?0.0:
+                           seconds(autoContactPrevious,Clock::now())*1000))
+                     <<" refused="<<!certifiedAutoRefusal.empty()
+                     <<" (incomplete stages show 0)\n";
         }
     }
     // A selected collision policy first classifies the FULL post-remesh
