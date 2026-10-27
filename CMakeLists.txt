@@ -420,54 +420,9 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_hud_tests)
     set_tests_properties(repair_r06_m16d2_hud_row_three_and_argument_scroll
         PROPERTIES TIMEOUT 15)
-    # M18B pure diagnostic, including synthetic directional tensor + confidence.
-    # M19C: independent private mirrored alternate-diagonal experiment.
-    add_executable(mesher_repair_cap_diagonal_feasibility_tests
-                   tests/repair_cap_diagonal_feasibility_tests.cpp)
-    target_link_libraries(mesher_repair_cap_diagonal_feasibility_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m19c_diagonal_feasibility
-             COMMAND mesher_repair_cap_diagonal_feasibility_tests)
-    set_tests_properties(repair_r06_m19c_diagonal_feasibility
-        PROPERTIES TIMEOUT 15)
-    # M21A: opportunistic entire-cap curvature/normal fairness.
-    add_executable(mesher_repair_cap_whole_fairing_tests
-                   tests/repair_cap_whole_fairing_tests.cpp)
-    target_link_libraries(mesher_repair_cap_whole_fairing_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m21a_whole_cap_fairing_fallback
-             COMMAND mesher_repair_cap_whole_fairing_tests)
-    set_tests_properties(repair_r06_m21a_whole_cap_fairing_fallback
-        PROPERTIES TIMEOUT 15)
-    # M19A: diagnostics-only finite positional feasibility search.
-    add_executable(mesher_repair_cap_feasibility_tests
-                   tests/repair_cap_feasibility_tests.cpp)
-    target_link_libraries(mesher_repair_cap_feasibility_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m19a_positional_feasibility
-             COMMAND mesher_repair_cap_feasibility_tests)
-    set_tests_properties(repair_r06_m19a_positional_feasibility
-        PROPERTIES TIMEOUT 15)
-    # M18E: independent fixed-rim Poisson curvature-guidance experiment.
-    add_executable(mesher_repair_curvature_poisson_tests
-                   tests/repair_curvature_poisson_tests.cpp)
-    target_link_libraries(mesher_repair_curvature_poisson_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m18e_curvature_guided_poisson
-             COMMAND mesher_repair_curvature_poisson_tests)
-    set_tests_properties(repair_r06_m18e_curvature_guided_poisson
-        PROPERTIES TIMEOUT 20)
-    # M18C: purely read-only profile/tensor continuity comparison.
-    add_executable(mesher_repair_cap_continuity_tests
-                   tests/repair_cap_continuity_tests.cpp)
-    target_link_libraries(mesher_repair_cap_continuity_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m18c_cap_curvature_continuity
-             COMMAND mesher_repair_cap_continuity_tests)
-    set_tests_properties(repair_r06_m18c_cap_curvature_continuity
-        PROPERTIES TIMEOUT 15)
-    add_executable(mesher_repair_survivor_curvature_tests
-                   tests/repair_survivor_curvature_tests.cpp)
-    target_link_libraries(mesher_repair_survivor_curvature_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m18b_directional_survivor_curvature
-             COMMAND mesher_repair_survivor_curvature_tests)
-    set_tests_properties(repair_r06_m18b_directional_survivor_curvature
-        PROPERTIES TIMEOUT 15)
+    # Ring-and-hub M17D–M21A trials retired with M22B AFM cleanup.
+    # Keep AFM topology/Poisson, saved-case certification, geometry-safe
+    # scale-aware handoff, and full worker publication regression tests.
     add_executable(mesher_repair_scale_aware_tests
                    tests/repair_scale_aware_refinement_tests.cpp)
     target_link_libraries(mesher_repair_scale_aware_tests PRIVATE mesher_mesh)
@@ -635,9 +590,6 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m23a_optional_placement_callback
              COMMAND mesher_repair_m23a_placement_callback_tests)
     set_tests_properties(repair_r06_m23a_optional_placement_callback PROPERTIES TIMEOUT 20)
-    add_executable(mesher_repair_spatial_cap_tests tests/repair_spatial_cap_tests.cpp)
-    target_link_libraries(mesher_repair_spatial_cap_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m06c_spatial_front_poisson COMMAND mesher_repair_spatial_cap_tests)
     add_executable(mesher_repair_cap_tests tests/repair_cap_tests.cpp)
     target_link_libraries(mesher_repair_cap_tests PRIVATE mesher_mesh)
     add_test(NAME repair_r05_forced_independent_caps COMMAND mesher_repair_cap_tests)

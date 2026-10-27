@@ -1,9 +1,6 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_cap_spatial.hpp"
 #include "mesher/repair_zipper_front.hpp"
-#include "mesher/repair_surface_profile.hpp"
-#include "mesher/repair_survivor_curvature.hpp"
-#include "mesher/repair_cap_continuity.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -236,11 +233,10 @@ MixedClosureStaging stagePrivateMixedClosure(
                      <<" next=advancing-front\n";
         }
         if(forceSpatial) {
-            // The original R05 projected-ear builder remains unchanged and
-            // first-choice. For genuinely folded contours, advance a fully
-            // spatial oriented front, add synthetic private interior vertices
-            // and fair by fixed-rim normal-guided Poisson. M04B later
-            // allocates permanent IDs and certifies true mesh embedding.
+            // AFM is the production spatial cap generator. It creates
+            // provisional interior vertices, then settles them with the
+            // topology-independent, fixed-rim graph Poisson solver. M04B
+            // allocates stable IDs and certifies full mesh embedding.
             std::vector<Vec3> ordered;
             std::vector<Vec3> guidance;
             const auto n=loop.vertexIds.size();
@@ -260,48 +256,14 @@ MixedClosureStaging stagePrivateMixedClosure(
             try {
                 SpatialCapSettings spatial;
                 spatial.useAdvancingFront=true;
-                spatial.repairTangentialOvershoot=bounds.optimizeSpatialFront;
-                spatial.optimizeBoundaryContinuity=bounds.optimizeCurvatureFront;
-                spatial.curvatureGuidedPoisson=bounds.guideCurvaturePoisson;
-                spatial.probeFirstRingFeasibility=bounds.probeSeamFeasibility;
-                spatial.stageFirstRingFeasibilityPreview=bounds.stageFeasibilityPreview;
-                spatial.probeBandDiagonalFeasibility=bounds.probeDiagonalFeasibility;
-                spatial.stageBandDiagonalPreview=bounds.stageDiagonalPreview;
-                spatial.stageWholeCapFairingPreview=bounds.stageWholeCapFairingPreview;
                 spatial.desiredMinimumQuality=bounds.targetInitialCapQuality;
                 spatial.requireMirrorPlane=bounds.requireReflectedGeometry&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x<0;})&&
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x>0;});
-                std::vector<SurvivorDirectionalCurvature> references;
-                if(bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                   bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview) {
-                    references.resize(n);
-                    for(std::size_t k=0;k<n;++k) {
-                        // Outgoing cap edge k->k+1 corresponds to the
-                        // reversed ORIGINAL R03 surviving FaceId.
-                        const auto original=(2*n-2-k)%n;
-                        const auto survivorFaceId=loop.survivingFaces.at(original);
-                        try {
-                            const auto neighbors=
-                                collectSurvivorCurvatureNeighborhood(mesh,survivorFaceId);
-                            references[(k+1)%n]=
-                                estimateSurvivorDirectionalCurvature(
-                                    ordered[k],ordered[(k+1)%n],neighbors);
-                        }catch(const std::exception&) {
-                            // The M18C evaluator rejects unknown *tensor
-                            // evidence* but can still measure real boundary
-                            // normals. Never fake a trusted curvature fit.
-                        }
-                    }
-                }
                 patch=buildSpatialCapFrontPoisson(
-                    ordered,guidance,spatial,
-                    (bounds.optimizeCurvatureFront||bounds.guideCurvaturePoisson||
-                     bounds.probeSeamFeasibility||bounds.stageFeasibilityPreview)?
-                        &references:nullptr,
-                    nullptr); // M23A: no zipper attraction in existing R06 caps
+                    ordered,guidance,spatial,nullptr,nullptr);
                 logCapCandidate("advancing-front",id,n,
                     patch.faces,[&](std::uint32_t vertex) {
                         return patch.positions.at(vertex);
@@ -316,132 +278,6 @@ MixedClosureStaging stagePrivateMixedClosure(
                 throw std::logic_error(
                     std::string("R06-M22B advancing-front cap unavailable: ")+
                     failed.what());
-            }
-            // M18A read-only diagnostic. The original cap rim is reversed:
-            // source face on outgoing cap edge k->k+1 has ordinal
-            // (2*n-2-k)%n in the original directed R03 contour.
-            // Logging is enabled by the existing opt-in front-optimizer flag;
-            // it changes no positions, topology, or closure admission.
-            if(bounds.optimizeSpatialFront) {
-                const auto profile=measureSpatialCapRimProfile(patch,guidance);
-                std::vector<SurvivorDirectionalCurvature> incomingReference(n);
-                std::ostringstream report;
-                report<<std::setprecision(17)
-                      <<"[repair-r06-rim-profile] loop="<<id
-                      <<" measured="<<profile.measuredEdges
-                      <<" unavailable="<<profile.unavailableEdges
-                      <<" max_abs_dihedral_deg="
-                      <<profile.maximumAbsoluteDihedralRadians*
-                         (180./std::acos(-1.))
-                      <<" mean_abs_dihedral_deg="
-                      <<profile.meanAbsoluteDihedralRadians*
-                         (180./std::acos(-1.))
-                      <<" max_abs_first_ring_normal_offset_over_edge="
-                      <<profile.maximumAbsoluteNormalizedOffset<<"\n";
-                for(const auto& entry:profile.edges) {
-                    const auto k=entry.rimStart;
-                    const auto sourceIndex=(2*n-2-k)%n;
-                    const auto sourceId=loop.survivingFaces[sourceIndex];
-                    const auto a=loop.vertexIds[n-1-k];
-                    const auto b=loop.vertexIds[n-1-((k+1)%n)];
-                    report<<"[repair-r06-rim-profile-edge] loop="<<id
-                          <<" rim_edge="<<a<<","<<b
-                          <<" survivor_face="<<sourceId
-                          <<" cap_face_ordinal="<<entry.capFaceIndex
-                          <<" measured="
-                          <<(entry.hasSurvivorNormal&&entry.hasCapNormal)
-                          <<" edge_length="<<entry.edgeLength;
-                    if(entry.hasSurvivorNormal&&entry.hasCapNormal)
-                        report<<" signed_dihedral_deg="
-                              <<entry.signedDihedralRadians*(180./std::acos(-1.))
-                              <<" abs_dihedral_deg="
-                              <<entry.absoluteDihedralRadians*(180./std::acos(-1.))
-                              <<" first_ring_normal_offset_over_edge="
-                              <<entry.normalizedFirstRingNormalOffset
-                              <<" foot_t="<<entry.oppositeFootParameter;
-                    // M18B shape-operator reference from SOURCE-backed
-                    // surviving faces only. Never move a vertex or reject a
-                    // closure based on this diagnostic.
-                    try {
-                        const auto neighborhood=
-                            collectSurvivorCurvatureNeighborhood(mesh,sourceId);
-                        const auto curvature=estimateSurvivorDirectionalCurvature(
-                            result.positions().at(a),result.positions().at(b),
-                            neighborhood);
-                        incomingReference[(k+1)%n]=curvature;
-                        report<<" curvature_status="
-                              <<survivorCurvatureConfidenceName(curvature.confidence)
-                              <<" curvature_samples="<<curvature.contributingFaces
-                              <<" curvature_skipped="<<curvature.skippedFaces
-                              <<" curvature_truncated="<<neighborhood.truncated
-                              <<" curvature_max_normal_angle_deg="
-                              <<curvature.maximumNormalAngle*(180./std::acos(-1.));
-                        if(curvature.hasEstimate)
-                            report<<" k_tt="<<curvature.seam
-                                  <<" k_tu="<<curvature.mixed
-                                  <<" k_uu="<<curvature.transverse
-                                  <<" curvature_rms="<<curvature.rmsNormalResidual
-                                  <<" curvature_pivot_ratio="<<curvature.pivotRatio
-                                  <<" curvature_confidence_score="
-                                  <<curvature.confidenceScore;
-                    }catch(const std::exception& e) {
-                        report<<" curvature_status=diagnostic_unavailable"
-                              <<" curvature_reason="<<e.what();
-                    }
-                    report<<"\n";
-                }
-                // M18C compares CAP-side curvature against the exact
-                // survivor tensor, without treating q>=.10 as proof of
-                // normal continuity or trusting high-error tensor fits.
-                try {
-                    const auto comparison=measureSpatialCapContinuity(
-                        patch,guidance,incomingReference);
-                    report<<"[repair-r06-continuity] loop="<<id
-                          <<" measured_boundary_edges="<<comparison.measuredBoundaryEdges
-                          <<" max_boundary_jump_deg="
-                          <<comparison.maximumBoundaryJumpRadians*(180./std::acos(-1.))
-                          <<" mean_boundary_jump_deg="
-                          <<comparison.meanBoundaryJumpRadians*(180./std::acos(-1.))
-                          <<" mean_boundary_fairness_score="
-                          <<comparison.meanBoundaryAndFairnessScore
-                          <<" directional_measured="<<comparison.directionalMeasuredEdges
-                          <<" directional_qualified="<<comparison.directionalQualifiedEdges
-                          <<" directional_unqualified="<<comparison.lowConfidenceEdges
-                          <<" mean_qualified_directional_mismatch="
-                          <<comparison.meanQualifiedDirectionalMismatch<<"\n";
-                    for(const auto& item:comparison.edges) {
-                        const auto k=item.rim.rimStart;
-                        const auto a=loop.vertexIds[n-1-k];
-                        const auto b=loop.vertexIds[n-1-((k+1)%n)];
-                        report<<"[repair-r06-continuity-edge] loop="<<id
-                              <<" rim_edge="<<a<<","<<b
-                              <<" boundary_jump_deg="
-                              <<item.boundaryNormalJumpRadians*(180./std::acos(-1.))
-                              <<" interior_fairness_deg="
-                              <<item.capInteriorFairnessRadians*(180./std::acos(-1.))
-                              <<" boundary_fairness_score="
-                              <<item.boundaryAndFairnessScore
-                              <<" cap_status="
-                              <<survivorCurvatureConfidenceName(item.cap.confidence)
-                              <<" cap_confidence="<<item.cap.confidenceScore
-                              <<" reference_confidence="<<item.survivor.confidenceScore
-                              <<" directional_measured="<<item.directionalMeasured
-                              <<" directional_qualified="<<item.directionalQualified;
-                        if(item.directionalMeasured)
-                            report<<" cap_k_tt="<<item.cap.seam
-                                  <<" cap_k_tu="<<item.cap.mixed
-                                  <<" cap_k_uu="<<item.cap.transverse
-                                  <<" h_delta_tt="<<item.deltaSeamScaled
-                                  <<" h_delta_tu="<<item.deltaMixedScaled
-                                  <<" h_delta_uu="<<item.deltaTransverseScaled
-                                  <<" scaled_tensor_mismatch="<<item.directionalMismatchScaled;
-                        report<<"\n";
-                    }
-                }catch(const std::exception& error) {
-                    report<<"[repair-r06-continuity] loop="<<id
-                          <<" diagnostic_unavailable="<<error.what()<<"\n";
-                }
-                std::cerr<<report.str();
             }
             std::vector<VertexId> ids;
             ids.reserve(patch.positions.size());

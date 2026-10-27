@@ -43,8 +43,8 @@ struct SpatialCapPatch {
     std::size_t poissonIterations{};
     double poissonResidual{};
     double minimumQuality{1};
-    bool usedMirroredRibbonFallback{}; // alternate exact X=0 seam strip; no Poisson sweeps
-    bool usedAdaptiveFront{}; // arbitrary indexed connectivity; M17-M21 ring-only probes disabled
+    bool usedMirroredRibbonFallback{}; // compatibility metric: always false for AFM
+    bool usedAdaptiveFront{}; // generated with arbitrary indexed advancing-front connectivity
     std::vector<SpatialCapPlacementTrace> placementTrace; // zipper-only debug
 };
 
@@ -57,33 +57,8 @@ struct SpatialCapSettings {
     double poissonTolerance=1e-9;
     double maximumInitialEdgeFactor=12; // loose gate; M04 owns quality limits
     bool requireMirrorPlane=false; // exact reflection about X=0; no coordinate welding
-    bool useAdvancingFront=false; // R06 staging enables the new primary constructor; old direct CPU fixtures remain available
+    bool useAdvancingFront=true; // production and default: AFM only; false is an explicit retired-mode error
     double nearSeamSnapFraction=0.25; // candidate heuristic, not a waiver of front manifold checks
-    bool preferMirroredRibbonForTesting=false; // local regression only, no production caller
-    // M17D candidate experiment: mirror-paired opposite diagonal in each
-    // outward strip quad. False preserves legacy exact staging topology.
-    bool alternateBandDiagonals=false;
-    // M17D opt-in: correct Poisson-settled inward-ring points which shoot
-    // past a neighboring fixed boundary edge, without moving R03 vertices.
-    bool repairTangentialOvershoot=false;
-    // M18D independent opt-in: bounded mirror-orbit first-ring placement
-    // for M18C measured boundary direction/fairness. Disabled by default.
-    bool optimizeBoundaryContinuity=false;
-    // M18E independent opt-in: confidence-weighted survivor curvature
-    // enters the converged fixed-rim Poisson objective (not initial seeds).
-    // M19A diagnostic only; the counterfactual best patch is NEVER staged.
-    bool probeFirstRingFeasibility=false;
-    bool stageFirstRingFeasibilityPreview=false; // step-debug ONLY; not a certified closure result
-    bool probeBandDiagonalFeasibility=false; // M19C read-only counterfactual
-    bool stageBandDiagonalPreview=false; // M19D step-debug-only PRIVATE face candidate
-    bool stageWholeCapFairingPreview=false; // M21A optional post-M19 whole-cap fairing
-    bool curvatureGuidedPoisson=false;
-    double curvaturePoissonStrength=1.5; // relative to graph vertex degree
-    double curvaturePoissonAnchorWeight=1.5; // retains legal M17D in-ring topology scale
-    double curvaturePoissonMaxNormalShift=0.65; // * median rim edge
-    std::size_t maxCurvaturePoissonIterations=128;
-    std::size_t maxContinuityRounds=4;
-    std::size_t maxContinuityTrials=40;
     double desiredMinimumQuality=0.10;
     std::size_t maxCorrectionRounds=4;
     std::size_t maxCorrectionTrials=24;
@@ -141,12 +116,11 @@ void solveSpatialCapFixedRimPoisson(
     const SpatialCapSettings& settings,
     const std::vector<std::size_t>& mirrorPartners={});
 
-// Current R06 cap entry point: for now it still constructs a fixed
-// n-vertex inset ring and hub, then delegates to the generic fixed-rim
-// solver above. M22B replaces ONLY the geometry-construction phase in place.
-// Existing M17–M21 post-processing still contains ring-specific assumptions.
-// No source stable-ID allocation here; callers perform the complete M04
-// source-backed quality/contact/manifold audit before PRIVATE acceptance.
+// Current R06 cap entry point: topology-independent advancing-front
+// construction followed by the shared fixed-rim Poisson solver. It never
+// falls back to the retired ring-and-hub triangulation. Final source-backed
+// geometry, symmetry, collision and quality certification belong to M04B.
+// incomingReference is a retained compatibility argument, ignored by AFM.
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
