@@ -233,7 +233,7 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.postRetirementFaces=out.postClosureFaces-retiredFaces.size();
     out.index=std::move(finalIndex);
     const auto done=AutoClock::now();
-    std::cerr<<"[repair-r06-auto-timing]"
+    std::cout<<"[repair-r06-auto-timing]"
              <<" cut_check_ms="<<elapsedMs(begun,cutChecked)
              <<" replan_ms="<<elapsedMs(cutChecked,replanned)
              <<" mixed_closure_ms="<<elapsedMs(replanned,closed)
