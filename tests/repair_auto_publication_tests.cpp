@@ -139,6 +139,43 @@ void cleanLiveSculptDoesNotFreeze() {
              <<" first_root_published=1"
              <<" clean stamp/undo/redo/continued input PASS\\n";
 }
+void desktopScaleLiveAutoFirstStamp() {
+    // R07 regression: exercise the actual default interactive profile,
+    // not only the previous 600-vertex, deliberately tiny stamp fixture.
+    SphereOptions options;
+    options.vertexCount=5000;
+    options.symmetric=true;
+    const auto initial=generateSphere(options);
+    SculptCollisionSettings settings;
+    settings.certifiedAutoClosure=true;
+    settings.certifiedAutoUnifiedZipper=true;
+    CurvatureSettings curvature;
+    CollapseSettings collapse;
+    RefineSettings refine;
+    curvature.enabled=true;
+    collapse.enabled=true;
+    refine.enabled=true;
+    VersionedSculptBrush brush(initial,.012,curvature,collapse,refine,
+                               true,256,{},settings);
+    const auto before=brush.snapshot();
+    const std::array<BrushArea,2> areas{{
+        {{-.26,-.67,.66},.4,.3},
+        {{ .26,-.67,.66},.4,.3}
+    }};
+    Mesh ignored;
+    brush.stamp(ignored,areas);
+    std::cout<<"[r07-live-desktop] completed="<<brush.completedStamps()
+             <<" rejected="<<brush.rejectedStamps()
+             <<" published="<<brush.publishedRevisions()
+             <<" checked="<<brush.collisionCheckedStamps()
+             <<" repaired="<<brush.collisionRepairedStamps()
+             <<" reason="<<brush.lastRejection()<<"\n";
+    require(brush.completedStamps()==1&&
+            brush.rejectedStamps()==0&&
+            brush.publishedRevisions()==1&&
+            brush.snapshot()!=before,
+        "ordinary default-size collision-free AUTO stamp must publish");
+}
 void invalidSourceMirrorsCannotPublish() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-1.r06case";
@@ -158,7 +195,8 @@ void invalidSourceMirrorsCannotPublish() {
 }
 int main() {
     try {acceptedPhysicalArchive();invalidSourceMirrorsCannotPublish();
-         cleanLiveSculptDoesNotFreeze();}
+         cleanLiveSculptDoesNotFreeze();
+         desktopScaleLiveAutoFirstStamp();}
     catch(const std::exception& e) {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
         return 1;
