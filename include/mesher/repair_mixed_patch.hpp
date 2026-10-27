@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -174,6 +175,66 @@ inline AppliedMixedClosurePatch applyPrivateMixedClosurePatch(
     }
     applied.touchedPartitions.assign(owners.begin(),owners.end());
     return applied;
+}
+
+// A certified closure may add a large local fan to an imported partition
+// which was already full. The private COW patch uses low-level addFace/
+// addVertex (unlike RegionEdit) so it must restore the same 256-element
+// partition invariant BEFORE its result can become a sculpt source.
+// Only transaction-created IDs may move: historical source elements retain
+// their exact stable IDs, owners, and positions. The immutable source and
+// all geometry references remain untouched.
+inline void boundPrivateMixedClosurePartitions(
+    MutableMeshView& view,const RegionTopologyIndex& source,
+    std::set<PartitionId>& touchedOwners) {
+    constexpr std::size_t partitionCapacity=256;
+    const std::vector<PartitionId> originalOwners(
+        touchedOwners.begin(),touchedOwners.end());
+    for(const auto owner:originalOwners) {
+        auto& partition=view.editPartition(owner);
+        if(partition.vertices.size()<=partitionCapacity &&
+           partition.faces.size()<=partitionCapacity)
+            continue;
+        std::optional<PartitionId> overflow;
+        const auto destination=[&](bool vertex)->MeshPartition& {
+            if(overflow) {
+                auto& p=view.editPartition(*overflow);
+                if((vertex?p.vertices.size():p.faces.size())<partitionCapacity)
+                    return p;
+            }
+            const auto id=source.revision().allocateOverflowPartition();
+            if(source.revision().partition(id))
+                throw std::logic_error(
+                    "R06 closure overflow owner collides with immutable source");
+            overflow=id;
+            touchedOwners.insert(id);
+            return view.editPartition(id);
+        };
+        while(partition.vertices.size()>partitionCapacity) {
+            const auto it=std::find_if(
+                partition.vertices.begin(),partition.vertices.end(),
+                [&](const PartitionVertex& v) {
+                    return !source.maybeVertex(v.id);
+                });
+            if(it==partition.vertices.end())
+                throw std::length_error(
+                    "R06 closure source partition has excess original vertices");
+            destination(true).vertices.push_back(*it);
+            partition.vertices.erase(it);
+        }
+        while(partition.faces.size()>partitionCapacity) {
+            const auto it=std::find_if(
+                partition.faces.begin(),partition.faces.end(),
+                [&](const PartitionFace& f) {
+                    return !source.maybeFace(f.id);
+                });
+            if(it==partition.faces.end())
+                throw std::length_error(
+                    "R06 closure source partition has excess original faces");
+            destination(false).faces.push_back(*it);
+            partition.faces.erase(it);
+        }
+    }
 }
 
 } // namespace mesher
