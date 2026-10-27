@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 #include <map>
 #include <stdexcept>
 #include <tuple>
@@ -65,9 +68,36 @@ GeometricMirrorEvidence auditPrivateReflectedGeometry(
     std::map<VertexId,VertexId> partner;
     for(const auto& [id,p]:position) {
         const auto it=at.find(positionKey({-p.x,p.y,p.z}));
-        if(it==at.end())
-            throw std::logic_error(
-                "R06-M06C private cap cannot preserve exact reflected vertex orbits");
+        if(it==at.end()) {
+            // Diagnostic only: never use near matches to weld, snap, or
+            // certify a reflected orbit. A failure on a live sculpt should
+            // identify the first unmatched stable ID and its nearest
+            // would-be counterpart, including sub-ulp discrepancies.
+            const Vec3 wanted{-p.x,p.y,p.z};
+            VertexId closestId{};
+            double closestDistance=std::numeric_limits<double>::infinity();
+            Vec3 closestPosition{};
+            for(const auto& [other,q]:position) {
+                const auto distance=std::hypot(
+                    q.x-wanted.x,q.y-wanted.y,q.z-wanted.z);
+                if(distance<closestDistance) {
+                    closestDistance=distance;
+                    closestId=other;
+                    closestPosition=q;
+                }
+            }
+            std::ostringstream reason;
+            reason<<std::setprecision(17)
+                  <<"R06-M06C private cap cannot preserve exact reflected vertex orbits"
+                  <<" id="<<id
+                  <<" xyz="<<p.x<<","<<p.y<<","<<p.z
+                  <<" wanted="<<wanted.x<<","<<wanted.y<<","<<wanted.z
+                  <<" nearest_id="<<closestId
+                  <<" nearest_xyz="<<closestPosition.x<<","
+                     <<closestPosition.y<<","<<closestPosition.z
+                  <<" nearest_distance="<<closestDistance;
+            throw std::logic_error(reason.str());
+        }
         partner.emplace(id,it->second);
         if(p.x!=0)++out.pairedVertices;
         else if(it->second!=id)
