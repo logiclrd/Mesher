@@ -419,7 +419,54 @@ AutoClosurePlan planPrivateAutomaticClosure(
                 fitness.maximumSingleCapIsoperimetricRatio,
                 fitness.maximumIsoperimetricRatio);
             const auto choice=selectRepairClosures(*cut.index,local,fitness);
-            if(!choice.ready()) {
+            // The independent 3D rim witness is particularly valuable
+            // for two *different*, directly contacting excision patches on
+            // one survivor. V15's planar/frustum fit can choose two disks
+            // (or report ambiguity) before the R06-M06B same-shell facing
+            // contact exception ever sees a candidate zipper. Do NOT treat
+            // mere proximity or an ordinary same-patch torus pinch as
+            // permission to create a handle.
+            const auto trustedFacingBridge=[&]() {
+                if(n!=2||region.excisionPatches.size()!=2||
+                   !region.twoRimEvidenceValid||region.contactLinks==0)
+                    return false;
+                const auto a=region.contours[0],b=region.contours[1];
+                auto patchA=loopPatch.at(a),patchB=loopPatch.at(b);
+                if(patchA==patchB)return false;
+                if(patchA>patchB)std::swap(patchA,patchB);
+                if(!directLinks.contains({patchA,patchB})||
+                   loopSurvivor.at(a)!=loopSurvivor.at(b))
+                    return false;
+                if(region.rimNormalAlignment>
+                     -limits.minimumFacingContactNormalOpposition||
+                   region.rimNearestSeparationInEdges>
+                     limits.maximumFacingContactGapInEdges)
+                    return false;
+                return region.estimatedCapArea>0&&
+                    std::isfinite(region.estimatedZipperArea)&&
+                    region.estimatedZipperArea<=
+                        region.estimatedCapArea*
+                        (1-limits.minimumFacingContactZipperSavings);
+            };
+            const bool directFacingBridge=trustedFacingBridge();
+            const auto selectTrustedFacingBridge=[&](const char* origin) {
+                region.caps.clear();
+                region.zippers.clear();
+                region.zippers.push_back({
+                    region.contours[0],region.contours[1]});
+                region.estimatedAddedArea=region.estimatedZipperArea;
+                region.selectionReason=
+                    std::string("R06-M06B direct two-patch same-survivor facing zipper; ")+
+                    origin+"; R01 direct contact and 3D rim geometry qualified; "
+                    "M04 must still certify actual seam";
+            };
+            if(!choice.ready()&&directFacingBridge) {
+                // An unsupported V15 frustum is NOT an affirmative cap
+                // decision when two physically touching patches provide
+                // the narrowly qualified M06B bridge witness.
+                // No operation is published until M04 certifies geometry.
+                selectTrustedFacingBridge("V15 ambiguous");
+            }else if(!choice.ready()) {
                 region.usedAmbiguousCapFallback=true;
                 region.selectionReason="V15 ambiguous; two-cap fallback: "+choice.reason;
                 // One loop has no possible zipper competitor. Two loops on
@@ -515,6 +562,13 @@ AutoClosurePlan planPrivateAutomaticClosure(
                         region.zippers.push_back(globalMatch);
                     }
                 }
+                // V15 can return independent caps without ever exposing a
+                // zipper candidate to the R06-M06B downgrade check. Rescue
+                // ONLY the direct-contact, separate-patch, strong facing
+                // witness above, not general same-survivor proximity.
+                if(directFacingBridge&&region.zippers.empty()&&
+                   region.caps.size()==2)
+                    selectTrustedFacingBridge("V15 selected independent caps");
                 // Recompute cost after possible conservative zipper-to-cap
                 // downgrades, instead of copying V15's now-stale total.
                 for(const auto global:region.caps)
