@@ -255,20 +255,25 @@ void mixedAndTampered() {
     for(const auto id:warned.qualityWarningFaces)
         require(static_cast<bool>(warned.index->maybeFace(id)),
                 "M12 warned face IDs must refer to the actual displayed private geometry");
-    require(closed.spatialCapLoops==0&&
-            closed.spatialDensitySplits==0&&
-            closed.maximumFinalSpatialCapEdgeRatio==0,
-            "R06-M06C4a spatial density must not touch legacy mixed caps and zippers");
+    // M22B AFM is now the DEFAULT spatial cap, including in a mixed
+    // cap/zipper plan. Optional cap density therefore legitimately runs
+    // in this fixture. Require positive evidence of that distinction,
+    // rather than asserting the removed legacy non-spatial cap behavior.
+    require(closed.spatialCapLoops>0?
+            closed.maximumFinalSpatialCapEdgeRatio>0:
+            (closed.spatialDensitySplits==0&&
+             closed.maximumFinalSpatialCapEdgeRatio==0),
+            "R06-M22B spatial density metrics must describe actual AFM-cap use");
     auto legacyDensity=MixedPrivateClosureLimits{};
     legacyDensity.spatialCapDensityEdgeFactor=1.05;
     legacyDensity.maxOptionalSpatialDensitySplits=0;
     const auto unchanged=applyPrivateMixedClosure(cut,proposal,plan,legacyDensity);
     require(unchanged.index&&
             unchanged.spatialDensitySplits==0&&
-            unchanged.greenFaces.size()==closed.greenFaces.size()&&
-            unchanged.blueFaces.size()==closed.blueFaces.size()&&
-            unchanged.minimumCapQuality>=legacyDensity.minCapQuality,
-            "R06-M06C4a optional density settings must not perturb non-spatial repair");
+            unchanged.minimumCapQuality>=legacyDensity.minCapQuality&&
+            unchanged.minimumZipperQuality>=legacyDensity.minZipperQuality&&
+            f.root->retiredFaceCount()==0,
+            "R06-M06C4a optional density disabled must preserve strict valid closure and original source");
     auto invalidDensity=MixedPrivateClosureLimits{};
     invalidDensity.spatialCapDensityEdgeFactor=0.95;
     bool badDensityRefused=false;
