@@ -14,6 +14,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -1342,8 +1343,9 @@ void VersionedSculptBrush::stamp(
                 // source-backed M03 decision before M04, so a successful
                 // but wrong cap-vs-zipper classification is diagnosable.
                 // Print only on real contact escalation, never clean stamps.
-                std::cout<<"[repair-r07-plan]"
-                         <<" contacts="<<complete.contacts.size()
+                std::ostringstream planLog;
+                planLog<<"[repair-r07-plan]"
+                       <<" contacts="<<complete.contacts.size()
                          <<" excised_faces="<<preview.proposedFaces.size()
                          <<" contours="<<preview.contours.size()
                          <<" patches="<<plan.excisionPatches
@@ -1355,20 +1357,20 @@ void VersionedSculptBrush::stamp(
                 for(std::size_t regionIndex=0;
                     regionIndex<plan.regions.size();++regionIndex) {
                     const auto& region=plan.regions[regionIndex];
-                    std::cout<<"[repair-r07-plan-region]"
+                    planLog<<"[repair-r07-plan-region]"
                              <<" index="<<regionIndex
                              <<" patches="<<region.excisionPatches.size()
                              <<" contact_links="<<region.contactLinks
                              <<" loops=";
                     for(const auto loop:region.contours)
-                        std::cout<<loop<<",";
-                    std::cout<<" caps=";
+                        planLog<<loop<<",";
+                    planLog<<" caps=";
                     for(const auto loop:region.caps)
-                        std::cout<<loop<<",";
-                    std::cout<<" zippers=";
+                        planLog<<loop<<",";
+                    planLog<<" zippers=";
                     for(const auto& selected:region.zippers)
-                        std::cout<<selected.first<<":"<<selected.second<<",";
-                    std::cout<<" selection_area="<<region.estimatedAddedArea
+                        planLog<<selected.first<<":"<<selected.second<<",";
+                    planLog<<" selection_area="<<region.estimatedAddedArea
                              <<" ambiguous_cap_fallback="
                              <<region.usedAmbiguousCapFallback
                              <<" two_rim_evidence="
@@ -1377,7 +1379,7 @@ void VersionedSculptBrush::stamp(
                         const auto savings=region.estimatedCapArea>0?
                             1-region.estimatedZipperArea/
                               region.estimatedCapArea:0.;
-                        std::cout<<" rim_centroid_gap="
+                        planLog<<" rim_centroid_gap="
                                  <<region.rimCentroidSeparation
                                  <<" rim_normal_dot="
                                  <<region.rimNormalAlignment
@@ -1389,8 +1391,9 @@ void VersionedSculptBrush::stamp(
                                  <<region.estimatedZipperArea
                                  <<" advisory_zipper_savings="<<savings;
                     }
-                    std::cout<<" reason=\""<<region.selectionReason<<"\"\n";
+                    planLog<<" reason=\""<<region.selectionReason<<"\"\n";
                 }
+                std::cout<<planLog.str()<<std::flush;
                 markAutoContactStage(4,"certified_private_closure");
                 CertifiedPrivateAutoLimits limits;
                 limits.closure.requireReflectedGeometry=symmetric_;
