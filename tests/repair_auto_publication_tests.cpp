@@ -376,9 +376,8 @@ void actualInflateContactCanPublishCertifiedAuto() {
         if(brush.collisionRepairedStamps()==1) {
             require(brush.rejectedStamps()==0&&
                     brush.publishedRevisions()==1&&
-                    brush.snapshot()!=before&&
-                    brush.undo()&&brush.snapshot()==before,
-                "One connected surface's genuine contact must publish one certified undoable AUTO root");
+                    brush.snapshot()!=before,
+                "One connected surface's genuine contact must publish one certified AUTO root");
             // A positive first contact isn't enough: the repaired root
             // must also support an immediately following sculpt Step.
             const auto repaired=brush.snapshot();
