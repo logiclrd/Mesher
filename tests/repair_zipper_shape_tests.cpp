@@ -40,6 +40,17 @@ void overhangAndDiagonal() {
     check(q->minimumChildQuality>=.10,
           "shape template may not evade the hard child quality floor");
 }
+void rejectUnproductiveSkinnySubdivisions() {
+    // Both children can satisfy the hard q floor yet have materially
+    // WORSE minimum q than their parent. Such a split only creates
+    // complexity, without improving the shape it was meant to repair.
+    const auto harmful=tri({0,0,0},{1,0,0},{0,.1,0});
+    const auto parent=zipperShapeQuality(
+        harmful[0],harmful[1],harmful[2]);
+    check(parent>.1,"shape regression fixture must start legal");
+    check(!chooseZipperShape(harmful,1.,.1),
+        "M24 must reject legal-but-shape-worsening subdivision");
+}
 void windingAndReflection() {
     const auto a=tri({0,0,0},{1,0,0},{-.5,.12,0});
     const auto mirrored=tri({0,0,0},{-1,0,0},{.5,.12,0});
@@ -65,6 +76,7 @@ int main() {
     try {
         centralApex();
         overhangAndDiagonal();
+        rejectUnproductiveSkinnySubdivisions();
         windingAndReflection();
         std::cout<<"[repair-r06-zipper-shape] two rules, diagonal quality,"
                     " mirror, winding and scale cutoff PASS\n";

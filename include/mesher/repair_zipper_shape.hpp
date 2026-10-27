@@ -46,6 +46,13 @@ inline std::optional<ZipperShapeProposal> chooseZipperShape(
     const auto consider=[&](ZipperShapeProposal candidate) {
         if(!std::isfinite(candidate.minimumChildQuality)||
            candidate.minimumChildQuality+1e-12<qualityFloor)return;
+        // Subdivision must be shape-beneficial, not just smaller. A
+        // residual acute corner may lose slightly, but no operation may
+        // degrade the parent's minimum shape quality by more than 5%.
+        // Without this bound, even the 80%-edge cutoff allowed long
+        // repetitive cascades in the archived refusal-2 case.
+        if(candidate.minimumChildQuality+1e-12<
+           parent*.95)return;
         if(!best||candidate.minimumChildQuality>
                     best->minimumChildQuality+1e-12||
            (std::abs(candidate.minimumChildQuality-

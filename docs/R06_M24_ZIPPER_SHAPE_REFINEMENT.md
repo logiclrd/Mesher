@@ -36,9 +36,13 @@ need not be the mathematically longest edge).
    the minimum normalized mean-ratio quality; ties choose CD, with equal
    area children.
 5. All generated children must satisfy the original hard zipper minimum
-   quality; no quality-waiver, mirror-welding, or illegal neighbor edit is
-   permitted. Candidate bases are compared by their worst-child quality,
-   then flatness as a deterministic tie-break.
+   quality. To prevent cascades that simply make the remaining sliver
+   smaller, the minimum child quality must also be at least 95% of the
+   parent quality. The 5% allowance permits the slight residual-tip loss
+   identified in the overhang template; it is not a relaxation of the
+   final 0.10 hard floor. No quality waiver, mirror welding, or illegal
+   neighbor edit is permitted. Candidate bases are compared by their
+   worst-child quality, then flatness as a deterministic tie-break.
 
 ## Source-backed application
 
