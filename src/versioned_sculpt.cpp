@@ -1316,7 +1316,7 @@ void VersionedSculptBrush::stamp(
                         (complete.refusal.empty()?
                          std::string("local/full contact evidence disagrees"):
                          complete.refusal));
-                std::cerr<<"[repair-r07] CONTACT local_pairs="
+                std::cout<<"[repair-r07] CONTACT local_pairs="
                          <<discovered.contacts.size()
                          <<" all_source_pairs="<<complete.contacts.size()
                          <<" complete_box_tests="<<complete.work.boxesTested
@@ -1342,7 +1342,7 @@ void VersionedSculptBrush::stamp(
                 // source-backed M03 decision before M04, so a successful
                 // but wrong cap-vs-zipper classification is diagnosable.
                 // Print only on real contact escalation, never clean stamps.
-                std::cerr<<"[repair-r07-plan]"
+                std::cout<<"[repair-r07-plan]"
                          <<" contacts="<<complete.contacts.size()
                          <<" excised_faces="<<preview.proposedFaces.size()
                          <<" contours="<<preview.contours.size()
@@ -1355,20 +1355,20 @@ void VersionedSculptBrush::stamp(
                 for(std::size_t regionIndex=0;
                     regionIndex<plan.regions.size();++regionIndex) {
                     const auto& region=plan.regions[regionIndex];
-                    std::cerr<<"[repair-r07-plan-region]"
+                    std::cout<<"[repair-r07-plan-region]"
                              <<" index="<<regionIndex
                              <<" patches="<<region.excisionPatches.size()
                              <<" contact_links="<<region.contactLinks
                              <<" loops=";
                     for(const auto loop:region.contours)
-                        std::cerr<<loop<<",";
-                    std::cerr<<" caps=";
+                        std::cout<<loop<<",";
+                    std::cout<<" caps=";
                     for(const auto loop:region.caps)
-                        std::cerr<<loop<<",";
-                    std::cerr<<" zippers=";
+                        std::cout<<loop<<",";
+                    std::cout<<" zippers=";
                     for(const auto& selected:region.zippers)
-                        std::cerr<<selected.first<<":"<<selected.second<<",";
-                    std::cerr<<" selection_area="<<region.estimatedAddedArea
+                        std::cout<<selected.first<<":"<<selected.second<<",";
+                    std::cout<<" selection_area="<<region.estimatedAddedArea
                              <<" ambiguous_cap_fallback="
                              <<region.usedAmbiguousCapFallback
                              <<" two_rim_evidence="
@@ -1377,7 +1377,7 @@ void VersionedSculptBrush::stamp(
                         const auto savings=region.estimatedCapArea>0?
                             1-region.estimatedZipperArea/
                               region.estimatedCapArea:0.;
-                        std::cerr<<" rim_centroid_gap="
+                        std::cout<<" rim_centroid_gap="
                                  <<region.rimCentroidSeparation
                                  <<" rim_normal_dot="
                                  <<region.rimNormalAlignment
@@ -1389,7 +1389,7 @@ void VersionedSculptBrush::stamp(
                                  <<region.estimatedZipperArea
                                  <<" advisory_zipper_savings="<<savings;
                     }
-                    std::cerr<<" reason=\""<<region.selectionReason<<"\"\n";
+                    std::cout<<" reason=\""<<region.selectionReason<<"\"\n";
                 }
                 markAutoContactStage(4,"certified_private_closure");
                 CertifiedPrivateAutoLimits limits;
@@ -1436,7 +1436,7 @@ void VersionedSculptBrush::stamp(
                 "R07 live AUTO geometry/provenance refusal: ")+error.what();
         }
         if(autoContactEscalated) {
-            std::cerr<<"[repair-r07-timing]"
+            std::cout<<"[repair-r07-timing]"
                      <<" phase="<<autoContactPhase
                      <<" local_ms="<<autoContactStageMs[0]
                      <<" complete_ms="<<autoContactStageMs[1]
