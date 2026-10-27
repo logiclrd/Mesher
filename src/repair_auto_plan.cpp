@@ -562,13 +562,6 @@ AutoClosurePlan planPrivateAutomaticClosure(
                         region.zippers.push_back(globalMatch);
                     }
                 }
-                // V15 can return independent caps without ever exposing a
-                // zipper candidate to the R06-M06B downgrade check. Rescue
-                // ONLY the direct-contact, separate-patch, strong facing
-                // witness above, not general same-survivor proximity.
-                if(directFacingBridge&&region.zippers.empty()&&
-                   region.caps.size()==2)
-                    selectTrustedFacingBridge("V15 selected independent caps");
                 // Recompute cost after possible conservative zipper-to-cap
                 // downgrades, instead of copying V15's now-stale total.
                 for(const auto global:region.caps)
@@ -594,6 +587,14 @@ AutoClosurePlan planPrivateAutomaticClosure(
                         "R06-M03 lost selected zipper fitness");
                     region.estimatedAddedArea+=found->zipperArea;
                 }
+                // V15 can choose independent caps without exposing any
+                // zipper candidate to the M06B downgrade check. Override
+                // only that all-cap V15 result, after its own cost audit;
+                // never reclassify a zipper explicitly rejected by the
+                // configured same-shell threshold.
+                if(directFacingBridge&&choice.pairs.empty()&&
+                   region.zippers.empty()&&region.caps.size()==2)
+                    selectTrustedFacingBridge("V15 selected independent caps");
             }
             }
             if(limits.classifier==AutoClosureClassifier::Proximity&&n>2)
