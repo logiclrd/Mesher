@@ -311,6 +311,33 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::restore(
     }
     return result;
 }
+std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::privateExcision(
+    const RegionTopologyIndex& source,
+    std::shared_ptr<const MeshRevision> excised,
+    const std::vector<VertexId>& removedVertices,
+    const std::vector<FaceId>& removedFaces) {
+    if(!excised)
+        throw std::invalid_argument("R03 incremental excision requires a private revision");
+    // These are source-backed DELETIONS, not a facility for replaying
+    // arbitrary new geometry or reassigning existing stable IDs.
+    std::unordered_map<VertexId,std::optional<Vec3>> vertices;
+    std::unordered_map<FaceId,std::optional<std::array<VertexId,3>>> faces;
+    vertices.reserve(removedVertices.size());
+    faces.reserve(removedFaces.size());
+    for(const auto id:removedVertices) {
+        if(!source.maybeVertex(id)||!vertices.emplace(id,std::nullopt).second)
+            throw std::logic_error("R03 incremental excision has invalid/duplicate source VertexId");
+    }
+    for(const auto id:removedFaces) {
+        if(!source.maybeFace(id)||!faces.emplace(id,std::nullopt).second)
+            throw std::logic_error("R03 incremental excision has invalid/duplicate source FaceId");
+    }
+    // The ordinary persistent topology updater also tombstones every
+    // retired ID, preserves all previous tombstones and updates indexed
+    // geometry and the partition BVH for only the changed region.
+    return advance(source,std::move(excised),vertices,faces,{},{});
+}
+
 std::vector<VertexId> RegionTopologyIndex::retiredVertexIds() const {
     std::vector<VertexId> result;
     result.reserve(retiredVertices_.size());
