@@ -178,7 +178,7 @@ void originalCase() {
     require(mappedFaces>0&&mappedFaces==actualFaceMatches,
         "M23B face-map arguments do not match staged ENSUREFACE IDs");
     std::cout<<"[r06-m23b-replay-join] vertices="<<placed
-             <<" mapped_faces="<<mappedFaces<<" PASS\\n";
+             <<" mapped_faces="<<mappedFaces<<" PASS\n";
     const auto nextQ=minZipperQuality(candidate);
     require(candidate.boundarySidesCovered==cut.boundaryEdges,
         "M23B staged geometry did not seal every original R03 rim");
