@@ -4,6 +4,8 @@
 #include "mesher/repair_excision.hpp"
 #include "mesher/repair_auto_plan.hpp"
 #include "mesher/revision_history.hpp"
+#include "mesher/versioned_sculpt.hpp"
+#include "mesher/sculpt_fixtures.hpp"
 
 #include <array>
 #include <filesystem>
@@ -94,6 +96,43 @@ void acceptedPhysicalArchive() {
     std::cout<<"[r07-auto-publication] exact saved refusal-2 certified, "
         <<"one history revision, undo/redo, reflection journal PASS\n";
 }
+void cleanLiveSculptDoesNotFreeze() {
+    // R07 must retain the normal worker path even when its R01 contact
+    // discovery is active. Clean ordinary stamps still publish, can be
+    // undone/redone, and do not require a frozen R01 viewport.
+    SphereOptions options;
+    options.vertexCount=600;
+    options.relaxationIterations=8;
+    options.symmetric=true;
+    const auto initial=generateSphere(options);
+    SculptCollisionSettings settings;
+    settings.certifiedAutoClosure=true;
+    settings.certifiedAutoUnifiedZipper=true;
+    VersionedSculptBrush brush(initial,.004,CurvatureSettings{},
+                               CollapseSettings{},RefineSettings{},
+                               true,256,{},settings);
+    const auto before=brush.snapshot();
+    Mesh ignored;
+    const std::array<BrushArea,2> areas{{
+        {{-.26,-.67,.66},.28,.3},
+        {{ .26,-.67,.66},.28,.3}
+    }};
+    brush.stamp(ignored,areas);
+    require(brush.completedStamps()==1&&brush.rejectedStamps()==0&&
+            brush.publishedRevisions()==1&&
+            brush.snapshot()!=before&&brush.lastRejection().empty(),
+        "R07 collision-clean stamp must publish without freezing or refusing");
+    const auto after=brush.snapshot();
+    require(brush.undo()&&brush.snapshot()==before,
+        "R07 live undo must restore the exact previous published root");
+    require(brush.redo()&&brush.snapshot()==after,
+        "R07 live redo must restore the exact published root");
+    brush.stamp(ignored,areas);
+    require(brush.completedStamps()==2&&brush.rejectedStamps()==0&&
+            brush.publishedRevisions()==2,
+        "R07 brush must accept a SECOND input stamp without waiting for UI stepping");
+    std::cout<<"[r07-live-worker] clean stamp/second stamp/undo/redo PASS\\n";
+}
 void invalidSourceMirrorsCannotPublish() {
     const auto path=std::filesystem::path(__FILE__).parent_path().parent_path()/
         "repair-cases"/"refusal-1.r06case";
@@ -112,7 +151,8 @@ void invalidSourceMirrorsCannotPublish() {
 }
 }
 int main() {
-    try {acceptedPhysicalArchive();invalidSourceMirrorsCannotPublish();}
+    try {acceptedPhysicalArchive();invalidSourceMirrorsCannotPublish();
+         cleanLiveSculptDoesNotFreeze();}
     catch(const std::exception& e) {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
         return 1;
