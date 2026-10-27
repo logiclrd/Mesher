@@ -153,7 +153,7 @@ void cleanLiveSculptDoesNotFreeze() {
         "Grouped BVH must reduce repeated directory/box traversal on a large mesh");
     std::cout<<"[r07-batched-bvh] regular_boxes="<<oldWork.boxesTested
              <<" grouped_boxes="<<groupedWork.boxesTested
-             <<" exact_pairs="<<groupedPairs.size()<<" PASS\\n";
+             <<" exact_pairs="<<groupedPairs.size()<<" PASS\n";
     require(brush.undo()&&brush.snapshot()==before,
         "R07 live undo must restore the exact previous published root");
     require(brush.redo()&&brush.snapshot()==after,
