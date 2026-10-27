@@ -51,8 +51,8 @@ Source openTetrahedron() {
 }
 struct Capture {
     std::ostringstream stream;
-    std::streambuf* previous=std::cerr.rdbuf(stream.rdbuf());
-    ~Capture(){std::cerr.rdbuf(previous);}
+    std::streambuf* previous=std::cout.rdbuf(stream.rdbuf());
+    ~Capture(){std::cout.rdbuf(previous);}
 };
 void exercise() {
     const auto source=openTetrahedron();
