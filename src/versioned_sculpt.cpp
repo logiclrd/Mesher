@@ -279,7 +279,7 @@ SculptSourceContactAssessment assessPostSculptRepairContacts(
            proposed.before!=proposed.candidate)
             return refuse("Live AUTO missing changed-neighborhood evidence");
         auto all=proposed.candidate->triangleIntersections(
-            dirtyVertices,dirtyFaces,&result.work,limits.query);
+            dirtyVertices,dirtyFaces,&result.work,limits.query,16);
         result.discoveredPairs=all.size();
         if(!all.empty()) {
             // A pre-existing unchanged contact is not caused by this
@@ -293,7 +293,7 @@ SculptSourceContactAssessment assessPostSculptRepairContacts(
                 if(proposed.before->maybeFace(id))
                     oldFaces.push_back(id);
             const auto previously=proposed.before->triangleIntersections(
-                oldVertices,oldFaces,nullptr,limits.query);
+                oldVertices,oldFaces,nullptr,limits.query,16);
             std::set<std::pair<FaceId,FaceId>> preexisting;
             for(const auto& pair:previously)
                 if(!pair.ambiguous)

@@ -156,7 +156,13 @@ public:
         const std::vector<VertexId>& changedVertices,
         const std::vector<FaceId>& changedFaces,
         CollisionStatistics* stats=nullptr,
-        const CollisionQueryLimits& limits={}) const;
+        const CollisionQueryLimits& limits={},
+        std::size_t groupedSeeds=1) const;
+    // groupedSeeds>1 visits spatially adjacent dirty triangles in one
+    // complete-BVH AABB traversal. All exact pairs remain independently
+    // checked; it changes work cost, never the collision evidence.
+    // Grouping is opt-in for R07 live AUTO and keeps the protected
+    // source-query semantics of the original one-face traversal.
 
     // V18-M03: read-only pair broad phase over the same persistent
     // partition BVH. Each seed AABB expands by ratio * ITS OWN shortest

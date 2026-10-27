@@ -125,6 +125,33 @@ void cleanLiveSculptDoesNotFreeze() {
             brush.snapshot()!=before&&brush.lastRejection().empty(),
         "R07 collision-clean stamp must publish without freezing or refusing");
     const auto after=brush.snapshot();
+    // The accelerated grouped query must return exactly the same contact
+    // graph as the independent per-face BVH query. Also verify that it
+    // really eliminates repeated directory traversals on a 5K sphere.
+    std::vector<FaceId> queryFaces;
+    after->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& face:part.faces)
+                if(queryFaces.size()<640)queryFaces.push_back(face.id);
+        });
+    require(queryFaces.size()==640,"R07 benchmark fixture needs 640 faces");
+    RegionTopologyIndex::CollisionStatistics oldWork,groupedWork;
+    const auto originalPairs=after->triangleIntersections(
+        {},queryFaces,&oldWork);
+    const auto groupedPairs=after->triangleIntersections(
+        {},queryFaces,&groupedWork,{},16);
+    require(originalPairs.size()==groupedPairs.size(),
+        "Grouped BVH changed contact count compared with ordinary exact query");
+    for(std::size_t i=0;i<originalPairs.size();++i)
+        require(originalPairs[i].first==groupedPairs[i].first&&
+                originalPairs[i].second==groupedPairs[i].second&&
+                originalPairs[i].ambiguous==groupedPairs[i].ambiguous,
+            "Grouped BVH must preserve exact contact IDs and ambiguity");
+    require(groupedWork.boxesTested<oldWork.boxesTested,
+        "Grouped BVH must reduce repeated directory/box traversal on a large mesh");
+    std::cout<<"[r07-batched-bvh] regular_boxes="<<oldWork.boxesTested
+             <<" grouped_boxes="<<groupedWork.boxesTested
+             <<" exact_pairs="<<groupedPairs.size()<<" PASS\\n";
     require(brush.undo()&&brush.snapshot()==before,
         "R07 live undo must restore the exact previous published root");
     require(brush.redo()&&brush.snapshot()==after,
