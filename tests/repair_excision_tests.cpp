@@ -61,6 +61,51 @@ void verifyCut(const Fixture& f,
         require(!cut.index->maybeVertex(id)&&cut.index->retiredVertex(id)&&
                 f.root->maybeVertex(id),
                 "Removed private vertex keeps tombstone but original remains");
+    // Positive equivalence oracle: R03's incremental deletion MUST
+    // describe precisely the same complete mesh, vertex incidences,
+    // indexed directed edge sides, and historical tombstones as a fresh
+    // full rebuild of this already-audited private revision.
+    const auto reference=RegionTopologyIndex::restore(
+        std::shared_ptr<const MeshRevision>(cut.index,&cut.index->revision()),
+        cut.index->retiredVertexIds(),cut.index->retiredFaceIds());
+    require(cut.index->updateStatistics().fullMeshTraversals==0,
+            "R03 should update the persistent index rather than rebuild everything");
+    require(reference->retiredVertexIds()==cut.index->retiredVertexIds()&&
+            reference->retiredFaceIds()==cut.index->retiredFaceIds(),
+            "R03 incremental excision lost the exact permanent ID tombstones");
+    cut.index->revision().forEachPartition(
+        [&](PartitionId owner,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                const auto& actual=cut.index->vertex(v.id);
+                const auto& rebuilt=reference->vertex(v.id);
+                require(actual.owner==owner&&rebuilt.owner==owner&&
+                        actual.position.x==rebuilt.position.x&&
+                        actual.position.y==rebuilt.position.y&&
+                        actual.position.z==rebuilt.position.z&&
+                        actual.incidentFaces==rebuilt.incidentFaces,
+                        "R03 incremental vertex owner/position/incidence differs from full rebuild");
+            }
+            for(const auto& f:part.faces) {
+                const auto& actual=cut.index->face(f.id);
+                const auto& rebuilt=reference->face(f.id);
+                require(actual.owner==owner&&rebuilt.owner==owner&&
+                        actual.vertices==rebuilt.vertices&&
+                        actual.vertices==f.vertices,
+                        "R03 incremental indexed face differs from full rebuild");
+                for(unsigned k=0;k<3;++k) {
+                    auto a=f.vertices[k],b=f.vertices[(k+1)%3];
+                    if(a>b)std::swap(a,b);
+                    const auto real=cut.index->maybeEdgeSides({a,b});
+                    const auto oracle=reference->maybeEdgeSides({a,b});
+                    require(real&&oracle&&real->size()==oracle->size(),
+                            "R03 incremental edge incidence count differs from full rebuild");
+                    for(std::size_t i=0;i<real->size();++i)
+                        require((*real)[i].face==(*oracle)[i].face&&
+                                (*real)[i].forward==(*oracle)[i].forward,
+                                "R03 incremental edge winding differs from full rebuild");
+                }
+            }
+        });
     require(f.root->retiredFaceCount()==originalFaces&&
             f.root->retiredVertexCount()==originalVertices&&
             f.root->pickingRootIdentity()==originalIdentity,
