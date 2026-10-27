@@ -8,6 +8,7 @@
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/region_edit.hpp"
+#include "mesher/repair_mixed_patch.hpp"
 
 #include <algorithm>
 #include <array>
@@ -297,6 +298,56 @@ void liveAutoChangedNeighborhoodDiscovery() {
     std::cout<<"[r07-source] full-BVH neighborhood contacts, unrelated old "
                 "intersections and exact finite-work refusal PASS\n";
 }
+void privateClosureOverflowRemainsEditable() {
+    // Whole-face closure can create dozens of cap triangles on one
+    // already-full owner. A valid private patch must retain the original
+    // IDs/owners, assign only new records to overflow, and remain editable
+    // by the very next regular stamp/checkpoint.
+    const auto imported=partitionFlatMesh(generateTorusFixture(950,1,10),256);
+    const auto source=RegionTopologyIndex::build(imported.revision);
+    const auto full=source->revision().partition(0);
+    require(full&&full->vertices.size()==256&&full->faces.size()==256,
+            "R07 overflow fixture requires full imported owner");
+    const auto anchorVertex=full->vertices.front().id;
+    const auto originalFace=full->faces.front().vertices;
+    auto view=source->revision().createMutableView();
+    for(unsigned i=0;i<17;++i)
+        (void)view.addVertex(0,{10.0+static_cast<double>(i),0,0});
+    for(unsigned i=0;i<39;++i)
+        (void)view.addFace(0,originalFace);
+    std::set<PartitionId> changed{0};
+    boundPrivateMixedClosurePartitions(view,*source,changed);
+    const auto revision=view.commit().revision;
+    require(changed.size()>=2,
+            "R07 source-full closure must allocate at least one overflow owner");
+    revision->forEachPartition([](PartitionId,const MeshPartition& partition) {
+        require(partition.vertices.size()<=256&&partition.faces.size()<=256,
+                "R07 certified closure may not publish an oversized partition");
+    });
+    const auto rebuilt=RegionTopologyIndex::build(revision);
+    source->revision().forEachPartition(
+        [&](PartitionId owner,const MeshPartition& partition) {
+            for(const auto& v:partition.vertices)
+                require(rebuilt->vertex(v.id).owner==owner,
+                        "R07 overflow moved an immutable source vertex owner");
+            for(const auto& f:partition.faces)
+                require(rebuilt->face(f.id).owner==owner,
+                        "R07 overflow moved an immutable source face owner");
+        });
+    RegionEdit next(rebuilt,{anchorVertex},{},256);
+    next.moveVertex(anchorVertex,rebuilt->vertex(anchorVertex).position);
+    (void)next.commit();
+    std::vector<std::pair<PartitionId,MeshPartition>> restoredParts;
+    revision->forEachPartition([&](PartitionId owner,const MeshPartition& partition) {
+        restoredParts.emplace_back(owner,partition);
+    });
+    const auto checkpoint=MeshRevision::restore(
+        std::move(restoredParts),revision->identityWatermarks());
+    require(checkpoint->partitionCount()==revision->partitionCount(),
+            "R07 repaired closure must satisfy durable checkpoint partition bounds");
+    std::cout<<"[r07-closure-overflow] source owners retained; overflow, "
+                "next RegionEdit and checkpoint PASS\\n";
+}
 void actualInflateContactCanPublishCertifiedAuto() {
     // A live AUTO positive fixture must be ONE connected self-contacting
     // object, not a Boolean union between two separate exterior solids.
@@ -328,6 +379,20 @@ void actualInflateContactCanPublishCertifiedAuto() {
                     brush.snapshot()!=before&&
                     brush.undo()&&brush.snapshot()==before,
                 "One connected surface's genuine contact must publish one certified undoable AUTO root");
+            // A positive first contact isn't enough: the repaired root
+            // must also support an immediately following sculpt Step.
+            const auto repaired=brush.snapshot();
+            brush.stamp(dummy,areas);
+            require(brush.completedStamps()==2&&brush.snapshot(),
+                "An AUTO-certified repair must remain usable by the next stamp");
+            require(brush.lastRejection().find("partition")==
+                    std::string::npos,
+                "An AUTO-certified repair must not leave an over-capacity source");
+            if(brush.snapshot()!=repaired)
+                require(brush.undo()&&brush.snapshot()==repaired,
+                        "Second published stamp must undo to repaired root");
+            require(brush.undo()&&brush.snapshot()==before,
+                "Repaired stamp must still undo to original source");
             accepted=true;
             std::cout<<"[r07-physical-contact] accepted fixture="<<description
                      <<" strength="<<strength<<" PASS\n";
@@ -383,6 +448,7 @@ int main() {
          cleanLiveSculptDoesNotFreeze();
          desktopScaleLiveAutoFirstStamp();
          liveAutoChangedNeighborhoodDiscovery();
+         privateClosureOverflowRemainsEditable();
          actualInflateContactCanPublishCertifiedAuto();}
     catch(const std::exception& e) {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
