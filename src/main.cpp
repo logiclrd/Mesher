@@ -238,7 +238,8 @@ int main(int argc, char** argv) {
                          <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
                          <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
                          <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
-                         <<"       [--repair auto] (R06 private green caps, blue zippers, enclosed-shell retirement)\n"
+                         <<"       [--repair auto] (R07 live certified R06 AUTO; publishes one root and continues brush)\n"
+                         <<"       [--repair-inspect --repair auto] (explicit frozen/private R06 diagnostic mode)\n"
                          <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
@@ -256,7 +257,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
                          <<"       [--repair-diagonal-preview] (M19D PRIVATE provisional mirrored diagonal topology in step debugger ONLY; NOT CERTIFIED)\n"
                          <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
-                         <<"       [--repair-unified-zipper] (M23B private: finite-width bridge + gravity-guided AFM zipper; old zipper remains default)\\n"
+                         <<"       [--repair-unified-zipper] (M23B diagnostic/replay opt-in; live R06 uses accepted unified zipper)\\n"
                          <<"       [--repair-whole-cap-fairing-preview] (M21A optional whole-cap fairing on a PRIVATE saved-case step; baseline fallback)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
@@ -349,18 +350,39 @@ int main(int argc, char** argv) {
             throw std::invalid_argument("--repair-replay is exclusive with live repair and mesh generation/recovery modes");
         if(repairDumpContours&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument("--repair-dump-contours requires --repair auto");
-        repairExcise=repairExcise||repairZipper||repairCap||repairAuto;
+        // R07: --repair auto is LIVE by default. R01-R06 frozen
+        // inspection is explicitly requested with --repair-inspect (or an
+        // earlier preview/excision mode). The replay step debugger remains
+        // independently opt-in and never owns a live sculpt worker.
+        const bool liveCertifiedAuto=repairAuto&&!repairInspect&&
+            !repairPreview&&!repairExcise;
+        if(liveCertifiedAuto&&
+           (repairQualityWarn||repairSeamAudit||repairOverlayExact||
+            repairDumpContours||!repairCaseOut.empty()||
+            repairScaleAware||repairFrontOptimize||
+            repairCurvatureOptimize||repairCurvaturePoisson||
+            repairFeasibilityProbe||repairDiagonalProbe||
+            repairEarClipping))
+            throw std::invalid_argument(
+                "R07 live --repair auto does not accept frozen diagnostic flags; "
+                "use --repair-inspect --repair-auto or --repair-replay");
+        repairExcise=repairExcise||repairZipper||repairCap||
+            (repairAuto&&!liveCertifiedAuto);
         repairPreview=repairPreview||repairExcise;
         repairInspect=repairInspect||repairPreview;
         if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
            !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
             throw std::invalid_argument(
                 "--repair-inspect is exclusive with --merge-geometry/--avoid-collisions and requires interactive Inflate");
-        const auto desktopPolicy=mesher::desktopCollisionSettings({
+        auto desktopPolicy=mesher::desktopCollisionSettings({
             allowMergeGeometry,avoidCollisions,
             inflate&&!demoMode&&!compareRemesh&&
             !compareLocalRemesh&&!compareMitigations
         });
+        // The live worker owns R06's complete certified private repair;
+        // viewport callbacks never see its intermediate open R03 root.
+        desktopPolicy.certifiedAutoClosure=liveCertifiedAuto;
+        desktopPolicy.certifiedAutoUnifiedZipper=true;
         if(avoidTestSheets&&(!(avoidCollisions||repairInspect)||options.symmetric||
             !recoverPath.empty()||mergeTestTetra||
             mergeTestReflectedTetra))

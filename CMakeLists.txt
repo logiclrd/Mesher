@@ -362,12 +362,11 @@ if(MESHER_BUILD_TESTS)
               "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
               "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-2.r06case"
               -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_classifier_cli.cmake")
-        add_test(NAME repair_r06_m12_quality_warn_exact_case_1
-            COMMAND Mesher --repair-replay-test
-              "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-1.r06case"
-              --repair-quality-warn)
-        set_tests_properties(repair_r06_m12_quality_warn_exact_case_1
-            PROPERTIES PASS_REGULAR_EXPRESSION "QUALITY_WARNING_PREVIEW untrusted=1")
+        add_test(NAME repair_r06_m12_certified_case_1_not_downgraded_by_warning
+            COMMAND "${CMAKE_COMMAND}"
+                "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+                "-DR06_CASE_FILE=${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-1.r06case"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_repair_quality_warning_safe.cmake")
         add_test(NAME repair_r06_m13_exact_seam_refusal_1
             COMMAND Mesher --repair-replay-test
               "${CMAKE_CURRENT_SOURCE_DIR}/repair-cases/refusal-1.r06case"
@@ -385,7 +384,7 @@ if(MESHER_BUILD_TESTS)
         # update expected failures if the next algorithm fixes them;
         # review the intended outcome then update/replace the fixture.
         foreach(case_id RANGE 1 5)
-            if(case_id EQUAL 2 OR case_id EQUAL 3 OR case_id EQUAL 4 OR case_id EQUAL 5)
+            if(case_id EQUAL 1 OR case_id EQUAL 2 OR case_id EQUAL 3 OR case_id EQUAL 4 OR case_id EQUAL 5)
                 # Reviewed M10 recoveries: preserve the V1 archive's old
                 # REFUSED bit, require explicit current CLOSED instead.
                 add_test(NAME repair_r06_m07_physical_case_${case_id}
@@ -586,6 +585,13 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME repair_r06_m22b_cap_selection_and_metrics
              COMMAND mesher_repair_m22_cap_method_tests)
     set_tests_properties(repair_r06_m22b_cap_selection_and_metrics PROPERTIES TIMEOUT 20)
+    add_executable(mesher_repair_auto_publication_tests
+                   tests/repair_auto_publication_tests.cpp)
+    target_link_libraries(mesher_repair_auto_publication_tests PRIVATE mesher_mesh)
+    add_test(NAME repair_r07_certified_live_publication_transition
+             COMMAND mesher_repair_auto_publication_tests)
+    set_tests_properties(repair_r07_certified_live_publication_transition
+                         PROPERTIES TIMEOUT 30)
     add_executable(mesher_repair_zipper_shape_tests
                    tests/repair_zipper_shape_tests.cpp)
     target_link_libraries(mesher_repair_zipper_shape_tests PRIVATE mesher_mesh)

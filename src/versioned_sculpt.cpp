@@ -1,5 +1,8 @@
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/partition_render.hpp"
+#include "mesher/repair_auto_private.hpp"
+#include "mesher/repair_auto_publication.hpp"
+#include "mesher/repair_excision.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -518,6 +521,11 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.certifiedAutoClosure&&
+       (collision_.physicalExact||collision_.enabled||
+        collision_.offModeConstraints.enabled))
+        throw std::invalid_argument(
+            "Live certified R06 AUTO is exclusive with exact, legacy and OFF-mode collision policies");
     if(collision_.offModeConstraints.enabled&&
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
@@ -583,6 +591,11 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.certifiedAutoClosure&&
+       (collision_.physicalExact||collision_.enabled||
+        collision_.offModeConstraints.enabled))
+        throw std::invalid_argument(
+            "Live certified R06 AUTO is exclusive with exact, legacy and OFF-mode collision policies");
     if(collision_.offModeConstraints.enabled&&
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
@@ -1111,13 +1124,91 @@ void VersionedSculptBrush::stamp(
             physicalRefusal=std::string("Physical exact source/map refusal: ")+error.what();
         }
     }
+    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
+    // R07 production AUTO is deliberately independent of the M16 frozen
+    // read-only inspector. Run the SAME trusted R01->R03->M03->M04C
+    // certification on the worker's complete unpublished post-stamp root.
+    // If anything refuses, rollback the ENTIRE brush Step below; never
+    // publish a partial cut, a half-updated mirrored orbit or an open mesh.
+    std::optional<CertifiedPrivateAutoResult> certifiedAutoRepair;
+    std::optional<CertifiedAutoPublicationDelta> certifiedAutoDelta;
+    std::string certifiedAutoRefusal;
+    if(collision_.certifiedAutoClosure&&updated!=old) {
+        ++collisionChecked_;
+        try {
+            const auto discovered=assessPostSculptOriginalContacts(
+                {old,updated,changedVertices,changedFaces},symmetric_,
+                collision_.physicalSourceLimits,
+                symmetric_?&collapser_.mirrors():nullptr);
+            classifiedEpisodeStep=true;
+            if(discovered.status==SculptSourceContactStatus::Refused) {
+                certifiedAutoRefusal="R07 live AUTO source refusal: "+
+                    discovered.refusal;
+            }else if(discovered.status==SculptSourceContactStatus::Clean) {
+                episodeClassification=false;
+            }else {
+                episodeClassification=true;
+                const auto source=discovered.originalCandidate;
+                const auto preview=previewApproximateExcision(
+                    *source,discovered.contacts);
+                if(!preview.complete)
+                    throw std::logic_error(
+                        "R07 live AUTO incomplete source-backed R03 preview: "+
+                        preview.diagnostic);
+                const auto cut=applyPrivateExcision(source,preview);
+                auto plan=planPrivateAutomaticClosure(
+                    *source,cut,preview,discovered.contacts);
+                if(!plan.ready())
+                    throw std::logic_error(
+                        "R07 live AUTO M03 closure plan refused: "+plan.diagnostic);
+                CertifiedPrivateAutoLimits limits;
+                limits.closure.requireReflectedGeometry=symmetric_;
+                limits.closure.staging.useUnifiedZipper=
+                    collision_.certifiedAutoUnifiedZipper;
+                auto result=applyCertifiedPrivateAutomaticClosure(
+                    source,cut,preview,plan,discovered.contacts,limits);
+                if(!result.index)
+                    throw std::logic_error(
+                        "R07 certified AUTO produced no final closed source root");
+                auto delta=inspectCertifiedAutoPublication(
+                    *source,*result.index,
+                    symmetric_?&collapser_.mirrors():nullptr,
+                    limits.closure.maxAuditedFaces);
+                // The publication delta is a second, independent mirror-ID
+                // gate. All edits remain inside the rollback-able private
+                // maps until one complete root passes all Step validation.
+                for(const auto& [a,b]:delta.removedMirrors) {
+                    refiner_.removeMirrorPair(a,b);
+                    collapser_.removeMirrorPair(a,b);
+                }
+                for(const auto& [a,b]:delta.addedMirrors) {
+                    refiner_.addMirrorPair(a,b);
+                    collapser_.addMirrorPair(a,b);
+                }
+                repairedAddedMirrors=delta.addedMirrors;
+                repairedRemovedMirrors=delta.removedMirrors;
+                changedVertices.insert(changedVertices.end(),
+                    delta.changedVertices.begin(),delta.changedVertices.end());
+                changedFaces.insert(changedFaces.end(),
+                    delta.changedFaces.begin(),delta.changedFaces.end());
+                updated=result.index;
+                certifiedAutoDelta=std::move(delta);
+                certifiedAutoRepair=std::move(result);
+            }
+        }catch(const std::length_error& error) {
+            certifiedAutoRefusal=std::string(
+                "R07 live AUTO finite work refusal: ")+error.what();
+        }catch(const std::exception& error) {
+            certifiedAutoRefusal=std::string(
+                "R07 live AUTO geometry/provenance refusal: ")+error.what();
+        }
+    }
     // A selected collision policy first classifies the FULL post-remesh
     // proposal. When supported, it may supply a privately repaired root.
     // The V17c validator below observes that final root and expanded dirty
     // set, never a partly repaired intermediate revision.
     std::string collisionRefusal;
     std::optional<RepairSurgeryResult> collisionRepair;
-    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
     if(collision_.enabled&&updated!=old) {
         ++collisionChecked_;
         SculptCollisionEvaluation judged;
@@ -1182,8 +1273,10 @@ void VersionedSculptBrush::stamp(
     // The decision examines the complete unpublished post-refine/collapse
     // Step and its exact dirty face/vertex set. Classification budget and
     // geometric refusals raised by this opt-in callback are recoverable.
-    std::string rejection=physicalRefusal.empty()?
-        std::move(collisionRefusal):std::move(physicalRefusal);
+    std::string rejection=!physicalRefusal.empty()?
+        std::move(physicalRefusal):
+        !certifiedAutoRefusal.empty()?
+            std::move(certifiedAutoRefusal):std::move(collisionRefusal);
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -1453,6 +1546,14 @@ void VersionedSculptBrush::stamp(
         ++collisionRepaired_;
         ++completedUnions_;
     }
+    if(certifiedAutoRepair&&certifiedAutoDelta) {
+        // The R06 pass includes both old survivor replacements and entirely
+        // new topology. Count the ACTUAL final root, not just its zipper
+        // vertex count or source excision estimate.
+        vertices_=certifiedAutoDelta->liveVertices;
+        faces_=certifiedAutoDelta->liveFaces;
+        ++collisionRepaired_;
+    }
     if(collisionRepair) {
         vertices_+=collisionRepair->insertedVertices.size();
         vertices_-=collisionRepair->retiredVertices.size();
@@ -1471,6 +1572,12 @@ void VersionedSculptBrush::stamp(
         modifiedPartitions_+=physicalExactUnion->commit.statistics.modifiedPartitions;
         copiedDirectoryNodes_+=physicalExactUnion->commit.statistics.copiedDirectoryNodes;
         clonedPartitionBytes_+=physicalExactUnion->copiedPayloadBytes;
+    }
+    if(certifiedAutoRepair) {
+        // R06's multi-stage private COW cost is separately bounded by its
+        // repair budgets. The final dirty owners are already accounted by
+        // dirtyRenderPartitions and the single-CAS history transition.
+        modifiedPartitions_+=lastDirtyPartitions_.size();
     }
     if(collisionRepair) {
         modifiedPartitions_+=collisionRepair->commit.statistics.modifiedPartitions;

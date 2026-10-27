@@ -188,6 +188,11 @@ struct SculptCollisionSettings {
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
+    // R07: opt-in live R06 AUTO, using certified source-backed private
+    // closure and the worker's ordinary final-root CAS/history/checkpoint.
+    // The read-only R06 inspector and replay debugger never set this.
+    bool certifiedAutoClosure=false;
+    bool certifiedAutoUnifiedZipper=true;
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};
