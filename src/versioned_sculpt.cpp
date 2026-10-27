@@ -1337,6 +1337,60 @@ void VersionedSculptBrush::stamp(
                 if(!plan.ready())
                     throw std::logic_error(
                         "R07 live AUTO M03 closure plan refused: "+plan.diagnostic);
+                // A geometrically certified cap is not necessarily the
+                // INTENDED response to a first self-contact. Record the
+                // source-backed M03 decision before M04, so a successful
+                // but wrong cap-vs-zipper classification is diagnosable.
+                // Print only on real contact escalation, never clean stamps.
+                std::cerr<<"[repair-r07-plan]"
+                         <<" contacts="<<complete.contacts.size()
+                         <<" excised_faces="<<preview.proposedFaces.size()
+                         <<" contours="<<preview.contours.size()
+                         <<" patches="<<plan.excisionPatches
+                         <<" contact_links="<<plan.trustedContactLinks
+                         <<" regions="<<plan.geometryRegions
+                         <<" caps="<<plan.cappedContours.size()
+                         <<" zippers="<<plan.zipperPairs.size()
+                         <<" area="<<plan.estimatedAddedArea<<"\n";
+                for(std::size_t regionIndex=0;
+                    regionIndex<plan.regions.size();++regionIndex) {
+                    const auto& region=plan.regions[regionIndex];
+                    std::cerr<<"[repair-r07-plan-region]"
+                             <<" index="<<regionIndex
+                             <<" patches="<<region.excisionPatches.size()
+                             <<" contact_links="<<region.contactLinks
+                             <<" loops=";
+                    for(const auto loop:region.contours)
+                        std::cerr<<loop<<",";
+                    std::cerr<<" caps=";
+                    for(const auto loop:region.caps)
+                        std::cerr<<loop<<",";
+                    std::cerr<<" zippers=";
+                    for(const auto& selected:region.zippers)
+                        std::cerr<<selected.first<<":"<<selected.second<<",";
+                    std::cerr<<" selection_area="<<region.estimatedAddedArea
+                             <<" ambiguous_cap_fallback="
+                             <<region.usedAmbiguousCapFallback
+                             <<" two_rim_evidence="
+                             <<region.twoRimEvidenceValid;
+                    if(region.twoRimEvidenceValid) {
+                        const auto savings=region.estimatedCapArea>0?
+                            1-region.estimatedZipperArea/
+                              region.estimatedCapArea:0.;
+                        std::cerr<<" rim_centroid_gap="
+                                 <<region.rimCentroidSeparation
+                                 <<" rim_normal_dot="
+                                 <<region.rimNormalAlignment
+                                 <<" nearest_gap_edges="
+                                 <<region.rimNearestSeparationInEdges
+                                 <<" advisory_caps_area="
+                                 <<region.estimatedCapArea
+                                 <<" advisory_zipper_area="
+                                 <<region.estimatedZipperArea
+                                 <<" advisory_zipper_savings="<<savings;
+                    }
+                    std::cerr<<" reason=\""<<region.selectionReason<<"\"\n";
+                }
                 markAutoContactStage(4,"certified_private_closure");
                 CertifiedPrivateAutoLimits limits;
                 limits.closure.requireReflectedGeometry=symmetric_;
