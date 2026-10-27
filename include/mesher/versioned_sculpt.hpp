@@ -208,7 +208,7 @@ struct SculptCollisionSettings {
     // protected whole-original Merge. Retain finite limits for both, but
     // do not globally relax the strict protected Merge source budget.
     SculptSourceContactLimits certifiedAutoSourceLimits{
-        16384,32768,{16384,4194304,1048576,524288,262144,512},128};
+        16384,32768,{16384,4194304,1048576,524288,262144,2048},2048};
     // Only after the *local* classifier finds a new transverse contact,
     // collect the entire source contact graph for R02/R03/M03. This is
     // never charged to ordinary clean brush stamps. Protected Merge keeps

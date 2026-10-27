@@ -314,6 +314,12 @@ void actualInflateContactCanPublishCertifiedAuto() {
         const auto before=brush.snapshot();
         const std::array<BrushArea,1> areas{{area}};
         brush.stamp(dummy,areas);
+        std::cout<<"[r07-physical-attempt] fixture="<<description
+                 <<" strength="<<strength
+                 <<" checked="<<brush.collisionCheckedStamps()
+                 <<" repaired="<<brush.collisionRepairedStamps()
+                 <<" rejected="<<brush.rejectedStamps()
+                 <<" reason="<<brush.lastRejection()<<"\n";
         if(brush.collisionRepairedStamps()==1) {
             require(brush.rejectedStamps()==0&&
                     brush.publishedRevisions()==1&&
