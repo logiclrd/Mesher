@@ -336,6 +336,31 @@ void closeOpposingMouthsOnOneSurvivor() {
     check(oldPolicy.ready()&&oldPolicy.cappedContours.size()==2&&
           oldPolicy.zipperPairs.empty(),
           "R06-M06B synthetic fixture must reproduce the former over-conservative 55% decision");
+    // Positive invariant: a genuinely directly contacting pair of
+    // separate, strongly facing excision patches must not be silently
+    // converted to two disks just because V15's *advisory* frustum
+    // correspondence rejects the alignment/span. The full private M04
+    // still has to validate the actual advancing-front geometry.
+    auto unsupportedV15=AutoClosurePlanSettings{};
+    unsupportedV15.fitness.maximumGapInEdges=.01;
+    const auto qualified=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,f.links,unsupportedV15);
+    check(qualified.ready()&&qualified.zipperPairs.size()==1&&
+          qualified.cappedContours.empty()&&
+          qualified.regions.front().selectionReason.find(
+              "direct two-patch same-survivor facing zipper")!=std::string::npos,
+          "R06-M06B direct facing two-patch evidence must survive unsupported V15 fit");
+    const auto withoutContact=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,{},unsupportedV15);
+    check(withoutContact.ready()&&withoutContact.zipperPairs.empty()&&
+          withoutContact.cappedContours.size()==2,
+          "R06-M06B unsupported V15 cannot create a zipper from proximity alone");
+    unsupportedV15.minimumFacingContactZipperSavings=.55;
+    const auto insufficientSaving=planPrivateAutomaticClosure(
+        *f.original.mesh,f.cut,f.preview,f.links,unsupportedV15);
+    check(insufficientSaving.ready()&&insufficientSaving.zipperPairs.empty()&&
+          insufficientSaving.cappedContours.size()==2,
+          "R06-M06B direct link never bypasses the configured minimum zipper savings");
     std::cout<<"[r06-m06b] two opposite mouths on one U tube: 50% area saving now zips, unlinked stays caps PASS\n";
 }
 void physicalSixPointIndependentCaps() {
