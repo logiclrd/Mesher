@@ -2,6 +2,8 @@
 #include "mesher/repair_mirror_geometry.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -10,6 +12,10 @@
 
 namespace mesher {
 namespace {
+using AutoClock=std::chrono::steady_clock;
+double elapsedMs(AutoClock::time_point a,AutoClock::time_point b) {
+    return std::chrono::duration<double,std::milli>(b-a).count();
+}
 bool identicalPairs(const std::vector<RepairContourPair>& a,
                     const std::vector<RepairContourPair>& b) {
     if(a.size()!=b.size())return false;
@@ -68,8 +74,10 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
        !limits.maxRetiredCavityFaces||!limits.maxRetiredCavityVertices||
        !limits.maxRetiredCavityComponents)
         throw std::invalid_argument("R06-M04C requires a valid trusted private closure and finite budgets");
+    const auto begun=AutoClock::now();
     validateCutAgainstSource(*sourceCandidate,cut,proposal,
                              limits.closure.maxAuditedFaces);
+    const auto cutChecked=AutoClock::now();
     // Replan directly from immutable source and exactly the entrusted R01
     // contacts; a caller may not provide an arbitrary fabricated zipper.
     const auto recomputed=planPrivateAutomaticClosure(
@@ -107,10 +115,13 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
                 "R06-M04C zero-loop region lacks an entire original face component");
     }
 
+    const auto replanned=AutoClock::now();
     const auto staged=applyPrivateMixedClosure(cut,proposal,plan,
                                                limits.closure);
+    const auto closed=AutoClock::now();
     const auto evidence=inspectEnclosedComponents(staged.index,
                                                  limits.material);
+    const auto materialInspected=AutoClock::now();
     CertifiedPrivateAutoResult out;
     out.postClosureFaces=evidence.inventory.faces;
     out.generatedFaces=staged.newFaces;
@@ -192,6 +203,7 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
         validatePrivateClosedManifold(*finalIndex,
                                        limits.closure.maxAuditedFaces);
     }
+    const auto retired=AutoClock::now();
     out.retiredCavityFaces.assign(retiredFaces.begin(),retiredFaces.end());
     out.retiredCavityVertices.assign(retiredVertices.begin(),retiredVertices.end());
     for(const auto id:staged.greenFaces)
@@ -220,6 +232,18 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     }
     out.postRetirementFaces=out.postClosureFaces-retiredFaces.size();
     out.index=std::move(finalIndex);
+    const auto done=AutoClock::now();
+    std::cerr<<"[repair-r06-auto-timing]"
+             <<" cut_check_ms="<<elapsedMs(begun,cutChecked)
+             <<" replan_ms="<<elapsedMs(cutChecked,replanned)
+             <<" mixed_closure_ms="<<elapsedMs(replanned,closed)
+             <<" material_ms="<<elapsedMs(closed,materialInspected)
+             <<" retirement_ms="<<elapsedMs(materialInspected,retired)
+             <<" final_audit_ms="<<elapsedMs(retired,done)
+             <<" total_ms="<<elapsedMs(begun,done)
+             <<" faces="<<out.postRetirementFaces
+             <<" winding_tests="<<out.windingTriangleVisits
+             <<" collision_narrow_tests="<<out.collisionNarrowPhaseTests<<"\n";
     return out;
 }
 } // namespace mesher
