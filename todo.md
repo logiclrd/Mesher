@@ -959,6 +959,22 @@ independently testable; no partial check-offs. CI/GPU acceptance separate.
   Exact refusal-1/3, healthy sphere/torus/hollow/crease, deterministic
   mirror and budget tests plus user-visible GPU, before publication.
 
+- [x] **M22B4 — Evolving accepted-face corner orientation / refusal-3
+  recovery (2026-10-27).** Fix ordinary AFM cap corner classification to
+  use the locally accumulated accepted-face normals already used in M23B,
+  falling back to incoming survivor guidance or the original rim normal
+  only where support is missing. Do not modify placement, quality gates,
+  mirror orbits, contact budgets, Poisson, or source-backed admission.
+  The original V1 `refusal-3` archive remains immutable: reviewed
+  replay now reports **AUTO_CLOSED**, one cap, **46 green faces,
+  13 inserted vertices, q=0.464587, zero refinement steps**, certified
+  PRIVATE, as independently confirmed on Clang and GCC in
+  [CI #40461969841](https://github.com/logiclrd/Mesher/actions/runs/40461969841).
+  Upgrade the test from asserting the historical refusal to checking
+  the desirable recovered closure, and include a six-vertex mirrored
+  quadrilateral closure fixture. Existing unrelated test failures remain
+  separately visible; physical GPU inspection remains outstanding.
+
 ## R06-M23 — Unified gravity-guided advancing-front zipper (2026-10-26)
 
 [Full geometry, callback and acceptance design](docs/R06_M23_UNIFIED_ATTRACTIVE_FRONT_ZIPPER.md).
