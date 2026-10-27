@@ -783,7 +783,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                          <<" faces="<<patch.faces.size()
                          <<" new_vertices="<<
                              (patch.positions.size()-patch.boundaryIds.size())
-                         <<" exact_orbit=1 source_certified=0\\n";
+                         <<" exact_orbit=1 source_certified=0\n";
             }
             for(const auto& triangle:patch.faces) {
                 const auto x=(patch.positions[triangle[0]].x+
