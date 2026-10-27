@@ -181,15 +181,79 @@ MixedClosureStaging stagePrivateMixedClosure(
         used[loop]=true;
     };
     for(const auto id:plan.cappedContours) {
+        if(used.at(id))continue; // Already generated as an exact mirrored cap pair.
         consume(id);
         const auto& loop=proposal.contours[id];
+        // Independent AFM runs on disjoint reflected rims can choose
+        // different triangulations/interior positions. Generate only ONE
+        // side of an exact two-disk orbit, then reflect its ENTIRE patch.
+        // Source rim VertexIds remain distinct; only NEW provisional IDs
+        // are introduced for the reflected interior.
+        std::size_t mirrorCap=proposal.contours.size();
+        std::vector<std::size_t> mirroredRimIndexes;
+        if(bounds.requireReflectedGeometry) {
+            int sign=0;
+            for(const auto v:loop.vertexIds) {
+                const auto x=result.positions().at(v).x;
+                if(x==0) {sign=0;break;}
+                const int next=x>0?1:-1;
+                if(sign&&sign!=next) {sign=0;break;}
+                sign=next;
+            }
+            if(sign) {
+                for(const auto other:plan.cappedContours) {
+                    if(other==id)continue;
+                    const auto& candidate=proposal.contours.at(other);
+                    const auto n=loop.vertexIds.size();
+                    if(candidate.vertexIds.size()!=n)continue;
+                    std::vector<std::size_t> indices;
+                    std::set<std::size_t> seen;
+                    bool matches=true;
+                    for(const auto sourceVertex:loop.vertexIds) {
+                        const auto p=result.positions().at(sourceVertex);
+                        std::size_t located=n;
+                        for(std::size_t j=0;j<n;++j) {
+                            const auto q=result.positions().at(candidate.vertexIds[j]);
+                            if(q.x==-p.x&&q.y==p.y&&q.z==p.z) {
+                                if(located!=n) {matches=false;break;}
+                                located=j;
+                            }
+                        }
+                        if(!matches||located==n||!seen.insert(located).second) {
+                            matches=false;break;
+                        }
+                        indices.push_back(located);
+                    }
+                    if(!matches)continue;
+                    // A reflection reverses directed contour winding.
+                    // Accept any cyclic start vertex, not only ordinal 0.
+                    for(std::size_t k=0;k<n;++k)
+                        if(indices[(k+1)%n]!=(indices[k]+n-1)%n)
+                            matches=false;
+                    if(!matches)continue;
+                    if(mirrorCap!=proposal.contours.size())
+                        throw std::logic_error(
+                            "R06-M06C mirrored cap rim has multiple exact partner contours");
+                    mirrorCap=other;
+                    mirroredRimIndexes=std::move(indices);
+                }
+                if(mirrorCap==proposal.contours.size())
+                    throw std::logic_error(
+                        "R06-M06C one-sided cap lacks a separate exact reflected cap rim");
+                if(used[mirrorCap])
+                    throw std::logic_error(
+                        "R06-M06C reflected cap rim already consumed by another closure");
+                consume(mirrorCap);
+            }
+        }
         const auto h=medianEdge(*result.sourceView(),loop);
         if(!(h>0)||!std::isfinite(h))
             throw std::logic_error("R06-M04A degenerate cap local edge scale");
         const auto owner=result.sourceView()->face(loop.survivingFaces.front()).owner;
         // AFM is the default R06 cap generator. Projected ear clipping
         // is a diagnostic/compatibility first-pass only when requested.
-        bool forceSpatial=!bounds.tryProjectedEarClipping;
+        bool forceSpatial=!bounds.tryProjectedEarClipping ||
+            mirrorCap!=proposal.contours.size();
         if(bounds.requireReflectedGeometry) {
             bool positive=false,negative=false;
             for(const auto vertex:loop.vertexIds) {
@@ -301,6 +365,48 @@ MixedClosureStaging stagePrivateMixedClosure(
             for(const auto& t:patch.faces)
                 addFace({0,owner,{ids[t[0]],ids[t[1]],ids[t[2]]},
                          MixedClosureFaceKind::Cap,h});
+            if(mirrorCap!=proposal.contours.size()) {
+                const auto& reflectedLoop=proposal.contours[mirrorCap];
+                const auto reflectedOwner=result.sourceView()->face(
+                    reflectedLoop.survivingFaces.front()).owner;
+                std::vector<VertexId> reflectedIds;
+                reflectedIds.reserve(patch.positions.size());
+                // The AFM uses reversed directed rim order.
+                for(std::size_t k=0;k<n;++k)
+                    reflectedIds.push_back(reflectedLoop.vertexIds.at(
+                        mirroredRimIndexes.at(n-k-1)));
+                for(std::size_t k=n;k<patch.positions.size();++k) {
+                    if(result.provisionalSpatialVertices().size()>=
+                       bounds.maxNewTriangles)
+                        throw std::length_error(
+                            "R06-M06C mirrored cap provisional vertex budget");
+                    const auto p=patch.positions[k];
+                    const auto provisional=std::numeric_limits<VertexId>::max()-
+                        static_cast<VertexId>(result.provisionalSpatialVertices().size());
+                    if(mesh.maybeVertex(provisional)||
+                       result.positions().contains(provisional))
+                        throw std::logic_error(
+                            "R06-M06C mirrored provisional vertex ID collision");
+                    result.stageProvisionalVertex(
+                        provisional,{-p.x,p.y,p.z},
+                        reflectedOwner,bounds.maxNewTriangles);
+                    reflectedIds.push_back(provisional);
+                }
+                for(const auto& t:patch.faces)
+                    addFace({0,reflectedOwner,
+                             {reflectedIds[t[0]],reflectedIds[t[2]],
+                              reflectedIds[t[1]]},
+                             MixedClosureFaceKind::Cap,h});
+                logCapCandidate("mirrored-advancing-front",mirrorCap,
+                    reflectedLoop.vertexIds.size(),patch.faces,
+                    [&](std::uint32_t vertex) {
+                        const auto p=patch.positions.at(vertex);
+                        return Vec3{-p.x,p.y,p.z};
+                    },patch.poissonIterations,patch.poissonResidual,
+                    "CANDIDATE_READY");
+                ++result.spatialCapLoops;
+                ++result.capLoops;
+            }
             result.usedSpatialCapFallback=true;
             ++result.spatialCapLoops;
             result.spatialPoissonIterations+=patch.poissonIterations;
