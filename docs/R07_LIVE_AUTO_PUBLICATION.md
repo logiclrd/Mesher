@@ -105,9 +105,11 @@ on each stamp exhausted the old V13 `maxBoxTests=524288` work budget.
 The accepted fix seeds the BVH from the stamp's changed faces and validates
 their complete collision neighbors, with independent R07 finite limits.
 To avoid repeated tree walks, up to sixteen nearby changed face AABBs
-are batched into each broad-phase traversal. The exact per-face
-triangle-pair classifier is unchanged, and tests compare its complete
-contact list against the original one-face-per-query traversal.
+are batched into each broad-phase traversal. Three-dimensional Morton
+ordering groups spatially nearby triangles, including around curved
+and mirrored surfaces, without growing pathological one-axis AABBs.
+The exact per-face triangle-pair classifier is unchanged; the tests
+compare the complete contact list against the original per-face query.
 
 The localized detector decides whether a *new* contact exists. When it
 does, the repair path obtains a separate, fully bounded **whole-source**
@@ -115,9 +117,30 @@ collision graph, using the batched broad phase, before R02/R03/M03
 excision or R06 certification. Whole-source discovery is therefore
 not performed on an ordinary clean sculpt stamp. Protected Merge
 retains the original unbatched, strict full-source query.
-If a candidate is tangential, ambiguous or cannot be closed safely,
-R07 still refuses it with an explicit console/viewport reason.
+Protected exact Merge continues to require the V13
+`splitTransverseTriangleContact()` finite segment and two exact local
+triangle patches. That **does not apply to AUTO's approximate excision**:
+R02 removes complete vertex stars from reported intersecting face pairs,
+and R03/R06 reconstruct and certify the resulting boundary. Requiring
+exact original-face split patches prevented genuine AUTO repairs on a
+single torus. For R07 only, unambiguous intersecting face pairs are
+admitted as whole-face contact evidence, even when the V13 split-patch
+construction is inapplicable. A tangent contact is not automatically
+accepted as a published repair: the complete source graph, R02/R03
+excision, M03 choice, certified R06 geometry, exact mirrors, final
+manifold, collision and material checks remain mandatory. Ambiguous
+pairs and failed closure still refuse atomically.
 The test must require a published changed root with zero refusals; it is
 not acceptable to lock in the previous silent rejection as passing behavior.
 Live AUTO worker status shows applied, rejected, published and repaired
 counts, and logs the complete refusal when one occurs.
+
+## Live acceptance regression
+
+The exact 950-vertex source torus's inner rim, displaced by a genuine
+normal-driven Inflate stamp at strength 0.1, must trigger R07 contact,
+produce a certified AFM cap repair, publish exactly one changed root,
+and support undo back to the original. This checks the complete
+detector-to-worker publication route, not just a saved refusal-case
+replay. Retain the test as a **positive passing invariant**: a V13
+split-patch refusal on this source is not acceptable AUTO behavior.
