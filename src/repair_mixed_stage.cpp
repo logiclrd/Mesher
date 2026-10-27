@@ -180,8 +180,12 @@ MixedClosureStaging stagePrivateMixedClosure(
             throw std::logic_error("R06-M04A duplicate or out-of-range selected contour");
         used[loop]=true;
     };
+    std::set<std::size_t> mirroredCapsAlreadyGenerated;
     for(const auto id:plan.cappedContours) {
-        if(used.at(id))continue; // Already generated as an exact mirrored cap pair.
+        if(used.at(id)) {
+            if(mirroredCapsAlreadyGenerated.erase(id))continue;
+            throw std::logic_error("R06-M04A duplicate selected cap contour");
+        }
         consume(id);
         const auto& loop=proposal.contours[id];
         // Independent AFM runs on disjoint reflected rims can choose
@@ -244,6 +248,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                     throw std::logic_error(
                         "R06-M06C reflected cap rim already consumed by another closure");
                 consume(mirrorCap);
+                mirroredCapsAlreadyGenerated.insert(mirrorCap);
             }
         }
         const auto h=medianEdge(*result.sourceView(),loop);
