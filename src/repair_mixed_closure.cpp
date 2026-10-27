@@ -374,7 +374,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         ++zipperShapeTurns;
         zipperShapeVertices+=out.refinementSteps-beforeShapeSplits;
         if(limits.staging.emitTrace)
-        std::cerr<<"[repair-r06-zipper-shape] kind="<<
+        std::cout<<"[repair-r06-zipper-shape] kind="<<
             (shapePlan.kind==ZipperShapeProposal::Kind::ApexToBase?
                 "apex_to_base":"two_edge")
             <<" diagonal="<<(shapePlan.useAlternateDiagonal?"AE":"CD")
@@ -386,7 +386,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
             <<" total_refinements="<<out.refinementSteps<<"\n";
     }
     if(out.zipperPairs&&limits.staging.emitTrace)
-        std::cerr<<"[repair-r06-zipper-shape] SUMMARY turns="<<zipperShapeTurns
+        std::cout<<"[repair-r06-zipper-shape] SUMMARY turns="<<zipperShapeTurns
                  <<" inserted_vertices="<<zipperShapeVertices
                  <<" min_eligible_long_edge_over_target=0.8"
                  <<" min_base_over_height=2.5"
@@ -1096,7 +1096,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
     out.splitEvents=staged.splitEvents();
     out.index=std::move(closed);
     const auto allDone=ProfileClock::now();
-    std::cerr<<"[repair-r06-mixed-timing]"
+    std::cout<<"[repair-r06-mixed-timing]"
              <<" front_ms="<<profileMs(phaseStart,stagedAt)
              <<" refine_ms="<<profileMs(stagedAt,refinementAt)
              <<" patch_ms="<<profileMs(refinementAt,patchedAt)
@@ -1107,7 +1107,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
              <<" new_faces="<<out.newFaces
              <<" refinements="<<out.refinementSteps<<"\n";
     if(!plan.cappedContours.empty())
-        std::cerr<<"[repair-r06-cap-verdict] status="
+        std::cout<<"[repair-r06-cap-verdict] status="
                  <<(limits.inspectionWarnQuality?
                     "SOURCE_CLOSURE_WARNING_PREVIEW":"SOURCE_CLOSURE_ACCEPTED")
                  <<" capped_loops="<<out.cappedLoops
@@ -1146,7 +1146,7 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         throw;
     }catch(const std::exception& e) {
         if(!plan.cappedContours.empty())
-            std::cerr<<"[repair-r06-cap-verdict] status=SOURCE_CLOSURE_REFUSED"
+            std::cout<<"[repair-r06-cap-verdict] status=SOURCE_CLOSURE_REFUSED"
                      <<" phase="<<phase<<" capped_requested="<<plan.cappedContours.size()
                      <<" reason="<<e.what()<<" source_certified=0\n";
         // Preserve the original algorithmic exception even if the observer
@@ -1199,7 +1199,7 @@ MixedPrivateClosureResult applyPrivateMixedClosure(
     }catch(const std::logic_error& e) {
         rejection=e.what();
     }
-    std::cerr<<"[repair-r06-cap-metrics] method=projected-ear"
+    std::cout<<"[repair-r06-cap-metrics] method=projected-ear"
              <<" status=SOURCE_CLOSURE_REFUSED"
              <<" reason="<<rejection
              <<" next=advancing-front"
