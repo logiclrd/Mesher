@@ -139,7 +139,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 try {
                     compareClassifierPlans(*result,classifier);
                 }catch(const std::exception& e) {
-                    std::cerr<<"[repair-r06] classifier comparison unavailable: "
+                    std::cout<<"[repair-r06] classifier comparison unavailable: "
                              <<e.what()<<"\n";
                 }
                 if(trace)trace->setClassifier({
