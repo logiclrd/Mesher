@@ -418,7 +418,7 @@ void physicalSixPointIndependentCaps() {
     check(std::isfinite(result.estimatedAddedArea)&&
           result.estimatedAddedArea>0,
           "R06-M06C1 advisory area must remain finite without claiming embedding");
-    std::cout<<"[r06-m06c1] recorded six-point physical contour pair enters independent cap path PASS\\n";
+    std::cout<<"[r06-m06c1] recorded six-point physical contour pair enters independent cap path PASS\n";
 }
 void mixedCapAndZipper() {
     Mesh mesh;
