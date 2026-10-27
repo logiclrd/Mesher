@@ -41,11 +41,7 @@ int main(int argc, char** argv) {
     bool repairCap = false;
     bool repairAuto = false;
     bool repairDumpContours = false;
-    bool repairQualityWarn = false,repairScaleAware=false,
-         repairFrontOptimize=false,repairCurvatureOptimize=false,
-         repairCurvaturePoisson=false,repairFeasibilityProbe=false,
-         repairDiagonalProbe=false,repairFeasibilityPreview=false,
-         repairDiagonalPreview=false,repairWholeCapFairingPreview=false;
+    bool repairQualityWarn = false,repairScaleAware=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
     bool repairEarClipping=false,repairUnifiedZipper=false;
     bool torusFixture = false, hollowSphereFixture = false;
@@ -101,14 +97,17 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-unified-zipper")repairUnifiedZipper=true;
             else if(arg=="--repair-step-debug")repairStepDebug=true;
             else if(arg=="--repair-scale-aware")repairScaleAware=true;
-            else if(arg=="--repair-front-optimize")repairFrontOptimize=true;
-            else if(arg=="--repair-curvature-optimize")repairCurvatureOptimize=true;
-            else if(arg=="--repair-curvature-poisson")repairCurvaturePoisson=true;
-            else if(arg=="--repair-feasibility-probe")repairFeasibilityProbe=true;
-            else if(arg=="--repair-feasibility-preview")repairFeasibilityPreview=true;
-            else if(arg=="--repair-diagonal-probe")repairDiagonalProbe=true;
-            else if(arg=="--repair-diagonal-preview")repairDiagonalPreview=true;
-            else if(arg=="--repair-whole-cap-fairing-preview")repairWholeCapFairingPreview=true;
+            else if(arg=="--repair-front-optimize"||
+                    arg=="--repair-curvature-optimize"||
+                    arg=="--repair-curvature-poisson"||
+                    arg=="--repair-feasibility-probe"||
+                    arg=="--repair-feasibility-preview"||
+                    arg=="--repair-diagonal-probe"||
+                    arg=="--repair-diagonal-preview"||
+                    arg=="--repair-whole-cap-fairing-preview")
+                throw std::invalid_argument(
+                    "The M17D-M21A ring-and-hub optimizer options were retired; "
+                    "advancing-front capping is now the only spatial cap generator");
             else if(arg=="--repair-seam-audit")repairSeamAudit=true;
             else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
             else if(arg=="--repair-classifier") {
@@ -249,16 +248,9 @@ int main(int argc, char** argv) {
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
                          <<"       [--repair-scale-aware] (experimental M17C bounded quality-aware splitting; auto/replay only)\n"
-                         <<"       [--repair-front-optimize] (experimental M17D mirrored Poisson ring correction; auto/replay only)\n"
-                         <<"       [--repair-curvature-optimize] (M18D opt-in bounded cap seam-continuity placement; auto/replay only, combine with --repair-front-optimize for refusal-1)\n"
-                         <<"       [--repair-curvature-poisson] (M18E opt-in fixed-rim directional curvature-guided Poisson solve; auto/replay only)\n"
-                         <<"       [--repair-feasibility-probe] (M19A read-only finite tangent-plane/orbit position search, no cap edits)\n"
-                         <<"       [--repair-feasibility-preview] (M19A provisional candidate positions in step debugger ONLY; private, NOT CERTIFIED)\n"
-                         <<"       [--repair-diagonal-probe] (M19C read-only mirrored strip-diagonal search, no staged topology changes)\n"
-                         <<"       [--repair-diagonal-preview] (M19D PRIVATE provisional mirrored diagonal topology in step debugger ONLY; NOT CERTIFIED)\n"
+                         <<"       [M17D-M21A legacy ring optimizer options removed; AFM is the default]\n"
                          <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
                          <<"       [--repair-unified-zipper] (M23B diagnostic/replay opt-in; live R06 uses accepted unified zipper)\\n"
-                         <<"       [--repair-whole-cap-fairing-preview] (M21A optional whole-cap fairing on a PRIVATE saved-case step; baseline fallback)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
                          <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
@@ -315,30 +307,9 @@ int main(int argc, char** argv) {
             throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
         if(!repairCaseOut.empty()&&!repairAuto)
             throw std::invalid_argument("--repair-case-out requires --repair auto");
-        if(repairFrontOptimize&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument(
-                "--repair-front-optimize requires --repair auto or --repair-replay[-test]");
-        if(repairDiagonalProbe&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-diagonal-probe requires --repair auto or --repair-replay[-test]");
-        if(repairFeasibilityProbe&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-feasibility-probe requires --repair auto or --repair-replay[-test]");
-        if(repairCurvaturePoisson&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument(
-                "--repair-curvature-poisson requires --repair auto or --repair-replay[-test]");
-        if(repairCurvatureOptimize&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument(
-                "--repair-curvature-optimize requires --repair auto or --repair-replay[-test]");
         if(repairScaleAware&&!repairAuto&&repairReplayPath.empty())
             throw std::invalid_argument(
                 "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
-        if(repairFeasibilityPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
-            throw std::invalid_argument("--repair-feasibility-preview requires interactive --repair-step-debug --repair-replay FILE");
-        if(repairDiagonalPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
-            throw std::invalid_argument("--repair-diagonal-preview requires interactive --repair-step-debug --repair-replay FILE");
-        if(repairWholeCapFairingPreview&&(!repairStepDebug||repairReplayPath.empty()||repairReplayTest))
-            throw std::invalid_argument("--repair-whole-cap-fairing-preview requires interactive --repair-step-debug --repair-replay FILE");
-        if(repairDiagonalPreview&&repairFeasibilityPreview)
-            throw std::invalid_argument("--repair-diagonal-preview and --repair-feasibility-preview must be tested separately");
         if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
             throw std::invalid_argument(
                 "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
@@ -359,10 +330,7 @@ int main(int argc, char** argv) {
         if(liveCertifiedAuto&&
            (repairQualityWarn||repairSeamAudit||repairOverlayExact||
             repairDumpContours||!repairCaseOut.empty()||
-            repairScaleAware||repairFrontOptimize||
-            repairCurvatureOptimize||repairCurvaturePoisson||
-            repairFeasibilityProbe||repairDiagonalProbe||
-            repairEarClipping))
+            repairScaleAware||repairEarClipping))
             throw std::invalid_argument(
                 "R07 live --repair auto does not accept frozen diagnostic flags; "
                 "use --repair-inspect --repair-auto or --repair-replay");
@@ -413,10 +381,6 @@ int main(int argc, char** argv) {
                 auto session=std::make_shared<mesher::RepairReplayStepSession>(
                     saved,repairClassifier,repairQualityWarn,
                     repairSeamAudit,repairOverlayExact,repairScaleAware,
-                    repairFrontOptimize,repairCurvatureOptimize,
-                    repairCurvaturePoisson,repairFeasibilityProbe,
-                    repairDiagonalProbe,repairFeasibilityPreview,
-                    repairDiagonalPreview,repairWholeCapFairingPreview,
                     repairEarClipping,repairUnifiedZipper);
                 mesher::ViewportInteraction inspect;
                 inspect.initialRevision=saved.candidate.index;
@@ -440,10 +404,7 @@ int main(int argc, char** argv) {
             const auto frozen=mesher::replayPrivateAutomaticRepair(
                 saved,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact,{},repairScaleAware,
-                repairFrontOptimize,repairCurvatureOptimize,
-                    repairCurvaturePoisson,repairFeasibilityProbe,
-                    repairDiagonalProbe,false,false,false,
-                    repairEarClipping,repairUnifiedZipper);
+                repairEarClipping,repairUnifiedZipper);
             const bool succeeded=frozen->privateAuto.has_value();
             std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
                      <<" proximity="<<frozen->classifierChoices[1]
@@ -514,7 +475,6 @@ int main(int argc, char** argv) {
                          <<" interior_cap_collapses="<<completed.interiorCapCollapses
                          <<" proven_rim_tip_exempt_faces="<<completed.certifiedPlanarRimTipFaces
                          <<" inserted_vertices="<<completed.insertedVertices
-                         <<" mirrored_ribbon_loops="<<completed.mirroredRibbonLoops
                          <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
             }else {
                 std::cout<<"[repair-r06] AUTO_REFUSED private_closed_mesh=0"
@@ -808,9 +768,7 @@ int main(int argc, char** argv) {
                 repairPreview,repairExcise,repairZipper,repairCap,
                 repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact,repairScaleAware,
-                repairFrontOptimize,repairCurvatureOptimize,
-                repairCurvaturePoisson,repairFeasibilityProbe,
-                repairDiagonalProbe,repairEarClipping,repairUnifiedZipper):nullptr;
+                repairEarClipping,repairUnifiedZipper):nullptr;
         const mesher::SculptStepValidator repairValidator=repairSession
             ?mesher::SculptStepValidator{
                 [repairSession](const mesher::ProposedSculptStep& proposed) {
@@ -1221,7 +1179,6 @@ int main(int argc, char** argv) {
                                      <<" min_cap_quality="<<automatic->minimumCapQuality
                                      <<" min_zipper_quality="<<automatic->minimumZipperQuality
                                      <<" spatial_cap_loops="<<automatic->spatialCapLoops
-                                     <<" mirrored_ribbon_loops="<<automatic->mirroredRibbonLoops
                                      <<" mirrored_seam_zipper_pairs="<<automatic->mirroredSeamZipperPairs
                                      <<" mirrored_seam_vertices="<<automatic->mirroredSeamVertices
                                      <<" spatial_poisson_iterations="<<automatic->spatialPoissonIterations

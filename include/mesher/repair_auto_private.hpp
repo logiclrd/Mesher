@@ -42,7 +42,6 @@ struct CertifiedPrivateAutoResult {
     double minimumCapQuality{1};
     double minimumZipperQuality{1};
     std::size_t spatialCapLoops{};
-    std::size_t mirroredRibbonLoops{};
     std::size_t mirroredSeamZipperPairs{};
     std::size_t mirroredSeamVertices{};
     std::size_t spatialPoissonIterations{};

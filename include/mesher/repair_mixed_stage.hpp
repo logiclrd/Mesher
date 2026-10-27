@@ -203,7 +203,6 @@ public:
     std::size_t mirroredSeamZipperPairs{};
     std::size_t mirroredSeamZipperVertices{};
     std::size_t spatialCapLoops{};
-    std::size_t mirroredRibbonLoops{};
     std::size_t spatialPoissonIterations{};
     double minimumSpatialInitialQuality{1};
 };
@@ -213,14 +212,6 @@ struct MixedClosureStageSettings {
     bool tryProjectedEarClipping=false; // opt-in R06 first pass; default goes directly to adaptive front
     bool useUnifiedZipper=false; // M23B separate AFM bridge/zipper choice
     bool emitTrace=false; // exact per-vertex placement/face/shape diagnostics, strictly opt-in
-    bool optimizeSpatialFront=false; // M17D opt-in, default preserves old R06
-    bool optimizeCurvatureFront=false; // M18D independent opt-in
-    bool guideCurvaturePoisson=false; // M18E opt-in RHS constraints
-    bool probeSeamFeasibility=false; // M19A diagnostic only
-    bool stageFeasibilityPreview=false; // M19A interactive step-only candidate
-    bool probeDiagonalFeasibility=false; // M19C diagnostic only
-    bool stageDiagonalPreview=false; // M19D private step-debug topology only
-    bool stageWholeCapFairingPreview=false; // M21A optional cap-wide fairing
     double targetInitialCapQuality=0.10;
     std::size_t maxLoops=16;
     std::size_t maxNewTriangles=4096;

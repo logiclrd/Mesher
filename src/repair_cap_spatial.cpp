@@ -715,7 +715,6 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& limits,
-    const std::vector<SurvivorDirectionalCurvature>* incomingReference,
     const SpatialCapPlacementAdjustment* placementAdjustment,
     const std::vector<std::uint8_t>* boundarySides) {
     const auto n=orientedCapRim.size();
@@ -732,8 +731,6 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
         throw std::length_error("R06-M22B advancing-front finite-work limits refused");
     if(!survivingFaceNormals.empty()&&survivingFaceNormals.size()!=n)
         throw std::invalid_argument("R06-M06C front normals not indexed to cap rim");
-    if(incomingReference&&incomingReference->size()!=n)
-        throw std::invalid_argument("R06-M18D incoming survivor tensor orbit mismatch");
     if(placementAdjustment&&!limits.useAdvancingFront)
         throw std::invalid_argument("R06-M23A placement adjustment requires advancing-front mode");
     if(boundarySides&&(!limits.useAdvancingFront||

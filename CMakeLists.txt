@@ -566,6 +566,12 @@ if(MESHER_BUILD_TESTS)
     # mesh-only builds (including no-Qhull CI) do not define Mesher;
     # keep their independent CPU M23B geometry test below.
     if(TARGET Mesher)
+        add_test(NAME repair_r06_retired_ring_flags_fail_explicitly
+                 COMMAND "${CMAKE_COMMAND}"
+                   "-DMESHER_EXE=$<TARGET_FILE:Mesher>"
+                   -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_retired_cap_options.cmake")
+        set_tests_properties(repair_r06_retired_ring_flags_fail_explicitly
+                             PROPERTIES TIMEOUT 15)
         add_test(NAME repair_r06_m23b_refusal2_cli_opt_in
                  COMMAND "${CMAKE_COMMAND}"
                    "-DMESHER_EXE=$<TARGET_FILE:Mesher>"

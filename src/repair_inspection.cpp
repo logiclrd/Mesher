@@ -108,13 +108,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                           bool symmetricSource,AutoClosureClassifier classifier,
                           bool warnQuality,
                           const std::shared_ptr<RepairStepTrace>& trace={},
-                          bool scaleAware=false,bool optimizeFront=false,
-                          bool optimizeCurvatureFront=false,bool guideCurvaturePoisson=false,
-                          bool probeSeamFeasibility=false,
-                          bool probeDiagonalFeasibility=false,
-                          bool stageFeasibilityPreview=false,
-                          bool stageDiagonalPreview=false,
-                          bool stageWholeCapFairingPreview=false,
+                          bool scaleAware=false,
                           bool tryProjectedEarClipping=false,
                           bool useUnifiedZipper=false) {
     // The opt-in producer may be paused on ANY initial cap/zipper operation.
@@ -162,17 +156,9 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                     CertifiedPrivateAutoLimits policy;
                     policy.closure.requireReflectedGeometry=symmetricSource;
                     policy.closure.scaleAwareRefinement=scaleAware;
-                    policy.closure.staging.optimizeSpatialFront=optimizeFront;
-                    policy.closure.staging.optimizeCurvatureFront=optimizeCurvatureFront;
-                    policy.closure.staging.guideCurvaturePoisson=guideCurvaturePoisson;
-                    policy.closure.staging.probeSeamFeasibility=probeSeamFeasibility;
-                    policy.closure.staging.stageFeasibilityPreview=stageFeasibilityPreview;
-                    policy.closure.staging.stageDiagonalPreview=stageDiagonalPreview;
-                    policy.closure.staging.stageWholeCapFairingPreview=stageWholeCapFairingPreview;
                     policy.closure.staging.tryProjectedEarClipping=tryProjectedEarClipping;
                     policy.closure.staging.useUnifiedZipper=useUnifiedZipper;
                     policy.closure.staging.emitTrace=true;
-                    policy.closure.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                     policy.planner.classifier=classifier;
                     if(trace)trace->attach(policy.closure,trace);
                     result->privateAuto=applyCertifiedPrivateAutomaticClosure(
@@ -218,15 +204,7 @@ void runAutomaticClosure(RepairInspectionSnapshot& snapshot,
                 limits.requireReflectedGeometry=symmetricSource;
                 limits.inspectionWarnQuality=true;
                 limits.scaleAwareRefinement=scaleAware;
-                limits.staging.optimizeSpatialFront=optimizeFront;
-                limits.staging.optimizeCurvatureFront=optimizeCurvatureFront;
-                limits.staging.guideCurvaturePoisson=guideCurvaturePoisson;
-                limits.staging.probeSeamFeasibility=probeSeamFeasibility;
-                limits.staging.stageFeasibilityPreview=stageFeasibilityPreview;
-                limits.staging.stageDiagonalPreview=stageDiagonalPreview;
-                limits.staging.stageWholeCapFairingPreview=stageWholeCapFairingPreview;
                 limits.staging.tryProjectedEarClipping=tryProjectedEarClipping;
-                limits.staging.probeDiagonalFeasibility=probeDiagonalFeasibility;
                 limits.staging.emitTrace=true;
                 if(trace)trace->attach(limits,trace,true);
                 auto preview=applyPrivateMixedClosure(
@@ -439,11 +417,8 @@ std::string RepairInspectionSession::inspect(const ProposedSculptStep& proposed)
         }
     }
     if(autoEnabled_)runAutomaticClosure(*result,symmetricSource_,classifier_,
-                                        warnQuality_,{},scaleAware_,optimizeFront_,
-                                        optimizeCurvatureFront_,guideCurvaturePoisson_,
-                                        probeSeamFeasibility_,probeDiagonalFeasibility_,
-                                        false,false,false,tryProjectedEarClipping_,
-                                        useUnifiedZipper_);
+                                        warnQuality_,{},scaleAware_,
+                                        tryProjectedEarClipping_,useUnifiedZipper_);
     result->exactOverlay=exactOverlay_;
     buildSeamAuditIfRequested(*result,auditSeam_||exactOverlay_);
     {
@@ -467,11 +442,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     const RepairCase& capture,AutoClosureClassifier classifier,bool warnQuality,
     bool auditSeam,bool exactOverlay,
     std::shared_ptr<RepairStepTrace> stepTrace,
-    bool scaleAware,bool optimizeFront,bool optimizeCurvatureFront,
-    bool guideCurvaturePoisson,bool probeSeamFeasibility,
-    bool probeDiagonalFeasibility,bool stageFeasibilityPreview,
-    bool stageDiagonalPreview,bool stageWholeCapFairingPreview,
-    bool tryProjectedEarClipping,bool useUnifiedZipper) {
+    bool scaleAware,bool tryProjectedEarClipping,
+    bool useUnifiedZipper) {
     if(!capture.candidate.index||capture.contacts.empty())
         throw std::invalid_argument("R06 replay needs a valid candidate and saved contacts");
     auto result=std::make_shared<RepairInspectionSnapshot>();
@@ -516,11 +488,8 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
         }
     }
     runAutomaticClosure(*result,capture.symmetricSource,classifier,warnQuality,
-                        stepTrace,scaleAware,optimizeFront,optimizeCurvatureFront,
-                        guideCurvaturePoisson,probeSeamFeasibility,
-                        probeDiagonalFeasibility,stageFeasibilityPreview,
-                        stageDiagonalPreview,stageWholeCapFairingPreview,
-                        tryProjectedEarClipping,useUnifiedZipper);
+                        stepTrace,scaleAware,tryProjectedEarClipping,
+                        useUnifiedZipper);
     result->exactOverlay=exactOverlay;
     buildSeamAuditIfRequested(*result,auditSeam||exactOverlay);
     return result;

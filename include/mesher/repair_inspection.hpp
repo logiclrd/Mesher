@@ -75,11 +75,6 @@ public:
                                      bool warnQuality=false,
                                      bool auditSeam=false,bool exactOverlay=false,
                                      bool scaleAware=false,
-                                     bool optimizeFront=false,
-                                     bool optimizeCurvatureFront=false,
-                                     bool guideCurvaturePoisson=false,
-                                     bool probeSeamFeasibility=false,
-                                     bool probeDiagonalFeasibility=false,
                                      bool tryProjectedEarClipping=false,
                                      bool useUnifiedZipper=false)
         :previewEnabled_(preview||excise||zipper||cap||autoMode),
@@ -88,11 +83,6 @@ public:
          symmetricSource_(symmetricSource),classifier_(classifier),
          warnQuality_(warnQuality),auditSeam_(auditSeam),
          exactOverlay_(exactOverlay),scaleAware_(scaleAware),
-         optimizeFront_(optimizeFront),
-         optimizeCurvatureFront_(optimizeCurvatureFront),
-         guideCurvaturePoisson_(guideCurvaturePoisson),
-         probeSeamFeasibility_(probeSeamFeasibility),
-         probeDiagonalFeasibility_(probeDiagonalFeasibility),
          tryProjectedEarClipping_(tryProjectedEarClipping),
          useUnifiedZipper_(useUnifiedZipper) {}
     std::string inspect(const ProposedSculptStep& proposed);
@@ -108,9 +98,7 @@ private:
     AutoClosureClassifier classifier_=AutoClosureClassifier::Area;
     bool warnQuality_=false;
     bool auditSeam_=false,exactOverlay_=false;
-    bool scaleAware_=false,optimizeFront_=false,optimizeCurvatureFront_=false,
-         guideCurvaturePoisson_=false,probeSeamFeasibility_=false,
-         probeDiagonalFeasibility_=false,tryProjectedEarClipping_=false,
+    bool scaleAware_=false,tryProjectedEarClipping_=false,
          useUnifiedZipper_=false;
     std::atomic<bool> frozen_{false};
     mutable std::mutex mutex_;
@@ -128,14 +116,7 @@ std::shared_ptr<const RepairInspectionSnapshot> replayPrivateAutomaticRepair(
     bool warnQuality=false,bool auditSeam=false,
     bool exactOverlay=false,
     std::shared_ptr<RepairStepTrace> stepTrace={},
-    bool scaleAware=false,bool optimizeFront=false,
-    bool optimizeCurvatureFront=false,bool guideCurvaturePoisson=false,
-    bool probeSeamFeasibility=false,
-    bool probeDiagonalFeasibility=false,
-    bool stageFeasibilityPreview=false,
-    bool stageDiagonalPreview=false,
-    bool stageWholeCapFairingPreview=false,
-    bool tryProjectedEarClipping=false,
+    bool scaleAware=false,bool tryProjectedEarClipping=false,
     bool useUnifiedZipper=false);
 
 // CPU-generated unlit colored triangular prisms/octahedra. A viewport may

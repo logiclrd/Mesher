@@ -263,7 +263,7 @@ MixedClosureStaging stagePrivateMixedClosure(
                     std::any_of(ordered.begin(),ordered.end(),
                                 [](Vec3 v){return v.x>0;});
                 patch=buildSpatialCapFrontPoisson(
-                    ordered,guidance,spatial,nullptr,nullptr);
+                    ordered,guidance,spatial);
                 logCapCandidate("advancing-front",id,n,
                     patch.faces,[&](std::uint32_t vertex) {
                         return patch.positions.at(vertex);
@@ -303,7 +303,6 @@ MixedClosureStaging stagePrivateMixedClosure(
                          MixedClosureFaceKind::Cap,h});
             result.usedSpatialCapFallback=true;
             ++result.spatialCapLoops;
-            if(patch.usedMirroredRibbonFallback)++result.mirroredRibbonLoops;
             result.spatialPoissonIterations+=patch.poissonIterations;
             result.minimumSpatialInitialQuality=std::min(
                 result.minimumSpatialInitialQuality,patch.minimumQuality);

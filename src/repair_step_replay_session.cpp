@@ -8,21 +8,10 @@ namespace mesher {
 RepairReplayStepSession::RepairReplayStepSession(
     RepairCase saved,AutoClosureClassifier classifier,bool warningOnly,
     bool seamAudit,bool exactOverlay,bool scaleAware,
-    bool optimizeFront,bool optimizeCurvatureFront,bool guideCurvaturePoisson,
-    bool probeSeamFeasibility,bool probeDiagonalFeasibility,
-    bool stageFeasibilityPreview,bool stageDiagonalPreview,
-    bool stageWholeCapFairingPreview,
     bool tryProjectedEarClipping,bool useUnifiedZipper)
     :saved_(std::move(saved)),classifier_(classifier),
      warningOnly_(warningOnly),seamAudit_(seamAudit),exactOverlay_(exactOverlay),
-     scaleAware_(scaleAware),optimizeFront_(optimizeFront),
-     optimizeCurvatureFront_(optimizeCurvatureFront),
-     guideCurvaturePoisson_(guideCurvaturePoisson),
-     probeSeamFeasibility_(probeSeamFeasibility),
-     probeDiagonalFeasibility_(probeDiagonalFeasibility),
-     stageFeasibilityPreview_(stageFeasibilityPreview),
-     stageDiagonalPreview_(stageDiagonalPreview),
-     stageWholeCapFairingPreview_(stageWholeCapFairingPreview),
+     scaleAware_(scaleAware),
      tryProjectedEarClipping_(tryProjectedEarClipping),
      useUnifiedZipper_(useUnifiedZipper),
      trace_(std::make_shared<RepairStepTrace>()) {
@@ -38,11 +27,8 @@ void RepairReplayStepSession::start() {
             try {
                 auto value=replayPrivateAutomaticRepair(
                     saved_,classifier_,warningOnly_,seamAudit_,exactOverlay_,
-                    trace_,scaleAware_,optimizeFront_,optimizeCurvatureFront_,
-                    guideCurvaturePoisson_,probeSeamFeasibility_,
-                    probeDiagonalFeasibility_,stageFeasibilityPreview_,
-                    stageDiagonalPreview_,stageWholeCapFairingPreview_,
-                    tryProjectedEarClipping_,useUnifiedZipper_);
+                    trace_,scaleAware_,tryProjectedEarClipping_,
+                    useUnifiedZipper_);
                 std::lock_guard lock(stateMutex_);
                 result_=std::move(value);
             }catch(const RepairStepCancelled&) {
@@ -191,12 +177,6 @@ std::optional<ViewportMeshUpdate> RepairReplayStepSession::takeSnapshot() {
         }
         lines.push_back("STEP 0 NO STAGED GEOMETRY");
     }
-    if(stageFeasibilityPreview_)
-        lines.push_back("M19A PROVISIONAL POSITION PREVIEW - NOT CERTIFIED; NO PUBLICATION");
-    if(stageDiagonalPreview_)
-        lines.push_back("M19D PROVISIONAL DIAGONAL PREVIEW - NOT CERTIFIED; NO PUBLICATION");
-    if(stageWholeCapFairingPreview_)
-        lines.push_back("M21A OPTIONAL WHOLE-CAP FAIRING / VALID ORIGINAL FALLBACK; PRIVATE ONLY");
     if(state.cancelled)lines.push_back("WORKER CANCELLED - NO GEOMETRY REFUSAL");
     else if(!failure.empty())lines.push_back("WORKER ERROR: "+failure);
     else if(done&&final) {

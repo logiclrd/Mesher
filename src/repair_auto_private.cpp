@@ -124,7 +124,6 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
     out.minimumCapQuality=staged.minimumCapQuality;
     out.minimumZipperQuality=staged.minimumZipperQuality;
     out.spatialCapLoops=staged.spatialCapLoops;
-    out.mirroredRibbonLoops=staged.mirroredRibbonLoops;
     out.mirroredSeamZipperPairs=staged.mirroredSeamZipperPairs;
     out.mirroredSeamVertices=staged.mirroredSeamVertices;
     out.spatialPoissonIterations=staged.spatialPoissonIterations;

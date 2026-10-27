@@ -32,8 +32,7 @@ bool identical(const SpatialCapPatch& a,const SpatialCapPatch& b) {
        a.poissonIterations!=b.poissonIterations||
        a.poissonResidual!=b.poissonResidual||
        a.minimumQuality!=b.minimumQuality||
-       a.usedAdaptiveFront!=b.usedAdaptiveFront||
-       a.usedMirroredRibbonFallback!=b.usedMirroredRibbonFallback)
+       a.usedAdaptiveFront!=b.usedAdaptiveFront)
         return false;
     for(std::size_t i=0;i<a.positions.size();++i) {
         const auto x=a.positions[i],y=b.positions[i];
@@ -76,7 +75,7 @@ void exercise(bool reflected) {
             return p.projectedPosition;
         };
     const auto unchanged=buildSpatialCapFrontPoisson(
-        boundary,normals,settings,nullptr,&identity);
+        boundary,normals,settings,&identity);
     require(calls>0,"M23A never called placement callback");
     // The asymmetric 12-corner front exercises the three-face turn.
     // Its exactly reflected counterpart is legitimately advanced using
@@ -96,7 +95,7 @@ void exercise(bool reflected) {
             return q;
         };
     const auto adjusted=buildSpatialCapFrontPoisson(
-        boundary,normals,settings,nullptr,&slight);
+        boundary,normals,settings,&slight);
     require(moved>0&&adjusted.usedAdaptiveFront&&!adjusted.faces.empty(),
         "M23A tiny valid displacement prevented advancing-front closure");
     for(std::size_t i=0;i<boundary.size();++i) {
@@ -149,7 +148,7 @@ void unsafeMustRefuse() {
     bool refused=false;
     try {
         (void)buildSpatialCapFrontPoisson(
-            boundary,guidance,settings,nullptr,&invalid);
+            boundary,guidance,settings,&invalid);
     }catch(const std::logic_error&) {refused=true;}
     require(attempts>0&&refused,
         "M23A invalid callback proposal must not be committed as a cap");
@@ -158,10 +157,10 @@ void unsafeMustRefuse() {
     refused=false;
     try {
         (void)buildSpatialCapFrontPoisson(
-            boundary,guidance,settings,nullptr,&invalid);
+            boundary,guidance,settings,&invalid);
     }catch(const std::invalid_argument&) {refused=true;}
     require(refused,
-        "M23A cannot silently ignore a provided callback on legacy ring path");
+        "M23A explicitly refuses retired ring-and-hub construction");
 }
 }
 int main() {

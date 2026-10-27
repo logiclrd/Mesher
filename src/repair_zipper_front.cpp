@@ -298,7 +298,7 @@ UnifiedZipperFrontPatch buildUnifiedZipperFront(
                     // higher-level wrapper; otherwise use the zipper gravity.
                     ++capAttempts;
                     const auto cap=buildSpatialCapFrontPoisson(
-                        trial.positions,trial.normals,capSettings,nullptr,
+                        trial.positions,trial.normals,capSettings,
                         adjustment?adjustment:&gravity,&ancestry);
                     UnifiedZipperFrontPatch answer;
                     answer.positions=cap.positions;

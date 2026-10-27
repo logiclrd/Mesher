@@ -10,8 +10,6 @@
 
 namespace mesher {
 
-struct SurvivorDirectionalCurvature;
-
 // M23B diagnostic only: one record per ACCEPTED generated AFM vertex.
 // Vertex indices are patch-local and remapped to provisional VertexIds in
 // mixed staging. A replay ENSUREFACE references those provisional IDs.
@@ -43,7 +41,6 @@ struct SpatialCapPatch {
     std::size_t poissonIterations{};
     double poissonResidual{};
     double minimumQuality{1};
-    bool usedMirroredRibbonFallback{}; // compatibility metric: always false for AFM
     bool usedAdaptiveFront{}; // generated with arbitrary indexed advancing-front connectivity
     std::vector<SpatialCapPlacementTrace> placementTrace; // zipper-only debug
 };
@@ -120,12 +117,10 @@ void solveSpatialCapFixedRimPoisson(
 // construction followed by the shared fixed-rim Poisson solver. It never
 // falls back to the retired ring-and-hub triangulation. Final source-backed
 // geometry, symmetry, collision and quality certification belong to M04B.
-// incomingReference is a retained compatibility argument, ignored by AFM.
 SpatialCapPatch buildSpatialCapFrontPoisson(
     const std::vector<Vec3>& orientedCapRim,
     const std::vector<Vec3>& survivingFaceNormals,
     const SpatialCapSettings& settings={},
-    const std::vector<SurvivorDirectionalCurvature>* incomingReference=nullptr,
     const SpatialCapPlacementAdjustment* placementAdjustment=nullptr,
     const std::vector<std::uint8_t>* boundarySides=nullptr);
 

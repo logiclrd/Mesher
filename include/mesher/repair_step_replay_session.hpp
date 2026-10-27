@@ -23,13 +23,6 @@ public:
     RepairReplayStepSession(RepairCase saved,
         AutoClosureClassifier classifier,bool warningOnly,
         bool seamAudit,bool exactOverlay,bool scaleAware=false,
-        bool optimizeFront=false,bool optimizeCurvatureFront=false,
-        bool guideCurvaturePoisson=false,
-        bool probeSeamFeasibility=false,
-        bool probeDiagonalFeasibility=false,
-        bool stageFeasibilityPreview=false,
-        bool stageDiagonalPreview=false,
-        bool stageWholeCapFairingPreview=false,
         bool tryProjectedEarClipping=false,
         bool useUnifiedZipper=false);
     ~RepairReplayStepSession();
@@ -43,12 +36,8 @@ public:
 private:
     RepairCase saved_;
     AutoClosureClassifier classifier_;
-    bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_,optimizeFront_,
-         optimizeCurvatureFront_,guideCurvaturePoisson_,
-         probeSeamFeasibility_,probeDiagonalFeasibility_,
-         stageFeasibilityPreview_,stageDiagonalPreview_,
-         stageWholeCapFairingPreview_,tryProjectedEarClipping_,
-         useUnifiedZipper_;
+    bool warningOnly_,seamAudit_,exactOverlay_,scaleAware_,
+         tryProjectedEarClipping_,useUnifiedZipper_;
     std::shared_ptr<RepairStepTrace> trace_;
     std::thread worker_;
     mutable std::mutex stateMutex_;
