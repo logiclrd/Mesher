@@ -828,16 +828,24 @@ int main(int argc, char** argv) {
                 // untouched; both Vulkan projection and CPU rays scale.
                 interaction.cameraScale=mergeTestReflectedTetra?4.0:2.0;
             }
-            if(avoidCollisions) {
-                interaction.collisionStatus=[&] {
+            if(avoidCollisions||liveCertifiedAuto) {
+                interaction.collisionStatus=[&,liveCertifiedAuto] {
                     const auto status=liveWorker->status();
-                    const auto& bt=status.stepResources.backtracking;
                     std::ostringstream out;
-                    out<<"ON R "<<status.rejectedStamps
-                       <<" A "<<status.completedStamps
-                       <<" P "<<status.publishedRevisions
-                       <<" trials "<<bt.trials
-                       <<" fraction "<<bt.chosenNormalFraction;
+                    if(liveCertifiedAuto) {
+                        out<<"AUTO A "<<status.completedStamps
+                           <<" R "<<status.rejectedStamps
+                           <<" P "<<status.publishedRevisions
+                           <<" checked "<<status.collisionCheckedStamps
+                           <<" repaired "<<status.collisionRepairedStamps;
+                    }else {
+                        const auto& bt=status.stepResources.backtracking;
+                        out<<"ON R "<<status.rejectedStamps
+                           <<" A "<<status.completedStamps
+                           <<" P "<<status.publishedRevisions
+                           <<" trials "<<bt.trials
+                           <<" fraction "<<bt.chosenNormalFraction;
+                    }
                     if(status.terminalFailure)
                         out<<" TERMINAL "<<status.terminalFailureReason;
                     else if(status.stepResources.refused)
