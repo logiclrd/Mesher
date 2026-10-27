@@ -501,6 +501,53 @@ void physicalMirroredZipperStaging() {
             require(!(std::min({x0,x1,x2})<0&&std::max({x0,x1,x2})>0),
                     "R06-M06C4c2 a staged zipper face may not cross X=0 without seam");
         }
+    // M06C: separate mirrored cap contours MUST NOT run two independent
+    // advancing fronts. The same asymmetric physical 15+15 rim supplies
+    // an exact source-mirrored pair with a nontrivial interior patch.
+    // This is a positive geometric invariant, not a fixture expecting a
+    // previously observed refusal.
+    auto capChoice=plan;
+    capChoice.zipperPairs.clear();
+    capChoice.cappedContours={0,1};
+    capChoice.regions.front().zippers.clear();
+    capChoice.regions.front().caps={0,1};
+    const auto caps=stagePrivateMixedClosure(cut,proposal,capChoice,bounds);
+    require(caps.capLoops==2&&caps.spatialCapLoops==2&&
+            caps.usedSpatialCapFallback&&
+            caps.provisionalSpatialVertices().size()>0,
+            "R06-M06C must stage two exact reflected AFM disks, not independent triangulations");
+    const auto& positions=caps.positions();
+    const auto& vertices=caps.faces();
+    std::map<std::tuple<double,double,double>,VertexId> at;
+    for(const auto& [id,p]:positions) {
+        require(at.emplace(std::make_tuple(p.x,p.y,p.z),id).second,
+                "R06-M06C separate mirrored caps cannot introduce coincident independent IDs");
+    }
+    const auto reflected=[&](VertexId id) {
+        const auto p=positions.at(id);
+        const auto it=at.find(std::make_tuple(-p.x,p.y,p.z));
+        require(it!=at.end(),
+                "R06-M06C one-sided cap interior must have EXACT reflected vertex partner");
+        return it->second;
+    };
+    std::set<std::array<VertexId,3>> capFaces;
+    for(const auto& f:caps.faces())
+        if(f.kind==MixedClosureFaceKind::Cap) {
+            auto ids=f.triangle();
+            std::sort(ids.begin(),ids.end());
+            capFaces.insert(ids);
+        }
+    require(!capFaces.empty(),"R06-M06C reflected pair must create real cap faces");
+    for(const auto& f:caps.faces())
+        if(f.kind==MixedClosureFaceKind::Cap) {
+            const auto tri=f.triangle();
+            std::array<VertexId,3> mirror{
+                reflected(tri[0]),reflected(tri[2]),reflected(tri[1])};
+            std::sort(mirror.begin(),mirror.end());
+            require(capFaces.contains(mirror),
+                    "R06-M06C every staged cap face must have an exact reflected face");
+        }
+    std::cout<<"[r06-m06c-paired-caps] two spatial disks staged as one exact reflected AFM patch PASS\\n";
     // Deliberate mismatch cannot be healed by approximate welding.
     auto corrupt=proposal;
     const auto old=corrupt.contours[1].vertexIds;
