@@ -168,7 +168,7 @@ void cleanLiveSculptDoesNotFreeze() {
     std::cout<<"[r07-live-worker] second_stamp_rejected="
              <<brush.rejectedStamps()
              <<" first_root_published=1"
-             <<" clean stamp/undo/redo/continued input PASS\\n";
+             <<" clean stamp/undo/redo/continued input PASS\n";
 }
 void desktopScaleLiveAutoFirstStamp() {
     // R07 regression: exercise the actual default interactive profile,
@@ -346,7 +346,7 @@ void privateClosureOverflowRemainsEditable() {
     require(checkpoint->partitionCount()==revision->partitionCount(),
             "R07 repaired closure must satisfy durable checkpoint partition bounds");
     std::cout<<"[r07-closure-overflow] source owners retained; overflow, "
-                "next RegionEdit and checkpoint PASS\\n";
+                "next RegionEdit and checkpoint PASS\n";
 }
 void actualInflateContactCanPublishCertifiedAuto() {
     // A live AUTO positive fixture must be ONE connected self-contacting
