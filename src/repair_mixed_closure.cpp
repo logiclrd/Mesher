@@ -1032,6 +1032,11 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         // materialized in the same private patch and count against budget.
     }
     out.newFaces=applied.createdFaces.size();
+    // New cap/zipper faces may share one nearly-full source face owner.
+    // Prevent successful private AUTO from publishing a partition that
+    // the NEXT RegionEdit stamp would reject as over capacity.
+    // Overflow is entirely private until the certified root is published.
+    boundPrivateMixedClosurePartitions(view,*cut.index,owners);
     out.touchedPartitions.assign(owners.begin(),owners.end());
     const auto revision=view.commit().revision;
     auto closed=RegionTopologyIndex::restore(
