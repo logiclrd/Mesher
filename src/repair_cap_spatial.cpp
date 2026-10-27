@@ -456,33 +456,32 @@ SpatialCapPatch constructAdaptiveFront(
                 if(closed)break;
             }
         }
-        // M23B zipper fronts: the current surface is the already-created
-        // AFM triangles, NOT a normal copied indefinitely from the R03 rim.
-        // Area-weighted triangle normals give each new front vertex the
-        // geometric tangent plane of its actual preceding faces.
-        // Recompute once per accepted advancing-front step, not per trial.
-        // Ordinary caps preserve the original M22 path byte-for-byte.
-        std::vector<Vec3> currentNormals;
-        if(rimSides) {
-            currentNormals.assign(state.patch.positions.size(),Vec3{});
-            for(const auto& face:state.patch.faces) {
-                const auto p=state.patch.positions[face[0]];
-                const auto q=state.patch.positions[face[1]];
-                const auto r=state.patch.positions[face[2]];
-                const auto nFace=cross(q-p,r-p);
-                for(const auto id:face)
-                    currentNormals[id]=currentNormals[id]+nFace;
-            }
-            for(std::size_t id=0;id<currentNormals.size();++id) {
-                auto nFace=currentNormals[id];
-                if(limits.requireMirrorPlane&&
-                   state.patch.positions[id].x==0)
-                    nFace.x=0;
-                const auto magnitude=length(nFace);
-                if(magnitude>1e-12*rimScale*rimScale&&finite(nFace))
-                    currentNormals[id]=nFace/magnitude;
-                else currentNormals[id]=state.guides[id];
-            }
+        // Advance using the surface that has ACTUALLY been generated,
+        // rather than classifying every corner against the starting rim's
+        // fixed area vector. The latter can point nearly sideways to a
+        // nearly closed, nonplanar front (refusal-3's six-vertex endgame).
+        // Use the same accumulated accepted-face normals for both ordinary
+        // caps and zipper fronts. No trial face contributes to its own
+        // classification; vertices without accepted support retain their
+        // existing incoming guidance.
+        std::vector<Vec3> currentNormals(
+            state.patch.positions.size(),Vec3{});
+        for(const auto& face:state.patch.faces) {
+            const auto p=state.patch.positions[face[0]];
+            const auto q=state.patch.positions[face[1]];
+            const auto r=state.patch.positions[face[2]];
+            const auto nFace=cross(q-p,r-p);
+            for(const auto id:face)
+                currentNormals[id]=currentNormals[id]+nFace;
+        }
+        for(std::size_t id=0;id<currentNormals.size();++id) {
+            auto nFace=currentNormals[id];
+            if(limits.requireMirrorPlane&&state.patch.positions[id].x==0)
+                nFace.x=0;
+            const auto magnitude=length(nFace);
+            if(magnitude>1e-12*rimScale*rimScale&&finite(nFace))
+                currentNormals[id]=nFace/magnitude;
+            else currentNormals[id]=state.guides[id];
         }
         // Evaluate all corners, preferring the smallest oriented angle.
         // Reflected off-seam corners form one indivisible orbit.
@@ -500,13 +499,12 @@ SpatialCapPatch constructAdaptiveFront(
             if(!(length(u)>1e-12&&length(v)>1e-12))continue;
             double theta=std::acos(std::clamp(
                 dot(u,v)/(length(u)*length(v)),-1.,1.));
-            // M23B: a joined zipper contour wraps a nonplanar annulus.
-            // Its global signed-area vector does not represent the local
-            // face plane. Use surviving/propagated corner guidance only
-            // for zipper-owned fronts; ordinary caps keep M22 behavior.
-            const auto cornerNormal=(rimSides&&
-                length(currentNormals[id])>1e-12)?
-                currentNormals[id]:normal;
+            // Both cap and zipper corners use their evolving geometric
+            // support. The initial rim area vector is only a fallback
+            // when neither accepted faces nor incoming guidance exists.
+            const auto cornerNormal=
+                length(currentNormals[id])>1e-12?
+                    currentNormals[id]:normal;
             if(dot(cross(u,v),cornerNormal)>1e-10*length(u)*length(v))
                 theta=2*std::acos(-1.)-theta;
             choices.push_back({i,theta});
