@@ -141,12 +141,17 @@ are ON by default; `--no-*` options disable them independently.
 The old positive `--collapse`, `--curvature-correction` and
 `--refine` options are no longer accepted.
 
-The mouse sculpts with ordinary LMB. RMB orbits with a Z-up
+Ordinary LMB inflates; **Alt+LMB deflates** along the same
+pre-stamp normals at **two-thirds the normal strength**. The direction
+is latched on mouse-down and stays fixed when Alt is released mid-drag.
+The inverse stroke uses the same curvature, refinement, collision repair,
+mirror and undo/redo path. RMB orbits with a Z-up
 turntable; Alt+RMB or Ctrl+LMB grabs/pans the world; Ctrl+RMB dollies
 along the viewing direction. Ctrl+RMB takes precedence over Alt+RMB.
 A camera gesture is latched on mouse-down and does not change when a
 modifier is released mid-drag. On some Linux desktop environments,
-Alt+RMB is reserved for window management; Ctrl+LMB remains an
+Alt+mouse gestures may be reserved for window management, including
+Alt+LMB; Ctrl+LMB remains an
 alternative. W controls surface-edge and grid ink;
 G independently shows/hides the floor. Ctrl+Z / Ctrl+Y
 undo/redo, Ctrl+S queues an asynchronous checkpoint.
