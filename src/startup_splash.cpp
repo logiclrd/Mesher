@@ -15,6 +15,7 @@
 #    include <X11/Xatom.h>
 #endif
 #ifdef __APPLE__
+#    define GL_SILENCE_DEPRECATION 1
 #    include <OpenGL/gl.h>
 #else
 #    include <GL/gl.h>
