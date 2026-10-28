@@ -314,6 +314,8 @@ public:
     // Explicit FIRST-original FaceIds for this stroke; never proximity-guessed.
     // Invalid scope is a recoverable Step refusal, not a worker exception.
     void setOriginalPatchIntent(std::vector<FaceId> originals);
+    // Worker-thread only; latched before a new timed stroke starts.
+    void setStrengthScale(double scale) {inflate_.setStrengthScale(scale);}
     const std::vector<FaceId>& originalPatchIntent() const noexcept {
         return physicalIntendedOriginals_;
     }

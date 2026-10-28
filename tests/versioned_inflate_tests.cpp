@@ -158,6 +158,111 @@ void testSymmetricInflate() {
     }
     original.end(flat);
 }
+void testSignedDeflateUsesSameNormals() {
+    const auto source=sphere(800);
+    const auto imported=partitionFlatMesh(source,32);
+    const auto before=RegionTopologyIndex::build(imported.revision);
+    const auto mirrorIndices=symmetricSphereMirrors(
+        static_cast<std::uint32_t>(source.vertices.size()));
+    std::vector<std::pair<VertexId,VertexId>> pairs;
+    for(std::size_t i=0;i<mirrorIndices.size();++i)
+        pairs.push_back({imported.flatIndex.vertexIds[i],
+                         imported.flatIndex.vertexIds[mirrorIndices[i]]});
+    VersionedInflateBrush brush(.012,{},std::move(pairs));
+    const std::vector<BrushArea> areas{
+        {{-.24,-.65,.69},.36,.3},{{.24,-.65,.69},.36,.3}};
+    const auto up=brush.stamp(before,areas,32);
+    brush.setStrengthScale(-2.0/3.0);
+    const auto down=brush.stamp(before,areas,32);
+    require(up.moved>0&&up.moved==down.moved&&
+            up.baseline.movedVertices==down.baseline.movedVertices,
+            "Inverse brush must affect identical source vertices");
+    require(up.baseline.before==before&&down.baseline.before==before,
+            "Both directions must share frozen pre-stamp normals");
+    for(const auto id:up.baseline.movedVertices) {
+        const Vec3 p=before->vertex(id).position;
+        const Vec3 outward=up.index->vertex(id).position-p;
+        const Vec3 inward=down.index->vertex(id).position-p;
+        require(length(inward+outward*(2.0/3.0))<1e-12,
+                "Deflate must be exactly -2/3 of same-normal Inflate");
+    }
+    const auto flat=reconstructFlatMesh(down.index->revision(),
+                                       imported.flatIndex);
+    for(std::size_t i=0;i<flat.vertices.size();++i) {
+        const Vec3 a=flat.vertices[i],b=flat.vertices[mirrorIndices[i]];
+        require(std::abs(a.x+b.x)<1e-10&&
+                std::abs(a.y-b.y)<1e-10&&
+                std::abs(a.z-b.z)<1e-10,
+                "Inverse stamp must preserve exact mirrored symmetry");
+        if(i==mirrorIndices[i])require(a.x==0,
+                                      "On-plane IDs stay on X=0");
+    }
+    brush.setStrengthScale(1.0);
+    const auto reset=brush.stamp(before,areas,32);
+    for(const auto id:up.baseline.movedVertices)
+        require(length(reset.index->vertex(id).position-
+                       up.index->vertex(id).position)<1e-12,
+                "Normal Inflate after inverse must restore initial strength");
+    bool rejected=false;
+    try{brush.setStrengthScale(0);}
+    catch(const std::invalid_argument&){rejected=true;}
+    require(rejected,"Zero strength scale must be rejected");
+}
+
+void testCurvatureFeedbackSmoothsBothSignedDirections() {
+    // On an ordinary convex sphere, positive mean-curvature flow should
+    // accelerate inward erosion relative to uncorrected Deflate. At the
+    // bottom of a deliberate, reflected indentation, it must instead slow
+    // erosion: the old outward-only multiplier would deepen that pocket.
+    auto source=sphere(800);
+    const auto mirrorIndices=symmetricSphereMirrors(
+        static_cast<std::uint32_t>(source.vertices.size()));
+    const Vec3 target=normalized(Vec3{-.24,-.65,.69});
+    std::size_t center=0;
+    for(std::size_t i=1;i<source.vertices.size();++i)
+        if(dot(normalized(source.vertices[i]),target)>
+           dot(normalized(source.vertices[center]),target))
+            center=i;
+    const auto partner=mirrorIndices[center];
+    require(center!=partner,
+            "Curvature test must use a real off-plane mirrored brush pair");
+
+    const auto setup=[&](const Mesh& input) {
+        const auto imported=partitionFlatMesh(input,32);
+        auto before=RegionTopologyIndex::build(imported.revision);
+        std::vector<std::pair<VertexId,VertexId>> pairs;
+        for(std::size_t i=0;i<mirrorIndices.size();++i)
+            pairs.push_back({imported.flatIndex.vertexIds[i],
+                             imported.flatIndex.vertexIds[mirrorIndices[i]]});
+        VersionedInflateBrush curved(.012,{true,1.0},pairs);
+        VersionedInflateBrush plain(.012,{},std::move(pairs));
+        curved.setStrengthScale(-2.0/3.0);
+        plain.setStrengthScale(-2.0/3.0);
+        const std::vector<BrushArea> areas{
+            {input.vertices[center],.35,.3},
+            {input.vertices[partner],.35,.3}};
+        const auto smoothed=curved.stamp(before,areas,32);
+        const auto uncorrected=plain.stamp(before,areas,32);
+        const auto id=imported.flatIndex.vertexIds[center];
+        const Vec3 point=before->vertex(id).position;
+        const double smoothAmount=length(smoothed.index->vertex(id).position-point);
+        const double plainAmount=length(uncorrected.index->vertex(id).position-point);
+        require(smoothed.moved>0&&uncorrected.moved>0&&plainAmount>0,
+                "Curvature regression must exercise an influenced vertex");
+        return smoothAmount/plainAmount;
+    };
+    const double convexRatio=setup(source);
+    require(convexRatio>1.01,
+            "Convex peak must shrink faster under smoothing Deflate");
+    // Push both corresponding vertices beneath their immediate ring.
+    // This creates a genuine local concave trough without changing faces.
+    source.vertices[center]=source.vertices[center]*.88;
+    source.vertices[partner]=source.vertices[partner]*.88;
+    const double concaveRatio=setup(source);
+    require(concaveRatio<.99,
+            "Concave trough must shrink more slowly, not deepen into honeycomb walls");
+}
+
 void testNoopAndFailure() {
     const auto original=sphere();
     const auto imported=partitionFlatMesh(original,32);
@@ -213,6 +318,8 @@ int main() {
         testVersionedMatchesReference({});
         testVersionedMatchesReference({true,.25});
         testSymmetricInflate();
+        testSignedDeflateUsesSameNormals();
+        testCurvatureFeedbackSmoothsBothSignedDirections();
         testNoopAndFailure();
         testLegacyDefaultAvoidsFullBaseline();
         std::cout<<"Versioned Inflate local baseline tests passed\n";

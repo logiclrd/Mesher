@@ -60,7 +60,8 @@ struct ViewportMeshUpdate {
 };
 
 struct ViewportInteraction {
-    std::function<void(Vec3)> begin;
+    // Latch inversion on mouse-down, never switch queued 4D samples mid-stroke.
+    std::function<void(Vec3,bool inverted)> begin;
     std::function<void(Vec3,double)> update;
     std::function<void(Vec3,double)> end;
     // F8 diagnostic one-shot: one async stamp at the currently picked
