@@ -684,6 +684,10 @@ void twoIndividuallyMirroredRimsCreateExactZipper() {
     // global mirror check. Lock in the desired certified behavior.
     MixedPrivateClosureLimits closureLimits;
     closureLimits.requireReflectedGeometry=true;
+    // Live R07 turns M23B on explicitly via its desktop policy.
+    // The generic mixed-closure test defaults to the legacy zipper
+    // unless this opt-in is copied into the END-TO-END closure settings.
+    closureLimits.staging.useUnifiedZipper=true;
     const auto closed=applyPrivateMixedClosure(
         cut,proposal,plan,closureLimits);
     require(closed.index&&closed.zipperPairs==1&&
