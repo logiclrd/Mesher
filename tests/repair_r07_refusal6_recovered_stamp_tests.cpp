@@ -4,7 +4,7 @@
 
 #include <array>
 #include <cmath>
-#include <cstdio>
+#include <regex>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -37,11 +37,21 @@ void recoveredPhysicalZipperMustPublish() {
     std::string line;
     require(static_cast<bool>(std::getline(stampText,line)),
             "The physical refusal-6 stamp sidecar must not be empty");
-    double radius=0,x0=0,y0=0,z0=0,x1=0,y1=0,z1=0;
-    const int fields=std::sscanf(line.c_str(),
-        "radius=%lf brush_centers=[(%lf,%lf,%lf);(%lf,%lf,%lf)]",
-        &radius,&x0,&y0,&z0,&x1,&y1,&z1);
-    require(fields==7&&std::isfinite(radius)&&radius>0&&
+    // Parse the committed sidecar rather than silently duplicating its
+    // numbers in test code. Reject incomplete or malformed transcripts.
+    const std::regex format(
+        R"(^radius=([-+0-9.eE]+) brush_centers=\\[\\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\\);\\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\\)\\]$)");
+    std::smatch matches;
+    require(std::regex_match(line,matches,format)&&matches.size()==8,
+            "Refusal-6 nextstamp must have the complete mirrored physical stamp");
+    const double radius=std::stod(matches[1].str());
+    const double x0=std::stod(matches[2].str());
+    const double y0=std::stod(matches[3].str());
+    const double z0=std::stod(matches[4].str());
+    const double x1=std::stod(matches[5].str());
+    const double y1=std::stod(matches[6].str());
+    const double z1=std::stod(matches[7].str());
+    require(std::isfinite(radius)&&radius>0&&
             std::isfinite(x0)&&std::isfinite(y0)&&std::isfinite(z0)&&
             std::isfinite(x1)&&std::isfinite(y1)&&std::isfinite(z1),
             "Refusal-6 nextstamp must contain seven finite parameters");
