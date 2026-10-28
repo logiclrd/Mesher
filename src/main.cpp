@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
                          <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
                          <<"       Certified R07 AUTO repair is enabled by default for interactive Inflate\n"
                          <<"       [--repair-inspect] (frozen/private AUTO diagnostics)\n"
-                         <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
+                         <<"       [--repair-classifier area|proximity] (R06 inspector/replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
                          <<"       [--repair-seam-audit] (R06 log exact new/survivor seams, T junctions and crossing edges)\n"
@@ -231,13 +231,13 @@ int main(int argc, char** argv) {
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
-                         <<"       [--repair-scale-aware] (experimental M17C bounded quality-aware splitting; auto/replay only)\n"
+                         <<"       [--repair-scale-aware] (experimental bounded quality-aware splitting; inspector/replay only)\n"
                          <<"       [M17D-M21A legacy ring optimizer options removed; AFM is the default]\n"
-                         <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
-                         <<"       [--repair-unified-zipper] (M23B diagnostic/replay opt-in; live R06 uses accepted unified zipper)\\n"
+                         <<"       [--repair-ear-clipping] (R06 inspector/replay: try projected ears then AFM; production AFM only)\n"
+                         <<"       [--repair-unified-zipper] (M23B inspector/replay opt-in; live AUTO uses unified zipper)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
-                         <<"       [--repair-inspect] (freeze on contact, private AUTO inspection, no publication)\n"
+
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -1284,7 +1284,7 @@ int main(int argc, char** argv) {
                             "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
                             "The annotation does not modify the displayed result. "
                             "Replay via --repair-replay FILE or --repair-replay-test FILE.\n";
-            if(repairAuto)
+            if(repairAuto&&(repairInspect||liveCertifiedAuto))
                 std::cout<<"[repair-r06] classifier="
                          <<mesher::autoClosureClassifierName(repairClassifier)
                          <<" (M08 experimental proximity for trusted two-rim regions only; "
@@ -1309,11 +1309,10 @@ int main(int argc, char** argv) {
                             "gold boundary loops; red incident contacts. "
                              "No geometry removed or published.\n";
             if(repairInspect)
-                std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
-                            "unpublished candidate. Red dots are incident vertices; "
-                            "dark-red rods are attached edges. Move camera/orbit "
-                            "inside the surface, W/G; Escape to exit/relaunch. "
-                            "No excision, no checkpoint/history publication.\n";
+                std::cout<<"[repair-r01] Inspector armed: stamp a crossing to freeze "
+                            "an unpublished candidate. Red contact markers, private "
+                            "excision and certified AUTO previews as selected; "
+                            "no changes to worker/history/checkpoint.\n";
             if(avoidTestSheets&&!repairInspect)
                 std::cout<<"[collision] M07 GPU exercise: orbit to view the two "
                             "closely separated faces near X=0, sculpt repeatedly "
