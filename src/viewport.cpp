@@ -826,8 +826,10 @@ class VulkanViewport {
         const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
         const bool ctrl=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS||
                         glfwGetKey(window,GLFW_KEY_RIGHT_CONTROL)==GLFW_PRESS;
+        const bool alt=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
+                       glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
         const auto gesture=cameraGestures_.sample(
-            left,right,ctrl,!sculpting_&&!radiusDragging_);
+            left,right,ctrl,alt,!sculpting_&&!radiusDragging_);
         double x=0,y=0;
         glfwGetCursorPos(window,&x,&y);
         int ww=0,wh=0,fw=0,fh=0;
@@ -837,7 +839,7 @@ class VulkanViewport {
             orbitDragging_=false;
             orbitCursor_.stop();
             if(gesture.endedMode==ViewportCameraMode::Strafe)
-                std::cout<<"[view] Ctrl+LMB strafe end\n";
+                std::cout<<"[view] world pan end\n";
             else if(gesture.endedMode==ViewportCameraMode::Dolly)
                 std::cout<<"[view] Ctrl+RMB dolly end\n";
             else std::cout<<"[view] RMB orbit end\n";
@@ -866,7 +868,8 @@ class VulkanViewport {
             }else if(gesture.mode==ViewportCameraMode::Dolly) {
                 std::cout<<"[view] Ctrl+RMB view-direction dolly start\n";
             }else {
-                std::cout<<"[view] Ctrl+LMB view-relative strafe start\n";
+                std::cout<<"[view] "<<(right?"Alt+RMB":"Ctrl+LMB")
+                         <<" view-relative world pan start\n";
             }
             orbitCursor_.begin(x,y,double(ww),double(wh));
             orbitDragging_=true;
@@ -1101,7 +1104,8 @@ class VulkanViewport {
             return;
         }
         if(orbitDragging_) {
-            // View-only RMB and Ctrl+LMB never sculpt or nominate Merge faces.
+            // View-only RMB, Alt+RMB, and Ctrl+LMB never sculpt
+            // or nominate Merge faces.
             mouseWasDown_=glfwGetMouseButton(
                 window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
             return;
