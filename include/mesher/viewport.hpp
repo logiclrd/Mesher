@@ -63,6 +63,9 @@ struct ViewportInteraction {
     std::function<void(Vec3)> begin;
     std::function<void(Vec3,double)> update;
     std::function<void(Vec3,double)> end;
+    // F8 diagnostic one-shot: one async stamp at the currently picked
+    // source-surface point, not a timed mouse hold/segment.
+    std::function<void(Vec3)> stampOnce;
     // Consume zero or one queued brush sample between rendered frames.
     std::function<bool()> pump;
     // Async mode: consume the latest fully committed mesh snapshot. When
