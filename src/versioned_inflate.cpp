@@ -33,6 +33,12 @@ VersionedInflateBrush::VersionedInflateBrush(
     for(const auto& pair:mirrors)addMirrorPair(pair.first,pair.second);
 }
 
+void VersionedInflateBrush::setStrengthScale(double scale) {
+    if(!std::isfinite(scale)||scale==0)
+        throw std::invalid_argument("Inflate strength scale must be finite and nonzero");
+    strengthScale_=scale;
+}
+
 void VersionedInflateBrush::addMirrorPair(VertexId first,VertexId second) {
     if(first==0||second==0)
         throw std::invalid_argument("Mirror IDs must be nonzero");
@@ -129,7 +135,7 @@ VersionedInflateStamp VersionedInflateBrush::stamp(
             multiplier=std::clamp(1.0+curvature_.strength*nominalLength*
                                   signedCurvature,0.10,3.0);
         }
-        const Vec3 delta=direction*(strength_*influence*multiplier*
+        const Vec3 delta=direction*(strength_*strengthScale_*influence*multiplier*
                                       normalFraction);
         const Vec3 position=point+delta;
         if(!finite(position))
