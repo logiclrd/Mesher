@@ -2,9 +2,12 @@
 
 ## Behavior
 
-`--repair-auto` is now a live worker mode. It does not create an R01
-inspection session, freeze the viewport, stall the brush stroke or store
-unpublished candidate geometry in renderer buffers.
+Certified R07 AUTO is now the **default** for ordinary interactive mouse
+Inflate; no `--repair` selection is needed or accepted. The worker does not
+create an R01 inspection session, freeze the viewport, stall the brush
+stroke or store unpublished candidate geometry in renderer buffers.
+Diagnostic `--repair-inspect` remains an explicit frozen, private mode.
+The historical forced-cap/zipper selectors have been retired.
 
 Every nontrivial stamp is still staged privately by the existing
 inflate/refine/collapse worker. R07 performs **changed-neighborhood**
@@ -60,14 +63,18 @@ publication proof is also supported.
 
 ## Opt-in diagnostics stay separate
 
-- `--repair-inspect --repair-auto`: the historical frozen R01-R06
-  candidate preview, case capture and quality/seam diagnostics.
+- `--repair-inspect`: frozen R01-R06 AUTO candidate inspection, case
+  capture and quality/seam diagnostics.
 - `--repair-replay FILE`: exact archived read-only reproduction.
 - `--repair-step-debug --repair-replay FILE`: synchronous, pausable
   operation snapshots in the replay viewport only.
-- `--repair-auto` alone: live, certified, automatic publication; the
-  viewport never registers a repair-step callback, and all brush input
-  continues normally.
+- No selector: live, certified, automatic publication; the viewport
+  never registers a repair-step callback, and brush input continues.
+- `--repair-preview` and `--repair-excise`: private R02/R03 intermediate
+  diagnostics, not fallback cap/zipper modes.
+- Explicit `--merge-geometry` and `--avoid-collisions` retain independent,
+  protected interaction policies; neither silently enables a competing
+  closure strategy.
 
 No tests should treat a previously broken AUTO refusal as a desirable
 expected result. Historical saved-case outcome bits remain immutable,
