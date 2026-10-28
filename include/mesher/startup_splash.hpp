@@ -17,6 +17,10 @@ struct SplashPixels {
 // Use the committed PNG icon converted without a runtime image dependency.
 // GLFW's window icon API is available on Windows/X11; native Wayland may
 // ignore requests because the compositor owns application icons.
+// Resolve shipped shaders and images relative to the executable, not
+// the build tree or current working directory.
+std::filesystem::path mesherExecutableDirectory();
+
 void setMesherWindowIcon(GLFWwindow* window,
                          const std::filesystem::path& assets);
 
