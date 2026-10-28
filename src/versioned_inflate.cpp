@@ -132,8 +132,16 @@ VersionedInflateStamp VersionedInflateBrush::stamp(
             const Vec3 laplacian=cotangentSum/(2*vertexArea);
             const double nominalLength=edgeLengthSum/edgeCount;
             const double signedCurvature=dot(laplacian,direction);
-            multiplier=std::clamp(1.0+curvature_.strength*nominalLength*
-                                  signedCurvature,0.10,3.0);
+            // The mean-curvature feedback must be forward (smoothing)
+            // for BOTH signed brush velocities. Convex peaks have negative
+            // signedCurvature, concave troughs positive. For positive
+            // Inflate, slow peaks and accelerate troughs; for negative
+            // Deflate, shrink peaks faster but slow deepening troughs.
+            // Leaving the original plus sign for inward stamps produces
+            // backward curvature flow and amplifies small dents into cells.
+            const double directionSign=strength_*strengthScale_>0?1.0:-1.0;
+            multiplier=std::clamp(1.0+directionSign*curvature_.strength*
+                                  nominalLength*signedCurvature,0.10,3.0);
         }
         const Vec3 delta=direction*(strength_*strengthScale_*influence*multiplier*
                                       normalFraction);
