@@ -463,6 +463,8 @@ class VulkanViewport {
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
+    bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
+    std::size_t oneShotRequestedCount_=0;
     DesktopMergeKeyEdges mergeKeys_;
     DesktopMergeInput mergeInput_;
     ViewportOrbit orbit_;
@@ -1271,6 +1273,15 @@ class VulkanViewport {
                 displayedStamps_=snapshot->completedStamps;
                 refreshPartitions(std::move(snapshot->index),
                                   snapshot->dirtyPartitions);
+                if(oneShotAwaitingDisplay_&&
+                   displayedStamps_>=oneShotRequestedCount_) {
+                    oneShotAwaitingDisplay_=false;
+                    std::cout<<"[sculpt-step] rendered_stamp="<<displayedStamps_
+                             <<" exact_one_step=1"
+                             <<" pending="<<(interaction_.pendingSamples?
+                                              interaction_.pendingSamples():0)
+                             <<"\n"<<std::flush;
+                }
                 if(snapshot->inspectionFrozen) {
                     inspectionFrozen_=true;
                     inspectionIncomplete_=snapshot->inspectionOverlay.empty();
@@ -2009,6 +2020,32 @@ public:
             updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
+            // Dedicated diagnostic input: one F8 key PRESS -> one worker
+            // stamp -> one fully uploaded immutable snapshot. Unlike a
+            // quick LMB click, this does not create timed Update/End
+            // segments or allow another stamp before the prior frame is
+            // visible to picking and inspection.
+            if(justPressed(GLFW_KEY_F8,oneShotWasDown_)&&
+               interaction_.stampOnce&&!oneShotAwaitingDisplay_&&
+               !sculpting_&&!radiusDragging_&&!orbitDragging_&&
+               !inspectionFrozen_&&!mergeInput_.enabled()&&
+               glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS&&
+               glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)!=GLFW_PRESS&&
+               (!interaction_.canBegin||interaction_.canBegin())&&
+               (!interaction_.completedStamps||
+                displayedStamps_==interaction_.completedStamps())) {
+                if(const auto center=pickCursor()) {
+                    const auto requested=displayedStamps_+1;
+                    interaction_.stampOnce(*center);
+                    oneShotRequestedCount_=requested;
+                    oneShotAwaitingDisplay_=true;
+                    std::cout<<"[sculpt-step] requested_stamp="<<requested
+                             <<" center="<<center->x<<","<<center->y<<","<<center->z
+                             <<" one_worker_stamp=1\n"<<std::flush;
+                }else {
+                    std::cout<<"[sculpt-step] no source face under cursor\n";
+                }
+            }
             if (animation_.advance) {
                 const bool togglePause=justPressed(GLFW_KEY_SPACE, spaceWasDown_);
                 const bool singleStep=justPressed(GLFW_KEY_RIGHT, rightWasDown_);
