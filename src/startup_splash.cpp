@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -67,7 +68,7 @@ std::filesystem::path executableAssetDir() {
 #elif defined(__APPLE__)
     std::uint32_t count=0;
     (void)_NSGetExecutablePath(nullptr,&count);
-    std::string filename(count,'\\0');
+    std::string filename(count,'\0');
     if(count>0&&_NSGetExecutablePath(filename.data(),&count)==0)
         return std::filesystem::path(filename.c_str()).parent_path()/"images";
 #endif
