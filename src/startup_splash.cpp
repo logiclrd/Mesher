@@ -70,31 +70,36 @@ SplashPixels readPixels(const std::filesystem::path& path) {
     return result;
 }
 
-std::filesystem::path executableAssetDir() {
+} // namespace
+
+std::filesystem::path mesherExecutableDirectory() {
+
 #ifdef _WIN32
     wchar_t filename[32768]{};
     const auto count=GetModuleFileNameW(nullptr,filename,32768);
     if(count>0&&count<32768)
-        return std::filesystem::path(filename).parent_path()/"images";
+        return std::filesystem::path(filename).parent_path();
 #elif defined(__linux__)
     std::error_code error;
     const auto executable=std::filesystem::read_symlink("/proc/self/exe",error);
-    if(!error)return executable.parent_path()/"images";
+    if(!error)return executable.parent_path();
 #elif defined(__APPLE__)
     std::uint32_t count=0;
     (void)_NSGetExecutablePath(nullptr,&count);
     std::string filename(count,'\0');
     if(count>0&&_NSGetExecutablePath(filename.data(),&count)==0)
-        return std::filesystem::path(filename.c_str()).parent_path()/"images";
+        return std::filesystem::path(filename.c_str()).parent_path();
 #endif
     return {};
 }
+
+namespace {
 
 std::filesystem::path locateAsset(const std::filesystem::path& assets,
                                   const char* filename) {
     // Keep the copied resources beside the executable useful for released
     // Windows builds, Linux desktop launchers and arbitrary working dirs.
-    const auto local=executableAssetDir()/filename;
+    const auto local=mesherExecutableDirectory()/"images"/filename;
     if(std::filesystem::exists(local))return local;
     const auto compiled=assets/filename;
     if(std::filesystem::exists(compiled))return compiled;
