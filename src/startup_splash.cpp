@@ -16,6 +16,9 @@
 #else
 #    include <GL/gl.h>
 #endif
+#ifdef __APPLE__
+#    include <mach-o/dyld.h>
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -51,12 +54,34 @@ SplashPixels readPixels(const std::filesystem::path& path) {
     return result;
 }
 
+std::filesystem::path executableAssetDir() {
+#ifdef _WIN32
+    wchar_t filename[32768]{};
+    const auto count=GetModuleFileNameW(nullptr,filename,32768);
+    if(count>0&&count<32768)
+        return std::filesystem::path(filename).parent_path()/"images";
+#elif defined(__linux__)
+    std::error_code error;
+    const auto executable=std::filesystem::read_symlink("/proc/self/exe",error);
+    if(!error)return executable.parent_path()/"images";
+#elif defined(__APPLE__)
+    std::uint32_t count=0;
+    (void)_NSGetExecutablePath(nullptr,&count);
+    std::string filename(count,'\\0');
+    if(count>0&&_NSGetExecutablePath(filename.data(),&count)==0)
+        return std::filesystem::path(filename.c_str()).parent_path()/"images";
+#endif
+    return {};
+}
+
 std::filesystem::path locateAsset(const std::filesystem::path& assets,
                                   const char* filename) {
+    // Keep the copied resources beside the executable useful for released
+    // Windows builds, Linux desktop launchers and arbitrary working dirs.
+    const auto local=executableAssetDir()/filename;
+    if(std::filesystem::exists(local))return local;
     const auto compiled=assets/filename;
     if(std::filesystem::exists(compiled))return compiled;
-    // Source checkouts and redistributed executables can be launched
-    // with images next to the current working directory.
     const auto adjacent=std::filesystem::path("images")/filename;
     if(std::filesystem::exists(adjacent))return adjacent;
     return compiled;
@@ -148,7 +173,10 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     }
 #if defined(__linux__)
     explicitPosition_=!splashUsesWayland(sessionType(),
-                                        std::getenv("WAYLAND_DISPLAY")!=nullptr);
+                                        [] {
+                                            const char* value=std::getenv("WAYLAND_DISPLAY");
+                                            return value&&*value;
+                                        }());
 #endif
     const auto screen=screenContaining(owner_);
     // Do not scale up: splash image is displayed at native resolution,
@@ -240,8 +268,9 @@ void StartupSplash::repaint() {
     glDisable(GL_DEPTH_TEST);
     glClearColor(0,0,0,0);
     glClear(GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+    // Draw the exact PNG RGBA, including its alpha channel. Separate
+    // OS window compositing is responsible for blending against the owner.
+    glDisable(GL_BLEND);
     glPixelStorei(GL_UNPACK_ALIGNMENT,1);
     glRasterPos2f(0.0f,static_cast<float>(fbHeight));
     glPixelZoom(float(fbWidth)/picture_.width,-float(fbHeight)/picture_.height);
