@@ -912,9 +912,11 @@ int main(int argc, char** argv) {
                 brushRadius=brushRange.clamp(radius);
                 liveWorker->setRadius(brushRadius);
             };
-            interaction.begin=[&](mesher::Vec3 point) {
+            interaction.begin=[&](mesher::Vec3 point,bool inverted) {
                 if(repairSession&&repairSession->frozen())return;
-                liveWorker->begin(point,brushRadius);
+                // Same pre-stamp normals; gentler movement in the other direction.
+                liveWorker->begin(point,brushRadius,{},
+                                  inverted?-2.0/3.0:1.0);
             };
             interaction.update=[&](mesher::Vec3 point,double elapsed) {
                 liveWorker->update(point,elapsed);
@@ -1336,7 +1338,7 @@ int main(int argc, char** argv) {
                          <<"Enter to submit, Backspace to clear. The worker may reject "
                          <<"unsupported, stale, no-contact or unverified sources. "
                          <<"Regular startup without --merge-geometry remains unchanged.\n";
-            std::cout<<"Mouse Inflate: left-drag or hold to sculpt; radius slider "
+            std::cout<<"Mouse Inflate: LMB inflates, Alt+LMB deflates at 2/3 strength; radius slider "
                      <<"in lower-left (min "<<brushRange.minimum<<", max "
                      <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
@@ -1346,7 +1348,7 @@ int main(int argc, char** argv) {
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";
-            std::cout<<"Mouse Inflate: left-drag or hold to sculpt; time speed "
+            std::cout<<"Mouse Inflate: LMB inflates, Alt+LMB deflates at 2/3 strength; time speed "
                      <<timeSpeed<<" units/sec; step "<<step
                      <<(options.symmetric?"; mirrored.\n":"; single brush.\n");
         }
