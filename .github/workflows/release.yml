@@ -155,7 +155,7 @@ jobs:
 
   publish:
     name: Atomically publish GitHub release and release-$VERSION tag
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [preflight, linux, windows]
     runs-on: ubuntu-24.04
     permissions:
