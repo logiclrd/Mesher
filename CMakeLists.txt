@@ -547,6 +547,18 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_auto_publication_tests)
     set_tests_properties(repair_r07_certified_live_publication_transition
                          PROPERTIES TIMEOUT 30)
+    # The user's preserved, post-merge live refusal-6 source+nextstamp is
+    # an exact physical success target, not a test of a known-broken
+    # historical refusal. It stays independent of the synthetic two-rim
+    # stage fixtures and needs no Vulkan or window manager.
+    add_executable(mesher_repair_r07_refusal6_recovered_stamp_tests
+                   tests/repair_r07_refusal6_recovered_stamp_tests.cpp)
+    target_link_libraries(mesher_repair_r07_refusal6_recovered_stamp_tests
+                          PRIVATE mesher_mesh)
+    add_test(NAME repair_r07_refusal6_checkpoint_zipper_recovery
+             COMMAND mesher_repair_r07_refusal6_recovered_stamp_tests)
+    set_tests_properties(repair_r07_refusal6_checkpoint_zipper_recovery
+                         PROPERTIES TIMEOUT 90)
     add_executable(mesher_repair_zipper_shape_tests
                    tests/repair_zipper_shape_tests.cpp)
     target_link_libraries(mesher_repair_zipper_shape_tests PRIVATE mesher_mesh)
