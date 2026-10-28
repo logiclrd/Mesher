@@ -1,4 +1,5 @@
 #include "mesher/viewport.hpp"
+#include "mesher/startup_splash.hpp"
 #include "mesher/repair_step_hud.hpp"
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
@@ -480,6 +481,7 @@ class VulkanViewport {
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
     std::size_t lastInvertedCount_ = 0;
     GLFWwindow* window=nullptr;
+    std::unique_ptr<StartupSplash> startupSplash_;
     bool restorePreviousFocus_ = false;
 #ifdef MESHER_X11_WM_FULLSCREEN
     Window previousActiveWindow_ = None;
@@ -1865,6 +1867,22 @@ public:
         // which monitor it belongs to, following its placement rules.
         window=glfwCreateWindow(960,720,"Mesher",nullptr,nullptr);
         if(!window)throw std::runtime_error("Cannot open Mesher window");
+        setMesherWindowIcon(window,MESHER_ASSET_DIR);
+        // Callbacks observe user input solely to dismiss the splash; GLFW's
+        // existing polling retains the original sculpt/camera key semantics.
+        glfwSetWindowUserPointer(window,this);
+        glfwSetKeyCallback(window,[](GLFWwindow* w,int,int,int action,int){
+            if(action==GLFW_PRESS) {
+                auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
+                if(self->startupSplash_)self->startupSplash_->dismiss();
+            }
+        });
+        glfwSetMouseButtonCallback(window,[](GLFWwindow* w,int,int action,int){
+            if(action==GLFW_PRESS) {
+                auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
+                if(self->startupSplash_)self->startupSplash_->dismiss();
+            }
+        });
 #ifdef MESHER_X11_WM_FULLSCREEN
         previousActiveWindow_=activeX11Window();
 #endif
@@ -1878,9 +1896,20 @@ public:
         glfwMaximizeWindow(window);
 #endif
         glfwWaitEventsTimeout(0.10); // Allow the fullscreen transition to settle.
+        // Open before expensive Vulkan uploads so the splash covers actual
+        // startup time, not merely four seconds after initialization.
+        startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
+        const auto pumpStartupSplash=[this] {
+            glfwPollEvents();
+            if(startupSplash_) {
+                startupSplash_->tick();
+                if(!startupSplash_->active())startupSplash_.reset();
+            }
+        };
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
+        pumpStartupSplash();
         const Mesh empty;
         // The original imported source is the authority for scenery
         // clearance; never scan an evolving worker root on the UI loop.
@@ -1898,6 +1927,7 @@ public:
         interaction_.initialRevision.reset();
         createSwapchain();
         createCommands();
+        pumpStartupSplash();
         refreshHud();
         statsBegin_=glfwGetTime();
         lastConsoleTime_=statsBegin_;
@@ -1905,8 +1935,11 @@ public:
         nextStampTime_ = glfwGetTime() + (animation_.advance
             ? 1.0 / animation_.stampsPerSecond : 0.0);
         updateTitle();
+        pumpStartupSplash();
     }
     ~VulkanViewport() {
+        // Close child window before destroying its native owner or GLFW.
+        startupSplash_.reset();
         if(device!=VK_NULL_HANDLE) {
             vkDeviceWaitIdle(device);
             drainGpuRetirements();
@@ -1943,6 +1976,10 @@ public:
         while(!glfwWindowShouldClose(window)) {
             stampedThisFrame_=false;
             glfwPollEvents();
+            if(startupSplash_) {
+                startupSplash_->tick();
+                if(!startupSplash_->active())startupSplash_.reset();
+            }
             if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS) {
                 if(sculpting_&&interaction_.end) {
                     interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));

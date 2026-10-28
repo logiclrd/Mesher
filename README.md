@@ -99,7 +99,21 @@ ctest --test-dir build-cpu --output-on-failure
 ```
 
 Windows Visual Studio builds use the `Release` configuration and
-typically produce `build/Release/Mesher.exe`.
+typically produce `build/Release/Mesher.exe`. Its Explorer/taskbar file
+icon is embedded from `images/Icon.ico` using a Win32 resource; the
+running GLFW window icon uses `images/Icon.png` (native Wayland
+compositors may override it).
+
+At interactive startup, `images/Splash.png` opens as a separate
+borderless, nonmodal splash in front of the main window. It fades in
+for 250ms and closes after four seconds, or immediately on any keypress,
+mouse click, or loss of splash focus. On X11, placement uses the actual
+WM-positioned owner rather than assuming the primary monitor, follows
+late initial configure/move events during the first 50ms, and recenters
+on subsequent owner fullscreen/size transitions. Native Wayland
+compositors control exact top-level positioning. PNG assets are converted
+with Python's standard library when building the viewport and copied to
+the executable's `images/` directory; no runtime PNG library is needed.
 
 ## Interactive mode and controls
 

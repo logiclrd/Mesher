@@ -1,0 +1,52 @@
+#pragma once
+
+#include "mesher/startup_splash_policy.hpp"
+
+#include <filesystem>
+#include <vector>
+
+struct GLFWwindow;
+
+namespace mesher {
+
+struct SplashPixels {
+    int width=0,height=0;
+    std::vector<unsigned char> rgba;
+};
+
+// Use the committed PNG icon converted without a runtime image dependency.
+// GLFW's window icon API is available on Windows/X11; native Wayland may
+// ignore requests because the compositor owns application icons.
+void setMesherWindowIcon(GLFWwindow* window,
+                         const std::filesystem::path& assets);
+
+// Separate owned nonmodal OpenGL/GLFW splash window. The actual Mesher
+// viewport is Vulkan and continues initialization and rendering normally.
+class StartupSplash {
+public:
+    StartupSplash(GLFWwindow* owner,const std::filesystem::path& assets);
+    ~StartupSplash();
+    StartupSplash(const StartupSplash&)=delete;
+    StartupSplash& operator=(const StartupSplash&)=delete;
+    void dismiss() noexcept {dismissRequested_=true;}
+    void tick();
+    bool active() const noexcept {return splash_!=nullptr;}
+private:
+    void close();
+    void recenter();
+    void repaint();
+    GLFWwindow* owner_{};
+    GLFWwindow* splash_{};
+    SplashPixels picture_;
+    bool explicitPosition_=true;
+    bool dismissedForFocus_=false;
+    bool focusedOnce_=false;
+    double openedAt_=0;
+    double lastOpacity_=-1;
+    SplashRect ownerBounds_{};
+    SplashRect splashBounds_{};
+    int imageFbWidth_=0,imageFbHeight_=0;
+    bool dismissRequested_=false;
+};
+
+} // namespace mesher
