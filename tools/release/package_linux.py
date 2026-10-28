@@ -52,10 +52,10 @@ def main():
         match = re.search(r"^\s*(\S+)\s+=>\s+(/\S+)\s+\(", line)
         if not match:
             continue
-        name, path = match.groups()
-        if name.startswith(BUNDLED_LIBRARIES):
+        dependency_name, dependency_path = match.groups()
+        if dependency_name.startswith(BUNDLED_LIBRARIES):
             libs.mkdir(exist_ok=True)
-            shutil.copy2(path, libs / name)
+            shutil.copy2(dependency_path, libs / dependency_name)
     # Use the local bundled libs regardless of current working directory.
     subprocess.run(["patchelf", "--set-rpath", "$ORIGIN/lib", str(stage / "Mesher")],
                    check=True)
