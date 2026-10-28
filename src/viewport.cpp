@@ -1896,9 +1896,20 @@ public:
         glfwMaximizeWindow(window);
 #endif
         glfwWaitEventsTimeout(0.10); // Allow the fullscreen transition to settle.
+        // Open before expensive Vulkan uploads so the splash covers actual
+        // startup time, not merely four seconds after initialization.
+        startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
+        const auto pumpStartupSplash=[this] {
+            glfwPollEvents();
+            if(startupSplash_) {
+                startupSplash_->tick();
+                if(!startupSplash_->active())startupSplash_.reset();
+            }
+        };
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
+        pumpStartupSplash();
         const Mesh empty;
         // The original imported source is the authority for scenery
         // clearance; never scan an evolving worker root on the UI loop.
@@ -1916,6 +1927,7 @@ public:
         interaction_.initialRevision.reset();
         createSwapchain();
         createCommands();
+        pumpStartupSplash();
         refreshHud();
         statsBegin_=glfwGetTime();
         lastConsoleTime_=statsBegin_;
@@ -1923,10 +1935,7 @@ public:
         nextStampTime_ = glfwGetTime() + (animation_.advance
             ? 1.0 / animation_.stampsPerSecond : 0.0);
         updateTitle();
-        // The real Vulkan main window is already mapped and positioned by
-        // the WM, including the asynchronous X11 EWMH fullscreen transition.
-        // Open an independent owned popup so main rendering is not blocked.
-        startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
+        pumpStartupSplash();
     }
     ~VulkanViewport() {
         // Close child window before destroying its native owner or GLFW.
