@@ -22,8 +22,10 @@ void testInverseTimedStrokeAndDefaultReset() {
     // Same initial source and stationary one-stamp 4D path in both workers.
     const auto sphere=generateSphere(SphereOptions{500,true,2,6});
     const Vec3 point{-.2,-.6,.75};
-    AsyncSculptWorker regular(sphere,.02,.012,.2,{true,.25},{},{},true);
-    AsyncSculptWorker inverse(sphere,.02,.012,.2,{true,.25},{},{},true);
+    // Isolate transport and stroke latching here; directional curvature
+    // smoothing is independently tested by the versioned Inflate suite.
+    AsyncSculptWorker regular(sphere,.02,.012,.2,{},{},{},true);
+    AsyncSculptWorker inverse(sphere,.02,.012,.2,{},{},{},true);
     const auto before=regular.initialRevision();
     regular.begin(point,.36);
     regular.end(point,0);
