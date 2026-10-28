@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
                     options.relaxationIterations=static_cast<std::uint32_t>(number);
                 }
             } else if(arg=="--version"){
-                std::cout<<"Mesher "<<MESHER_RELEASE_VERSION<<"\\n";
+                std::cout<<"Mesher "<<MESHER_RELEASE_VERSION<<"\n";
                 return 0;
             } else if(arg=="--help"||arg=="-h"){
                 std::cout<<"Mesher [--version] [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
