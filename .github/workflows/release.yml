@@ -16,11 +16,11 @@ on:
       - include/mesher/startup_splash.hpp
   workflow_dispatch:
 
-# Serialize all release candidates: a tag must never be raced by two
-# independent publishing jobs. Never cancel an in-flight release.
+# Serialize publication. PR candidate runs are isolated from real release
+# runs, and stale PR commits may be cancelled without aborting a publisher.
 concurrency:
-  group: mesher-versioned-release
-  cancel-in-progress: false
+  group: mesher-versioned-release-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
