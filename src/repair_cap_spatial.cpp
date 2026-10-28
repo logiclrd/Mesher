@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <iomanip>
 #include <limits>
 #include <numeric>
 #include <iostream>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -831,8 +833,29 @@ SpatialCapPatch buildSpatialCapFrontPoisson(
             }
             const auto contact=triangleContact(a,ai,b,bi);
             if(contact!=TriangleContact::Disjoint&&
-               contact!=TriangleContact::ExpectedAdjacency)
-                throw std::logic_error("R06-M22B settled advancing-front self contact");
+               contact!=TriangleContact::ExpectedAdjacency) {
+                // The Poisson-settled cap is private and must still fail
+                // closed. Capture the exact local face-pair witness before
+                // discarding it, including the provisional face indices
+                // and the final points (not the earlier front guides).
+                std::ostringstream witness;
+                witness<<std::setprecision(17)
+                       <<"R06-M22B settled advancing-front self contact"
+                       <<" face_ordinals="<<x<<","<<y
+                       <<" contact_kind="<<static_cast<int>(contact)
+                       <<" boundary_count="<<n
+                       <<" face_a_indices="<<ai[0]-1<<","<<ai[1]-1
+                                                 <<","<<ai[2]-1
+                       <<" face_b_indices="<<bi[0]-1<<","<<bi[1]-1
+                                                 <<","<<bi[2]-1;
+                for(unsigned k=0;k<3;++k)
+                    witness<<" face_a_p"<<k<<"=("
+                           <<a[k].x<<","<<a[k].y<<","<<a[k].z<<")";
+                for(unsigned k=0;k<3;++k)
+                    witness<<" face_b_p"<<k<<"=("
+                           <<b[k].x<<","<<b[k].y<<","<<b[k].z<<")";
+                throw std::logic_error(witness.str());
+            }
         }
         return patch;
     }
