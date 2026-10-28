@@ -327,10 +327,10 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     const auto& dirty=brush_->lastDirtyPartitions();
                     unpublishedDirty_.insert(unpublishedDirty_.end(),
                                               dirty.begin(),dirty.end());
-                    // Reuse the worker-owned reservation release below:
-                    // publication (including a refused stamp with unchanged
-                    // mesh) precedes acceptance of another one-shot.
-                    workerOwnsStartedStroke=true;
+                    // Publication (including a refusal with unchanged
+                    // geometry) must precede releasing the one-shot
+                    // reservation below. Do not also run the ordinary
+                    // stroke-drain publication path a second time.
                     changed=true;
                     break;
                 }
@@ -478,6 +478,12 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     idle=commands_.empty();
                 }
                 publish(idle || !stroke_.active());
+            }
+            if(command&&command->kind==Kind::SingleStamp) {
+                // changed=true forced the exact stamped/refused root to
+                // publish above. One-shot has no pending timed segments
+                // and must not publish the same root a second time.
+                reserved_=false;
             }
             if(workerOwnsStartedStroke&&!stroke_.active()&&
                stroke_.pendingSamples()==0) {
