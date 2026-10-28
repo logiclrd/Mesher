@@ -168,7 +168,7 @@ void testSignedDeflateUsesSameNormals() {
     for(std::size_t i=0;i<mirrorIndices.size();++i)
         pairs.push_back({imported.flatIndex.vertexIds[i],
                          imported.flatIndex.vertexIds[mirrorIndices[i]]});
-    VersionedInflateBrush brush(.012,{true,.25},std::move(pairs));
+    VersionedInflateBrush brush(.012,{},std::move(pairs));
     const std::vector<BrushArea> areas{
         {{-.24,-.65,.69},.36,.3},{{.24,-.65,.69},.36,.3}};
     const auto up=brush.stamp(before,areas,32);
@@ -207,6 +207,60 @@ void testSignedDeflateUsesSameNormals() {
     try{brush.setStrengthScale(0);}
     catch(const std::invalid_argument&){rejected=true;}
     require(rejected,"Zero strength scale must be rejected");
+}
+
+void testCurvatureFeedbackSmoothsBothSignedDirections() {
+    // On an ordinary convex sphere, positive mean-curvature flow should
+    // accelerate inward erosion relative to uncorrected Deflate. At the
+    // bottom of a deliberate, reflected indentation, it must instead slow
+    // erosion: the old outward-only multiplier would deepen that pocket.
+    auto source=sphere(800);
+    const auto mirrorIndices=symmetricSphereMirrors(
+        static_cast<std::uint32_t>(source.vertices.size()));
+    const Vec3 target=normalized(Vec3{-.24,-.65,.69});
+    std::size_t center=0;
+    for(std::size_t i=1;i<source.vertices.size();++i)
+        if(dot(normalized(source.vertices[i]),target)>
+           dot(normalized(source.vertices[center]),target))
+            center=i;
+    const auto partner=mirrorIndices[center];
+    require(center!=partner,
+            "Curvature test must use a real off-plane mirrored brush pair");
+
+    const auto setup=[&](const Mesh& input) {
+        const auto imported=partitionFlatMesh(input,32);
+        auto before=RegionTopologyIndex::build(imported.revision);
+        std::vector<std::pair<VertexId,VertexId>> pairs;
+        for(std::size_t i=0;i<mirrorIndices.size();++i)
+            pairs.push_back({imported.flatIndex.vertexIds[i],
+                             imported.flatIndex.vertexIds[mirrorIndices[i]]});
+        VersionedInflateBrush curved(.012,{true,1.0},pairs);
+        VersionedInflateBrush plain(.012,{},std::move(pairs));
+        curved.setStrengthScale(-2.0/3.0);
+        plain.setStrengthScale(-2.0/3.0);
+        const std::vector<BrushArea> areas{
+            {input.vertices[center],.35,.3},
+            {input.vertices[partner],.35,.3}};
+        const auto smoothed=curved.stamp(before,areas,32);
+        const auto uncorrected=plain.stamp(before,areas,32);
+        const auto id=imported.flatIndex.vertexIds[center];
+        const Vec3 point=before->vertex(id).position;
+        const double smoothAmount=length(smoothed.index->vertex(id).position-point);
+        const double plainAmount=length(uncorrected.index->vertex(id).position-point);
+        require(smoothed.moved>0&&uncorrected.moved>0&&plainAmount>0,
+                "Curvature regression must exercise an influenced vertex");
+        return smoothAmount/plainAmount;
+    };
+    const double convexRatio=setup(source);
+    require(convexRatio>1.01,
+            "Convex peak must shrink faster under smoothing Deflate");
+    // Push both corresponding vertices beneath their immediate ring.
+    // This creates a genuine local concave trough without changing faces.
+    source.vertices[center]=source.vertices[center]*.88;
+    source.vertices[partner]=source.vertices[partner]*.88;
+    const double concaveRatio=setup(source);
+    require(concaveRatio<.99,
+            "Concave trough must shrink more slowly, not deepen into honeycomb walls");
 }
 
 void testNoopAndFailure() {
@@ -265,6 +319,7 @@ int main() {
         testVersionedMatchesReference({true,.25});
         testSymmetricInflate();
         testSignedDeflateUsesSameNormals();
+        testCurvatureFeedbackSmoothsBothSignedDirections();
         testNoopAndFailure();
         testLegacyDefaultAvoidsFullBaseline();
         std::cout<<"Versioned Inflate local baseline tests passed\n";
