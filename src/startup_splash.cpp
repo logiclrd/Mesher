@@ -1,12 +1,18 @@
 #include "mesher/startup_splash.hpp"
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+// Windows OpenGL gl.h expects the Win32 APIENTRY/WINAPI calling
+// convention and WINGDIAPI imports. Load Windows declarations BEFORE GLFW
+// or GL; otherwise MSVC parses each OpenGL declaration as invalid syntax.
 #ifdef _WIN32
 #    ifndef NOMINMAX
 #        define NOMINMAX
 #    endif
 #    include <windows.h>
+#endif
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
 #    define GLFW_EXPOSE_NATIVE_WIN32
 #    include <GLFW/glfw3native.h>
 #elif defined(MESHER_X11_WM_FULLSCREEN)
@@ -18,6 +24,11 @@
 #    define GL_SILENCE_DEPRECATION 1
 #    include <OpenGL/gl.h>
 #else
+#    ifdef _WIN32
+#        ifndef APIENTRY
+#            define APIENTRY WINAPI
+#        endif
+#    endif
 #    include <GL/gl.h>
 #endif
 #ifdef __APPLE__
