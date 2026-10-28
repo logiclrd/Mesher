@@ -34,10 +34,12 @@ public:
     virtual void end(Mesh& mesh) { (void)mesh; }
 };
 
-// Experimental, opt-in mean-curvature correction. Positive strength couples
-// outward Inflate velocity with a curvature-flow term: convex regions inflate
-// less rapidly, while concave troughs inflate more rapidly. It is not a
-// guarantee against folds or a replacement for topology validity constraints.
+// Optional mean-curvature smoothing of normal motion. For outward Inflate,
+// convex peaks grow more slowly and concave troughs more quickly. For inward
+// Deflate, the curvature feedback reverses: convex peaks shrink more quickly
+// while concave troughs shrink more slowly. The sign change is necessary to
+// retain forward (smoothing) curvature flow for both brush directions.
+// It is not a guarantee against folds or a topology-validity certificate.
 struct CurvatureSettings {
     bool enabled = false;
     double strength = 1.0;
