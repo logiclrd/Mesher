@@ -237,8 +237,14 @@ StartupSplash::~StartupSplash() {close();}
 
 void StartupSplash::close() {
     if(splash_) {
+        // Keyboard dismissal and timeout should hand focus back to Mesher.
+        // Do not steal focus if the user Alt-Tabbed to another application.
+        const bool returnToOwner=!dismissedForFocus_&&
+            glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE&&
+            !glfwWindowShouldClose(owner_);
         glfwDestroyWindow(splash_);
         splash_=nullptr;
+        if(returnToOwner)glfwFocusWindow(owner_);
     }
 }
 
