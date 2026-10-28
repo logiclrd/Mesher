@@ -144,8 +144,10 @@ The old positive `--collapse`, `--curvature-correction` and
 Ordinary LMB inflates; **Alt+LMB deflates** along the same
 pre-stamp normals at **two-thirds the normal strength**. The direction
 is latched on mouse-down and stays fixed when Alt is released mid-drag.
-The inverse stroke uses the same curvature, refinement, collision repair,
-mirror and undo/redo path. RMB orbits with a Z-up
+Deflate reverses the sign of curvature compensation as well as normal
+motion, so convex peaks shrink faster while concave troughs shrink more
+slowly instead of developing unstable ridges and pockets. Both modes
+retain the same refinement, collision repair, mirror and undo/redo path. RMB orbits with a Z-up
 turntable; Alt+RMB or Ctrl+LMB grabs/pans the world; Ctrl+RMB dollies
 along the viewing direction. Ctrl+RMB takes precedence over Alt+RMB.
 A camera gesture is latched on mouse-down and does not change when a
