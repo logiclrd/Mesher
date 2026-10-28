@@ -263,52 +263,102 @@ int main() {
         // modifier switches, no accidental Ctrl+LMB brush/FaceId intent.
         ViewportCameraGestures buttons;
         using Mode=ViewportCameraMode;
-        check(buttons.sample(false,false,false,true).mode==Mode::Inactive,
+        check(buttons.sample(false,false,false,false,true).mode==Mode::Inactive,
               "M61 idle pointer has no camera gesture");
-        auto gesture=buttons.sample(false,true,false,true);
+        auto gesture=buttons.sample(false,true,false,false,true);
         check(gesture.started&&gesture.mode==Mode::Orbit,
               "M61 plain RMB starts turntable orbit");
-        gesture=buttons.sample(false,true,true,true);
+        gesture=buttons.sample(false,true,true,false,true);
         check(!gesture.started&&gesture.mode==Mode::Orbit,
               "M61 Ctrl pressed during RMB orbit must not switch to dolly");
-        gesture=buttons.sample(false,false,true,true);
+        gesture=buttons.sample(false,false,true,false,true);
         check(gesture.ended&&gesture.endedMode==Mode::Orbit,
               "M61 releasing RMB terminates its latched orbit");
-        gesture=buttons.sample(false,true,true,true);
+        gesture=buttons.sample(false,true,true,false,true);
         check(gesture.started&&gesture.mode==Mode::Dolly,
               "M61 Ctrl+RMB starts dolly rather than orbit");
-        gesture=buttons.sample(false,true,false,true);
+        gesture=buttons.sample(false,true,false,false,true);
         check(gesture.mode==Mode::Dolly,
               "M61 releasing Ctrl while RMB held keeps latched dolly");
-        buttons.sample(false,false,false,true);
-        gesture=buttons.sample(true,false,false,true);
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(true,false,false,false,true);
         check(gesture.mode==Mode::Inactive,
               "M61 ordinary LMB is left to sculpt/merge selection");
-        gesture=buttons.sample(true,false,true,true);
+        gesture=buttons.sample(true,false,true,false,true);
         check(gesture.mode==Mode::Inactive,
               "M61 Ctrl pressed after LMB down cannot hijack brush stroke");
-        buttons.sample(false,false,true,true);
-        gesture=buttons.sample(true,false,true,true);
+        buttons.sample(false,false,true,false,true);
+        gesture=buttons.sample(true,false,true,false,true);
         check(gesture.started&&gesture.mode==Mode::Strafe,
               "M61 Ctrl+LMB starts view-relative camera strafe");
-        gesture=buttons.sample(true,false,false,false);
+        gesture=buttons.sample(true,false,false,false,false);
         check(gesture.mode==Mode::Strafe,
               "M61 strafe remains latched despite Ctrl release/busy worker");
-        gesture=buttons.sample(true,true,false,true);
+        gesture=buttons.sample(true,true,false,false,true);
         check(gesture.mode==Mode::Strafe,
               "M61 second button does not change an active pan");
-        buttons.sample(false,false,false,true);
-        gesture=buttons.sample(true,true,true,true);
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(true,true,true,false,true);
         check(gesture.mode==Mode::Inactive,
               "M61 both buttons simultaneously cannot start a gesture");
-        buttons.sample(false,false,false,true);
-        gesture=buttons.sample(true,false,true,false);
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(true,false,true,false,false);
         check(gesture.mode==Mode::Inactive,
               "M61 busy sculptor cannot start Ctrl+LMB strafe");
-        buttons.sample(true,false,true,true);
-        check(buttons.sample(true,false,true,true).mode==Mode::Inactive,
+        buttons.sample(true,false,true,false,true);
+        check(buttons.sample(true,false,true,false,true).mode==Mode::Inactive,
               "M61 pressing Ctrl after a blocked down cannot start late");
-        buttons.sample(false,false,false,true);
+        buttons.sample(false,false,false,false,true);
+
+        // M64 alternative world-grab gesture: Alt+RMB is the same
+        // view-relative translation as Ctrl+LMB, but MUST be latched
+        // to the initiating RIGHT button rather than left.
+        gesture=buttons.sample(false,true,false,true,true);
+        check(gesture.started&&gesture.mode==Mode::Strafe,
+              "M64 Alt+RMB starts world pan instead of orbit");
+        gesture=buttons.sample(false,true,false,false,true);
+        check(!gesture.started&&gesture.mode==Mode::Strafe,
+              "M64 releasing Alt mid-right-pan cannot switch to orbit");
+        gesture=buttons.sample(true,true,true,false,true);
+        check(gesture.mode==Mode::Strafe,
+              "M64 Ctrl and LMB arriving mid-right-pan cannot switch pan origin");
+        gesture=buttons.sample(true,false,true,false,true);
+        check(gesture.ended&&gesture.endedMode==Mode::Strafe,
+              "M64 right-button release MUST end Alt+RMB pan even with left held");
+        gesture=buttons.sample(true,false,true,false,true);
+        check(gesture.mode==Mode::Inactive,
+              "M64 remaining LMB cannot hijack ended right pan");
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(false,true,false,false,true);
+        check(gesture.started&&gesture.mode==Mode::Orbit,
+              "M64 bare RMB still starts orbit");
+        gesture=buttons.sample(false,true,false,true,true);
+        check(gesture.mode==Mode::Orbit,
+              "M64 Alt pressed after RMB down cannot switch orbit to pan");
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(false,true,true,true,true);
+        check(gesture.started&&gesture.mode==Mode::Dolly,
+              "M64 Ctrl+Alt+RMB preserves Ctrl+RMB dolly precedence");
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(true,false,false,true,true);
+        check(gesture.mode==Mode::Inactive,
+              "M64 Alt+LMB alone remains available to sculpt");
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(false,true,false,true,false);
+        check(gesture.mode==Mode::Inactive,
+              "M64 busy worker blocks Alt+RMB pan start");
+        gesture=buttons.sample(false,true,false,true,true);
+        check(gesture.mode==Mode::Inactive,
+              "M64 Alt+RMB cannot late-start after blocked right down");
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(false,true,false,true,true);
+        check(gesture.started&&gesture.mode==Mode::Strafe,
+              "M64 fresh Alt+RMB press after release must start pan");
+        buttons.cancel();
+        buttons.sample(false,false,false,false,true);
+        gesture=buttons.sample(true,true,false,true,true);
+        check(gesture.mode==Mode::Inactive,
+              "M64 both buttons down cannot initiate Alt pan");
 
         ViewportOrbit pan;
         const double physicalHeight=720.0,viewDistance=12.0;
