@@ -88,6 +88,26 @@ and benchmarks. Final documentation-exact PR head and separately
 merged main must be checked independently. Real GUI visual and
 input feel are not asserted by this compiled acceptance.
 
+## M64 additional Alt+RMB world pan (October 27, 2026)
+
+The user reports a preference for Alt+Right Drag to grab/pan the world
+instead of Ctrl+Left Drag. Both gestures are supported; the original
+Ctrl+Left remains for compatibility and Linux window managers that
+intercept Alt+RMB. Unmodified RMB continues turntable orbit and
+Ctrl+RMB continues depth dolly, taking precedence when Ctrl and Alt
+are held together. Alt+LMB retains its normal non-camera handling.
+
+The pure mouse-down latch records whether a Strafe started on LEFT
+or RIGHT. Only release of that initiating button ends the gesture;
+Alt/Ctrl release, late modifier presses or the other mouse button
+cannot convert a pan to orbit/dolly/sculpt. Two buttons initially down
+cannot start camera movement. Worker-busy/active-sculpt suppression
+and framebuffer scaling, inverse source picking, cursor wrap and
+display-only translations remain unchanged. CPU gesture and actual
+GLFW-source contract tests cover both keys, both pan buttons, priority
+and suppression. Physical Linux/Windows gesture acceptance and
+three-platform CI are required before main.
+
 ## M63 interaction correction (October 20, 2026)
 
 After actually trying M61 on Linux, the user preferred moving the
