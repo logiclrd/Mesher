@@ -1,0 +1,197 @@
+name: Versioned desktop release
+
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  pull_request:
+    paths:
+      - VERSION
+      - .github/workflows/release.yml
+      - tools/release/**
+      - CMakeLists.txt
+      - src/main.cpp
+      - src/viewport.cpp
+      - src/startup_splash.cpp
+      - include/mesher/startup_splash.hpp
+  workflow_dispatch:
+
+# Serialize all release candidates: a tag must never be raced by two
+# independent publishing jobs. Never cancel an in-flight release.
+concurrency:
+  group: mesher-versioned-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Check VERSION and remote tag before any build
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit-test release policy
+        run: python3 -m unittest discover -s tools/release -p 'test_*.py'
+      - name: Refuse an existing tag immediately
+        id: check
+        run: |
+          python3 tools/release/release_tools.py preflight \
+            --version-file VERSION --github-output "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux x86_64 / benchmark and package
+    needs: preflight
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies and both toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ clang libomp-dev \
+            libvulkan-dev libglfw3-dev libgl-dev libx11-dev \
+            glslang-tools libqhull-dev patchelf python3
+      - name: Compile identical CPU benchmarks (G++ and Clang++)
+        run: |
+          set -euo pipefail
+          CC=gcc CXX=g++ cmake -S . -B bench-gcc -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DMESHER_BUILD_VIEWPORT=OFF
+          cmake --build bench-gcc --target mesher_benchmark --parallel 3
+          CC=clang CXX=clang++ cmake -S . -B bench-clang -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DMESHER_BUILD_VIEWPORT=OFF
+          cmake --build bench-clang --target mesher_benchmark --parallel 3
+      - name: Time alternating representative operations and choose compiler
+        id: choose
+        run: |
+          python3 tools/release/release_tools.py select \
+            --gcc bench-gcc/mesher_benchmark \
+            --clang bench-clang/mesher_benchmark \
+            --rounds 5 --vertices 25000 --relax 20 \
+            --report compiler-benchmark.json \
+            --github-output "$GITHUB_OUTPUT" \
+            --github-summary "$GITHUB_STEP_SUMMARY"
+      - name: Build full GUI with selected compiler in Release mode
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.choose.outputs.compiler }}" = clang ]; then
+            export CC=clang CXX=clang++
+          else
+            export CC=gcc CXX=g++
+          fi
+          cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=ON -DMESHER_BUILD_TESTS=OFF \
+            -DMESHER_FIND_QHULL=ON
+          cmake --build build-linux --target Mesher --parallel 3
+          test "$(./build-linux/Mesher --version)" = \
+            "Mesher ${{ needs.preflight.outputs.version }}"
+      - name: Assemble portable Linux tarball
+        run: |
+          python3 tools/release/package_linux.py \
+            --version "${{ needs.preflight.outputs.version }}" \
+            --build build-linux --selection compiler-benchmark.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: packages/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows x64 / MSVC package
+    needs: preflight
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Vulkan SDK tools
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.3.296.0
+          stripdown: true
+          cache: true
+      - name: Install GLFW and Qhull (matching Windows CI)
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install qhull:x64-windows glfw3:x64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile MSVC Release executable, shaders, and icon
+        shell: pwsh
+        run: |
+          cmake -S . -B build-win -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_BUILD_TESTS=OFF -DMESHER_FIND_QHULL=ON -DVCPKG_APPLOCAL_DEPS=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-win --config Release --target Mesher --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Assemble Windows ZIP with runtime DLLs and resources
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = "packages/Mesher-$env:VERSION-windows-x64"
+          New-Item -ItemType Directory -Force "$stage/shaders", "$stage/images" | Out-Null
+          Copy-Item build-win/Release/Mesher.exe "$stage/Mesher.exe"
+          Copy-Item build-win/shaders/*.spv "$stage/shaders/"
+          Copy-Item build-win/Release/images/*.rgba "$stage/images/"
+          Copy-Item images/Icon.png "$stage/Icon.png"
+          Copy-Item VERSION, README.md "$stage/"
+          Copy-Item tools/release/README-windows.txt "$stage/RUNNING.txt"
+          # vcpkg x64-windows uses dynamic GLFW/Qhull DLLs. Copy
+          # all release DLLs (not debug/bin variants), including transitive.
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin/*.dll" "$stage/"
+          $env:PATH = "$stage;$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin;$env:PATH"
+          $actual = & "$stage/Mesher.exe" --version
+          if ($LASTEXITCODE -ne 0 -or $actual.Trim() -ne "Mesher $env:VERSION") {
+            throw "Packaged executable reports an unexpected version: $actual"
+          }
+          Compress-Archive -Path "$stage" -DestinationPath "packages/Mesher-$env:VERSION-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: packages/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Atomically publish GitHub release and release-$VERSION tag
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [preflight, linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recheck tag immediately before publishing
+        env:
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: python3 tools/release/release_tools.py check-tag --tag "$TAG"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: published
+      - name: Verify both packages exist
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          test -s "published/Mesher-$VERSION-linux-x86_64.tar.gz"
+          test -s "published/Mesher-$VERSION-windows-x64.zip"
+      - name: Create tag and release only after both packages succeeded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          options=()
+          # Alpha/beta/RC versions appear as prereleases on GitHub.
+          if ${{ "$VERSION" =~ [a-zA-Z] }}; then options+=(--prerelease); fi
+          # gh release create creates the new tag at this exact commit;
+          # there is intentionally NO force-tag or overwrite option.
+          gh release create "$TAG" \
+            "published/Mesher-$VERSION-linux-x86_64.tar.gz" \
+            "published/Mesher-$VERSION-windows-x64.zip" \
+            --target "$GITHUB_SHA" --title "Mesher $VERSION" \
+            --notes "Mesher $VERSION; Linux compiler selected by measured GCC/Clang Release benchmark. See compiler-benchmark.json inside the Linux package." \
+            "${options[@]}"
