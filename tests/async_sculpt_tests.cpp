@@ -163,10 +163,11 @@ void testOneShotStampIsExactlyOneVisibleWorkerRevision() {
     guarded.stampOnce(center,.2);
     finishGuarded();
     const auto refused=guarded.status();
+    const auto refusedFrame=guarded.takeSnapshot();
     require(refused.completedStamps==1&&refused.rejectedStamps==1&&
             refused.publishedRevisions==0&&
             refused.lastRejection=="Deliberate one-shot geometry refusal"&&
-            guarded.takeSnapshot()->index==baseline,
+            refusedFrame&&refusedFrame->index==baseline,
             "Refused F8 step must retain original published source and exact refusal");
     guarded.stampOnce(center,.2);
     finishGuarded();
