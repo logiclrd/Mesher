@@ -959,6 +959,10 @@ int main(int argc, char** argv) {
             interaction.end=[&](mesher::Vec3 point,double elapsed) {
                 liveWorker->end(point,elapsed);
             };
+            interaction.stampOnce=[&](mesher::Vec3 point) {
+                if(repairSession&&repairSession->frozen())return;
+                liveWorker->stampOnce(point,brushRadius);
+            };
             interaction.initialRevision=liveWorker->initialRevision();
             // R01 preview is NOT a published worker root. Preserve its
             // immutable source separately from ordinary live snapshots and
