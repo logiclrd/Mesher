@@ -1191,7 +1191,10 @@ class VulkanViewport {
                 lastCursorHit_=*picked;
                 mouseStartTime_=glfwGetTime();
                 const double stampStart=glfwGetTime();
-                interaction_.begin(*picked);
+                const bool inverted=
+                    glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
+                    glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
+                interaction_.begin(*picked,inverted);
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 lastConsoleTime_=glfwGetTime();
                 logFrames_=0;
