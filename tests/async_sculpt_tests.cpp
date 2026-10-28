@@ -18,6 +18,67 @@ void require(bool pass,const char* label) {
     if(!pass)throw std::runtime_error(label);
 }
 
+void testInverseTimedStrokeAndDefaultReset() {
+    // Same initial source and stationary one-stamp 4D path in both workers.
+    const auto sphere=generateSphere(SphereOptions{500,true,2,6});
+    const Vec3 point{-.2,-.6,.75};
+    AsyncSculptWorker regular(sphere,.02,.012,.2,{true,.25},{},{},true);
+    AsyncSculptWorker inverse(sphere,.02,.012,.2,{true,.25},{},{},true);
+    const auto before=regular.initialRevision();
+    regular.begin(point,.36);
+    regular.end(point,0);
+    inverse.begin(point,.36,{},-2.0/3.0);
+    inverse.end(point,0);
+    const auto wait=[](AsyncSculptWorker& worker) {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(10);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(worker.canBegin(),"Timed inverse stroke must drain");
+    };
+    wait(regular);wait(inverse);
+    require(regular.status().completedStamps==1&&
+            inverse.status().completedStamps==1&&
+            inverse.status().rejectedStamps==0&&
+            inverse.status().history.undoDepth==1,
+            "Inverse stroke must commit exactly one undoable stamp");
+    const auto regularRoot=regular.initialRevision();
+    const auto inverseRoot=inverse.initialRevision();
+    std::size_t moved=0;
+    before->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                const Vec3 up=regularRoot->vertex(v.id).position-v.position;
+                const Vec3 down=inverseRoot->vertex(v.id).position-v.position;
+                require(length(down+up*(2.0/3.0))<1e-11,
+                        "Worker inverse must use -2/3 normal displacement");
+                if(length(up)>1e-12)++moved;
+            }
+        });
+    require(moved>0,"Inverse worker stamp must move vertices");
+
+    // Normal strength is reset at the next Begin; no sign is inherited.
+    inverse.begin(point,.36);
+    inverse.end(point,0);
+    wait(inverse);
+    const auto restored=inverse.initialRevision();
+    bool outward=false;
+    before->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                const Vec3 down=inverseRoot->vertex(v.id).position-v.position;
+                const Vec3 up=restored->vertex(v.id).position-
+                              inverseRoot->vertex(v.id).position;
+                if(length(down)>1e-10&&length(up)>1e-10&&dot(down,up)<0)
+                    outward=true;
+            }
+        });
+    require(outward&&inverse.status().completedStamps==2&&
+            inverse.status().rejectedStamps==0&&
+            inverse.status().history.undoDepth==2,
+            "Regular stroke after inverse must Inflate with undo history");
+}
+
 void testThreadedMatchesExactSculpt() {
     SphereOptions options;
     options.vertexCount=800;
@@ -8222,6 +8283,7 @@ void testM51DeliberateFixtureNominationAndReflectedWorker() {
 }
 int main() {
     try {
+        testInverseTimedStrokeAndDefaultReset();
         testThreadedMatchesExactSculpt();
         testWorkerCanRestartAndCancel();
         testOneShotStampIsExactlyOneVisibleWorkerRevision();
