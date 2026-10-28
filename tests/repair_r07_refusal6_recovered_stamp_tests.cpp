@@ -40,7 +40,7 @@ void recoveredPhysicalZipperMustPublish() {
     // Parse the committed sidecar rather than silently duplicating its
     // numbers in test code. Reject incomplete or malformed transcripts.
     const std::regex format(
-        R"(^radius=([-+0-9.eE]+) brush_centers=\\[\\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\\);\\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\\)\\]$)");
+        R"(^radius=([-+0-9.eE]+) brush_centers=\[\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\);\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\)\]$)");
     std::smatch matches;
     require(std::regex_match(line,matches,format)&&matches.size()==8,
             "Refusal-6 nextstamp must have the complete mirrored physical stamp");
