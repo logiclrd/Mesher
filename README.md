@@ -139,6 +139,15 @@ alternative. W controls surface-edge and grid ink;
 G independently shows/hides the floor. Ctrl+Z / Ctrl+Y
 undo/redo, Ctrl+S queues an asynchronous checkpoint.
 
+**F8** performs exactly one diagnostic sculpt stamp at the surface under
+the cursor. Unlike briefly clicking LMB, F8 never opens a timed 4D stroke
+or queues catch-up steps. Each request waits for the previous stamp's
+published renderer snapshot; press F8 again to see the next state. In
+mirrored mode, each F8 stamp still contains the complete reflected brush
+pair as one atomic step. Use it when examining post-zipper seam evolution.
+A refused stamp counts as one attempt, leaves the mesh unchanged and
+does not cause an automatic retry.
+
 The **protected** source-positive Merge examples are:
 
 ```text
