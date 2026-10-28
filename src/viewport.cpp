@@ -1564,7 +1564,13 @@ class VulkanViewport {
         check(vkCreateRenderPass(device,&info,nullptr,&renderPass),"Create render pass");
     }
     VkShaderModule shader(const char* name) {
-        const auto bytes=loadBinary(std::string(MESHER_SHADER_DIR)+"/"+name+".spv");
+        // Installed release archives must not depend on the absolute
+        // build-directory path embedded by CMake.
+        const auto filename=std::string(name)+".spv";
+        auto shaderPath=mesherExecutableDirectory()/"shaders"/filename;
+        if(!std::filesystem::exists(shaderPath))
+            shaderPath=std::filesystem::path(MESHER_SHADER_DIR)/filename;
+        const auto bytes=loadBinary(shaderPath.string());
         VkShaderModuleCreateInfo info{}; info.sType=VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         info.codeSize=bytes.size();
         // SPIR-V must be 4-byte aligned (vector<char> storage is suitably

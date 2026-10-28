@@ -115,6 +115,41 @@ compositors control exact top-level positioning. PNG assets are converted
 with Python's standard library when building the viewport and copied to
 the executable's `images/` directory; no runtime PNG library is needed.
 
+## Versioned desktop releases
+
+The root [`VERSION`](VERSION) file is the release version source of truth;
+initially `0.5a`. `Mesher --version` prints the same value without loading
+Vulkan. CMake uses the numeric prefix (`0.5`) for its project-version
+metadata and preserves the full `0.5a` identifier in the desktop binary.
+
+Changing `VERSION` on `main` automatically starts
+[`Versioned desktop release`](.github/workflows/release.yml).
+The workflow **checks the remote for `release-$VERSION` before building**
+and refuses a duplicate tag; CI failures also prevent publication.
+Once both platforms succeed it creates that tag on the triggering commit
+and publishes a GitHub prerelease/release with:
+
+- `Mesher-$VERSION-windows-x64.zip` — MSVC Release executable, embedded
+  `.ico` resource, required vcpkg GLFW/Qhull DLLs, SPIR-V shaders and UI
+  images. A Vulkan-capable graphics driver and VC++ Redistributable are needed.
+- `Mesher-$VERSION-linux-x86_64.tar.gz` — optimized Linux Release executable,
+  shaders and images, bundled GLFW/Qhull/OpenMP libraries, and
+  `compiler-benchmark.json`. Built on Ubuntu 24.04; graphics drivers,
+  Vulkan loader, and system libraries remain external.
+
+The Linux packaging job compiles the **same benchmark with both G++ and
+Clang++ on one runner** and chooses using five rounds of alternating tests.
+The score combines median generation (10%), plain stamping (10%) and
+remeshing stamping (80%) after normalization, so the selected compiler is
+measured afresh for each release rather than guessed from its name.
+Benchmark data is retained inside the Linux archive.
+
+The release workflow also runs on pull requests touching the workflow,
+`VERSION`, or associated packaging code; PRs build validation archives but
+**cannot publish tags or releases**. A manual run can reattempt a failed
+release but still refuses any already-published version. To publish a new
+version, edit `VERSION` and merge to `main`.
+
 ## Interactive mode and controls
 
 Ordinary launch creates an editable triangulated sphere

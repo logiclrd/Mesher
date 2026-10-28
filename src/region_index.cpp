@@ -201,8 +201,13 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
         for(unsigned i=0;i<3;++i) {
             const auto a=before[i],b=before[(i+1)%3];
             auto& sides=writableEdge(edge(a,b));
+            // Clang 18 OpenMP does not permit capturing a structured
+            // binding directly; give the face ID a normal local lifetime.
+            const auto previousFaceId=id;
             const auto it=std::find_if(sides.begin(),sides.end(),
-                                       [id](auto side){return side.face==id;});
+                                       [previousFaceId](auto side){
+                                           return side.face==previousFaceId;
+                                       });
             if(it==sides.end())
                 throw std::logic_error("Edge lost its previous face incidence");
             sides.erase(it);
