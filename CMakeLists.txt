@@ -148,6 +148,12 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
+    add_executable(mesher_startup_splash_policy_tests
+                   tests/startup_splash_policy_tests.cpp)
+    target_include_directories(mesher_startup_splash_policy_tests PRIVATE
+                               "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    add_test(NAME startup_splash_placement_and_lifetime
+             COMMAND mesher_startup_splash_policy_tests)
     if(MESHER_BUILD_VIEWPORT)
         add_test(NAME desktop_cli_certified_auto_default
             COMMAND "${CMAKE_COMMAND}"
