@@ -57,6 +57,25 @@ endif()
 if(MESHER_BUILD_VIEWPORT)
     find_package(Vulkan REQUIRED)
     find_package(glfw3 3.3 REQUIRED)
+    find_package(OpenGL REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    # Decode committed PNGs into packed RGBA with Python's stdlib at build
+    # time. No external image codec or runtime PNG loader is required.
+    set(MESHER_ASSET_DIR "${CMAKE_CURRENT_BINARY_DIR}/images")
+    set(MESHER_GENERATED_IMAGES)
+    foreach(IMAGE IN ITEMS Icon Splash)
+        set(PNG "${CMAKE_CURRENT_SOURCE_DIR}/images/${IMAGE}.png")
+        set(RGBA "${MESHER_ASSET_DIR}/${IMAGE}.rgba")
+        add_custom_command(OUTPUT "${RGBA}"
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/png_to_rgba.py"
+                "${PNG}" "${RGBA}"
+            DEPENDS "${PNG}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/png_to_rgba.py"
+            COMMENT "Decoding ${IMAGE}.png for native window imagery"
+            VERBATIM)
+        list(APPEND MESHER_GENERATED_IMAGES "${RGBA}")
+    endforeach()
+    add_custom_target(mesher_images DEPENDS ${MESHER_GENERATED_IMAGES})
     find_program(GLSLC_EXECUTABLE NAMES glslc glslangValidator
         HINTS "$ENV{VULKAN_SDK}/Bin" "$ENV{VULKAN_SDK}/bin" REQUIRED)
 
@@ -79,9 +98,29 @@ if(MESHER_BUILD_VIEWPORT)
         list(APPEND SPIRV_FILES "${DESTINATION}")
     endforeach()
     add_custom_target(mesher_shaders DEPENDS ${SPIRV_FILES})
-    add_executable(Mesher src/main.cpp src/viewport.cpp)
-    add_dependencies(Mesher mesher_shaders)
-    target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw)
+    add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
+    add_dependencies(Mesher mesher_shaders mesher_images)
+    target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)
+    target_compile_definitions(Mesher PRIVATE MESHER_ASSET_DIR="${MESHER_ASSET_DIR}")
+    # A Windows executable's embedded shell/file icon is separate from
+    # glfwSetWindowIcon, which controls the running application's window.
+    if(WIN32)
+        enable_language(RC)
+        file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/images/Icon.ico" MESHER_WINDOWS_ICON)
+        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/mesher_icon.rc"
+            CONTENT "1 ICON \"${MESHER_WINDOWS_ICON}\"\n")
+        target_sources(Mesher PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/mesher_icon.rc")
+    endif()
+    # Multi-config MSVC executables live under build/Release, not build/.
+    # Keep runtime imagery beside the executable for portable deployments.
+    add_custom_command(TARGET Mesher POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+                "$<TARGET_FILE_DIR:Mesher>/images"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${MESHER_ASSET_DIR}/Icon.rgba"
+                "${MESHER_ASSET_DIR}/Splash.rgba"
+                "$<TARGET_FILE_DIR:Mesher>/images"
+        VERBATIM)
     if(MSVC)
         # The lightweight CLI acceptance paths (--help and invalid
         # --merge-geometry combinations) intentionally return BEFORE
