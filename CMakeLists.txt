@@ -155,6 +155,9 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME startup_splash_placement_and_lifetime
              COMMAND mesher_startup_splash_policy_tests)
     if(MESHER_BUILD_VIEWPORT)
+        add_test(NAME png_rgba_asset_conversion
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_png_to_rgba.py")
         add_test(NAME desktop_cli_certified_auto_default
             COMMAND "${CMAKE_COMMAND}"
               -DMESHER_EXE=$<TARGET_FILE:Mesher>
