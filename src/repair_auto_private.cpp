@@ -226,9 +226,34 @@ CertifiedPrivateAutoResult applyCertifiedPrivateAutomaticClosure(
         // additionally update the authoritative reciprocal mirror-ID map.
         // No silent transition to asymmetric while the current sculpt
         // continues believing its mirror relationships are valid.
-        (void)auditPrivateReflectedGeometry(
-            *finalIndex,limits.closure.maxAuditedFaces*3,
-            limits.closure.maxAuditedFaces);
+        try {
+            (void)auditPrivateReflectedGeometry(
+                *finalIndex,limits.closure.maxAuditedFaces*3,
+                limits.closure.maxAuditedFaces);
+        }catch(const std::logic_error& finalMismatch) {
+            // The last audit used to report "private cap" even if
+            // M03 selected an AFM zipper. On the exceptional path
+            // only, locate which immutable PRIVATE stage first lost
+            // the exact reflected orbit. Keep the original witness
+            // and never compensate by near-coordinate welding.
+            const auto symmetric=[&](const RegionTopologyIndex& index) {
+                try {
+                    (void)auditPrivateReflectedGeometry(
+                        index,limits.closure.maxAuditedFaces*3,
+                        limits.closure.maxAuditedFaces);
+                    return true;
+                }catch(const std::logic_error&) {return false;}
+            };
+            const char* phase=!symmetric(*cut.index)?
+                "excision_or_source":
+                !symmetric(*staged.index)?"closure_or_refinement":
+                                          "material_retirement";
+            throw std::logic_error(
+                std::string(finalMismatch.what())+
+                " first_asymmetric_phase="+phase+
+                " selected_caps="+std::to_string(plan.cappedContours.size())+
+                " selected_zippers="+std::to_string(plan.zipperPairs.size()));
+        }
     }
     out.postRetirementFaces=out.postClosureFaces-retiredFaces.size();
     out.index=std::move(finalIndex);
