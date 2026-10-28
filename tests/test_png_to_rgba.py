@@ -31,7 +31,7 @@ def main():
         # Two rows with transparent and opaque pixels; exercise None/Up.
         source.write_bytes(png(2, 2, 6, (
             bytes([0, 255, 0, 0, 255, 0, 255, 0, 64]),
-            bytes([2, 0, 0, 255, 255, 255, 255, 0, 255]),
+            bytes([2, 0, 0, 255, 0, 255, 0, 0, 191]),
         )))
         width, height, image = converter.read_png(source)
         assert (width, height) == (2, 2)
