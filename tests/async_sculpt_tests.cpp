@@ -141,6 +141,41 @@ void testOneShotStampIsExactlyOneVisibleWorkerRevision() {
             "Second one-shot must expose its exact stamp-2 root without coalescing");
     require(!worker.takeSnapshot(),
             "Second one-shot must not queue an automatic third stamp");
+    // Intentionally rejected first one-shot stays private and does not
+    // silently enqueue a second step; a later manually requested stamp
+    // can still succeed on the original root.
+    auto fresh=generateSphere(SphereOptions{500,true,2,6});
+    std::size_t validations=0;
+    AsyncSculptWorker guarded(fresh,.05,.01,.2,{},{},{},true,
+        [&](const ProposedSculptStep& candidate)->std::string {
+            require(candidate.candidate!=candidate.before,
+                    "One-shot validator sees unpublished candidate");
+            return ++validations==1?"Deliberate one-shot geometry refusal":"";
+        });
+    const auto baseline=guarded.initialRevision();
+    const auto finishGuarded=[&] {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(10);
+        while(!guarded.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(guarded.canBegin(),"Rejected or accepted one-shot releases worker");
+    };
+    guarded.stampOnce(center,.2);
+    finishGuarded();
+    const auto refused=guarded.status();
+    require(refused.completedStamps==1&&refused.rejectedStamps==1&&
+            refused.publishedRevisions==0&&
+            refused.lastRejection=="Deliberate one-shot geometry refusal"&&
+            guarded.takeSnapshot()->index==baseline,
+            "Refused F8 step must retain original published source and exact refusal");
+    guarded.stampOnce(center,.2);
+    finishGuarded();
+    const auto accepted=guarded.status();
+    const auto acceptedFrame=guarded.takeSnapshot();
+    require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
+            accepted.publishedRevisions==1&&acceptedFrame&&
+            acceptedFrame->index!=baseline&&validations==2,
+            "Explicit second one-shot succeeds without replaying rejected step");
     std::cout<<"[sculpt-step] worker exact one-shot publication and input isolation PASS\n";
 }
 
