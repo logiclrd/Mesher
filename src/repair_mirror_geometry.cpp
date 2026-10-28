@@ -117,9 +117,25 @@ GeometricMirrorEvidence auditPrivateReflectedGeometry(
         const Triple reflected{
             partner.at(t[0]),partner.at(t[2]),partner.at(t[1])};
         const auto found=faces.find(ordered(reflected));
-        if(found==faces.end()||!cyclic(found->second,reflected))
-            throw std::logic_error(
-                "R06-M06C cap has no oppositely wound mirrored face");
+        if(found==faces.end()||!cyclic(found->second,reflected)) {
+            std::ostringstream witness;
+            witness<<std::setprecision(17)
+                   <<"R06-M06C closure has no oppositely wound mirrored face"
+                   <<" face="<<t[0]<<","<<t[1]<<","<<t[2]
+                   <<" wanted_reflected_ids="<<reflected[0]<<","
+                         <<reflected[1]<<","<<reflected[2]
+                   <<" reflected_face_present="<<(found!=faces.end());
+            if(found!=faces.end())
+                witness<<" actual_reflected_winding="
+                       <<found->second[0]<<","<<found->second[1]<<","
+                       <<found->second[2];
+            for(unsigned k=0;k<3;++k) {
+                const auto xyz=position.at(t[k]);
+                witness<<" face_p"<<k<<"="<<xyz.x<<","
+                       <<xyz.y<<","<<xyz.z;
+            }
+            throw std::logic_error(witness.str());
+        }
         ++out.pairedFaces;
     }
     return out;
