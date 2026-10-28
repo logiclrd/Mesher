@@ -629,6 +629,12 @@ void twoIndividuallyMirroredRimsCreateExactZipper() {
     require(proposal.contours.size()==2&&proposal.boundaryEdges==16,
             "R06 two self-mirror mouths require two real 8-edge R03 rims");
     const auto cut=applyPrivateExcision(source.root,proposal);
+    // The source must already be an exactly reflected, consistently
+    // oriented mesh before the test can certify any generated zipper.
+    const auto sourceAudit=auditPrivateReflectedGeometry(
+        *cut.index,4096,4096);
+    require(sourceAudit.pairedFaces>0,
+            "Two-mouth source must begin as an exact oriented mirror");
     AutoClosurePlan plan;
     plan.status=AutoClosurePlanStatus::Ready;
     plan.zipperPairs={{0,1}};
