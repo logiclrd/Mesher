@@ -110,7 +110,7 @@ public:
            std::isfinite(displacement.z))translation_=translation_-displacement;
     }
 
-    // Ctrl-LMB: grab the displayed WORLD in the current view plane.
+    // Ctrl-LMB or Alt-RMB: grab the displayed WORLD in the current view plane.
     // Right/down pointer movement pulls the visible world right/down,
     // equivalent to moving the camera left/up (reverse of M61).
     // The 45-degree vertical FOV gives DPI-independent world-unit scaling.
