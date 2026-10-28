@@ -99,10 +99,12 @@ bool equal(SplashRect a,SplashRect b) {
     return a.x==b.x&&a.y==b.y&&a.width==b.width&&a.height==b.height;
 }
 
+#if defined(__linux__)
 std::string_view sessionType() {
     const char* value=std::getenv("XDG_SESSION_TYPE");
     return value?std::string_view(value):std::string_view{};
 }
+#endif
 
 void addNativeOwner(GLFWwindow* child,GLFWwindow* owner) {
 #ifdef _WIN32
