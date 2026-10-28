@@ -186,7 +186,7 @@ jobs:
           set -euo pipefail
           options=()
           # Alpha/beta/RC versions appear as prereleases on GitHub.
-          if ${{ "$VERSION" =~ [a-zA-Z] }}; then options+=(--prerelease); fi
+          if [[ "$VERSION" =~ [a-zA-Z] ]]; then options+=(--prerelease); fi
           # gh release create creates the new tag at this exact commit;
           # there is intentionally NO force-tag or overwrite option.
           gh release create "$TAG" \
