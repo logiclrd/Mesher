@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="720" height="720">
+ <rect width="240" height="240" rx="20" fill="#0d1927"/>
+ <path id="Mesher-M" d="M 19 213 L 19 27 L 60 27 L 120 104 L 180 27 L 221 27 L 221 213 L 179 213 L 179 91 L 120 169 L 61 91 L 61 213 Z" fill="#193a55" stroke="#59e4fd" stroke-width="2" stroke-linejoin="round"/>
+</svg>
