@@ -110,6 +110,13 @@ endif()
 if(MESHER_BUILD_TESTS)
     enable_testing()
     if(MESHER_BUILD_VIEWPORT)
+        add_test(NAME desktop_cli_certified_auto_default
+            COMMAND "${CMAKE_COMMAND}"
+              -DMESHER_EXE=$<TARGET_FILE:Mesher>
+              -DMESHER_SOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
+              -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_default_auto_repair_cli.cmake")
+        set_tests_properties(desktop_cli_certified_auto_default
+            PROPERTIES TIMEOUT 30)
         add_test(NAME repair_r06_m17d_reject_front_optimize_without_auto
                  COMMAND Mesher --repair-front-optimize)
         set_tests_properties(
