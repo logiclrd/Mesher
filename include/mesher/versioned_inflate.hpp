@@ -57,6 +57,9 @@ public:
 
     // V6 adds only newly split midpoint mirror pairs between stamps.
     // Existing mappings are never rebuilt or silently changed.
+    // Signed per-stroke scale of the final normal displacement; normals,
+    // curvature and positive collision backtracking remain unchanged.
+    void setStrengthScale(double scale);
     void addMirrorPair(VertexId first,VertexId second);
     // V7: drop only the retired pair, preserving unrelated mappings.
     void removeMirrorPair(VertexId first,VertexId second);
@@ -72,6 +75,7 @@ public:
 
 private:
     double strength_;
+    double strengthScale_=1.0;
     CurvatureSettings curvature_;
     std::unordered_map<VertexId,VertexId> mirrors_;
 };
