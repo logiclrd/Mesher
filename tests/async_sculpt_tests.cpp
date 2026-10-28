@@ -123,7 +123,7 @@ void testOneShotStampIsExactlyOneVisibleWorkerRevision() {
     const auto first=worker.status();
     require(first.completedStamps==1&&first.pendingSteps==0&&
             first.pendingSegments==0&&!first.active&&
-            first.inputCommands==0,
+            first.inputCommands==0&&first.snapshotPublications==1,
             "One-shot must complete ONE stamp without a timed stroke or residual input");
     const auto frame1=worker.takeSnapshot();
     require(frame1&&frame1->completedStamps==1,
@@ -134,7 +134,8 @@ void testOneShotStampIsExactlyOneVisibleWorkerRevision() {
     wait();
     const auto second=worker.status();
     require(second.completedStamps==2&&second.pendingSteps==0&&
-            second.pendingSegments==0&&!second.active,
+            second.pendingSegments==0&&!second.active&&
+            second.snapshotPublications==2,
             "Second deliberate one-shot must complete exactly one additional stamp");
     const auto frame2=worker.takeSnapshot();
     require(frame2&&frame2->completedStamps==2,
