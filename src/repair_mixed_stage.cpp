@@ -574,6 +574,190 @@ MixedClosureStaging stagePrivateMixedClosure(
                 }
                 return output;
             };
+            // A *different* self-mirror topology from the two opposite
+            // one-sided loops handled by M23B: BOTH original rims may
+            // independently cross X=0 at exactly two real seam vertices.
+            // In that case passing requireMirrorPlane=false to M23B
+            // privately constructs unpaired interior vertices; the final
+            // global M06C audit correctly refuses the apparent zipper.
+            //
+            // Close only the positive-X half of the two-mouth bridge with
+            // AFM, then reflect every face and every interior vertex as
+            // one exact orbit. The two connectors between the mouths'
+            // original seam vertices are real seam edges shared by the
+            // reflected patches. No new source identity is welded.
+            const auto positiveHalfArc=[&](const UnifiedZipperRim& rim)
+                ->std::vector<std::size_t> {
+                const auto n=rim.ids.size();
+                std::vector<std::size_t> seam;
+                std::vector<std::size_t> reflection(n,n);
+                for(std::size_t i=0;i<n;++i) {
+                    const auto p=rim.positions[i];
+                    if(p.x==0)seam.push_back(i);
+                    for(std::size_t j=0;j<n;++j) {
+                        const auto q=rim.positions[j];
+                        if(q.x==-p.x&&q.y==p.y&&q.z==p.z) {
+                            if(reflection[i]!=n)return {};
+                            reflection[i]=j;
+                        }
+                    }
+                    if(reflection[i]==n)return {};
+                }
+                if(seam.size()!=2)return {};
+                for(std::size_t i=0;i<n;++i)
+                    if(reflection[(i+1)%n]!=(reflection[i]+n-1)%n)
+                        return {};
+                for(const auto start:seam) {
+                    std::vector<std::size_t> arc{start};
+                    bool positive=false,invalid=false;
+                    for(std::size_t k=(start+1)%n;k!=start;k=(k+1)%n) {
+                        arc.push_back(k);
+                        const auto x=rim.positions[k].x;
+                        if(x==0)break;
+                        if(x<0) {invalid=true;break;}
+                        positive=true;
+                    }
+                    if(!invalid&&positive&&
+                       rim.positions[arc.back()].x==0&&
+                       arc.back()!=start)
+                        return arc;
+                }
+                return {};
+            };
+            if(bounds.requireReflectedGeometry&&
+               !mirroredPair&&!reflectedPair) {
+                const auto firstRim=toCapFacingRim(a);
+                const auto secondRim=toCapFacingRim(b);
+                const auto firstArc=positiveHalfArc(firstRim);
+                const auto secondArc=positiveHalfArc(secondRim);
+                if(!firstArc.empty()&&!secondArc.empty()) {
+                    std::vector<VertexId> boundaryIds;
+                    std::vector<Vec3> boundary,normals;
+                    const auto appendArc=[&](const UnifiedZipperRim& rim,
+                                             const std::vector<std::size_t>& arc) {
+                        for(const auto i:arc) {
+                            boundaryIds.push_back(rim.ids[i]);
+                            boundary.push_back(rim.positions[i]);
+                            normals.push_back(rim.outgoingNormals[i]);
+                        }
+                    };
+                    appendArc(firstRim,firstArc);
+                    appendArc(secondRim,secondArc);
+                    if(boundary.size()>512||
+                       boundary.size()>bounds.zipper.maxContourVertices*2+2)
+                        throw std::length_error(
+                            "R06-M06C two-self-mirrored zipper half-rim budget");
+                    const auto minPositive=std::min(
+                        std::abs(firstRim.positions[firstArc[1]].x),
+                        std::abs(secondRim.positions[secondArc[1]].x));
+                    const auto margin=std::min(.05*h,.2*minPositive);
+                    SpatialCapSettings spatial;
+                    spatial.useAdvancingFront=true;
+                    spatial.maxBoundaryVertices=std::min<std::size_t>(
+                        512,bounds.zipper.maxContourVertices*2+2);
+                    spatial.maxInteriorVertices=bounds.maxNewTriangles/2;
+                    spatial.maxFaces=bounds.maxNewTriangles/2;
+                    spatial.maxIntersectionTests=50000;
+                    spatial.desiredMinimumQuality=.10;
+                    // Convex Poisson updates preserve the strictly
+                    // positive half-space when guidance has zero weight.
+                    spatial.normalGuidance=0;
+                    const SpatialCapPlacementAdjustment halfSpace=
+                        [margin](const SpatialCapPlacementProposal& p) {
+                            auto q=p.projectedPosition;
+                            q.x=std::max(q.x,margin);
+                            return q;
+                        };
+                    const auto patch=buildSpatialCapFrontPoisson(
+                        boundary,normals,spatial,&halfSpace);
+                    if(patch.positions.size()<boundary.size())
+                        throw std::logic_error(
+                            "R06-M06C mirrored half-zipper patch lost fixed rim");
+                    for(std::size_t k=0;k<patch.positions.size();++k) {
+                        const auto p=patch.positions[k];
+                        if((k<boundary.size()&&
+                            (p.x!=boundary[k].x||p.y!=boundary[k].y||
+                             p.z!=boundary[k].z))||
+                           (k>=boundary.size()&&!(p.x>0)))
+                            throw std::logic_error(
+                                "R06-M06C mirrored half-zipper left positive half-space");
+                    }
+                    std::map<std::tuple<double,double,double>,VertexId>
+                        originalByPosition;
+                    for(const auto& rim:{firstRim,secondRim})
+                        for(std::size_t k=0;k<rim.ids.size();++k) {
+                            const auto p=rim.positions[k];
+                            if(!originalByPosition.emplace(
+                                std::make_tuple(p.x,p.y,p.z),rim.ids[k]).second)
+                                throw std::logic_error(
+                                    "R06-M06C mirrored zipper rim has ambiguous source coordinates");
+                        }
+                    std::vector<VertexId> positive,negative;
+                    positive.reserve(patch.positions.size());
+                    negative.reserve(patch.positions.size());
+                    const auto makeNew=[&](Vec3 p,PartitionId own) {
+                        const auto id=std::numeric_limits<VertexId>::max()-
+                            static_cast<VertexId>(
+                                result.provisionalSpatialVertices().size());
+                        if(mesh.maybeVertex(id)||result.positions().contains(id))
+                            throw std::logic_error(
+                                "R06-M06C two-half zipper provisional ID collision");
+                        result.stageProvisionalVertex(
+                            id,p,own,bounds.maxNewTriangles);
+                        return id;
+                    };
+                    for(std::size_t k=0;k<patch.positions.size();++k) {
+                        const auto p=patch.positions[k];
+                        if(k<boundary.size()) {
+                            positive.push_back(boundaryIds[k]);
+                            const auto found=originalByPosition.find(
+                                std::make_tuple(-p.x,p.y,p.z));
+                            if(found==originalByPosition.end())
+                                throw std::logic_error(
+                                    "R06-M06C positive half zipper lacks reflected source rim identity");
+                            negative.push_back(found->second);
+                        }else {
+                            if(result.provisionalSpatialVertices().size()+2>
+                               bounds.maxNewTriangles)
+                                throw std::length_error(
+                                    "R06-M06C two-half zipper vertex budget");
+                            positive.push_back(makeNew(p,owner));
+                            negative.push_back(makeNew({-p.x,p.y,p.z},otherOwner));
+                        }
+                    }
+                    for(const auto& tri:patch.faces) {
+                        addFace({0,owner,
+                                 {positive[tri[0]],positive[tri[1]],
+                                  positive[tri[2]]},
+                                 MixedClosureFaceKind::Zipper,h});
+                        addFace({0,otherOwner,
+                                 {negative[tri[0]],negative[tri[2]],
+                                  negative[tri[1]]},
+                                 MixedClosureFaceKind::Zipper,h});
+                    }
+                    ++result.zipperPairs;
+                    result.usedMirroredSeamZipper=true;
+                    ++result.mirroredSeamZipperPairs;
+                    result.mirroredSeamZipperVertices+=4;
+                    result.spatialPoissonIterations+=patch.poissonIterations;
+                    result.minimumSpatialInitialQuality=std::min(
+                        result.minimumSpatialInitialQuality,
+                        patch.minimumQuality);
+                    std::cout<<"[repair-r06-mirror-zipper]"
+                             <<" mode=two-self-reflected-rims"
+                             <<" loops="<<pair.first<<","<<pair.second
+                             <<" seam_vertices=4"
+                             <<" positive_faces="<<patch.faces.size()
+                             <<" exact_orbit=1 source_certified=0\n";
+                    continue;
+                }
+                // Never publish unpaired AFM vertices from a single
+                // mirror-invariant zipper operation. Other paired
+                // configurations must gain an explicit symmetric route.
+                throw std::logic_error(
+                    "R06-M06C zipper rim symmetry is neither opposite one-sided "
+                    "nor two independently self-reflected contours");
+            }
             SpatialCapSettings spatial;
             spatial.useAdvancingFront=true;
             spatial.maxBoundaryVertices=std::min<std::size_t>(
