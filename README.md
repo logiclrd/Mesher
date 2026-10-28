@@ -29,16 +29,25 @@ zipper refinement. The retired ring-and-hub and mirrored-ribbon constructors
 and M17D–M21A ring-specific optimizations are **not** production fallbacks.
 
 ```sh
-# Live AUTO: certified repair is published atomically and Inflate continues
-./build/Mesher --repair-auto
+# Normal mouse Inflate automatically uses certified R07 AUTO.
+./build/Mesher
 
-# Opt-in frozen, unpublished inspection
-./build/Mesher --repair-inspect --repair-auto
+# Opt-in frozen, unpublished AUTO inspection
+./build/Mesher --repair-inspect
 
-# Exact archived-case debugger, with selected unified zipper
+# Exact archived-case debugger; diagnostic choices remain available
 ./build/Mesher --repair-replay repair-cases/refusal-2.r06case \
   --repair-step-debug --repair-unified-zipper
 ```
+
+The former `--repair auto`, `--repair cap`, `--repair zipper`,
+`--repair-auto`, `--repair-cap` and `--repair-zipper` selectors
+have been removed. The production worker always selects cap or zipper
+from the R01/R03 contact and rim evidence; an uncertifiable repair still
+refuses the stamp atomically. `--repair-preview` and `--repair-excise`
+remain frozen private intermediate-stage diagnostics, not production
+fallback modes. Explicit protected Merge and collision avoidance retain
+their separate policies.
 
 Historical M17D–M21A ring optimizer flags now fail explicitly instead of
 silently having no effect. `--repair-scale-aware` remains an independent,
@@ -54,15 +63,18 @@ Broad live GPU self-contact acceptance remains separate from CPU/CI tests.
 
 The [geometry repair rebaseline](docs/GEOMETRY_REPAIR_REBASELINE.md) defines the intended iterative, approximate manifold-preserving Merge pipeline and independent nonpenetrating brush response, superseding *product* assumptions that every local residual intersection must be an exact certified Boolean refusal. Historical V17/V18 implementation and tests remain supported only for their documented domains. The new [R01 diagnostic acceptance protocol](docs/R01_GPU_ACCEPTANCE.md) describes the opt-in `--repair-inspect` read-only first-intersection freeze, red vertices/edges and physical GPU verification. No automatic repair is enabled by R01; see `todo.md` for the flat R01–R08 plan.
 
-The [R05 forced private cap inspection](docs/R05_FORCED_CAP_ACCEPTANCE.md) runs with `--repair cap`: independently closes each R03 loop with actual green faces and bounded neighbor-aware subdivision in a frozen unpublished private mesh, never using a zipper.
-
-The [R04 forced private zipper](docs/R04_FORCED_ZIPPER_ACCEPTANCE.md) is enabled by `--repair zipper`: it stitches compatible R03 hole loops with actual blue new faces and bounded edge refinement, then freezes on an unpublished private closed mesh. It never silently caps unmatched loops.
+The [historical R05 forced-cap](docs/R05_FORCED_CAP_ACCEPTANCE.md)
+and [R04 forced-zipper](docs/R04_FORCED_ZIPPER_ACCEPTANCE.md)
+acceptance documents record development-only operations. Their
+`--repair cap` and `--repair zipper` switches no longer exist;
+the active AUTO planner selects the appropriate certified closure.
 
 The [R03 private open-hole excision inspection](docs/R03_PRIVATE_EXCISION_ACCEPTANCE.md) can be enabled with `--repair-excise`; it actually removes the selected face fans and vertices in a **private, frozen, unpublished mesh** so the holes can be viewed without allowing normal editing of a non-closed mesh.
 
-The [R02 read-only excision preview](docs/R02_EXCISION_PREVIEW_ACCEPTANCE.md) can be enabled with `--repair-preview` to show **conservative contact-vertex removal, complete incident-face fans, and oriented cut boundary loops** without actually changing mesh topology. The existing R01 detector remains available with `--repair-inspect`.
+The [R02 read-only excision preview](docs/R02_EXCISION_PREVIEW_ACCEPTANCE.md) can be enabled with `--repair-preview` to show **conservative contact-vertex removal, complete incident-face fans, and oriented cut boundary loops** without actually changing mesh topology. The R01 contact detector and current frozen AUTO inspector remain
+available through `--repair-inspect`.
 
-The [G01 topology-test geometry fixtures](docs/G01_GEOMETRY_FIXTURES.md) provide `--torus` and `--hollow-sphere`, with tunable `--vertices`, `--seed`, `--relax` and optional R01 `--repair-inspect`. These deliberately test topology without enabling automatic repair.
+The [G01 topology-test geometry fixtures](docs/G01_GEOMETRY_FIXTURES.md) provide `--torus` and `--hollow-sphere`, with tunable `--vertices`, `--seed`, `--relax` and optional R01 `--repair-inspect`. Ordinary interactive sculpting on these fixtures also uses AUTO repair by default.
 
 ## Building and testing
 

@@ -37,9 +37,6 @@ int main(int argc, char** argv) {
     bool repairInspect = false;
     bool repairPreview = false;
     bool repairExcise = false;
-    bool repairZipper = false;
-    bool repairCap = false;
-    bool repairAuto = false;
     bool repairDumpContours = false;
     bool repairQualityWarn = false,repairScaleAware=false;
     bool repairSeamAudit=false,repairOverlayExact=false;
@@ -88,9 +85,6 @@ int main(int argc, char** argv) {
             else if(arg=="--repair-inspect")repairInspect=true;
             else if(arg=="--repair-preview")repairPreview=true;
             else if(arg=="--repair-excise")repairExcise=true;
-            else if(arg=="--repair-zipper")repairZipper=true;
-            else if(arg=="--repair-cap")repairCap=true;
-            else if(arg=="--repair-auto")repairAuto=true;
             else if(arg=="--repair-dump-contours")repairDumpContours=true;
             else if(arg=="--repair-quality-warn")repairQualityWarn=true;
             else if(arg=="--repair-ear-clipping")repairEarClipping=true;
@@ -127,14 +121,6 @@ int main(int argc, char** argv) {
                 if(++i>=argc)throw std::invalid_argument("Missing R06 case filename");
                 if(arg=="--repair-case-out")repairCaseOut=argv[i];
                 else {repairReplayPath=argv[i];repairReplayTest=(arg=="--repair-replay-test");}
-            }
-            else if(arg=="--repair") {
-                if(++i>=argc)throw std::invalid_argument("--repair requires zipper, cap, or auto");
-                const std::string_view operation=argv[i];
-                if(operation=="zipper")repairZipper=true;
-                else if(operation=="cap")repairCap=true;
-                else if(operation=="auto")repairAuto=true;
-                else throw std::invalid_argument("--repair requires zipper, cap, or auto");
             }
             else if(arg=="--torus")torusFixture=true;
             else if(arg=="--hollow-sphere")hollowSphereFixture=true;
@@ -235,11 +221,9 @@ int main(int argc, char** argv) {
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
                          <<"       [--repair-preview] (R02 classify excision faces and boundary loops; no topology edits)\n"
                          <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
-                         <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
-                         <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
-                         <<"       [--repair auto] (R07 live certified R06 AUTO; publishes one root and continues brush)\n"
-                         <<"       [--repair-inspect --repair auto] (explicit frozen/private R06 diagnostic mode)\n"
-                         <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
+                         <<"       Certified R07 AUTO repair is enabled by default for interactive Inflate\n"
+                         <<"       [--repair-inspect] (frozen/private AUTO diagnostics)\n"
+                         <<"       [--repair-classifier area|proximity] (R06 inspector/replay; default area)\n"
                          <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
                          <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
                          <<"       [--repair-seam-audit] (R06 log exact new/survivor seams, T junctions and crossing edges)\n"
@@ -247,13 +231,13 @@ int main(int argc, char** argv) {
                          <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
                          <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
                          <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
-                         <<"       [--repair-scale-aware] (experimental M17C bounded quality-aware splitting; auto/replay only)\n"
+                         <<"       [--repair-scale-aware] (experimental bounded quality-aware splitting; inspector/replay only)\n"
                          <<"       [M17D-M21A legacy ring optimizer options removed; AFM is the default]\n"
-                         <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
-                         <<"       [--repair-unified-zipper] (M23B diagnostic/replay opt-in; live R06 uses accepted unified zipper)\\n"
+                         <<"       [--repair-ear-clipping] (R06 inspector/replay: try projected ears then AFM; production AFM only)\n"
+                         <<"       [--repair-unified-zipper] (M23B inspector/replay opt-in; live AUTO uses unified zipper)\n"
                          <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
                          <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
-                         <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
+
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -289,55 +273,36 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
-        if(static_cast<int>(repairCap)+static_cast<int>(repairZipper)+
-           static_cast<int>(repairAuto)>1)
-            throw std::invalid_argument("Select only one repair: cap, zipper or auto");
-        if(classifierExplicit&&!repairAuto&&repairReplayPath.empty())
+        // Certified R07 AUTO is the only production Inflate repair policy.
+        // Explicit inspection, preview, excision, and replay stay private.
+        const bool diagnosticRepair=repairInspect||repairPreview||repairExcise;
+        const bool repairAuto=!repairPreview&&!repairExcise;
+        if(classifierExplicit&&!repairInspect&&repairReplayPath.empty())
             throw std::invalid_argument(
-                "--repair-classifier requires --repair auto, --repair-replay or --repair-replay-test");
-        if((repairSeamAudit||repairOverlayExact)&&
-           !repairAuto&&repairReplayPath.empty())
+                "--repair-classifier requires --repair-inspect or --repair-replay[-test]");
+        if((repairSeamAudit||repairOverlayExact||repairEarClipping||
+            repairUnifiedZipper||repairQualityWarn||repairScaleAware||
+            repairDumpContours)&&!repairInspect&&repairReplayPath.empty())
             throw std::invalid_argument(
-                "--repair-seam-audit/--repair-overlay-exact require --repair auto or --repair-replay[-test]");
-        if(repairEarClipping&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-ear-clipping requires --repair auto or --repair-replay[-test]");
-        if(repairUnifiedZipper&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-unified-zipper requires --repair auto or --repair-replay[-test]");
-        if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
-        if(!repairCaseOut.empty()&&!repairAuto)
-            throw std::invalid_argument("--repair-case-out requires --repair auto");
-        if(repairScaleAware&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument(
-                "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
+                "Repair diagnostic options require --repair-inspect or --repair-replay[-test]");
+        if(!repairCaseOut.empty()&&!repairInspect)
+            throw std::invalid_argument("--repair-case-out requires --repair-inspect");
         if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
             throw std::invalid_argument(
                 "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
-        if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
-           repairPreview||repairExcise||!recoverPath.empty()||torusFixture||
-           hollowSphereFixture||allowMergeGeometry||avoidCollisions||avoidTestSheets||
-           mergeTestTetra||mergeTestReflectedTetra||demoMode||compareRemesh||
-           compareLocalRemesh||compareMitigations))
-            throw std::invalid_argument("--repair-replay is exclusive with live repair and mesh generation/recovery modes");
-        if(repairDumpContours&&!repairAuto&&repairReplayPath.empty())
-            throw std::invalid_argument("--repair-dump-contours requires --repair auto");
-        // R07: --repair auto is LIVE by default. R01-R06 frozen
-        // inspection is explicitly requested with --repair-inspect (or an
-        // earlier preview/excision mode). The replay step debugger remains
-        // independently opt-in and never owns a live sculpt worker.
-        const bool liveCertifiedAuto=repairAuto&&!repairInspect&&
-            !repairPreview&&!repairExcise;
-        if(liveCertifiedAuto&&
-           (repairQualityWarn||repairSeamAudit||repairOverlayExact||
-            repairDumpContours||!repairCaseOut.empty()||
-            repairScaleAware||repairEarClipping))
+        if(!repairReplayPath.empty()&&(diagnosticRepair||
+            !recoverPath.empty()||torusFixture||hollowSphereFixture||
+            allowMergeGeometry||avoidCollisions||avoidTestSheets||
+            mergeTestTetra||mergeTestReflectedTetra||demoMode||compareRemesh||
+            compareLocalRemesh||compareMitigations))
             throw std::invalid_argument(
-                "R07 live --repair auto does not accept frozen diagnostic flags; "
-                "use --repair-inspect --repair-auto or --repair-replay");
-        repairExcise=repairExcise||repairZipper||repairCap||
-            (repairAuto&&!liveCertifiedAuto);
+                "--repair-replay is exclusive with live repair and mesh generation/recovery modes");
+        // Protected Merge and collision-avoidance are independent policies.
+        const bool liveCertifiedAuto=inflate&&!demoMode&&!compareRemesh&&
+            !compareLocalRemesh&&!compareMitigations&&!diagnosticRepair&&
+            repairReplayPath.empty()&&!allowMergeGeometry&&!avoidCollisions;
         repairPreview=repairPreview||repairExcise;
-        repairInspect=repairInspect||repairPreview;
+        repairInspect=diagnosticRepair;
         if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
            !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
             throw std::invalid_argument(
@@ -347,8 +312,6 @@ int main(int argc, char** argv) {
             inflate&&!demoMode&&!compareRemesh&&
             !compareLocalRemesh&&!compareMitigations
         });
-        // The live worker owns R06's complete certified private repair;
-        // viewport callbacks never see its intermediate open R03 root.
         desktopPolicy.certifiedAutoClosure=liveCertifiedAuto;
         desktopPolicy.certifiedAutoUnifiedZipper=true;
         if(avoidTestSheets&&(!(avoidCollisions||repairInspect)||options.symmetric||
@@ -765,7 +728,7 @@ int main(int argc, char** argv) {
         bool inspectionPresented=false;
         auto repairSession=repairInspect
             ?std::make_shared<mesher::RepairInspectionSession>(
-                repairPreview,repairExcise,repairZipper,repairCap,
+                repairPreview,repairExcise,false,false,
                 repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
                 repairSeamAudit,repairOverlayExact,repairScaleAware,
                 repairEarClipping,repairUnifiedZipper):nullptr;
@@ -981,7 +944,9 @@ int main(int argc, char** argv) {
                         [&](mesher::PartitionId id,const mesher::MeshPartition&) {
                             owners.insert(id);
                         });
-                    std::cout<<(repairAuto?"[repair-r06] ":(repairCap?"[repair-r05] ":(repairZipper?"[repair-r04] ":(repairExcise?"[repair-r03] ":(repairPreview?"[repair-r02] ":"[repair-r01] ")))))
+                     std::cout<<(repairAuto?"[repair-r06] ":
+                         (repairExcise?"[repair-r03] ":
+                          (repairPreview?"[repair-r02] ":"[repair-r01] ")))
                              <<"FROZEN candidate state="
                              <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
                              <<" contacts="<<frozen->contacts.size()
@@ -1045,42 +1010,6 @@ int main(int argc, char** argv) {
                                      <<" reason="<<(frozen->excisionDiagnostic.empty()?
                                         "no complete approved cut":frozen->excisionDiagnostic)
                                      <<" (original candidate retained, unpublished)\n";
-                        }
-                    }
-                    if(repairZipper) {
-                        if(const auto& zipper=frozen->privateZipper) {
-                            std::cout<<"[repair-r04] ZIPPED forced=1 private_closed_mesh=1"
-                                     <<" zipper_pairs="<<zipper->matchedLoops.size()
-                                     <<" blue_faces="<<zipper->blueFaces.size()
-                                     <<" inserted_vertices="<<zipper->insertedVertices.size()
-                                     <<" new_faces="<<zipper->totalNewFaces
-                                     <<" boundary_splits="<<zipper->splitBoundaryEdges
-                                     <<" refinement_steps="<<zipper->refinementSteps
-                                     <<" min_seam_quality="<<zipper->minimumSeamQuality
-                                     <<" no_caps=1 unpublished=1\n";
-                            for(const auto& pair:zipper->matchedLoops)
-                                std::cout<<"[repair-r04] pair "<<pair.first
-                                         <<" -> "<<pair.second<<"\n";
-                        }else {
-                            std::cout<<"[repair-r04] ZIPPER_REFUSED private_closed_mesh=0"
-                                     <<" reason="<<frozen->zipperDiagnostic
-                                     <<" (R03 cut retained where available; no publication)\n";
-                        }
-                    }
-                    if(repairCap) {
-                        if(const auto& cap=frozen->privateCap) {
-                            std::cout<<"[repair-r05] CAPPED forced=1 private_closed_mesh=1"
-                                     <<" independent_caps="<<cap->cappedLoops
-                                     <<" green_faces="<<cap->greenFaces.size()
-                                     <<" inserted_vertices="<<cap->insertedVertices.size()
-                                     <<" new_faces="<<cap->totalNewFaces
-                                     <<" refinement_steps="<<cap->refinementSteps
-                                     <<" min_cap_quality="<<cap->minimumCapQuality
-                                     <<" no_zippers=1 unpublished=1\n";
-                        }else {
-                            std::cout<<"[repair-r05] CAP_REFUSED private_closed_mesh=0"
-                                     <<" reason="<<frozen->capDiagnostic
-                                     <<" (R03 cut retained where available; no publication)\n";
                         }
                     }
                     if(repairAuto&&repairSeamAudit) {
@@ -1221,10 +1150,6 @@ int main(int argc, char** argv) {
                         ?frozen->privateAuto->index:
                         repairAuto&&frozen->warningPreview
                         ?frozen->warningPreview->index:
-                        repairCap&&frozen->privateCap
-                        ?frozen->privateCap->index:
-                        repairZipper&&frozen->privateZipper
-                        ?frozen->privateZipper->index:
                         repairExcise&&frozen->privateCut
                         ?frozen->privateCut->index:frozen->candidate;
                     auto update=mesher::ViewportMeshUpdate{
@@ -1234,8 +1159,7 @@ int main(int argc, char** argv) {
                         true,mesher::buildRepairInspectionOverlay(*frozen),
                         repairPreview,repairExcise,
                         repairExcise&&frozen->privateCut.has_value(),
-                        repairZipper,repairZipper&&frozen->privateZipper.has_value(),
-                        repairCap,repairCap&&frozen->privateCap.has_value(),
+                        false,false,false,false,
                         repairAuto,repairAuto&&frozen->privateAuto.has_value()};
                     update.inspectionQualityWarningPreview=frozen->warningPreview.has_value();
                     update.classifierChoices=frozen->classifierChoices;
@@ -1360,7 +1284,7 @@ int main(int argc, char** argv) {
                             "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
                             "The annotation does not modify the displayed result. "
                             "Replay via --repair-replay FILE or --repair-replay-test FILE.\n";
-            if(repairAuto)
+            if(repairAuto&&(repairInspect||liveCertifiedAuto))
                 std::cout<<"[repair-r06] classifier="
                          <<mesher::autoClosureClassifierName(repairClassifier)
                          <<" (M08 experimental proximity for trusted two-rim regions only; "
@@ -1375,29 +1299,20 @@ int main(int argc, char** argv) {
                             "The brush continues after a refusal; see [repair-r07] "
                             "status lines for checked, repaired, refused and "
                             "published stamp counts.\n";
-            if(repairCap)
-                std::cout<<"[repair-r05] Armed ALWAYS CAP (independent green caps on R03 holes, "
-                            "private and frozen; never zippers).\n";
-            if(repairZipper)
-                std::cout<<"[repair-r04] Armed ALWAYS ZIPPER in unpublished private mesh. "
-                            "Blue new seam triangles, bounded refinement, no caps; "
-                            "the brush freezes on contact.\n";
-            if(repairExcise&&!repairZipper&&!repairCap&&!repairAuto)
+            if(repairExcise&&!repairAuto)
                 std::cout<<"[repair-r03] Armed PRIVATE OPEN CUT: first certified contact freezes, "
-                            "removes selected complete face fans/vertices only in a separate "
-                            "unpublished debug revision; surviving hole rims are gold. "
-                            "No cap/zipper; normal worker/history/checkpoint untouched.\n";
+                            "removes selected face fans in an unpublished debug revision; "
+                            "no publication or checkpoint changes.\n";
             if(repairPreview&&!repairExcise)
                 std::cout<<"[repair-r02] Armed read-only proposed excision preview. "
                             "Orange selected faces; purple uncertain faces; "
                             "gold boundary loops; red incident contacts. "
                              "No geometry removed or published.\n";
             if(repairInspect)
-                std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
-                            "unpublished candidate. Red dots are incident vertices; "
-                            "dark-red rods are attached edges. Move camera/orbit "
-                            "inside the surface, W/G; Escape to exit/relaunch. "
-                            "No excision, no checkpoint/history publication.\n";
+                std::cout<<"[repair-r01] Inspector armed: stamp a crossing to freeze "
+                            "an unpublished candidate. Red contact markers, private "
+                            "excision and certified AUTO previews as selected; "
+                            "no changes to worker/history/checkpoint.\n";
             if(avoidTestSheets&&!repairInspect)
                 std::cout<<"[collision] M07 GPU exercise: orbit to view the two "
                             "closely separated faces near X=0, sculpt repeatedly "
