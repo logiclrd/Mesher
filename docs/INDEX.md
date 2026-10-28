@@ -5,6 +5,23 @@ historical development/acceptance record. The chronological files
 are retained because their positive and refusal cases contain
 technical details that should not be rewritten as broad promises.
 
+## Repair architecture rebaseline (2026-10-21)
+
+- [R06-M23 unified gravity-guided advancing-front zipper design](R06_M23_UNIFIED_ATTRACTIVE_FRONT_ZIPPER.md): one shared AFM cap/zipper constructor, optional no-op placement callback, finite-width bridge, side-aware attraction after handoff, exact general symmetry-orbit rules, and two flat implementation tasks (not yet implemented).
+
+- [R05 forced cap and green visual acceptance](R05_FORCED_CAP_ACCEPTANCE.md): multiple independent hole disks, quality-aware subdivision, frozen private closure and explicit refusal.
+
+- [R04 forced zipper and refinement physical acceptance](R04_FORCED_ZIPPER_ACCEPTANCE.md): full private stitch, blue seam triangles, neighbor-aware subdivision, no auto caps or durable publication.
+
+- [R03 private open-hole excision inspection](R03_PRIVATE_EXCISION_ACCEPTANCE.md): real deleted vertex fans and oriented surviving boundaries shown only in a frozen private mesh, with no cap, zipper or worker publication.
+
+- [R02 bounded vertex-star excision and contour inspection](R02_EXCISION_PREVIEW_ACCEPTANCE.md): contact vertices and complete removal fans (orange), bounded pinch cleanup vertices (cyan), advisory V14 uncertainty (purple), oriented survivor loops (gold), no topology mutation.
+
+- [G01 torus and hollow-shell construction / acceptance](G01_GEOMETRY_FIXTURES.md): randomized analytic torus; connected hollow shell with corrected two-ring negative-Y tube, and eventual redundant inner component deletion.
+
+- [New geometry repair product contract and flat R01–R08 plan](GEOMETRY_REPAIR_REBASELINE.md): iterative approximate Merge, shared brushes, permissive minor existing crossings, exact symmetry only while provably maintained, independent many-island closure and conservative many-to-many refusal.
+- [R01 frozen intersection developer GPU acceptance](R01_GPU_ACCEPTANCE.md): source-independent post-stamp diagnostic with red incident elements, separate Linux/Windows physical evidence still pending.
+
 ## Read these for the current state
 
 - [Active roadmap and remaining TODOs](../todo.md):
@@ -92,3 +109,5 @@ leave a partly completed item ambiguously checked. Each milestone
 requires actual positive and refusal coverage and exact PR-head
 plus independent merged-main CI on GCC/Clang/MSVC. Retain human
 GPU observations and CPU proofs as separate evidence.
+
+Current AFM production cleanup: [R06 AFM retirement](R06_AFM_RETIREMENT.md).

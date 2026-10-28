@@ -8,8 +8,13 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
+#include "mesher/sculpt_fixtures.hpp"
+#include "mesher/repair_inspection.hpp"
+#include "mesher/repair_case.hpp"
+#include "mesher/repair_step_replay_session.hpp"
 
 #include <array>
+#include <set>
 #include <filesystem>
 #include <optional>
 #include <charconv>
@@ -29,6 +34,18 @@ int main(int argc, char** argv) {
     bool allowMergeGeometry = false;
     bool avoidCollisions = false;
     bool avoidTestSheets = false;
+    bool repairInspect = false;
+    bool repairPreview = false;
+    bool repairExcise = false;
+    bool repairZipper = false;
+    bool repairCap = false;
+    bool repairAuto = false;
+    bool repairDumpContours = false;
+    bool repairQualityWarn = false,repairScaleAware=false;
+    bool repairSeamAudit=false,repairOverlayExact=false;
+    bool repairEarClipping=false,repairUnifiedZipper=false;
+    bool torusFixture = false, hollowSphereFixture = false;
+    bool explicitSymmetric = false;
     bool mergeTestTetra = false;
     bool mergeTestReflectedTetra = false;
     double step = .02, strength = .012, brushRadius = .4, stampRate = 10.0, timeSpeed = .2;
@@ -45,10 +62,16 @@ int main(int argc, char** argv) {
     bool compareLocalRemesh = false;
     std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
     std::filesystem::path recoverPath;
+    std::filesystem::path repairCaseOut,repairReplayPath;
+    bool repairReplayTest=false,repairStepDebug=false;
+    bool classifierExplicit=false;
+    mesher::AutoClosureClassifier repairClassifier=mesher::AutoClosureClassifier::Area;
     try {
         for(int i=1;i<argc;++i) {
             const std::string_view arg=argv[i];
-            if(arg=="--asymmetric") options.symmetric=false;
+            if(arg=="--asymmetric") {
+                options.symmetric=false;explicitSymmetric=false;
+            }
             else if(arg=="--no-collapse") collapseSettings.enabled=false;
             else if(arg=="--no-refine") refineSettings.enabled=false;
             else if(arg=="--no-edge-flips") refineSettings.optimizeFlips=false;
@@ -62,6 +85,59 @@ int main(int argc, char** argv) {
             else if(arg=="--merge-geometry")allowMergeGeometry=true;
             else if(arg=="--avoid-collisions")avoidCollisions=true;
             else if(arg=="--avoid-test-sheets")avoidTestSheets=true;
+            else if(arg=="--repair-inspect")repairInspect=true;
+            else if(arg=="--repair-preview")repairPreview=true;
+            else if(arg=="--repair-excise")repairExcise=true;
+            else if(arg=="--repair-zipper")repairZipper=true;
+            else if(arg=="--repair-cap")repairCap=true;
+            else if(arg=="--repair-auto")repairAuto=true;
+            else if(arg=="--repair-dump-contours")repairDumpContours=true;
+            else if(arg=="--repair-quality-warn")repairQualityWarn=true;
+            else if(arg=="--repair-ear-clipping")repairEarClipping=true;
+            else if(arg=="--repair-unified-zipper")repairUnifiedZipper=true;
+            else if(arg=="--repair-step-debug")repairStepDebug=true;
+            else if(arg=="--repair-scale-aware")repairScaleAware=true;
+            else if(arg=="--repair-front-optimize"||
+                    arg=="--repair-curvature-optimize"||
+                    arg=="--repair-curvature-poisson"||
+                    arg=="--repair-feasibility-probe"||
+                    arg=="--repair-feasibility-preview"||
+                    arg=="--repair-diagonal-probe"||
+                    arg=="--repair-diagonal-preview"||
+                    arg=="--repair-whole-cap-fairing-preview")
+                throw std::invalid_argument(
+                    "The M17D-M21A ring-and-hub optimizer options were retired; "
+                    "advancing-front capping is now the only spatial cap generator");
+            else if(arg=="--repair-seam-audit")repairSeamAudit=true;
+            else if(arg=="--repair-overlay-exact")repairOverlayExact=true;
+            else if(arg=="--repair-classifier") {
+                if(++i>=argc)throw std::invalid_argument(
+                    "--repair-classifier requires area or proximity");
+                const std::string_view value=argv[i];
+                if(value=="area")
+                    repairClassifier=mesher::AutoClosureClassifier::Area;
+                else if(value=="proximity")
+                    repairClassifier=mesher::AutoClosureClassifier::Proximity;
+                else throw std::invalid_argument(
+                    "--repair-classifier requires area or proximity");
+                classifierExplicit=true;
+            }
+            else if(arg=="--repair-case-out"||arg=="--repair-replay"||
+                    arg=="--repair-replay-test") {
+                if(++i>=argc)throw std::invalid_argument("Missing R06 case filename");
+                if(arg=="--repair-case-out")repairCaseOut=argv[i];
+                else {repairReplayPath=argv[i];repairReplayTest=(arg=="--repair-replay-test");}
+            }
+            else if(arg=="--repair") {
+                if(++i>=argc)throw std::invalid_argument("--repair requires zipper, cap, or auto");
+                const std::string_view operation=argv[i];
+                if(operation=="zipper")repairZipper=true;
+                else if(operation=="cap")repairCap=true;
+                else if(operation=="auto")repairAuto=true;
+                else throw std::invalid_argument("--repair requires zipper, cap, or auto");
+            }
+            else if(arg=="--torus")torusFixture=true;
+            else if(arg=="--hollow-sphere")hollowSphereFixture=true;
             else if(arg=="--merge-test-tetra")mergeTestTetra=true;
             else if(arg=="--merge-test-reflected-tetra")mergeTestReflectedTetra=true;
             else if(arg=="--checkpoint"||arg=="--recover") {
@@ -125,7 +201,9 @@ int main(int argc, char** argv) {
                     throw std::invalid_argument("Segments must be between 1 and 100000");
                 segments=static_cast<std::uint32_t>(n);
             }
-            else if(arg=="--symmetric")options.symmetric=true;
+            else if(arg=="--symmetric") {
+                options.symmetric=true;explicitSymmetric=true;
+            }
             else if(arg=="--vertices"||arg=="--seed"||arg=="--relax") {
                 if(++i>=argc)throw std::invalid_argument("Missing value after "+std::string(arg));
                 const std::string_view value=argv[i];
@@ -154,7 +232,28 @@ int main(int argc, char** argv) {
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
-                         <<"       [--avoid-test-sheets] (requires --avoid-collisions --asymmetric; M07 GPU test only)\n"
+                         <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
+                         <<"       [--repair-preview] (R02 classify excision faces and boundary loops; no topology edits)\n"
+                         <<"       [--repair-excise] (R03 remove vertex fans in a FROZEN PRIVATE open mesh)\n"
+                         <<"       [--repair zipper] (R04 forced private blue zipper with bounded subdivision)\n"
+                         <<"       [--repair cap] (R05 forced independent private GREEN caps with subdivision)\n"
+                         <<"       [--repair auto] (R07 live certified R06 AUTO; publishes one root and continues brush)\n"
+                         <<"       [--repair-inspect --repair auto] (explicit frozen/private R06 diagnostic mode)\n"
+                         <<"       [--repair-classifier area|proximity] (R06 auto and replay; default area)\n"
+                         <<"       [--repair-dump-contours] (R06 exact R03 rim replay coordinates, optional)\n"
+                         <<"       [--repair-quality-warn] (inspection-only, untrusted low-q faces and edges)\n"
+                         <<"       [--repair-seam-audit] (R06 log exact new/survivor seams, T junctions and crossing edges)\n"
+                         <<"       [--repair-overlay-exact] (R06 draw undisplaced cap/zipper and exact highlighted seam)\n"
+                         <<"       [--repair-case-out FILE] (Ctrl+S on any frozen R06; Shift=zipper, Alt=caps)\n"
+                         <<"       [--repair-replay FILE] (rerun saved exact R06 candidate/contacts and inspect Vulkan)\n"
+                         <<"       [--repair-step-debug --repair-replay FILE] (interactive staged operation debugger: N Next, P Previous, C Current, Enter Continue, Backspace Cancel, PgUp/PgDn arguments)\n"
+                         <<"       [--repair-scale-aware] (experimental M17C bounded quality-aware splitting; auto/replay only)\n"
+                         <<"       [M17D-M21A legacy ring optimizer options removed; AFM is the default]\n"
+                         <<"       [--repair-ear-clipping] (R06: try projected ears first, then adaptive advancing front on refusal; default AFM only)\\n"
+                         <<"       [--repair-unified-zipper] (M23B diagnostic/replay opt-in; live R06 uses accepted unified zipper)\\n"
+                         <<"       [--repair-replay-test FILE] (headless regression, exit nonzero on outcome change)\n"
+                         <<"       [--torus|--hollow-sphere] (area-sampled, relaxed topology test meshes)\n"
+                         <<"       [--repair-inspect] (R01 freeze at post-stamp intersections; read-only red markers)\n"
                          <<"       [--merge-test-tetra] (requires --merge-geometry --asymmetric; M50 fixture)\n"
                          <<"       [--merge-test-reflected-tetra] (requires --merge-geometry --symmetric; M51 fixture)\n"
                          <<"Defaults: --symmetric --vertices 5000 --seed 1 --relax 65; collapse/curvature/refine ON\n"
@@ -167,6 +266,17 @@ int main(int argc, char** argv) {
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
                  <<"\n";
+        if(torusFixture&&hollowSphereFixture)
+            throw std::invalid_argument("Choose either --torus or --hollow-sphere");
+        if(torusFixture||hollowSphereFixture) {
+            if(explicitSymmetric)
+                throw std::invalid_argument("Randomized fixture does not have exact --symmetric topology; use spatially independent --asymmetric");
+            if(avoidTestSheets||mergeTestTetra||mergeTestReflectedTetra||
+               !recoverPath.empty()||allowMergeGeometry||demoMode||
+               compareRemesh||compareLocalRemesh||compareMitigations)
+                throw std::invalid_argument("--torus and --hollow-sphere require fresh interactive geometry, not recovery, demo, compare, or protected Merge");
+            options.symmetric=false;
+        }
         if(mergeTestTetra&&mergeTestReflectedTetra)
             throw std::invalid_argument("Choose only one experimental Merge fixture");
         if(mergeTestReflectedTetra&&(!allowMergeGeometry||!options.symmetric))
@@ -179,16 +289,73 @@ int main(int argc, char** argv) {
            compareRemesh||compareMitigations||!inflate))
             throw std::invalid_argument(
                 "--merge-geometry only supports interactive, non-demo sculpt mode");
-        const auto desktopPolicy=mesher::desktopCollisionSettings({
+        if(static_cast<int>(repairCap)+static_cast<int>(repairZipper)+
+           static_cast<int>(repairAuto)>1)
+            throw std::invalid_argument("Select only one repair: cap, zipper or auto");
+        if(classifierExplicit&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-classifier requires --repair auto, --repair-replay or --repair-replay-test");
+        if((repairSeamAudit||repairOverlayExact)&&
+           !repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-seam-audit/--repair-overlay-exact require --repair auto or --repair-replay[-test]");
+        if(repairEarClipping&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-ear-clipping requires --repair auto or --repair-replay[-test]");
+        if(repairUnifiedZipper&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-unified-zipper requires --repair auto or --repair-replay[-test]");
+        if(repairQualityWarn&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-quality-warn requires --repair auto or --repair-replay[-test]");
+        if(!repairCaseOut.empty()&&!repairAuto)
+            throw std::invalid_argument("--repair-case-out requires --repair auto");
+        if(repairScaleAware&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument(
+                "--repair-scale-aware requires --repair auto or --repair-replay[-test]");
+        if(repairStepDebug&&(repairReplayPath.empty()||repairReplayTest))
+            throw std::invalid_argument(
+                "--repair-step-debug requires interactive --repair-replay FILE (not --repair-replay-test)");
+        if(!repairReplayPath.empty()&&(repairAuto||repairCap||repairZipper||repairInspect||
+           repairPreview||repairExcise||!recoverPath.empty()||torusFixture||
+           hollowSphereFixture||allowMergeGeometry||avoidCollisions||avoidTestSheets||
+           mergeTestTetra||mergeTestReflectedTetra||demoMode||compareRemesh||
+           compareLocalRemesh||compareMitigations))
+            throw std::invalid_argument("--repair-replay is exclusive with live repair and mesh generation/recovery modes");
+        if(repairDumpContours&&!repairAuto&&repairReplayPath.empty())
+            throw std::invalid_argument("--repair-dump-contours requires --repair auto");
+        // R07: --repair auto is LIVE by default. R01-R06 frozen
+        // inspection is explicitly requested with --repair-inspect (or an
+        // earlier preview/excision mode). The replay step debugger remains
+        // independently opt-in and never owns a live sculpt worker.
+        const bool liveCertifiedAuto=repairAuto&&!repairInspect&&
+            !repairPreview&&!repairExcise;
+        if(liveCertifiedAuto&&
+           (repairQualityWarn||repairSeamAudit||repairOverlayExact||
+            repairDumpContours||!repairCaseOut.empty()||
+            repairScaleAware||repairEarClipping))
+            throw std::invalid_argument(
+                "R07 live --repair auto does not accept frozen diagnostic flags; "
+                "use --repair-inspect --repair-auto or --repair-replay");
+        repairExcise=repairExcise||repairZipper||repairCap||
+            (repairAuto&&!liveCertifiedAuto);
+        repairPreview=repairPreview||repairExcise;
+        repairInspect=repairInspect||repairPreview;
+        if(repairInspect&&(allowMergeGeometry||avoidCollisions||demoMode||
+           !inflate||compareLocalRemesh||compareRemesh||compareMitigations))
+            throw std::invalid_argument(
+                "--repair-inspect is exclusive with --merge-geometry/--avoid-collisions and requires interactive Inflate");
+        auto desktopPolicy=mesher::desktopCollisionSettings({
             allowMergeGeometry,avoidCollisions,
             inflate&&!demoMode&&!compareRemesh&&
             !compareLocalRemesh&&!compareMitigations
         });
-        if(avoidTestSheets&&(!avoidCollisions||options.symmetric||
+        // The live worker owns R06's complete certified private repair;
+        // viewport callbacks never see its intermediate open R03 root.
+        desktopPolicy.certifiedAutoClosure=liveCertifiedAuto;
+        desktopPolicy.certifiedAutoUnifiedZipper=true;
+        if(avoidTestSheets&&(!(avoidCollisions||repairInspect)||options.symmetric||
             !recoverPath.empty()||mergeTestTetra||
             mergeTestReflectedTetra))
             throw std::invalid_argument(
-                "--avoid-test-sheets requires --avoid-collisions --asymmetric, no --recover and no protected Merge fixture");
+                "--avoid-test-sheets requires --avoid-collisions --asymmetric (or --repair-inspect --asymmetric), no --recover or protected Merge");
         if(avoidTestSheets&&
             (!inflate||demoMode||compareLocalRemesh||
              compareRemesh||compareMitigations))
@@ -197,6 +364,227 @@ int main(int argc, char** argv) {
         if(allowMergeGeometry&&!recoverPath.empty())
             throw std::invalid_argument(
                 "--merge-geometry refuses V13 disk recovery without sealed first-original M29 authority");
+
+        if(!repairReplayPath.empty()) {
+            // Exact R01-approved contact evidence and entire immutable post-stamp
+            // candidate are decoded BEFORE any Vulkan/GPU setup. The source
+            // sculpt and its previous worker history are never synthesized.
+            const auto saved=mesher::readRepairCase(repairReplayPath);
+            if(repairStepDebug) {
+                // M16D opt-in: Vulkan is fully initialized before the replay
+                // worker starts. No private open stage enters the immutable
+                // revision publisher, picking root, history or checkpoint.
+                auto viewportMesh=mesher::flattenRevisionForViewport(
+                    *saved.candidate.index,mesher::FlatMeshIndex{});
+                if(viewportMesh.vertices.empty())
+                    throw std::runtime_error("R06 stepped replay has no candidate");
+                auto session=std::make_shared<mesher::RepairReplayStepSession>(
+                    saved,repairClassifier,repairQualityWarn,
+                    repairSeamAudit,repairOverlayExact,repairScaleAware,
+                    repairEarClipping,repairUnifiedZipper);
+                mesher::ViewportInteraction inspect;
+                inspect.initialRevision=saved.candidate.index;
+                inspect.canBegin=[]{return false;};
+                inspect.completedStamps=[]{return std::size_t{0};};
+                inspect.repairStepMode=true;
+                inspect.onReady=[session] {session->start();};
+                inspect.repairStepCommand=[session](int key) {
+                    session->command(key);
+                };
+                inspect.takeSnapshot=[session] {return session->takeSnapshot();};
+                inspect.caption=[session] {return session->caption();};
+                std::cout<<"[repair-r06-m16d] Interactive exact replay: "
+                            "N Next, P Previous, C Current, Enter Continue, "
+                            "Backspace Cancel, PgUp/PgDn scroll arguments; "
+                            "orbit/W/G and Escape exit. Private only.\n";
+                mesher::runViewport(viewportMesh,{},std::move(inspect));
+                session->cancelAndJoin(); // also handled by destructor on throw
+                return 0;
+            }
+            const auto frozen=mesher::replayPrivateAutomaticRepair(
+                saved,repairClassifier,repairQualityWarn,
+                repairSeamAudit,repairOverlayExact,{},repairScaleAware,
+                repairEarClipping,repairUnifiedZipper);
+            const bool succeeded=frozen->privateAuto.has_value();
+            std::cout<<"[repair-r06] CLASSIFIERS area="<<frozen->classifierChoices[0]
+                     <<" proximity="<<frozen->classifierChoices[1]
+                     <<" comparable="<<frozen->classifierComparable
+                     <<" agree="<<frozen->classifiersAgree
+                     <<" active="<<mesher::autoClosureClassifierName(repairClassifier)
+                     <<" (agreement is not correctness or M04 completion)\n";
+            const auto chosenCaps=frozen->autoPlan?
+                frozen->autoPlan->cappedContours.size():0;
+            const auto chosenZippers=frozen->autoPlan?
+                frozen->autoPlan->zipperPairs.size():0;
+            const auto choice=chosenZippers?
+                (chosenCaps?"mixed":"zipper"):
+                (chosenCaps?"caps":"none");
+            const bool intentMatches=saved.intendedSelection==
+                mesher::RepairCaseIntent::Unspecified||
+                (saved.intendedSelection==mesher::RepairCaseIntent::PreferZipper?
+                    chosenZippers>0:(chosenCaps>0&&chosenZippers==0));
+            std::cout<<"[repair-r06] REPLAY file="<<repairReplayPath.string()
+                     <<" classifier="<<mesher::autoClosureClassifierName(repairClassifier)
+                     <<" expected="<<(saved.expectedClosure?"AUTO_CLOSED":"AUTO_REFUSED")
+                     <<" actual="<<(succeeded?"AUTO_CLOSED":"AUTO_REFUSED")
+                     <<" expected_choice="<<mesher::repairCaseIntentName(saved.intendedSelection)
+                     <<" actual_choice="<<choice
+                     <<" choice_match="<<intentMatches
+                     <<" contacts="<<saved.contacts.size()
+                     <<" symmetric_source="<<saved.symmetricSource
+                     <<" exact_candidate=1 worker_history_checkpoint_unchanged=1\n";
+            std::cout<<"[repair-r06] RECORDED original_reason="
+                     <<saved.originalDiagnostic<<"\n";
+            if(frozen->autoPlan) {
+                const auto& plan=*frozen->autoPlan;
+                std::cout<<"[repair-r06] PLAN status="
+                         <<static_cast<int>(plan.status)
+                         <<" regions="<<plan.geometryRegions
+                         <<" caps="<<plan.cappedContours.size()
+                         <<" zipper_pairs="<<plan.zipperPairs.size()
+                         <<" contact_links="<<plan.trustedContactLinks<<"\n";
+                for(std::size_t i=0;i<plan.regions.size();++i) {
+                    const auto& region=plan.regions[i];
+                    std::cout<<"[repair-r06] region="<<i
+                             <<" caps="<<region.caps.size()
+                             <<" zippers="<<region.zippers.size()
+                             <<" contact_links="<<region.contactLinks
+                             <<" rim_metrics_valid="<<region.twoRimEvidenceValid
+                             <<" centroid_gap="<<region.rimCentroidSeparation
+                             <<" normals_dot="<<region.rimNormalAlignment
+                             <<" nearest_gap_in_edges="<<region.rimNearestSeparationInEdges
+                             <<" cap_area_estimate="<<region.estimatedCapArea
+                             <<" zipper_area_estimate="<<region.estimatedZipperArea
+                             <<" selection="<<region.selectionReason<<"\n";
+                }
+            }
+            if(succeeded) {
+                const auto& completed=*frozen->privateAuto;
+                std::cout<<"[repair-r06] AUTO_CLOSED private_closed_mesh=1"
+                         <<" cap_loops="<<(frozen->autoPlan?
+                             frozen->autoPlan->cappedContours.size():0)
+                         <<" zipper_pairs="<<(frozen->autoPlan?
+                             frozen->autoPlan->zipperPairs.size():0)
+                         <<" green_faces="<<completed.greenFaces.size()
+                         <<" blue_faces="<<completed.blueFaces.size()
+                         <<" min_cap_quality="<<completed.minimumCapQuality
+                         <<" min_zipper_quality="<<completed.minimumZipperQuality
+                         <<" refinement_steps="<<completed.refinementSteps
+                         <<" interior_quality_flips="<<completed.interiorQualityFlips
+                         <<" interior_fairing_moves="<<completed.interiorFairingMoves
+                         <<" interior_cap_collapses="<<completed.interiorCapCollapses
+                         <<" proven_rim_tip_exempt_faces="<<completed.certifiedPlanarRimTipFaces
+                         <<" inserted_vertices="<<completed.insertedVertices
+                         <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+            }else {
+                std::cout<<"[repair-r06] AUTO_REFUSED private_closed_mesh=0"
+                         <<" reason="<<frozen->autoDiagnostic
+                         <<" (R03 cut retained where available; unpublished=1)\n";
+            }
+            if(repairQualityWarn) {
+                if(const auto& preview=frozen->warningPreview) {
+                    std::cout<<"[repair-r06] QUALITY_WARNING_PREVIEW untrusted=1"
+                             <<" private_closed_mesh=0"
+                             <<" deficient_faces="<<preview->qualityWarningFaces.size()
+                             <<" green_faces="<<preview->greenFaces.size()
+                             <<" blue_faces="<<preview->blueFaces.size()
+                             <<" first_warning="<<preview->qualityWarningReason
+                             <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+                }else if(!frozen->warningPreviewDiagnostic.empty())
+                    std::cout<<"[repair-r06] QUALITY_WARNING_UNAVAILABLE reason="
+                             <<frozen->warningPreviewDiagnostic<<"\n";
+            }
+            if(repairSeamAudit) {
+                const auto mesh=frozen->privateAuto?
+                    frozen->privateAuto->index:
+                    frozen->warningPreview?frozen->warningPreview->index:nullptr;
+                if(frozen->seamAudit&&mesh)
+                    mesher::printRepairSeamAudit(std::cout,*mesh,
+                        *frozen->seamAudit,
+                        succeeded?"CERTIFIED_PRIVATE":"UNTRUSTED_WARNING_PREVIEW");
+                if(frozen->seamProvenance)
+                    mesher::printRepairSeamProvenance(
+                        std::cout,*frozen->seamProvenance);
+                else
+                    std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
+                             <<frozen->seamAuditDiagnostic<<"\n";
+            }
+            if(repairDumpContours&&frozen->privateCut) {
+                const auto& open=*frozen->privateCut->index;
+                for(std::size_t i=0;i<frozen->excision.contours.size();++i) {
+                    const auto& rim=frozen->excision.contours[i];
+                    for(std::size_t j=0;j<rim.vertexIds.size();++j) {
+                        const auto vertex=rim.vertexIds[j];
+                        const auto xyz=open.vertex(vertex).position;
+                        std::cout<<std::setprecision(17)
+                                 <<"[repair-r06-contour] loop="<<i
+                                 <<" ordinal="<<j<<" id="<<vertex
+                                 <<" xyz="<<xyz.x<<","<<xyz.y<<","<<xyz.z
+                                 <<" surviving_face="<<rim.survivingFaces.at(j)<<"\n";
+                    }
+                }
+            }
+            if(repairReplayTest) {
+                const bool outcomeMatches=succeeded==saved.expectedClosure;
+                std::cout<<"[repair-r06] REPLAY_TEST "
+                         <<(!outcomeMatches?"OUTCOME_MISMATCH":
+                            !intentMatches?"CHOICE_MISMATCH":"PASS")
+                         <<" expected_choice="<<mesher::repairCaseIntentName(
+                             saved.intendedSelection)
+                         <<" actual_choice="<<choice
+                         <<" stored_reason="<<saved.originalDiagnostic<<"\n";
+                return !outcomeMatches?2:(!intentMatches?3:0);
+            }
+            auto viewportMesh=mesher::flattenRevisionForViewport(
+                *saved.candidate.index,mesher::FlatMeshIndex{});
+            if(viewportMesh.vertices.empty())
+                throw std::runtime_error("R06 replay candidate has no displayable mesh");
+            mesher::ViewportInteraction inspect;
+            inspect.initialRevision=saved.candidate.index;
+            inspect.canBegin=[]{return false;};
+            inspect.undo=[]{};
+            inspect.redo=[]{};
+            inspect.checkpoint=[]{};
+            inspect.completedStamps=[]{return std::size_t{0};};
+            inspect.caption=[succeeded] {
+                return std::string("R06 exact case replay FROZEN | ")+
+                       (succeeded?"AUTO COMPLETE":"AUTO REFUSED");
+            };
+            inspect.takeSnapshot=[frozen,already=false]()
+                mutable -> std::optional<mesher::ViewportMeshUpdate> {
+                if(already)return std::nullopt;
+                already=true;
+                auto display=frozen->privateAuto?
+                    frozen->privateAuto->index:
+                    frozen->warningPreview?frozen->warningPreview->index:
+                    frozen->privateCut?frozen->privateCut->index:frozen->candidate;
+                std::set<mesher::PartitionId> touched;
+                frozen->candidate->revision().forEachPartition(
+                    [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                        touched.insert(id);
+                    });
+                display->revision().forEachPartition(
+                    [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                        touched.insert(id);
+                    });
+                auto update=mesher::ViewportMeshUpdate{
+                    display,{touched.begin(),touched.end()},0,true,
+                    mesher::buildRepairInspectionOverlay(*frozen),
+                    true,true,frozen->privateCut.has_value(),
+                    false,false,false,false,true,
+                    frozen->privateAuto.has_value()};
+                update.inspectionQualityWarningPreview=frozen->warningPreview.has_value();
+                update.classifierChoices=frozen->classifierChoices;
+                update.classifierComparable=frozen->classifierComparable;
+                update.classifiersAgree=frozen->classifiersAgree;
+                update.activeClassifier=
+                    frozen->activeClassifier==mesher::AutoClosureClassifier::Proximity?1:0;
+                return update;
+            };
+            std::cout<<"[repair-r06] Opened read-only replay viewport; orbit/W/G, Escape to exit.\n";
+            mesher::runViewport(viewportMesh,{},std::move(inspect));
+            return 0;
+        }
         mesher::Mesh mesh;
         std::optional<mesher::DurableCheckpoint> recovered;
         if(!recoverPath.empty()) {
@@ -222,6 +610,28 @@ int main(int argc, char** argv) {
                      <<mesh.triangles.size()<<" independently owned faces; "
                         "separate close sheets near origin and safe remote face at X=3.5. "
                         "No protected Merge source is authorized.\n";
+        }else if(torusFixture) {
+            std::cout<<"[fixture] Constructing torus R=0.55 r=0.45 (hole radius 0.10); "
+                     <<options.vertexCount<<" random area-stratified vertices, "
+                     <<options.relaxationIterations<<" relaxation passes.\n";
+            mesh=mesher::generateTorusFixture(options.vertexCount,options.seed,
+                                             options.relaxationIterations);
+            std::cout<<"[fixture] TORUS topology: "
+                     <<mesh.vertices.size()<<" vertices, "
+                     <<mesh.triangles.size()<<" triangles, connected genus 1. "
+                     <<"Independent (non-mirrored) mesh topology.\n";
+        }else if(hollowSphereFixture) {
+            std::cout<<"[fixture] Constructing hollow shell; outer R=1, "
+                     <<"inner R=0.95, negative-Y mouth r=0.1, "
+                     <<"tube r=0.095 at Y=-0.96 and Y=-0.93.\n";
+            mesh=mesher::generateHollowSphereFixture(
+                options.vertexCount,options.seed,options.relaxationIterations);
+            options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
+            std::cout<<"[fixture] HOLLOW SHELL topology: "
+                     <<mesh.vertices.size()<<" vertices after cut/connector, "
+                     <<mesh.triangles.size()<<" triangles; one connected "
+                     <<"closed genus-0 surface with an accessible inner wall. "
+                     <<"Independent (non-mirrored) mesh topology.\n";
         }else if(mergeTestReflectedTetra) {
             mesh=mesher::desktopMergeReflectedTetraFixture();
             options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
@@ -350,6 +760,20 @@ int main(int argc, char** argv) {
         mesher::ViewportInteraction interaction;
         std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
+        // The lambdas in ViewportInteraction outlive the setup block.
+        std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
+        bool inspectionPresented=false;
+        auto repairSession=repairInspect
+            ?std::make_shared<mesher::RepairInspectionSession>(
+                repairPreview,repairExcise,repairZipper,repairCap,
+                repairAuto,options.symmetric,repairClassifier,repairQualityWarn,
+                repairSeamAudit,repairOverlayExact,repairScaleAware,
+                repairEarClipping,repairUnifiedZipper):nullptr;
+        const mesher::SculptStepValidator repairValidator=repairSession
+            ?mesher::SculptStepValidator{
+                [repairSession](const mesher::ProposedSculptStep& proposed) {
+                    return repairSession->inspect(proposed);
+                }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
             const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
@@ -366,7 +790,7 @@ int main(int argc, char** argv) {
                 liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
                     curvatureSettings,collapseSettings,refineSettings,
-                    mesher::SculptStepValidator{},desktopPolicy);
+                    repairValidator,desktopPolicy);
             else {
                 const auto mergePolicy=desktopPolicy;
                 if(mergeTestReflectedTetra) {
@@ -379,7 +803,7 @@ int main(int argc, char** argv) {
                     liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                         std::move(source.checkpoint),step,strength,timeSpeed,
                         curvatureSettings,collapseSettings,refineSettings,
-                        mesher::SculptStepValidator{},mergePolicy,
+                        repairValidator,mergePolicy,
                         std::move(source.firstFaces));
                 } else {
                     // The global OFF startup remains bit-for-bit the previous
@@ -391,7 +815,7 @@ int main(int argc, char** argv) {
                     liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
                         mesh,step,strength,timeSpeed,curvatureSettings,
                         collapseSettings,refineSettings,options.symmetric,
-                        mesher::SculptStepValidator{},mergePolicy);
+                        repairValidator,mergePolicy);
                 }
             }
             if(avoidTestSheets)
@@ -404,16 +828,28 @@ int main(int argc, char** argv) {
                 // untouched; both Vulkan projection and CPU rays scale.
                 interaction.cameraScale=mergeTestReflectedTetra?4.0:2.0;
             }
-            if(avoidCollisions) {
-                interaction.collisionStatus=[&] {
+            if(avoidCollisions||liveCertifiedAuto) {
+                interaction.collisionStatus=[&,liveCertifiedAuto] {
                     const auto status=liveWorker->status();
-                    const auto& bt=status.stepResources.backtracking;
                     std::ostringstream out;
-                    out<<"ON R "<<status.rejectedStamps
-                       <<" A "<<status.completedStamps
-                       <<" P "<<status.publishedRevisions
-                       <<" trials "<<bt.trials
-                       <<" fraction "<<bt.chosenNormalFraction;
+                    if(liveCertifiedAuto) {
+                        out<<"AUTO A "<<status.completedStamps
+                           <<" R "<<status.rejectedStamps
+                           <<" P "<<status.publishedRevisions
+                           <<" checked "<<status.collisionCheckedStamps
+                           <<" repaired "<<status.collisionRepairedStamps
+                           <<" seed "<<status.stepResources.autoDetectionWork.seedFaces
+                           <<" boxes "<<status.stepResources.autoDetectionWork.boxesTested
+                           <<" source_ms "<<std::fixed<<std::setprecision(1)
+                           <<status.stepResources.stageWall.sourceGeometryMs;
+                    }else {
+                        const auto& bt=status.stepResources.backtracking;
+                        out<<"ON R "<<status.rejectedStamps
+                           <<" A "<<status.completedStamps
+                           <<" P "<<status.publishedRevisions
+                           <<" trials "<<bt.trials
+                           <<" fraction "<<bt.chosenNormalFraction;
+                    }
                     if(status.terminalFailure)
                         out<<" TERMINAL "<<status.terminalFailureReason;
                     else if(status.stepResources.refused)
@@ -442,11 +878,69 @@ int main(int argc, char** argv) {
                     return text;
                 };
             }
-            interaction.undo=[&]{liveWorker->undo();};
-            interaction.redo=[&]{liveWorker->redo();};
-            interaction.checkpoint=[&]{
+            interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
+            interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
+            interaction.checkpoint=[&] {
+                // The frozen branch uses a distinct, outcome-aware callback.
+                // Never checkpoint unpublished automatic repair geometry.
+                if(repairSession&&repairSession->frozen())return;
                 liveWorker->saveCheckpoint(checkpointPath);
                 std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
+            };
+            interaction.frozenRepairCapture=[&](int requestedIntent) {
+                if(!repairAuto||!repairSession||!repairSession->frozen())return;
+                const auto frozen=repairSession->frozenSnapshot();
+                if(!frozen||!frozen->candidate||frozen->contacts.empty()) {
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED no frozen candidate / complete contacts\n";
+                    return;
+                }
+                try {
+                    if(requestedIntent<0||requestedIntent>2)
+                        throw std::invalid_argument("Invalid requested classification annotation");
+                    const auto intent=static_cast<mesher::RepairCaseIntent>(requestedIntent);
+                    const bool completed=frozen->privateAuto.has_value();
+                    const auto stem=intent==mesher::RepairCaseIntent::PreferZipper?
+                        "classification-zipper":
+                        intent==mesher::RepairCaseIntent::PreferCaps?
+                        "classification-caps":
+                        completed?"closure":"refusal";
+                    const auto destination=repairCaseOut.empty()?
+                        mesher::uniqueRepairCasePath("repair-cases",stem):repairCaseOut;
+                    mesher::RepairCase capture;
+                    capture.candidate.index=frozen->candidate;
+                    capture.symmetricSource=options.symmetric;
+                    capture.contacts=frozen->contacts;
+                    capture.expectedClosure=completed;
+                    capture.intendedSelection=intent;
+                    // Preserve the ORIGINAL M03 classification explanation
+                    // as human-readable archive evidence. A later executable
+                    // may have different decision thresholds and cannot
+                    // reconstruct what the old planner actually reasoned.
+                    std::ostringstream original;
+                    original<<(completed?"R06 AUTO_CLOSED":"R06 AUTO_REFUSED");
+                    if(frozen->autoPlan) {
+                        const auto& plan=*frozen->autoPlan;
+                        original<<" caps="<<plan.cappedContours.size()
+                                <<" zippers="<<plan.zipperPairs.size();
+                        for(std::size_t i=0;i<plan.regions.size();++i) {
+                            const auto& region=plan.regions[i];
+                            original<<" region["<<i<<"] caps="
+                                    <<region.caps.size()<<" zippers="
+                                    <<region.zippers.size()<<" selection="
+                                    <<region.selectionReason;
+                        }
+                    }
+                    if(!completed)original<<" refusal="<<frozen->autoDiagnostic;
+                    capture.originalDiagnostic=original.str();
+                    mesher::writeRepairCase(destination,capture);
+                    std::cout<<"[repair-r06] CASE_SAVED "<<destination.string()
+                             <<" original="<<(completed?"AUTO_CLOSED":"AUTO_REFUSED")
+                             <<" desired_choice="<<mesher::repairCaseIntentName(intent)
+                             <<" exact_candidate=1 contacts="<<capture.contacts.size()
+                             <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+                }catch(const std::exception& error) {
+                    std::cout<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
+                }
             };
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
@@ -456,6 +950,7 @@ int main(int argc, char** argv) {
                 liveWorker->setRadius(brushRadius);
             };
             interaction.begin=[&](mesher::Vec3 point) {
+                if(repairSession&&repairSession->frozen())return;
                 liveWorker->begin(point,brushRadius);
             };
             interaction.update=[&](mesher::Vec3 point,double elapsed) {
@@ -464,13 +959,298 @@ int main(int argc, char** argv) {
             interaction.end=[&](mesher::Vec3 point,double elapsed) {
                 liveWorker->end(point,elapsed);
             };
+            interaction.stampOnce=[&](mesher::Vec3 point) {
+                if(repairSession&&repairSession->frozen())return;
+                liveWorker->stampOnce(point,brushRadius);
+            };
             interaction.initialRevision=liveWorker->initialRevision();
+            // R01 preview is NOT a published worker root. Preserve its
+            // immutable source separately from ordinary live snapshots and
+            // invalidate all visible partition owners once at freeze.
+            lastDisplayed=liveWorker->initialRevision();
             interaction.takeSnapshot=[&]() -> std::optional<mesher::ViewportMeshUpdate> {
+                if(repairSession)if(const auto frozen=repairSession->frozenSnapshot()) {
+                    if(inspectionPresented)return std::nullopt;
+                    inspectionPresented=true;
+                    std::set<mesher::PartitionId> owners;
+                    if(lastDisplayed)lastDisplayed->revision().forEachPartition(
+                        [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                            owners.insert(id);
+                        });
+                    frozen->candidate->revision().forEachPartition(
+                        [&](mesher::PartitionId id,const mesher::MeshPartition&) {
+                            owners.insert(id);
+                        });
+                    std::cout<<(repairAuto?"[repair-r06] ":(repairCap?"[repair-r05] ":(repairZipper?"[repair-r04] ":(repairExcise?"[repair-r03] ":(repairPreview?"[repair-r02] ":"[repair-r01] ")))))
+                             <<"FROZEN candidate state="
+                             <<(frozen->diagnostic.empty()?"CONTACT":"QUERY_INCOMPLETE")
+                             <<" contacts="<<frozen->contacts.size()
+                             <<" faces="<<frozen->affectedFaces.size()
+                             <<" incident_vertices="<<frozen->incidentVertices.size()
+                             <<" incident_edges="<<frozen->incidentEdges.size()
+                             <<" seed_faces="<<frozen->work.seedFaces
+                             <<" box_tests="<<frozen->work.boxesTested
+                             <<" partition_tests="<<frozen->work.partitionsTested
+                             <<" candidate_triangles="<<frozen->work.candidateTriangles
+                             <<" narrow_tests="<<frozen->work.narrowPhaseTests
+                             <<" diagnostic="<<(frozen->diagnostic.empty()?"none":frozen->diagnostic)
+                             <<" (no CAS/history/checkpoint publication)\n";
+                    for(const auto& pair:frozen->contacts)
+                        std::cout<<"[repair-r01] FaceId "<<pair.first
+                                 <<" x "<<pair.second
+                                 <<(pair.ambiguous?" AMBIGUOUS":" CONTACT")<<"\n";
+                    if(repairPreview) {
+                        const auto& preview=frozen->excision;
+                        std::cout<<"[repair-r02] PREVIEW proposed_vertices="<<preview.proposedVertices.size()
+                                  <<" proposed_faces="<<preview.proposedFaces.size()
+                                  <<" expanded_boundary_vertices="<<preview.expandedBoundaryVertices.size()
+                                  <<" orphan_vertices="<<preview.newlyOrphanedVertices.size()
+                                  <<" boundary_repairs="<<preview.boundaryRepairs
+                                 <<" uncertain_faces="<<preview.uncertainFaces.size()
+                                 <<" mixed_faces="<<preview.mixedFaces.size()
+                                 <<" contact_islands="<<preview.contactIslands
+                                 <<" excision_components="<<preview.excisionComponents
+                                 <<" boundary_loops="<<preview.contours.size()
+                                 <<" boundary_edges="<<preview.boundaryEdges
+                                 <<" classified_faces="<<preview.classifiedFaces
+                                  <<" classification_advisory="<<(preview.classificationAdvisory.empty()?
+                                      "none":preview.classificationAdvisory)
+                                 <<" complete="<<preview.complete
+                                 <<" reason="<<(preview.diagnostic.empty()?"none":preview.diagnostic)
+                                 <<" closure_advisory="<<(preview.closureAdvisory.empty()?
+                                    "none":preview.closureAdvisory)
+                                 <<" (R02 plan only; no faces published)\n";
+                        for(std::size_t i=0;i<preview.contours.size();++i)
+                            std::cout<<"[repair-r02] loop="<<i
+                                     <<" vertices="<<preview.contours[i].vertexIds.size()
+                                     <<" perimeter="<<preview.contours[i].perimeter<<"\n";
+                        for(const auto id:preview.proposedVertices)
+                             std::cout<<"[repair-r02] retire VertexId "<<id<<"\n";
+                         for(const auto id:preview.proposedFaces)
+                            std::cout<<"[repair-r02] remove FaceId "<<id<<"\n";
+                    }
+                    if(repairExcise) {
+                        if(const auto& cut=frozen->privateCut) {
+                            std::cout<<"[repair-r03] EXCISED private_open_mesh=1"
+                                     <<" removed_vertices="<<cut->removedVertices
+                                     <<" removed_faces="<<cut->removedFaces
+                                     <<" modified_partitions="<<cut->modifiedPartitions
+                                     <<" surviving_faces="<<cut->survivingFaces
+                                     <<" open_boundary_edges="<<cut->boundaryEdges
+                                     <<" open_boundary_loops="<<cut->boundaryLoops
+                                     <<" no_caps=1 no_zippers=1"
+                                     <<" unpublished=1 (worker/history/checkpoint unchanged)\n";
+                        }else {
+                            std::cout<<"[repair-r03] EXCISION_REFUSED private_open_mesh=0"
+                                     <<" reason="<<(frozen->excisionDiagnostic.empty()?
+                                        "no complete approved cut":frozen->excisionDiagnostic)
+                                     <<" (original candidate retained, unpublished)\n";
+                        }
+                    }
+                    if(repairZipper) {
+                        if(const auto& zipper=frozen->privateZipper) {
+                            std::cout<<"[repair-r04] ZIPPED forced=1 private_closed_mesh=1"
+                                     <<" zipper_pairs="<<zipper->matchedLoops.size()
+                                     <<" blue_faces="<<zipper->blueFaces.size()
+                                     <<" inserted_vertices="<<zipper->insertedVertices.size()
+                                     <<" new_faces="<<zipper->totalNewFaces
+                                     <<" boundary_splits="<<zipper->splitBoundaryEdges
+                                     <<" refinement_steps="<<zipper->refinementSteps
+                                     <<" min_seam_quality="<<zipper->minimumSeamQuality
+                                     <<" no_caps=1 unpublished=1\n";
+                            for(const auto& pair:zipper->matchedLoops)
+                                std::cout<<"[repair-r04] pair "<<pair.first
+                                         <<" -> "<<pair.second<<"\n";
+                        }else {
+                            std::cout<<"[repair-r04] ZIPPER_REFUSED private_closed_mesh=0"
+                                     <<" reason="<<frozen->zipperDiagnostic
+                                     <<" (R03 cut retained where available; no publication)\n";
+                        }
+                    }
+                    if(repairCap) {
+                        if(const auto& cap=frozen->privateCap) {
+                            std::cout<<"[repair-r05] CAPPED forced=1 private_closed_mesh=1"
+                                     <<" independent_caps="<<cap->cappedLoops
+                                     <<" green_faces="<<cap->greenFaces.size()
+                                     <<" inserted_vertices="<<cap->insertedVertices.size()
+                                     <<" new_faces="<<cap->totalNewFaces
+                                     <<" refinement_steps="<<cap->refinementSteps
+                                     <<" min_cap_quality="<<cap->minimumCapQuality
+                                     <<" no_zippers=1 unpublished=1\n";
+                        }else {
+                            std::cout<<"[repair-r05] CAP_REFUSED private_closed_mesh=0"
+                                     <<" reason="<<frozen->capDiagnostic
+                                     <<" (R03 cut retained where available; no publication)\n";
+                        }
+                    }
+                    if(repairAuto&&repairSeamAudit) {
+                        const auto mesh=frozen->privateAuto?
+                            frozen->privateAuto->index:
+                            frozen->warningPreview?frozen->warningPreview->index:nullptr;
+                        if(frozen->seamAudit&&mesh)
+                            mesher::printRepairSeamAudit(std::cout,*mesh,
+                                *frozen->seamAudit,
+                                frozen->privateAuto?"CERTIFIED_PRIVATE":
+                                    "UNTRUSTED_WARNING_PREVIEW");
+                        if(frozen->seamProvenance)
+                            mesher::printRepairSeamProvenance(
+                                std::cout,*frozen->seamProvenance);
+                        else
+                            std::cout<<"[repair-r06-seam] UNAVAILABLE reason="
+                                     <<frozen->seamAuditDiagnostic<<"\n";
+                    }
+                    if(repairAuto&&repairDumpContours&&frozen->privateCut) {
+                        // An opt-in exact loop-coordinate capture makes
+                        // an otherwise one-shot physical folded contact
+                        // reproducible as a bounded CPU cap fixture.
+                        const auto& open=*frozen->privateCut->index;
+                        for(std::size_t i=0;i<frozen->excision.contours.size();++i) {
+                            const auto& rim=frozen->excision.contours[i];
+                            for(std::size_t j=0;j<rim.vertexIds.size();++j) {
+                                const auto id=rim.vertexIds[j];
+                                const auto xyz=open.vertex(id).position;
+                                std::ostringstream row;
+                                row<<std::setprecision(17)
+                                   <<"[repair-r06-contour] loop="<<i
+                                   <<" ordinal="<<j
+                                   <<" id="<<id
+                                   <<" xyz="<<xyz.x<<","<<xyz.y<<","<<xyz.z
+                                   <<" surviving_face="<<rim.survivingFaces.at(j);
+                                std::cout<<row.str()<<"\n";
+                            }
+                        }
+                    }
+                    if(repairAuto)
+                        std::cout<<"[repair-r06] CLASSIFIERS area="
+                                 <<frozen->classifierChoices[0]
+                                 <<" proximity="<<frozen->classifierChoices[1]
+                                 <<" comparable="<<frozen->classifierComparable
+                                 <<" agree="<<frozen->classifiersAgree
+                                 <<" active="<<mesher::autoClosureClassifierName(
+                                     frozen->activeClassifier)
+                                 <<" (M03 only, no correctness claim)\n";
+                    if(repairAuto&&frozen->autoPlan) {
+                        const auto& plan=*frozen->autoPlan;
+                        std::cout<<"[repair-r06] PLAN status="<<static_cast<int>(plan.status)
+                                 <<" reason="<<(plan.diagnostic.empty()?"none":plan.diagnostic)
+                                 <<" regions="<<plan.geometryRegions
+                                 <<" caps="<<plan.cappedContours.size()
+                                 <<" zipper_pairs="<<plan.zipperPairs.size()
+                                 <<" contact_links="<<plan.trustedContactLinks<<"\n";
+                        for(std::size_t i=0;i<plan.regions.size();++i) {
+                            const auto& region=plan.regions[i];
+                            std::cout<<"[repair-r06] region="<<i
+                                     <<" caps="<<region.caps.size()
+                                     <<" zippers="<<region.zippers.size()
+                                     <<" patches="<<region.excisionPatches.size()
+                                     <<" contacts="<<region.contactLinks
+                                     <<" zero_rim="<<region.zeroLoopComponentRetirement
+                                     <<" estimated_area="<<region.estimatedAddedArea
+                                     <<" selection="<<region.selectionReason
+                                     <<" ambiguous_cap_fallback="<<region.usedAmbiguousCapFallback
+                                     <<" rim_metrics_valid="<<region.twoRimEvidenceValid
+                                     <<" centroid_gap="<<region.rimCentroidSeparation
+                                     <<" normals_dot="<<region.rimNormalAlignment
+                                     <<" nearest_gap_in_edges="<<region.rimNearestSeparationInEdges
+                                     <<" cap_area_estimate="<<region.estimatedCapArea
+                                     <<" zipper_area_estimate="<<region.estimatedZipperArea
+                                     <<"\n";
+                        }
+                    }
+                    if(repairAuto) {
+                        if(const auto& preview=frozen->warningPreview) {
+                            std::cout<<"[repair-r06] QUALITY_WARNING_PREVIEW"
+                                     <<" untrusted=1 private_closed_mesh=0"
+                                     <<" deficient_faces="<<preview->qualityWarningFaces.size()
+                                     <<" green_faces="<<preview->greenFaces.size()
+                                     <<" blue_faces="<<preview->blueFaces.size()
+                                     <<" first_warning="<<preview->qualityWarningReason
+                                     <<" unpublished=1\n";
+                        }else if(repairQualityWarn&&!frozen->warningPreviewDiagnostic.empty())
+                            std::cout<<"[repair-r06] QUALITY_WARNING_UNAVAILABLE reason="
+                                     <<frozen->warningPreviewDiagnostic<<"\n";
+                        if(const auto& automatic=frozen->privateAuto) {
+                            const auto& plan=*frozen->autoPlan;
+                            std::cout<<"[repair-r06] AUTO_CLOSED private_closed_mesh=1"
+                                     <<" regions="<<plan.geometryRegions
+                                     <<" cap_loops="<<plan.cappedContours.size()
+                                     <<" zipper_pairs="<<plan.zipperPairs.size()
+                                     <<" green_faces="<<automatic->greenFaces.size()
+                                     <<" blue_faces="<<automatic->blueFaces.size()
+                                     <<" retired_cavity_components="<<automatic->retiredCavityComponents
+                                     <<" retired_cavity_faces="<<automatic->retiredCavityFaces.size()
+                                     <<" retired_cavity_vertices="<<automatic->retiredCavityVertices.size()
+                                     <<" exterior_components="<<automatic->acceptedExteriorComponents
+                                     <<" post_closure_faces="<<automatic->postClosureFaces
+                                     <<" final_faces="<<automatic->postRetirementFaces
+                                     <<" trusted_contact_links="<<plan.trustedContactLinks
+                                     <<" estimated_area="<<plan.estimatedAddedArea
+                                     <<" generated_faces="<<automatic->generatedFaces
+                                     <<" inserted_vertices="<<automatic->insertedVertices
+                                     <<" refinement_steps="<<automatic->refinementSteps
+                                     <<" interior_quality_flips="<<automatic->interiorQualityFlips
+                                     <<" interior_fairing_moves="<<automatic->interiorFairingMoves
+                                     <<" interior_cap_collapses="<<automatic->interiorCapCollapses
+                                     <<" proven_rim_tip_exempt_faces="<<automatic->certifiedPlanarRimTipFaces
+                                     <<" min_cap_quality="<<automatic->minimumCapQuality
+                                     <<" min_zipper_quality="<<automatic->minimumZipperQuality
+                                     <<" spatial_cap_loops="<<automatic->spatialCapLoops
+                                     <<" mirrored_seam_zipper_pairs="<<automatic->mirroredSeamZipperPairs
+                                     <<" mirrored_seam_vertices="<<automatic->mirroredSeamVertices
+                                     <<" spatial_poisson_iterations="<<automatic->spatialPoissonIterations
+                                     <<" spatial_initial_min_quality="<<automatic->minimumSpatialInitialQuality
+                                     <<" spatial_density_splits="<<automatic->spatialDensitySplits
+                                     <<" spatial_density_remaining_edges="<<automatic->spatialDensityRemainingLongEdges
+                                     <<" spatial_max_final_edge_ratio="<<automatic->maximumFinalSpatialCapEdgeRatio
+                                     <<" enclosure_winding_visits="<<automatic->windingTriangleVisits
+                                     <<" enclosure_narrow_tests="<<automatic->collisionNarrowPhaseTests
+                                     <<" unpublished=1 worker_history_checkpoint_unchanged=1\n";
+                        }else {
+                            std::cout<<"[repair-r06] AUTO_REFUSED private_closed_mesh=0"
+                                     <<" plan_status="<<(frozen->autoPlan?
+                                         static_cast<int>(frozen->autoPlan->status):-1)
+                                     <<" selected_caps="<<(frozen->autoPlan?
+                                         frozen->autoPlan->cappedContours.size():0)
+                                     <<" selected_zippers="<<(frozen->autoPlan?
+                                         frozen->autoPlan->zipperPairs.size():0)
+                                     <<" reason="<<frozen->autoDiagnostic
+                                     <<" (R03 cut retained where available; unpublished=1)\n";
+                        }
+                    }
+                    const auto displayed=repairAuto&&frozen->privateAuto
+                        ?frozen->privateAuto->index:
+                        repairAuto&&frozen->warningPreview
+                        ?frozen->warningPreview->index:
+                        repairCap&&frozen->privateCap
+                        ?frozen->privateCap->index:
+                        repairZipper&&frozen->privateZipper
+                        ?frozen->privateZipper->index:
+                        repairExcise&&frozen->privateCut
+                        ?frozen->privateCut->index:frozen->candidate;
+                    auto update=mesher::ViewportMeshUpdate{
+                        displayed,
+                        {owners.begin(),owners.end()},
+                        liveWorker->status().completedStamps,
+                        true,mesher::buildRepairInspectionOverlay(*frozen),
+                        repairPreview,repairExcise,
+                        repairExcise&&frozen->privateCut.has_value(),
+                        repairZipper,repairZipper&&frozen->privateZipper.has_value(),
+                        repairCap,repairCap&&frozen->privateCap.has_value(),
+                        repairAuto,repairAuto&&frozen->privateAuto.has_value()};
+                    update.inspectionQualityWarningPreview=frozen->warningPreview.has_value();
+                    update.classifierChoices=frozen->classifierChoices;
+                    update.classifierComparable=frozen->classifierComparable;
+                    update.classifiersAgree=frozen->classifiersAgree;
+                    update.activeClassifier=
+                        frozen->activeClassifier==mesher::AutoClosureClassifier::Proximity?1:0;
+                    return update;
+                }
                 auto snapshot=liveWorker->takeSnapshot();
                 if(!snapshot)return std::nullopt;
+                lastDisplayed=snapshot->index;
                 return mesher::ViewportMeshUpdate{
                     std::move(snapshot->index),std::move(snapshot->dirtyPartitions),
-                    snapshot->completedStamps};
+                    snapshot->completedStamps,false,{},false};
             };
             interaction.completedStamps=[&]{return liveWorker->status().completedStamps;};
             interaction.skippedStamps=[]{return std::size_t{0};};
@@ -478,7 +1258,8 @@ int main(int argc, char** argv) {
             interaction.pendingSegments=[&]{return liveWorker->status().pendingSegments;};
             interaction.totalQueuedSteps=[&]{return liveWorker->status().totalQueuedSteps;};
             interaction.inputCommands=[&]{return liveWorker->status().inputCommands;};
-            interaction.canBegin=[&]{return liveWorker->canBegin();};
+            interaction.canBegin=[&]{return liveWorker->canBegin()&&
+                (!repairSession||!repairSession->frozen());};
             interaction.lastStampDetails=[&] {
                 const auto status=liveWorker->status();
                 const auto& d=status.details;
@@ -519,6 +1300,19 @@ int main(int argc, char** argv) {
                    <<" checkpoints_saved="<<status.checkpoints.completed
                    <<" checkpoint_failures="<<status.checkpoints.failed
                    <<" renderer=dirty_partitions";
+                if(liveCertifiedAuto) {
+                    os<<" certified_auto=ON"
+                      <<" checked_stamps="<<status.collisionCheckedStamps
+                      <<" repaired_stamps="<<status.collisionRepairedStamps
+                      <<" rejected_stamps="<<status.rejectedStamps
+                      <<" auto_query_seed_faces="<<status.stepResources.autoDetectionWork.seedFaces
+                      <<" auto_query_bvh_boxes="<<status.stepResources.autoDetectionWork.boxesTested
+                      <<" auto_query_narrow_tests="<<status.stepResources.autoDetectionWork.narrowPhaseTests
+                      <<" auto_source_ms="<<status.stepResources.stageWall.sourceGeometryMs
+                      <<" step_refused="<<(status.stepResources.refused?1:0);
+                    if(status.stepResources.refused)
+                        os<<" refusal_reason="<<status.lastRejection;
+                }
                 if(avoidCollisions) {
                     const auto& bt=status.stepResources.backtracking;
                     os<<" collision_avoidance=ON"
@@ -547,14 +1341,64 @@ int main(int argc, char** argv) {
                        " | pending "+std::to_string(status.pendingSteps)+
                        " | input "+std::to_string(status.inputCommands)+
                        (options.symmetric?" | mirrored":" | asymmetric")+
-                       (avoidCollisions?" | collision avoidance ON (Merge OFF)":"");
+                       (avoidCollisions?" | collision avoidance ON (Merge OFF)":"")+
+                       (liveCertifiedAuto?
+                            " | AUTO ON | published "+
+                                std::to_string(status.publishedRevisions)+
+                                " | rejected "+std::to_string(status.rejectedStamps):"")+
+                       (repairInspect?(repairSession->frozen()?
+                         " | R01 inspection FROZEN":" | R01 inspection armed"):"");
             };
             if(mergeTestTetra||mergeTestReflectedTetra)
                 std::cout<<"[merge] This named developer fixture permits "
                             "explicit A-key nomination of all its ORIGINAL "
                             "FaceIds while ON and displaying the INITIAL root. "
                             "A is disabled on other sources and later roots.\n";
-            if(avoidTestSheets)
+            if(repairAuto&&repairInspect)
+                std::cout<<"[repair-r06] On any frozen AUTO result, Ctrl+S saves "
+                            "the exact repair candidate. Ctrl+Shift+S marks "
+                            "PREFER ZIPPER; Ctrl+Alt+S marks PREFER CAPS. "
+                            "The annotation does not modify the displayed result. "
+                            "Replay via --repair-replay FILE or --repair-replay-test FILE.\n";
+            if(repairAuto)
+                std::cout<<"[repair-r06] classifier="
+                         <<mesher::autoClosureClassifierName(repairClassifier)
+                         <<" (M08 experimental proximity for trusted two-rim regions only; "
+                            "V15 multi-rim fallback)\n";
+            if(repairAuto&&repairInspect)
+                std::cout<<"[repair-r06] Armed AUTO private closure: green caps, "
+                            "blue safe zippers, proven enclosed-shell retirement. "
+                            "First contact freezes; no worker/history/checkpoint publication.\n";
+            if(liveCertifiedAuto)
+                std::cout<<"[repair-r07] Live AUTO enabled: stamps are repaired "
+                            "privately when needed, then published atomically. "
+                            "The brush continues after a refusal; see [repair-r07] "
+                            "status lines for checked, repaired, refused and "
+                            "published stamp counts.\n";
+            if(repairCap)
+                std::cout<<"[repair-r05] Armed ALWAYS CAP (independent green caps on R03 holes, "
+                            "private and frozen; never zippers).\n";
+            if(repairZipper)
+                std::cout<<"[repair-r04] Armed ALWAYS ZIPPER in unpublished private mesh. "
+                            "Blue new seam triangles, bounded refinement, no caps; "
+                            "the brush freezes on contact.\n";
+            if(repairExcise&&!repairZipper&&!repairCap&&!repairAuto)
+                std::cout<<"[repair-r03] Armed PRIVATE OPEN CUT: first certified contact freezes, "
+                            "removes selected complete face fans/vertices only in a separate "
+                            "unpublished debug revision; surviving hole rims are gold. "
+                            "No cap/zipper; normal worker/history/checkpoint untouched.\n";
+            if(repairPreview&&!repairExcise)
+                std::cout<<"[repair-r02] Armed read-only proposed excision preview. "
+                            "Orange selected faces; purple uncertain faces; "
+                            "gold boundary loops; red incident contacts. "
+                             "No geometry removed or published.\n";
+            if(repairInspect)
+                std::cout<<"[repair-r01] Armed: stamp a crossing to freeze an "
+                            "unpublished candidate. Red dots are incident vertices; "
+                            "dark-red rods are attached edges. Move camera/orbit "
+                            "inside the surface, W/G; Escape to exit/relaunch. "
+                            "No excision, no checkpoint/history publication.\n";
+            if(avoidTestSheets&&!repairInspect)
                 std::cout<<"[collision] M07 GPU exercise: orbit to view the two "
                             "closely separated faces near X=0, sculpt repeatedly "
                             "toward the other sheet, observe reduced normal_fraction "
@@ -625,7 +1469,7 @@ int main(int argc, char** argv) {
         }
         mesher::runViewport(mesh, std::move(playback),std::move(interaction));
     }catch(const std::exception& e) {
-        std::cerr<<"Mesher: "<<e.what()<<'\n';
+        std::cout<<"Mesher: "<<e.what()<<'\n';
         return 1;
     }
 }

@@ -22,9 +22,37 @@ foreach(needle
         message(FATAL_ERROR "M61 actual Ctrl gesture route/suppression missing: ${needle}")
     endif()
 endforeach()
-string(FIND "${view}" "GLFW_KEY_LEFT_ALT" altView)
-string(FIND "${view}" "GLFW_KEY_RIGHT_ALT" altView2)
-if(NOT altView EQUAL -1 OR NOT altView2 EQUAL -1)
-    message(FATAL_ERROR "M61 Alt must no longer select a camera control")
+# M64 extends the actual GLFW input path with Alt+RMB world pan while
+# retaining Ctrl+LMB world pan, Ctrl+RMB dolly, and RMB orbit. Verify
+# BOTH physical Alt keys and the initiating-button latch: Alt may not
+# steal a pre-existing RMB orbit nor activate the brush.
+string(FIND "${view}" "    void updateMouseOrbit()" orbitStart)
+string(FIND "${view}" "    void updateMouseSculpt()" orbitEnd)
+if(orbitStart EQUAL -1 OR orbitEnd EQUAL -1 OR orbitEnd LESS orbitStart)
+    message(FATAL_ERROR "M64 cannot identify camera gesture input scope")
 endif()
-message(STATUS "M61 real Ctrl-only camera gesture routing and sculpt suppression certified")
+math(EXPR orbitLength "${orbitEnd}-${orbitStart}")
+string(SUBSTRING "${view}" "${orbitStart}" "${orbitLength}" cameraInput)
+foreach(needle
+    "GLFW_KEY_LEFT_ALT"
+    "GLFW_KEY_RIGHT_ALT"
+    "left,right,ctrl,alt,!sculpting_&&!radiusDragging_"
+    "Alt+RMB"
+    "view-relative world pan start")
+    string(FIND "${cameraInput}" "${needle}" pos)
+    if(pos EQUAL -1)
+        message(FATAL_ERROR "M64 live GLFW Alt-right pan route missing: ${needle}")
+    endif()
+endforeach()
+foreach(needle
+    "const bool altRightPan=alt&&!ctrl"
+    "strafeOnRight_?right:left"
+    "const bool initiatingHeld"
+    "mode_=ctrl?ViewportCameraMode::Dolly:"
+    "else if(left&&!wasLeft_&&!right&&ctrl)")
+    string(FIND "${helper}" "${needle}" pos)
+    if(pos EQUAL -1)
+        message(FATAL_ERROR "M64 camera button-origin latch/priority missing: ${needle}")
+    endif()
+endforeach()
+message(STATUS "M64 real Alt+RMB and Ctrl+LMB world pan, Ctrl+RMB dolly, plain RMB orbit certified")

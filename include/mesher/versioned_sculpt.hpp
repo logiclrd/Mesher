@@ -69,7 +69,9 @@ struct SculptAnchoredSurfaceGuard {
 // a selected dirty-face subset. No Boolean cut, welding, CAS or history.
 // Every result is either the complete strictly finite source-pair graph,
 // conclusively clean, or an empty refused certificate with diagnostics.
-enum class SculptSourceContactStatus {Clean,CompleteTransverse,Refused};
+enum class SculptSourceContactStatus {
+    Clean,CompleteTransverse,CompleteIntersecting,Refused
+};
 struct SculptSourceContactLimits {
     std::size_t maxVertices=16384;
     std::size_t maxFaces=32768;
@@ -80,16 +82,30 @@ struct SculptSourceContactLimits {
 struct SculptSourceContactAssessment {
     SculptSourceContactStatus status{SculptSourceContactStatus::Refused};
     std::shared_ptr<const RegionTopologyIndex> originalCandidate;
-    // Populated only for fully certified transverse original V13 pairs.
+    // Fully bounded contacts: protected V13 requires finite transverse
+    // splits; R07 AUTO permits non-ambiguous face intersection pairs for
+    // whole-face R02/R03 excision, which does not use V13 split patches.
     std::vector<RegionTopologyIndex::CollisionPair> contacts;
     RegionTopologyIndex::CollisionStatistics work{};
     std::size_t discoveredPairs{};
     std::string refusal;
     bool ready() const noexcept {
-        return status==SculptSourceContactStatus::CompleteTransverse;
+        return status==SculptSourceContactStatus::CompleteTransverse||
+               status==SculptSourceContactStatus::CompleteIntersecting;
     }
 };
 SculptSourceContactAssessment assessPostSculptOriginalContacts(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptSourceContactLimits& limits={},
+    const std::unordered_map<VertexId,VertexId>* mirrors=nullptr,
+    std::size_t groupedSeeds=1,
+    bool requireFiniteTransverseSections=true);
+
+// R07 live AUTO: classify *new contacts involving this stamp's changed
+// neighborhood*, then exclude pairs already present in the immutable
+// before root. Full post-state mirror and element-budget validation remains.
+// This is NOT the protected V13 whole-original contact discovery above.
+SculptSourceContactAssessment assessPostSculptRepairContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits={},
     const std::unordered_map<VertexId,VertexId>* mirrors=nullptr);
@@ -156,6 +172,7 @@ struct SculptStepResourceWork {
     std::size_t finalDirtyPartitions{}; // final renderer owner partitions
     ExactStageWork exactStage{}; // all actual M41–M45 geometry and original-source proof operations
     SculptBacktrackWork backtracking{}; // rejected and accepted private V18 trials
+    RegionTopologyIndex::CollisionStatistics autoDetectionWork{}; // R07 local source query only
     double elapsedMilliseconds{}; // observed monotonic wall time, not budget work
     SculptStageWallObservations stageWall{};
     SculptRefusalCategory refusalCategory{SculptRefusalCategory::None};
@@ -188,6 +205,22 @@ struct SculptCollisionSettings {
     // M18: worker-only exact physical sculpt union, DEFAULT OFF. The desktop
     // never enables this before M15. No V16 scar surgery in exact mode.
     bool physicalExact=false;
+    // R07: opt-in live R06 AUTO, using certified source-backed private
+    // closure and the worker's ordinary final-root CAS/history/checkpoint.
+    // The read-only R06 inspector and replay debugger never set this.
+    bool certifiedAutoClosure=false;
+    bool certifiedAutoUnifiedZipper=true;
+    // R07's per-stamp changed-neighborhood BVH has different costs than
+    // protected whole-original Merge. Retain finite limits for both, but
+    // do not globally relax the strict protected Merge source budget.
+    SculptSourceContactLimits certifiedAutoSourceLimits{
+        16384,32768,{16384,4194304,1048576,524288,262144,2048},2048};
+    // Only after the *local* classifier finds a new transverse contact,
+    // collect the entire source contact graph for R02/R03/M03. This is
+    // never charged to ordinary clean brush stamps. Protected Merge keeps
+    // its separate strict V13 limits.
+    SculptSourceContactLimits certifiedAutoCompleteSourceLimits{
+        16384,32768,{32768,33554432,8388608,2097152,1048576,2048},2048};
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};

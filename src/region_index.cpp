@@ -311,6 +311,33 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::restore(
     }
     return result;
 }
+std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::privateExcision(
+    const RegionTopologyIndex& source,
+    std::shared_ptr<const MeshRevision> excised,
+    const std::vector<VertexId>& removedVertices,
+    const std::vector<FaceId>& removedFaces) {
+    if(!excised)
+        throw std::invalid_argument("R03 incremental excision requires a private revision");
+    // These are source-backed DELETIONS, not a facility for replaying
+    // arbitrary new geometry or reassigning existing stable IDs.
+    std::unordered_map<VertexId,std::optional<Vec3>> vertices;
+    std::unordered_map<FaceId,std::optional<std::array<VertexId,3>>> faces;
+    vertices.reserve(removedVertices.size());
+    faces.reserve(removedFaces.size());
+    for(const auto id:removedVertices) {
+        if(!source.maybeVertex(id)||!vertices.emplace(id,std::nullopt).second)
+            throw std::logic_error("R03 incremental excision has invalid/duplicate source VertexId");
+    }
+    for(const auto id:removedFaces) {
+        if(!source.maybeFace(id)||!faces.emplace(id,std::nullopt).second)
+            throw std::logic_error("R03 incremental excision has invalid/duplicate source FaceId");
+    }
+    // The ordinary persistent topology updater also tombstones every
+    // retired ID, preserves all previous tombstones and updates indexed
+    // geometry and the partition BVH for only the changed region.
+    return advance(source,std::move(excised),vertices,faces,{},{});
+}
+
 std::vector<VertexId> RegionTopologyIndex::retiredVertexIds() const {
     std::vector<VertexId> result;
     result.reserve(retiredVertices_.size());
@@ -393,7 +420,8 @@ RegionTopologyIndex::triangleIntersections(
     const std::vector<VertexId>& changedVertices,
     const std::vector<FaceId>& changedFaces,
     CollisionStatistics* measured,
-    const CollisionQueryLimits& limits) const {
+    const CollisionQueryLimits& limits,
+    std::size_t groupedSeeds) const {
     CollisionStatistics local{};
     auto& stats=measured?*measured:local;
     stats={};
@@ -425,45 +453,118 @@ RegionTopologyIndex::triangleIntersections(
     }
     std::set<std::pair<FaceId,FaceId>> visited;
     std::vector<CollisionPair> found;
-    for(const auto id:affected) {
-        const auto& record=face(id);
+    using Bounds=RevisionPickingIndex::Bounds;
+    using Triangle=RevisionPickingIndex::Triangle;
+    struct Seed {
+        FaceId id{};
+        std::array<VertexId,3> vertices{};
         std::array<Vec3,3> points{};
-        RevisionPickingIndex::Bounds bounds{};
+        Bounds bounds{};
+        Vec3 center{};
+    };
+    const auto mergeBounds=[](Bounds& into,const Bounds& other) {
+        if(!other.valid)return;
+        if(!into.valid) {into=other;return;}
+        into.low.x=std::min(into.low.x,other.low.x);
+        into.low.y=std::min(into.low.y,other.low.y);
+        into.low.z=std::min(into.low.z,other.low.z);
+        into.high.x=std::max(into.high.x,other.high.x);
+        into.high.y=std::max(into.high.y,other.high.y);
+        into.high.z=std::max(into.high.z,other.high.z);
+    };
+    const auto intersectsBounds=[](const Bounds& a,const Bounds& b) {
+        if(!a.valid||!b.valid)return false;
+        const auto eps=[](double x,double y) {
+            return 64*std::numeric_limits<double>::epsilon()*
+                   std::max({1.0,std::abs(x),std::abs(y)});
+        };
+        return a.low.x<=b.high.x+eps(a.low.x,b.high.x)&&
+               b.low.x<=a.high.x+eps(b.low.x,a.high.x)&&
+               a.low.y<=b.high.y+eps(a.low.y,b.high.y)&&
+               b.low.y<=a.high.y+eps(b.low.y,a.high.y)&&
+               a.low.z<=b.high.z+eps(a.low.z,b.high.z)&&
+               b.low.z<=a.high.z+eps(b.low.z,a.high.z);
+    };
+    std::vector<Seed> seeds;
+    seeds.reserve(affected.size());
+    for(const auto id:affected) {
+        Seed seed;
+        seed.id=id;
+        seed.vertices=face(id).vertices;
         for(unsigned i=0;i<3;++i) {
-            const auto p=vertex(record.vertices[i]).position;
-            points[i]=p;
-            if(!bounds.valid) {
-                bounds.low=bounds.high=p;
-                bounds.valid=true;
-            }else {
-                bounds.low.x=std::min(bounds.low.x,p.x);
-                bounds.low.y=std::min(bounds.low.y,p.y);
-                bounds.low.z=std::min(bounds.low.z,p.z);
-                bounds.high.x=std::max(bounds.high.x,p.x);
-                bounds.high.y=std::max(bounds.high.y,p.y);
-                bounds.high.z=std::max(bounds.high.z,p.z);
-            }
+            const auto p=vertex(seed.vertices[i]).position;
+            seed.points[i]=p;
+            seed.center=seed.center+p/3.0;
+            Bounds point;
+            point.low=point.high=p;
+            point.valid=true;
+            mergeBounds(seed.bounds,point);
         }
-        picking_->forEachOverlappingTriangle(bounds,[&](
-            const RevisionPickingIndex::Triangle& candidate) {
-            if(candidate.id==id)return;
-            const auto key=std::minmax(id,candidate.id);
-            if(visited.contains({key.first,key.second}))return;
-            if(stats.narrowPhaseTests>=limits.maxNarrowPhaseTests)
-                throw std::length_error("Collision narrow-phase budget exhausted");
-            visited.emplace(key.first,key.second);
-            ++stats.narrowPhaseTests;
-            const auto kind=triangleContact(points,record.vertices,
-                                            candidate.vertices,
-                                            face(candidate.id).vertices);
-            if(kind==TriangleContact::Intersecting||
-               kind==TriangleContact::Ambiguous) {
-                if(stats.reportedContacts>=limits.maxReportedContacts)
-                    throw std::length_error("Collision contact-count budget exhausted");
-                ++stats.reportedContacts;
-                found.push_back({key.first,key.second,
-                                 kind==TriangleContact::Ambiguous});
+        seeds.push_back(seed);
+    }
+    // A one-axis sort can group faces on opposite sides of a round
+    // shape into one giant Y/Z AABB, defeating BVH locality. A bounded
+    // 10-bit-per-axis Morton key keeps each batch spatially coherent in
+    // THREE dimensions, including on a symmetric bulging sculpt. This
+    // only changes broad-phase envelopes, never candidate contact tests.
+    if(groupedSeeds>1) {
+        Bounds volume;
+        for(const auto& seed:seeds)mergeBounds(volume,seed.bounds);
+        const auto extent=volume.high-volume.low;
+        const auto quantize=[](double p,double lo,double span) {
+            if(span<=0)return std::uint32_t{0};
+            const double t=std::clamp((p-lo)/span,0.0,1.0);
+            return static_cast<std::uint32_t>(t*1023.0);
+        };
+        const auto morton=[&](Vec3 p) {
+            const auto x=quantize(p.x,volume.low.x,extent.x);
+            const auto y=quantize(p.y,volume.low.y,extent.y);
+            const auto z=quantize(p.z,volume.low.z,extent.z);
+            std::uint64_t key=0;
+            for(unsigned bit=0;bit<10;++bit) {
+                key|=static_cast<std::uint64_t>((x>>bit)&1u)<<(3*bit);
+                key|=static_cast<std::uint64_t>((y>>bit)&1u)<<(3*bit+1);
+                key|=static_cast<std::uint64_t>((z>>bit)&1u)<<(3*bit+2);
             }
+            return key;
+        };
+        std::sort(seeds.begin(),seeds.end(),[&](const Seed& a,const Seed& b) {
+            const auto ac=morton(a.center),bc=morton(b.center);
+            return ac==bc?a.id<b.id:ac<bc;
+        });
+    }
+    const auto evaluate=[&](const Seed& seed,const Triangle& candidate) {
+        if(candidate.id==seed.id)return;
+        if(!intersectsBounds(seed.bounds,candidate.bounds))return;
+        const auto key=std::minmax(seed.id,candidate.id);
+        if(visited.contains({key.first,key.second}))return;
+        if(stats.narrowPhaseTests>=limits.maxNarrowPhaseTests)
+            throw std::length_error("Collision narrow-phase budget exhausted");
+        visited.emplace(key.first,key.second);
+        ++stats.narrowPhaseTests;
+        const auto kind=triangleContact(seed.points,seed.vertices,
+                                        candidate.vertices,
+                                        face(candidate.id).vertices);
+        if(kind==TriangleContact::Intersecting||
+           kind==TriangleContact::Ambiguous) {
+            if(stats.reportedContacts>=limits.maxReportedContacts)
+                throw std::length_error("Collision contact-count budget exhausted");
+            ++stats.reportedContacts;
+            found.push_back({key.first,key.second,
+                             kind==TriangleContact::Ambiguous});
+        }
+    };
+    // Preserve the original one-triangle-per-query path for all existing
+    // callers. R07 may opt in to one BVH traversal per nearby face group.
+    const auto group=std::max<std::size_t>(1,std::min<std::size_t>(groupedSeeds,32));
+    for(std::size_t first=0;first<seeds.size();first+=group) {
+        const auto last=std::min(first+group,seeds.size());
+        Bounds bounds;
+        for(std::size_t i=first;i<last;++i)
+            mergeBounds(bounds,seeds[i].bounds);
+        picking_->forEachOverlappingTriangle(bounds,[&](const Triangle& candidate) {
+            for(std::size_t i=first;i<last;++i)
+                evaluate(seeds[i],candidate);
         },stats,limits);
     }
     std::sort(found.begin(),found.end());

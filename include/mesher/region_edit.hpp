@@ -88,6 +88,16 @@ public:
         std::shared_ptr<const MeshRevision> revision,
         const std::vector<VertexId>& retiredVertices,
         const std::vector<FaceId>& retiredFaces,double cellSize=.15);
+    // R03 PRIVATE removal of explicitly verified source FaceIds/VertexIds.
+    // Reuse the persistent incidence, cell, and picking roots through the
+    // same incremental update engine as RegionEdit, without rebuilding the
+    // complete source. Caller must have erased exactly these elements from
+    // the new COW mesh revision; no live source ID may be reassigned.
+    static std::shared_ptr<const RegionTopologyIndex> privateExcision(
+        const RegionTopologyIndex& source,
+        std::shared_ptr<const MeshRevision> excised,
+        const std::vector<VertexId>& removedVertices,
+        const std::vector<FaceId>& removedFaces);
     std::vector<VertexId> retiredVertexIds() const;
     std::vector<FaceId> retiredFaceIds() const;
 
@@ -156,7 +166,13 @@ public:
         const std::vector<VertexId>& changedVertices,
         const std::vector<FaceId>& changedFaces,
         CollisionStatistics* stats=nullptr,
-        const CollisionQueryLimits& limits={}) const;
+        const CollisionQueryLimits& limits={},
+        std::size_t groupedSeeds=1) const;
+    // groupedSeeds>1 visits spatially adjacent dirty triangles in one
+    // complete-BVH AABB traversal. All exact pairs remain independently
+    // checked; it changes work cost, never the collision evidence.
+    // Grouping is opt-in for R07 live AUTO and keeps the protected
+    // source-query semantics of the original one-face traversal.
 
     // V18-M03: read-only pair broad phase over the same persistent
     // partition BVH. Each seed AABB expands by ratio * ITS OWN shortest

@@ -32,7 +32,7 @@ function(mustRefuse expected)
         RESULT_VARIABLE code
         OUTPUT_VARIABLE stdout
         ERROR_VARIABLE stderr)
-    if(code EQUAL 0 OR NOT stderr MATCHES "${expected}")
+    if(code EQUAL 0 OR NOT stdout MATCHES "${expected}")
         message(FATAL_ERROR "M06 preflight did not refuse [${ARGN}] with [${expected}]: exit=${code} stdout=${stdout} stderr=${stderr}")
     endif()
 endfunction()

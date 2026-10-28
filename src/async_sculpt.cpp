@@ -91,6 +91,16 @@ void AsyncSculptWorker::update(Vec3 point,double elapsedSeconds) {
 void AsyncSculptWorker::end(Vec3 point,double elapsedSeconds) {
     enqueue({Kind::End,point,elapsedSeconds,0});
 }
+void AsyncSculptWorker::stampOnce(Vec3 point,double radius) {
+    if(!std::isfinite(radius)||radius<=0||
+       !std::isfinite(point.x)||!std::isfinite(point.y)||
+       !std::isfinite(point.z))
+        throw std::invalid_argument("Diagnostic one-shot stamp requires finite center and positive radius");
+    if(reserved_.exchange(true))
+        throw std::logic_error("Cannot one-shot stamp while another sculpt operation is reserved");
+    try {enqueue({Kind::SingleStamp,point,0,radius});}
+    catch(...) {reserved_=false;throw;}
+}
 void AsyncSculptWorker::setRadius(double radius) {
     enqueue({Kind::Radius,{},0,radius});
 }
@@ -297,6 +307,33 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     changed=true; // The first stamp happens at mouse-down.
                     break;
                 }
+                case Kind::SingleStamp: {
+                    if(stroke_.active()||stroke_.pendingSamples())
+                        throw std::logic_error(
+                            "One-shot stamp cannot overlap a timed sculpt stroke");
+                    brush_->setOriginalPatchIntent({});
+                    std::vector<BrushArea> areas{{command->point,command->radius,.3}};
+                    if(symmetric_)areas.push_back(
+                        {{-command->point.x,command->point.y,command->point.z},
+                         command->radius,.3});
+                    const auto started=Clock::now();
+                    brush_->stamp(samplingOnlyMesh_,areas);
+                    {
+                        std::lock_guard guard(statusMutex_);
+                        status_.lastWorkerStampMs=
+                            std::chrono::duration<double,std::milli>(
+                                Clock::now()-started).count();
+                    }
+                    const auto& dirty=brush_->lastDirtyPartitions();
+                    unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                              dirty.begin(),dirty.end());
+                    // Publication (including a refusal with unchanged
+                    // geometry) must precede releasing the one-shot
+                    // reservation below. Do not also run the ordinary
+                    // stroke-drain publication path a second time.
+                    changed=true;
+                    break;
+                }
                 case Kind::Update:
                     stroke_.updateTimedRealtime(centers(command->point),command->elapsed);
                     break;
@@ -441,6 +478,12 @@ void AsyncSculptWorker::run(std::stop_token token) {
                     idle=commands_.empty();
                 }
                 publish(idle || !stroke_.active());
+            }
+            if(command&&command->kind==Kind::SingleStamp) {
+                // changed=true forced the exact stamped/refused root to
+                // publish above. One-shot has no pending timed segments
+                // and must not publish the same root a second time.
+                reserved_=false;
             }
             if(workerOwnsStartedStroke&&!stroke_.active()&&
                stroke_.pendingSamples()==0) {

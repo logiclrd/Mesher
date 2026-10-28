@@ -90,6 +90,10 @@ public:
                std::vector<FaceId> intendedOriginals={});
     void update(Vec3 point,double elapsedSeconds);
     void end(Vec3 point,double elapsedSeconds);
+    // Explicit diagnostic single-stamp command: no timed 4D input
+    // segments, no hold-to-sculpt, and one published snapshot before
+    // the next one-shot can be reserved.
+    void stampOnce(Vec3 point,double radius);
     void setRadius(double radius);
     void undo();
     void redo();
@@ -125,7 +129,7 @@ public:
     }
 
 private:
-    enum class Kind {Begin,Update,End,Radius,Undo,Redo,Checkpoint,Merge,DiscoverMerge};
+    enum class Kind {Begin,SingleStamp,Update,End,Radius,Undo,Redo,Checkpoint,Merge,DiscoverMerge};
     struct Command {
         Kind kind;
         Vec3 point{};

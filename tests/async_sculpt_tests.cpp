@@ -100,6 +100,87 @@ void testThreadedMatchesExactSculpt() {
             "Consuming the final snapshot leaves no stale update");
 }
 
+void testOneShotStampIsExactlyOneVisibleWorkerRevision() {
+    // A timed LMB press/release can enqueue several 4D samples. A
+    // diagnostic one-shot must instead be exactly one worker stamp, with
+    // no queued stroke samples and an inspectable root at each step.
+    auto sphere=generateSphere(SphereOptions{500,true,2,6});
+    AsyncSculptWorker worker(sphere,.05,.01,.2,{},{},{},true);
+    const Vec3 center{-.2,-.6,.75};
+    const auto wait=[&] {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(10);
+        while(!worker.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(worker.canBegin(),
+                "One-shot worker must publish and release reservation");
+    };
+    require(worker.canBegin(),"Fresh one-shot worker must accept input");
+    worker.stampOnce(center,.1);
+    require(!worker.canBegin(),
+            "One-shot must reserve the worker until its snapshot publishes");
+    wait();
+    const auto first=worker.status();
+    require(first.completedStamps==1&&first.pendingSteps==0&&
+            first.pendingSegments==0&&!first.active&&
+            first.inputCommands==0&&first.snapshotPublications==1,
+            "One-shot must complete ONE stamp without a timed stroke or residual input");
+    const auto frame1=worker.takeSnapshot();
+    require(frame1&&frame1->completedStamps==1,
+            "First one-shot must expose its exact immutable stamp-1 root");
+    require(!worker.takeSnapshot(),
+            "One-shot snapshot cannot conceal a queued second stamp");
+    worker.stampOnce(center,.1);
+    wait();
+    const auto second=worker.status();
+    require(second.completedStamps==2&&second.pendingSteps==0&&
+            second.pendingSegments==0&&!second.active&&
+            second.snapshotPublications==2,
+            "Second deliberate one-shot must complete exactly one additional stamp");
+    const auto frame2=worker.takeSnapshot();
+    require(frame2&&frame2->completedStamps==2,
+            "Second one-shot must expose its exact stamp-2 root without coalescing");
+    require(!worker.takeSnapshot(),
+            "Second one-shot must not queue an automatic third stamp");
+    // Intentionally rejected first one-shot stays private and does not
+    // silently enqueue a second step; a later manually requested stamp
+    // can still succeed on the original root.
+    auto fresh=generateSphere(SphereOptions{500,true,2,6});
+    std::size_t validations=0;
+    AsyncSculptWorker guarded(fresh,.05,.01,.2,{},{},{},true,
+        [&](const ProposedSculptStep& candidate)->std::string {
+            require(candidate.candidate!=candidate.before,
+                    "One-shot validator sees unpublished candidate");
+            return ++validations==1?"Deliberate one-shot geometry refusal":"";
+        });
+    const auto baseline=guarded.initialRevision();
+    const auto finishGuarded=[&] {
+        const auto deadline=std::chrono::steady_clock::now()+
+                            std::chrono::seconds(10);
+        while(!guarded.canBegin()&&std::chrono::steady_clock::now()<deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        require(guarded.canBegin(),"Rejected or accepted one-shot releases worker");
+    };
+    guarded.stampOnce(center,.2);
+    finishGuarded();
+    const auto refused=guarded.status();
+    const auto refusedFrame=guarded.takeSnapshot();
+    require(refused.completedStamps==1&&refused.rejectedStamps==1&&
+            refused.publishedRevisions==0&&
+            refused.lastRejection=="Deliberate one-shot geometry refusal"&&
+            refusedFrame&&refusedFrame->index==baseline,
+            "Refused F8 step must retain original published source and exact refusal");
+    guarded.stampOnce(center,.2);
+    finishGuarded();
+    const auto accepted=guarded.status();
+    const auto acceptedFrame=guarded.takeSnapshot();
+    require(accepted.completedStamps==2&&accepted.rejectedStamps==1&&
+            accepted.publishedRevisions==1&&acceptedFrame&&
+            acceptedFrame->index!=baseline&&validations==2,
+            "Explicit second one-shot succeeds without replaying rejected step");
+    std::cout<<"[sculpt-step] worker exact one-shot publication and input isolation PASS\n";
+}
+
 void testWorkerCanRestartAndCancel() {
     auto original=generateSphere(SphereOptions{500,true,2,6});
     AsyncSculptWorker worker(original,.05,.01,.2,{},{},{},true);
@@ -8143,6 +8224,7 @@ int main() {
     try {
         testThreadedMatchesExactSculpt();
         testWorkerCanRestartAndCancel();
+        testOneShotStampIsExactlyOneVisibleWorkerRevision();
         testCoalescedRootsAndCompatibilityBridge();
         testViewportAdapterAfterStableIdSplit();
         testWorkerHistoryAndRecoveredCheckpoint();

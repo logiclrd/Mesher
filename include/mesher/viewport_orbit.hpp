@@ -110,7 +110,7 @@ public:
            std::isfinite(displacement.z))translation_=translation_-displacement;
     }
 
-    // Ctrl-LMB: grab the displayed WORLD in the current view plane.
+    // Ctrl-LMB or Alt-RMB: grab the displayed WORLD in the current view plane.
     // Right/down pointer movement pulls the visible world right/down,
     // equivalent to moving the camera left/up (reverse of M61).
     // The 45-degree vertical FOV gives DPI-independent world-unit scaling.
@@ -146,19 +146,34 @@ struct ViewportCameraGestureStep {
 class ViewportCameraGestures {
 public:
     ViewportCameraGestureStep sample(bool left,bool right,bool ctrl,
-                                     bool allowed) noexcept {
+                                     bool alt,bool allowed) noexcept {
         ViewportCameraGestureStep out;
         if(mode_!=ViewportCameraMode::Inactive) {
-            if(!(mode_==ViewportCameraMode::Strafe?left:right)) {
+            // Strafe may be latched to Ctrl+LEFT or Alt+RIGHT. Only the
+            // initiating button ends it; modifiers and the other mouse
+            // button cannot change or terminate an active camera gesture.
+            const bool initiatingHeld=
+                mode_==ViewportCameraMode::Strafe?
+                    (strafeOnRight_?right:left):right;
+            if(!initiatingHeld) {
                 out.ended=true;out.endedMode=mode_;
                 mode_=ViewportCameraMode::Inactive;
+                strafeOnRight_=false;
             }
         }else if(allowed) {
             if(right&&!wasRight_&&!left) {
-                mode_=ctrl?ViewportCameraMode::Dolly:ViewportCameraMode::Orbit;
+                // Ctrl+RMB keeps dolly precedence; Alt+RMB grabs the
+                // world, while bare RMB remains orbit. Alt cannot alter
+                // an already latched orbit or dolly.
+                const bool altRightPan=alt&&!ctrl;
+                mode_=ctrl?ViewportCameraMode::Dolly:
+                      altRightPan?ViewportCameraMode::Strafe:
+                                  ViewportCameraMode::Orbit;
+                strafeOnRight_=altRightPan;
                 out.started=true;
             }else if(left&&!wasLeft_&&!right&&ctrl) {
                 mode_=ViewportCameraMode::Strafe;
+                strafeOnRight_=false;
                 out.started=true;
             }
         }
@@ -166,10 +181,14 @@ public:
         out.mode=mode_;
         return out;
     }
-    void cancel() noexcept {mode_=ViewportCameraMode::Inactive;}
+    void cancel() noexcept {
+        mode_=ViewportCameraMode::Inactive;
+        strafeOnRight_=false;
+    }
 private:
     ViewportCameraMode mode_=ViewportCameraMode::Inactive;
     bool wasLeft_=false,wasRight_=false;
+    bool strafeOnRight_=false;
 };
 
 // Pure cursor-wrap planning, independent of GLFW/Vulkan. Coordinates are

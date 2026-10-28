@@ -1,14 +1,20 @@
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/partition_render.hpp"
+#include "mesher/repair_auto_private.hpp"
+#include "mesher/repair_auto_publication.hpp"
+#include "mesher/repair_excision.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -106,7 +112,9 @@ void SculptContactTracker::observe(std::optional<bool> contact) noexcept {
 SculptSourceContactAssessment assessPostSculptOriginalContacts(
     const ProposedSculptStep& proposed,bool symmetric,
     const SculptSourceContactLimits& limits,
-    const std::unordered_map<VertexId,VertexId>* mirrors) {
+    const std::unordered_map<VertexId,VertexId>* mirrors,
+    std::size_t groupedSeeds,
+    bool requireFiniteTransverseSections) {
     SculptSourceContactAssessment result;
     const auto refuse=[&](std::string reason) {
         result.refusal=std::move(reason);
@@ -160,7 +168,7 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         // the BVH still performs bounded local pair tests, not a global
         // O(F^2) triangle loop.
         auto all=proposed.candidate->triangleIntersections(
-            vertices,{},&result.work,limits.query);
+            vertices,{},&result.work,limits.query,groupedSeeds);
         result.discoveredPairs=all.size();
         if(all.empty()) {
             result.originalCandidate=proposed.candidate;
@@ -172,6 +180,7 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         for(const auto& pair:all) {
             if(pair.ambiguous)
                 return refuse("Post-sculpt original V13 face pair is ambiguous");
+            if(!requireFiniteTransverseSections)continue;
             const auto a=proposed.candidate->face(pair.first).vertices;
             const auto b=proposed.candidate->face(pair.second).vertices;
             const auto points=[&](const std::array<VertexId,3>& ids) {
@@ -188,7 +197,138 @@ SculptSourceContactAssessment assessPostSculptOriginalContacts(
         }
         result.contacts=std::move(all);
         result.originalCandidate=proposed.candidate;
-        result.status=SculptSourceContactStatus::CompleteTransverse;
+        result.status=requireFiniteTransverseSections?
+            SculptSourceContactStatus::CompleteTransverse:
+            SculptSourceContactStatus::CompleteIntersecting;
+    }catch(const std::length_error& error) {
+        return refuse(std::string("Post-sculpt bounded original V13 discovery: ")+
+                      error.what());
+    }catch(const std::logic_error& error) {
+        return refuse(std::string("Post-sculpt original V13 provenance refusal: ")+
+                      error.what());
+    }
+    return result;
+}
+
+// R07: changed-neighborhood source discovery retains exact full-root mirror
+// validation and queries all spatial neighbors of the changed face seeds.
+// Protected original-source V13 whole-mesh discovery above is unchanged.
+SculptSourceContactAssessment assessPostSculptRepairContacts(
+    const ProposedSculptStep& proposed,bool symmetric,
+    const SculptSourceContactLimits& limits,
+    const std::unordered_map<VertexId,VertexId>* mirrors) {
+    SculptSourceContactAssessment result;
+    const auto refuse=[&](std::string reason) {
+        result.refusal=std::move(reason);
+        result.contacts.clear();
+        result.originalCandidate.reset();
+        result.status=SculptSourceContactStatus::Refused;
+        return result;
+    };
+    if(!proposed.before||!proposed.candidate)
+        return refuse("Live AUTO requires immutable before and current roots");
+    std::vector<VertexId> vertices;
+    std::size_t faces=0;
+    bool bounded=true;
+    proposed.candidate->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            if(!bounded)return;
+            if(part.vertices.size()>limits.maxVertices-vertices.size()||
+               part.faces.size()>limits.maxFaces-faces) {
+                bounded=false;
+                return;
+            }
+            faces+=part.faces.size();
+            for(const auto& v:part.vertices)
+                vertices.push_back(v.id);
+        });
+    if(!bounded)
+        return refuse("Post-sculpt complete original V13 root exceeds live vertex/face budget");
+    // Mirror correspondence is an EXTRA invariant, never a license to weld
+    // two independent coincident IDs. Validate the entire post-remesh
+    // involution before returning ANY source contacts.
+    if(symmetric) {
+        if(!mirrors||mirrors->size()!=vertices.size())
+            return refuse("Post-sculpt complete original mirror map is absent or incomplete");
+        for(const auto id:vertices) {
+            const auto it=mirrors->find(id);
+            if(it==mirrors->end()||
+               !mirrors->contains(it->second)||
+               mirrors->at(it->second)!=id||
+               !proposed.candidate->maybeVertex(it->second))
+                return refuse("Post-sculpt original mirror source ID is not reciprocal");
+            const auto p=proposed.candidate->vertex(id).position;
+            const auto q=proposed.candidate->vertex(it->second).position;
+            if(p.x!=-q.x||p.y!=q.y||p.z!=q.z||
+               ((id==it->second)!=(p.x==0)))
+                return refuse("Post-sculpt original mirror source orbit is not exact XYZ");
+        }
+    }
+    try {
+        // Query the full current BVH only from faces affected by the
+        // stamp. Neighbor candidates are never restricted to the stamp.
+        std::vector<VertexId> dirtyVertices;
+        std::vector<FaceId> dirtyFaces;
+        dirtyVertices.reserve(proposed.changedVertices.size());
+        dirtyFaces.reserve(proposed.changedFaces.size());
+        for(const auto id:proposed.changedVertices) {
+            if(proposed.candidate->maybeVertex(id))
+                dirtyVertices.push_back(id);
+            else if(!proposed.candidate->retiredVertex(id))
+                return refuse("Live AUTO changed vertex has no source identity");
+        }
+        for(const auto id:proposed.changedFaces) {
+            if(proposed.candidate->maybeFace(id))
+                dirtyFaces.push_back(id);
+            else if(!proposed.candidate->retiredFace(id))
+                return refuse("Live AUTO changed face has no source identity");
+        }
+        if(dirtyVertices.empty()&&dirtyFaces.empty()&&
+           proposed.before!=proposed.candidate)
+            return refuse("Live AUTO missing changed-neighborhood evidence");
+        auto all=proposed.candidate->triangleIntersections(
+            dirtyVertices,dirtyFaces,&result.work,limits.query,16);
+        result.discoveredPairs=all.size();
+        if(!all.empty()) {
+            // A pre-existing unchanged contact is not caused by this
+            // stamp. Compare only valid stable source IDs on before.
+            std::vector<VertexId> oldVertices;
+            std::vector<FaceId> oldFaces;
+            for(const auto id:dirtyVertices)
+                if(proposed.before->maybeVertex(id))
+                    oldVertices.push_back(id);
+            for(const auto id:dirtyFaces)
+                if(proposed.before->maybeFace(id))
+                    oldFaces.push_back(id);
+            const auto previously=proposed.before->triangleIntersections(
+                oldVertices,oldFaces,nullptr,limits.query,16);
+            std::set<std::pair<FaceId,FaceId>> preexisting;
+            for(const auto& pair:previously)
+                if(!pair.ambiguous)
+                    preexisting.emplace(pair.first,pair.second);
+            std::erase_if(all,[&](const auto& pair) {
+                return !pair.ambiguous&&
+                    preexisting.contains({pair.first,pair.second});
+            });
+        }
+        if(all.empty()) {
+            result.originalCandidate=proposed.candidate;
+            result.status=SculptSourceContactStatus::Clean;
+            return result;
+        }
+        if(all.size()>limits.maxSectionTests)
+            return refuse("Post-sculpt original transverse section work budget exhausted");
+        // R07's R02/R03 excision works from whole intersecting face
+        // stars, not exact V13 section patches. A non-ambiguous contact
+        // can therefore be admitted to private repair without requiring
+        // local section triangulation that R02 never uses. Ambiguous
+        // collision predicates remain a hard refusal.
+        for(const auto& pair:all)
+            if(pair.ambiguous)
+                return refuse("R07 AUTO face pair has ambiguous contact");
+        result.contacts=std::move(all);
+        result.originalCandidate=proposed.candidate;
+        result.status=SculptSourceContactStatus::CompleteIntersecting;
     }catch(const std::length_error& error) {
         return refuse(std::string("Post-sculpt bounded original V13 discovery: ")+
                       error.what());
@@ -518,6 +658,11 @@ published_(RegionTopologyIndex::build(std::move(import.revision))),
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.certifiedAutoClosure&&
+       (collision_.physicalExact||collision_.enabled||
+        collision_.offModeConstraints.enabled))
+        throw std::invalid_argument(
+            "Live certified R06 AUTO is exclusive with exact, legacy and OFF-mode collision policies");
     if(collision_.offModeConstraints.enabled&&
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
@@ -583,6 +728,11 @@ VersionedSculptBrush::VersionedSculptBrush(
     if(collision_.enabled&&collision_.physicalExact)
         throw std::invalid_argument(
             "Physical exact Boolean and legacy approximate collision surgery are mutually exclusive");
+    if(collision_.certifiedAutoClosure&&
+       (collision_.physicalExact||collision_.enabled||
+        collision_.offModeConstraints.enabled))
+        throw std::invalid_argument(
+            "Live certified R06 AUTO is exclusive with exact, legacy and OFF-mode collision policies");
     if(collision_.offModeConstraints.enabled&&
        (collision_.physicalExact||collision_.enabled))
         throw std::invalid_argument(
@@ -1111,13 +1261,210 @@ void VersionedSculptBrush::stamp(
             physicalRefusal=std::string("Physical exact source/map refusal: ")+error.what();
         }
     }
+    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
+    // R07 production AUTO is deliberately independent of the M16 frozen
+    // read-only inspector. Run the SAME trusted R01->R03->M03->M04C
+    // certification on the worker's complete unpublished post-stamp root.
+    // If anything refuses, rollback the ENTIRE brush Step below; never
+    // publish a partial cut, a half-updated mirrored orbit or an open mesh.
+    std::optional<CertifiedPrivateAutoResult> certifiedAutoRepair;
+    std::optional<CertifiedAutoPublicationDelta> certifiedAutoDelta;
+    std::string certifiedAutoRefusal;
+    // Timed only for an actual new-contact escalation; clean stamps incur
+    // no diagnostic I/O. Measurements are wall time on the worker, and
+    // include all private certification (not just collision BVH traversal).
+    std::array<double,7> autoContactStageMs{};
+    const char* autoContactPhase="local_detection";
+    bool autoContactEscalated=false;
+    auto autoContactPrevious=Clock::now();
+    const auto markAutoContactStage=[&](std::size_t ordinal,const char* next) {
+        const auto now=Clock::now();
+        autoContactStageMs.at(ordinal)=seconds(autoContactPrevious,now)*1000;
+        autoContactPrevious=now;
+        autoContactPhase=next;
+    };
+    if(collision_.certifiedAutoClosure&&updated!=old) {
+        ++collisionChecked_;
+        try {
+            const auto discovered=assessPostSculptRepairContacts(
+                {old,updated,changedVertices,changedFaces},symmetric_,
+                collision_.certifiedAutoSourceLimits,
+                symmetric_?&collapser_.mirrors():nullptr);
+            lastStepResourceWork_.autoDetectionWork=discovered.work;
+            markAutoContactStage(0,"complete_contact_graph");
+            classifiedEpisodeStep=true;
+            if(discovered.status==SculptSourceContactStatus::Refused) {
+                certifiedAutoRefusal="R07 live AUTO source refusal: "+
+                    discovered.refusal;
+            }else if(discovered.status==SculptSourceContactStatus::Clean) {
+                episodeClassification=false;
+            }else {
+                episodeClassification=true;
+                autoContactEscalated=true;
+                // R01's new-contact detector is deliberately localized,
+                // but R02/R03/M03 need COMPLETE original contact evidence.
+                // Escalate only when it finds a genuine new transverse
+                // intersection. No whole-mesh scan is done for Clean
+                // stamps, and protected Merge keeps its own source policy.
+                const auto complete=assessPostSculptOriginalContacts(
+                    {old,updated,changedVertices,changedFaces},symmetric_,
+                    collision_.certifiedAutoCompleteSourceLimits,
+                    symmetric_?&collapser_.mirrors():nullptr,16,false);
+                if(!complete.ready()||
+                   complete.originalCandidate!=updated)
+                    throw std::logic_error(
+                        "R07 live AUTO complete original contact graph refused: "+
+                        (complete.refusal.empty()?
+                         std::string("local/full contact evidence disagrees"):
+                         complete.refusal));
+                std::cout<<"[repair-r07] CONTACT local_pairs="
+                         <<discovered.contacts.size()
+                         <<" all_source_pairs="<<complete.contacts.size()
+                         <<" complete_box_tests="<<complete.work.boxesTested
+                         <<" (repair stages remain private)\n";
+                markAutoContactStage(1,"excision_preview");
+                const auto source=complete.originalCandidate;
+                const auto preview=previewApproximateExcision(
+                    *source,complete.contacts);
+                if(!preview.complete)
+                    throw std::logic_error(
+                        "R07 live AUTO incomplete source-backed R03 preview: "+
+                        preview.diagnostic);
+                markAutoContactStage(2,"private_excision");
+                const auto cut=applyPrivateExcision(source,preview);
+                markAutoContactStage(3,"closure_planning");
+                auto plan=planPrivateAutomaticClosure(
+                    *source,cut,preview,complete.contacts);
+                if(!plan.ready())
+                    throw std::logic_error(
+                        "R07 live AUTO M03 closure plan refused: "+plan.diagnostic);
+                // A geometrically certified cap is not necessarily the
+                // INTENDED response to a first self-contact. Record the
+                // source-backed M03 decision before M04, so a successful
+                // but wrong cap-vs-zipper classification is diagnosable.
+                // Print only on real contact escalation, never clean stamps.
+                std::ostringstream planLog;
+                planLog<<"[repair-r07-plan]"
+                       <<" contacts="<<complete.contacts.size()
+                         <<" excised_faces="<<preview.proposedFaces.size()
+                         <<" contours="<<preview.contours.size()
+                         <<" patches="<<plan.excisionPatches
+                         <<" contact_links="<<plan.trustedContactLinks
+                         <<" regions="<<plan.geometryRegions
+                         <<" caps="<<plan.cappedContours.size()
+                         <<" zippers="<<plan.zipperPairs.size()
+                         <<" area="<<plan.estimatedAddedArea<<"\n";
+                for(std::size_t regionIndex=0;
+                    regionIndex<plan.regions.size();++regionIndex) {
+                    const auto& region=plan.regions[regionIndex];
+                    planLog<<"[repair-r07-plan-region]"
+                             <<" index="<<regionIndex
+                             <<" patches="<<region.excisionPatches.size()
+                             <<" contact_links="<<region.contactLinks
+                             <<" loops=";
+                    for(const auto loop:region.contours)
+                        planLog<<loop<<",";
+                    planLog<<" caps=";
+                    for(const auto loop:region.caps)
+                        planLog<<loop<<",";
+                    planLog<<" zippers=";
+                    for(const auto& selected:region.zippers)
+                        planLog<<selected.first<<":"<<selected.second<<",";
+                    planLog<<" selection_area="<<region.estimatedAddedArea
+                             <<" ambiguous_cap_fallback="
+                             <<region.usedAmbiguousCapFallback
+                             <<" two_rim_evidence="
+                             <<region.twoRimEvidenceValid;
+                    if(region.twoRimEvidenceValid) {
+                        const auto savings=region.estimatedCapArea>0?
+                            1-region.estimatedZipperArea/
+                              region.estimatedCapArea:0.;
+                        planLog<<" rim_centroid_gap="
+                                 <<region.rimCentroidSeparation
+                                 <<" rim_normal_dot="
+                                 <<region.rimNormalAlignment
+                                 <<" nearest_gap_edges="
+                                 <<region.rimNearestSeparationInEdges
+                                 <<" advisory_caps_area="
+                                 <<region.estimatedCapArea
+                                 <<" advisory_zipper_area="
+                                 <<region.estimatedZipperArea
+                                 <<" advisory_zipper_savings="<<savings;
+                    }
+                    planLog<<" reason=\""<<region.selectionReason<<"\"\n";
+                }
+                std::cout<<planLog.str()<<std::flush;
+                markAutoContactStage(4,"certified_private_closure");
+                CertifiedPrivateAutoLimits limits;
+                limits.closure.requireReflectedGeometry=symmetric_;
+                limits.closure.staging.useUnifiedZipper=
+                    collision_.certifiedAutoUnifiedZipper;
+                auto result=applyCertifiedPrivateAutomaticClosure(
+                    source,cut,preview,plan,complete.contacts,limits);
+                if(!result.index)
+                    throw std::logic_error(
+                        "R07 certified AUTO produced no final closed source root");
+                markAutoContactStage(5,"publication_provenance");
+                auto delta=inspectCertifiedAutoPublication(
+                    *source,*result.index,
+                    symmetric_?&collapser_.mirrors():nullptr,
+                    limits.closure.maxAuditedFaces);
+                // The publication delta is a second, independent mirror-ID
+                // gate. All edits remain inside the rollback-able private
+                // maps until one complete root passes all Step validation.
+                for(const auto& [a,b]:delta.removedMirrors) {
+                    refiner_.removeMirrorPair(a,b);
+                    collapser_.removeMirrorPair(a,b);
+                }
+                for(const auto& [a,b]:delta.addedMirrors) {
+                    refiner_.addMirrorPair(a,b);
+                    collapser_.addMirrorPair(a,b);
+                }
+                repairedAddedMirrors=delta.addedMirrors;
+                repairedRemovedMirrors=delta.removedMirrors;
+                changedVertices.insert(changedVertices.end(),
+                    delta.changedVertices.begin(),delta.changedVertices.end());
+                changedFaces.insert(changedFaces.end(),
+                    delta.changedFaces.begin(),delta.changedFaces.end());
+                updated=result.index;
+                certifiedAutoDelta=std::move(delta);
+                certifiedAutoRepair=std::move(result);
+                markAutoContactStage(6,"complete");
+            }
+        }catch(const std::length_error& error) {
+            certifiedAutoRefusal=std::string(
+                "R07 live AUTO finite work refusal: ")+error.what();
+        }catch(const std::exception& error) {
+            certifiedAutoRefusal=std::string(
+                "R07 live AUTO geometry/provenance refusal: ")+error.what();
+        }
+        if(autoContactEscalated) {
+            std::cout<<"[repair-r07-timing]"
+                     <<" phase="<<autoContactPhase
+                     <<" local_ms="<<autoContactStageMs[0]
+                     <<" complete_ms="<<autoContactStageMs[1]
+                     <<" preview_ms="<<autoContactStageMs[2]
+                     <<" excision_ms="<<autoContactStageMs[3]
+                     <<" plan_ms="<<autoContactStageMs[4]
+                     <<" closure_ms="<<autoContactStageMs[5]
+                     <<" provenance_ms="<<autoContactStageMs[6]
+                     <<" elapsed_ms="<<
+                         (autoContactStageMs[0]+autoContactStageMs[1]+
+                          autoContactStageMs[2]+autoContactStageMs[3]+
+                          autoContactStageMs[4]+autoContactStageMs[5]+
+                          autoContactStageMs[6]+
+                          (autoContactPhase==std::string("complete")?0.0:
+                           seconds(autoContactPrevious,Clock::now())*1000))
+                     <<" refused="<<!certifiedAutoRefusal.empty()
+                     <<" (incomplete stages show 0)\n"<<std::flush;
+        }
+    }
     // A selected collision policy first classifies the FULL post-remesh
     // proposal. When supported, it may supply a privately repaired root.
     // The V17c validator below observes that final root and expanded dirty
     // set, never a partly repaired intermediate revision.
     std::string collisionRefusal;
     std::optional<RepairSurgeryResult> collisionRepair;
-    std::vector<MirrorPair> repairedAddedMirrors,repairedRemovedMirrors;
     if(collision_.enabled&&updated!=old) {
         ++collisionChecked_;
         SculptCollisionEvaluation judged;
@@ -1182,8 +1529,10 @@ void VersionedSculptBrush::stamp(
     // The decision examines the complete unpublished post-refine/collapse
     // Step and its exact dirty face/vertex set. Classification budget and
     // geometric refusals raised by this opt-in callback are recoverable.
-    std::string rejection=physicalRefusal.empty()?
-        std::move(collisionRefusal):std::move(physicalRefusal);
+    std::string rejection=!physicalRefusal.empty()?
+        std::move(physicalRefusal):
+        !certifiedAutoRefusal.empty()?
+            std::move(certifiedAutoRefusal):std::move(collisionRefusal);
     if(rejection.empty()&&validator_&&updated!=old) {
         try {
             rejection=validator_({old,updated,
@@ -1453,6 +1802,14 @@ void VersionedSculptBrush::stamp(
         ++collisionRepaired_;
         ++completedUnions_;
     }
+    if(certifiedAutoRepair&&certifiedAutoDelta) {
+        // The R06 pass includes both old survivor replacements and entirely
+        // new topology. Count the ACTUAL final root, not just its zipper
+        // vertex count or source excision estimate.
+        vertices_=certifiedAutoDelta->liveVertices;
+        faces_=certifiedAutoDelta->liveFaces;
+        ++collisionRepaired_;
+    }
     if(collisionRepair) {
         vertices_+=collisionRepair->insertedVertices.size();
         vertices_-=collisionRepair->retiredVertices.size();
@@ -1471,6 +1828,12 @@ void VersionedSculptBrush::stamp(
         modifiedPartitions_+=physicalExactUnion->commit.statistics.modifiedPartitions;
         copiedDirectoryNodes_+=physicalExactUnion->commit.statistics.copiedDirectoryNodes;
         clonedPartitionBytes_+=physicalExactUnion->copiedPayloadBytes;
+    }
+    if(certifiedAutoRepair) {
+        // R06's multi-stage private COW cost is separately bounded by its
+        // repair budgets. The final dirty owners are already accounted by
+        // dirtyRenderPartitions and the single-CAS history transition.
+        modifiedPartitions_+=lastDirtyPartitions_.size();
     }
     if(collisionRepair) {
         modifiedPartitions_+=collisionRepair->commit.statistics.modifiedPartitions;
