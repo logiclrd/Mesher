@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.22)
-project(Mesher VERSION 0.1.0 LANGUAGES CXX)
+# VERSION is the single release identifier, including alpha suffixes such as
+# 0.5a. CMake's numeric project VERSION excludes the suffix by design.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" MESHER_RELEASE_VERSION)
+string(STRIP "${MESHER_RELEASE_VERSION}" MESHER_RELEASE_VERSION)
+if(NOT MESHER_RELEASE_VERSION MATCHES "^[0-9]+\\.[0-9]+[A-Za-z0-9.\\-]*$")
+    message(FATAL_ERROR "Invalid Mesher VERSION: '${MESHER_RELEASE_VERSION}'")
+endif()
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" MESHER_NUMERIC_VERSION "${MESHER_RELEASE_VERSION}")
+project(Mesher VERSION ${MESHER_NUMERIC_VERSION} LANGUAGES CXX)
+message(STATUS "Mesher release version: ${MESHER_RELEASE_VERSION}")
 
 # Single-config generators otherwise default to unoptimized (no -O flags).
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -101,7 +110,8 @@ if(MESHER_BUILD_VIEWPORT)
     add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
     add_dependencies(Mesher mesher_shaders mesher_images)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)
-    target_compile_definitions(Mesher PRIVATE MESHER_ASSET_DIR="${MESHER_ASSET_DIR}")
+    target_compile_definitions(Mesher PRIVATE MESHER_ASSET_DIR="${MESHER_ASSET_DIR}"
+        MESHER_RELEASE_VERSION="${MESHER_RELEASE_VERSION}")
     # A Windows executable's embedded shell/file icon is separate from
     # glfwSetWindowIcon, which controls the running application's window.
     if(WIN32)
