@@ -158,8 +158,29 @@ std::size_t MixedClosureStaging::ensureFace(
                 ++count;
             }
         }
-        if(count>1)
-            throw std::logic_error("R06-M15A face would overfill effective edge");
+        if(count>1) {
+            // A rejected nonmanifold edge must remain unpublished, but
+            // record its complete exact-ID witness so live R07 refusals
+            // can be diagnosed without guessing from rendered pixels.
+            std::ostringstream evidence;
+            evidence<<"R06-M15A face would overfill effective edge"
+                    <<" edge="<<key.first<<","<<key.second
+                    <<" attempted_face="<<a<<","<<b<<","<<c
+                    <<" kind="<<(kind==MixedClosureFaceKind::Cap?"CAP":
+                                 kind==MixedClosureFaceKind::Zipper?"ZIPPER":"SURVIVOR")
+                    <<" existing_sides="<<count<<" source_faces=";
+            for(const auto& side:sourceView_->edgeSides(
+                  {key.first,key.second}))
+                evidence<<side.face<<",";
+            evidence<<" staged_ordinals=";
+            for(std::size_t index=0;index<faces_.size();++index) {
+                const auto& staged=faces_[index];
+                if(!staged.stableId&&
+                   mixedFaceContainsEdge(staged.triangle(),key))
+                    evidence<<index<<",";
+            }
+            throw std::logic_error(evidence.str());
+        }
         if(count==1&&previousForward==(u==key.first))
             throw std::logic_error("R06-M15A new face duplicates directed edge side");
     }
