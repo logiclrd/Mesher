@@ -1,5 +1,6 @@
 #include "mesher/repair_mixed_stage.hpp"
 #include "mesher/repair_mixed_closure.hpp"
+#include "mesher/repair_mirror_geometry.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 
@@ -671,7 +672,23 @@ void twoIndividuallyMirroredRimsCreateExactZipper() {
             require(generated.contains(ids),
                     "R06 self-mirror zipper face must have exact reflected mate");
         }
-    std::cout<<"[r06-mirror-zipper] two independently X=0 symmetric mouths exact two-half AFM PASS\n";
+    // Production R07 runs the mixed shape/length refinements and then
+    // audits the FULL immutable mesh, not merely the proposed triangles.
+    // The previous defect passed local topology but failed that final
+    // global mirror check. Lock in the desired certified behavior.
+    MixedPrivateClosureLimits closureLimits;
+    closureLimits.requireReflectedGeometry=true;
+    const auto closed=applyPrivateMixedClosure(
+        cut,proposal,plan,closureLimits);
+    require(closed.index&&closed.zipperPairs==1&&
+            !closed.blueFaces.empty(),
+            "R06 two self-mirror mouth zipper must certify a complete private closure");
+    const auto mirrorAudit=auditPrivateReflectedGeometry(
+        *closed.index,closureLimits.maxAuditedFaces*3,
+        closureLimits.maxAuditedFaces);
+    require(mirrorAudit.pairedFaces>0&&mirrorAudit.pairedVertices>0,
+            "R06 two self-mirror mouth closure must preserve exact global reflected orbits");
+    std::cout<<"[r06-mirror-zipper] two independently X=0 symmetric mouths exact full closure PASS\n";
 }
 
 void independentMirroredZipperOrbits() {
