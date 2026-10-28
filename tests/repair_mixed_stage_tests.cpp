@@ -573,6 +573,107 @@ void physicalMirroredZipperStaging() {
     std::cout<<"[r06-m06c4c2] physical 15+15 rim stages two reflected halves around real seam PASS\n";
 }
 
+void twoIndividuallyMirroredRimsCreateExactZipper() {
+    // Two separate open mouths, EACH with its own two original X=0
+    // seam vertices. Neither mouth is the reflected partner of the
+    // other; the physical zipper between them must consist of TWO
+    // mirrored half-fronts, never one ordinary asymmetric AFM disk.
+    Mesh m;
+    const std::array<std::array<double,2>,8> ring{{
+        {0.,-1.},{.7,-.7},{1.,0.},{.7,.7},
+        {0.,1.},{-.7,.7},{-1.,0.},{-.7,-.7}
+    }};
+    std::vector<std::size_t> removed;
+    for(unsigned side=0;side<2;++side) {
+        const auto z=side?.45:-.45;
+        const auto start=static_cast<std::uint32_t>(m.vertices.size());
+        for(const auto yz:ring)m.vertices.push_back({yz[0],yz[1],z});
+        const auto survivor=static_cast<std::uint32_t>(m.vertices.size());
+        m.vertices.push_back({0,0,side?1.5:-1.5});
+        const auto retired=static_cast<std::uint32_t>(m.vertices.size());
+        m.vertices.push_back({0,0,side?.55:-.55});
+        for(std::uint32_t k=0;k<ring.size();++k) {
+            const auto j=(k+1)%static_cast<std::uint32_t>(ring.size());
+            if(!side) {
+                m.triangles.push_back({survivor,start+j,start+k});
+                removed.push_back(m.triangles.size());
+                m.triangles.push_back({retired,start+k,start+j});
+            }else {
+                m.triangles.push_back({survivor,start+k,start+j});
+                removed.push_back(m.triangles.size());
+                m.triangles.push_back({retired,start+j,start+k});
+            }
+        }
+    }
+    const auto source=fixture(std::move(m));
+    RepairExcisionPreview proposal;
+    proposal.complete=true;
+    for(const auto index:removed)
+        proposal.proposedFaces.push_back(source.flat.faceIds.at(index));
+    std::sort(proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    const std::set<FaceId> retiredFaces(
+        proposal.proposedFaces.begin(),proposal.proposedFaces.end());
+    for(const auto id:source.flat.vertexIds) {
+        const auto& incident=source.root->vertex(id).incidentFaces;
+        if(!incident.empty()&&std::all_of(
+            incident.begin(),incident.end(),
+            [&](FaceId face){return retiredFaces.contains(face);}))
+            proposal.proposedVertices.push_back(id);
+    }
+    const auto contours=planRemovalContours(
+        *source.root,proposal.proposedFaces);
+    proposal.contours=contours.contours;
+    for(const auto& loop:proposal.contours)
+        proposal.boundaryEdges+=loop.vertexIds.size();
+    require(proposal.contours.size()==2&&proposal.boundaryEdges==16,
+            "R06 two self-mirror mouths require two real 8-edge R03 rims");
+    const auto cut=applyPrivateExcision(source.root,proposal);
+    AutoClosurePlan plan;
+    plan.status=AutoClosurePlanStatus::Ready;
+    plan.zipperPairs={{0,1}};
+    AutoClosureRegion region;
+    region.contours={0,1};
+    region.zippers={{0,1}};
+    plan.regions.push_back(region);
+    MixedClosureStageSettings limits;
+    limits.requireReflectedGeometry=true;
+    limits.useUnifiedZipper=true;
+    const auto staged=stagePrivateMixedClosure(cut,proposal,plan,limits);
+    require(staged.zipperPairs==1&&staged.usedMirroredSeamZipper&&
+            staged.zipperTriangles>0&&
+            staged.boundarySidesCovered==proposal.boundaryEdges,
+            "R06 self-mirror mouth zipper must stage full oriented exact two-half front");
+    std::map<std::tuple<double,double,double>,VertexId> byPosition;
+    for(const auto& [id,p]:staged.positions()) {
+        require(byPosition.emplace(
+            std::make_tuple(p.x,p.y,p.z),id).second,
+            "R06 self-mirror zipper must retain unique source/provisional positions");
+    }
+    std::set<std::array<VertexId,3>> generated;
+    for(const auto& face:staged.faces())
+        if(face.kind==MixedClosureFaceKind::Zipper) {
+            auto ids=face.triangle();
+            std::sort(ids.begin(),ids.end());
+            generated.insert(ids);
+        }
+    for(const auto& face:staged.faces())
+        if(face.kind==MixedClosureFaceKind::Zipper) {
+            auto ids=face.triangle();
+            for(auto& id:ids) {
+                const auto p=staged.positions().at(id);
+                const auto it=byPosition.find(
+                    std::make_tuple(-p.x,p.y,p.z));
+                require(it!=byPosition.end(),
+                    "R06 self-mirror zipper created an unmatched off-plane vertex");
+                id=it->second;
+            }
+            std::sort(ids.begin(),ids.end());
+            require(generated.contains(ids),
+                    "R06 self-mirror zipper face must have exact reflected mate");
+        }
+    std::cout<<"[r06-mirror-zipper] two independently X=0 symmetric mouths exact two-half AFM PASS\n";
+}
+
 void independentMirroredZipperOrbits() {
     // Two distinct physical zipper patches, each wholly within its own
     // half-space. Their contours are paired under exact source reflection,
@@ -719,6 +820,7 @@ int main() {
         tightTorus();
         physicalMirroredZipperStaging();
         independentMirroredZipperOrbits();
+        twoIndividuallyMirroredRimsCreateExactZipper();
         planarMirroredCapMustNotUseUnpairedEarDiagonal();
         return 0;
     }catch(const std::exception& error) {
