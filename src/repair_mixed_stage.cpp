@@ -553,6 +553,40 @@ MixedClosureStaging stagePrivateMixedClosure(
         const bool mirroredPair=bounds.requireReflectedGeometry&&
             ((entirely(a,-1)&&entirely(b,+1))||
              (entirely(a,+1)&&entirely(b,-1)));
+        if(bounds.requireReflectedGeometry) {
+            const auto rimStats=[&](const RepairContour& rim) {
+                std::size_t positive=0,negative=0,seam=0,mirrored=0;
+                for(const auto id:rim.vertexIds) {
+                    const auto p=result.positions().at(id);
+                    if(p.x>0)++positive;
+                    else if(p.x<0)++negative;
+                    else ++seam;
+                    for(const auto other:rim.vertexIds) {
+                        const auto q=result.positions().at(other);
+                        if(q.x==-p.x&&q.y==p.y&&q.z==p.z) {
+                            ++mirrored;
+                            break;
+                        }
+                    }
+                }
+                return std::array<std::size_t,4>{
+                    positive,negative,seam,mirrored};
+            };
+            const auto first=rimStats(a),second=rimStats(b);
+            std::cout<<"[repair-r06-zipper-symmetry]"
+                     <<" loops="<<pair.first<<","<<pair.second
+                     <<" a_positive="<<first[0]
+                     <<" a_negative="<<first[1]
+                     <<" a_seam="<<first[2]
+                     <<" a_self_reflected_vertices="<<first[3]
+                     <<" b_positive="<<second[0]
+                     <<" b_negative="<<second[1]
+                     <<" b_seam="<<second[2]
+                     <<" b_self_reflected_vertices="<<second[3]
+                     <<" opposite_one_sided="<<mirroredPair
+                     <<" independent_reflected_zipper="<<static_cast<bool>(reflectedPair)
+                     <<"\n";
+        }
         if(bounds.useUnifiedZipper) {
             const auto toCapFacingRim=[&](const RepairContour& loop) {
                 UnifiedZipperRim output;
