@@ -204,8 +204,11 @@ int main(int argc, char** argv) {
                     if(number>10000)throw std::invalid_argument("Too many relaxation iterations");
                     options.relaxationIterations=static_cast<std::uint32_t>(number);
                 }
+            } else if(arg=="--version"){
+                std::cout<<"Mesher "<<MESHER_RELEASE_VERSION<<"\\n";
+                return 0;
             } else if(arg=="--help"||arg=="-h"){
-                std::cout<<"Mesher [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
+                std::cout<<"Mesher [--version] [--symmetric|--asymmetric] [--vertices N] [--seed N] [--relax N]\n"
                          <<"       [--no-inflate] [--step D] [--strength D] [--segments N] [--brush-radius R]\n"
                          <<"       [--stamps-per-second HZ] [--no-collapse] [--compare-remesh]\n"
                          <<"       [--minimum-edge-ratio R] [--max-collapse-pairs N]\n"
