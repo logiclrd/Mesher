@@ -13,9 +13,18 @@ leaves the entire current editing session untouched.
   vertex indices (positive or relative negative). Accept bare XYZ,
   normalized inline XYZ RGB, or XYZ RGBA vertex records. Default unpainted
   XYZ to opaque white; preserve explicit RGBA on the indexed candidate.
+- `.ply`: ASCII and binary little-/big-endian PLY 1.0, closed,
+  consistently wound triangle meshes with vertex `x/y/z` plus optional
+  `uchar red/green/blue[/alpha]` properties. Channel values are divided
+  by 255 into Mesher's linear, unpremultiplied RGBA representation;
+  missing alpha defaults to opaque. Scalar normals/other unrelated vertex
+  properties may be skipped, but alternate/incomplete vertex colours,
+  facet colours, extra elements, nontriangular polygons, unknown list
+  properties and unsupported colour types are **explicitly refused**
+  to avoid silently dropping colour information.
 - OBJ material and metadata-colour variants, textured/normal-indexed faces,
   polygons, byte-range colours, mixed coloured/uncoloured vertices, and
-  `.ply`/`.stl` are **explicitly refused**, not silently converted.
+  `.stl` are **explicitly refused**, not silently converted.
 - Bounded file size, line counts, vertex/face counts, finite coordinates,
   triangle quality, and exact undirected/directed manifold edge checks.
 
@@ -28,9 +37,10 @@ error dialog rather than appearing only in the console.
 
 The explicit Open filter is authoritative **regardless of filename**:
 `Mesher mesh files (*.mshr)` invokes the checksummed checkpoint parser;
-`Wavefront OBJ (*.obj)` invokes the OBJ parser; `All Files` detects
-`MESHRV12` magic or plausible OBJ record headers before invoking a
-strict parser. `MSHRCAS1` belongs to a distinct R06 replay archive
+`Wavefront OBJ (*.obj)` invokes the OBJ parser; `Stanford PLY (*.ply)`
+invokes the PLY parser. `All Files` detects `MESHRV12` checkpoint magic,
+`ply` header, or plausible OBJ records before invoking the corresponding
+strict parser. None of these parsers trust the filename extension. `MSHRCAS1` belongs to a distinct R06 replay archive
 (`.r06case`) and is explicitly identified and refused for interactive
 mesh editing, with `--repair-replay` guidance. Unknown headers or
 corrupt contents are refused; there is no extension-based fallback.
@@ -81,8 +91,22 @@ new Save As default to its .mshr sibling; restored checkpoints preserve
 their checkpoint destination. The new source owns a fresh undo history,
 with no attempt to splice unrelated mesh lineages.
 
-Remaining UX06 work: PLY/STL and additional explicit OBJ colour variants,
+Remaining UX06 work: STL, advanced PLY variants, and additional explicit OBJ colour variants,
 more complex polygon/texture conventions, complete interactive Windows/
 macOS/Linux replacement testing (including GPU error behavior, camera/floor
 framing, symmetry and multiple consecutive Opens), and state-replacement
 acceptance tests. UX06 remains unchecked until full acceptance.
+
+
+## UX06B PLY import verification
+
+- Existing `mesher_mesh_tests` runner covers ASCII, little-endian and
+  big-endian PLY payloads, normalized vertex RGBA and alpha, colourless
+  default-white, `.mshr` checkpoint round-trip, and All Files detection
+  with intentionally misleading extensions.
+- Tests refuse malformed headers, incomplete colour channels, unsupported
+  component types, facet-colour data, nontriangular faces, invalid indices
+  and truncated binary payloads, leaving earlier indexed candidates intact.
+- Additional PLY element/property variants are not silently interpreted.
+  The current PLY importer intentionally handles precisely closed
+  triangle meshes with standard uchar vertex RGB(A).
