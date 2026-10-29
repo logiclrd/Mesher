@@ -19,9 +19,9 @@ string(FIND "${active}" "nearest=abs(worldPosition.xy-round(worldPosition.xy));"
 if(shaderList EQUAL -1 OR mesh EQUAL -1 OR grid EQUAL -1)
     message(FATAL_ERROR "M64 M67/M68 depth-owner shader cutover incomplete")
 endif()
-foreach(needle "out.solid.push_back(vertex(a,normal));"
-               "out.solid.push_back(vertex(b,normal));"
-               "out.solid.push_back(vertex(c,normal));")
+foreach(needle "out.solid.push_back(vertex(a,normal,colorOf(t[0])));"
+               "out.solid.push_back(vertex(b,normal,colorOf(t[1])));"
+               "out.solid.push_back(vertex(c,normal,colorOf(t[2])));")
     string(FIND "${partitions}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M64 immutable source triangle triples changed")
