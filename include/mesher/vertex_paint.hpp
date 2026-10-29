@@ -15,7 +15,8 @@ struct PaintDab {
     double radius{};
     double nominalEdgeLength{};
     VertexRGBA rgba{};
-    double hardness=0.5; // 0: gradual falloff throughout disc, 1: hard edge
+    double hardness=0.5; // 0: linear soft falloff, 1: hard edge
+    FaceId sourceFace{}; // optional picked triangle for full-strength centre interpolation
 };
 struct PaintDabResult {
     std::shared_ptr<const RegionTopologyIndex> colored;
