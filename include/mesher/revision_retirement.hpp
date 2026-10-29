@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/region_edit.hpp"
+#include "mesher/portable_concurrency.hpp"
 
 #include <condition_variable>
 #include <cstddef>
@@ -40,14 +41,14 @@ public:
     void drain();
 
 private:
-    void run(std::stop_token stop);
+    void run(StopToken stop);
     const std::size_t maxPending_;
     mutable std::mutex mutex_;
     std::condition_variable available_,idle_;
     std::deque<std::shared_ptr<const RegionTopologyIndex>> queue_;
     RevisionRetirementStatistics counters_;
     bool processing_{};
-    std::jthread worker_;
+    JoiningThread worker_;
 };
 
 } // namespace mesher
