@@ -190,6 +190,17 @@ void RegionEdit::moveVertex(VertexId id,Vec3 position) {
     }
     setPosition(id,position);
 }
+void RegionEdit::setVertexColor(VertexId id,VertexRGBA color) {
+    if(!selected_.contains(id)&&!newVertices_.contains(id))
+        throw std::logic_error("Cannot recolor vertex outside edit write halo");
+    const auto owner=newVertices_.contains(id)?newVertices_.at(id):
+        index_->vertex(id).owner;
+    ensureWritable(owner);
+    const auto valid=[](float x){return std::isfinite(x)&&x>=0&&x<=1;};
+    if(!valid(color.r)||!valid(color.g)||!valid(color.b)||!valid(color.a))
+        throw std::invalid_argument("Invalid remeshed vertex RGBA");
+    view_.setVertexColor(owner,id,color);
+}
 VertexId RegionEdit::addVertex(PartitionId owner,Vec3 position) {
     if(!mirror_.empty())
         throw std::logic_error("Symmetric vertex insertion awaits paired topology tools");
