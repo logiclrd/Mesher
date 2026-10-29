@@ -1,6 +1,7 @@
 #include "mesher/brush.hpp"
 #include "mesher/async_sculpt.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/brush_radius_measure.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
 #include "mesher/desktop_merge_input.hpp"
@@ -751,17 +752,21 @@ int main(int argc, char** argv) {
         if(inflate && !demoMode) {
             // Fit view-only camera transformations separately from the
             // physical brush/stroke controls. Preserve original vertices.
-            double liveMeshScale=initialViewBounds&&
-                initialViewBounds->hasVertices&&initialViewBounds->radius()>0?
-                initialViewBounds->radius():1.0;
+            double liveMeshScale=1.0;
             const auto unitRange=mesher::BrushRadiusRange::forVertexCount(
                 options.vertexCount);
-            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(
-                mesher::BrushRadiusRange::forModelScale(
-                    options.vertexCount,liveMeshScale));
+            auto range=unitRange;
+            if(recovered&&initialViewBounds&&initialViewBounds->hasVertices) {
+                const auto calibration=mesher::calibrateImportedBrush(
+                    *recovered->index,options.vertexCount,
+                    initialViewBounds->radius());
+                liveMeshScale=calibration.workerScale;
+                range=calibration.radius;
+            }
+            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
             const double requestedBrushRadius=brushRadius;
-            brushRadius=brushRange->fromSliderFraction(
-                unitRange.sliderFraction(brushRadius));
+            brushRadius=mesher::relativeImportedBrushRadius(
+                unitRange,brushRadius,*brushRange);
             if(brushRadius!=requestedBrushRadius)
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
@@ -901,20 +906,21 @@ int main(int argc, char** argv) {
                 const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
                 // No imported disk data can invent the authenticated
                 // FIRST-original authority of the previous session.
-                const double newMeshScale=openBounds.radius()>0?
-                    openBounds.radius():1.0;
+                const auto calibration=mesher::calibrateImportedBrush(
+                    *candidate.snapshot.index,
+                    static_cast<std::uint32_t>(count),openBounds.radius());
+                const double newMeshScale=calibration.workerScale;
+                const auto range=calibration.radius;
+                // Preserve brush width in local triangle-edge units,
+                // not as a percentage of the model's bounding diameter.
+                const auto radius=mesher::relativeImportedBrushRadius(
+                    *brushRange,brushRadius,range);
                 auto preparedWorker=std::make_shared<mesher::AsyncSculptWorker>(
                     std::move(candidate.snapshot),step*newMeshScale,
                     strength*newMeshScale,timeSpeed*newMeshScale,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
                 const auto root=preparedWorker->initialRevision();
-                const auto range=mesher::BrushRadiusRange::forModelScale(
-                    static_cast<std::uint32_t>(count),newMeshScale);
-                // Keep the user's relative slider selection when changing
-                // from one model's coordinate scale to another.
-                const auto radius=range.fromSliderFraction(
-                    brushRange->sliderFraction(brushRadius));
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
                      selected=std::move(selected),count,radius,mirrored,range,
@@ -926,7 +932,7 @@ int main(int argc, char** argv) {
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
                         brushRadius=radius;
-                        std::cout<<"[open] sculpt physical scale="
+                        std::cout<<"[open] sculpt edge-based scale="
                                  <<liveMeshScale<<" radius="<<radius
                                  <<" range="<<range.minimum<<".."<<range.maximum
                                  <<" strength="<<strength*liveMeshScale

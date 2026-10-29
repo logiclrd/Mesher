@@ -69,11 +69,13 @@ inherited the unit-sphere sculpt brush radius range, including the hard 0.5
 maximum: a large PLY triangle might have no vertices within that radius.
 Inflate would then publish no movement.
 
-Import and checkpoint recovery use the original model's bounding-sphere
-radius as the **physical unit scale**. The entire brush radius interval,
-normal displacement strength, spatial 4D stroke-sampling step, and temporal
-4D speed scale together. An independent Open retains the user's existing
-**relative slider position**, not the prior model's absolute radius. The
+Independent Open and checkpoint recovery now measure the **median source
+triangle-edge length** from a bounded, evenly distributed sample of face
+edges. The smallest brush radius is half that length; the largest remains
+half the model's bounding radius. Normal displacement strength, spatial 4D
+stroke step and temporal speed scale by the ratio of the measured edge to
+the unit sphere's nominal edge. An independent Open retains the selected
+**number of triangle-edge units**, rather than a global slider fraction. The
 replacement worker receives the new effective step, strength and speed
 before publication. A failed or canceled Open leaves the old worker and
 brush settings intact; generated spheres continue with factor 1 and

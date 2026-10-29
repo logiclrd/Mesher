@@ -1,5 +1,6 @@
 #include "mesher/brush.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/brush_radius_measure.hpp"
 
 #include <algorithm>
 #include <array>
@@ -26,6 +27,26 @@ struct RecordingBrush : Brush {
     }
     void end(Mesh&) override { ++ends; }
 };
+void testMeasuredImportedBrush() {
+    Mesh source{{{0,0,0},{2,0,0},{0,2,0},{0,0,3}},
+                {{0,2,1},{0,1,3},{1,2,3},{2,0,3}}};
+    auto partitioned=partitionFlatMesh(source,16);
+    const auto index=RegionTopologyIndex::build(partitioned.revision);
+    const double edge=medianImportedEdgeLength(*index);
+    check(edge>=2&&edge<4,
+          "Measured median comes from actual triangle edges");
+    const auto fit=calibrateImportedBrush(*index,4,1000);
+    near(fit.radius.minimum,edge*.5,1e-12,
+         "Smallest brush uses measured source triangle size");
+    near(fit.radius.maximum,500,1e-12,
+         "Largest brush may still span half the source bounds");
+    const auto unit=BrushRadiusRange::forVertexCount(5000);
+    const double start=relativeImportedBrushRadius(unit,.4,fit.radius);
+    check(start>=fit.radius.minimum&&start<fit.radius.maximum,
+          "Opening imported mesh chooses locally useful brush radius");
+    near(relativeImportedBrushRadius(fit.radius,start,fit.radius),
+         start,1e-12,"Same local edge scale preserves existing brush width");
+}
 void testImportedBrushPhysicalScale() {
     const auto base=BrushRadiusRange::forVertexCount(19247);
     const auto large=BrushRadiusRange::forModelScale(19247,120.0);
@@ -552,7 +573,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testImportedBrushPhysicalScale();testLargeImportedTriangleInflates();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testMeasuredImportedBrush();testImportedBrushPhysicalScale();testLargeImportedTriangleInflates();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }
