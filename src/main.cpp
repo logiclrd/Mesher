@@ -917,20 +917,11 @@ int main(int argc, char** argv) {
             interaction.paintBegin=[&] {liveWorker->beginPaintStroke();};
             interaction.paintEnd=[&] {liveWorker->endPaintStroke();};
             interaction.paintNominalEdgeLength=brushRange.minimum;
+            interaction.paintSymmetric=options.symmetric;
             interaction.paint=[&](const mesher::PaintDab& dab) {
                 if(repairSession&&repairSession->frozen())return;
-                std::vector<mesher::PaintDab> dabs{dab};
-                if(options.symmetric&&(std::abs(dab.point.x)>1e-10||
-                                     std::abs(dab.outwardNormal.x)>1e-10)) {
-                    auto mirrored=dab;
-                    mirrored.point.x=-mirrored.point.x;
-                    mirrored.outwardNormal.x=-mirrored.outwardNormal.x;
-                    // The picked source FaceId belongs to the first half,
-                    // not to the reflected half's independent stable IDs.
-                    mirrored.sourceFace=0;
-                    dabs.push_back(mirrored);
-                }
-                liveWorker->paint(std::move(dabs));
+                liveWorker->paint(mesher::paintDabsWithMirror(
+                    dab,options.symmetric));
             };
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;

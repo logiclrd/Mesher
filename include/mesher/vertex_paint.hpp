@@ -18,6 +18,20 @@ struct PaintDab {
     double hardness=0.5; // 0: linear soft falloff, 1: hard edge
     FaceId sourceFace{}; // optional picked triangle for full-strength centre interpolation
 };
+struct PaintPreview {
+    std::vector<VertexId> visibleVertices;
+    std::vector<FaceId> affectedFaces;
+};
+// Mirror semantics are identical for actual dabs and passive preview.
+std::vector<PaintDab> paintDabsWithMirror(PaintDab dab,bool symmetric);
+// Preview uses exact paint ray visibility and surface radius, but deliberately
+// ignores alpha/hardness and never publishes any indexed COW revision.
+PaintPreview collectPaintPreview(
+    std::shared_ptr<const RegionTopologyIndex> source,
+    const std::vector<PaintDab>& dabs,
+    std::size_t maxVertices=65536,
+    std::size_t maxRayTriangles=1048576,
+    std::size_t maxFaces=65536);
 struct PaintDabResult {
     std::shared_ptr<const RegionTopologyIndex> colored;
     std::vector<VertexId> changedVertices;

@@ -62,21 +62,14 @@ float weight(double distance,double closest,const PaintDab& dab) {
     if(t<=hardness||hardness>=1.0)return 1.f;
     return static_cast<float>(1.0-(t-hardness)/(1.0-hardness));
 }
-}
-PaintDabResult applyVertexPaintDabs(
-    std::shared_ptr<const RegionTopologyIndex> source,
-    const std::vector<PaintDab>& dabs,
+struct VisiblePaintSamples {
+    std::vector<std::pair<VertexId,double>> vertices;
+    double fullStrengthDistance{};
+};
+VisiblePaintSamples collectVisiblePaintSamples(
+    const RegionTopologyIndex& source,const PaintDab& dab,bool preview,
+    std::size_t& candidates,std::size_t& triangleTests,
     std::size_t maxVertices,std::size_t maxRayTriangles) {
-    if(!source)throw std::invalid_argument("Painting needs immutable root");
-    if(maxVertices==0||maxRayTriangles==0)
-        throw std::invalid_argument("Paint work budgets must be positive");
-    if(dabs.empty())return {source,{},{},0};
-    // Mirrored halves may overlap near X=0. The strongest visible dab
-    // wins for each stable vertex, preventing double-opacity at the seam.
-    struct Influence {float strength;VertexRGBA color;};
-    std::map<VertexId,Influence> influences;
-    std::size_t candidates=0,triangleTests=0;
-    for(const auto& dab:dabs) {
         if(!std::isfinite(dab.point.x)||!std::isfinite(dab.point.y)||
            !std::isfinite(dab.point.z)||!std::isfinite(dab.radius)||
            dab.radius<=0||!std::isfinite(dab.nominalEdgeLength)||
@@ -97,8 +90,8 @@ PaintDabResult applyVertexPaintDabs(
         const Vec3 origin=dab.point+outward*lift;
         // Alpha zero is a no-op (including for history), even at full
         // hardness. Paint radius is measured from the SURFACE hit.
-        if(dab.rgba.a==0.f)continue;
-        const auto ids=source->querySphere(dab.point,dab.radius);
+        if(!preview&&dab.rgba.a==0.f)return {};
+        const auto ids=source.querySphere(dab.point,dab.radius);
         if(ids.size()>maxVertices-candidates)
             throw std::length_error("Paint local vertex budget exhausted");
         candidates+=ids.size();
@@ -116,29 +109,29 @@ PaintDabResult applyVertexPaintDabs(
             }else if(distance<nearest[2])nearest[2]=distance;
         };
         for(const auto id:ids) {
-            const Vec3 target=source->vertex(id).position;
+            const Vec3 target=source.vertex(id).position;
             const double radiusDistance=length(target-dab.point);
             if(radiusDistance>dab.radius)continue;
             // Already opaque, exact-colour vertices cannot change under
             // source-over paint. Semi-transparent source paint must NOT
             // be skipped merely because its RGBA matches a prior coat:
             // repeated dabs legitimately build coverage.
-            const auto current=localColorAt(*source,id);
-            if(current.a==1.f&&current.r==dab.rgba.r&&
+            const auto current=localColorAt(source,id);
+            if(!preview&&current.a==1.f&&current.r==dab.rgba.r&&
                current.g==dab.rgba.g&&current.b==dab.rgba.b) {
                 addCenterSample(radiusDistance);
                 continue;
             }
             // Back-facing vertices do not receive paint even if a ray
             // grazes their shared edge or a thin sheet.
-            const Vec3 surfaceNormal=normalAt(*source,id);
+            const Vec3 surfaceNormal=normalAt(source,id);
             if(length(surfaceNormal)<1e-12||
                dot(surfaceNormal,origin-target)<-1e-10)continue;
             const Vec3 displacement=target-origin;
             const double distance=length(displacement);
             if(distance<1e-12)continue;
             RegionTopologyIndex::PickStatistics work{};
-            const auto first=source->firstRayHit({origin,displacement/distance},&work);
+            const auto first=source.firstRayHit({origin,displacement/distance},&work);
             if(work.trianglesTested>maxRayTriangles-triangleTests)
                 throw std::length_error("Paint occlusion ray budget exhausted");
             triangleTests+=work.trianglesTested;
@@ -161,17 +154,72 @@ PaintDabResult applyVertexPaintDabs(
         // visible samples as a conservative sampling-radius fallback.
         double center=nearest[2]<dab.radius?nearest[2]:closest;
         if(dab.sourceFace) {
-            if(const auto face=source->maybeFace(dab.sourceFace)) {
+            if(const auto face=source.maybeFace(dab.sourceFace)) {
                 for(const auto id:face->vertices)
                     center=std::max(center,length(
-                        source->vertex(id).position-dab.point));
+                        source.vertex(id).position-dab.point));
             }
         }
         center=std::min(center,dab.radius);
-        // Visibility first: shadowed vertices never participate in
-        // the painted set or receive colour from the centre plateau.
-        for(const auto& [id,distance]:visible) {
-            const float influence=weight(distance,center,dab);
+
+    return {std::move(visible),center};
+}
+} // namespace
+std::vector<PaintDab> paintDabsWithMirror(PaintDab dab,bool symmetric) {
+    std::vector<PaintDab> dabs{dab};
+    if(symmetric&&(std::abs(dab.point.x)>1e-10||
+                   std::abs(dab.outwardNormal.x)>1e-10)) {
+        dab.point.x=-dab.point.x;
+        dab.outwardNormal.x=-dab.outwardNormal.x;
+        dab.sourceFace=0;
+        dabs.push_back(dab);
+    }
+    return dabs;
+}
+PaintPreview collectPaintPreview(
+    std::shared_ptr<const RegionTopologyIndex> source,
+    const std::vector<PaintDab>& dabs,
+    std::size_t maxVertices,std::size_t maxRayTriangles,
+    std::size_t maxFaces) {
+    if(!source)throw std::invalid_argument("Preview needs immutable root");
+    if(!maxVertices||!maxRayTriangles||!maxFaces)
+        throw std::invalid_argument("Preview work budgets must be positive");
+    std::size_t candidates=0,triangleTests=0;
+    std::set<VertexId> visibleVertices;
+    for(const auto& dab:dabs) {
+        const auto samples=collectVisiblePaintSamples(*source,dab,true,
+            candidates,triangleTests,maxVertices,maxRayTriangles);
+        for(const auto& [id,distance]:samples.vertices) {
+            (void)distance;
+            visibleVertices.insert(id);
+        }
+    }
+    std::set<FaceId> faces;
+    for(const auto id:visibleVertices)
+        for(const auto face:source->vertex(id).incidentFaces) {
+            faces.insert(face);
+            if(faces.size()>maxFaces)
+                throw std::length_error("Paint preview face budget exhausted");
+        }
+    return {{visibleVertices.begin(),visibleVertices.end()},
+            {faces.begin(),faces.end()}};
+}
+PaintDabResult applyVertexPaintDabs(
+    std::shared_ptr<const RegionTopologyIndex> source,
+    const std::vector<PaintDab>& dabs,
+    std::size_t maxVertices,std::size_t maxRayTriangles) {
+    if(!source)throw std::invalid_argument("Painting needs immutable root");
+    if(!maxVertices||!maxRayTriangles)
+        throw std::invalid_argument("Paint work budgets must be positive");
+    if(dabs.empty())return {source,{},{},0};
+    struct Influence {float strength;VertexRGBA color;};
+    std::map<VertexId,Influence> influences;
+    std::size_t candidates=0,triangleTests=0;
+    for(const auto& dab:dabs) {
+        const auto samples=collectVisiblePaintSamples(*source,dab,false,
+            candidates,triangleTests,maxVertices,maxRayTriangles);
+        for(const auto& [id,distance]:samples.vertices) {
+            const float influence=weight(distance,samples.fullStrengthDistance,dab);
             if(influence<=0.f)continue;
             const auto [it,inserted]=influences.try_emplace(
                 id,Influence{influence,dab.rgba});
@@ -184,8 +232,6 @@ PaintDabResult applyVertexPaintDabs(
     std::vector<VertexId> changed;
     changed.reserve(influences.size());
     for(const auto& [id,choice]:influences) {
-        // Preserve the chosen dab's colour and apply exactly one blend
-        // per stable vertex. Equal-strength overlaps retain first-dab order.
         const auto previous=localColorAt(*source,id);
         const auto rgba=paintOver(previous,choice.color,choice.strength);
         if(rgba==previous)continue;

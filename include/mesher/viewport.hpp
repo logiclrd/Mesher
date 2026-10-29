@@ -95,6 +95,7 @@ struct ViewportInteraction {
     std::function<void(const PaintDab&)> paint;
     std::function<void()> paintBegin;
     std::function<void()> paintEnd;
+    bool paintSymmetric=false;
     double paintNominalEdgeLength=0.1;
     // Frozen R06 only: 0=ordinary, 1=prefer caps, 2=prefer zipper.
     // This captures the ORIGINAL complete candidate even when M04 succeeded.

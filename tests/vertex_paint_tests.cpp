@@ -277,6 +277,83 @@ void testPaintAlphaCompositesOverExistingColor() {
           close(result.b,2./3),
           "Source-over paint must preserve and combine partial coat coverage");
 }
+void testPaintPreviewReadOnlyAndVisibility() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0},
+                   {.04,.04,-.035},{.065,.04,-.035},{.04,.065,-.035}};
+    mesh.triangles={{0,1,2},{3,4,5}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab dab{{.05,.05,0},{0,0,1},.25,.2,{1,0,0,0},0};
+    const auto original=source;
+    const auto preview=collectPaintPreview(source,{dab});
+    check(preview.affectedFaces.size()==1&&
+          preview.affectedFaces[0]==parts.flatIndex.faceIds[0],
+          "Preview includes front faces but excludes the hidden close sheet");
+    check(preview.visibleVertices.size()==3,
+          "Preview ignores alpha and hardness for all visible vertices");
+    check(source==original&&source->pickingRootIdentity()==
+          original->pickingRootIdentity(),
+          "Preview must not publish or alter a source indexed root");
+    for(const auto id:parts.flatIndex.vertexIds)
+        check(colorOf(*source,id)==VertexRGBA{},
+              "Preview must never deposit vertex colour");
+    const auto paint=applyVertexPaintDabs(source,{dab});
+    check(paint.colored==source,
+          "Zero-alpha painting remains a no-op despite its hover coverage");
+    check(collectPaintPreview(source,{}).affectedFaces.empty(),
+          "No dabs means no highlighted faces");
+}
+void testMirroredPaintPreviewDeduplicatesFaces() {
+    Mesh mesh;
+    mesh.vertices={{-.15,0,0},{0,.15,0},{-.15,.15,0},
+                   {.15,0,0},{.15,.15,0}};
+    mesh.triangles={{0,1,2},{1,3,4}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab dab{{-.09,.08,0},{0,0,1},.29,.08,
+                       {0,1,0,0},0,parts.flatIndex.faceIds[0]};
+    const auto reflected=paintDabsWithMirror(dab,true);
+    check(reflected.size()==2&&reflected[1].sourceFace==0&&
+          reflected[1].point.x==-dab.point.x,
+          "Reflected hover uses identical mirroring without stale source FaceId");
+    const auto preview=collectPaintPreview(source,reflected);
+    check(preview.affectedFaces.size()==2&&
+          preview.affectedFaces[0]!=preview.affectedFaces[1],
+          "Mirrored hover covers both halves exactly once at the seam");
+}
+void testConvexPaintPreviewGrowth() {
+    Mesh mesh;
+    mesh.vertices.push_back({0,0,1});
+    for(const double angle:{.25,.48}) {
+        const double r=std::sin(angle),z=std::cos(angle);
+        mesh.vertices.push_back({r,0,z});
+        mesh.vertices.push_back({0,r,z});
+        mesh.vertices.push_back({-r,0,z});
+        mesh.vertices.push_back({0,-r,z});
+    }
+    for(std::uint32_t j=0;j<4;++j) {
+        const auto next=(j+1)%4;
+        mesh.triangles.push_back({0,1+j,1+next});
+        mesh.triangles.push_back({1+j,5+j,5+next});
+        mesh.triangles.push_back({1+j,5+next,1+next});
+    }
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    PaintDab dab{{0,0,1},{0,0,1},.12,.06,{1,0,0,0},0,
+                 parts.flatIndex.faceIds[0]};
+    const auto small=collectPaintPreview(source,{dab});
+    dab.radius=.30;
+    const auto medium=collectPaintPreview(source,{dab});
+    dab.radius=.50;
+    const auto large=collectPaintPreview(source,{dab});
+    check(small.visibleVertices.size()==1&&
+          medium.visibleVertices.size()>small.visibleVertices.size()&&
+          large.visibleVertices.size()>medium.visibleVertices.size(),
+          "Convex preview radius grows through all rings despite ray horizon");
+    check(large.affectedFaces.size()>medium.affectedFaces.size(),
+          "Preview face coverage grows with radius despite zero alpha");
+}
 void testOneUndoPerPaintStroke() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -424,6 +501,9 @@ int main() {
         testLinearNormalizedFootprint();
         testConvexSurfaceBrushRadiusGrowth();
         testPaintAlphaCompositesOverExistingColor();
+        testPaintPreviewReadOnlyAndVisibility();
+        testMirroredPaintPreviewDeduplicatesFaces();
+        testConvexPaintPreviewGrowth();
         testOneUndoPerPaintStroke();
         testLongPaintDragKeepsOriginalUndoRoot();
         testUndoRedoAndPaintPublication();
