@@ -9,9 +9,10 @@
 
 namespace mesher {
 namespace {
-PartitionRenderVertex vertex(Vec3 p,Vec3 n={}) {
+PartitionRenderVertex vertex(Vec3 p,Vec3 n={},VertexRGBA color={}) {
     return {float(p.x),float(p.y),float(p.z),
-            float(n.x),float(n.y),float(n.z),0};
+            float(n.x),float(n.y),float(n.z),0,
+            color.r,color.g,color.b,color.a};
 }
 using Edge=RegionTopologyIndex::Edge;
 Edge edge(VertexId a,VertexId b) {
@@ -72,6 +73,14 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
     out.solid.reserve(p->faces.size()*3);
     out.wire.reserve(p->faces.size()*6);
     std::set<Edge> emitted;
+    auto colorOf=[&](VertexId id) {
+        const auto v=index.vertex(id);
+        const auto owner=index.revision().partition(v.owner);
+        if(!owner)throw std::logic_error("Paint vertex lost its owner partition");
+        for(const auto& pv:owner->vertices)
+            if(pv.id==id)return pv.color;
+        throw std::logic_error("Paint vertex absent from owner partition");
+    };
     for(const auto& face:p->faces) {
         const auto& t=face.vertices;
         const auto a=index.vertex(t[0]).position;
@@ -79,9 +88,9 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
         const auto c=index.vertex(t[2]).position;
         const Vec3 n=cross(b-a,c-a);
         const Vec3 normal=length(n)>1e-20?normalized(n):Vec3{};
-        out.solid.push_back(vertex(a,normal));
-        out.solid.push_back(vertex(b,normal));
-        out.solid.push_back(vertex(c,normal));
+        out.solid.push_back(vertex(a,normal,colorOf(t[0])));
+        out.solid.push_back(vertex(b,normal,colorOf(t[1])));
+        out.solid.push_back(vertex(c,normal,colorOf(t[2])));
         for(unsigned i=0;i<3;++i) {
             const auto e=edge(t[i],t[(i+1)%3]);
             const auto sides=index.maybeEdgeSides(e);
