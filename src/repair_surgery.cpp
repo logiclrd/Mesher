@@ -778,7 +778,11 @@ RepairSurgeryResult applyMirroredRepairSurgery(
         if(id<partner)edit.removeMirroredFaces(id,partner);
     }
     std::unordered_map<VertexId,Vec3> pos;
-    for(const auto id:selected)pos.emplace(id,baseline->vertex(id).position);
+    std::unordered_map<VertexId,VertexRGBA> stagedColors;
+    for(const auto id:selected) {
+        pos.emplace(id,baseline->vertex(id).position);
+        stagedColors.emplace(id,vertexColorAt(*baseline,id));
+    }
     // The symmetry plane must be an actual topological seam. Never
     // duplicate an edge that crosses it with no shared X=0 vertex.
     // Perform this fail-closed test before adding ANY repair vertices.
@@ -865,12 +869,15 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 const auto made=edit.appendMirroredVertices(
                     ownerA,ownerB,point);
                 const double fraction=static_cast<double>(j)/segments;
-                edit.setVertexColor(made.first,interpolateColor(
-                    vertexColorAt(*baseline,a),vertexColorAt(*baseline,b),
-                    fraction));
-                edit.setVertexColor(made.second,interpolateColor(
-                    vertexColorAt(*baseline,opposite(a)),
-                    vertexColorAt(*baseline,opposite(b)),fraction));
+                const auto colorA=interpolateColor(
+                    stagedColors.at(a),stagedColors.at(b),fraction);
+                const auto colorB=interpolateColor(
+                    stagedColors.at(opposite(a)),
+                    stagedColors.at(opposite(b)),fraction);
+                edit.setVertexColor(made.first,colorA);
+                edit.setVertexColor(made.second,colorB);
+                stagedColors.emplace(made.first,colorA);
+                stagedColors.emplace(made.second,colorB);
                 pos.emplace(made.first,point);
                 pos.emplace(made.second,Vec3{-point.x,point.y,point.z});
                 mirrored.emplace(made.first,made.second);
@@ -1078,8 +1085,7 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                     throw std::length_error("Symmetry seam vertex budget exceeded");
                 const auto s=edit.appendSeamVertex(owner(a),{0,p.y,p.z});
                 edit.setVertexColor(s,interpolateColor(
-                    vertexColorAt(*baseline,id),
-                    vertexColorAt(*baseline,opposite(id)),0.5));
+                    stagedColors.at(id),stagedColors.at(opposite(id)),0.5));
                 seam.push_back(s);
                 pos.emplace(s,Vec3{0,p.y,p.z});
                 out.insertedVertices.push_back(s);
