@@ -46,4 +46,40 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         return std::filesystem::path(name);
     }
 }
+std::optional<std::filesystem::path> nativeOpenMeshDialog(
+    GLFWwindow*,const std::filesystem::path& suggestion) {
+    @autoreleasepool {
+        NSOpenPanel* panel=[NSOpenPanel openPanel];
+        panel.title=@"Open Mesher mesh";
+        panel.prompt=@"Open";
+        panel.canChooseFiles=YES;
+        panel.canChooseDirectories=NO;
+        panel.allowsMultipleSelection=NO;
+        panel.allowsOtherFileTypes=NO;
+        NSMutableArray<UTType*>* allowed=[NSMutableArray array];
+        for(NSString* extension in @[@"mshr",@"obj"]) {
+            UTType* type=[UTType typeWithFilenameExtension:extension
+                                         conformingToType:UTTypeData];
+            if(type)[allowed addObject:type];
+        }
+        if(allowed.count)panel.allowedContentTypes=allowed;
+        if(!suggestion.parent_path().empty()) {
+            const auto absolute=std::filesystem::absolute(suggestion);
+            const auto directory=absolute.parent_path().string();
+            panel.directoryURL=[NSURL fileURLWithPath:
+                [NSString stringWithUTF8String:directory.c_str()]
+                isDirectory:YES];
+        }
+        const NSModalResponse response=[panel runModal];
+        if(response==NSModalResponseCancel)return std::nullopt;
+        if(response!=NSModalResponseOK)
+            throw std::runtime_error("macOS Open did not complete");
+        NSURL* selected=panel.URL;
+        if(!selected||!selected.isFileURL)
+            throw std::runtime_error("macOS Open returned a non-file URL");
+        const char* path=selected.fileSystemRepresentation;
+        if(!path)throw std::runtime_error("macOS Open path unavailable");
+        return std::filesystem::path(path);
+    }
+}
 } // namespace mesher

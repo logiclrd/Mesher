@@ -61,6 +61,16 @@ struct ViewportMeshUpdate {
     std::vector<std::string> repairStepLines{};
 };
 
+struct PreparedMeshOpen {
+    // The new immutable source and replacement worker have already been
+    // validated, but the old live session remains authoritative until
+    // the renderer has built every changed owner successfully.
+    std::shared_ptr<const RegionTopologyIndex> index;
+    BrushRadiusRange radiusRange{};
+    double radius{};
+    bool symmetric{};
+    std::function<void()> commit;
+};
 struct ViewportInteraction {
     // Latch inversion on mouse-down, never switch queued 4D samples mid-stroke.
     std::function<void(Vec3,bool inverted)> begin;
@@ -91,6 +101,8 @@ struct ViewportInteraction {
     // immutable checkpoint snapshot and durable asynchronous writer.
     std::function<std::filesystem::path()> checkpointSuggestedPath;
     std::function<void(std::filesystem::path)> checkpoint;
+    std::function<std::filesystem::path()> openSuggestedPath;
+    std::function<PreparedMeshOpen(std::filesystem::path)> prepareOpen;
     // Paint-only worker publication; never changes the sculpt stroke geometry.
     std::function<void(const PaintDab&)> paint;
     std::function<void()> paintBegin;

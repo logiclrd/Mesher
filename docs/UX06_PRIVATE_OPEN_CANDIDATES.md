@@ -19,8 +19,17 @@ leaves the entire current editing session untouched.
 - Bounded file size, line counts, vertex/face counts, finite coordinates,
   triangle quality, and exact undirected/directed manifold edge checks.
 
-This is **not yet Ctrl+O**. Remaining UX06 work: native multi-format open
-dialogs, private worker and viewport rebind with atomic success/failure,
-PLY/STL and additional explicit OBJ colour variants, compatibility and
-source-provenance policy, and interactive cross-platform testing. UX06
-remains unchecked until that complete functionality is accepted.
+The initial **Ctrl+O** path now selects a supported file through the
+native OS picker (Shell, Cocoa, kdialog or zenity), prepares its immutable
+candidate and replacement worker, and rebinds all old/new render partitions
+before changing the live worker. Cancellation and validation failures
+leave the old worker/picking/history intact. Imported OBJ changes the
+new Save As default to its .mshr sibling; restored checkpoints preserve
+their checkpoint destination. The new source owns a fresh undo history,
+with no attempt to splice unrelated mesh lineages.
+
+Remaining UX06 work: PLY/STL and additional explicit OBJ colour variants,
+more complex polygon/texture conventions, complete interactive Windows/
+macOS/Linux replacement testing (including GPU error behavior, camera/floor
+framing, symmetry and multiple consecutive Opens), and state-replacement
+acceptance tests. UX06 remains unchecked until full acceptance.

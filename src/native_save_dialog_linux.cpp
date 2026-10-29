@@ -135,4 +135,36 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     throw std::runtime_error(
         "No desktop Save As provider installed (install kdialog or zenity)");
 }
+std::optional<std::filesystem::path> nativeOpenMeshDialog(
+    GLFWwindow*,const std::filesystem::path& suggestion) {
+    std::filesystem::path initial=suggestion;
+    if(initial.parent_path().empty()) {
+        if(const char* home=std::getenv("HOME");home&&*home) {
+            const std::filesystem::path homePath(home);
+            const auto documents=homePath/"Documents";
+            initial=(std::filesystem::is_directory(documents)?
+                     documents:homePath)/suggestion.filename();
+        }
+    }
+    const auto pathname=std::filesystem::absolute(initial).string();
+    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
+    const std::string_view environment=desktop?desktop:"";
+    const bool kde=environment.find("KDE")!=std::string_view::npos;
+    const bool kdialog=executableOnPath("kdialog");
+    const bool zenity=executableOnPath("zenity");
+    if(kde&&kdialog)
+        return runPicker({"kdialog","--title","Open Mesher mesh",
+                          "--getopenfilename",pathname,
+                          "Mesher mesh files (*.mshr *.obj)"});
+    if(zenity)
+        return runPicker({"zenity","--file-selection",
+                          "--title=Open Mesher mesh","--filename="+pathname,
+                          "--file-filter=Mesher mesh files | *.mshr *.obj"});
+    if(kdialog)
+        return runPicker({"kdialog","--title","Open Mesher mesh",
+                          "--getopenfilename",pathname,
+                          "Mesher mesh files (*.mshr *.obj)"});
+    throw std::runtime_error(
+        "No desktop Open provider installed (install kdialog or zenity)");
+}
 } // namespace mesher

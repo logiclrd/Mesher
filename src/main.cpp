@@ -6,6 +6,7 @@
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/mesh_open_candidate.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -725,7 +726,7 @@ int main(int argc, char** argv) {
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
-        std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
+        std::shared_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
         // The lambdas in ViewportInteraction outlive the setup block.
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
@@ -754,7 +755,7 @@ int main(int argc, char** argv) {
             // face-owner partition IDs. The Vulkan renderer updates only
             // changed partitions; no flat compatibility conversion remains.
             if(recovered)
-                liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
@@ -767,7 +768,7 @@ int main(int argc, char** argv) {
                     // original indexed root with exact stable reciprocal IDs.
                     auto source=mesher::desktopMergeReflectedFirstOriginal();
                     fixtureFirstFaces=source.firstFaces;
-                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                         std::move(source.checkpoint),step,strength,timeSpeed,
                         curvatureSettings,collapseSettings,refineSettings,
                         repairValidator,mergePolicy,
@@ -779,7 +780,7 @@ int main(int argc, char** argv) {
                     if(mergeTestTetra)
                         fixtureFirstFaces=mesher::partitionFlatMesh(mesh,256)
                                               .flatIndex.faceIds;
-                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                         mesh,step,strength,timeSpeed,curvatureSettings,
                         collapseSettings,refineSettings,options.symmetric,
                         repairValidator,mergePolicy);
@@ -847,6 +848,46 @@ int main(int argc, char** argv) {
             }
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
+            interaction.openSuggestedPath=[&] {return checkpointPath;};
+            interaction.prepareOpen=[&](std::filesystem::path selected)
+                -> mesher::PreparedMeshOpen {
+                // An independent in-memory candidate is prepared before
+                // touching the active editor. Checkpoint writer must not
+                // be discarded during an in-flight Save As.
+                const auto status=liveWorker->status();
+                if(!liveWorker->canBegin()||status.active||
+                   status.pendingSteps||status.pendingSegments||
+                   status.inputCommands||status.checkpoints.busy||
+                   (repairSession&&repairSession->frozen()))
+                    throw std::runtime_error(
+                        "Open requires idle editor and completed Save As");
+                auto candidate=mesher::readMeshOpenCandidate(selected);
+                const auto count=candidate.vertexCount;
+                const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
+                // No imported disk data can invent the authenticated
+                // FIRST-original authority of the previous session.
+                auto preparedWorker=std::make_shared<mesher::AsyncSculptWorker>(
+                    std::move(candidate.snapshot),step,strength,timeSpeed,
+                    curvatureSettings,collapseSettings,refineSettings,
+                    repairValidator,desktopPolicy);
+                const auto root=preparedWorker->initialRevision();
+                const auto range=mesher::BrushRadiusRange::forVertexCount(
+                    static_cast<std::uint32_t>(count));
+                const auto radius=range.clamp(brushRadius);
+                return {root,range,radius,mirrored,
+                    [&,preparedWorker=std::move(preparedWorker),
+                     selected=std::move(selected),count,radius,mirrored]() mutable {
+                        liveWorker=std::move(preparedWorker);
+                        lastDisplayed=liveWorker->initialRevision();
+                        options.vertexCount=static_cast<std::uint32_t>(count);
+                        options.symmetric=mirrored;
+                        brushRadius=radius;
+                        // Opened OBJ is not a durable checkpoint. Save As
+                        // defaults to a new .mshr beside the imported OBJ.
+                        checkpointPath=std::move(selected);
+                        checkpointPath.replace_extension(".mshr");
+                    }};
+            };
             interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {
                 // Frozen R06 case capture is a completely different shortcut;

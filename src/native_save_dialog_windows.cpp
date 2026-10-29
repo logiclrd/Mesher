@@ -80,4 +80,43 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     CoTaskMemFree(chosen);
     return destination;
 }
+std::optional<std::filesystem::path> nativeOpenMeshDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    ComApartment apartment;
+    IFileOpenDialog* raw=nullptr;
+    require(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,
+                             IID_PPV_ARGS(&raw)),"CoCreateInstance Open");
+    ComPtr<IFileOpenDialog> dialog(raw);
+    DWORD flags=0;
+    require(dialog->GetOptions(&flags),"GetOptions Open");
+    require(dialog->SetOptions(flags|FOS_FORCEFILESYSTEM|FOS_FILEMUSTEXIST|
+                              FOS_PATHMUSTEXIST),"SetOptions Open");
+    const COMDLG_FILTERSPEC filters[]{
+        {L"Mesher meshes (*.mshr;*.obj)",L"*.mshr;*.obj"},
+        {L"Mesher checkpoint (*.mshr)",L"*.mshr"},
+        {L"Wavefront OBJ (*.obj)",L"*.obj"}};
+    require(dialog->SetFileTypes(3,filters),"SetFileTypes Open");
+    require(dialog->SetFileTypeIndex(1),"SetFileTypeIndex Open");
+    if(!suggestion.parent_path().empty()) {
+        const auto absolute=std::filesystem::absolute(suggestion);
+        IShellItem* folderRaw=nullptr;
+        if(SUCCEEDED(SHCreateItemFromParsingName(
+               absolute.parent_path().c_str(),nullptr,
+               IID_PPV_ARGS(&folderRaw)))) {
+            ComPtr<IShellItem> folder(folderRaw);
+            (void)dialog->SetFolder(folder.get());
+        }
+    }
+    const HRESULT shown=dialog->Show(glfwGetWin32Window(owner));
+    if(shown==HRESULT_FROM_WIN32(ERROR_CANCELLED))return std::nullopt;
+    require(shown,"Show Open");
+    IShellItem* resultRaw=nullptr;
+    require(dialog->GetResult(&resultRaw),"GetResult Open");
+    ComPtr<IShellItem> result(resultRaw);
+    PWSTR path=nullptr;
+    require(result->GetDisplayName(SIGDN_FILESYSPATH,&path),"GetDisplayName Open");
+    const std::filesystem::path selected(path);
+    CoTaskMemFree(path);
+    return selected;
+}
 } // namespace mesher

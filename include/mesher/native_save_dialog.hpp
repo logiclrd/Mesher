@@ -11,4 +11,8 @@ struct GLFWwindow;
 namespace mesher {
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion);
+// Native Open is modal on the UI thread; nullopt means cancelled.
+// Format support and validation are deliberately separate and private.
+std::optional<std::filesystem::path> nativeOpenMeshDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion);
 }
