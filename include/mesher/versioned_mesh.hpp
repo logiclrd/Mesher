@@ -24,6 +24,7 @@ using FaceId = std::uint64_t;
 struct PartitionVertex {
     VertexId id{};
     Vec3 position{};
+    VertexRGBA color{};
 };
 struct PartitionFace {
     FaceId id{};
@@ -96,7 +97,9 @@ public:
     void erasePartition(PartitionId id);
     // Shared atomic source ensures unique IDs across branches/aborted views.
     // Low-level direct writes are not topology-validated until V3.
-    VertexId addVertex(PartitionId owner, Vec3 position);
+    VertexId addVertex(PartitionId owner, Vec3 position,
+                       VertexRGBA color={});
+    void setVertexColor(PartitionId owner,VertexId vertex,VertexRGBA color);
     FaceId addFace(PartitionId owner, std::array<VertexId,3> vertices);
     // Copies only modified directory paths and publishes no data itself.
     // The caller may atomically publish the returned immutable revision.

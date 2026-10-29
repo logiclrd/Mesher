@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/brush.hpp"
+#include "mesher/vertex_paint.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/versioned_collapse.hpp"
 #include "mesher/versioned_refine.hpp"
@@ -325,6 +326,10 @@ public:
     void stamp(Mesh&,std::span<const BrushArea> areas) override;
     bool undo();
     bool redo();
+    // Worker-thread COW paint publication, independent of Inflate geometry.
+    bool paint(const std::vector<PaintDab>& dabs);
+    void beginPaintStroke();
+    void endPaintStroke();
     // Explicit, opt-in V17e2b2d3b worker-only command, never called by
     // the desktop Merge geometry UI (which remains disabled). The expected
     // root is captured when contacts are selected, not guessed when queued
@@ -452,6 +457,7 @@ private:
     std::vector<FaceId> physicalIntendedOriginals_;
     std::string physicalIntentRefusal_;
     std::vector<PartitionId> lastDirtyPartitions_;
+    bool paintStrokeActive_{},paintStrokeHasRevision_{};
 };
 
 } // namespace mesher

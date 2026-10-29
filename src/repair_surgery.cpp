@@ -1,6 +1,7 @@
 #include "mesher/repair_surgery.hpp"
 #include "repair_surgery_detail.hpp"
 #include "repair_plane_internal.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,6 +19,15 @@ namespace mesher {
 namespace {
 bool finite(Vec3 p) {
     return std::isfinite(p.x)&&std::isfinite(p.y)&&std::isfinite(p.z);
+}
+// Surgery-created edge and symmetry vertices inherit their source paint,
+// rather than resetting already-painted surfaces to default white.
+VertexRGBA interpolateColor(VertexRGBA a,VertexRGBA b,double fraction) {
+    const auto channel=[fraction](float x,float y) {
+        return static_cast<float>(double(x)*(1.0-fraction)+double(y)*fraction);
+    };
+    return {channel(a.r,b.r),channel(a.g,b.g),
+            channel(a.b,b.b),channel(a.a,b.a)};
 }
 double triangleQuality(Vec3 a,Vec3 b,Vec3 c) {
     const double ab=dot(b-a,b-a),bc=dot(c-b,c-b),ca=dot(a-c,a-c);
@@ -589,6 +599,9 @@ RepairSurgeryResult applyRepairSurgery(
                 const auto point=p+(q-p)*(static_cast<double>(j)/segments);
                 const auto id=edit.appendLocalVertex(
                     baseline->vertex(a).owner,point);
+                edit.setVertexColor(id,interpolateColor(
+                    vertexColorAt(*baseline,a),vertexColorAt(*baseline,b),
+                    static_cast<double>(j)/segments));
                 positions.emplace(id,point);
                 output.insertedVertices.push_back(id);
                 loop.ids.push_back(id);
@@ -765,7 +778,11 @@ RepairSurgeryResult applyMirroredRepairSurgery(
         if(id<partner)edit.removeMirroredFaces(id,partner);
     }
     std::unordered_map<VertexId,Vec3> pos;
-    for(const auto id:selected)pos.emplace(id,baseline->vertex(id).position);
+    std::unordered_map<VertexId,VertexRGBA> stagedColors;
+    for(const auto id:selected) {
+        pos.emplace(id,baseline->vertex(id).position);
+        stagedColors.emplace(id,vertexColorAt(*baseline,id));
+    }
     // The symmetry plane must be an actual topological seam. Never
     // duplicate an edge that crosses it with no shared X=0 vertex.
     // Perform this fail-closed test before adding ANY repair vertices.
@@ -851,6 +868,16 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                     throw std::logic_error("Boundary crosses X=0: needs self-seam split");
                 const auto made=edit.appendMirroredVertices(
                     ownerA,ownerB,point);
+                const double fraction=static_cast<double>(j)/segments;
+                const auto colorA=interpolateColor(
+                    stagedColors.at(a),stagedColors.at(b),fraction);
+                const auto colorB=interpolateColor(
+                    stagedColors.at(opposite(a)),
+                    stagedColors.at(opposite(b)),fraction);
+                edit.setVertexColor(made.first,colorA);
+                edit.setVertexColor(made.second,colorB);
+                stagedColors.emplace(made.first,colorA);
+                stagedColors.emplace(made.second,colorB);
                 pos.emplace(made.first,point);
                 pos.emplace(made.second,Vec3{-point.x,point.y,point.z});
                 mirrored.emplace(made.first,made.second);
@@ -1057,6 +1084,8 @@ RepairSurgeryResult applyMirroredRepairSurgery(
                 if(out.insertedVertices.size()>=settings.maxNewVertices)
                     throw std::length_error("Symmetry seam vertex budget exceeded");
                 const auto s=edit.appendSeamVertex(owner(a),{0,p.y,p.z});
+                edit.setVertexColor(s,interpolateColor(
+                    stagedColors.at(id),stagedColors.at(opposite(id)),0.5));
                 seam.push_back(s);
                 pos.emplace(s,Vec3{0,p.y,p.z});
                 out.insertedVertices.push_back(s);
@@ -1165,6 +1194,8 @@ PlaneCrossingNormalization normalizeSelfMirroredPlaneEdge(
     PlaneCrossingNormalization out;
     out.seamVertex=edit.appendSeamVertex(
         baseline->vertex(first).owner,{0,a.y,a.z});
+    edit.setVertexColor(out.seamVertex,interpolateColor(
+        vertexColorAt(*baseline,first),vertexColorAt(*baseline,second),0.5));
     for(std::size_t i=0;i<2;++i) {
         const auto original=sides->at(i).face;
         const auto vertices=baseline->face(original).vertices;

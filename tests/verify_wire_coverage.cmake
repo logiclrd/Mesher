@@ -14,7 +14,7 @@ endforeach()
 foreach(needle
     "result.wireRaster={float(width),float(height),kWireOuterHalfWidthPixels,0.0f};"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
-    "depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;"
+    "depth.depthWriteEnable=(hudOverlay||paintOverlay)?VK_FALSE:VK_TRUE;"
     "depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;")
     string(FIND "${view}" "${needle}" at)
     if(at EQUAL -1)

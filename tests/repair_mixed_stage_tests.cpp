@@ -3,6 +3,7 @@
 #include "mesher/repair_mirror_geometry.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/sculpt_fixtures.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -82,6 +83,8 @@ void mixedAndTampered() {
     addCapFaces(removed,left,true);
     addCapFaces(removed,right,false);
     addCapFaces(removed,remote,false);
+    const VertexRGBA paint{0.25f,0.5f,0.75f,0.625f};
+    m.colors.assign(m.vertices.size(),paint);
     const auto f=fixture(std::move(m));
     RepairExcisionPreview proposal;
     proposal.complete=true;
@@ -234,6 +237,11 @@ void mixedAndTampered() {
             f.root->retiredFaceCount()==0 && cut.index->retiredFaceCount()==
                 proposal.proposedFaces.size(),
             "R06-M04B must finish a genuinely mixed closed manifold in one private root");
+    require(!closed.insertedVertices.empty(),
+            "Mixed cap/zipper fixture must create actual new painted vertices");
+    for(const auto id:closed.insertedVertices)
+        require(vertexColorAt(*closed.index,id)==paint,
+                "R07 newly constructed cap, zipper and rim vertices inherit uniform RGBA");
     // M12 explicit best-effort private preview: the same real staged
     // closed topology is rejected by deliberately strict quality goals,
     // but diagnostic mode preserves all actual bad face IDs. Nothing in

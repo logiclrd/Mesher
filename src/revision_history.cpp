@@ -117,6 +117,68 @@ void RevisionHistory::append(
         }
     }
 }
+void RevisionHistory::amendCurrent(
+    std::shared_ptr<const RegionTopologyIndex> index,
+    std::vector<PartitionId> additionalDirty,
+    std::size_t additionalCopiedPayloadBytes) {
+    if(!index||!canUndo()||canRedo())
+        throw std::logic_error("Paint amendment requires terminal history entry");
+    auto& currentEntry=entries_[cursor_];
+    if(index==currentEntry.index)return;
+    if(currentEntry.added.size()||currentEntry.removed.size())
+        throw std::logic_error("Paint cannot amend a topology-mirror transition");
+    if(currentEntry.fidelity)
+        verifyOriginalPatchPublicationTransition(
+            *currentEntry.fidelity,*currentEntry.fidelity,
+            currentEntry.index,index);
+    std::sort(additionalDirty.begin(),additionalDirty.end());
+    additionalDirty.erase(std::unique(additionalDirty.begin(),
+                                     additionalDirty.end()),
+                          additionalDirty.end());
+    std::vector<PartitionId> dirty=currentEntry.dirty;
+    dirty.insert(dirty.end(),additionalDirty.begin(),additionalDirty.end());
+    std::sort(dirty.begin(),dirty.end());
+    dirty.erase(std::unique(dirty.begin(),dirty.end()),dirty.end());
+    // The per-dab COW clones are TRANSIENT: only the endpoint's distinct
+    // changed owners remain in this Undo transition. Charging every
+    // intermediate clone would evict the original state of a long stroke.
+    const auto perOwner=[](std::size_t bytes,std::size_t owners) {
+        return owners?bytes/owners+(bytes%owners!=0):std::size_t{0};
+    };
+    const auto unit=std::max(perOwner(currentEntry.bytes,
+                                     currentEntry.dirty.size()),
+                             perOwner(additionalCopiedPayloadBytes,
+                                      additionalDirty.size()));
+    if(unit&&dirty.size()>std::numeric_limits<std::size_t>::max()/unit)
+        throw std::overflow_error("Paint history byte accounting overflow");
+    const auto estimatedBytes=dirty.size()*unit;
+    if(estimatedBytes>currentEntry.bytes&&
+       estimatedBytes-currentEntry.bytes>
+           std::numeric_limits<std::size_t>::max()-totalBytes_)
+        throw std::overflow_error("Paint history byte accounting overflow");
+    // Commit the amended endpoint only after all validation/allocation.
+    auto previous=std::move(currentEntry.index);
+    currentEntry.index=std::move(index);
+    currentEntry.dirty=std::move(dirty);
+    totalBytes_=totalBytes_-currentEntry.bytes+estimatedBytes;
+    currentEntry.bytes=estimatedBytes;
+    if(retirement_)retirement_->retire(std::move(previous));
+    while(entries_.size()>1 &&
+          (entries_.size()>maximumRevisions_||totalBytes_>maximumChangeBytes_)) {
+        auto old=std::move(entries_.front());
+        entries_.pop_front();
+        --cursor_;
+        retire(std::move(old));
+        ++dropped_;
+        if(!entries_.empty()) {
+            totalBytes_-=entries_.front().bytes;
+            entries_.front().bytes=0;
+            entries_.front().added.clear();
+            entries_.front().removed.clear();
+            entries_.front().dirty.clear();
+        }
+    }
+}
 HistoryTransition RevisionHistory::undo() {
     if(!canUndo())throw std::logic_error("History has no undo revision");
     auto& previous=entries_[cursor_];

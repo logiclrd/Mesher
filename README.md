@@ -239,6 +239,42 @@ Enter and modifiers) retain their standard meanings. Layout changes and
 window focus loss clear or release held key state safely; non-Latin text
 entry is not part of the viewport key-binding system.
 
+**B** toggles the RGBA **Paint brush** while sculpting is idle.
+Paint mode exposes a native Vulkan HUD colour wheel, a RGB / HSV / HSL mode
+selector with three linked channel sliders, and independent alpha and
+hardness sliders. Click a mode tab to switch the slider interpretation;
+the stored colour does not change just because its representation changes.
+Drag on the wheel to choose hue and saturation or drag the sliders to tune
+values. Left-dragging on the mesh paints visible vertices within the
+brush radius; the existing radius slider works in BOTH Paint and sculpt modes.
+The soft edge has a linear radial falloff after the hardness plateau; the
+picked triangle's vertices receive full centre strength so interpolation
+at the cursor is saturated, and mirrored dabs without a picked FaceId
+use the nearest visible surface samples for the same correction.
+Colour dabs are applied on the background sculpt worker as immutable
+revisions, and a complete mouse drag creates ONE Ctrl+Z/redo history action
+without delaying intermediate visual updates. Save As preserves painted colours.
+Brush alpha is the deposited paint's opacity: a low-alpha colour
+is composited **over the current vertex colour**, rather than replacing
+the vertex's alpha. Repeated low-alpha strokes can build coverage;
+zero-alpha dabs are no-ops. Vertex RGBA remains linear and unpremultiplied,
+and the rendered surface remains opaque.
+Visibility rays originate above the surface by at least one-quarter of
+the nominal mesh edge length, rising with the brush radius so the
+near-tangent horizon on convex surfaces does not truncate large brushes.
+The brush footprint itself is centred on the surface hit with the exact
+selected radius; existing faces still occlude other/hidden surfaces, and
+back-facing vertices are rejected. Mirrored mode paints both symmetric
+sides without double-opacity from overlapping mirror dabs.
+While Paint mode is idle, a subtle flat #2000C000 (AARRGGBB) overlay
+highlights depth-visible faces incident to vertices within the current
+brush's actual shadow-limited area. It follows the cursor and radius,
+ignores hardness and alpha, and disappears during strokes, orbiting,
+over UI controls, and outside Paint mode. It never enters vertex colours,
+immutable roots, history or checkpoint files.
+Legacy V12/V13 unpainted checkpoints remain compatible; coloured saves
+use checksummed V14/V15 records.
+
 **F8** performs exactly one diagnostic sculpt stamp at the surface under
 the cursor. Unlike briefly clicking LMB, F8 never opens a timed 4D stroke
 or queues catch-up steps. Each request waits for the previous stamp's

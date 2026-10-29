@@ -91,6 +91,10 @@ struct ConformingCutPoint {
     std::optional<RegionTopologyIndex::Edge> boundaryEdge;
     FaceId owningFace{}; // meaningful for interior points only
 };
+// New conforming cut vertices inherit interpolated RGBA from their exact
+// immutable source edge or face, never from unrelated nearby sheets.
+VertexRGBA plannedCutPointColor(const RegionTopologyIndex& baseline,
+                                const ConformingCutPoint& point);
 struct ConformingCutFace {
     FaceId sourceFace{};
     std::vector<std::array<std::size_t,3>> triangles;

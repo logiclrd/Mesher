@@ -50,6 +50,13 @@ public:
         std::size_t copiedPayloadBytes,
         std::size_t vertices=0,std::size_t faces=0,
         std::shared_ptr<const OriginalPatchLifetime> fidelity=nullptr);
+    // Replace the current terminal entry while retaining its original
+    // predecessor as the single Undo target for an ongoing paint stroke.
+    // Earlier intermediate roots remain valid for the renderer but do
+    // not consume individual history actions.
+    void amendCurrent(std::shared_ptr<const RegionTopologyIndex> index,
+        std::vector<PartitionId> additionalDirty,
+        std::size_t additionalCopiedPayloadBytes);
     bool canUndo() const noexcept {return cursor_>0;}
     bool canRedo() const noexcept {return cursor_+1<entries_.size();}
     HistoryTransition undo();

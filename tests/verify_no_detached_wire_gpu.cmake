@@ -16,7 +16,7 @@ foreach(needle
     "replaceBuffer(dst.solid,found->second->solid);"
     "retireGpuBuffer(old->second.solid);"
     "destroyBuffer(floorSolid);"
-    "depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;")
+    "depth.depthWriteEnable=(hudOverlay||paintOverlay)?VK_FALSE:VK_TRUE;")
     string(FIND "${view}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M69 missing exact GPU solid-only cache/lifetime contract: ${needle}")

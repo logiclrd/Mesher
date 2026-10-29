@@ -116,6 +116,9 @@ public:
         ExactCutStepLimits limits={},
         SculptSourceContactLimits discovery={});
     void saveCheckpoint(std::filesystem::path destination);
+    void paint(std::vector<PaintDab> dabs);
+    void beginPaintStroke();
+    void endPaintStroke();
     CheckpointStatistics checkpointStatistics() const {
         return checkpoints_.statistics();
     }
@@ -131,18 +134,21 @@ public:
     }
 
 private:
-    enum class Kind {Begin,SingleStamp,Update,End,Radius,Undo,Redo,Checkpoint,Merge,DiscoverMerge};
+    enum class Kind {Begin,SingleStamp,Update,End,Radius,Undo,Redo,Checkpoint,
+                     PaintBegin,Paint,PaintEnd,Merge,DiscoverMerge};
     struct Command {
         Kind kind;
         Vec3 point{};
         double elapsed=0,radius=0;
         double strengthScale=1.0;
         std::filesystem::path checkpointPath{};
+        std::vector<PaintDab> paintDabs{};
         std::shared_ptr<const RegionTopologyIndex> expected{};
         std::vector<RegionTopologyIndex::CollisionPair> contacts{};
         ExactCutStepLimits mergeLimits{};
         SculptSourceContactLimits discoveryLimits{};
         std::vector<FaceId> intendedOriginals{};
+        std::chrono::steady_clock::time_point queuedAt{};
     };
     void enqueue(Command command);
     void run(StopToken token);

@@ -7,6 +7,7 @@
 #include "mesher/viewport_orbit.hpp"
 #include "mesher/viewport_floor.hpp"
 #include "mesher/wire_appearance.hpp"
+#include "mesher/paint_controls.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -150,6 +151,11 @@ RadiusSliderLayout radiusSliderLayout(int height) {
     return {20,30,bottom-span,bottom};
 }
 
+struct PaintPanelLayout {
+    int left=96,top=20,width=290,height=445;
+    int wheelX=240,wheelY=160,radius=72;
+    int modeY=244,sliderX=161,sliderWidth=200,sliderY=291,spacing=30;
+};
 std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& fps, const std::string& stamps,
                              const std::string& merge,
@@ -159,7 +165,8 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              bool classifierComparable,bool classifiersAgree,
                              int activeClassifier,
                              const std::vector<std::string>& repairStepLines,
-                             std::size_t repairStepScroll) {
+                             std::size_t repairStepScroll,
+                             bool paintMode,const PaintControls& paint) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
@@ -267,6 +274,105 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                     rectangle(layout.left-3+int(i)*8+xx,
                               layout.top-23+yy,1,1,0.0f);
         }
+    }
+    if(paintMode&&width>420&&height>475) {
+        const PaintPanelLayout panel;
+        rectangle(panel.left,panel.top,panel.width,panel.height,1.0f);
+        auto point=[&](double x,double y,VertexRGBA color) {
+            auto ndc=Vec3{2.0*x/double(width)-1.0,
+                          2.0*y/double(height)-1.0,0.0};
+            auto v=makeVertex(ndc,{},4.0f);
+            v.r=color.r;v.g=color.g;v.b=color.b;v.a=color.a;
+            return v;
+        };
+        const auto appendTriangle=[&](Vertex a,Vertex b,Vertex c) {
+            vertices.push_back(a);vertices.push_back(b);vertices.push_back(c);
+        };
+        // Circular hue/saturation wheel. Vertex RGBA is smoothly
+        // interpolated by the ordinary Vulkan HUD pipeline.
+        constexpr int segments=72,rings=5;
+        constexpr double pi=3.14159265358979323846;
+        const auto model=paint.channels==PaintChannels::HSL?
+                         PaintChannels::HSL:PaintChannels::HSV;
+        const auto values=model==PaintChannels::HSL?
+                          rgbToHsl(paint.rgba):rgbToHsv(paint.rgba);
+        for(int i=0;i<segments;++i)for(int j=0;j<rings;++j) {
+            const double h0=double(i)/segments,h1=double(i+1)/segments;
+            const double sat0=double(j)/rings,sat1=double(j+1)/rings;
+            const auto vertex=[&](double hue,double sat) {
+                const double angle=hue*2*pi;
+                return point(panel.wheelX+std::cos(angle)*panel.radius*sat,
+                             panel.wheelY-std::sin(angle)*panel.radius*sat,
+                             hueToRgb({hue,sat,values[2]},model,1.0f));
+            };
+            const auto a=vertex(h0,sat0),b=vertex(h1,sat0);
+            const auto c=vertex(h1,sat1),d=vertex(h0,sat1);
+            appendTriangle(a,b,c);appendTriangle(a,c,d);
+        }
+        auto label=[&](int x,int y,const std::string& text,int scale=1) {
+            for(std::size_t i=0;i<text.size();++i) {
+                const auto glyph=hudGlyph(text[i]);
+                for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                    if(glyph[yy]&(1u<<(4-xx)))
+                        rectangle(x+int(i)*6*scale+xx*scale,
+                                  y+yy*scale,scale,scale,0.0f);
+            }
+        };
+        label(111,24,"PAINT (B TO EXIT)",2);
+        // Cursor marks the actual selected hue/saturation, not merely a
+        // colour wheel with no indication of its current selection.
+        const int markX=panel.wheelX+int(std::lround(
+            std::cos(values[0]*2*pi)*panel.radius*values[1]));
+        const int markY=panel.wheelY-int(std::lround(
+            std::sin(values[0]*2*pi)*panel.radius*values[1]));
+        rectangle(markX-5,markY-5,10,2,0.0f);
+        rectangle(markX-5,markY+3,10,2,0.0f);
+        rectangle(markX-5,markY-3,2,6,0.0f);
+        rectangle(markX+3,markY-3,2,6,0.0f);
+        const std::array<std::string,3> names{{"RGB","HSV","HSL"}};
+        for(int i=0;i<3;++i) {
+            const int x=115+i*84;
+            rectangle(x-5,panel.modeY-6,72,26,
+                      int(paint.channels)==i?2.0f:1.0f);
+            label(x,panel.modeY,names[std::size_t(i)],2);
+        }
+        const auto channels=paint.values();
+        const auto letters=paint.channels==PaintChannels::RGB?
+            std::array<char,3>{'R','G','B'}:
+            paint.channels==PaintChannels::HSV?
+            std::array<char,3>{'H','S','V'}:
+            std::array<char,3>{'H','S','L'};
+        for(int i=0;i<5;++i) {
+            const int y=panel.sliderY+i*panel.spacing;
+            const double selected=i<3?channels[std::size_t(i)]:
+                                  i==3?paint.rgba.a:paint.hardness;
+            label(118,y-4,std::string(1,i<3?letters[std::size_t(i)]:
+                                     i==3?'A':'D'),2);
+            for(int segment=0;segment<32;++segment) {
+                const double fraction=double(segment)/31;
+                PaintControls preview=paint;
+                if(i<3)preview.setChannel(unsigned(i),fraction);
+                else if(i==3)preview.setAlpha(fraction);
+                else preview.setHardness(fraction);
+                const auto color=preview.rgba;
+                const auto a=point(panel.sliderX+segment*panel.sliderWidth/32,
+                                   y-3,color);
+                const auto b=point(panel.sliderX+(segment+1)*panel.sliderWidth/32,
+                                   y-3,color);
+                const auto c=point(panel.sliderX+(segment+1)*panel.sliderWidth/32,
+                                   y+8,color);
+                const auto d=point(panel.sliderX+segment*panel.sliderWidth/32,
+                                   y+8,color);
+                appendTriangle(a,b,c);appendTriangle(a,c,d);
+            }
+            const int handleX=panel.sliderX+int(selected*panel.sliderWidth);
+            rectangle(handleX-2,y-6,5,17,0.0f);
+        }
+        // Swatch is a direct preview of the stored vertex paint RGB.
+        const auto swatch=paint.rgba;
+        const auto a=point(323,90,swatch),b=point(367,90,swatch);
+        const auto c=point(367,119,swatch),d=point(323,119,swatch);
+        appendTriangle(a,b,c);appendTriangle(a,c,d);
     }
     return vertices;
 }
@@ -427,6 +533,16 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
+    bool paintPanelDragging_=false;
+    // Hover preview is UI-owned only: never part of COW state or undo history.
+    std::vector<FaceId> paintPreviewFaces_;
+    std::shared_ptr<const RegionTopologyIndex> paintPreviewIndex_;
+    std::optional<Ray> paintPreviewRay_;
+    double paintPreviewRadius_=-1;
+    int paintPanelControl_=-1;
+    std::optional<std::pair<double,double>> lastPaintCursor_;
+    PaintControls paintControls_;
     bool wireVisible_=true,wireKeyWasDown_=false;
     bool inspectionFrozen_=false;
     bool inspectionIncomplete_=false;
@@ -505,6 +621,7 @@ class VulkanViewport {
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
     VkPipeline solidPipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
+    VkPipeline paintPreviewPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
     VkImageView depthView=VK_NULL_HANDLE;
@@ -518,7 +635,7 @@ class VulkanViewport {
     Buffer solid{},floorSolid{},hud{};
     // Inspection has a separate buffer; legacy solid/floor/HUD ownership
     // remains textually and behaviorally unchanged.
-    Buffer inspectionSolid{};
+    Buffer inspectionSolid{},paintPreviewSolid{};
     struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
@@ -738,6 +855,12 @@ class VulkanViewport {
         lastDirtyFaces_=stats.rebuiltFaces;
         lastDirtyBytes_=stats.uploadedBytes;
         lastUploadMs_=(glfwGetTime()-started)*1000;
+        if(lastUploadMs_>150.0)
+            std::cout<<"[render] slow_dirty_refresh_ms="<<lastUploadMs_
+                     <<" fence_ms="<<lastGpuFenceWaitMs_
+                     <<" partitions="<<lastDirtyPartitions_
+                     <<" faces="<<lastDirtyFaces_
+                     <<" bytes="<<lastDirtyBytes_<<"\n";
     }
     void refreshMesh() {
         const double started=glfwGetTime();
@@ -779,7 +902,8 @@ class VulkanViewport {
                                      mergeText,slider,interaction_.radius,
                                      classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
-                                     repairStepLines_,repairStepScroll_);
+                                     repairStepLines_,repairStepScroll_,
+                                     paintMode_,paintControls_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -1097,8 +1221,66 @@ class VulkanViewport {
         std::cout<<os.str()<<'\n'<<std::flush;
     }
 
+    // Pixel coordinates are framebuffer-scaled like the radius slider.
+    bool updatePaintPanel(double x,double y,bool down,bool wasDown) {
+        if(!paintMode_||!interaction_.paint)return false;
+        const PaintPanelLayout panel;
+        if(!down) {
+            const bool wasDragging=paintPanelDragging_;
+            paintPanelDragging_=false;
+            paintPanelControl_=-1;
+            return wasDragging;
+        }
+        if(down&&!wasDown&&x>=panel.left&&
+           x<=panel.left+panel.width&&y>=panel.top&&
+           y<=panel.top+panel.height) {
+            paintPanelDragging_=true;
+            const double dx=x-panel.wheelX,dy=y-panel.wheelY;
+            if(dx*dx+dy*dy<=panel.radius*panel.radius)
+                paintPanelControl_=0;
+            else if(y>=panel.modeY-6&&y<=panel.modeY+20)
+                paintPanelControl_=6;
+            else {
+                paintPanelControl_=-1;
+                for(int i=0;i<5;++i)
+                    if(std::abs(y-(panel.sliderY+i*panel.spacing))<=13)
+                        paintPanelControl_=i+1;
+            }
+        }
+        if(!paintPanelDragging_)return false;
+        if(paintPanelControl_==6) {
+            if(x<192)paintControls_.channels=PaintChannels::RGB;
+            else if(x<276)paintControls_.channels=PaintChannels::HSV;
+            else paintControls_.channels=PaintChannels::HSL;
+        }else if(paintPanelControl_==0) {
+            constexpr double pi=3.14159265358979323846;
+            const double dx=x-panel.wheelX,dy=panel.wheelY-y;
+            const double hue=std::atan2(dy,dx)/(2*pi);
+            const double saturation=std::clamp(
+                std::hypot(dx,dy)/panel.radius,0.,1.);
+            paintControls_.setWheel(hue,saturation);
+        }else if(paintPanelControl_>=1&&paintPanelControl_<=5) {
+            const double value=std::clamp((x-panel.sliderX)/
+                double(panel.sliderWidth),0.,1.);
+            const auto control=paintPanelControl_-1;
+            if(control<3)paintControls_.setChannel(unsigned(control),value);
+            else if(control==3)paintControls_.setAlpha(value);
+            else paintControls_.setHardness(value);
+        }
+        refreshHud();
+        return true;
+    }
+
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
+        // A camera/inspection/merge transition cannot strand a paint
+        // history transaction when input handling takes an early return.
+        if(painting_&&(inspectionFrozen_||orbitDragging_||
+                       mergeInput_.enabled()||!paintMode_)) {
+            if(interaction_.paintEnd)interaction_.paintEnd();
+            painting_=false;
+            lastPaintCursor_.reset();
+        }
         if(inspectionFrozen_) {
             // Freeze is detected asynchronously; still close an active
             // stroke so the worker drains queued 4D input in FIFO order.
@@ -1185,6 +1367,55 @@ class VulkanViewport {
             mouseWasDown_=down;
             return;
         }
+        if(paintMode_&&interaction_.paint) {
+            double cx=0,cy=0;
+            glfwGetCursorPos(window,&cx,&cy);
+            int ww=0,wh=0,fw=0,fh=0;
+            glfwGetWindowSize(window,&ww,&wh);
+            glfwGetFramebufferSize(window,&fw,&fh);
+            if(ww>0&&wh>0&&fw>0&&fh>0) {
+                cx*=double(fw)/ww;
+                cy*=double(fh)/wh;
+            }
+            if(updatePaintPanel(cx,cy,down,mouseWasDown_)) {
+                if(painting_&&interaction_.paintEnd)interaction_.paintEnd();
+                mouseWasDown_=down;
+                painting_=false;
+                lastPaintCursor_.reset();
+                return;
+            }
+            if(down&&(!interaction_.canBegin||interaction_.canBegin())&&
+               (!lastPaintCursor_||
+                std::hypot(cx-lastPaintCursor_->first,
+                           cy-lastPaintCursor_->second)>=1.0)) {
+                if(const auto hit=pickCursorSourceFace()) {
+                    const auto face=displayedIndex_->face(hit->face).vertices;
+                    const auto a=displayedIndex_->vertex(face[0]).position;
+                    const auto b=displayedIndex_->vertex(face[1]).position;
+                    const auto c=displayedIndex_->vertex(face[2]).position;
+                    const auto normal=cross(b-a,c-a);
+                    if(length(normal)>1e-12) {
+                        if(!painting_&&interaction_.paintBegin)
+                            interaction_.paintBegin();
+                        interaction_.paint(PaintDab{
+                            hit->point,normalized(normal),
+                            interaction_.radius,
+                            interaction_.paintNominalEdgeLength,
+                            paintControls_.rgba,paintControls_.hardness,
+                            hit->face});
+                        painting_=true;
+                        lastPaintCursor_=std::pair{cx,cy};
+                    }
+                }
+            }
+            if(!down) {
+                if(painting_&&interaction_.paintEnd)interaction_.paintEnd();
+                painting_=false;
+                lastPaintCursor_.reset();
+            }
+            mouseWasDown_=down;
+            return; // Painting never enqueues Inflate or remesh geometry.
+        }
         if(down&&!mouseWasDown_ &&
            (!interaction_.canBegin || interaction_.canBegin())) {
             const double pickStart=glfwGetTime();
@@ -1268,6 +1499,111 @@ class VulkanViewport {
             logInputEvent("up","ignored",0,false);
         }
         mouseWasDown_=down;
+    }
+
+    void clearPaintPreview() {
+        paintPreviewFaces_.clear();
+        paintPreviewIndex_.reset();
+        paintPreviewRay_.reset();
+        paintPreviewRadius_=-1;
+        // Keep the old allocation reusable; zero draw count does not need
+        // a GPU fence and never writes/retires the buffer while in flight.
+        paintPreviewSolid.vertexCount=0;
+    }
+    void updatePaintPreview() {
+        if(!paintMode_||!interaction_.paint||!displayedIndex_||
+           painting_||sculpting_||orbitDragging_||radiusDragging_||
+           paintPanelDragging_||inspectionFrozen_||
+           mergeInput_.enabled()||
+           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS||
+           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS) {
+            clearPaintPreview();
+            return;
+        }
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0) {
+            clearPaintPreview();
+            return;
+        }
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
+        const PaintPanelLayout panel;
+        const auto slider=radiusSliderLayout(fh);
+        if(x<0||x>=fw||y<0||y>=fh||
+           (x>=panel.left&&x<=panel.left+panel.width&&
+            y>=panel.top&&y<=panel.top+panel.height)||
+           (x>=slider.left-8&&x<=slider.left+58&&
+            y>=slider.top-12&&y<=slider.bottom+12)) {
+            clearPaintPreview();
+            return;
+        }
+        const auto ray=cursorSourceRay();
+        if(!ray) {clearPaintPreview();return;}
+        const auto same=[&](Vec3 a,Vec3 b) {
+            return a.x==b.x&&a.y==b.y&&a.z==b.z;
+        };
+        const bool newSourceRoot=paintPreviewIndex_!=displayedIndex_;
+        if(!newSourceRoot&&paintPreviewRay_&&
+           paintPreviewRadius_==interaction_.radius&&
+           same(ray->origin,paintPreviewRay_->origin)&&
+           same(ray->direction,paintPreviewRay_->direction))return;
+        // Cache a no-hit or fail-closed query, too. A stationary cursor
+        // should not raycast every frame when the scene is unchanged.
+        paintPreviewIndex_=displayedIndex_;
+        paintPreviewRay_=ray;
+        paintPreviewRadius_=interaction_.radius;
+        std::vector<FaceId> faces;
+        try {
+            const auto hit=displayedIndex_->firstRayFaceHit(*ray);
+            if(hit) {
+                const auto triangle=displayedIndex_->face(hit->face).vertices;
+                const Vec3 a=displayedIndex_->vertex(triangle[0]).position;
+                const Vec3 b=displayedIndex_->vertex(triangle[1]).position;
+                const Vec3 c=displayedIndex_->vertex(triangle[2]).position;
+                const Vec3 normal=cross(b-a,c-a);
+                if(length(normal)>1e-12) {
+                    const PaintDab dab{hit->point,normalized(normal),
+                        interaction_.radius,interaction_.paintNominalEdgeLength,
+                        paintControls_.rgba,paintControls_.hardness,hit->face};
+                    faces=collectPaintPreview(displayedIndex_,
+                        paintDabsWithMirror(dab,interaction_.paintSymmetric))
+                        .affectedFaces;
+                }
+            }
+        }catch(const std::length_error&) {
+            // Budget exhaustion cannot expose a partial/misleading brush.
+            faces.clear();
+        }
+        // Stable FaceIds can survive a sculpt/Undo geometry change.
+        // Rebuild positions even when their selected IDs are unchanged.
+        if(!newSourceRoot&&faces==paintPreviewFaces_)return;
+        paintPreviewFaces_=std::move(faces);
+        if(paintPreviewFaces_.empty()) {
+            paintPreviewSolid.vertexCount=0;
+            return;
+        }
+        std::vector<Vertex> geometry;
+        geometry.reserve(paintPreviewFaces_.size()*3);
+        for(const auto faceId:paintPreviewFaces_) {
+            const auto tri=displayedIndex_->face(faceId).vertices;
+            const Vec3 a=displayedIndex_->vertex(tri[0]).position;
+            const Vec3 b=displayedIndex_->vertex(tri[1]).position;
+            const Vec3 c=displayedIndex_->vertex(tri[2]).position;
+            const Vec3 rawNormal=cross(b-a,c-a);
+            const Vec3 normal=length(rawNormal)>1e-20?
+                normalized(rawNormal):Vec3{};
+            for(const auto p:{a,b,c})
+                geometry.push_back(makeVertex(p,normal,15.5f));
+        }
+        // Reuse the existing single-flight Vulkan retirement contract:
+        // the old buffer must not be mapped or replaced while rendered.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before updating transient paint preview");
+        drainGpuRetirements();
+        replaceBuffer(paintPreviewSolid,geometry);
     }
 
     void pumpMouseStroke() {
@@ -1439,7 +1775,8 @@ class VulkanViewport {
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
-            else title+=sculpting_ ? " | Sculpting" :
+            else title+=paintMode_ ? " | Paint RGBA (B toggle)" :
+                sculpting_ ? " | Sculpting" :
                 interaction_.mergeSelected?
                 " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
             if(interaction_.mergeStatus)title+=" | "+interaction_.mergeStatus();
@@ -1592,7 +1929,7 @@ class VulkanViewport {
         check(vkCreateShaderModule(device,&info,nullptr,&result),"Create shader module");
         return result;
     }
-    VkPipeline makePipeline(bool hudOverlay=false) {
+    VkPipeline makePipeline(bool hudOverlay=false,bool paintOverlay=false) {
         auto vert=shader(hudOverlay?"hud.vert":"mesh.vert");
         auto frag=shader(hudOverlay?"hud.frag":"mesh.frag");
         VkPipelineShaderStageCreateInfo vs{}; vs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1601,10 +1938,11 @@ class VulkanViewport {
         fs.stage=VK_SHADER_STAGE_FRAGMENT_BIT;fs.module=frag;fs.pName="main";
         std::array stages{vs,fs};
         VkVertexInputBindingDescription binding{0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX};
-        std::array<VkVertexInputAttributeDescription,3> attrs{};
+        std::array<VkVertexInputAttributeDescription,4> attrs{};
         attrs[0]={0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,px)};
         attrs[1]={1,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,nx)};
         attrs[2]={2,0,VK_FORMAT_R32_SFLOAT,offsetof(Vertex,material)};
+        attrs[3]={3,0,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(Vertex,r)};
         VkPipelineVertexInputStateCreateInfo input{}; input.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         input.vertexBindingDescriptionCount=1;input.pVertexBindingDescriptions=&binding;
         // Original seven-float mesh/HUD vertex binding.
@@ -1628,14 +1966,14 @@ class VulkanViewport {
         multi.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
         VkPipelineDepthStencilStateCreateInfo depth{}; depth.sType=VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;
-        depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;
+        depth.depthWriteEnable=(hudOverlay||paintOverlay)?VK_FALSE:VK_TRUE;
         depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
         VkPipelineColorBlendStateCreateInfo blend{}; blend.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        if(hudOverlay) {
-            // Only HUD blends; mesh and floor AA are in opaque solid fragments.
+        if(hudOverlay||paintOverlay) {
+            // HUD and paint hover blend; normal solids remain opaque.
             blendAttachment.blendEnable=VK_TRUE;
             blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
             blendAttachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -1721,6 +2059,7 @@ class VulkanViewport {
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline();
+        paintPreviewPipeline=makePipeline(false,true);
         hudPipeline=makePipeline(true);
         for(auto view:views) {
             const std::array attachments{view,depthView};
@@ -1741,7 +2080,8 @@ class VulkanViewport {
         finishedForImage.clear();
         if(solidPipeline)vkDestroyPipeline(device,solidPipeline,nullptr);
         if(hudPipeline)vkDestroyPipeline(device,hudPipeline,nullptr);
-        solidPipeline=hudPipeline=VK_NULL_HANDLE;
+        if(paintPreviewPipeline)vkDestroyPipeline(device,paintPreviewPipeline,nullptr);
+        solidPipeline=hudPipeline=paintPreviewPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
@@ -1820,6 +2160,18 @@ class VulkanViewport {
             if(!buffers.solid.vertexCount)continue;
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
+        }
+        // UX04 transient overlay: coincident with exact source triangles,
+        // depth tested against visible mesh with writes disabled. A separate
+        // alpha-blended pipeline supplies #2000C000, not persistent paint.
+        if(paintPreviewSolid.vertexCount) {
+            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              paintPreviewPipeline);
+            vkCmdBindVertexBuffers(commandBuffer,0,1,
+                                   &paintPreviewSolid.buffer,&offset);
+            vkCmdDraw(commandBuffer,paintPreviewSolid.vertexCount,1,0,0);
+            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              solidPipeline);
         }
         // R01: draw red, depth-tested inspection markers ON TOP of the
         // diagnostic candidate, without modifying its normal mesh data.
@@ -1984,6 +2336,7 @@ public:
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
             destroyBuffer(inspectionSolid);
+            destroyBuffer(paintPreviewSolid);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
@@ -2011,6 +2364,10 @@ public:
                 if(!startupSplash_->active())startupSplash_.reset();
             }
             if(keyboard_.down(GLFW_KEY_ESCAPE)) {
+                if(painting_&&interaction_.paintEnd) {
+                    interaction_.paintEnd();
+                    painting_=false;
+                }
                 if(sculpting_&&interaction_.end) {
                     interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
                     sculpting_=false;
@@ -2047,6 +2404,18 @@ public:
             }
             // Geometry display and scenery are independently controllable.
             // G never hides legacy or immutable COW mesh geometry.
+            if(justPressed(GLFW_KEY_B,paintModeKeyWasDown_)&&
+               interaction_.paint&&!sculpting_&&!painting_&&
+               !inspectionFrozen_&&!interaction_.repairStepMode&&
+               glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS) {
+                paintMode_=!paintMode_;
+                clearPaintPreview();
+                paintPanelDragging_=false;
+                lastPaintCursor_.reset();
+                std::cout<<"[paint] brush "<<(paintMode_?"ON":"OFF")<<"\n";
+                refreshHud();
+                updateTitle();
+            }
             if(justPressed(GLFW_KEY_G,floorKeyWasDown_)) {
                 floorVisible_=!floorVisible_;
                 std::cout<<"[view] floor/grid "
@@ -2074,7 +2443,7 @@ public:
                     refreshHud();
                 }
             }
-            if(shortcut&&!inspectionFrozen_&&!sculpting_&&
+            if(shortcut&&!inspectionFrozen_&&!sculpting_&&!painting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
                 else if(z&&interaction_.undo)interaction_.undo();
@@ -2109,6 +2478,7 @@ public:
             updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
+            updatePaintPreview();
             // Dedicated diagnostic input: one F8 key PRESS -> one worker
             // stamp -> one fully uploaded immutable snapshot. Unlike a
             // quick LMB click, this does not create timed Update/End

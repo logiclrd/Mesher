@@ -95,6 +95,8 @@ PartitionedMeshImport partitionFlatMesh(
     }
     spatialSort(faceOrder);
 
+    if(!flat.colors.empty()&&flat.colors.size()!=flat.vertices.size())
+        throw std::invalid_argument("Flat vertex colour stream size mismatch");
     auto view=MeshRevision::empty()->createMutableView();
     FlatMeshIndex index;
     index.vertexIds.resize(flat.vertices.size());
@@ -102,7 +104,8 @@ PartitionedMeshImport partitionFlatMesh(
     for(std::size_t ordinal=0;ordinal<vertexOrder.size();++ordinal) {
         const auto original=vertexOrder[ordinal].original;
         const auto owner=static_cast<PartitionId>(ordinal/maxElementsPerPartition);
-        index.vertexIds[original]=view.addVertex(owner,flat.vertices[original]);
+        index.vertexIds[original]=view.addVertex(owner,flat.vertices[original],
+            flat.colors.empty()?VertexRGBA{}:flat.colors[original]);
     }
     for(std::size_t ordinal=0;ordinal<faceOrder.size();++ordinal) {
         const auto original=faceOrder[ordinal].original;
@@ -139,10 +142,10 @@ void validatePartitionedMesh(const MeshRevision& revision) {
 Mesh reconstructFlatMesh(const MeshRevision& revision,
                          const FlatMeshIndex& originalOrder) {
     validatePartitionedMesh(revision);
-    std::unordered_map<VertexId,Vec3> positions;
+    std::unordered_map<VertexId,PartitionVertex> positions;
     std::unordered_map<FaceId,std::array<VertexId,3>> faces;
     revision.forEachPartition([&](PartitionId,const MeshPartition& partition) {
-        for(const auto& v:partition.vertices)positions.emplace(v.id,v.position);
+        for(const auto& v:partition.vertices)positions.emplace(v.id,v);
         for(const auto& f:partition.faces)faces.emplace(f.id,f.vertices);
     });
     if(positions.size()!=originalOrder.vertexIds.size() ||
@@ -160,7 +163,8 @@ Mesh reconstructFlatMesh(const MeshRevision& revision,
         const auto it=positions.find(id);
         if(it==positions.end() || !indices.emplace(id,static_cast<std::uint32_t>(i)).second)
             throw std::logic_error("Flat mapping contains missing/repeated vertex ID");
-        output.vertices[i]=it->second;
+        output.vertices[i]=it->second.position;
+        output.colors.push_back(it->second.color);
     }
     std::unordered_set<FaceId> visitedFaces;
     for(std::size_t i=0;i<originalOrder.faceIds.size();++i) {

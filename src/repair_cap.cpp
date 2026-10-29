@@ -1,5 +1,6 @@
 #include "mesher/repair_cap.hpp"
 #include "mesher/repair_mixed_primitives.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,10 @@ namespace mesher {
 namespace {
 using Tri=std::array<VertexId,3>;
 using Edge=std::pair<VertexId,VertexId>;
+VertexRGBA midpointColor(VertexRGBA a,VertexRGBA b) {
+    return {(a.r+b.r)*0.5f,(a.g+b.g)*0.5f,
+            (a.b+b.b)*0.5f,(a.a+b.a)*0.5f};
+}
 Edge canonical(VertexId a,VertexId b) {
     if(b<a)std::swap(a,b);
     return {a,b};
@@ -201,10 +206,12 @@ ForcedCapResult applyForcedPrivateCap(
     std::set<PartitionId> owners;
     std::map<VertexId,Vec3> positions;
     std::map<VertexId,PartitionId> vertexOwners;
+    std::map<VertexId,VertexRGBA> colors;
     const auto loadVertex=[&](VertexId id) {
         const auto& v=cut.index->vertex(id);
         positions.emplace(id,v.position);
         vertexOwners.emplace(id,v.owner);
+        colors.emplace(id,vertexColorAt(*cut.index,id));
     };
     for(const auto& contour:proposal.contours) {
         if(contour.vertexIds.size()<3||
@@ -251,12 +258,14 @@ ForcedCapResult applyForcedPrivateCap(
         }
         throw std::logic_error("R05 edge has no parent triangle");
     };
-    const auto insertVertex=[&](PartitionId owner,Vec3 p) {
+    const auto insertVertex=[&](PartitionId owner,Vec3 p,VertexRGBA color) {
         if(output.insertedVertices.size()>=limits.maxInsertedVertices)
             throw std::length_error("R05 cap inserted-vertex budget exceeded");
         const auto id=view.addVertex(owner,p);
+        view.setVertexColor(owner,id,color);
         positions.emplace(id,p);
         vertexOwners.emplace(id,owner);
+        colors.emplace(id,color);
         owners.insert(owner);
         output.insertedVertices.push_back(id);
         return id;
@@ -301,7 +310,8 @@ ForcedCapResult applyForcedPrivateCap(
         if(adjacent.size()!=2)throw std::logic_error(
             "R05 cap refinement requires exactly two tracked sides (no T-junction)");
         const auto p=(positions.at(worst.first)+positions.at(worst.second))*.5;
-        const auto mid=insertVertex(vertexOwners.at(worst.first),p);
+        const auto mid=insertVertex(vertexOwners.at(worst.first),p,
+            midpointColor(colors.at(worst.first),colors.at(worst.second)));
         for(const auto index:adjacent) {
             const auto source=faces[index];
             bool found=false;

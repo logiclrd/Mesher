@@ -1,5 +1,6 @@
 #include "mesher/versioned_mesh.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <unordered_set>
 #include <cmath>
@@ -136,7 +137,11 @@ std::shared_ptr<const MeshRevision> MeshRevision::restore(
         for(const auto& v:p.vertices) {
             if(!v.id||v.id>=marks.nextVertex||
                !std::isfinite(v.position.x)||!std::isfinite(v.position.y)||
-               !std::isfinite(v.position.z)||!vertices.insert(v.id).second)
+               !std::isfinite(v.position.z)||!vertices.insert(v.id).second||
+                !std::isfinite(v.color.r)||!std::isfinite(v.color.g)||
+                !std::isfinite(v.color.b)||!std::isfinite(v.color.a)||
+                v.color.r<0||v.color.r>1||v.color.g<0||v.color.g>1||
+                v.color.b<0||v.color.b>1||v.color.a<0||v.color.a>1)
                 throw std::invalid_argument("Invalid checkpoint stable vertex");
         }
         for(const auto& f:p.faces)
@@ -197,11 +202,21 @@ void MutableMeshView::erasePartition(PartitionId id) {
     if(!changes_.contains(id) && !findPartition(root_,id))return;
     changes_[id]={nullptr,true};
 }
-VertexId MutableMeshView::addVertex(PartitionId owner, Vec3 position) {
+VertexId MutableMeshView::addVertex(PartitionId owner, Vec3 position,
+                                    VertexRGBA color) {
     auto& partition=editPartition(owner);
     const auto id=identities_->vertex();
-    partition.vertices.push_back({id,position});
+    partition.vertices.push_back({id,position,color});
     return id;
+}
+void MutableMeshView::setVertexColor(PartitionId owner,VertexId vertex,
+                                     VertexRGBA color) {
+    auto& partition=editPartition(owner);
+    const auto it=std::find_if(partition.vertices.begin(),partition.vertices.end(),
+                               [vertex](const auto& v){return v.id==vertex;});
+    if(it==partition.vertices.end())
+        throw std::out_of_range("Paint vertex absent from its owner partition");
+    it->color=color;
 }
 FaceId MutableMeshView::addFace(PartitionId owner,
                                 std::array<VertexId,3> vertices) {

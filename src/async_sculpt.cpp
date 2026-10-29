@@ -3,6 +3,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <stdexcept>
 #include <set>
 #include <utility>
@@ -77,6 +78,7 @@ void AsyncSculptWorker::enqueue(Command command) {
     }
     {
         std::lock_guard guard(commandsMutex_);
+        command.queuedAt=std::chrono::steady_clock::now();
         commands_.push_back(std::move(command));
     }
     ready_.notify_one();
@@ -157,6 +159,22 @@ void AsyncSculptWorker::mergeDiscoveredContacts(
         pendingLiveMergeRequests_.fetch_sub(1,std::memory_order_acq_rel);
         throw;
     }
+}
+void AsyncSculptWorker::beginPaintStroke() {
+    if(reserved_.load())return;
+    enqueue({Kind::PaintBegin});
+}
+void AsyncSculptWorker::endPaintStroke() {
+    // Always enqueue the matching end, even when a later geometry action
+    // has reserved the worker. FIFO commands close history before sculpt.
+    enqueue({Kind::PaintEnd});
+}
+void AsyncSculptWorker::paint(std::vector<PaintDab> dabs) {
+    if(dabs.empty())return;
+    if(reserved_.load())return; // Never interleave with a timed sculpt stroke.
+    Command command{Kind::Paint};
+    command.paintDabs=std::move(dabs);
+    enqueue(std::move(command));
 }
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
@@ -293,7 +311,7 @@ void AsyncSculptWorker::run(StopToken token) {
                     });
                 if(token.stop_requested())break;
                 if(!commands_.empty()) {
-                    command=commands_.front();
+                    command=std::move(commands_.front());
                     commands_.pop_front();
                 }
             }
@@ -360,6 +378,7 @@ void AsyncSculptWorker::run(StopToken token) {
                 case Kind::Undo:
                 case Kind::Redo:
                     if(!stroke_.active()&&stroke_.pendingSamples()==0) {
+                        const auto processingStarted=Clock::now();
                         const bool restored=command->kind==Kind::Undo?
                             brush_->undo():brush_->redo();
                         if(restored) {
@@ -370,6 +389,38 @@ void AsyncSculptWorker::run(StopToken token) {
                                                       dirty.begin(),dirty.end());
                             changed=true;
                         }
+                        const auto finished=Clock::now();
+                        const auto ms=[](Clock::duration interval) {
+                            return std::chrono::duration<double,std::milli>(
+                                interval).count();
+                        };
+                        std::cout<<"[history] "
+                                 <<(command->kind==Kind::Undo?"undo":"redo")
+                                 <<" changed="<<restored
+                                 <<" queue_ms="<<ms(processingStarted-command->queuedAt)
+                                 <<" worker_ms="<<ms(finished-processingStarted)
+                                 <<" dirty_owners="<<(restored?
+                                     brush_->lastDirtyPartitions().size():0)
+                                 <<" undo_depth="<<brush_->historyStatistics().undoDepth
+                                 <<" redo_depth="<<brush_->historyStatistics().redoDepth
+                                 <<"\n";
+                    }
+                    break;
+                case Kind::PaintBegin:
+                    if(stroke_.active()||stroke_.pendingSamples())
+                        throw std::logic_error("Paint stroke overlaps sculpt");
+                    brush_->beginPaintStroke();
+                    break;
+                case Kind::PaintEnd:
+                    brush_->endPaintStroke();
+                    break;
+                case Kind::Paint:
+                    if(stroke_.active()||stroke_.pendingSamples())break;
+                    if(brush_->paint(command->paintDabs)) {
+                        const auto& dirty=brush_->lastDirtyPartitions();
+                        unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                 dirty.begin(),dirty.end());
+                        changed=true;
                     }
                     break;
                 case Kind::Checkpoint:

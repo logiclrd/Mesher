@@ -3,6 +3,7 @@
 #include "../src/repair_surgery_detail.hpp"
 #include "../src/repair_plane_internal.hpp"
 #include "mesher/mesh_partitioning.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -506,6 +507,8 @@ void testMirroredUnevenBoundarySubdivision() {
         m.triangles.push_back({f.a+vertexCount,
                                f.c+vertexCount,f.b+vertexCount});
     }
+    const VertexRGBA paint{0.3f,0.6f,0.9f,0.4f};
+    m.colors.assign(m.vertices.size(),paint);
     const auto imported=partitionFlatMesh(m,1);
     const auto base=RegionTopologyIndex::build(imported.revision);
     std::vector<std::pair<VertexId,VertexId>> mirrors;
@@ -522,6 +525,9 @@ void testMirroredUnevenBoundarySubdivision() {
     require(result.splitBoundaryEdges>0&&
             result.insertedVertices.size()>cut.count,
             "Mirrored long-edge split creates paired vertices and shared plane scar");
+    for(const auto id:result.insertedVertices)
+        require(vertexColorAt(*result.index,id)==paint,
+                "Mirrored split and zipper seam must preserve uniform RGBA");
     require(euler(*base)==4&&euler(*result.index)==2,
             "Symmetric unequal boundary density stays a closed two-manifold");
     require(result.index->triangleIntersections(
