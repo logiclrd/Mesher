@@ -2127,6 +2127,24 @@ variants already work.
   its undo history; prevent incomplete outputs on failure and test
   geometry/colour round trips against UX06 for each supported variant.
 
+
+## Build and test efficiency (2026-10-29)
+
+- [ ] **CI01 — Consolidate C++ test executables without reducing test
+  coverage.** Windows MSVC full build currently compiles roughly 80+
+  separate executable targets; all test binaries are registered in CTest
+  and the benchmark is invoked directly, so do **not** remove targets
+  merely because they originated as focused development tests. Group
+  compatible small CPU suites into shared runner binaries while retaining
+  independent CTest names, timeouts, test-selection filters, failure
+  diagnostics and meaningful test isolation. Preserve the headless,
+  no-Qhull, Vulkan-enabled, cross-platform and portable concurrency
+  variants, and all warning-as-error checks. Establish a Windows CI
+  compilation-time baseline (latest measured ~5m34s for application +
+  tests versus ~70s for 139 CTests), compare before/after executable
+  counts and wall time, and avoid introducing a monolithic test runner
+  that serializes previously independent tests or hides failures.
+
 ## R06-M24 — Shape-guided zipper postprocessing (2026-10-27)
 
 [Full design and acceptance criteria](docs/R06_M24_ZIPPER_SHAPE_REFINEMENT.md).
