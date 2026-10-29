@@ -3,6 +3,7 @@
 #include "mesher/paint_controls.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/repair_intersection.hpp"
 
 #include <cmath>
 #include <filesystem>
@@ -127,6 +128,32 @@ void testMirroredDabsDoNotDoublePaintSeam() {
     check(colorOf(*mirrored.colored,seam)!=VertexRGBA{},
           "Seam overlap test must exercise a real visible paint influence");
 }
+void testConformingCutColorProvenance() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{1,0,0},{0,1,0}};
+    mesh.triangles={{0,1,2}};
+    mesh.colors={{1,0,0,0.2f},{0,1,0,0.6f},{0,0,1,1.f}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    ConformingCutPoint edge;
+    edge.position={0.25,0,0};
+    edge.boundaryEdge=RegionTopologyIndex::Edge{
+        parts.flatIndex.vertexIds[0],parts.flatIndex.vertexIds[1]};
+    const auto onEdge=plannedCutPointColor(*source,edge);
+    check(close(onEdge.r,0.75)&&close(onEdge.g,0.25)&&
+          close(onEdge.b,0)&&close(onEdge.a,0.3),
+          "Boundary cut RGBA must be interpolated on its original source edge");
+    ConformingCutPoint interior;
+    interior.position={0.25,0.25,0};
+    interior.owningFace=parts.flatIndex.faceIds[0];
+    const auto inside=plannedCutPointColor(*source,interior);
+    check(close(inside.r,0.5)&&close(inside.g,0.25)&&
+          close(inside.b,0.25)&&close(inside.a,0.5),
+          "Interior cut RGBA must follow its original face barycentrics");
+    interior.existingVertex=parts.flatIndex.vertexIds[2];
+    check(plannedCutPointColor(*source,interior)==mesh.colors[2],
+          "Unsplit original cut vertex must retain its exact source RGBA");
+}
 void testUndoRedoAndPaintPublication() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -210,6 +237,7 @@ int main() {
         testShadowedSurface();
         testDistinctBatchColors();
         testMirroredDabsDoNotDoublePaintSeam();
+        testConformingCutColorProvenance();
         testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
