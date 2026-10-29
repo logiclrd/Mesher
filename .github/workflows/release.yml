@@ -36,11 +36,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unit-test release policy
         run: python3 -m unittest discover -s tools/release -p 'test_*.py'
-      - name: Refuse an existing tag immediately
+      - name: Validate version for PR packaging; reject reused tag for releases
         id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          python3 tools/release/release_tools.py preflight \
-            --version-file VERSION --github-output "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            python3 tools/release/release_tools.py validate \
+              --version-file VERSION --github-output "$GITHUB_OUTPUT"
+          else
+            python3 tools/release/release_tools.py preflight \
+              --version-file VERSION --github-output "$GITHUB_OUTPUT"
+          fi
 
   linux:
     name: Linux x86_64 / benchmark and package
@@ -153,10 +160,57 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  macos:
+    name: macOS ${{ matrix.arch }} / native .app package
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    env:
+      CC: clang
+      CXX: clang++
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native architecture and install Vulkan/GLFW dependencies
+        run: |
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          brew install cmake ninja glfw qhull glslang \
+            vulkan-headers vulkan-loader molten-vk
+      - name: Build native Mesher.app with Apple Clang
+        run: |
+          cmake -S . -B build-macos-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=ON -DMESHER_BUILD_TESTS=OFF \
+            -DMESHER_FIND_QHULL=ON -DMESHER_MACOS_BUNDLE=ON \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+            -DVulkan_INCLUDE_DIR="$(brew --prefix vulkan-headers)/include" \
+            -DVulkan_LIBRARY="$(brew --prefix vulkan-loader)/lib/libvulkan.dylib"
+          cmake --build build-macos-release --target Mesher --parallel 2
+      - name: Embed MoltenVK, dylib dependencies, icon, shaders and splash
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          python3 tools/release/package_macos.py \
+            --build build-macos-release --version "$VERSION" \
+            --arch "${{ matrix.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: packages/Mesher-${{ needs.preflight.outputs.version }}-macos-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
     name: Atomically publish GitHub release and release-$VERSION tag
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    needs: [preflight, linux, windows]
+    needs: [preflight, linux, windows, macos]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -171,12 +225,14 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: published
-      - name: Verify both packages exist
+      - name: Verify all four packages exist
         env:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           test -s "published/Mesher-$VERSION-linux-x86_64.tar.gz"
           test -s "published/Mesher-$VERSION-windows-x64.zip"
+          test -s "published/Mesher-$VERSION-macos-arm64.zip"
+          test -s "published/Mesher-$VERSION-macos-x86_64.zip"
       - name: Create tag and release only after both packages succeeded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -192,6 +248,8 @@ jobs:
           gh release create "$TAG" \
             "published/Mesher-$VERSION-linux-x86_64.tar.gz" \
             "published/Mesher-$VERSION-windows-x64.zip" \
+            "published/Mesher-$VERSION-macos-arm64.zip" \
+            "published/Mesher-$VERSION-macos-x86_64.zip" \
             --target "$GITHUB_SHA" --title "Mesher $VERSION" \
-            --notes "Mesher $VERSION; Linux compiler selected by measured GCC/Clang Release benchmark. See compiler-benchmark.json inside the Linux package." \
+            --notes "Mesher $VERSION. Linux compiler selected by measured GCC/Clang Release benchmark (compiler-benchmark.json). macOS .app archives are native arm64 and x86_64, ad-hoc signed and NOT notarized; macOS Gatekeeper may require explicit user approval. See RUNNING.txt inside each package." \
             "${options[@]}"

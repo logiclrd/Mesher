@@ -135,6 +135,11 @@ def main():
     preflight = commands.add_parser("preflight")
     preflight.add_argument("--version-file", default="VERSION")
     preflight.add_argument("--github-output")
+    # PRs validate packaging without claiming the current VERSION as a new
+    # release. Real push/manual publications still require unused tags.
+    validate = commands.add_parser("validate")
+    validate.add_argument("--version-file", default="VERSION")
+    validate.add_argument("--github-output")
     check = commands.add_parser("check-tag")
     check.add_argument("--tag", required=True)
     selection = commands.add_parser("select")
@@ -154,6 +159,11 @@ def main():
         check_tag(tag)
         append_output(args.github_output, version=version, tag=tag)
         print(f"Preflight passed: version={version}, available tag={tag}")
+    elif args.command == "validate":
+        version = read_version(args.version_file)
+        tag = f"release-{version}"
+        append_output(args.github_output, version=version, tag=tag)
+        print(f"PR packaging validation for {version} (no tag created)")
     elif args.command == "check-tag":
         check_tag(args.tag)
         print(f"Tag is still available: {args.tag}")

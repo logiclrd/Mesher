@@ -99,6 +99,11 @@ std::filesystem::path locateAsset(const std::filesystem::path& assets,
                                   const char* filename) {
     // Keep the copied resources beside the executable useful for released
     // Windows builds, Linux desktop launchers and arbitrary working dirs.
+#ifdef __APPLE__
+    const auto bundle=mesherExecutableDirectory()/
+                      "../Resources/images"/filename;
+    if(std::filesystem::exists(bundle))return bundle;
+#endif
     const auto local=mesherExecutableDirectory()/"images"/filename;
     if(std::filesystem::exists(local))return local;
     const auto compiled=assets/filename;
