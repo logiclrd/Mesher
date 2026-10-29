@@ -2128,6 +2128,34 @@ variants already work.
   geometry/colour round trips against UX06 for each supported variant.
 
 
+- [ ] **UX08 — Global model/view scale and automatic import framing.**
+  Add a logarithmic global-scale slider in the lower-right viewport,
+  styled and positioned like the brush-size slider. Its evenly spaced
+  exponent ticks range from `10^-5` to `10^+5`, inclusive, with `10^0`
+  exactly centered and selected for default generated geometry. Dragging
+  moves continuously in exponent space; holding Ctrl while dragging
+  reduces the effective movement speed by a factor of **15** for fine
+  adjustment. When the pointer hovers anywhere over the entire slider
+  control (not only the thumb), show a temporary readout just to the left
+  of the handle, formatted as `10^<exponent>` with **four digits after
+  the decimal point** (e.g. `10^-3.2455`); avoid clipping the readout
+  against the viewport edge.
+  On successful model import/open, automatically select a scale that
+  gives the imported model a natural initial on-screen size and frame
+  its actual bounds; accommodate dramatically larger or smaller files,
+  including models offset far from the origin. Keep the full imported
+  surface visible without near/far clipping as the camera dollies,
+  or when changing scale, by adapting camera clipping/framing to
+  the model's dimensions. Preserve source vertex positions/units,
+  topology, colours and checkpoint fidelity: scale is a view/interaction
+  mapping, not a destructive rescale of source mesh coordinates.
+  Keep camera orbit/pan/dolly, picking, sculpt/paint brush sizing,
+  symmetry, floor grid, undo/redo, and save/reopen behavior coherent
+  across scale changes. Test default `10^0`, both range endpoints,
+  Ctrl-fine drag, hover/readout placement, off-origin imported meshes
+  and oversized/tiny model clipping on physical desktop Vulkan.
+
+
 ## Build and test efficiency (2026-10-29)
 
 - [ ] **CI01 — Consolidate C++ test executables without reducing test
