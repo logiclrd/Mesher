@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/versioned_mesh.hpp"
+#include "mesher/portable_concurrency.hpp"
 #include "mesher/persistent_index_map.hpp"
 #include "mesher/picking.hpp"
 
@@ -283,7 +284,7 @@ public:
                           std::shared_ptr<const RegionTopologyIndex> next);
 private:
     // One atomic pointer owns both the immutable revision and its index.
-    std::atomic<std::shared_ptr<const RegionTopologyIndex>> published_;
+    AtomicSharedPtr<const RegionTopologyIndex> published_;
 };
 
 // A seed vertex's write halo comprises its owner plus owners of incident
