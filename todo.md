@@ -2050,11 +2050,20 @@ variants already work.
   signed or notarized** (Gatekeeper may require explicit user approval).
   They are architecture-specific rather than Universal 2, and physical
   Mac GPU rendering and older OS deployment remain unverified.
-- [ ] **UX03 — Keyboard-layout-aware mapped keys rather than scan codes.**
-  Use the user's mapped/logical keys for input and shortcuts, not physical
-  keyboard scan-code positions; verify different keyboard layouts and
-  modifier combinations without regressing existing sculpt/camera controls.
-  Define platform-appropriate Command/Ctrl bindings when macOS is supported.
+- [x] **UX03 — Keyboard-layout-aware mapped keys rather than scan codes.**
+  The Vulkan viewport now translates GLFW printable key events with
+  `glfwGetKeyName` under the active OS layout, retaining press-time
+  mappings through release, ignoring repeats, clearing keys on focus loss,
+  and preserving special keys and Ctrl-based mouse gestures. Named
+  shortcuts follow the character produced by the keyboard rather than
+  the original US-layout physical key position; macOS also accepts
+  Command+Z / Command+Y / Command+S. Tests cover AZERTY/Dvorak-style
+  mappings, modifiers, remaps while held, quick taps and ambiguous names.
+  **Accepted:** [PR #172](https://github.com/logiclrd/Mesher/pull/172),
+  [five-platform CI #40816565172](https://github.com/logiclrd/Mesher/actions/runs/40816565172),
+  [four-platform release-package CI #40816564906](https://github.com/logiclrd/Mesher/actions/runs/40816564906).
+  Physical alternate-layout smoke testing remains desirable, but native
+  GLFW builds and automated semantic input tests are green.
 - [ ] **UX04 — Per-vertex RGBA colours and basic Paint brush.** Extend the
   immutable mesh/revision, render, history and checkpoint representation
   to preserve vertex colours (including alpha), and add a Paint sculpting
