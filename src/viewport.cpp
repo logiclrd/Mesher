@@ -1261,6 +1261,14 @@ class VulkanViewport {
 
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
+        // A camera/inspection/merge transition cannot strand a paint
+        // history transaction when input handling takes an early return.
+        if(painting_&&(inspectionFrozen_||orbitDragging_||
+                       mergeInput_.enabled()||!paintMode_)) {
+            if(interaction_.paintEnd)interaction_.paintEnd();
+            painting_=false;
+            lastPaintCursor_.reset();
+        }
         if(inspectionFrozen_) {
             // Freeze is detected asynchronously; still close an active
             // stroke so the worker drains queued 4D input in FIFO order.
