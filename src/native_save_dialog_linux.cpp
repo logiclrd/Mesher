@@ -110,6 +110,10 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
+    // Both native helpers and the fallback Qt widget dialog display only
+    // the description. It already contains the visible extension; the
+    // final wildcard group remains reserved for actual filtering.
+    dialog.setOption(QFileDialog::HideNameFilterDetails,true);
     dialog.setWindowTitle(QStringLiteral("Save Mesher checkpoint"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.setFileMode(QFileDialog::AnyFile);
@@ -130,6 +134,10 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
+    // Both native helpers and the fallback Qt widget dialog display only
+    // the description. It already contains the visible extension; the
+    // final wildcard group remains reserved for actual filtering.
+    dialog.setOption(QFileDialog::HideNameFilterDetails,true);
     dialog.setWindowTitle(QStringLiteral("Open Mesher mesh"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     dialog.setFileMode(QFileDialog::ExistingFile);
