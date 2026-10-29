@@ -2254,6 +2254,32 @@ bool VersionedSculptBrush::mergeExactContacts(
     return true;
 }
 
+bool VersionedSculptBrush::paint(const std::vector<PaintDab>& dabs) {
+    ensureOperational();
+    if(dabs.empty())return false;
+    const auto old=published_.snapshot();
+    const auto result=applyVertexPaintDabs(old,dabs);
+    if(result.changedVertices.empty())return false;
+    // The paint COW root changes only colour attributes: geometry, face IDs,
+    // mirror provenance and the accelerated picking index are shared.
+    if(!published_.publishIfCurrent(old,result.colored))
+        throw std::logic_error("Paint lost its exact original-root CAS");
+    try {
+        history_.append(result.colored,result.dirtyPartitions,{},{},
+            result.copiedPayloadBytes,vertices_,faces_,
+            history_.currentFidelity());
+    }catch(...) {
+        markPostCasFailure(std::current_exception());
+        throw;
+    }
+    lastDirtyPartitions_=result.dirtyPartitions;
+    ++publishedRevisions_;
+    details_={};
+    details_.vertices=vertices_;
+    details_.triangles=faces_;
+    return true;
+}
+
 bool VersionedSculptBrush::undo() {
     ensureOperational();
     if(!history_.canUndo())return false;
