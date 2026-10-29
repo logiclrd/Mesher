@@ -918,7 +918,8 @@ int main(int argc, char** argv) {
             interaction.paint=[&](const mesher::PaintDab& dab) {
                 if(repairSession&&repairSession->frozen())return;
                 std::vector<mesher::PaintDab> dabs{dab};
-                if(options.symmetric&&std::abs(dab.point.x)>1e-10) {
+                if(options.symmetric&&(std::abs(dab.point.x)>1e-10||
+                                     std::abs(dab.outwardNormal.x)>1e-10)) {
                     auto mirrored=dab;
                     mirrored.point.x=-mirrored.point.x;
                     mirrored.outwardNormal.x=-mirrored.outwardNormal.x;
