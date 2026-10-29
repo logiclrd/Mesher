@@ -12,7 +12,9 @@ foreach(needle
     "dFdx(worldPosition.y)" "dFdy(worldPosition.y)"
     "gridDistance=nearest/unitsPerPixel;"
     "distancePx=min(gridDistance.x,gridDistance.y);"
-    "constants.wireRaster.z-distancePx"
+    "wireHalfwidth-distancePx"
+    "wireOpacity=smoothstep(1.5,10.0,gridSpacingPx);"
+    "color=mix(color,vec3(0.073239),coverage*wireOpacity);"
     "if(surfaceMaterial<0.5)")
     string(FIND "${frag}" "${needle}" at)
     if(at EQUAL -1)

@@ -16,7 +16,9 @@ endforeach()
 foreach(needle "noperspective in vec3 edgeBarycentric"
                "dFdx(edgeBarycentric)" "dFdy(edgeBarycentric)"
                "nearest=abs(worldPosition.xy-round(worldPosition.xy));"
-               "color=mix(color,vec3(0.073239),coverage);")
+               "float minAltitudePx=1.0/max(perPixel.x,max(perPixel.y,perPixel.z));"
+               "wireOpacity=densityFade;"
+               "color=mix(color,vec3(0.073239),coverage*wireOpacity);")
     string(FIND "${frag}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M67/M68 real physical pixel coverage missing: ${needle}")
