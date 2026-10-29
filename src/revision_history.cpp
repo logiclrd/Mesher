@@ -131,22 +131,37 @@ void RevisionHistory::amendCurrent(
         verifyOriginalPatchPublicationTransition(
             *currentEntry.fidelity,*currentEntry.fidelity,
             currentEntry.index,index);
-    if(additionalCopiedPayloadBytes>
-       std::numeric_limits<std::size_t>::max()-totalBytes_)
-        throw std::overflow_error("Paint history byte accounting overflow");
+    std::sort(additionalDirty.begin(),additionalDirty.end());
+    additionalDirty.erase(std::unique(additionalDirty.begin(),
+                                     additionalDirty.end()),
+                          additionalDirty.end());
     std::vector<PartitionId> dirty=currentEntry.dirty;
     dirty.insert(dirty.end(),additionalDirty.begin(),additionalDirty.end());
     std::sort(dirty.begin(),dirty.end());
     dirty.erase(std::unique(dirty.begin(),dirty.end()),dirty.end());
-    if(additionalCopiedPayloadBytes>
-       std::numeric_limits<std::size_t>::max()-currentEntry.bytes)
-        throw std::overflow_error("Paint history entry size overflow");
+    // The per-dab COW clones are TRANSIENT: only the endpoint's distinct
+    // changed owners remain in this Undo transition. Charging every
+    // intermediate clone would evict the original state of a long stroke.
+    const auto perOwner=[](std::size_t bytes,std::size_t owners) {
+        return owners?bytes/owners+(bytes%owners!=0):std::size_t{0};
+    };
+    const auto unit=std::max(perOwner(currentEntry.bytes,
+                                     currentEntry.dirty.size()),
+                             perOwner(additionalCopiedPayloadBytes,
+                                      additionalDirty.size()));
+    if(unit&&dirty.size()>std::numeric_limits<std::size_t>::max()/unit)
+        throw std::overflow_error("Paint history byte accounting overflow");
+    const auto estimatedBytes=dirty.size()*unit;
+    if(estimatedBytes>currentEntry.bytes&&
+       estimatedBytes-currentEntry.bytes>
+           std::numeric_limits<std::size_t>::max()-totalBytes_)
+        throw std::overflow_error("Paint history byte accounting overflow");
     // Commit the amended endpoint only after all validation/allocation.
     auto previous=std::move(currentEntry.index);
     currentEntry.index=std::move(index);
     currentEntry.dirty=std::move(dirty);
-    currentEntry.bytes+=additionalCopiedPayloadBytes;
-    totalBytes_+=additionalCopiedPayloadBytes;
+    totalBytes_=totalBytes_-currentEntry.bytes+estimatedBytes;
+    currentEntry.bytes=estimatedBytes;
     if(retirement_)retirement_->retire(std::move(previous));
     while(entries_.size()>1 &&
           (entries_.size()>maximumRevisions_||totalBytes_>maximumChangeBytes_)) {
