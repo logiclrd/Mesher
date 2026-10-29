@@ -55,7 +55,7 @@ std::uint32_t faceIndex(const std::string& token,std::size_t count,
         count-static_cast<std::size_t>(-(raw+1))-1;
     return static_cast<std::uint32_t>(absolute);
 }
-void validateClosedTriangles(const Mesh& mesh) {
+void validateClosedTriangles(const Mesh& mesh,const char* format) {
     if(mesh.vertices.size()<4||mesh.triangles.size()<4)
         throw std::runtime_error("Imported mesh must contain a closed triangle surface");
     using Edge=std::pair<std::uint32_t,std::uint32_t>;
@@ -63,21 +63,21 @@ void validateClosedTriangles(const Mesh& mesh) {
     for(const auto f:mesh.triangles) {
         const std::array<std::uint32_t,3> ids{f.a,f.b,f.c};
         if(f.a==f.b||f.b==f.c||f.c==f.a)
-            throw std::runtime_error("OBJ contains a degenerate triangle");
+            throw std::runtime_error(std::string(format)+": degenerate triangle");
         const auto a=mesh.vertices[f.a],b=mesh.vertices[f.b],
                    c=mesh.vertices[f.c];
         const auto ab=b-a,ac=c-a;
         const double edgeProduct=length(ab)*length(ac);
         if(!(edgeProduct>0)||!std::isfinite(edgeProduct)||
            !(length(cross(ab,ac))>1e-12*edgeProduct))
-            throw std::runtime_error("OBJ contains a zero-area triangle");
+            throw std::runtime_error(std::string(format)+": zero-area triangle");
         for(int j=0;j<3;++j) {
             const auto u=ids[static_cast<std::size_t>(j)];
             const auto v=ids[static_cast<std::size_t>((j+1)%3)];
             const Edge key{std::min(u,v),std::max(u,v)};
             auto& entry=edges[key];
             if(++entry.first>2)
-                throw std::runtime_error("OBJ has a nonmanifold edge");
+                throw std::runtime_error(std::string(format)+": nonmanifold edge");
             entry.second+=(u<v?1:-1);
         }
     }
@@ -85,7 +85,7 @@ void validateClosedTriangles(const Mesh& mesh) {
         (void)edge;
         if(use.first!=2||use.second!=0)
             throw std::runtime_error(
-                "OBJ must be a closed, consistently wound 2-manifold");
+                std::string(format)+": requires a closed, consistently wound 2-manifold");
     }
 }
 Mesh parseWavefrontObj(const std::filesystem::path& path) {
@@ -164,7 +164,7 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
     if(!input.eof()&&input.fail())throw std::runtime_error("OBJ read failure");
     if(anyColor&&anyPlain)
         throw std::runtime_error("OBJ mixes coloured and uncoloured vertices");
-    validateClosedTriangles(mesh);
+    validateClosedTriangles(mesh,"OBJ");
     return mesh;
 }
 // Headers are intentionally distinct. Repair cases contain a checkpoint
@@ -241,7 +241,10 @@ MeshOpenCandidate readMeshOpenCandidate(
              format==MeshOpenFilter::StanfordPly) {
         auto mesh=format==MeshOpenFilter::StanfordPly?
             parsePlyMesh(path):parseWavefrontObj(path);
-        validateClosedTriangles(mesh);
+        // OBJ validated before returning; PLY must enforce the same
+        // topology invariants before its private revision is published.
+        if(format==MeshOpenFilter::StanfordPly)
+            validateClosedTriangles(mesh,"PLY");
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
