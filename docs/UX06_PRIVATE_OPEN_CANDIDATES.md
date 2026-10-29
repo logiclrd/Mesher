@@ -36,10 +36,14 @@ mesh editing, with `--repair-replay` guidance. Unknown headers or
 corrupt contents are refused; there is no extension-based fallback.
 
 Windows and macOS carry the actual filter selection from the Open panel;
-macOS uses a native accessory to update the visible filters. kdialog and
-zenity CLI tools cannot report their selected filter, so Linux currently
-uses a native file-type selection dialog followed by a native filtered
-file picker, without guessing based on the extension.
+macOS uses a native accessory to update the visible filters. Linux now
+uses Qt 6 `QFileDialog` for **both Open and Save As**, preserving one
+in-dialog selector and returning `selectedNameFilter()` directly.
+A `QApplication` is initialized lazily on the first modal dialog and
+kept for the process lifetime. Qt respects any existing platform theme
+setting without forcibly overriding it; the deployed Linux binary
+requires system Qt Widgets and QPA plugins. `QMessageBox` is used for
+native-style Open errors; no external kdialog/zenity subprocess remains.
 
 Imported OBJ changes the
 new Save As default to its .mshr sibling; restored checkpoints preserve

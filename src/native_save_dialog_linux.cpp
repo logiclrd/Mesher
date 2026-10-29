@@ -1,214 +1,122 @@
 #include "mesher/native_save_dialog.hpp"
 
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <stdexcept>
-#include <spawn.h>
-#include <string>
-#include <string_view>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <vector>
+#include <QApplication>
+#include <QDialog>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QString>
+#include <QStringList>
 
-extern "C" char** environ;
+#include <cstdlib>
+#include <filesystem>
+#include <optional>
+#include <stdexcept>
+#include <string>
 
 namespace mesher {
 namespace {
-
-bool executableOnPath(const std::string& command) {
-    const char* environment=std::getenv("PATH");
-    if(!environment)return false;
-    std::string_view path(environment);
-    while(true) {
-        const auto colon=path.find(':');
-        const auto directory=path.substr(0,colon);
-        const auto candidate=
-            std::filesystem::path(directory.empty()?".":std::string(directory))/
-            command;
-        if(access(candidate.c_str(),X_OK)==0)return true;
-        if(colon==std::string_view::npos)break;
-        path.remove_prefix(colon+1);
-    }
-    return false;
+// GLFW remains Mesher's main event loop. Qt is used solely for modal desktop
+// dialogs on the UI thread; no Qt widgets are created at process startup.
+// QApplication and its argument storage MUST outlive every dialog, and Qt
+// does not support repeatedly destroying/reconstructing the application.
+QApplication& desktopQt() {
+    static int argc=1;
+    static char appName[]="Mesher";
+    static char* argv[]{appName,nullptr};
+    static QApplication application(argc,argv);
+    static const bool initialized=[] {
+        application.setApplicationName(QStringLiteral("Mesher"));
+        application.setQuitOnLastWindowClosed(false);
+        return true;
+    }();
+    (void)initialized;
+    // Respect QT_QPA_PLATFORMTHEME and system QPA plugins supplied by
+    // the user's desktop. Never forcibly override their chosen theme.
+    return application;
 }
 
-std::optional<std::filesystem::path> runPicker(
-    const std::vector<std::string>& command,bool allowEmpty=false) {
-    int fds[2]{};
-    if(pipe(fds)<0)throw std::runtime_error(
-        std::string("Cannot open native dialog output pipe: ")+std::strerror(errno));
-    // The sculpt and checkpoint workers are live. posix_spawnp, unlike
-    // fork followed by allocations in the child, does not expose the
-    // multithreaded parent to unsafe post-fork C++ operations.
-    posix_spawn_file_actions_t actions{};
-    const int init=posix_spawn_file_actions_init(&actions);
-    if(init!=0) {
-        close(fds[0]);close(fds[1]);
-        throw std::runtime_error("Cannot initialize Save As process actions");
-    }
-    const int dup=posix_spawn_file_actions_adddup2(&actions,fds[1],STDOUT_FILENO);
-    const int readClose=posix_spawn_file_actions_addclose(&actions,fds[0]);
-    const int writeClose=posix_spawn_file_actions_addclose(&actions,fds[1]);
-    if(dup!=0||readClose!=0||writeClose!=0) {
-        posix_spawn_file_actions_destroy(&actions);
-        close(fds[0]);close(fds[1]);
-        throw std::runtime_error("Cannot redirect native dialog output");
-    }
-    std::vector<char*> argv;
-    for(const auto& word:command)
-        argv.push_back(const_cast<char*>(word.c_str()));
-    argv.push_back(nullptr);
-    pid_t pid=-1;
-    const int launched=posix_spawnp(&pid,argv[0],&actions,nullptr,
-                                   argv.data(),environ);
-    posix_spawn_file_actions_destroy(&actions);
-    close(fds[1]);
-    if(launched!=0) {
-        close(fds[0]);
-        throw std::runtime_error("Cannot launch native save dialog: "+
-                                 std::string(std::strerror(launched)));
-    }
-    std::string result;
-    char buffer[4096];
-    while(true) {
-        const auto n=read(fds[0],buffer,sizeof(buffer));
-        if(n>0)result.append(buffer,static_cast<std::size_t>(n));
-        else if(n==0)break;
-        else if(errno!=EINTR)break;
-    }
-    close(fds[0]);
-    int status=0;
-    while(waitpid(pid,&status,0)<0) {
-        if(errno!=EINTR)throw std::runtime_error("Cannot collect save dialog result");
-    }
-    if(!WIFEXITED(status))
-        throw std::runtime_error("Native Save As dialog terminated abnormally");
-    const int code=WEXITSTATUS(status);
-    if(code==1)return std::nullopt; // User cancelled or closed the dialog.
-    if(code!=0)throw std::runtime_error(
-        "Native Save As dialog failed (exit "+std::to_string(code)+")");
-    if(!result.empty()&&result.back()=='\n')result.pop_back();
-    if(result.empty()) {
-        if(allowEmpty)return std::nullopt;
-        throw std::runtime_error("Native dialog returned no selection");
-    }
-    return std::filesystem::path(result);
+QString asQString(const std::filesystem::path& path) {
+    const auto utf8=path.string();
+    return QString::fromUtf8(utf8.data(),static_cast<qsizetype>(utf8.size()));
 }
-
+std::filesystem::path asPath(const QString& name) {
+    // On Linux Qt paths are UTF-8; retain exact bytes and don't rely on
+    // the user's current C locale during a filesystem path conversion.
+    const auto utf8=name.toUtf8();
+    return std::filesystem::path(
+        std::string(utf8.constData(),static_cast<std::size_t>(utf8.size())));
+}
+std::filesystem::path suggestedDesktopPath(
+    const std::filesystem::path& suggestion) {
+    if(!suggestion.parent_path().empty())
+        return std::filesystem::absolute(suggestion);
+    const QString documents=QDir::home().filePath(QStringLiteral("Documents"));
+    const auto folder=QDir(documents).exists()?asPath(documents):
+                      asPath(QDir::homePath());
+    return folder/suggestion.filename();
+}
+void setInitialFile(QFileDialog& dialog,const std::filesystem::path& file) {
+    const auto absolute=suggestedDesktopPath(file);
+    dialog.setDirectory(asQString(absolute.parent_path()));
+    if(!absolute.filename().empty())
+        dialog.selectFile(asQString(absolute.filename()));
+}
+constexpr const char* checkpointFilter="Mesher mesh files (*.mshr)";
+constexpr const char* objFilter="Wavefront OBJ (*.obj)";
+constexpr const char* allFilter="All Files (*)";
 } // namespace
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     GLFWwindow*,const std::filesystem::path& suggestion) {
-    // GUI launchers may start Mesher in a read-only bundle directory.
-    // For a bare filename, use the user's Documents (or home) folder;
-    // an explicit --checkpoint directory and a previously chosen path win.
-    std::filesystem::path initialPath=suggestion;
-    if(suggestion.parent_path().empty()) {
-        if(const char* home=std::getenv("HOME");home&&*home) {
-            const std::filesystem::path homePath(home);
-            const auto documents=homePath/"Documents";
-            initialPath=(std::filesystem::is_directory(documents)?
-                         documents:homePath)/suggestion.filename();
-        }
-    }
-    const auto initial=std::filesystem::absolute(initialPath).string();
-    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
-    const std::string_view environment=desktop?desktop:"";
-    const bool kde=environment.find("KDE")!=std::string_view::npos;
-    const bool haveKdialog=executableOnPath("kdialog");
-    const bool haveZenity=executableOnPath("zenity");
-    // kdialog is native on Plasma, Zenity gives a native GTK chooser on
-    // other desktops. No shell expansion or interpolation of filenames.
-    if(kde&&haveKdialog)
-        return runPicker({"kdialog","--title","Save Mesher checkpoint",
-                          "--getsavefilename",initial,
-                          "Mesher checkpoints (*.mshr)"});
-    if(haveZenity)
-        return runPicker({"zenity","--file-selection","--save",
-                          "--confirm-overwrite","--title=Save Mesher checkpoint",
-                          "--filename="+initial,
-                          "--file-filter=Mesher checkpoints | *.mshr"});
-    if(haveKdialog)
-        return runPicker({"kdialog","--title","Save Mesher checkpoint",
-                          "--getsavefilename",initial,
-                          "Mesher checkpoints (*.mshr)"});
-    throw std::runtime_error(
-        "No desktop Save As provider installed (install kdialog or zenity)");
+    (void)desktopQt();
+    QFileDialog dialog;
+    dialog.setWindowTitle(QStringLiteral("Save Mesher checkpoint"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setNameFilters({QStringLiteral("Mesher checkpoints (*.mshr)")});
+    dialog.setDefaultSuffix(QStringLiteral("mshr"));
+    dialog.setOption(QFileDialog::DontConfirmOverwrite,false);
+    setInitialFile(dialog,suggestion);
+    if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
+    const auto names=dialog.selectedFiles();
+    if(names.size()!=1||names.front().isEmpty())
+        throw std::runtime_error("Qt Save As did not return a filename");
+    return asPath(names.front());
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow*,const std::filesystem::path& suggestion) {
-    std::filesystem::path initial=suggestion;
-    if(initial.parent_path().empty()) {
-        if(const char* home=std::getenv("HOME");home&&*home) {
-            const std::filesystem::path homePath(home);
-            const auto documents=homePath/"Documents";
-            initial=(std::filesystem::is_directory(documents)?
-                     documents:homePath)/suggestion.filename();
-        }
-    }
-    const auto pathname=std::filesystem::absolute(initial).string();
-    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
-    const std::string_view environment=desktop?desktop:"";
-    const bool kde=environment.find("KDE")!=std::string_view::npos;
-    const bool kdialog=executableOnPath("kdialog");
-    const bool zenity=executableOnPath("zenity");
-    // kdialog/zenity CLI return only the chosen PATH, not their active
-    // native file-type filter. To preserve the explicit-as-selected
-    // contract, use a native file-type chooser first; then pass that
-    // single selected filter to the native file chooser itself. Never
-    // guess the selection based on the filename.
-    const bool useKdialog=kdialog&&(kde||!zenity);
-    if(!kdialog&&!zenity)throw std::runtime_error(
-        "No desktop Open provider installed (install kdialog or zenity)");
-    const auto type=useKdialog?
-        runPicker({"kdialog","--title","Open Mesher mesh",
-                   "--combobox","File type",
-                   "Mesher mesh files (*.mshr)","Wavefront OBJ (*.obj)",
-                   "All Files (*)"}):
-        runPicker({"zenity","--forms","--title=Open Mesher mesh",
-                   "--text=Choose the file type",
-                   "--add-combo=File type",
-                   "--combo-values=Mesher mesh files (*.mshr)|Wavefront OBJ (*.obj)|All Files (*)"});
-    if(!type)return std::nullopt;
-    const auto filter=*type=="Mesher mesh files (*.mshr)"?
+    (void)desktopQt();
+    QFileDialog dialog;
+    dialog.setWindowTitle(QStringLiteral("Open Mesher mesh"));
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+    dialog.setFileMode(QFileDialog::ExistingFile);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setNameFilters({QString::fromUtf8(checkpointFilter),
+                           QString::fromUtf8(objFilter),
+                           QString::fromUtf8(allFilter)});
+    dialog.selectNameFilter(QString::fromUtf8(checkpointFilter));
+    setInitialFile(dialog,suggestion);
+    if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
+    const auto names=dialog.selectedFiles();
+    if(names.size()!=1||names.front().isEmpty())
+        throw std::runtime_error("Qt Open did not return a filename");
+    const QString chosen=dialog.selectedNameFilter();
+    // The filter is an actual part of the QFileDialog result, NOT inferred
+    // from the extension. Unexpected/empty results fail closed.
+    const auto filter=chosen==QString::fromUtf8(checkpointFilter)?
         MeshOpenFilter::MesherCheckpoint:
-        *type=="Wavefront OBJ (*.obj)"?MeshOpenFilter::WavefrontObj:
-        *type=="All Files (*)"?MeshOpenFilter::AllFiles:
-        throw std::runtime_error("Unknown selected Open file type");
-    const std::string filterLabel=
-        filter==MeshOpenFilter::MesherCheckpoint?"Mesher mesh files (*.mshr)":
-        filter==MeshOpenFilter::WavefrontObj?"Wavefront OBJ (*.obj)":"All Files (*)";
-    const std::string pattern=
-        filter==MeshOpenFilter::MesherCheckpoint?"*.mshr":
-        filter==MeshOpenFilter::WavefrontObj?"*.obj":"*";
-    const auto selected=useKdialog?
-        runPicker({"kdialog","--title","Open Mesher mesh",
-                   "--getopenfilename",pathname,filterLabel}):
-        runPicker({"zenity","--file-selection",
-                   "--title=Open Mesher mesh","--filename="+pathname,
-                   "--file-filter="+filterLabel.substr(0,filterLabel.find(" ("))+
-                   " | "+pattern});
-    if(!selected)return std::nullopt;
-    return NativeOpenSelection{*selected,filter};
+        chosen==QString::fromUtf8(objFilter)?MeshOpenFilter::WavefrontObj:
+        chosen==QString::fromUtf8(allFilter)?MeshOpenFilter::AllFiles:
+        throw std::runtime_error("Qt Open returned an unknown file-type filter");
+    return NativeOpenSelection{asPath(names.front()),filter};
 }
 void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
-    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
-    const std::string_view environment=desktop?desktop:"";
-    const bool kde=environment.find("KDE")!=std::string_view::npos;
-    try {
-        if(executableOnPath("kdialog")&&
-           (kde||!executableOnPath("zenity"))) {
-            (void)runPicker({"kdialog","--title","Mesher — Open failed",
-                             "--error",message},true);
-        }else if(executableOnPath("zenity"))
-            (void)runPicker({"zenity","--error","--no-markup",
-                             "--title=Mesher — Open failed",
-                             "--text="+message},true);
-    }catch(const std::exception&) {
-        // The original diagnostic is also sent to stderr by the caller.
-    }
+    (void)desktopQt();
+    QMessageBox::critical(nullptr,QStringLiteral("Mesher — Open failed"),
+        QString::fromUtf8(message.data(),
+                          static_cast<qsizetype>(message.size())));
 }
 } // namespace mesher

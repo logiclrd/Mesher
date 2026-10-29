@@ -60,7 +60,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++ clang libomp-dev \
             libvulkan-dev libglfw3-dev libgl-dev libx11-dev \
-            glslang-tools libqhull-dev patchelf python3
+            glslang-tools libqhull-dev patchelf python3 qt6-base-dev qt6-qpa-plugins
       - name: Compile identical CPU benchmarks (G++ and Clang++)
         run: |
           set -euo pipefail

@@ -122,8 +122,8 @@ if(MESHER_BUILD_VIEWPORT)
     else()
         add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
     endif()
-    # Native Save As is intentionally a desktop-only integration. CPU/CLI
-    # targets need no Cocoa, Shell COM, or Linux desktop services.
+    # Native file dialogs are desktop-only. The mesh library, CLI-only
+    # build and all CPU test targets do not depend on Qt, Cocoa or Shell COM.
     if(WIN32)
         target_sources(Mesher PRIVATE src/native_save_dialog_windows.cpp)
         target_link_libraries(Mesher PRIVATE ole32 shell32 uuid)
@@ -135,7 +135,19 @@ if(MESHER_BUILD_VIEWPORT)
         target_link_libraries(Mesher PRIVATE "-framework Cocoa"
             "-framework UniformTypeIdentifiers")
     else()
+        # Linux has no single system dialog ABI; Qt integrates with the
+        # user's available KDE/GTK/portal platform theme while returning
+        # the selected name filter in the same Open dialog.
+        find_package(Qt6 REQUIRED COMPONENTS Widgets)
         target_sources(Mesher PRIVATE src/native_save_dialog_linux.cpp)
+        target_link_libraries(Mesher PRIVATE Qt6::Widgets)
+        if(MESHER_BUILD_TESTS)
+            add_test(NAME linux_qt_native_open_save_contract
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DLINUX_DIALOG_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/native_save_dialog_linux.cpp"
+                    "-DAPP_CMAKE_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_qt_native_dialog.cmake")
+        endif()
     endif()
     add_dependencies(Mesher mesher_shaders mesher_images)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)

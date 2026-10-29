@@ -223,10 +223,14 @@ saves suggest the most recently accepted path. Cancel leaves the mesh,
 history, and destination unchanged. Saving is queued on the existing
 asynchronous worker and uses its atomic temporary-file-and-rename
 mechanism; an accepted dialog does not imply that disk I/O has finished.
-The writer's checkpoint status/errors remain in the console. On KDE,
-the Linux picker uses **kdialog**; on GTK desktops it uses **zenity**.
-Install at least one of these native dialog frontends to enable Save As;
-neither is bundled into the Linux archive. Frozen repair inspection
+The writer's checkpoint status/errors remain in the console. On Linux,
+**Open, Save As and error messages use Qt 6 Widgets** and the system's
+installed KDE/GTK/portal integration, with a file-type selector inside
+Open rather than a separate preliminary prompt. Qt is a required desktop
+dependency, but no Qt dependency is added to headless mesh tests.
+The Linux archive relies on the host's Qt 6 runtime and QPA plugins;
+`QT_QPA_PLATFORMTHEME` is respected if configured rather than overwritten.
+Frozen repair inspection
 retains its specialized Ctrl+S / Ctrl+Shift+S / Ctrl+Alt+S case captures
 without opening a regular checkpoint Save As dialog.
 
