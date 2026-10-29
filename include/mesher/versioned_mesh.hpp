@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/mesh.hpp"
+#include "mesher/portable_concurrency.hpp"
 
 #include <array>
 #include <atomic>
@@ -130,7 +131,7 @@ public:
                           std::shared_ptr<const MeshRevision> next);
 
 private:
-    std::atomic<std::shared_ptr<const MeshRevision>> published_;
+    AtomicSharedPtr<const MeshRevision> published_;
 };
 
 } // namespace mesher
