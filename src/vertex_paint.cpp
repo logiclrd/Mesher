@@ -2,6 +2,7 @@
 #include "mesher/partition_render.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <map>
@@ -88,6 +89,16 @@ PaintDabResult applyVertexPaintDabs(
         std::vector<std::pair<VertexId,double>> visible;
         visible.reserve(ids.size());
         double closest=dab.radius;
+        std::array<double,3> nearest{dab.radius,dab.radius,dab.radius};
+        const auto addCenterSample=[&](double distance) {
+            closest=std::min(closest,distance);
+            if(distance<nearest[0]) {
+                nearest[2]=nearest[1];nearest[1]=nearest[0];
+                nearest[0]=distance;
+            }else if(distance<nearest[1]) {
+                nearest[2]=nearest[1];nearest[1]=distance;
+            }else if(distance<nearest[2])nearest[2]=distance;
+        };
         for(const auto id:ids) {
             const Vec3 target=source->vertex(id).position;
             const double radiusDistance=length(target-dab.point);
@@ -96,7 +107,7 @@ PaintDabResult applyVertexPaintDabs(
             // nor COW writes. Keep them as radial normalization anchors:
             // repainting a partially coated dab must not shift its centre.
             if(localColorAt(*source,id)==dab.rgba) {
-                closest=std::min(closest,radiusDistance);
+                addCenterSample(radiusDistance);
                 continue;
             }
             // Back-facing vertices do not receive paint even if a ray
@@ -121,12 +132,27 @@ PaintDabResult applyVertexPaintDabs(
             if(first&&length(*first-origin)<distance-endpointTolerance)
                 continue;
             visible.emplace_back(id,radiusDistance);
-            closest=std::min(closest,radiusDistance);
+            addCenterSample(radiusDistance);
         }
+        // The surface colour is interpolated across triangles. At low
+        // hardness, a single full-colour vertex is insufficient to make
+        // the actual picked pixel fully saturated. Cover the picked
+        // triangle's three corners, bounded by the requested radius.
+        // Mirrored and API dabs without a picked face use three nearest
+        // visible samples as a conservative sampling-radius fallback.
+        double center=nearest[2]<dab.radius?nearest[2]:closest;
+        if(dab.sourceFace) {
+            if(const auto face=source->maybeFace(dab.sourceFace)) {
+                for(const auto id:face->vertices)
+                    center=std::max(center,length(
+                        source->vertex(id).position-dab.point));
+            }
+        }
+        center=std::min(center,dab.radius);
         // Visibility first: shadowed vertices never participate in
-        // centre normalization and cannot weaken the active dab.
+        // the painted set or receive colour from the centre plateau.
         for(const auto& [id,distance]:visible) {
-            const float influence=weight(distance,closest,dab);
+            const float influence=weight(distance,center,dab);
             if(influence<=0.f)continue;
             const auto [it,inserted]=influences.try_emplace(
                 id,Influence{influence,dab.rgba});
