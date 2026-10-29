@@ -1568,6 +1568,11 @@ class VulkanViewport {
         // build-directory path embedded by CMake.
         const auto filename=std::string(name)+".spv";
         auto shaderPath=mesherExecutableDirectory()/"shaders"/filename;
+#ifdef __APPLE__
+        const auto bundled=mesherExecutableDirectory()/
+                           "../Resources/shaders"/filename;
+        if(std::filesystem::exists(bundled))shaderPath=bundled;
+#endif
         if(!std::filesystem::exists(shaderPath))
             shaderPath=std::filesystem::path(MESHER_SHADER_DIR)/filename;
         const auto bytes=loadBinary(shaderPath.string());
