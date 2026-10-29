@@ -1,4 +1,5 @@
 #include "mesher/vertex_paint.hpp"
+#include "mesher/versioned_sculpt.hpp"
 #include "mesher/paint_controls.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/durable_checkpoint.hpp"
@@ -85,6 +86,47 @@ void testShadowedSurface() {
     check(original->vertices[0].color==VertexRGBA{},
           "Published COW colors must never mutate previous revision");
 }
+void testUndoRedoAndPaintPublication() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
+    mesh.triangles={{0,1,2}};
+    VersionedSculptBrush brush(mesh,.01,{}, {},{},false,4);
+    const auto original=brush.snapshot();
+    check(original!=nullptr,"Initial immutable publication must exist");
+    const PaintDab dab{{.05,.05,0},{0,0,1},.3,.2,
+                       {0.1f,0.5f,0.9f,0.6f},1};
+    check(brush.paint({dab}),"Visible brush dab should publish RGBA revision");
+    const auto painted=brush.snapshot();
+    check(painted!=nullptr && painted!=original,
+          "Paint must atomically publish a different indexed root");
+    check(painted->pickingRootIdentity()==original->pickingRootIdentity(),
+          "Paint must share the exact immutable geometric picking index");
+    check(!brush.lastDirtyPartitions().empty(),
+          "Paint must identify dirty rendered face partitions");
+    check(brush.undo() && brush.snapshot()==original,
+          "Undo must restore the exact unpainted immutable root");
+    check(brush.redo() && brush.snapshot()==painted,
+          "Redo must restore the exact painted immutable root");
+    const auto checkpoint=brush.checkpoint();
+    const auto first=original->revision().partition(
+        original->vertex(brush.originalOrder()->vertexIds[0]).owner);
+    check(first->vertices[0].color==VertexRGBA{},
+          "An undo history root must never be modified in place");
+    const auto saved=std::filesystem::temp_directory_path()/
+        "mesher-ux04-brush-history.mshr";
+    try {
+        writeCheckpoint(saved,checkpoint);
+        const auto recovered=readCheckpoint(saved);
+        const auto id=brush.originalOrder()->vertexIds[0];
+        check(colorOf(*recovered.index,id)==colorOf(*painted,id),
+              "Painted undo/redo state must persist in durable checkpoint");
+        std::filesystem::remove(saved);
+    }catch(...) {
+        std::error_code ec;
+        std::filesystem::remove(saved,ec);
+        throw;
+    }
+}
 void testCheckpointColorsAndLegacy() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{1,0,0},{0,1,0}};
@@ -125,6 +167,7 @@ int main() {
     try {
         testColorControls();
         testShadowedSurface();
+        testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
     }catch(const std::exception& e) {
