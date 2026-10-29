@@ -2020,12 +2020,17 @@ requires it. File-format conventions described below are requirements to
 investigate and support, **not** claims that current formats or colour
 variants already work.
 
-- [ ] **UX01 — macOS (OS X) build in CI.** Add a macOS runner that compiles
-  the complete Mesher application and runs applicable CPU/CLI tests. Set up
-  GLFW, Vulkan via MoltenVK, shaders, Qhull and build dependencies; address
-  platform-specific compilation, startup/splash and GPU portability issues
-  without weakening Linux/Windows CI. An automated compile/test is not
-  evidence of successful physical Mac GPU rendering; track that separately.
+- [x] **UX01 — macOS (OS X) build in CI.** Apple Silicon macOS 15
+  runner builds the complete Vulkan/GLFW desktop application with Apple
+  Clang and `-Werror`, using Homebrew GLFW, Qhull, MoltenVK/Vulkan loader
+  and shader tools, then runs CLI/Qhull, portable concurrency, and all CPU
+  CTests. Apple libc++ compatibility uses atomic shared_ptr free operations
+  and cooperative joining-thread fallback without weakening the existing
+  Linux GCC/Clang or Windows MSVC paths. **Accepted:** [PR #169](https://github.com/logiclrd/Mesher/pull/169),
+  [CI #40811060709](https://github.com/logiclrd/Mesher/actions/runs/40811060709):
+  macOS 136/136 CTests passed; Linux GCC/Clang and Windows MSVC green.
+  Native .app packaging, app icon, signing/notarization and macOS release
+  remain UX02; physical Mac GPU rendering has not been validated.
 - [ ] **UX02 — macOS (OS X) release distribution.** After UX01, build and
   validate a self-contained macOS `.app` release, with a native Dock/app
   icon, splash image, Vulkan/MoltenVK runtime, shaders and assets resolved
