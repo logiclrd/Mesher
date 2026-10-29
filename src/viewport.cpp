@@ -2153,6 +2153,7 @@ public:
                         nextStampTime_=glfwGetTime();
                 }
             }
+            keyboard_.finishFrame();
             int width=0,height=0;
             glfwGetFramebufferSize(window,&width,&height);
             if(width==0||height==0){glfwWaitEvents();continue;}
