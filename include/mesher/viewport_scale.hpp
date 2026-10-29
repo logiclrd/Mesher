@@ -129,7 +129,7 @@ private:
     bool active_=false;
     double lastChange_=0;
     Vec3 sourceAnchor_{},cameraToAnchor_{},offset_{},targetOffset_{};
-}
+};
 struct ViewportClipRange {double nearPlane{},farPlane{};};
 inline ViewportClipRange viewportClipRange(Vec3 eye,Vec3 sceneCenter,
                                           double displayedRadius) noexcept {
