@@ -53,9 +53,6 @@ void testColorControls() {
     check(close(picker.rgba.a,0.2)&&close(picker.hardness,0.75),
           "Alpha and hardness must be independently adjustable");
 }
-std::shared_ptr<const RegionTopologyIndex> makeIndex(const Mesh& mesh) {
-    return RegionTopologyIndex::build(partitionFlatMesh(mesh,4).revision);
-}
 void testShadowedSurface() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0},
