@@ -7,6 +7,7 @@
 #include "mesher/viewport_orbit.hpp"
 #include "mesher/viewport_floor.hpp"
 #include "mesher/wire_appearance.hpp"
+#include "mesher/paint_controls.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -150,6 +151,11 @@ RadiusSliderLayout radiusSliderLayout(int height) {
     return {20,30,bottom-span,bottom};
 }
 
+struct PaintPanelLayout {
+    int left=96,top=20,width=290,height=445;
+    int wheelX=240,wheelY=160,radius=72;
+    int modeY=244,sliderX=161,sliderWidth=200,sliderY=291,spacing=30;
+};
 std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& fps, const std::string& stamps,
                              const std::string& merge,
@@ -159,7 +165,8 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              bool classifierComparable,bool classifiersAgree,
                              int activeClassifier,
                              const std::vector<std::string>& repairStepLines,
-                             std::size_t repairStepScroll) {
+                             std::size_t repairStepScroll,
+                             bool paintMode,const PaintControls& paint) {
     constexpr int scale=2, characterWidth=6*scale, characterHeight=10*scale;
     constexpr int margin=16, padding=9;
     const int chars=int(std::max({fps.size(),stamps.size(),merge.size()}));
@@ -267,6 +274,105 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                     rectangle(layout.left-3+int(i)*8+xx,
                               layout.top-23+yy,1,1,0.0f);
         }
+    }
+    if(paintMode&&width>420&&height>475) {
+        const PaintPanelLayout panel;
+        rectangle(panel.left,panel.top,panel.width,panel.height,1.0f);
+        auto point=[&](double x,double y,VertexRGBA color) {
+            auto ndc=Vec3{2.0*x/double(width)-1.0,
+                          2.0*y/double(height)-1.0,0.0};
+            auto v=makeVertex(ndc,{},4.0f);
+            v.r=color.r;v.g=color.g;v.b=color.b;v.a=color.a;
+            return v;
+        };
+        const auto appendTriangle=[&](Vertex a,Vertex b,Vertex c) {
+            vertices.push_back(a);vertices.push_back(b);vertices.push_back(c);
+        };
+        // Circular hue/saturation wheel. Vertex RGBA is smoothly
+        // interpolated by the ordinary Vulkan HUD pipeline.
+        constexpr int segments=72,rings=5;
+        constexpr double pi=3.14159265358979323846;
+        const auto model=paint.channels==PaintChannels::HSL?
+                         PaintChannels::HSL:PaintChannels::HSV;
+        const auto values=model==PaintChannels::HSL?
+                          rgbToHsl(paint.rgba):rgbToHsv(paint.rgba);
+        for(int i=0;i<segments;++i)for(int j=0;j<rings;++j) {
+            const double h0=double(i)/segments,h1=double(i+1)/segments;
+            const double sat0=double(j)/rings,sat1=double(j+1)/rings;
+            const auto vertex=[&](double hue,double sat) {
+                const double angle=hue*2*pi;
+                return point(panel.wheelX+std::cos(angle)*panel.radius*sat,
+                             panel.wheelY-std::sin(angle)*panel.radius*sat,
+                             hueToRgb({hue,sat,values[2]},model,1.0f));
+            };
+            const auto a=vertex(h0,sat0),b=vertex(h1,sat0);
+            const auto c=vertex(h1,sat1),d=vertex(h0,sat1);
+            appendTriangle(a,b,c);appendTriangle(a,c,d);
+        }
+        auto label=[&](int x,int y,const std::string& text,int scale=1) {
+            for(std::size_t i=0;i<text.size();++i) {
+                const auto glyph=hudGlyph(text[i]);
+                for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                    if(glyph[yy]&(1u<<(4-xx)))
+                        rectangle(x+int(i)*6*scale+xx*scale,
+                                  y+yy*scale,scale,scale,0.0f);
+            }
+        };
+        label(111,24,"PAINT (B TO EXIT)",2);
+        // Cursor marks the actual selected hue/saturation, not merely a
+        // colour wheel with no indication of its current selection.
+        const int markX=panel.wheelX+int(std::lround(
+            std::cos(values[0]*2*pi)*panel.radius*values[1]));
+        const int markY=panel.wheelY-int(std::lround(
+            std::sin(values[0]*2*pi)*panel.radius*values[1]));
+        rectangle(markX-5,markY-5,10,2,0.0f);
+        rectangle(markX-5,markY+3,10,2,0.0f);
+        rectangle(markX-5,markY-3,2,6,0.0f);
+        rectangle(markX+3,markY-3,2,6,0.0f);
+        const std::array<std::string,3> names{{"RGB","HSV","HSL"}};
+        for(int i=0;i<3;++i) {
+            const int x=115+i*84;
+            rectangle(x-5,panel.modeY-6,72,26,
+                      int(paint.channels)==i?2.0f:1.0f);
+            label(x,panel.modeY,names[std::size_t(i)],2);
+        }
+        const auto channels=paint.values();
+        const auto letters=paint.channels==PaintChannels::RGB?
+            std::array<char,3>{'R','G','B'}:
+            paint.channels==PaintChannels::HSV?
+            std::array<char,3>{'H','S','V'}:
+            std::array<char,3>{'H','S','L'};
+        for(int i=0;i<5;++i) {
+            const int y=panel.sliderY+i*panel.spacing;
+            const double selected=i<3?channels[std::size_t(i)]:
+                                  i==3?paint.rgba.a:paint.hardness;
+            label(118,y-4,std::string(1,i<3?letters[std::size_t(i)]:
+                                     i==3?'A':'D'),2);
+            for(int segment=0;segment<32;++segment) {
+                const double fraction=double(segment)/31;
+                PaintControls preview=paint;
+                if(i<3)preview.setChannel(unsigned(i),fraction);
+                else if(i==3)preview.setAlpha(fraction);
+                else preview.setHardness(fraction);
+                const auto color=preview.rgba;
+                const auto a=point(panel.sliderX+segment*panel.sliderWidth/32,
+                                   y-3,color);
+                const auto b=point(panel.sliderX+(segment+1)*panel.sliderWidth/32,
+                                   y-3,color);
+                const auto c=point(panel.sliderX+(segment+1)*panel.sliderWidth/32,
+                                   y+8,color);
+                const auto d=point(panel.sliderX+segment*panel.sliderWidth/32,
+                                   y+8,color);
+                appendTriangle(a,b,c);appendTriangle(a,c,d);
+            }
+            const int handleX=panel.sliderX+int(selected*panel.sliderWidth);
+            rectangle(handleX-2,y-6,5,17,0.0f);
+        }
+        // Swatch is a direct preview of the stored vertex paint RGB.
+        const auto swatch=paint.rgba;
+        const auto a=point(323,90,swatch),b=point(367,90,swatch);
+        const auto c=point(367,119,swatch),d=point(323,119,swatch);
+        appendTriangle(a,b,c);appendTriangle(a,c,d);
     }
     return vertices;
 }
@@ -779,7 +885,8 @@ class VulkanViewport {
                                      mergeText,slider,interaction_.radius,
                                      classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
-                                     repairStepLines_,repairStepScroll_);
+                                     repairStepLines_,repairStepScroll_,
+                                     paintMode_,paintControls_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
