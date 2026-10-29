@@ -1,7 +1,11 @@
 #include "mesher/mesh.hpp"
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_partitioning.hpp"
+#include <array>
+#include <bit>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -151,9 +155,252 @@ void testPrivateMeshOpenCandidates() {
           "Successful import remains immutable across failed attempts");
 }
 
+
+void testPlyImportCandidates() {
+    namespace fs=std::filesystem;
+    const auto dir=fs::temp_directory_path()/"mesher-ux06-ply-import-tests";
+    fs::create_directories(dir);
+    struct Cleanup {
+        fs::path path;
+        ~Cleanup() {std::error_code ignored;fs::remove_all(path,ignored);}
+    } cleanup{dir};
+    const auto put=[&](const std::string& name,const std::string& contents) {
+        const auto path=dir/name;
+        std::ofstream file(path,std::ios::binary|std::ios::trunc);
+        file.write(contents.data(),static_cast<std::streamsize>(contents.size()));
+        check(static_cast<bool>(file),"PLY test fixture write");
+        return path;
+    };
+    const std::string geometry=
+        "0 0 0 255 0 0 64\n"
+        "1 0 0 0 255 0 128\n"
+        "0 1 0 0 0 255 192\n"
+        "0 0 1 255 255 0 255\n";
+    const std::string faces="3 0 2 1\n3 0 1 3\n3 1 2 3\n3 2 0 3\n";
+    const std::string prefix=
+        "ply\nformat ascii 1.0\n"
+        "comment A standard vertex-colour PLY fixture\n"
+        "element vertex 4\n"
+        "property float x\nproperty float y\nproperty float z\n"
+        "property uchar red\nproperty uchar green\n"
+        "property uchar blue\nproperty uchar alpha\n"
+        "element face 4\n"
+        "property list uchar int vertex_indices\n"
+        "end_header\n";
+    const auto path=put("unrelated.dat",prefix+geometry+faces);
+    auto candidate=readMeshOpenCandidate(path);
+    check(candidate.format==MeshOpenFormat::StanfordPly&&
+          candidate.vertexCount==4&&candidate.faceCount==4&&
+          candidate.hasVertexColors,
+          "All Files detects ASCII PLY and preserves vertex RGBA");
+    check(readMeshOpenCandidate(path,MeshOpenFilter::StanfordPly).format==
+          MeshOpenFormat::StanfordPly,
+          "Explicit PLY filter ignores the extension");
+    check(candidate.alphaDecisionRequired,
+          "Wide-range PLY alpha requires explicit interpretation");
+    bool opaqueBeforeChoice=true;
+    candidate.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                opaqueBeforeChoice&=v.color.a==1.f;
+                check(v.color.sourceAlpha.has_value(),
+                      "PLY retains source alpha separately from editable RGBA");
+            }
+        });
+    check(opaqueBeforeChoice,
+          "PLY source alpha must not hide RGB before user interpretation");
+    applyPlySourceAlphaAsOpacity(candidate);
+    auto oldRoot=candidate.snapshot.index;
+    std::array<bool,4> found{};
+    candidate.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                const auto alpha=vertex.color.a;
+                check(vertex.color.sourceAlphaOriginallyVaried,
+                      "Varied source-alpha provenance survives interpretation");
+                check(vertex.color.sourceAlpha.has_value()&&
+                      std::abs(*vertex.color.sourceAlpha-alpha)<1e-6f,
+                      "Interpreted alpha retains exact independent provenance");
+                for(std::size_t i=0;i<found.size();++i)
+                    if(std::abs(alpha-static_cast<float>((i+1)*64-((i==3)?1:0))/255.f)<1e-5f)
+                        found[i]=true;
+            }
+        });
+    check(found[0]&&found[1]&&found[2]&&found[3],
+          "All four PLY alpha values must survive candidate partitioning");
+    const auto checkpoint=dir/"roundtrip.mshr";
+    writeCheckpoint(checkpoint,candidate.snapshot);
+    const auto restored=readMeshOpenCandidate(checkpoint);
+    check(restored.hasVertexColors&&restored.vertexCount==4,
+          "PLY candidate RGBA survives durable mshr round trip");
+    std::array<bool,4> restoredAlpha{};
+    restored.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                check(v.color.sourceAlphaOriginallyVaried,
+                      "V16 checkpoint preserves original variation provenance");
+                check(v.color.sourceAlpha.has_value()&&
+                      std::abs(*v.color.sourceAlpha-v.color.a)<1e-6f,
+                      "V16 checkpoint must preserve both source and editable alpha");
+                for(std::size_t i=0;i<restoredAlpha.size();++i)
+                    if(std::abs(v.color.a-
+                        static_cast<float>((i+1)*64-((i==3)?1:0))/255.f)<1e-5f)
+                        restoredAlpha[i]=true;
+            }
+        });
+    check(restoredAlpha[0]&&restoredAlpha[1]&&restoredAlpha[2]&&
+          restoredAlpha[3],"All four source alphas survive .mshr reopen");
+    const std::string allZeroGeometry=
+        "0 0 0 35 56 37 0\n"
+        "1 0 0 45 57 43 0\n"
+        "0 1 0 36 61 40 0\n"
+        "0 0 1 32 52 27 0\n";
+    const auto zero=readMeshOpenCandidate(
+        put("meshlab-zero-alpha.ply",prefix+allZeroGeometry+faces));
+    check(!zero.alphaDecisionRequired,
+          "Constant zero PLY source alpha must not prompt");
+    zero.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices)
+                check(v.color.a==1.f&&v.color.sourceAlpha==0.f&&
+                      !v.color.sourceAlphaOriginallyVaried,
+                      "Zero-alpha VCGLIB colour remains visible and source preserved");
+        });
+    const std::string nearRangeGeometry=
+        "0 0 0 255 0 0 0\n"
+        "1 0 0 0 255 0 1\n"
+        "0 1 0 0 0 255 2\n"
+        "0 0 1 255 255 0 3\n";
+    const auto near=readMeshOpenCandidate(
+        put("near-alpha.ply",prefix+nearRangeGeometry+faces));
+    check(!near.alphaDecisionRequired&&
+          near.sourceAlphaMaximum-near.sourceAlphaMinimum<0.015f,
+          "Sub-1.5% alpha range automatically presents opaque RGB");
+    near.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices)
+                check(v.color.a==1.f&&v.color.sourceAlphaOriginallyVaried,
+                      "Narrow, nonconstant alpha still requires source-choice on export");
+        });
+    VertexRGBA first{.r=0.2f,.g=0.3f,.b=0.4f,.a=0.7f,
+                     .sourceAlpha=0.25f,.sourceAlphaOriginallyVaried=true};
+    VertexRGBA second{.r=0.8f,.g=0.7f,.b=0.6f,.a=0.9f,
+                      .sourceAlpha=0.75f,.sourceAlphaOriginallyVaried=true};
+    const auto midpoint=interpolateVertexColor(first,second,0.5);
+    check(midpoint.sourceAlpha&&
+          std::abs(*midpoint.sourceAlpha-0.5f)<1e-6f&&
+          midpoint.sourceAlphaOriginallyVaried&&
+          std::abs(midpoint.a-0.8f)<1e-6f,
+          "Source scalar interpolates independently of editable mesh alpha");
+    const std::string thresholdGeometry=
+        "0 0 0 255 0 0 0\n"
+        "1 0 0 0 255 0 1\n"
+        "0 1 0 0 0 255 2\n"
+        "0 0 1 255 255 0 4\n";
+    const auto threshold=readMeshOpenCandidate(
+        put("threshold-alpha.ply",prefix+thresholdGeometry+faces));
+    check(threshold.alphaDecisionRequired,
+          "4/255 PLY alpha span must prompt for opacity");
+
+    const auto refuse=[&](const std::string& filename,
+                          const std::string& content,
+                          MeshOpenFilter filter,const char* why) {
+        bool rejected=false;
+        try {(void)readMeshOpenCandidate(put(filename,content),filter);}
+        catch(const std::exception& error) {
+            rejected=std::string(error.what()).find(why)!=std::string::npos;
+        }
+        check(rejected,"PLY must refuse unsupported/corrupted variant explicitly");
+        check(candidate.snapshot.index==oldRoot,
+              "Failed PLY candidate cannot mutate previous private source");
+    };
+    refuse("bad.ply","not ply\n",MeshOpenFilter::StanfordPly,
+           "missing 'ply' magic");
+    refuse("truncated.ply",prefix+geometry+"3 0 2 1\n",
+           MeshOpenFilter::AllFiles,"truncated ASCII");
+    refuse("quadrilateral.ply",prefix+geometry+"4 0 1 2 3\n"+faces,
+           MeshOpenFilter::StanfordPly,"only triangle");
+    refuse("invalid-index.ply",prefix+geometry+
+           "3 0 2 9\n3 0 1 3\n3 1 2 3\n3 2 0 3\n",
+           MeshOpenFilter::AllFiles,"index out of range");
+    std::string sixteen=prefix;
+    const auto p=sixteen.find("property uchar red");
+    check(p!=std::string::npos,"Fixture has colour declaration");
+    sixteen.replace(p,strlen("property uchar red"),"property ushort red");
+    refuse("ambiguous-colour.ply",sixteen+geometry+faces,
+           MeshOpenFilter::StanfordPly,"must be uchar/uint8");
+    std::string incomplete=prefix;
+    const auto b=incomplete.find("property uchar blue\n");
+    incomplete.erase(b,strlen("property uchar blue\n"));
+    refuse("incomplete-colour.ply",incomplete+geometry+faces,
+           MeshOpenFilter::StanfordPly,"incomplete vertex RGB");
+    std::string facet=prefix;
+    facet.replace(facet.find("end_header\n"),strlen("end_header\n"),
+                  "property uchar red\nend_header\n");
+    refuse("facet-colour.ply",facet+geometry+faces,
+           MeshOpenFilter::StanfordPly,"facet colour");
+    std::string geometryNoColor=
+        "0 0 0\n1 0 0\n0 1 0\n0 0 1\n";
+    std::string noColor=prefix;
+    const auto colorAt=noColor.find("property uchar red\n");
+    const auto faceAt=noColor.find("element face 4");
+    noColor.erase(colorAt,faceAt-colorAt);
+    const auto plain=readMeshOpenCandidate(
+        put("plain.ply",noColor+geometryNoColor+faces));
+    check(plain.format==MeshOpenFormat::StanfordPly&&!plain.hasVertexColors,
+          "Colourless PLY imports opaque default white");
+
+    // Binary fixtures with explicit byte order ensure X86 and Apple
+    // endian-independent reading. Standard uchar channels include alpha.
+    auto appendWord=[](std::string& dest,std::uint32_t bits,bool little) {
+        for(int i=0;i<4;++i) {
+            const unsigned shift=static_cast<unsigned>(8*(little?i:3-i));
+            dest.push_back(static_cast<char>((bits>>shift)&255u));
+        }
+    };
+    for(const bool little:{true,false}) {
+        const std::string binaryPrefix=
+            "ply\nformat "+std::string(little?"binary_little_endian":
+                "binary_big_endian")+" 1.0\n"
+            "element vertex 4\nproperty float x\nproperty float y\n"
+            "property float z\nproperty uchar red\nproperty uchar green\n"
+            "property uchar blue\nproperty uchar alpha\n"
+            "element face 4\nproperty list uchar int vertex_indices\nend_header\n";
+        const std::array<std::array<float,3>,4> xyz{{
+            {{0.f,0.f,0.f}},{{1.f,0.f,0.f}},
+            {{0.f,1.f,0.f}},{{0.f,0.f,1.f}}}};
+        const std::array<std::array<unsigned char,4>,4> rgba{{
+            {{255,0,0,64}},{{0,255,0,128}},
+            {{0,0,255,192}},{{255,255,0,255}}}};
+        const std::array<std::array<std::uint32_t,3>,4> tris{{
+            {{0,2,1}},{{0,1,3}},{{1,2,3}},{{2,0,3}}}};
+        std::string binary=binaryPrefix;
+        for(std::size_t i=0;i<4;++i) {
+            for(float value:xyz[i])
+                appendWord(binary,std::bit_cast<std::uint32_t>(value),little);
+            for(unsigned char c:rgba[i])binary.push_back(static_cast<char>(c));
+        }
+        for(const auto& tri:tris) {
+            binary.push_back(static_cast<char>(3));
+            for(const auto idx:tri)appendWord(binary,idx,little);
+        }
+        const auto binaryPath=put(little?"little.stl":"big.obj",binary);
+        const auto imported=readMeshOpenCandidate(binaryPath);
+        check(imported.format==MeshOpenFormat::StanfordPly&&
+              imported.vertexCount==4&&imported.faceCount==4&&
+              imported.hasVertexColors,
+              "All Files detects binary PLY by magic regardless of suffix");
+        auto broken=binary;
+        broken.resize(broken.size()-2);
+        refuse(little?"little-truncated.ply":"big-truncated.ply",broken,
+               MeshOpenFilter::AllFiles,"truncated binary payload");
+    }
+}
+
 int main(){
     try {
         testPrivateMeshOpenCandidates();
+        testPlyImportCandidates();
         for(auto n:{8u,10u,11u,12u,30u,100u,500u,5000u})
             for(bool symmetric:{false,true})test(n,symmetric,42);
         for(auto seed:{1ull,2ull,3ull,4ull}) {test(1000,true,seed);test(1000,false,seed);}

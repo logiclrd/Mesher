@@ -197,7 +197,8 @@ void RegionEdit::setVertexColor(VertexId id,VertexRGBA color) {
         index_->vertex(id).owner;
     ensureWritable(owner);
     const auto valid=[](float x){return std::isfinite(x)&&x>=0&&x<=1;};
-    if(!valid(color.r)||!valid(color.g)||!valid(color.b)||!valid(color.a))
+    if(!valid(color.r)||!valid(color.g)||!valid(color.b)||!valid(color.a)||
+       (color.sourceAlpha&&!valid(*color.sourceAlpha)))
         throw std::invalid_argument("Invalid remeshed vertex RGBA");
     view_.setVertexColor(owner,id,color);
 }

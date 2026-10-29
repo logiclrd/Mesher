@@ -23,11 +23,7 @@ bool finite(Vec3 p) {
 // Surgery-created edge and symmetry vertices inherit their source paint,
 // rather than resetting already-painted surfaces to default white.
 VertexRGBA interpolateColor(VertexRGBA a,VertexRGBA b,double fraction) {
-    const auto channel=[fraction](float x,float y) {
-        return static_cast<float>(double(x)*(1.0-fraction)+double(y)*fraction);
-    };
-    return {channel(a.r,b.r),channel(a.g,b.g),
-            channel(a.b,b.b),channel(a.a,b.a)};
+    return interpolateVertexColor(a,b,fraction);
 }
 double triangleQuality(Vec3 a,Vec3 b,Vec3 c) {
     const double ab=dot(b-a,b-a),bc=dot(c-b,c-b),ca=dot(a-c,a-c);

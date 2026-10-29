@@ -18,8 +18,7 @@ namespace {
 using Tri=std::array<VertexId,3>;
 using Edge=std::pair<VertexId,VertexId>;
 VertexRGBA midpointColor(VertexRGBA a,VertexRGBA b) {
-    return {(a.r+b.r)*0.5f,(a.g+b.g)*0.5f,
-            (a.b+b.b)*0.5f,(a.a+b.a)*0.5f};
+    return interpolateVertexColor(a,b,0.5);
 }
 Edge canonical(VertexId a,VertexId b) {
     if(b<a)std::swap(a,b);

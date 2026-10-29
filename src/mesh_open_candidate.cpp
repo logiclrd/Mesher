@@ -1,4 +1,5 @@
 #include "mesher/mesh_open_candidate.hpp"
+#include "mesher/mesh_ply.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -54,7 +55,7 @@ std::uint32_t faceIndex(const std::string& token,std::size_t count,
         count-static_cast<std::size_t>(-(raw+1))-1;
     return static_cast<std::uint32_t>(absolute);
 }
-void validateClosedTriangles(const Mesh& mesh) {
+void validateClosedTriangles(const Mesh& mesh,const char* format) {
     if(mesh.vertices.size()<4||mesh.triangles.size()<4)
         throw std::runtime_error("Imported mesh must contain a closed triangle surface");
     using Edge=std::pair<std::uint32_t,std::uint32_t>;
@@ -62,21 +63,21 @@ void validateClosedTriangles(const Mesh& mesh) {
     for(const auto f:mesh.triangles) {
         const std::array<std::uint32_t,3> ids{f.a,f.b,f.c};
         if(f.a==f.b||f.b==f.c||f.c==f.a)
-            throw std::runtime_error("OBJ contains a degenerate triangle");
+            throw std::runtime_error(std::string(format)+": degenerate triangle");
         const auto a=mesh.vertices[f.a],b=mesh.vertices[f.b],
                    c=mesh.vertices[f.c];
         const auto ab=b-a,ac=c-a;
         const double edgeProduct=length(ab)*length(ac);
         if(!(edgeProduct>0)||!std::isfinite(edgeProduct)||
            !(length(cross(ab,ac))>1e-12*edgeProduct))
-            throw std::runtime_error("OBJ contains a zero-area triangle");
+            throw std::runtime_error(std::string(format)+": zero-area triangle");
         for(int j=0;j<3;++j) {
             const auto u=ids[static_cast<std::size_t>(j)];
             const auto v=ids[static_cast<std::size_t>((j+1)%3)];
             const Edge key{std::min(u,v),std::max(u,v)};
             auto& entry=edges[key];
             if(++entry.first>2)
-                throw std::runtime_error("OBJ has a nonmanifold edge");
+                throw std::runtime_error(std::string(format)+": nonmanifold edge");
             entry.second+=(u<v?1:-1);
         }
     }
@@ -84,7 +85,7 @@ void validateClosedTriangles(const Mesh& mesh) {
         (void)edge;
         if(use.first!=2||use.second!=0)
             throw std::runtime_error(
-                "OBJ must be a closed, consistently wound 2-manifold");
+                std::string(format)+": requires a closed, consistently wound 2-manifold");
     }
 }
 Mesh parseWavefrontObj(const std::filesystem::path& path) {
@@ -163,7 +164,7 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
     if(!input.eof()&&input.fail())throw std::runtime_error("OBJ read failure");
     if(anyColor&&anyPlain)
         throw std::runtime_error("OBJ mixes coloured and uncoloured vertices");
-    validateClosedTriangles(mesh);
+    validateClosedTriangles(mesh,"OBJ");
     return mesh;
 }
 // Headers are intentionally distinct. Repair cases contain a checkpoint
@@ -176,6 +177,8 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     const auto read=static_cast<std::size_t>(input.gcount());
     const std::string_view prefix(sample.data(),read);
     if(prefix.starts_with("MESHRV12"))return MeshOpenFilter::MesherCheckpoint;
+    if(prefix.starts_with("ply\n")||prefix.starts_with("ply\r\n"))
+        return MeshOpenFilter::StanfordPly;
     if(prefix.starts_with("MSHRCAS1"))
         throw std::runtime_error(
             "This is an R06 repair-case archive (.r06case), not an editable "
@@ -207,7 +210,7 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     if(vertex)return MeshOpenFilter::WavefrontObj;
     throw std::runtime_error(
         "Unrecognized mesh file header; supported formats: MESHRV12 "
-        "checkpoints and Wavefront OBJ text. R06 repair cases are replay-only.");
+        "checkpoints, PLY and Wavefront OBJ text. R06 repair cases are replay-only.");
 }
 } // namespace
 
@@ -234,16 +237,45 @@ MeshOpenCandidate readMeshOpenCandidate(
                 "not an editable .mshr checkpoint. Use --repair-replay.");
         candidate.snapshot=readCheckpoint(path);
         candidate.format=MeshOpenFormat::Checkpoint;
-    }else if(format==MeshOpenFilter::WavefrontObj) {
-        auto mesh=parseWavefrontObj(path);
+    }else if(format==MeshOpenFilter::WavefrontObj||
+             format==MeshOpenFilter::StanfordPly) {
+        auto mesh=format==MeshOpenFilter::StanfordPly?
+            parsePlyMesh(path):parseWavefrontObj(path);
+        // OBJ validated before returning; PLY must enforce the same
+        // topology invariants before its private revision is published.
+        if(format==MeshOpenFilter::StanfordPly)
+            validateClosedTriangles(mesh,"PLY");
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
+        if(format==MeshOpenFilter::StanfordPly) {
+            bool anySource=false;
+            for(const auto& color:mesh.colors) {
+                if(!color.sourceAlpha)continue;
+                if(!anySource) {
+                    candidate.sourceAlphaMinimum=*color.sourceAlpha;
+                    candidate.sourceAlphaMaximum=*color.sourceAlpha;
+                    anySource=true;
+                }else {
+                    candidate.sourceAlphaMinimum=std::min(
+                        candidate.sourceAlphaMinimum,*color.sourceAlpha);
+                    candidate.sourceAlphaMaximum=std::max(
+                        candidate.sourceAlphaMaximum,*color.sourceAlpha);
+                }
+            }
+            const bool originallyVaried=anySource&&
+                candidate.sourceAlphaMaximum!=candidate.sourceAlphaMinimum;
+            candidate.alphaDecisionRequired=anySource&&
+                (candidate.sourceAlphaMaximum-candidate.sourceAlphaMinimum)>=0.015f;
+            for(auto& color:mesh.colors)
+                color.sourceAlphaOriginallyVaried=originallyVaried;
+        }
         auto parts=partitionFlatMesh(mesh,256);
         candidate.snapshot=DurableCheckpoint{
             RegionTopologyIndex::build(std::move(parts.revision)),
             {},mesh.vertices.size()};
-        candidate.format=MeshOpenFormat::WavefrontObj;
+        candidate.format=format==MeshOpenFilter::StanfordPly?
+            MeshOpenFormat::StanfordPly:MeshOpenFormat::WavefrontObj;
     }else throw std::runtime_error("Unsupported selected mesh interpretation");
     if(!candidate.snapshot.index)
         throw std::runtime_error("Candidate import has no valid indexed root");
@@ -259,5 +291,24 @@ MeshOpenCandidate readMeshOpenCandidate(
     if(candidate.vertexCount<4||candidate.faceCount<4)
         throw std::runtime_error("Candidate import has no editable closed surface");
     return candidate;
+}
+void applyPlySourceAlphaAsOpacity(MeshOpenCandidate& candidate) {
+    if(candidate.format!=MeshOpenFormat::StanfordPly||
+       !candidate.alphaDecisionRequired||!candidate.snapshot.index)
+        throw std::invalid_argument("PLY alpha interpretation is unavailable");
+    const auto previous=candidate.snapshot.index;
+    auto view=previous->revision().createMutableView();
+    previous->revision().forEachPartition(
+        [&](PartitionId id,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                if(!vertex.color.sourceAlpha)
+                    throw std::logic_error("PLY source alpha is incomplete");
+                auto color=vertex.color;
+                color.a=*color.sourceAlpha;
+                view.setVertexColor(id,vertex.id,color);
+            }
+        });
+    candidate.snapshot.index=RegionTopologyIndex::withVertexColors(
+        *previous,view.commit().revision);
 }
 } // namespace mesher

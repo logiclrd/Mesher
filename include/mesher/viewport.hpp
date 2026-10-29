@@ -103,7 +103,7 @@ struct ViewportInteraction {
     std::function<std::filesystem::path()> checkpointSuggestedPath;
     std::function<void(std::filesystem::path)> checkpoint;
     std::function<std::filesystem::path()> openSuggestedPath;
-    std::function<PreparedMeshOpen(NativeOpenSelection)> prepareOpen;
+    std::function<PreparedMeshOpen(GLFWwindow*,NativeOpenSelection)> prepareOpen;
     // Paint-only worker publication; never changes the sculpt stroke geometry.
     std::function<void(const PaintDab&)> paint;
     std::function<void()> paintBegin;

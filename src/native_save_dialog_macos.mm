@@ -13,6 +13,7 @@
     NSOpenPanel* panel;
     UTType* checkpointType;
     UTType* objType;
+    UTType* plyType;
 }
 - (void)change:(id)sender;
 @end
@@ -21,6 +22,7 @@
     const NSInteger index=[(NSPopUpButton*)sender indexOfSelectedItem];
     if(index==0)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
     else if(index==1)panel.allowedContentTypes=objType?@[objType]:@[];
+    else if(index==2)panel.allowedContentTypes=plyType?@[plyType]:@[];
     else panel.allowedContentTypes=@[];
 }
 @end
@@ -81,10 +83,12 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
             NSMakeRect(0,0,280,28) pullsDown:NO];
         [fileType addItemsWithTitles:@[
             @"Mesher mesh files (*.mshr)",@"Wavefront OBJ (*.obj)",
-            @"All Files (*)"]];
+            @"Stanford PLY (*.ply)",@"All Files (*)"]];
         UTType* mshr=[UTType typeWithFilenameExtension:@"mshr"
                                      conformingToType:UTTypeData];
         UTType* obj=[UTType typeWithFilenameExtension:@"obj"
+                                    conformingToType:UTTypeData];
+        UTType* ply=[UTType typeWithFilenameExtension:@"ply"
                                     conformingToType:UTTypeData];
         // Cocoa exposes the selected item, and the accessory controller
         // updates the actual visible filter without using the filename
@@ -94,6 +98,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         controller->panel=panel;
         controller->checkpointType=mshr;
         controller->objType=obj;
+        controller->plyType=ply;
         [fileType setTarget:controller];
         [fileType setAction:@selector(change:)];
         panel.accessoryView=fileType;
@@ -117,8 +122,35 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         if(!path)throw std::runtime_error("macOS Open path unavailable");
         const auto index=fileType.indexOfSelectedItem;
         const auto filter=index==0?MeshOpenFilter::MesherCheckpoint:
-                          index==1?MeshOpenFilter::WavefrontObj:MeshOpenFilter::AllFiles;
+                          index==1?MeshOpenFilter::WavefrontObj:
+                          index==2?MeshOpenFilter::StanfordPly:MeshOpenFilter::AllFiles;
         return NativeOpenSelection{std::filesystem::path(path),filter};
+    }
+}
+std::optional<bool> nativePlyAlphaOpacityDialog(
+    GLFWwindow*,float minimum,float maximum) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleInformational;
+        alert.messageText=@"Interpret PLY alpha?";
+        const auto low=static_cast<int>(minimum*255.f+0.5f);
+        const auto high=static_cast<int>(maximum*255.f+0.5f);
+        NSString* detail=[NSString stringWithFormat:
+            @"PLY vertex alpha ranges from %d to %d / 255. "
+             @"It may be opacity or unrelated source data.\n\n"
+             @"Yes: import as Mesher alpha.\n"
+             @"No: display opaque RGB and preserve source alpha.\n"
+             @"Cancel: leave the existing mesh unchanged.",low,high];
+        alert.informativeText=detail;
+        [alert addButtonWithTitle:@"Yes"];
+        [alert addButtonWithTitle:@"No"];
+        [alert addButtonWithTitle:@"Cancel"];
+        const NSModalResponse choice=[alert runModal];
+        [alert release];
+        if(choice==NSAlertFirstButtonReturn)return true;
+        if(choice==NSAlertSecondButtonReturn)return false;
+        if(choice==NSAlertThirdButtonReturn)return std::nullopt;
+        throw std::runtime_error("macOS PLY alpha prompt failed");
     }
 }
 void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {

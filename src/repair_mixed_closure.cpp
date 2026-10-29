@@ -82,13 +82,16 @@ void interpolateClosurePaint(
     const auto& original=staged.sourceView()->source();
     const auto& positions=staged.positions();
     const auto channels=[](VertexRGBA color) {
-        return std::array<double,4>{color.r,color.g,color.b,color.a};
+        return std::array<double,5>{color.r,color.g,color.b,color.a,
+                                    color.sourceAlpha.value_or(1.f)};
     };
     std::set<VertexId> visited;
     for(const auto start:newIds) {
         if(!visited.insert(start).second)continue;
         std::vector<VertexId> component{start};
-        std::map<VertexId,std::array<double,4>> boundary;
+        std::map<VertexId,std::array<double,5>> boundary;
+        bool hasSourceAlpha=false;
+        bool originallyVaried=false;
         for(std::size_t index=0;index<component.size();++index) {
             for(const auto neighbor:adjacent.at(component[index])) {
                 if(newIds.contains(neighbor)) {
@@ -97,8 +100,10 @@ void interpolateClosurePaint(
                     if(!original.maybeVertex(neighbor))
                         throw std::logic_error(
                             "Closure paint lacks authoritative survivor colour");
-                    boundary.try_emplace(
-                        neighbor,channels(vertexColorAt(original,neighbor)));
+                    const auto color=vertexColorAt(original,neighbor);
+                    hasSourceAlpha|=color.sourceAlpha.has_value();
+                    originallyVaried|=color.sourceAlphaOriginallyVaried;
+                    boundary.try_emplace(neighbor,channels(color));
                 }
             }
         }
@@ -108,14 +113,14 @@ void interpolateClosurePaint(
             (void)id;
             if(color!=channels(VertexRGBA{})) {tinted=true;break;}
         }
-        if(!tinted)continue; // Unpainted closure retains exact white defaults.
-        std::array<double,4> average{};
+        if(!tinted&&!hasSourceAlpha)continue; // Truly unpainted defaults.
+        std::array<double,5> average{};
         for(const auto& [id,color]:boundary) {
             (void)id;
-            for(unsigned c=0;c<4;++c)average[c]+=color[c];
+            for(unsigned c=0;c<5;++c)average[c]+=color[c];
         }
         for(auto& c:average)c/=static_cast<double>(boundary.size());
-        std::map<VertexId,std::array<double,4>> values;
+        std::map<VertexId,std::array<double,5>> values;
         for(const auto id:component)values.emplace(id,average);
         // Fixed iteration count bounds cost and produces deterministic
         // results even on a large, irregular advancing-front patch.
@@ -123,7 +128,7 @@ void interpolateClosurePaint(
         for(unsigned sweep=0;sweep<sweeps;++sweep) {
             auto next=values;
             for(const auto id:component) {
-                std::array<double,4> total{};
+                std::array<double,5> total{};
                 double weightSum=0;
                 for(const auto other:adjacent.at(id)) {
                     const double edgeLength=length(
@@ -133,20 +138,24 @@ void interpolateClosurePaint(
                     const double weight=1.0/edgeLength;
                     const auto& color=newIds.contains(other)?
                         values.at(other):boundary.at(other);
-                    for(unsigned c=0;c<4;++c)total[c]+=weight*color[c];
+                    for(unsigned c=0;c<5;++c)total[c]+=weight*color[c];
                     weightSum+=weight;
                 }
                 if(!(weightSum>0))continue;
-                for(unsigned c=0;c<4;++c)
+                for(unsigned c=0;c<5;++c)
                     next.at(id)[c]=std::clamp(total[c]/weightSum,0.0,1.0);
             }
             values.swap(next);
         }
         for(const auto id:component) {
             const auto& value=values.at(id);
-            view.setVertexColor(staged.vertexOwner(id),id,
-                {static_cast<float>(value[0]),static_cast<float>(value[1]),
-                 static_cast<float>(value[2]),static_cast<float>(value[3])});
+            VertexRGBA color{static_cast<float>(value[0]),
+                             static_cast<float>(value[1]),
+                             static_cast<float>(value[2]),
+                             static_cast<float>(value[3])};
+            if(hasSourceAlpha)color.sourceAlpha=static_cast<float>(value[4]);
+            color.sourceAlphaOriginallyVaried=originallyVaried;
+            view.setVertexColor(staged.vertexOwner(id),id,color);
         }
     }
 }
