@@ -18,12 +18,12 @@
 #include <stdexcept>
 #include <string>
 
-// Native GLFW X11 handle for Qt's non-owning transient-parent proxy.
-#include <X11/Xlib.h>
+// GLFW's native X11 API declares XRandR types (RRCrtc/RROutput).
+// Do not define GLFW_NATIVE_INCLUDE_NONE here: glfw3native.h must pull
+// in both Xlib.h and Xrandr.h before exposing its X11 function prototypes.
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_X11
-#define GLFW_NATIVE_INCLUDE_NONE
 #include <GLFW/glfw3native.h>
 
 namespace mesher {
