@@ -144,6 +144,22 @@ std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::build(
     return result;
 }
 
+std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::withVertexColors(
+    const RegionTopologyIndex& before,
+    std::shared_ptr<const MeshRevision> colored) {
+    if(!colored)throw std::invalid_argument("Paint requires a revision");
+    auto result=std::shared_ptr<RegionTopologyIndex>(
+        new RegionTopologyIndex(std::move(colored),before.cellSize_));
+    result->vertices_=before.vertices_;
+    result->faces_=before.faces_;
+    result->edges_=before.edges_;
+    result->cells_=before.cells_;
+    result->retiredVertices_=before.retiredVertices_;
+    result->retiredFaces_=before.retiredFaces_;
+    result->picking_=before.picking_;
+    return result;
+}
+
 std::shared_ptr<const RegionTopologyIndex> RegionTopologyIndex::advance(
     const RegionTopologyIndex& old,std::shared_ptr<const MeshRevision> revision,
     const std::unordered_map<VertexId,std::optional<Vec3>>& vertexChanges,
