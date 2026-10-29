@@ -320,6 +320,8 @@ public:
     const RegionFootprint& footprint() const noexcept { return footprint_; }
 
     void moveVertex(VertexId id, Vec3 position);
+    // Preserve/interpolate colours when local remeshing creates or joins vertices.
+    void setVertexColor(VertexId id,VertexRGBA color);
     VertexId addVertex(PartitionId owner, Vec3 position);
     FaceId addFace(PartitionId owner, std::array<VertexId,3> vertices);
     // V6: bounded local insertion, preferring a writable existing partition;
