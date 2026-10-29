@@ -38,13 +38,17 @@ Vec3 normalAt(const RegionTopologyIndex& index,VertexId id) {
     }
     return length(sum)>1e-12?normalized(sum):Vec3{};
 }
-float weight(double distance,const PaintDab& dab) {
-    const double t=std::clamp(distance/dab.radius,0.0,1.0);
+float weight(double distance,double closest,const PaintDab& dab) {
+    // The visibility ray begins above the mesh, but brush coverage lives
+    // on the surface. Normalize the first sampled visible vertex to the
+    // centre, so small dabs do not have a permanent weak central hole.
+    // The outer radius stays exactly the requested radius.
+    const double span=dab.radius-closest;
+    const double t=span>1e-12?
+        std::clamp((distance-closest)/span,0.0,1.0):0.0;
     const double hardness=std::clamp(dab.hardness,0.0,1.0);
-    if(t<=hardness)return 1.f;
-    if(hardness>=1.0)return 1.f;
-    const double u=(t-hardness)/(1.0-hardness);
-    return float(1.0-(u*u*(3.0-2.0*u)));
+    if(t<=hardness||hardness>=1.0)return 1.f;
+    return static_cast<float>(1.0-(t-hardness)/(1.0-hardness));
 }
 }
 PaintDabResult applyVertexPaintDabs(
@@ -75,14 +79,22 @@ PaintDabResult applyVertexPaintDabs(
         // The ray source is deliberately above the surface by 1/4 of the
         // current nominal edge length, NEVER coincident with its triangle.
         const Vec3 origin=dab.point+outward*(dab.nominalEdgeLength*0.25);
+        // Never query a sphere centred at the elevated ray origin:
+        // that would silently shrink the effective surface footprint.
         const auto ids=source->querySphere(dab.point,dab.radius);
         if(ids.size()>maxVertices-candidates)
             throw std::length_error("Paint local vertex budget exhausted");
         candidates+=ids.size();
+        std::vector<std::pair<VertexId,double>> visible;
+        visible.reserve(ids.size());
+        double closest=dab.radius;
         for(const auto id:ids) {
             const Vec3 target=source->vertex(id).position;
             const double radiusDistance=length(target-dab.point);
             if(radiusDistance>dab.radius)continue;
+            // Already-matched saturated vertices need neither ray tests
+            // nor COW writes. This matters when dragging over paint.
+            if(localColorAt(*source,id)==dab.rgba)continue;
             // Back-facing vertices do not receive paint even if a ray
             // grazes their shared edge or a thin sheet.
             const Vec3 surfaceNormal=normalAt(*source,id);
@@ -104,7 +116,14 @@ PaintDabResult applyVertexPaintDabs(
                 dab.nominalEdgeLength*1e-4);
             if(first&&length(*first-origin)<distance-endpointTolerance)
                 continue;
-            const float influence=weight(radiusDistance,dab);
+            visible.emplace_back(id,radiusDistance);
+            closest=std::min(closest,radiusDistance);
+        }
+        // Visibility first: shadowed vertices never participate in
+        // centre normalization and cannot weaken the active dab.
+        for(const auto& [id,distance]:visible) {
+            const float influence=weight(distance,closest,dab);
+            if(influence<=0.f)continue;
             const auto [it,inserted]=influences.try_emplace(
                 id,Influence{influence,dab.rgba});
             if(!inserted&&influence>it->second.strength)
