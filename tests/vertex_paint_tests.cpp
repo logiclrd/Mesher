@@ -160,13 +160,13 @@ void testLinearNormalizedFootprint() {
     mesh.triangles={{0,1,2},{0,2,3}};
     const auto parts=partitionFlatMesh(mesh,4);
     const auto source=RegionTopologyIndex::build(parts.revision);
-    const PaintDab dab{{.06,.06,0},{0,0,1},.25,.2,
+    const PaintDab dab{{.06,.06,0},{0,0,1},.18,.2,
                        {1,0,0,1},0};
     const auto output=applyVertexPaintDabs(source,{dab});
     const auto ids=parts.flatIndex.vertexIds;
     const double nearest=std::hypot(.06,.06);
     const double farther=std::hypot(.14,.06);
-    const double expected=1-(farther-nearest)/(.25-nearest);
+    const double expected=1-(farther-nearest)/(.18-nearest);
     const auto center=colorOf(*output.colored,ids[0]);
     const auto edge=colorOf(*output.colored,ids[1]);
     check(center.g==0.f&&center.b==0.f,
