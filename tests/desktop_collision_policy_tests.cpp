@@ -3,6 +3,7 @@
 #include "mesher/versioned_sculpt.hpp"
 
 #include <array>
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
