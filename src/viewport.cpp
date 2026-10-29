@@ -72,10 +72,13 @@ Drawing buildDrawing(const Mesh& mesh) {
 // Separate scenery from the real legacy/partitioned source geometry:
 // the floor is its own GPU solid+wire allocation, not stale model
 // triangles that could accidentally be drawn over a COW revision.
-Drawing buildWorkFloor(double z) {
+Drawing buildWorkFloor(double z,Vec3 center={},double halfExtent=8.0) {
     Drawing out;
     out.solid.reserve(6);
-    const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};
+    const Vec3 a{center.x-halfExtent,center.y-halfExtent,z};
+    const Vec3 b{center.x+halfExtent,center.y-halfExtent,z};
+    const Vec3 c{center.x+halfExtent,center.y+halfExtent,z};
+    const Vec3 d{center.x-halfExtent,center.y+halfExtent,z};
     for(const auto p:{a,b,c,a,c,d})
         out.solid.push_back(makeVertex(p,{0,0,1},1));
     // Unit XY grid now shaded on actual floor fragments (M68).
@@ -135,6 +138,7 @@ Glyph hudGlyph(char ch) {
         case '(': return {2,4,8,8,8,4,2};
         case ')': return {8,4,2,2,2,4,8};
         case '+': return {0,4,4,31,4,4,0};
+        case '^': return {4,10,17,0,0,0,0};
         case '#': return {10,31,10,10,31,10,0};
         case '?': return {14,17,1,2,4,0,4};
         case '*': return {0,21,14,31,14,21,0};
@@ -151,6 +155,16 @@ RadiusSliderLayout radiusSliderLayout(int height) {
     return {20,30,bottom-span,bottom};
 }
 
+struct GlobalScaleSliderLayout {
+    int left{},trackX{},top{},bottom{};
+    bool contains(double x,double y) const noexcept {
+        return x>=left-8&&x<=left+58&&y>=top-34&&y<=bottom+12;
+    }
+};
+GlobalScaleSliderLayout globalScaleSliderLayout(int width,int height) {
+    const int bottom=height-20;
+    return {width-73,width-63,bottom-std::max(1,height/3),bottom};
+}
 struct PaintPanelLayout {
     int left=96,top=20,width=290,height=445;
     int wheelX=240,wheelY=160,radius=72;
@@ -161,6 +175,7 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& merge,
                              const std::optional<BrushRadiusRange>& slider,
                              double radius,
+                             double globalScaleExponent,bool scaleHovered,
                              const std::array<std::string,2>& classifierChoices,
                              bool classifierComparable,bool classifiersAgree,
                              int activeClassifier,
@@ -273,6 +288,46 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                 if(glyph[yy]&(1u<<(4-xx)))
                     rectangle(layout.left-3+int(i)*8+xx,
                               layout.top-23+yy,1,1,0.0f);
+        }
+    }
+    // Eleven uniformly-spaced ticks correspond to powers 10^-5 ... 10^5.
+    {
+        const auto layout=globalScaleSliderLayout(int(width),int(height));
+        const int centre=layout.trackX+6;
+        rectangle(layout.left-7,layout.top-34,63,
+                  layout.bottom-layout.top+46,1.0f);
+        rectangle(layout.trackX,layout.top,12,layout.bottom-layout.top,0.0f);
+        rectangle(layout.trackX+3,layout.top+3,6,
+                  std::max(1,layout.bottom-layout.top-6),1.0f);
+        for(int tick=0;tick<=10;++tick) {
+            const int y=layout.bottom-int(std::lround(
+                double(tick)*(layout.bottom-layout.top)/10.0));
+            rectangle(layout.trackX-5,y,22,1,0.0f);
+        }
+        const int knobY=layout.bottom-int(std::lround(
+            (globalScaleExponent-kViewportMinExponent)/
+            (kViewportMaxExponent-kViewportMinExponent)*
+            (layout.bottom-layout.top)));
+        rectangle(centre-15,knobY-6,30,12,0.0f);
+        const std::string title="SCALE";
+        for(std::size_t i=0;i<title.size();++i) {
+            const auto glyph=hudGlyph(title[i]);
+            for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                if(glyph[yy]&(1u<<(4-xx)))
+                    rectangle(layout.left-4+int(i)*8+xx,
+                              layout.top-23+yy,1,1,0.0f);
+        }
+        if(scaleHovered) {
+            const auto label=viewportScaleLabel(globalScaleExponent);
+            const int x0=std::max(3,layout.trackX-14-int(label.size())*8);
+            const int y0=std::clamp(knobY-4,3,std::max(3,int(height)-12));
+            rectangle(x0-3,y0-4,int(label.size())*8+6,15,1.0f);
+            for(std::size_t i=0;i<label.size();++i) {
+                const auto glyph=hudGlyph(label[i]);
+                for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                    if(glyph[yy]&(1u<<(4-xx)))
+                        rectangle(x0+int(i)*8+xx,y0+yy,1,1,0.0f);
+            }
         }
     }
     if(paintMode&&width>420&&height>475) {
@@ -410,9 +465,8 @@ Matrix cameraView(Vec3 eye) {
     at(view,3,3,1);
     return view;
 }
-Matrix perspective(float aspect) {
+Matrix perspective(float aspect,float nearPlane,float farPlane) {
     constexpr float fov=0.7853981633974483f; // vertical field of view: 45 degrees
-    constexpr float nearPlane=.05f,farPlane=100.f;
     const float f=1.f/std::tan(fov/2.f);
     Matrix m;
     at(m,0,0,f/aspect);
@@ -431,7 +485,8 @@ struct PushConstants {
 };
 static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
-                            const ViewportOrbit& orbit) {
+                            const ViewportOrbit& orbit,
+                            const ViewportSceneBounds& bounds) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
     const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
@@ -439,17 +494,21 @@ PushConstants makeConstants(int width,int height,double cameraScale,
     Matrix model;
     const auto& axes=orbit.basis();
     for(int col=0;col<3;++col) {
-        at(model,0,col,float(axes[std::size_t(col)].x));
-        at(model,1,col,float(axes[std::size_t(col)].y));
-        at(model,2,col,float(axes[std::size_t(col)].z));
+        at(model,0,col,float(axes[std::size_t(col)].x*orbit.scale()));
+        at(model,1,col,float(axes[std::size_t(col)].y*orbit.scale()));
+        at(model,2,col,float(axes[std::size_t(col)].z*orbit.scale()));
     }
-    const Vec3 offset=orbit.translation();
+    const Vec3 offset=orbit.translation()-
+        orbit.transformVector(orbit.center()*orbit.scale());
     at(model,0,3,float(offset.x));
     at(model,1,3,float(offset.y));
     at(model,2,3,float(offset.z));
     at(model,3,3,1.0f);
+    const auto clips=viewportClipRange(eye,
+        orbit.displayed(bounds.center()),bounds.radius()*orbit.scale());
     result.viewProjection=multiply(
-        multiply(perspective(aspect),cameraView(eye)),model);
+        multiply(perspective(aspect,float(clips.nearPlane),
+                            float(clips.farPlane)),cameraView(eye)),model);
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
@@ -533,6 +592,10 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool scaleDragging_=false,scaleHovered_=false,scaleConsumedMouse_=false;
+    double scaleDragLastY_=0;
+    double scaleExponent_=0.0;
+    ViewportSceneBounds sceneBounds_{};
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
     // Hover preview is UI-owned only: never part of COW state or undo history.
@@ -901,7 +964,7 @@ class VulkanViewport {
                      "MERGE: OFF"):"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius,
-                                     classifierChoices_,classifierComparable_,
+                                     scaleExponent_,scaleHovered_,classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
                                      repairStepLines_,repairStepScroll_,
                                      paintMode_,paintControls_);
@@ -2140,7 +2203,8 @@ class VulkanViewport {
         vkCmdSetViewport(commandBuffer,0,1,&viewport);
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         auto constants=makeConstants(int(extent.width),int(extent.height),
-                                           interaction_.cameraScale,orbit_);
+                                           interaction_.cameraScale,orbit_,
+                                           sceneBounds_);
         // W drives mesh coverage inside the visible solid fragment.
         constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
