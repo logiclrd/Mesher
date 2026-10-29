@@ -2064,22 +2064,27 @@ variants already work.
   [four-platform release-package CI #40816564906](https://github.com/logiclrd/Mesher/actions/runs/40816564906).
   Physical alternate-layout smoke testing remains desirable, but native
   GLFW builds and automated semantic input tests are green.
-- [ ] **UX04 — Per-vertex RGBA colours and basic Paint brush.** Extend the
-  immutable mesh/revision, render, history and checkpoint representation
-  to preserve vertex colours (including alpha), and add a Paint sculpting
-  action. Expose a colour wheel with **linked channel sliders** switchable
-  between **RGB, HSV and HSL**, plus independently adjustable **alpha** and
-  brush **hardness**. Changing any representation must update the others
-  consistently and must not silently change the selected colour.
-  For paint visibility, treat the actual mesh as an occluder that **casts
-  shadows into the brush's volume of effect**, preventing paint from
-  reaching back-facing or hidden surfaces across thin sheets. Position
-  the brush's visibility/occlusion origin *above* the picked surface
-  (not coincident with it), offset by **one quarter of the current
-  standard mesh edge length** along the outward surface normal; ensure
-  a robust non-self-occluding origin and test close parallel sheets,
-  folds, silhouette edges and mirrored strokes. Paint changes must be
-  bounded, undoable and compatible with ordinary immutable publication.
+- [x] **UX04 — Per-vertex RGBA colours and basic Paint brush.** Immutable
+  linear RGBA vertices persist through renderer, revisions, undo/redo and
+  durable checkpoints (legacy saves remain readable), including colour
+  interpolation through sculpt/refine/repair. **B** toggles a Paint brush
+  with wheel, linked **RGB/HSV/HSL** sliders, alpha, hardness and radius.
+  The brush's alpha deposits source-over colour; soft edges use linear
+  falloff and a full-strength picked centre. Actual mesh geometry blocks
+  paint on hidden/back-facing sheets via bounded visibility queries from
+  an outward origin raised **at least one quarter of the nominal mesh
+  edge length**, increased with brush radius to avoid convex-horizon
+  clipping. Mirrored dabs avoid doubled seam opacity. Individual dabs
+  publish responsively, with one Undo/Redo action per complete stroke.
+  A transient, depth-tested **#2000C000** face hover preview uses the
+  same occlusion and symmetry, ignores alpha/hardness and disappears
+  during strokes and outside Paint mode. **Accepted:**
+  [PR #174](https://github.com/logiclrd/Mesher/pull/174),
+  [five-platform CI #40841062556](https://github.com/logiclrd/Mesher/actions/runs/40841062556),
+  [four-platform package CI #40841062567](https://github.com/logiclrd/Mesher/actions/runs/40841062567).
+  User visually verified brush sizes/falloff, translucent layers, fast
+  grouped Undo, painting on sculpted colours and inside surfaces,
+  and the hovered face preview.
 - [x] **UX05 — Ctrl+S system Save As for `.mshr`.** Ctrl+S
   (Command+S on macOS) now opens the platform-native Save As chooser:
   Windows Shell `IFileSaveDialog`, Cocoa `NSSavePanel`, or KDE
