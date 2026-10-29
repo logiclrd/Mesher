@@ -3,6 +3,7 @@ layout(location=0) in vec3 worldPosition;
 layout(location=1) in vec3 surfaceNormal;
 layout(location=2) flat in float surfaceMaterial;
 layout(location=3) noperspective in vec3 edgeBarycentric;
+layout(location=4) in vec4 paintColor;
 layout(push_constant) uniform Constants {
     mat4 viewProjection;
     vec4 light0;
@@ -55,6 +56,9 @@ void main() {
         return;
     }
     vec3 albedo=surfaceMaterial>0.5 ? vec3(0.25,0.27,0.30) : vec3(0.63,0.67,0.72);
+    // Vertex alpha controls coat coverage without cutting holes in
+    // otherwise opaque meshes. Preserve raw RGBA in the vertex stream.
+    albedo=mix(albedo,albedo*paintColor.rgb,clamp(paintColor.a,0.0,1.0));
     vec3 color=min(albedo*intensity,vec3(1.0));
     // Shade mesh wires ONLY on the depth-visible owning solid triangle.
     // noperspective barycentric gradient converts to physical pixel
