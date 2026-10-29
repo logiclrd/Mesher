@@ -158,6 +158,13 @@ void AsyncSculptWorker::mergeDiscoveredContacts(
         throw;
     }
 }
+void AsyncSculptWorker::paint(std::vector<PaintDab> dabs) {
+    if(dabs.empty())return;
+    if(reserved_.load())return; // Never interleave with a timed sculpt stroke.
+    Command command{Kind::Paint};
+    command.paintDabs=std::move(dabs);
+    enqueue(std::move(command));
+}
 void AsyncSculptWorker::saveCheckpoint(std::filesystem::path path) {
     if(path.empty())throw std::invalid_argument("Checkpoint path is empty");
     Command command{Kind::Checkpoint};
@@ -370,6 +377,15 @@ void AsyncSculptWorker::run(StopToken token) {
                                                       dirty.begin(),dirty.end());
                             changed=true;
                         }
+                    }
+                    break;
+                case Kind::Paint:
+                    if(stroke_.active()||stroke_.pendingSamples())break;
+                    if(brush_->paint(command->paintDabs)) {
+                        const auto& dirty=brush_->lastDirtyPartitions();
+                        unpublishedDirty_.insert(unpublishedDirty_.end(),
+                                                 dirty.begin(),dirty.end());
+                        changed=true;
                     }
                     break;
                 case Kind::Checkpoint:
