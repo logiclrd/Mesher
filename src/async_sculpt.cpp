@@ -309,7 +309,7 @@ void AsyncSculptWorker::run(StopToken token) {
                     });
                 if(token.stop_requested())break;
                 if(!commands_.empty()) {
-                    command=commands_.front();
+                    command=std::move(commands_.front());
                     commands_.pop_front();
                 }
             }
