@@ -12,13 +12,24 @@ if(projection EQUAL -1 OR bias)
     message(FATAL_ERROR "M56 original owning face depth biased or replaced")
 endif()
 foreach(needle "depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;"
-               "depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;"
+               "depth.depthWriteEnable=(hudOverlay||paintOverlay)?VK_FALSE:VK_TRUE;"
                "depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;"
                "raster.cullMode=VK_CULL_MODE_NONE;"
                "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;")
     string(FIND "${view}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M56 true solid depth and W guard missing: ${needle}")
+    endif()
+endforeach()
+# Hover is translucent only in a separate pipeline, never by weakening
+# the source mesh's depth ownership or its W-controlled wire coverage.
+foreach(needle
+    "paintPreviewPipeline=makePipeline(false,true);"
+    "if(hudOverlay||paintOverlay)"
+    "depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;")
+    string(FIND "${view}" "${needle}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "UX04 preview cannot replace opaque owning mesh depth: ${needle}")
     endif()
 endforeach()
 foreach(needle "if(constants.wireRaster.w>0.5)" "if(surfaceMaterial<0.5)"
