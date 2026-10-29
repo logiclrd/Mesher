@@ -94,6 +94,11 @@ public:
     // same incremental update engine as RegionEdit, without rebuilding the
     // complete source. Caller must have erased exactly these elements from
     // the new COW mesh revision; no live source ID may be reassigned.
+    // Colour-only COW commit: unchanged triangle BVHs and spatial/adjacency
+    // roots are pointer-shared, not rebuilt or reindexed.
+    static std::shared_ptr<const RegionTopologyIndex> withVertexColors(
+        const RegionTopologyIndex& before,
+        std::shared_ptr<const MeshRevision> colored);
     static std::shared_ptr<const RegionTopologyIndex> privateExcision(
         const RegionTopologyIndex& source,
         std::shared_ptr<const MeshRevision> excised,
