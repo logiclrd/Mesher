@@ -1,5 +1,9 @@
 #include "mesher/mesh.hpp"
+#include "mesher/mesh_open_candidate.hpp"
+#include "mesher/mesh_partitioning.hpp"
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -30,8 +34,76 @@ void test(std::uint32_t n, bool symmetric, std::uint64_t seed) {
     }
     std::cout<<(symmetric?"sym":"asym")<<" n="<<n<<" faces="<<mesh.triangles.size()<<" OK\n";
 }
+
+void testPrivateMeshOpenCandidates() {
+    namespace fs=std::filesystem;
+    const auto dir=fs::temp_directory_path()/"mesher-ux06-private-open-test";
+    fs::create_directories(dir);
+    struct Cleanup {
+        fs::path path;
+        ~Cleanup() {std::error_code ignored;fs::remove_all(path,ignored);}
+    } cleanup{dir};
+    const auto put=[&](const std::string& name,const std::string& body) {
+        const auto path=dir/name;
+        std::ofstream output(path,std::ios::binary|std::ios::trunc);
+        output<<body;
+        if(!output)throw std::runtime_error("Cannot create import fixture");
+        return path;
+    };
+    const std::string tetra=
+        "v 0 0 0 1 0 0 0.25\n"
+        "v 1 0 0 0 1 0 0.5\n"
+        "v 0 1 0 0 0 1 0.75\n"
+        "v 0 0 1 1 1 0 1\n"
+        "f 1 3 2\nf 1 2 4\nf 2 3 4\nf 3 1 4\n";
+    auto candidate=readMeshOpenCandidate(put("valid.OBJ",tetra));
+    check(candidate.format==MeshOpenFormat::WavefrontObj,
+          "OBJ case-insensitive extension must load a private candidate");
+    check(candidate.vertexCount==4&&candidate.faceCount==4&&
+          candidate.hasVertexColors,"OBJ candidate preserves vertex RGBA");
+    check(candidate.snapshot.index&&candidate.snapshot.mirrorPairs.empty(),
+          "OBJ candidate has an index but no invented symmetry");
+    std::size_t colored=0;
+    candidate.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices)
+                if(vertex.color.a<1)++colored;
+        });
+    check(colored==3,"OBJ normalized alpha values survive indexed conversion");
+    const auto snapshotPath=dir/"valid.mshr";
+    writeCheckpoint(snapshotPath,candidate.snapshot);
+    const auto restored=readMeshOpenCandidate(snapshotPath);
+    check(restored.format==MeshOpenFormat::Checkpoint&&
+          restored.vertexCount==4&&restored.faceCount==4&&
+          restored.hasVertexColors,
+          "Private mshr import keeps indexed revision and per-vertex colours");
+    // Every failure must leave the previously parsed private candidate
+    // untouched; the API performs no global or worker publication.
+    const auto oldRoot=candidate.snapshot.index;
+    const auto reject=[&](const std::string& filename,
+                          const std::string& contents) {
+        bool rejected=false;
+        try {(void)readMeshOpenCandidate(put(filename,contents));}
+        catch(const std::exception&) {rejected=true;}
+        check(rejected,"Invalid/ambiguous import must refuse: "+filename);
+        check(candidate.snapshot.index==oldRoot,
+              "Rejected import must not mutate an earlier candidate root");
+    };
+    reject("open.obj","v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+    reject("mixed.obj",
+           "v 0 0 0 1 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+    reject("unsupported.obj",tetra+"#MRGB 0000ff00\n");
+    reject("badindex.obj",tetra+"f 1 2 99\n");
+    reject("unhandled.ply","ply\nformat ascii 1.0\nend_header\n");
+    reject("unhandled.stl","solid test\nendsolid test\n");
+    reject("bad.mshr","This is not a checkpoint");
+    check(candidate.snapshot.index==oldRoot,
+          "Successful import remains immutable across failed attempts");
+}
+
 int main(){
     try {
+        testPrivateMeshOpenCandidates();
         for(auto n:{8u,10u,11u,12u,30u,100u,500u,5000u})
             for(bool symmetric:{false,true})test(n,symmetric,42);
         for(auto seed:{1ull,2ull,3ull,4ull}) {test(1000,true,seed);test(1000,false,seed);}
