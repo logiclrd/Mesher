@@ -184,6 +184,12 @@ void testLinearNormalizedFootprint() {
           "Soft brush must fall off linearly from the picked triangle to its radius");
     check(colorOf(*output.colored,ids[8])==VertexRGBA{},
           "Vertices outside the full surface-radius must remain unpainted");
+    auto higherRay=dab;
+    higherRay.nominalEdgeLength=.8; // visibility origin is four times higher
+    const auto elevated=applyVertexPaintDabs(source,{higherRay});
+    for(const auto id:ids)
+        check(colorOf(*elevated.colored,id)==colorOf(*output.colored,id),
+              "Visibility ray height must never shrink the surface brush radius");
 }
 void testOneUndoPerPaintStroke() {
     Mesh mesh;
