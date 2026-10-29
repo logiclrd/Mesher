@@ -85,7 +85,7 @@ void testPrivateMeshOpenCandidates() {
         bool rejected=false;
         try {(void)readMeshOpenCandidate(put(filename,contents));}
         catch(const std::exception&) {rejected=true;}
-        check(rejected,"Invalid/ambiguous import must refuse: "+filename);
+        check(rejected,("Invalid/ambiguous import must refuse: "+filename).c_str());
         check(candidate.snapshot.index==oldRoot,
               "Rejected import must not mutate an earlier candidate root");
     };
