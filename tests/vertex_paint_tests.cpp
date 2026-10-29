@@ -156,24 +156,33 @@ void testConformingCutColorProvenance() {
 }
 void testLinearNormalizedFootprint() {
     Mesh mesh;
-    mesh.vertices={{0,0,0},{.2,0,0},{.2,.2,0},{0,.2,0}};
-    mesh.triangles={{0,1,2},{0,2,3}};
+    for(unsigned y=0;y<3;++y)
+        for(unsigned x=0;x<3;++x)
+            mesh.vertices.push_back({double(x)*.1,double(y)*.1,0});
+    for(std::uint32_t y=0;y<2;++y)
+        for(std::uint32_t x=0;x<2;++x) {
+            const auto a=y*3+x,b=a+1,c=a+3,d=c+1;
+            mesh.triangles.push_back({a,b,d});
+            mesh.triangles.push_back({a,d,c});
+        }
     const auto parts=partitionFlatMesh(mesh,4);
     const auto source=RegionTopologyIndex::build(parts.revision);
-    const PaintDab dab{{.06,.06,0},{0,0,1},.18,.2,
-                       {1,0,0,1},0};
+    const PaintDab dab{{.06,.025,0},{0,0,1},.18,.2,
+                       {1,0,0,1},0,parts.flatIndex.faceIds[0]};
     const auto output=applyVertexPaintDabs(source,{dab});
     const auto ids=parts.flatIndex.vertexIds;
-    const double nearest=std::hypot(.06,.06);
-    const double farther=std::hypot(.14,.06);
-    const double expected=1-(farther-nearest)/(.18-nearest);
-    const auto center=colorOf(*output.colored,ids[0]);
-    const auto edge=colorOf(*output.colored,ids[1]);
-    check(center.g==0.f&&center.b==0.f,
-          "Nearest visible surface sample must have full paint strength");
+    const double center=std::hypot(.04,.075); // farthest picked face corner
+    const double farther=std::hypot(.14,.025); // vertex beyond centre plateau
+    const double expected=1-(farther-center)/(.18-center);
+    for(const auto index:{0,1,4}) {
+        const auto color=colorOf(*output.colored,ids[std::size_t(index)]);
+        check(color.g==0.f&&color.b==0.f,
+              "All picked face corners must have full colour for a saturated centre pixel");
+    }
+    const auto edge=colorOf(*output.colored,ids[2]);
     check(close(edge.g,1.0-expected)&&close(edge.b,1.0-expected),
-          "Soft brush must fall off linearly to its actual surface radius");
-    check(colorOf(*output.colored,ids[2])==VertexRGBA{},
+          "Soft brush must fall off linearly from the picked triangle to its radius");
+    check(colorOf(*output.colored,ids[8])==VertexRGBA{},
           "Vertices outside the full surface-radius must remain unpainted");
 }
 void testOneUndoPerPaintStroke() {
