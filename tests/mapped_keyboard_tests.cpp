@@ -78,6 +78,10 @@ void invalidNamesDoNotBecomePhysicalShortcuts() {
     keys.onKey(GLFW_KEY_Q,GLFW_RELEASE);
     check(keys.takePress(GLFW_KEY_W),"Quick mapped tap must be delivered");
     check(!keys.takePress(GLFW_KEY_W),"Tap is consumed exactly once");
+    keys.onKey(GLFW_KEY_Q,GLFW_PRESS,"n");
+    keys.finishFrame();
+    check(!keys.takePress(GLFW_KEY_N),
+          "Unused mode-specific shortcut must not replay on a later frame");
 }
 }
 int main() {
