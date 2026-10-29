@@ -533,6 +533,11 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
+    bool paintPanelDragging_=false;
+    int paintPanelControl_=-1;
+    std::optional<std::pair<double,double>> lastPaintCursor_;
+    PaintControls paintControls_;
     bool wireVisible_=true,wireKeyWasDown_=false;
     bool inspectionFrozen_=false;
     bool inspectionIncomplete_=false;
@@ -1204,6 +1209,56 @@ class VulkanViewport {
         std::cout<<os.str()<<'\n'<<std::flush;
     }
 
+    // Pixel coordinates are framebuffer-scaled like the radius slider.
+    bool updatePaintPanel(double x,double y,bool down,bool wasDown) {
+        if(!paintMode_||!interaction_.paint)return false;
+        const PaintPanelLayout panel;
+        if(!down) {
+            const bool wasDragging=paintPanelDragging_;
+            paintPanelDragging_=false;
+            paintPanelControl_=-1;
+            return wasDragging;
+        }
+        if(down&&!wasDown&&x>=panel.left&&
+           x<=panel.left+panel.width&&y>=panel.top&&
+           y<=panel.top+panel.height) {
+            paintPanelDragging_=true;
+            const double dx=x-panel.wheelX,dy=y-panel.wheelY;
+            if(dx*dx+dy*dy<=panel.radius*panel.radius)
+                paintPanelControl_=0;
+            else if(y>=panel.modeY-6&&y<=panel.modeY+20)
+                paintPanelControl_=6;
+            else {
+                paintPanelControl_=-1;
+                for(int i=0;i<5;++i)
+                    if(std::abs(y-(panel.sliderY+i*panel.spacing))<=13)
+                        paintPanelControl_=i+1;
+            }
+        }
+        if(!paintPanelDragging_)return false;
+        if(paintPanelControl_==6) {
+            if(x<192)paintControls_.channels=PaintChannels::RGB;
+            else if(x<276)paintControls_.channels=PaintChannels::HSV;
+            else paintControls_.channels=PaintChannels::HSL;
+        }else if(paintPanelControl_==0) {
+            constexpr double pi=3.14159265358979323846;
+            const double dx=x-panel.wheelX,dy=panel.wheelY-y;
+            const double hue=std::atan2(dy,dx)/(2*pi);
+            const double saturation=std::clamp(
+                std::hypot(dx,dy)/panel.radius,0.,1.);
+            paintControls_.setWheel(hue,saturation);
+        }else if(paintPanelControl_>=1&&paintPanelControl_<=5) {
+            const double value=std::clamp((x-panel.sliderX)/
+                double(panel.sliderWidth),0.,1.);
+            const auto control=paintPanelControl_-1;
+            if(control<3)paintControls_.setChannel(unsigned(control),value);
+            else if(control==3)paintControls_.setAlpha(value);
+            else paintControls_.setHardness(value);
+        }
+        refreshHud();
+        return true;
+    }
+
     void updateMouseSculpt() {
         if(!interaction_.begin)return;
         if(inspectionFrozen_) {
@@ -1257,6 +1312,50 @@ class VulkanViewport {
             }
             mouseWasDown_=down;
             return; // Never accidentally stamp while selecting Merge source.
+        }
+        if(paintMode_&&interaction_.paint) {
+            double cx=0,cy=0;
+            glfwGetCursorPos(window,&cx,&cy);
+            int ww=0,wh=0,fw=0,fh=0;
+            glfwGetWindowSize(window,&ww,&wh);
+            glfwGetFramebufferSize(window,&fw,&fh);
+            if(ww>0&&wh>0&&fw>0&&fh>0) {
+                cx*=double(fw)/ww;
+                cy*=double(fh)/wh;
+            }
+            if(updatePaintPanel(cx,cy,down,mouseWasDown_)) {
+                mouseWasDown_=down;
+                painting_=false;
+                lastPaintCursor_.reset();
+                return;
+            }
+            if(down&&(!interaction_.canBegin||interaction_.canBegin())&&
+               (!lastPaintCursor_||
+                std::hypot(cx-lastPaintCursor_->first,
+                           cy-lastPaintCursor_->second)>=1.0)) {
+                if(const auto hit=pickCursorSourceFace()) {
+                    const auto face=displayedIndex_->face(hit->face).vertices;
+                    const auto a=displayedIndex_->vertex(face[0]).position;
+                    const auto b=displayedIndex_->vertex(face[1]).position;
+                    const auto c=displayedIndex_->vertex(face[2]).position;
+                    const auto normal=cross(b-a,c-a);
+                    if(length(normal)>1e-12) {
+                        interaction_.paint(PaintDab{
+                            hit->point,normalized(normal),
+                            interaction_.radius,
+                            interaction_.paintNominalEdgeLength,
+                            paintControls_.rgba,paintControls_.hardness});
+                        painting_=true;
+                        lastPaintCursor_=std::pair{cx,cy};
+                    }
+                }
+            }
+            if(!down) {
+                painting_=false;
+                lastPaintCursor_.reset();
+            }
+            mouseWasDown_=down;
+            return; // Painting never enqueues Inflate or remesh geometry.
         }
         if(interaction_.setRadius) {
             double cx=0,cy=0;
@@ -1546,7 +1645,8 @@ class VulkanViewport {
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
-            else title+=sculpting_ ? " | Sculpting" :
+            else title+=paintMode_ ? " | Paint RGBA (B toggle)" :
+                sculpting_ ? " | Sculpting" :
                 interaction_.mergeSelected?
                 " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
             if(interaction_.mergeStatus)title+=" | "+interaction_.mergeStatus();
@@ -2155,6 +2255,17 @@ public:
             }
             // Geometry display and scenery are independently controllable.
             // G never hides legacy or immutable COW mesh geometry.
+            if(justPressed(GLFW_KEY_B,paintModeKeyWasDown_)&&
+               interaction_.paint&&!sculpting_&&!painting_&&
+               !inspectionFrozen_&&!interaction_.repairStepMode&&
+               glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS) {
+                paintMode_=!paintMode_;
+                paintPanelDragging_=false;
+                lastPaintCursor_.reset();
+                std::cout<<"[paint] brush "<<(paintMode_?"ON":"OFF")<<"\n";
+                refreshHud();
+                updateTitle();
+            }
             if(justPressed(GLFW_KEY_G,floorKeyWasDown_)) {
                 floorVisible_=!floorVisible_;
                 std::cout<<"[view] floor/grid "
@@ -2182,7 +2293,7 @@ public:
                     refreshHud();
                 }
             }
-            if(shortcut&&!inspectionFrozen_&&!sculpting_&&
+            if(shortcut&&!inspectionFrozen_&&!sculpting_&&!painting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
                 else if(z&&interaction_.undo)interaction_.undo();
