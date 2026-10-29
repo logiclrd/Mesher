@@ -117,17 +117,17 @@ the executable's `images/` directory; no runtime PNG library is needed.
 
 ## Versioned desktop releases
 
-The root [`VERSION`](VERSION) file is the release version source of truth;
-initially `0.5a`. `Mesher --version` prints the same value without loading
-Vulkan. CMake uses the numeric prefix (`0.5`) for its project-version
-metadata and preserves the full `0.5a` identifier in the desktop binary.
+The root [`VERSION`](VERSION) file is the release version source of
+truth. `Mesher --version` prints the same value without loading Vulkan.
+CMake uses the numeric prefix (for example, `0.5` from `0.5b`) for its
+project-version metadata, preserving the full identifier in the binary.
 
 Changing `VERSION` on `main` automatically starts
 [`Versioned desktop release`](.github/workflows/release.yml).
 The workflow **checks the remote for `release-$VERSION` before building**
 and refuses a duplicate tag; CI failures also prevent publication.
-Once both platforms succeed it creates that tag on the triggering commit
-and publishes a GitHub prerelease/release with:
+Only after **all four packages succeed** does it create the tag on the
+triggering commit and publish a GitHub prerelease/release with:
 
 - `Mesher-$VERSION-windows-x64.zip` — MSVC Release executable, embedded
   `.ico` resource, required vcpkg GLFW/Qhull DLLs, SPIR-V shaders and UI
@@ -136,6 +136,15 @@ and publishes a GitHub prerelease/release with:
   shaders and images, bundled GLFW/Qhull/OpenMP libraries, and
   `compiler-benchmark.json`. Built on Ubuntu 24.04; graphics drivers,
   Vulkan loader, and system libraries remain external.
+- `Mesher-$VERSION-macos-arm64.zip` — native Apple Silicon `Mesher.app`.
+- `Mesher-$VERSION-macos-x86_64.zip` — native Intel `Mesher.app`.
+  Both carry their own Dock icon, MoltenVK, Vulkan loader, dynamic libraries,
+  shader binaries and splash artwork; Homebrew is not required on the
+  recipient's Mac. macOS 13 or later is specified in the app metadata.
+  The two architecture-specific packages are **ad-hoc signed, not
+  Developer ID signed or notarized**. macOS may require explicit user
+  approval through Finder / Privacy & Security. Real GPU behavior has
+  not been validated on end-user Mac hardware.
 
 The Linux packaging job compiles the **same benchmark with both G++ and
 Clang++ on one runner** and chooses using five rounds of alternating tests.
@@ -145,8 +154,9 @@ measured afresh for each release rather than guessed from its name.
 Benchmark data is retained inside the Linux archive.
 
 The release workflow also runs on pull requests touching the workflow,
-`VERSION`, or associated packaging code; PRs build validation archives but
-**cannot publish tags or releases**. A manual run can reattempt a failed
+`VERSION`, or associated packaging code. PRs validate the version syntax
+and build archives but **cannot publish tags or releases**; the unused-tag
+check remains mandatory for real release runs. A manual run can reattempt a failed
 release but still refuses any already-published version. To publish a new
 version, edit `VERSION` and merge to `main`.
 
