@@ -80,13 +80,19 @@ void main() {
             vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
             vec3 distances=abs(edgeBarycentric)/perPixel;
             distancePx=min(distances.x,min(distances.y,distances.z));
-            // When a triangle's smallest projected altitude is only a few
-            // physical pixels, fixed-width opaque edges cover its entire
-            // interior. Thin and fade *those* wires so vertex RGB survives.
-            float minAltitudePx=1.0/max(perPixel.x,max(perPixel.y,perPixel.z));
-            float densityFade=smoothstep(1.5,11.0,minAltitudePx);
-            wireHalfwidth=mix(0.25,constants.wireRaster.z,
-                              smoothstep(2.0,16.0,minAltitudePx));
+            // Use the MEDIAN projected triangle altitude rather than the
+            // shortest: one vanishingly thin barycentric direction at a
+            // silhouette should not erase the whole triangle's edges.
+            // Log weighting gives a smooth response across irregular mesh
+            // densities, without on/off patches between neighbouring faces.
+            vec3 altitudesPx=1.0/perPixel;
+            float typicalAltitudePx=altitudesPx.x+altitudesPx.y+altitudesPx.z-
+                min(altitudesPx.x,min(altitudesPx.y,altitudesPx.z))-
+                max(altitudesPx.x,max(altitudesPx.y,altitudesPx.z));
+            float density=clamp(log2(1.0+typicalAltitudePx)/log2(25.0),
+                                0.0,1.0);
+            float densityFade=mix(0.30,1.0,density);
+            wireHalfwidth=mix(0.42,constants.wireRaster.z,density*density);
             wireOpacity=densityFade;
         } else {
             // M68: unit XY grid lies ON the real visible floor plane.
@@ -109,6 +115,12 @@ void main() {
             wireOpacity=smoothstep(1.5,10.0,gridSpacingPx);
         }
         float coverage=smoothstep(0.0,1.0,wireHalfwidth-distancePx);
+        if(surfaceMaterial<0.5) {
+            // A subpixel-width wire still contributes a finite, faint
+            // coverage: don't make sphere silhouettes vanish completely.
+            coverage=1.0-smoothstep(wireHalfwidth-0.45,
+                                    wireHalfwidth+0.55,distancePx);
+        }
         color=mix(color,vec3(0.073239),coverage*wireOpacity);
     }
     outColor=vec4(color,1.0);
