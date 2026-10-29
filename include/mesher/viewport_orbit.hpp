@@ -11,12 +11,26 @@ namespace mesher {
 
 // UI-only rigid display transform. NEVER applied to a MeshRevision,
 // original FaceId, mirror pair, checkpoint, or worker stroke coordinate.
-// Column vectors: displayed = R * source + translation.
+// Column vectors: displayed = R * ((source - centre) * scale) + translation.
 class ViewportOrbit {
 public:
     Vec3 displayed(Vec3 p) const noexcept {
-        return transformVector(p)+translation_;
+        return transformVector((p-center_)*scale_)+translation_;
     }
+    // Initial framing resets a previous model's orientation and dolly.
+    void frame(Vec3 center,double scale) noexcept {
+        center_=center;
+        scale_=std::clamp(scale,1e-5,1e5);
+        yaw_=pitch_=0.0;
+        basis_={{{1,0,0},{0,1,0},{0,0,1}}};
+        translation_={};
+    }
+    void setScale(double scale) noexcept {
+        if(std::isfinite(scale)&&scale>0)
+            scale_=std::clamp(scale,1e-5,1e5);
+    }
+    double scale() const noexcept {return scale_;}
+    Vec3 center() const noexcept {return center_;}
     Vec3 transformVector(Vec3 v) const noexcept {
         return basis_[0]*v.x+basis_[1]*v.y+basis_[2]*v.z;
     }
@@ -24,7 +38,7 @@ public:
         return {dot(v,basis_[0]),dot(v,basis_[1]),dot(v,basis_[2])};
     }
     Ray pickingRay(Ray visualRay) const noexcept {
-        return {inverseVector(visualRay.origin-translation_),
+        return {center_+inverseVector(visualRay.origin-translation_)/scale_,
                 inverseVector(visualRay.direction)};
     }
     const std::array<Vec3,3>& basis() const noexcept {return basis_;}
@@ -69,7 +83,7 @@ public:
         basis_[0]={cy,cp*sy,sp*sy};
         basis_[1]={-sy,cp*cy,sp*cy};
         basis_[2]={0,-sp,cp};
-        translation_=anchor-transformVector(pivotSource);
+        translation_=anchor-transformVector((pivotSource-center_)*scale_);
     }
 
     // The background pivot lies in a DISPLAY-space plane parallel to the
@@ -89,8 +103,8 @@ public:
         const double t=dot(displayCentroid-visualRay.origin,viewForward)/
                        safe;
         if(!std::isfinite(t)||t<=0)return sourceCentroid;
-        return inverseVector(visualRay.origin+visualRay.direction*t-
-                             translation_);
+        return center_+inverseVector(visualRay.origin+
+                      visualRay.direction*t-translation_)/scale_;
     }
 
     // Ctrl-RMB: positive mouse-X walks the *viewer* forward along the
@@ -130,6 +144,8 @@ public:
 
 private:
     double yaw_=0.0,pitch_=0.0;
+    double scale_=1.0;
+    Vec3 center_{};
     std::array<Vec3,3> basis_{{{1,0,0},{0,1,0},{0,0,1}}};
     Vec3 translation_{};
 };
