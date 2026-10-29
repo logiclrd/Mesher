@@ -12,6 +12,12 @@ layout(push_constant) uniform Constants {
 } constants;
 layout(location=0) out vec4 outColor;
 void main() {
+    // #2000C000 interpreted as AARRGGBB. No lighting, no vertex colours:
+    // a separate pipeline alpha-blends this only over depth-visible faces.
+    if(surfaceMaterial>=15.5) {
+        outColor=vec4(0.0,192.0/255.0,0.0,32.0/255.0);
+        return;
+    }
     vec3 n=normalize(surfaceNormal);
     vec3 lightA=constants.light0.xyz-worldPosition;
     vec3 lightB=constants.light1.xyz-worldPosition;

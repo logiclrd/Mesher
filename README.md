@@ -266,6 +266,12 @@ The brush footprint itself is centred on the surface hit with the exact
 selected radius; existing faces still occlude other/hidden surfaces, and
 back-facing vertices are rejected. Mirrored mode paints both symmetric
 sides without double-opacity from overlapping mirror dabs.
+While Paint mode is idle, a subtle flat #2000C000 (AARRGGBB) overlay
+highlights depth-visible faces incident to vertices within the current
+brush's actual shadow-limited area. It follows the cursor and radius,
+ignores hardness and alpha, and disappears during strokes, orbiting,
+over UI controls, and outside Paint mode. It never enters vertex colours,
+immutable roots, history or checkpoint files.
 Legacy V12/V13 unpainted checkpoints remain compatible; coloured saves
 use checksummed V14/V15 records.
 

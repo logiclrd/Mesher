@@ -535,6 +535,11 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
+    // Hover preview is UI-owned only: never part of COW state or undo history.
+    std::vector<FaceId> paintPreviewFaces_;
+    std::shared_ptr<const RegionTopologyIndex> paintPreviewIndex_;
+    std::optional<Ray> paintPreviewRay_;
+    double paintPreviewRadius_=-1;
     int paintPanelControl_=-1;
     std::optional<std::pair<double,double>> lastPaintCursor_;
     PaintControls paintControls_;
@@ -616,6 +621,7 @@ class VulkanViewport {
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
     VkPipeline solidPipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
+    VkPipeline paintPreviewPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
     VkImageView depthView=VK_NULL_HANDLE;
@@ -629,7 +635,7 @@ class VulkanViewport {
     Buffer solid{},floorSolid{},hud{};
     // Inspection has a separate buffer; legacy solid/floor/HUD ownership
     // remains textually and behaviorally unchanged.
-    Buffer inspectionSolid{};
+    Buffer inspectionSolid{},paintPreviewSolid{};
     struct PartitionBuffers {Buffer solid;};
     std::map<PartitionId,PartitionBuffers> partitionBuffers_;
     std::size_t lastDirtyPartitions_=0,lastDirtyFaces_=0;
@@ -1495,6 +1501,108 @@ class VulkanViewport {
         mouseWasDown_=down;
     }
 
+    void clearPaintPreview() {
+        paintPreviewFaces_.clear();
+        paintPreviewIndex_.reset();
+        paintPreviewRay_.reset();
+        paintPreviewRadius_=-1;
+        // Keep the old allocation reusable; zero draw count does not need
+        // a GPU fence and never writes/retires the buffer while in flight.
+        paintPreviewSolid.vertexCount=0;
+    }
+    void updatePaintPreview() {
+        if(!paintMode_||!interaction_.paint||!displayedIndex_||
+           painting_||sculpting_||orbitDragging_||radiusDragging_||
+           paintPanelDragging_||inspectionFrozen_||
+           mergeInput_.enabled()||
+           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS||
+           glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS) {
+            clearPaintPreview();
+            return;
+        }
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0) {
+            clearPaintPreview();
+            return;
+        }
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
+        const PaintPanelLayout panel;
+        const auto slider=radiusSliderLayout(fh);
+        if(x<0||x>=fw||y<0||y>=fh||
+           (x>=panel.left&&x<=panel.left+panel.width&&
+            y>=panel.top&&y<=panel.top+panel.height)||
+           (x>=slider.left-8&&x<=slider.left+58&&
+            y>=slider.top-12&&y<=slider.bottom+12)) {
+            clearPaintPreview();
+            return;
+        }
+        const auto ray=cursorSourceRay();
+        if(!ray) {clearPaintPreview();return;}
+        const auto same=[&](Vec3 a,Vec3 b) {
+            return a.x==b.x&&a.y==b.y&&a.z==b.z;
+        };
+        if(paintPreviewIndex_==displayedIndex_&&paintPreviewRay_&&
+           paintPreviewRadius_==interaction_.radius&&
+           same(ray->origin,paintPreviewRay_->origin)&&
+           same(ray->direction,paintPreviewRay_->direction))return;
+        // Cache a no-hit or fail-closed query, too. A stationary cursor
+        // should not raycast every frame when the scene is unchanged.
+        paintPreviewIndex_=displayedIndex_;
+        paintPreviewRay_=ray;
+        paintPreviewRadius_=interaction_.radius;
+        std::vector<FaceId> faces;
+        try {
+            const auto hit=displayedIndex_->firstRayFaceHit(*ray);
+            if(hit) {
+                const auto triangle=displayedIndex_->face(hit->face).vertices;
+                const Vec3 a=displayedIndex_->vertex(triangle[0]).position;
+                const Vec3 b=displayedIndex_->vertex(triangle[1]).position;
+                const Vec3 c=displayedIndex_->vertex(triangle[2]).position;
+                const Vec3 normal=cross(b-a,c-a);
+                if(length(normal)>1e-12) {
+                    const PaintDab dab{hit->point,normalized(normal),
+                        interaction_.radius,interaction_.paintNominalEdgeLength,
+                        paintControls_.rgba,paintControls_.hardness,hit->face};
+                    faces=collectPaintPreview(displayedIndex_,
+                        paintDabsWithMirror(dab,interaction_.paintSymmetric))
+                        .affectedFaces;
+                }
+            }
+        }catch(const std::length_error&) {
+            // Budget exhaustion cannot expose a partial/misleading brush.
+            faces.clear();
+        }
+        if(faces==paintPreviewFaces_)return;
+        paintPreviewFaces_=std::move(faces);
+        if(paintPreviewFaces_.empty()) {
+            paintPreviewSolid.vertexCount=0;
+            return;
+        }
+        std::vector<Vertex> geometry;
+        geometry.reserve(paintPreviewFaces_.size()*3);
+        for(const auto faceId:paintPreviewFaces_) {
+            const auto tri=displayedIndex_->face(faceId).vertices;
+            const Vec3 a=displayedIndex_->vertex(tri[0]).position;
+            const Vec3 b=displayedIndex_->vertex(tri[1]).position;
+            const Vec3 c=displayedIndex_->vertex(tri[2]).position;
+            const Vec3 rawNormal=cross(b-a,c-a);
+            const Vec3 normal=length(rawNormal)>1e-20?
+                normalized(rawNormal):Vec3{};
+            for(const auto p:{a,b,c})
+                geometry.push_back(makeVertex(p,normal,15.5f));
+        }
+        // Reuse the existing single-flight Vulkan retirement contract:
+        // the old buffer must not be mapped or replaced while rendered.
+        check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
+              "Wait before updating transient paint preview");
+        drainGpuRetirements();
+        replaceBuffer(paintPreviewSolid,geometry);
+    }
+
     void pumpMouseStroke() {
         if(interaction_.takeSnapshot) {
             // The worker never shares mutable mesh memory with the renderer.
@@ -1818,7 +1926,7 @@ class VulkanViewport {
         check(vkCreateShaderModule(device,&info,nullptr,&result),"Create shader module");
         return result;
     }
-    VkPipeline makePipeline(bool hudOverlay=false) {
+    VkPipeline makePipeline(bool hudOverlay=false,bool paintOverlay=false) {
         auto vert=shader(hudOverlay?"hud.vert":"mesh.vert");
         auto frag=shader(hudOverlay?"hud.frag":"mesh.frag");
         VkPipelineShaderStageCreateInfo vs{}; vs.sType=VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1855,14 +1963,14 @@ class VulkanViewport {
         multi.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
         VkPipelineDepthStencilStateCreateInfo depth{}; depth.sType=VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depth.depthTestEnable=hudOverlay?VK_FALSE:VK_TRUE;
-        depth.depthWriteEnable=hudOverlay?VK_FALSE:VK_TRUE;
+        depth.depthWriteEnable=(hudOverlay||paintOverlay)?VK_FALSE:VK_TRUE;
         depth.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
         VkPipelineColorBlendAttachmentState blendAttachment{};
         blendAttachment.colorWriteMask=VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|
                                        VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT;
         VkPipelineColorBlendStateCreateInfo blend{}; blend.sType=VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        if(hudOverlay) {
-            // Only HUD blends; mesh and floor AA are in opaque solid fragments.
+        if(hudOverlay||paintOverlay) {
+            // HUD and paint hover blend; normal solids remain opaque.
             blendAttachment.blendEnable=VK_TRUE;
             blendAttachment.srcColorBlendFactor=VK_BLEND_FACTOR_SRC_ALPHA;
             blendAttachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -1948,6 +2056,7 @@ class VulkanViewport {
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline();
+        paintPreviewPipeline=makePipeline(false,true);
         hudPipeline=makePipeline(true);
         for(auto view:views) {
             const std::array attachments{view,depthView};
@@ -1968,7 +2077,8 @@ class VulkanViewport {
         finishedForImage.clear();
         if(solidPipeline)vkDestroyPipeline(device,solidPipeline,nullptr);
         if(hudPipeline)vkDestroyPipeline(device,hudPipeline,nullptr);
-        solidPipeline=hudPipeline=VK_NULL_HANDLE;
+        if(paintPreviewPipeline)vkDestroyPipeline(device,paintPreviewPipeline,nullptr);
+        solidPipeline=hudPipeline=paintPreviewPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
@@ -2047,6 +2157,18 @@ class VulkanViewport {
             if(!buffers.solid.vertexCount)continue;
             vkCmdBindVertexBuffers(commandBuffer,0,1,&buffers.solid.buffer,&offset);
             vkCmdDraw(commandBuffer,buffers.solid.vertexCount,1,0,0);
+        }
+        // UX04 transient overlay: coincident with exact source triangles,
+        // depth tested against visible mesh with writes disabled. A separate
+        // alpha-blended pipeline supplies #2000C000, not persistent paint.
+        if(paintPreviewSolid.vertexCount) {
+            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              paintPreviewPipeline);
+            vkCmdBindVertexBuffers(commandBuffer,0,1,
+                                   &paintPreviewSolid.buffer,&offset);
+            vkCmdDraw(commandBuffer,paintPreviewSolid.vertexCount,1,0,0);
+            vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              solidPipeline);
         }
         // R01: draw red, depth-tested inspection markers ON TOP of the
         // diagnostic candidate, without modifying its normal mesh data.
@@ -2211,6 +2333,7 @@ public:
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
             destroyBuffer(inspectionSolid);
+            destroyBuffer(paintPreviewSolid);
             for(auto& [id,buffers]:partitionBuffers_) {
                 (void)id;
                 destroyBuffer(buffers.solid);
@@ -2283,6 +2406,7 @@ public:
                !inspectionFrozen_&&!interaction_.repairStepMode&&
                glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS) {
                 paintMode_=!paintMode_;
+                clearPaintPreview();
                 paintPanelDragging_=false;
                 lastPaintCursor_.reset();
                 std::cout<<"[paint] brush "<<(paintMode_?"ON":"OFF")<<"\n";
@@ -2351,6 +2475,7 @@ public:
             updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
+            updatePaintPreview();
             // Dedicated diagnostic input: one F8 key PRESS -> one worker
             // stamp -> one fully uploaded immutable snapshot. Unlike a
             // quick LMB click, this does not create timed Update/End
