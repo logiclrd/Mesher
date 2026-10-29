@@ -849,6 +849,12 @@ class VulkanViewport {
         lastDirtyFaces_=stats.rebuiltFaces;
         lastDirtyBytes_=stats.uploadedBytes;
         lastUploadMs_=(glfwGetTime()-started)*1000;
+        if(lastUploadMs_>150.0)
+            std::cout<<"[render] slow_dirty_refresh_ms="<<lastUploadMs_
+                     <<" fence_ms="<<lastGpuFenceWaitMs_
+                     <<" partitions="<<lastDirtyPartitions_
+                     <<" faces="<<lastDirtyFaces_
+                     <<" bytes="<<lastDirtyBytes_<<"\n";
     }
     void refreshMesh() {
         const double started=glfwGetTime();
