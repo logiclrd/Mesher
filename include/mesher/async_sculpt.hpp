@@ -148,6 +148,7 @@ private:
         ExactCutStepLimits mergeLimits{};
         SculptSourceContactLimits discoveryLimits{};
         std::vector<FaceId> intendedOriginals{};
+        std::chrono::steady_clock::time_point queuedAt{};
     };
     void enqueue(Command command);
     void run(StopToken token);
