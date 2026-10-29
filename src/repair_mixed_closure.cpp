@@ -10,6 +10,7 @@
 #include "mesher/repair_scale_aware_policy.hpp"
 #include "mesher/repair_mixed_edges.hpp"
 #include "mesher/repair_mixed_patch.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -55,6 +56,99 @@ QualityInfo accepted(MixedClosureFaceKind kind,
         return {limits.minZipperQuality,limits.maxZipperEdgeFactor};
     return {limits.minSurvivorQuality,
             std::numeric_limits<double>::infinity()};
+}
+// Transfer paint across the exact completed closure graph, after advancing-
+// front vertex placement and conforming refinement. Existing survivor
+// vertices are Dirichlet boundary values; only NEW private vertices change.
+// Each disconnected patch is solved independently, so a painted cap cannot
+// tint another unpainted hole. This is a bounded harmonic extension, not
+// a nearest-surface guess across independent colliding sheets.
+void interpolateClosurePaint(
+    MutableMeshView& view,const MixedClosureStaging& staged,
+    const std::vector<VertexId>& inserted) {
+    if(inserted.empty())return;
+    const std::set<VertexId> newIds(inserted.begin(),inserted.end());
+    std::map<VertexId,std::set<VertexId>> adjacent;
+    for(const auto id:newIds)adjacent.emplace(id,std::set<VertexId>{});
+    for(const auto& face:staged.faces()) {
+        const auto triangle=face.triangle();
+        for(unsigned corner=0;corner<3;++corner) {
+            const auto a=triangle[corner];
+            const auto b=triangle[(corner+1)%3];
+            if(newIds.contains(a))adjacent.at(a).insert(b);
+            if(newIds.contains(b))adjacent.at(b).insert(a);
+        }
+    }
+    const auto& original=staged.sourceView()->source();
+    const auto& positions=staged.positions();
+    const auto channels=[](VertexRGBA color) {
+        return std::array<double,4>{color.r,color.g,color.b,color.a};
+    };
+    std::set<VertexId> visited;
+    for(const auto start:newIds) {
+        if(!visited.insert(start).second)continue;
+        std::vector<VertexId> component{start};
+        std::map<VertexId,std::array<double,4>> boundary;
+        for(std::size_t index=0;index<component.size();++index) {
+            for(const auto neighbor:adjacent.at(component[index])) {
+                if(newIds.contains(neighbor)) {
+                    if(visited.insert(neighbor).second)component.push_back(neighbor);
+                }else {
+                    if(!original.maybeVertex(neighbor))
+                        throw std::logic_error(
+                            "Closure paint lacks authoritative survivor colour");
+                    boundary.try_emplace(
+                        neighbor,channels(vertexColorAt(original,neighbor)));
+                }
+            }
+        }
+        if(boundary.empty())continue;
+        bool tinted=false;
+        for(const auto& [id,color]:boundary) {
+            (void)id;
+            if(color!=channels(VertexRGBA{})) {tinted=true;break;}
+        }
+        if(!tinted)continue; // Unpainted closure retains exact white defaults.
+        std::array<double,4> average{};
+        for(const auto& [id,color]:boundary) {
+            (void)id;
+            for(unsigned c=0;c<4;++c)average[c]+=color[c];
+        }
+        for(auto& c:average)c/=static_cast<double>(boundary.size());
+        std::map<VertexId,std::array<double,4>> values;
+        for(const auto id:component)values.emplace(id,average);
+        // Fixed iteration count bounds cost and produces deterministic
+        // results even on a large, irregular advancing-front patch.
+        constexpr unsigned sweeps=48;
+        for(unsigned sweep=0;sweep<sweeps;++sweep) {
+            auto next=values;
+            for(const auto id:component) {
+                std::array<double,4> total{};
+                double weightSum=0;
+                for(const auto other:adjacent.at(id)) {
+                    const double edgeLength=length(
+                        positions.at(id)-positions.at(other));
+                    if(!(edgeLength>0)||!std::isfinite(edgeLength))
+                        throw std::logic_error("Closure colour edge is degenerate");
+                    const double weight=1.0/edgeLength;
+                    const auto& color=newIds.contains(other)?
+                        values.at(other):boundary.at(other);
+                    for(unsigned c=0;c<4;++c)total[c]+=weight*color[c];
+                    weightSum+=weight;
+                }
+                if(!(weightSum>0))continue;
+                for(unsigned c=0;c<4;++c)
+                    next.at(id)[c]=std::clamp(total[c]/weightSum,0.0,1.0);
+            }
+            values.swap(next);
+        }
+        for(const auto id:component) {
+            const auto& value=values.at(id);
+            view.setVertexColor(staged.vertexOwner(id),id,
+                {static_cast<float>(value[0]),static_cast<float>(value[1]),
+                 static_cast<float>(value[2]),static_cast<float>(value[3])});
+        }
+    }
 }
 void validate(const MixedPrivateClosureLimits& settings) {
     if(!settings.maxInsertedVertices||!settings.maxNewFaces||
@@ -1040,6 +1134,9 @@ static MixedPrivateClosureResult applyPrivateMixedClosureOnce(
         // materialized in the same private patch and count against budget.
     }
     out.newFaces=applied.createdFaces.size();
+    // Source boundary colours remain immutable, while the completed
+    // advancing-front patch receives a bounded smooth colour extension.
+    interpolateClosurePaint(view,staged,out.insertedVertices);
     // New cap/zipper faces may share one nearly-full source face owner.
     // Prevent successful private AUTO from publishing a partition that
     // the NEXT RegionEdit stamp would reject as over capacity.
