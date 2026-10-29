@@ -1,6 +1,7 @@
 #include "mesher/brush.hpp"
 #include "mesher/brush_radius.hpp"
 #include "mesher/brush_radius_measure.hpp"
+#include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
 #include <array>
