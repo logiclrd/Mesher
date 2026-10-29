@@ -2509,6 +2509,7 @@ public:
                         refreshPartitions(prepared.index,dirty);
                         prepared.commit();
                         interaction_.radiusRange=prepared.radiusRange;
+                        interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
                         interaction_.radius=prepared.radius;
                         interaction_.paintSymmetric=prepared.symmetric;
                         mergeInput_.revisionChanged(displayedIndex_);

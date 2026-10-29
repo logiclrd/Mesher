@@ -744,13 +744,14 @@ int main(int argc, char** argv) {
                 }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
-            const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
+            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(
+                mesher::BrushRadiusRange::forVertexCount(options.vertexCount));
             const double requestedBrushRadius=brushRadius;
-            brushRadius=brushRange.clamp(brushRadius);
+            brushRadius=brushRange->clamp(brushRadius);
             if(brushRadius!=requestedBrushRadius)
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
-                         <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
+                         <<" (limits "<<brushRange->minimum<<"-"<<brushRange->maximum<<").\n";
             // The worker publishes immutable geometry/index pairs and dirty
             // face-owner partition IDs. The Vulkan renderer updates only
             // changed partitions; no flat compatibility conversion remains.
@@ -858,11 +859,13 @@ int main(int argc, char** argv) {
                 if(!liveWorker->canBegin()||status.active||
                    status.pendingSteps||status.pendingSegments||
                    status.inputCommands||status.checkpoints.busy||
-                   (repairSession&&repairSession->frozen()))
+                   repairSession||mergeTestTetra||mergeTestReflectedTetra)
                     throw std::runtime_error(
-                        "Open requires idle editor and completed Save As");
+                        "Open requires ordinary idle editor and completed Save As");
                 auto candidate=mesher::readMeshOpenCandidate(selected);
                 const auto count=candidate.vertexCount;
+                if(count>std::numeric_limits<std::uint32_t>::max())
+                    throw std::length_error("Imported mesh vertex count exceeds uint32");
                 const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
                 // No imported disk data can invent the authenticated
                 // FIRST-original authority of the previous session.
@@ -875,9 +878,10 @@ int main(int argc, char** argv) {
                     static_cast<std::uint32_t>(count));
                 const auto radius=range.clamp(brushRadius);
                 return {root,range,radius,mirrored,
-                    [&,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),count,radius,mirrored]() mutable {
+                    [&,brushRange,preparedWorker=std::move(preparedWorker),
+                     selected=std::move(selected),count,radius,mirrored,range]() mutable {
                         liveWorker=std::move(preparedWorker);
+                        *brushRange=range;
                         lastDisplayed=liveWorker->initialRevision();
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
@@ -957,18 +961,18 @@ int main(int argc, char** argv) {
             };
             interaction.paintBegin=[&] {liveWorker->beginPaintStroke();};
             interaction.paintEnd=[&] {liveWorker->endPaintStroke();};
-            interaction.paintNominalEdgeLength=brushRange.minimum;
+            interaction.paintNominalEdgeLength=brushRange->minimum;
             interaction.paintSymmetric=options.symmetric;
             interaction.paint=[&](const mesher::PaintDab& dab) {
                 if(repairSession&&repairSession->frozen())return;
                 liveWorker->paint(mesher::paintDabsWithMirror(
                     dab,options.symmetric));
             };
-            interaction.radiusRange=brushRange;
+            interaction.radiusRange=*brushRange;
             interaction.radius=brushRadius;
             interaction.verboseInput=verboseInput;
             interaction.setRadius=[&,brushRange](double radius) {
-                brushRadius=brushRange.clamp(radius);
+                brushRadius=brushRange->clamp(radius);
                 liveWorker->setRadius(brushRadius);
             };
             interaction.begin=[&](mesher::Vec3 point,bool inverted) {
@@ -1398,8 +1402,8 @@ int main(int argc, char** argv) {
                          <<"unsupported, stale, no-contact or unverified sources. "
                          <<"Regular startup without --merge-geometry remains unchanged.\n";
             std::cout<<"Mouse Inflate: LMB inflates, Alt+LMB deflates at 2/3 strength; radius slider "
-                     <<"in lower-left (min "<<brushRange.minimum<<", max "
-                     <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
+                     <<"in lower-left (min "<<brushRange->minimum<<", max "
+                     <<brushRange->maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
                      <<"Vulkan refreshes only dirty face partitions.\n"
                      <<"Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo, Ctrl+S "
