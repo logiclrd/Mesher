@@ -6,6 +6,25 @@
 #include <stdexcept>
 #include <string>
 
+// The accessory button is a real parser-selection control, and its choice
+// also updates Cocoa's visible-file filter as it changes.
+@interface MesherOpenFilterController : NSObject {
+@public
+    NSOpenPanel* panel;
+    UTType* checkpointType;
+    UTType* objType;
+}
+- (void)change:(id)sender;
+@end
+@implementation MesherOpenFilterController
+- (void)change:(id)sender {
+    const NSInteger index=[(NSPopUpButton*)sender indexOfSelectedItem];
+    if(index==0)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
+    else if(index==1)panel.allowedContentTypes=objType?@[objType]:@[];
+    else panel.allowedContentTypes=@[];
+}
+@end
+
 namespace mesher {
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
@@ -44,6 +63,73 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         const char* name=selected.fileSystemRepresentation;
         if(!name)throw std::runtime_error("Cannot retrieve macOS Save As path");
         return std::filesystem::path(name);
+    }
+}
+std::optional<NativeOpenSelection> nativeOpenMeshDialog(
+    GLFWwindow*,const std::filesystem::path& suggestion) {
+    @autoreleasepool {
+        NSOpenPanel* panel=[NSOpenPanel openPanel];
+        panel.title=@"Open Mesher mesh";
+        panel.prompt=@"Open";
+        panel.canChooseFiles=YES;
+        panel.canChooseDirectories=NO;
+        panel.allowsMultipleSelection=NO;
+        panel.allowsOtherFileTypes=NO;
+        // Accessory records the user's selection. The Open filter is not
+        // inferred from the returned URL or its extension.
+        NSPopUpButton* fileType=[[NSPopUpButton alloc] initWithFrame:
+            NSMakeRect(0,0,280,28) pullsDown:NO];
+        [fileType addItemsWithTitles:@[
+            @"Mesher mesh files (*.mshr)",@"Wavefront OBJ (*.obj)",
+            @"All Files (*)"]];
+        UTType* mshr=[UTType typeWithFilenameExtension:@"mshr"
+                                     conformingToType:UTTypeData];
+        UTType* obj=[UTType typeWithFilenameExtension:@"obj"
+                                    conformingToType:UTTypeData];
+        // Cocoa exposes the selected item, and the accessory controller
+        // updates the actual visible filter without using the filename
+        // extension as a parser hint. All Files clears the restriction.
+        MesherOpenFilterController* controller=
+            [[MesherOpenFilterController alloc] init];
+        controller->panel=panel;
+        controller->checkpointType=mshr;
+        controller->objType=obj;
+        [fileType setTarget:controller];
+        [fileType setAction:@selector(change:)];
+        panel.accessoryView=fileType;
+        [controller change:fileType];
+        if(!suggestion.parent_path().empty()) {
+            const auto absolute=std::filesystem::absolute(suggestion);
+            const auto directory=absolute.parent_path().string();
+            panel.directoryURL=[NSURL fileURLWithPath:
+                [NSString stringWithUTF8String:directory.c_str()]
+                isDirectory:YES];
+        }
+        const NSModalResponse response=[panel runModal];
+        [controller release];
+        if(response==NSModalResponseCancel)return std::nullopt;
+        if(response!=NSModalResponseOK)
+            throw std::runtime_error("macOS Open did not complete");
+        NSURL* selected=panel.URL;
+        if(!selected||!selected.isFileURL)
+            throw std::runtime_error("macOS Open returned a non-file URL");
+        const char* path=selected.fileSystemRepresentation;
+        if(!path)throw std::runtime_error("macOS Open path unavailable");
+        const auto index=fileType.indexOfSelectedItem;
+        const auto filter=index==0?MeshOpenFilter::MesherCheckpoint:
+                          index==1?MeshOpenFilter::WavefrontObj:MeshOpenFilter::AllFiles;
+        return NativeOpenSelection{std::filesystem::path(path),filter};
+    }
+}
+void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleCritical;
+        alert.messageText=@"Unable to open mesh";
+        NSString* detail=[NSString stringWithUTF8String:message.c_str()];
+        alert.informativeText=detail?detail:@"The selected file could not be read.";
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
     }
 }
 } // namespace mesher

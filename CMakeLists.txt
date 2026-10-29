@@ -32,7 +32,7 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-add_library(mesher_mesh STATIC src/mesh.cpp src/sculpt_fixtures.cpp src/brush.cpp src/async_sculpt.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp src/versioned_mesh.cpp src/mesh_partitioning.cpp src/region_edit.cpp src/region_index.cpp src/revision_picking.cpp src/triangle_collision.cpp src/repair_inspection.cpp src/repair_step_replay_session.cpp src/repair_case.cpp src/repair_preview.cpp src/repair_excision.cpp src/repair_zipper.cpp src/repair_zipper_front.cpp src/repair_cap.cpp src/repair_cap_spatial.cpp src/repair_mirror_geometry.cpp src/repair_survivors.cpp src/repair_enclosure.cpp src/repair_auto_plan.cpp src/repair_proximity_fitness.cpp src/repair_quality_flip.cpp src/repair_survivor_split.cpp src/repair_interior_fairing.cpp src/repair_interior_collapse.cpp src/repair_rim_quality.cpp src/repair_seam_audit.cpp src/repair_seam_provenance.cpp src/repair_mixed_stage.cpp src/repair_mixed_stage_edit.cpp src/repair_mixed_closure.cpp src/repair_auto_private.cpp src/offmode_collision.cpp src/offmode_clearance.cpp src/offmode_mirror.cpp src/repair_intersection.cpp src/repair_intersection_conform.cpp src/repair_intersection_arrange.cpp src/repair_intersection_mirror.cpp src/repair_intersection_commit.cpp src/repair_intersection_mirror_commit.cpp src/repair_intersection_classify.cpp src/repair_intersection_coverage.cpp src/repair_intersection_removal.cpp src/repair_intersection_uncut.cpp src/repair_intersection_surgery.cpp src/repair_intersection_join.cpp src/repair_intersection_step.cpp src/revision_winding.cpp src/repair_plan.cpp src/repair_closure.cpp src/repair_surgery.cpp src/repair_crossing.cpp src/repair_classified.cpp src/repair_fidelity.cpp src/repair_lifetime.cpp src/versioned_inflate.cpp src/versioned_refine.cpp src/versioned_collapse.cpp src/versioned_sculpt.cpp src/vertex_paint.cpp src/partition_render.cpp src/revision_retirement.cpp src/revision_history.cpp src/durable_checkpoint.cpp)
+add_library(mesher_mesh STATIC src/mesh.cpp src/sculpt_fixtures.cpp src/brush.cpp src/async_sculpt.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp src/versioned_mesh.cpp src/mesh_partitioning.cpp src/region_edit.cpp src/region_index.cpp src/revision_picking.cpp src/triangle_collision.cpp src/repair_inspection.cpp src/repair_step_replay_session.cpp src/repair_case.cpp src/repair_preview.cpp src/repair_excision.cpp src/repair_zipper.cpp src/repair_zipper_front.cpp src/repair_cap.cpp src/repair_cap_spatial.cpp src/repair_mirror_geometry.cpp src/repair_survivors.cpp src/repair_enclosure.cpp src/repair_auto_plan.cpp src/repair_proximity_fitness.cpp src/repair_quality_flip.cpp src/repair_survivor_split.cpp src/repair_interior_fairing.cpp src/repair_interior_collapse.cpp src/repair_rim_quality.cpp src/repair_seam_audit.cpp src/repair_seam_provenance.cpp src/repair_mixed_stage.cpp src/repair_mixed_stage_edit.cpp src/repair_mixed_closure.cpp src/repair_auto_private.cpp src/offmode_collision.cpp src/offmode_clearance.cpp src/offmode_mirror.cpp src/repair_intersection.cpp src/repair_intersection_conform.cpp src/repair_intersection_arrange.cpp src/repair_intersection_mirror.cpp src/repair_intersection_commit.cpp src/repair_intersection_mirror_commit.cpp src/repair_intersection_classify.cpp src/repair_intersection_coverage.cpp src/repair_intersection_removal.cpp src/repair_intersection_uncut.cpp src/repair_intersection_surgery.cpp src/repair_intersection_join.cpp src/repair_intersection_step.cpp src/revision_winding.cpp src/repair_plan.cpp src/repair_closure.cpp src/repair_surgery.cpp src/repair_crossing.cpp src/repair_classified.cpp src/repair_fidelity.cpp src/repair_lifetime.cpp src/versioned_inflate.cpp src/versioned_refine.cpp src/versioned_collapse.cpp src/versioned_sculpt.cpp src/vertex_paint.cpp src/mesh_open_candidate.cpp src/partition_render.cpp src/revision_retirement.cpp src/revision_history.cpp src/durable_checkpoint.cpp)
 target_include_directories(mesher_mesh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
 find_package(Threads REQUIRED)
@@ -122,8 +122,8 @@ if(MESHER_BUILD_VIEWPORT)
     else()
         add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
     endif()
-    # Native Save As is intentionally a desktop-only integration. CPU/CLI
-    # targets need no Cocoa, Shell COM, or Linux desktop services.
+    # Native file dialogs are desktop-only. The mesh library, CLI-only
+    # build and all CPU test targets do not depend on Qt, Cocoa or Shell COM.
     if(WIN32)
         target_sources(Mesher PRIVATE src/native_save_dialog_windows.cpp)
         target_link_libraries(Mesher PRIVATE ole32 shell32 uuid)
@@ -135,7 +135,38 @@ if(MESHER_BUILD_VIEWPORT)
         target_link_libraries(Mesher PRIVATE "-framework Cocoa"
             "-framework UniformTypeIdentifiers")
     else()
+        # Linux has no single system dialog ABI; Qt integrates with the
+        # user's available KDE/GTK/portal platform theme while returning
+        # the selected name filter in the same Open dialog.
+        find_package(Qt6 REQUIRED COMPONENTS Widgets)
         target_sources(Mesher PRIVATE src/native_save_dialog_linux.cpp)
+        target_link_libraries(Mesher PRIVATE Qt6::Widgets)
+        # An actual modal lifecycle regression runs under a virtual X11
+        # display when available; no Vulkan device or window manager is
+        # needed. Keep the Qt dependency strictly in desktop-only tests.
+        if(MESHER_BUILD_TESTS)
+            find_program(MESHER_XVFB_RUN xvfb-run)
+            if(MESHER_XVFB_RUN)
+                add_executable(mesher_qt_dialog_lifecycle_tests
+                    tests/linux_qt_dialog_lifecycle_tests.cpp
+                    src/native_save_dialog_linux.cpp)
+                target_include_directories(mesher_qt_dialog_lifecycle_tests
+                    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+                target_link_libraries(mesher_qt_dialog_lifecycle_tests
+                    PRIVATE Qt6::Widgets glfw)
+                add_test(NAME linux_qt_dialog_lifecycle
+                    COMMAND "${MESHER_XVFB_RUN}" -a
+                            $<TARGET_FILE:mesher_qt_dialog_lifecycle_tests>)
+                set_tests_properties(linux_qt_dialog_lifecycle
+                    PROPERTIES TIMEOUT 30)
+            endif()
+            add_test(NAME linux_qt_native_open_save_contract
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DLINUX_DIALOG_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/native_save_dialog_linux.cpp"
+                    "-DAPP_CMAKE_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+                    "-DVIEWPORT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/viewport.cpp"
+                    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_qt_native_dialog.cmake")
+        endif()
     endif()
     add_dependencies(Mesher mesher_shaders mesher_images)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)

@@ -6,6 +6,7 @@
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/mesh_open_candidate.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -725,7 +726,7 @@ int main(int argc, char** argv) {
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
-        std::unique_ptr<mesher::AsyncSculptWorker> liveWorker;
+        std::shared_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
         // The lambdas in ViewportInteraction outlive the setup block.
         std::shared_ptr<const mesher::RegionTopologyIndex> lastDisplayed;
@@ -743,18 +744,19 @@ int main(int argc, char** argv) {
                 }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
-            const auto brushRange=mesher::BrushRadiusRange::forVertexCount(options.vertexCount);
+            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(
+                mesher::BrushRadiusRange::forVertexCount(options.vertexCount));
             const double requestedBrushRadius=brushRadius;
-            brushRadius=brushRange.clamp(brushRadius);
+            brushRadius=brushRange->clamp(brushRadius);
             if(brushRadius!=requestedBrushRadius)
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
-                         <<" (limits "<<brushRange.minimum<<"-"<<brushRange.maximum<<").\n";
+                         <<" (limits "<<brushRange->minimum<<"-"<<brushRange->maximum<<").\n";
             // The worker publishes immutable geometry/index pairs and dirty
             // face-owner partition IDs. The Vulkan renderer updates only
             // changed partitions; no flat compatibility conversion remains.
             if(recovered)
-                liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                     std::move(*recovered),step,strength,timeSpeed,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
@@ -767,7 +769,7 @@ int main(int argc, char** argv) {
                     // original indexed root with exact stable reciprocal IDs.
                     auto source=mesher::desktopMergeReflectedFirstOriginal();
                     fixtureFirstFaces=source.firstFaces;
-                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                         std::move(source.checkpoint),step,strength,timeSpeed,
                         curvatureSettings,collapseSettings,refineSettings,
                         repairValidator,mergePolicy,
@@ -779,7 +781,7 @@ int main(int argc, char** argv) {
                     if(mergeTestTetra)
                         fixtureFirstFaces=mesher::partitionFlatMesh(mesh,256)
                                               .flatIndex.faceIds;
-                    liveWorker=std::make_unique<mesher::AsyncSculptWorker>(
+                    liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
                         mesh,step,strength,timeSpeed,curvatureSettings,
                         collapseSettings,refineSettings,options.symmetric,
                         repairValidator,mergePolicy);
@@ -847,6 +849,51 @@ int main(int argc, char** argv) {
             }
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
+            interaction.openSuggestedPath=[&] {return checkpointPath;};
+            interaction.prepareOpen=[&](mesher::NativeOpenSelection selectedFile)
+                -> mesher::PreparedMeshOpen {
+                // An independent in-memory candidate is prepared before
+                // touching the active editor. Checkpoint writer must not
+                // be discarded during an in-flight Save As.
+                const auto status=liveWorker->status();
+                if(!liveWorker->canBegin()||status.active||
+                   status.pendingSteps||status.pendingSegments||
+                   status.inputCommands||status.checkpoints.busy||
+                   repairSession||mergeTestTetra||mergeTestReflectedTetra)
+                    throw std::runtime_error(
+                        "Open requires ordinary idle editor and completed Save As");
+                auto selected=std::move(selectedFile.path);
+                auto candidate=mesher::readMeshOpenCandidate(
+                    selected,selectedFile.filter);
+                const auto count=candidate.vertexCount;
+                if(count>std::numeric_limits<std::uint32_t>::max())
+                    throw std::length_error("Imported mesh vertex count exceeds uint32");
+                const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
+                // No imported disk data can invent the authenticated
+                // FIRST-original authority of the previous session.
+                auto preparedWorker=std::make_shared<mesher::AsyncSculptWorker>(
+                    std::move(candidate.snapshot),step,strength,timeSpeed,
+                    curvatureSettings,collapseSettings,refineSettings,
+                    repairValidator,desktopPolicy);
+                const auto root=preparedWorker->initialRevision();
+                const auto range=mesher::BrushRadiusRange::forVertexCount(
+                    static_cast<std::uint32_t>(count));
+                const auto radius=range.clamp(brushRadius);
+                return {root,range,radius,mirrored,
+                    [&,brushRange,preparedWorker=std::move(preparedWorker),
+                     selected=std::move(selected),count,radius,mirrored,range]() mutable {
+                        liveWorker=std::move(preparedWorker);
+                        *brushRange=range;
+                        lastDisplayed=liveWorker->initialRevision();
+                        options.vertexCount=static_cast<std::uint32_t>(count);
+                        options.symmetric=mirrored;
+                        brushRadius=radius;
+                        // Opened OBJ is not a durable checkpoint. Save As
+                        // defaults to a new .mshr beside the imported OBJ.
+                        checkpointPath=std::move(selected);
+                        checkpointPath.replace_extension(".mshr");
+                    }};
+            };
             interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {
                 // Frozen R06 case capture is a completely different shortcut;
@@ -916,18 +963,18 @@ int main(int argc, char** argv) {
             };
             interaction.paintBegin=[&] {liveWorker->beginPaintStroke();};
             interaction.paintEnd=[&] {liveWorker->endPaintStroke();};
-            interaction.paintNominalEdgeLength=brushRange.minimum;
+            interaction.paintNominalEdgeLength=brushRange->minimum;
             interaction.paintSymmetric=options.symmetric;
             interaction.paint=[&](const mesher::PaintDab& dab) {
                 if(repairSession&&repairSession->frozen())return;
                 liveWorker->paint(mesher::paintDabsWithMirror(
                     dab,options.symmetric));
             };
-            interaction.radiusRange=brushRange;
+            interaction.radiusRange=*brushRange;
             interaction.radius=brushRadius;
             interaction.verboseInput=verboseInput;
             interaction.setRadius=[&,brushRange](double radius) {
-                brushRadius=brushRange.clamp(radius);
+                brushRadius=brushRange->clamp(radius);
                 liveWorker->setRadius(brushRadius);
             };
             interaction.begin=[&](mesher::Vec3 point,bool inverted) {
@@ -1357,8 +1404,8 @@ int main(int argc, char** argv) {
                          <<"unsupported, stale, no-contact or unverified sources. "
                          <<"Regular startup without --merge-geometry remains unchanged.\n";
             std::cout<<"Mouse Inflate: LMB inflates, Alt+LMB deflates at 2/3 strength; radius slider "
-                     <<"in lower-left (min "<<brushRange.minimum<<", max "
-                     <<brushRange.maximum<<", initial "<<brushRadius<<").\n";
+                     <<"in lower-left (min "<<brushRange->minimum<<", max "
+                     <<brushRange->maximum<<", initial "<<brushRadius<<").\n";
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
                      <<"Vulkan refreshes only dirty face partitions.\n"
                      <<"Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo, Ctrl+S "

@@ -583,6 +583,7 @@ class VulkanViewport {
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
+    bool openWasDown_=false;
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
     DesktopMergeKeyEdges mergeKeys_;
@@ -2346,6 +2347,12 @@ public:
         }
         if(surface)vkDestroySurfaceKHR(instance,surface,nullptr);
         if(instance)vkDestroyInstance(instance,nullptr);
+#ifdef __linux__
+        // Qt was lazily initialized by the first file dialog. Tear down
+        // its event dispatcher/QPA while the original GLFW X11 window
+        // and display still exist, rather than at static process exit.
+        shutdownNativeDialogs();
+#endif
         if(window)glfwDestroyWindow(window);
 #ifdef MESHER_X11_WM_FULLSCREEN
         // Only when Escape exits the viewport. Let the WM decide whether to
@@ -2393,6 +2400,7 @@ public:
             const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
             const bool y=justPressed(GLFW_KEY_Y,redoWasDown_);
             const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
+            const bool open=justPressed(GLFW_KEY_O,openWasDown_);
             // Deliberate solid-only visual diagnostic. This does not edit
             // source triangles, select FaceIds or affect history.
             if(justPressed(GLFW_KEY_W,wireKeyWasDown_)) {
@@ -2472,6 +2480,57 @@ public:
                 }catch(const std::exception& error) {
                     std::cerr<<"[checkpoint] Save As failed; no write queued: "
                              <<error.what()<<"\n";
+                }
+            }
+            // UX06: prepare a complete private indexed source and worker,
+            // then rebuild both old+new partition owners before committing
+            // the worker swap. A cancelled or invalid import touches no
+            // existing session state, picking, history or GPU buffers.
+            if(shortcut&&open&&!inspectionFrozen_&&!sculpting_&&!painting_&&
+               !radiusDragging_&&!orbitDragging_&&!mergeInput_.enabled()&&
+               !interaction_.repairStepMode&&interaction_.prepareOpen&&
+               (!interaction_.canBegin||interaction_.canBegin())) {
+                try {
+                    const auto suggestion=interaction_.openSuggestedPath?
+                        interaction_.openSuggestedPath():
+                        std::filesystem::path("mesher-checkpoint.mshr");
+                    const auto choice=nativeOpenMeshDialog(window,suggestion);
+                    if(choice) {
+                        auto prepared=interaction_.prepareOpen(*choice);
+                        if(!prepared.index||!prepared.commit)
+                            throw std::runtime_error("Open produced no valid source");
+                        std::set<PartitionId> owners;
+                        if(displayedIndex_)
+                            displayedIndex_->revision().forEachPartition(
+                                [&](PartitionId id,const MeshPartition&) {
+                                    owners.insert(id);
+                                });
+                        prepared.index->revision().forEachPartition(
+                            [&](PartitionId id,const MeshPartition&) {
+                                owners.insert(id);
+                            });
+                        const std::vector<PartitionId> dirty(
+                            owners.begin(),owners.end());
+                        clearPaintPreview();
+                        refreshPartitions(prepared.index,dirty);
+                        prepared.commit();
+                        interaction_.radiusRange=prepared.radiusRange;
+                        interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
+                        interaction_.radius=prepared.radius;
+                        interaction_.paintSymmetric=prepared.symmetric;
+                        mergeInput_.revisionChanged(displayedIndex_);
+                        oneShotAwaitingDisplay_=false;
+                        displayedStamps_=0;
+                        waitingForDrain_=false;
+                        refreshHud();
+                        updateTitle();
+                        std::cout<<"[open] loaded "<<choice->path.string()
+                                 <<" full_rebind_owners="<<dirty.size()<<"\n";
+                    }else std::cout<<"[open] cancelled; session unchanged\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[open] refused; current session retained: "
+                             <<error.what()<<"\n";
+                    nativeOpenErrorMessage(window,error.what());
                 }
             }
             if(!shortcut)updateMergeKeyboard();

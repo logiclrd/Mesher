@@ -1,138 +1,255 @@
 #include "mesher/native_save_dialog.hpp"
 
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
-#include <stdexcept>
-#include <spawn.h>
-#include <string>
-#include <string_view>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <vector>
+#include <QApplication>
+#include <QDialog>
+#include <QDir>
+#include <QGuiApplication>
+#include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QPoint>
+#include <QRect>
+#include <QScreen>
+#include <QString>
+#include <QStringList>
+#include <QTimer>
+#include <QWindow>
 
-extern "C" char** environ;
+#include <algorithm>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+
+// GLFW's native X11 API declares XRandR types (RRCrtc/RROutput).
+// Do not define GLFW_NATIVE_INCLUDE_NONE here: glfw3native.h must pull
+// in both Xlib.h and Xrandr.h before exposing its X11 function prototypes.
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
 
 namespace mesher {
 namespace {
-
-bool executableOnPath(const std::string& command) {
-    const char* environment=std::getenv("PATH");
-    if(!environment)return false;
-    std::string_view path(environment);
-    while(true) {
-        const auto colon=path.find(':');
-        const auto directory=path.substr(0,colon);
-        const auto candidate=
-            std::filesystem::path(directory.empty()?".":std::string(directory))/
-            command;
-        if(access(candidate.c_str(),X_OK)==0)return true;
-        if(colon==std::string_view::npos)break;
-        path.remove_prefix(colon+1);
+// GLFW owns the application window and remains the primary event loop.
+// Qt is initialized only when the first modal dialog is needed. Its
+// QApplication must be destroyed BEFORE glfwDestroyWindow/glfwTerminate;
+// otherwise its static destructor would run at process exit after the GLFW
+// X11 display and windows had already been torn down.
+struct QtLifetime {
+    int argc=1;
+    char name[7]="Mesher";
+    char* argv[2]={name,nullptr};
+    std::unique_ptr<QApplication> application;
+    bool shutdown=false;
+};
+QtLifetime& qtLifetime() {
+    static QtLifetime state;
+    return state;
+}
+QApplication& desktopQt() {
+    auto& state=qtLifetime();
+    if(state.shutdown)
+        throw std::runtime_error("Qt dialogs used after native dialog shutdown");
+    if(!state.application) {
+        state.application=std::make_unique<QApplication>(state.argc,state.argv);
+        state.application->setApplicationName(QStringLiteral("Mesher"));
+        state.application->setQuitOnLastWindowClosed(false);
     }
-    return false;
+    // Never overwrite a user's QT_QPA_PLATFORMTHEME or platform choice.
+    return *state.application;
 }
 
-std::optional<std::filesystem::path> runPicker(
-    const std::vector<std::string>& command) {
-    int fds[2]{};
-    if(pipe(fds)<0)throw std::runtime_error(
-        std::string("Cannot open native dialog output pipe: ")+std::strerror(errno));
-    // The sculpt and checkpoint workers are live. posix_spawnp, unlike
-    // fork followed by allocations in the child, does not expose the
-    // multithreaded parent to unsafe post-fork C++ operations.
-    posix_spawn_file_actions_t actions{};
-    const int init=posix_spawn_file_actions_init(&actions);
-    if(init!=0) {
-        close(fds[0]);close(fds[1]);
-        throw std::runtime_error("Cannot initialize Save As process actions");
-    }
-    const int dup=posix_spawn_file_actions_adddup2(&actions,fds[1],STDOUT_FILENO);
-    const int readClose=posix_spawn_file_actions_addclose(&actions,fds[0]);
-    const int writeClose=posix_spawn_file_actions_addclose(&actions,fds[1]);
-    if(dup!=0||readClose!=0||writeClose!=0) {
-        posix_spawn_file_actions_destroy(&actions);
-        close(fds[0]);close(fds[1]);
-        throw std::runtime_error("Cannot redirect native dialog output");
-    }
-    std::vector<char*> argv;
-    for(const auto& word:command)
-        argv.push_back(const_cast<char*>(word.c_str()));
-    argv.push_back(nullptr);
-    pid_t pid=-1;
-    const int launched=posix_spawnp(&pid,argv[0],&actions,nullptr,
-                                   argv.data(),environ);
-    posix_spawn_file_actions_destroy(&actions);
-    close(fds[1]);
-    if(launched!=0) {
-        close(fds[0]);
-        throw std::runtime_error("Cannot launch native save dialog: "+
-                                 std::string(std::strerror(launched)));
-    }
-    std::string result;
-    char buffer[4096];
-    while(true) {
-        const auto n=read(fds[0],buffer,sizeof(buffer));
-        if(n>0)result.append(buffer,static_cast<std::size_t>(n));
-        else if(n==0)break;
-        else if(errno!=EINTR)break;
-    }
-    close(fds[0]);
-    int status=0;
-    while(waitpid(pid,&status,0)<0) {
-        if(errno!=EINTR)throw std::runtime_error("Cannot collect save dialog result");
-    }
-    if(!WIFEXITED(status))
-        throw std::runtime_error("Native Save As dialog terminated abnormally");
-    const int code=WEXITSTATUS(status);
-    if(code==1)return std::nullopt; // User cancelled or closed the dialog.
-    if(code!=0)throw std::runtime_error(
-        "Native Save As dialog failed (exit "+std::to_string(code)+")");
-    if(!result.empty()&&result.back()=='\n')result.pop_back();
-    if(result.empty())throw std::runtime_error("Native dialog returned no filename");
-    return std::filesystem::path(result);
+QString asQString(const std::filesystem::path& path) {
+    const auto utf8=path.string();
+    return QString::fromUtf8(utf8.data(),static_cast<qsizetype>(utf8.size()));
 }
-
-} // namespace
-
-std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
-    GLFWwindow*,const std::filesystem::path& suggestion) {
-    // GUI launchers may start Mesher in a read-only bundle directory.
-    // For a bare filename, use the user's Documents (or home) folder;
-    // an explicit --checkpoint directory and a previously chosen path win.
-    std::filesystem::path initialPath=suggestion;
-    if(suggestion.parent_path().empty()) {
-        if(const char* home=std::getenv("HOME");home&&*home) {
-            const std::filesystem::path homePath(home);
-            const auto documents=homePath/"Documents";
-            initialPath=(std::filesystem::is_directory(documents)?
-                         documents:homePath)/suggestion.filename();
+std::filesystem::path asPath(const QString& name) {
+    // On Linux Qt paths are UTF-8; retain exact bytes and don't rely on
+    // the user's current C locale during a filesystem path conversion.
+    const auto utf8=name.toUtf8();
+    return std::filesystem::path(
+        std::string(utf8.constData(),static_cast<std::size_t>(utf8.size())));
+}
+std::filesystem::path suggestedDesktopPath(
+    const std::filesystem::path& suggestion) {
+    if(!suggestion.parent_path().empty())
+        return std::filesystem::absolute(suggestion);
+    const QString documents=QDir::home().filePath(QStringLiteral("Documents"));
+    const auto folder=QDir(documents).exists()?asPath(documents):
+                      asPath(QDir::homePath());
+    return folder/suggestion.filename();
+}
+void setInitialFile(QFileDialog& dialog,const std::filesystem::path& file) {
+    const auto absolute=suggestedDesktopPath(file);
+    dialog.setDirectory(asQString(absolute.parent_path()));
+    if(!absolute.filename().empty())
+        dialog.selectFile(asQString(absolute.filename()));
+}
+// Platform helpers may hide the final wildcard group from the UI. The
+// description repeats it so users still see the extension in the label.
+constexpr const char* checkpointFilter="Mesher mesh files (*.mshr) (*.mshr)";
+constexpr const char* objFilter="Wavefront OBJ (*.obj) (*.obj)";
+constexpr const char* allFilter="All Files (*)";
+// Qt has no QWidget ownership of Mesher's GLFW window. On X11/XWayland,
+// represent the GLFW XID as a non-owning QWindow, and make each modal
+// dialog transient for it (NOT an embedded child via setParent).
+class ScopedGlfwDialogOwner {
+public:
+    explicit ScopedGlfwDialogOwner(GLFWwindow* owner):owner_(owner) {
+        if(!owner_||QGuiApplication::platformName()!=QStringLiteral("xcb"))
+            return;
+        const Window xid=glfwGetX11Window(owner_);
+        if(xid)foreign_.reset(QWindow::fromWinId(static_cast<WId>(xid)));
+    }
+    ScopedGlfwDialogOwner(const ScopedGlfwDialogOwner&)=delete;
+    ScopedGlfwDialogOwner& operator=(const ScopedGlfwDialogOwner&)=delete;
+    void attach(QDialog& dialog) {
+        if(!foreign_)return; // Native Wayland cannot wrap GLFW X11 IDs.
+        // A foreign-window transient relationship does not provide Qt
+        // with the GLFW window's desktop geometry. On multi-monitor X11,
+        // Qt may otherwise choose its own primary screen for the picker.
+        int x=0,y=0,width=0,height=0;
+        glfwGetWindowPos(owner_,&x,&y);
+        glfwGetWindowSize(owner_,&width,&height);
+        if(width<=0||height<=0)return;
+        const QPoint center(x+width/2,y+height/2);
+        QScreen* screen=QGuiApplication::screenAt(center);
+        if(!screen)screen=foreign_->screen();
+        (void)dialog.winId();
+        if(auto* handle=dialog.windowHandle()) {
+            // setScreen can recreate a Qt native window: do it BEFORE
+            // setting its transient parent, never the other way around.
+            if(screen&&handle->screen()!=screen)handle->setScreen(screen);
+            handle->setTransientParent(foreign_.get());
+        }
+        if(screen) {
+            // Explicit placement is needed even when the X11 WM knows
+            // the transient parent: QFileDialog has no QWidget parent.
+            const QRect available=screen->availableGeometry();
+            if(available.isValid()) {
+                const QSize desired=dialog.sizeHint().expandedTo(
+                    QSize(540,360)).boundedTo(available.size());
+                dialog.resize(desired);
+                const int left=std::clamp(center.x()-desired.width()/2,
+                    available.left(),available.right()-desired.width()+1);
+                const int top=std::clamp(center.y()-desired.height()/2,
+                    available.top(),available.bottom()-desired.height()+1);
+                dialog.move(left,top);
+                // With the Qt-owned widget dialog, a window manager may
+                // still apply placement at map time. Move once more as
+                // the modal event loop starts, after the top-level window
+                // exists and the window manager has had its first chance
+                // to position it. The dialog remains on the GLFW screen.
+                QTimer::singleShot(0,&dialog,[&dialog,left,top] {
+                    dialog.move(left,top);
+                });
+            }
         }
     }
-    const auto initial=std::filesystem::absolute(initialPath).string();
-    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
-    const std::string_view environment=desktop?desktop:"";
-    const bool kde=environment.find("KDE")!=std::string_view::npos;
-    const bool haveKdialog=executableOnPath("kdialog");
-    const bool haveZenity=executableOnPath("zenity");
-    // kdialog is native on Plasma, Zenity gives a native GTK chooser on
-    // other desktops. No shell expansion or interpolation of filenames.
-    if(kde&&haveKdialog)
-        return runPicker({"kdialog","--title","Save Mesher checkpoint",
-                          "--getsavefilename",initial,
-                          "Mesher checkpoints (*.mshr)"});
-    if(haveZenity)
-        return runPicker({"zenity","--file-selection","--save",
-                          "--confirm-overwrite","--title=Save Mesher checkpoint",
-                          "--filename="+initial,
-                          "--file-filter=Mesher checkpoints | *.mshr"});
-    if(haveKdialog)
-        return runPicker({"kdialog","--title","Save Mesher checkpoint",
-                          "--getsavefilename",initial,
-                          "Mesher checkpoints (*.mshr)"});
-    throw std::runtime_error(
-        "No desktop Save As provider installed (install kdialog or zenity)");
+    ~ScopedGlfwDialogOwner() {
+        if(owner_)glfwFocusWindow(owner_);
+    }
+private:
+    GLFWwindow* owner_{};
+    std::unique_ptr<QWindow> foreign_;
+};
+} // namespace
+
+void initializeNativeDialogs() {
+    (void)desktopQt();
+}
+void shutdownNativeDialogs() noexcept {
+    auto& state=qtLifetime();
+    if(state.shutdown)return;
+    state.shutdown=true;
+    // Every QFileDialog, QMessageBox and foreign QWindow wrapper has left
+    // scope before the viewport invokes this. Qt's XCB/GTK event handlers
+    // must be torn down while GLFW's X11 display is still alive.
+    state.application.reset();
+}
+
+std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QFileDialog dialog;
+    // The QPA/native platform helper is free to place its OWN popup
+    // on the primary display and ignore geometry on this QFileDialog.
+    // Use Qt's actual widget-backed window so screen, transient parent
+    // and post-map placement refer to the same visible top-level.
+    // Must be set before other QFileDialog properties or showing it.
+    dialog.setOption(QFileDialog::DontUseNativeDialog,true);
+    // Both native helpers and the fallback Qt widget dialog display only
+    // the description. It already contains the visible extension; the
+    // final wildcard group remains reserved for actual filtering.
+    dialog.setOption(QFileDialog::HideNameFilterDetails,true);
+    dialog.setWindowTitle(QStringLiteral("Save Mesher checkpoint"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setNameFilters({QString::fromUtf8(checkpointFilter)});
+    dialog.setDefaultSuffix(QStringLiteral("mshr"));
+    dialog.setOption(QFileDialog::DontConfirmOverwrite,false);
+    setInitialFile(dialog,suggestion);
+    parent.attach(dialog);
+    if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
+    const auto names=dialog.selectedFiles();
+    if(names.size()!=1||names.front().isEmpty())
+        throw std::runtime_error("Qt Save As did not return a filename");
+    return asPath(names.front());
+}
+std::optional<NativeOpenSelection> nativeOpenMeshDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QFileDialog dialog;
+    // The QPA/native platform helper is free to place its OWN popup
+    // on the primary display and ignore geometry on this QFileDialog.
+    // Use Qt's actual widget-backed window so screen, transient parent
+    // and post-map placement refer to the same visible top-level.
+    // Must be set before other QFileDialog properties or showing it.
+    dialog.setOption(QFileDialog::DontUseNativeDialog,true);
+    // Both native helpers and the fallback Qt widget dialog display only
+    // the description. It already contains the visible extension; the
+    // final wildcard group remains reserved for actual filtering.
+    dialog.setOption(QFileDialog::HideNameFilterDetails,true);
+    dialog.setWindowTitle(QStringLiteral("Open Mesher mesh"));
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+    dialog.setFileMode(QFileDialog::ExistingFile);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setNameFilters({QString::fromUtf8(checkpointFilter),
+                           QString::fromUtf8(objFilter),
+                           QString::fromUtf8(allFilter)});
+    dialog.selectNameFilter(QString::fromUtf8(checkpointFilter));
+    setInitialFile(dialog,suggestion);
+    parent.attach(dialog);
+    if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
+    const auto names=dialog.selectedFiles();
+    if(names.size()!=1||names.front().isEmpty())
+        throw std::runtime_error("Qt Open did not return a filename");
+    const QString chosen=dialog.selectedNameFilter();
+    // The filter is an actual part of the QFileDialog result, NOT inferred
+    // from the extension. Unexpected/empty results fail closed.
+    const auto filter=chosen==QString::fromUtf8(checkpointFilter)?
+        MeshOpenFilter::MesherCheckpoint:
+        chosen==QString::fromUtf8(objFilter)?MeshOpenFilter::WavefrontObj:
+        chosen==QString::fromUtf8(allFilter)?MeshOpenFilter::AllFiles:
+        throw std::runtime_error("Qt Open returned an unknown file-type filter");
+    return NativeOpenSelection{asPath(names.front()),filter};
+}
+void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Critical,
+        QStringLiteral("Mesher — Open failed"),
+        QString::fromUtf8(message.data(),
+                          static_cast<qsizetype>(message.size())),
+        QMessageBox::Ok);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    (void)dialog.exec();
 }
 } // namespace mesher
