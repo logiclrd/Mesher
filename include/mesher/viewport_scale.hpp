@@ -139,8 +139,12 @@ inline ViewportClipRange viewportClipRange(Vec3 eye,Vec3 sceneCenter,
     // Clip adapts after dolly and zoom, including when the camera goes
     // inside a very large surface. Keep the front of the bounding sphere.
     const double front=distance-radius*1.05;
+    // A camera tracking a surface at enormous display scale can be
+    // millimetres from that surface while the bounding sphere centre
+    // is millions of display units away. Centre-distance-based near
+    // clipping would amputate the selected point during zoom.
     const double near=front>0?std::clamp(front*.1,1e-4,1e8):
-                                std::max(1e-4,distance*1e-5);
+                                std::max(1e-4,std::min(0.01,distance*1e-5));
     const double far=std::max({100.0,distance+radius*1.5+10.0,near*10.0});
     return {near,far};
 }

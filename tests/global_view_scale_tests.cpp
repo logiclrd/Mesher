@@ -160,6 +160,10 @@ void testClipping() {
     const auto inside=viewportClipRange({0,0,0},{0,0,0},500);
     require(inside.nearPlane>0&&inside.farPlane>500,
             "Camera inside enlarged model can still draw exterior depth");
+    const auto enormous=viewportClipRange({0,0,1.0e7},{0,0,0},1.1e7);
+    require(enormous.nearPlane<=0.01&&enormous.farPlane>2.0e7,
+            "When tracking a nearby surface on a huge model the near plane"
+            " must not grow with the centre distance");
 }
 }
 int main() {
