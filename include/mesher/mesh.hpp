@@ -21,8 +21,10 @@ double length(Vec3 v);
 Vec3 normalized(Vec3 v);
 
 // Linear, unpremultiplied RGBA. White is the default for unpainted meshes.
-struct VertexRGBA { float r=1.f,g=1.f,b=1.f,a=1.f; };
-constexpr bool operator==(VertexRGBA,VertexRGBA)=default;
+struct VertexRGBA {
+    float r=1.f,g=1.f,b=1.f,a=1.f;
+    constexpr bool operator==(const VertexRGBA&) const = default;
+};
 struct Triangle { std::uint32_t a{}, b{}, c{}; };
 struct Mesh {
     std::vector<Vec3> vertices;
