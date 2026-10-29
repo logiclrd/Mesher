@@ -54,10 +54,8 @@ OffModeMirrorAudit auditOffModeMirrors(
     try {
         if(fullSource) {
             root->revision().forEachPartition([&](PartitionId,const MeshPartition& p) {
-                for(const auto& [id,v]:p.vertices) {
-                    (void)v;
-                    addVertex(id);
-                }
+                for(const auto& v:p.vertices)
+                    addVertex(v.id);
                 for(const auto& [id,f]:p.faces) {
                     (void)f;
                     addFace(id);
