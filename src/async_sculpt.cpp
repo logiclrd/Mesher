@@ -57,7 +57,12 @@ AsyncSculptWorker::AsyncSculptWorker(
     }
 }
 AsyncSculptWorker::~AsyncSculptWorker() {
-    worker_.request_stop();
+    // Publish cancellation under the same lock guarding the wait
+    // predicate. Otherwise an idle worker can miss the notification.
+    {
+        std::lock_guard lock(commandsMutex_);
+        worker_.request_stop();
+    }
     ready_.notify_all();
     worker_.join();
 }
@@ -283,7 +288,9 @@ void AsyncSculptWorker::run(StopToken token) {
             {
                 std::unique_lock lock(commandsMutex_);
                 if(commands_.empty() && stroke_.pendingSamples()==0)
-                    ready_.wait(lock,token,[&]{return !commands_.empty();});
+                    ready_.wait(lock,[&]{
+                        return token.stop_requested()||!commands_.empty();
+                    });
                 if(token.stop_requested())break;
                 if(!commands_.empty()) {
                     command=commands_.front();
