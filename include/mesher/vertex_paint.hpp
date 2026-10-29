@@ -23,6 +23,8 @@ struct PaintDabResult {
     std::vector<PartitionId> dirtyPartitions;
     std::size_t copiedPayloadBytes{};
 };
+// Current immutable colour at the stable ID, obtained from its owner partition.
+VertexRGBA vertexColorAt(const RegionTopologyIndex& source,VertexId id);
 // At most maxVertices candidates and maxRayTriangles primitive tests.
 // Any exhaustion throws before publishing ANY colour change.
 PaintDabResult applyVertexPaintDabs(
