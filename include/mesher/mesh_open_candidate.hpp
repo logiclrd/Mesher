@@ -17,7 +17,12 @@ struct MeshOpenCandidate {
     MeshOpenFormat format{};
     std::size_t vertexCount{},faceCount{};
     bool hasVertexColors{};
+    // >=1.5% alpha byte span needs explicit interpretation by the user.
+    // Until then, RGB remains visible with opaque mesh alpha.
+    bool alphaDecisionRequired{};
+    float sourceAlphaMinimum=1.f,sourceAlphaMaximum=1.f;
 };
+void applyPlySourceAlphaAsOpacity(MeshOpenCandidate& candidate);
 MeshOpenCandidate readMeshOpenCandidate(
     const std::filesystem::path& path,
     MeshOpenFilter selectedFilter=MeshOpenFilter::AllFiles);

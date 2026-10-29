@@ -248,6 +248,24 @@ MeshOpenCandidate readMeshOpenCandidate(
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
+        if(format==MeshOpenFilter::StanfordPly) {
+            bool anySource=false;
+            for(const auto& color:mesh.colors) {
+                if(!color.sourceAlpha)continue;
+                if(!anySource) {
+                    candidate.sourceAlphaMinimum=*color.sourceAlpha;
+                    candidate.sourceAlphaMaximum=*color.sourceAlpha;
+                    anySource=true;
+                }else {
+                    candidate.sourceAlphaMinimum=std::min(
+                        candidate.sourceAlphaMinimum,*color.sourceAlpha);
+                    candidate.sourceAlphaMaximum=std::max(
+                        candidate.sourceAlphaMaximum,*color.sourceAlpha);
+                }
+            }
+            candidate.alphaDecisionRequired=anySource&&
+                (candidate.sourceAlphaMaximum-candidate.sourceAlphaMinimum)>=0.015f;
+        }
         auto parts=partitionFlatMesh(mesh,256);
         candidate.snapshot=DurableCheckpoint{
             RegionTopologyIndex::build(std::move(parts.revision)),
@@ -269,5 +287,24 @@ MeshOpenCandidate readMeshOpenCandidate(
     if(candidate.vertexCount<4||candidate.faceCount<4)
         throw std::runtime_error("Candidate import has no editable closed surface");
     return candidate;
+}
+void applyPlySourceAlphaAsOpacity(MeshOpenCandidate& candidate) {
+    if(candidate.format!=MeshOpenFormat::StanfordPly||
+       !candidate.alphaDecisionRequired||!candidate.snapshot.index)
+        throw std::invalid_argument("PLY alpha interpretation is unavailable");
+    const auto previous=candidate.snapshot.index;
+    auto view=previous->revision().createMutableView();
+    previous->revision().forEachPartition(
+        [&](PartitionId id,const MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                if(!vertex.color.sourceAlpha)
+                    throw std::logic_error("PLY source alpha is incomplete");
+                auto color=vertex.color;
+                color.a=*color.sourceAlpha;
+                view.setVertexColor(id,vertex.id,color);
+            }
+        });
+    candidate.snapshot.index=RegionTopologyIndex::withVertexColors(
+        *previous,view.commit().revision);
 }
 } // namespace mesher

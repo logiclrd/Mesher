@@ -248,6 +248,8 @@ Mesh readBody(std::istream& input,const Header& header) {
         return false;
     }();
     if(withColors)mesh.colors.reserve(vertex.count);
+    bool withAlpha=false;
+    for(const auto& p:vertex.properties)if(p.name=="alpha")withAlpha=true;
     const auto record=[&](const Element& element,auto&& process) {
         for(std::size_t n=0;n<element.count;++n) {
             std::istringstream line;
@@ -280,12 +282,15 @@ Mesh readBody(std::istream& input,const Header& header) {
             else if(p.name=="alpha")channels[3]=value;
         }
         mesh.vertices.push_back(point);
-        if(withColors)
-            mesh.colors.push_back({
+        if(withColors) {
+            VertexRGBA color{
                 static_cast<float>(channels[0]/255.0),
                 static_cast<float>(channels[1]/255.0),
-                static_cast<float>(channels[2]/255.0),
-                static_cast<float>(channels[3]/255.0)});
+                static_cast<float>(channels[2]/255.0),1.f};
+            if(withAlpha)
+                color.sourceAlpha=static_cast<float>(channels[3]/255.0);
+            mesh.colors.push_back(color);
+        }
     });
     record(face,[&](std::istream& source) {
         Triangle triangle{};
