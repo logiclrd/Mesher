@@ -221,6 +221,17 @@ MeshOpenCandidate readMeshOpenCandidate(
         classifyMeshOpenFile(path):selectedFilter;
     MeshOpenCandidate candidate;
     if(format==MeshOpenFilter::MesherCheckpoint) {
+        // Preserve the explicit selected parser, but give a known foreign
+        // Mesher archive a useful error instead of an opaque magic failure.
+        std::ifstream probe(path,std::ios::binary);
+        std::array<char,8> signature{};
+        probe.read(signature.data(),static_cast<std::streamsize>(
+            signature.size()));
+        if(probe.gcount()==static_cast<std::streamsize>(signature.size())&&
+           std::string_view(signature.data(),signature.size())=="MSHRCAS1")
+            throw std::runtime_error(
+                "This file is an R06 repair-case archive (.r06case), "
+                "not an editable .mshr checkpoint. Use --repair-replay.");
         candidate.snapshot=readCheckpoint(path);
         candidate.format=MeshOpenFormat::Checkpoint;
     }else if(format==MeshOpenFilter::WavefrontObj) {

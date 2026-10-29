@@ -137,9 +137,14 @@ void testPrivateMeshOpenCandidates() {
     }
     refuseWith(repairArchive,MeshOpenFilter::AllFiles,"repair-case archive");
     refuseWith(repairArchive,MeshOpenFilter::MesherCheckpoint,
-               "Unsupported checkpoint magic/version");
+               "repair-case archive");
     refuseWith(put("bad_header.dat","garbage contents"),
                MeshOpenFilter::AllFiles,"Unrecognized mesh file header");
+    refuseWith(put("bad_contents.mshr","MESHRV12"),
+               MeshOpenFilter::AllFiles,"Checkpoint");
+    check(readMeshOpenCandidate(put("actually.mshr",tetra),
+              MeshOpenFilter::AllFiles).format==MeshOpenFormat::WavefrontObj,
+          "All Files must ignore a false .mshr extension");
     check(candidate.snapshot.index==oldRoot,
           "All forced and automatically detected failures leave root intact");
     check(candidate.snapshot.index==oldRoot,

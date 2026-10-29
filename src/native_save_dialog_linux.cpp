@@ -204,7 +204,7 @@ void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
             (void)runPicker({"kdialog","--title","Mesher — Open failed",
                              "--error",message},true);
         }else if(executableOnPath("zenity"))
-            (void)runPicker({"zenity","--error",
+            (void)runPicker({"zenity","--error","--no-markup",
                              "--title=Mesher — Open failed",
                              "--text="+message},true);
     }catch(const std::exception&) {

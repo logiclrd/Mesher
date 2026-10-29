@@ -23,7 +23,25 @@ The initial **Ctrl+O** path now selects a supported file through the
 native OS picker (Shell, Cocoa, kdialog or zenity), prepares its immutable
 candidate and replacement worker, and rebinds all old/new render partitions
 before changing the live worker. Cancellation and validation failures
-leave the old worker/picking/history intact. Imported OBJ changes the
+leave the old worker/picking/history intact, and failures show a native
+error dialog rather than appearing only in the console.
+
+The explicit Open filter is authoritative **regardless of filename**:
+`Mesher mesh files (*.mshr)` invokes the checksummed checkpoint parser;
+`Wavefront OBJ (*.obj)` invokes the OBJ parser; `All Files` detects
+`MESHRV12` magic or plausible OBJ record headers before invoking a
+strict parser. `MSHRCAS1` belongs to a distinct R06 replay archive
+(`.r06case`) and is explicitly identified and refused for interactive
+mesh editing, with `--repair-replay` guidance. Unknown headers or
+corrupt contents are refused; there is no extension-based fallback.
+
+Windows and macOS carry the actual filter selection from the Open panel;
+macOS uses a native accessory to update the visible filters. kdialog and
+zenity CLI tools cannot report their selected filter, so Linux currently
+uses a native file-type selection dialog followed by a native filtered
+file picker, without guessing based on the extension.
+
+Imported OBJ changes the
 new Save As default to its .mshr sibling; restored checkpoints preserve
 their checkpoint destination. The new source owns a fresh undo history,
 with no attempt to splice unrelated mesh lineages.
