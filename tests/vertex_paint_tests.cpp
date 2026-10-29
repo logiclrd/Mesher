@@ -212,6 +212,30 @@ void testOneUndoPerPaintStroke() {
     check(brush.historyStatistics().undoDepth==1,
           "An empty mouse drag must not create a history entry");
 }
+void testLongPaintDragKeepsOriginalUndoRoot() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
+    mesh.triangles={{0,1,2}};
+    VersionedSculptBrush brush(mesh,.01,{}, {},{},false,4);
+    const auto original=brush.snapshot();
+    PaintDab dab{{.05,.05,0},{0,0,1},.3,.2,{0,0,1,1},1};
+    brush.beginPaintStroke();
+    for(unsigned i=0;i<128;++i) {
+        dab.rgba={float(i%5)/4.f,float(i%7)/6.f,
+                  float(i%11)/10.f,1.f};
+        check(brush.paint({dab}),
+              "Repeated distinct drag dabs should publish without refusal");
+    }
+    brush.endPaintStroke();
+    const auto painted=brush.snapshot();
+    const auto history=brush.historyStatistics();
+    check(history.undoDepth==1&&history.retainedRevisions==2,
+          "Long paint drag must not evict its original root through temporary COW clones");
+    check(brush.undo()&&brush.snapshot()==original,
+          "Long paint drag must undo in one immutable history transition");
+    check(brush.redo()&&brush.snapshot()==painted,
+          "Long paint drag must redo its exact final colour root");
+}
 void testUndoRedoAndPaintPublication() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -298,6 +322,7 @@ int main() {
         testConformingCutColorProvenance();
         testLinearNormalizedFootprint();
         testOneUndoPerPaintStroke();
+        testLongPaintDragKeepsOriginalUndoRoot();
         testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
