@@ -2254,6 +2254,20 @@ bool VersionedSculptBrush::mergeExactContacts(
     return true;
 }
 
+void VersionedSculptBrush::beginPaintStroke() {
+    ensureOperational();
+    if(paintStrokeActive_)
+        throw std::logic_error("Cannot begin a nested paint stroke");
+    paintStrokeActive_=true;
+    paintStrokeHasRevision_=false;
+}
+void VersionedSculptBrush::endPaintStroke() {
+    ensureOperational();
+    if(!paintStrokeActive_)
+        throw std::logic_error("Cannot end a non-active paint stroke");
+    paintStrokeActive_=false;
+    paintStrokeHasRevision_=false;
+}
 bool VersionedSculptBrush::paint(const std::vector<PaintDab>& dabs) {
     ensureOperational();
     if(dabs.empty())return false;
@@ -2265,9 +2279,14 @@ bool VersionedSculptBrush::paint(const std::vector<PaintDab>& dabs) {
     if(!published_.publishIfCurrent(old,result.colored))
         throw std::logic_error("Paint lost its exact original-root CAS");
     try {
-        history_.append(result.colored,result.dirtyPartitions,{},{},
-            result.copiedPayloadBytes,vertices_,faces_,
-            history_.currentFidelity());
+        if(paintStrokeActive_&&paintStrokeHasRevision_)
+            history_.amendCurrent(result.colored,result.dirtyPartitions,
+                                  result.copiedPayloadBytes);
+        else
+            history_.append(result.colored,result.dirtyPartitions,{},{},
+                result.copiedPayloadBytes,vertices_,faces_,
+                history_.currentFidelity());
+        if(paintStrokeActive_)paintStrokeHasRevision_=true;
     }catch(...) {
         markPostCasFailure(std::current_exception());
         throw;
