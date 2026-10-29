@@ -136,7 +136,13 @@ void nestedOutwardRefused() {
 void touchingNestedSurfacesRefused() {
     const auto mesh=indexed(spheres({{{0,0,0},1},{{0,0,0},1}},
                                     {false,true}));
-    const auto report=inspectEnclosedComponents(mesh);
+    // Identical inverted shells can generate many legitimate coplanar
+    // contacts, with a different count across floating-point platforms.
+    // Give this classification test enough finite evidence to reach the
+    // actual no-deletion decision, rather than testing a budget exception.
+    auto limits=EnclosedComponentLimits{};
+    limits.maxCollisionReportedContacts=32768;
+    const auto report=inspectEnclosedComponents(mesh,limits);
     require(std::none_of(report.components.begin(),report.components.end(),
                  [](const auto& c){
                      return c.kind==EnclosedComponentKind::RedundantEnclosedCavity;
