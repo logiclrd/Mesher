@@ -1601,10 +1601,11 @@ class VulkanViewport {
         fs.stage=VK_SHADER_STAGE_FRAGMENT_BIT;fs.module=frag;fs.pName="main";
         std::array stages{vs,fs};
         VkVertexInputBindingDescription binding{0,sizeof(Vertex),VK_VERTEX_INPUT_RATE_VERTEX};
-        std::array<VkVertexInputAttributeDescription,3> attrs{};
+        std::array<VkVertexInputAttributeDescription,4> attrs{};
         attrs[0]={0,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,px)};
         attrs[1]={1,0,VK_FORMAT_R32G32B32_SFLOAT,offsetof(Vertex,nx)};
         attrs[2]={2,0,VK_FORMAT_R32_SFLOAT,offsetof(Vertex,material)};
+        attrs[3]={3,0,VK_FORMAT_R32G32B32A32_SFLOAT,offsetof(Vertex,r)};
         VkPipelineVertexInputStateCreateInfo input{}; input.sType=VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         input.vertexBindingDescriptionCount=1;input.pVertexBindingDescriptions=&binding;
         // Original seven-float mesh/HUD vertex binding.
