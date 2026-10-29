@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <optional>
+#include <utility>
 #include <stdexcept>
 #include <string>
 
@@ -24,5 +26,17 @@ inline std::filesystem::path checkpointSaveDestination(
     else if(extension!=".mshr")
         throw std::invalid_argument("Checkpoint Save As must use .mshr");
     return chosen;
+}
+
+// The user cancelling or closing a native dialog is a true no-op. Neither
+// path validation nor a worker enqueue happens for a cancelled choice.
+// Exceptions from the queue are propagated and must not be reported as an
+// accepted save. The host commits its suggested path only after enqueue.
+template<class Queue>
+bool dispatchCheckpointSaveAs(
+    const std::optional<std::filesystem::path>& selected,Queue&& enqueue) {
+    if(!selected)return false;
+    std::forward<Queue>(enqueue)(checkpointSaveDestination(*selected));
+    return true;
 }
 } // namespace mesher
