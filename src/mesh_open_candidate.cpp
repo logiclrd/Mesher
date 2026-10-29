@@ -13,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -165,19 +166,64 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
     validateClosedTriangles(mesh);
     return mesh;
 }
+// Headers are intentionally distinct. Repair cases contain a checkpoint
+// inside the archive, but the outer file is NOT an editable mesh checkpoint.
+MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
+    std::ifstream input(path,std::ios::binary);
+    if(!input)throw std::runtime_error("Cannot open file for format detection");
+    std::array<char,4096> sample{};
+    input.read(sample.data(),static_cast<std::streamsize>(sample.size()));
+    const auto read=static_cast<std::size_t>(input.gcount());
+    const std::string_view prefix(sample.data(),read);
+    if(prefix.starts_with("MESHRV12"))return MeshOpenFilter::MesherCheckpoint;
+    if(prefix.starts_with("MSHRCAS1"))
+        throw std::runtime_error(
+            "This is an R06 repair-case archive (.r06case), not an editable "
+            ".mshr checkpoint. Use --repair-replay to inspect the case.");
+    // Conservative OBJ heuristic: only match recognized geometry records,
+    // not arbitrary text; the strict OBJ parser will validate full contents.
+    // Skip blank/comment lines; at least one vertex and face directive are
+    // required in the peek window to avoid accepting unrelated text.
+    std::istringstream lines{std::string(prefix)};
+    std::string line;
+    bool vertex=false,face=false;
+    while(std::getline(lines,line)) {
+        const auto pos=line.find_first_not_of(" \t\r");
+        if(pos==std::string::npos||line[pos]=='#')continue;
+        const std::string_view record(line.data()+pos,line.size()-pos);
+        if(record.starts_with("v ")||record.starts_with("v\t"))vertex=true;
+        else if(record.starts_with("f ")||record.starts_with("f\t"))face=true;
+        else if(!(record.starts_with("o ")||record.starts_with("g ")||
+                  record.starts_with("s ")||record.starts_with("vt ")||
+                  record.starts_with("vn ")||record.starts_with("mtllib ")||
+                  record.starts_with("usemtl ")))
+            throw std::runtime_error(
+                "Unrecognized mesh file header; no supported format detected");
+    }
+    if(vertex&&face)return MeshOpenFilter::WavefrontObj;
+    // Some valid OBJ files have substantial vertex data before the first
+    // face. A recognizable vertex prefix can identify the format safely;
+    // the parser still rejects missing or invalid faces.
+    if(vertex)return MeshOpenFilter::WavefrontObj;
+    throw std::runtime_error(
+        "Unrecognized mesh file header; supported formats: MESHRV12 "
+        "checkpoints and Wavefront OBJ text. R06 repair cases are replay-only.");
+}
 } // namespace
 
-MeshOpenCandidate readMeshOpenCandidate(const std::filesystem::path& path) {
+MeshOpenCandidate readMeshOpenCandidate(
+    const std::filesystem::path& path,MeshOpenFilter selectedFilter) {
     if(path.empty())throw std::invalid_argument("Open path is empty");
     const auto bytes=std::filesystem::file_size(path);
     if(!bytes||bytes>maxInputBytes)
         throw std::length_error("Mesh import file is empty or exceeds 256 MiB limit");
-    const auto ext=lowercase(path.extension().string());
+    const auto format=selectedFilter==MeshOpenFilter::AllFiles?
+        classifyMeshOpenFile(path):selectedFilter;
     MeshOpenCandidate candidate;
-    if(ext==".mshr") {
+    if(format==MeshOpenFilter::MesherCheckpoint) {
         candidate.snapshot=readCheckpoint(path);
         candidate.format=MeshOpenFormat::Checkpoint;
-    }else if(ext==".obj") {
+    }else if(format==MeshOpenFilter::WavefrontObj) {
         auto mesh=parseWavefrontObj(path);
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
@@ -187,10 +233,7 @@ MeshOpenCandidate readMeshOpenCandidate(const std::filesystem::path& path) {
             RegionTopologyIndex::build(std::move(parts.revision)),
             {},mesh.vertices.size()};
         candidate.format=MeshOpenFormat::WavefrontObj;
-    }else if(ext==".ply"||ext==".stl")
-        throw std::runtime_error(
-            "PLY/STL import is not yet supported by UX06 private candidate loader");
-    else throw std::runtime_error("Unsupported mesh import extension: "+ext);
+    }else throw std::runtime_error("Unsupported selected mesh interpretation");
     if(!candidate.snapshot.index)
         throw std::runtime_error("Candidate import has no valid indexed root");
     if(candidate.format==MeshOpenFormat::Checkpoint) {

@@ -97,6 +97,51 @@ void testPrivateMeshOpenCandidates() {
     reject("unhandled.ply","ply\nformat ascii 1.0\nend_header\n");
     reject("unhandled.stl","solid test\nendsolid test\n");
     reject("bad.mshr","This is not a checkpoint");
+
+    // The selected filter, never the file extension, determines parsing.
+    const auto renamedCheckpoint=dir/"archive.r06case";
+    fs::copy_file(snapshotPath,renamedCheckpoint,
+                  fs::copy_options::overwrite_existing);
+    check(readMeshOpenCandidate(renamedCheckpoint,
+              MeshOpenFilter::MesherCheckpoint).snapshot.index!=nullptr,
+          "Explicit checkpoint filter must ignore misleading extension");
+    check(readMeshOpenCandidate(renamedCheckpoint,
+              MeshOpenFilter::AllFiles).format==MeshOpenFormat::Checkpoint,
+          "All Files must detect valid checkpoint magic regardless of name");
+    check(readMeshOpenCandidate(put("obj.data",tetra),
+              MeshOpenFilter::WavefrontObj).format==MeshOpenFormat::WavefrontObj,
+          "Explicit Wavefront filter must ignore filename extension");
+    check(readMeshOpenCandidate(put("obj.xyz",tetra),
+              MeshOpenFilter::AllFiles).format==MeshOpenFormat::WavefrontObj,
+          "All Files uses OBJ record heuristics rather than extension");
+    const auto refuseWith=[&](const fs::path& path,MeshOpenFilter filter,
+                              const std::string& diagnostic) {
+        bool refused=false;
+        try {(void)readMeshOpenCandidate(path,filter);}
+        catch(const std::exception& e) {
+            refused=true;
+            check(std::string(e.what()).find(diagnostic)!=std::string::npos,
+                  "Import refused for an unexpected reason");
+        }
+        check(refused,"Wrong forced format must be refused");
+    };
+    refuseWith(put("really.obj",tetra),MeshOpenFilter::MesherCheckpoint,
+               "Unsupported checkpoint magic/version");
+    refuseWith(renamedCheckpoint,MeshOpenFilter::WavefrontObj,
+               "unsupported OBJ record");
+    const auto repairArchive=dir/"old-repair-case.mshr";
+    {
+        std::ofstream output(repairArchive,std::ios::binary);
+        output<<"MSHRCAS1";
+        output.put(2);output.put(0);output.put(0);output.put(0);
+    }
+    refuseWith(repairArchive,MeshOpenFilter::AllFiles,"repair-case archive");
+    refuseWith(repairArchive,MeshOpenFilter::MesherCheckpoint,
+               "Unsupported checkpoint magic/version");
+    refuseWith(put("bad_header.dat","garbage contents"),
+               MeshOpenFilter::AllFiles,"Unrecognized mesh file header");
+    check(candidate.snapshot.index==oldRoot,
+          "All forced and automatically detected failures leave root intact");
     check(candidate.snapshot.index==oldRoot,
           "Successful import remains immutable across failed attempts");
 }
