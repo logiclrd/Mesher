@@ -30,10 +30,12 @@ mesh revisions or durable checkpoints.
   precision, then converted to float; this prevents cancellation at
   extreme optical zoom. An independent Open rebuilds every GPU partition
   against the new centre. CPU source positions are never rescaled.
-- Mesh wireframe thickness and opacity fade as projected triangles approach
-  pixel/subpixel size. The floor grid fades independently as pixel density
-  increases. W remains the existing wireframe toggle; G remains the
-  separate floor-grid visibility toggle. Dense meshes retain RGB legibility.
+- Mesh wires now fade *smoothly* with the median projected triangle altitude,
+  not the shortest altitude, preventing isolated skinny faces from turning
+  the wireframe on/off abruptly. Wires retain a faint minimum coverage at
+  silhouettes instead of vanishing on the original sphere. The floor grid
+  fades independently at subpixel density. W remains the existing wireframe
+  toggle; G remains the separate floor-grid visibility toggle.
 - Near/far clipping adapt to camera-to-scene distance and fitted bounds;
   this prevents the fixed 100-unit far plane from amputating very large
   displayed models after zoom/dolly. The floor is rebuilt below and centred
@@ -46,6 +48,6 @@ mesh revisions or durable checkpoints.
 Linux/Windows, including the coloured VCGLIB duck and repeated file Opens.
 The slider range itself bounds the maximum fitting correction; models with
 more than ten orders of magnitude of variation cannot all fit at once.
-Large absolute source coordinates are still uploaded as float GPU vertex
-positions and may need future render-local origin rebasing for precision.
-The source itself is always stored unmodified in double precision.
+GPU render positions are rebased to the scene centre in double precision
+before float conversion, preserving features on widely translated models.
+The original source remains untouched in double precision.
