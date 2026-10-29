@@ -20,6 +20,8 @@
 
 // Native GLFW X11 handle for Qt's non-owning transient-parent proxy.
 #include <X11/Xlib.h>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #define GLFW_EXPOSE_NATIVE_X11
 #define GLFW_NATIVE_INCLUDE_NONE
 #include <GLFW/glfw3native.h>
