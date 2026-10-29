@@ -1,13 +1,70 @@
 #include "mesher/repair_intersection.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <set>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace mesher {
+
+// The cut planner supplies exact source-edge or source-face provenance.
+// Project the new point onto that source simplex and interpolate its paint;
+// proximity to a separate intersecting sheet is never a colour authority.
+VertexRGBA plannedCutPointColor(const RegionTopologyIndex& baseline,
+                                const ConformingCutPoint& point) {
+    if(point.existingVertex)
+        return vertexColorAt(baseline,*point.existingVertex);
+    const auto combine=[](const std::array<VertexRGBA,3>& c,
+                          std::array<double,3> w) {
+        for(auto& value:w)value=std::clamp(value,0.0,1.0);
+        const double sum=w[0]+w[1]+w[2];
+        if(!(sum>0)||!std::isfinite(sum))
+            throw std::logic_error("Cut color interpolation has invalid weights");
+        for(auto& value:w)value/=sum;
+        const auto channel=[&](float VertexRGBA::*member) {
+            return static_cast<float>(
+                double(c[0].*member)*w[0]+double(c[1].*member)*w[1]+
+                double(c[2].*member)*w[2]);
+        };
+        return VertexRGBA{channel(&VertexRGBA::r),channel(&VertexRGBA::g),
+                          channel(&VertexRGBA::b),channel(&VertexRGBA::a)};
+    };
+    if(point.boundaryEdge) {
+        const auto edge=*point.boundaryEdge;
+        const auto a=baseline.vertex(edge.a).position;
+        const auto b=baseline.vertex(edge.b).position;
+        const auto ab=b-a;
+        const double lengthSquared=dot(ab,ab);
+        if(!(lengthSquared>0)||!std::isfinite(lengthSquared))
+            throw std::logic_error("Cut color interpolation has degenerate edge");
+        const double t=dot(point.position-a,ab)/lengthSquared;
+        if(!std::isfinite(t))throw std::logic_error("Non-finite cut color weight");
+        return combine({vertexColorAt(baseline,edge.a),
+                        vertexColorAt(baseline,edge.b),VertexRGBA{}},
+                       {1.0-t,t,0.0});
+    }
+    const auto triangle=baseline.face(point.owningFace).vertices;
+    const auto a=baseline.vertex(triangle[0]).position;
+    const auto b=baseline.vertex(triangle[1]).position;
+    const auto c=baseline.vertex(triangle[2]).position;
+    const auto ab=b-a,ac=c-a,ap=point.position-a;
+    const double d00=dot(ab,ab),d01=dot(ab,ac),d11=dot(ac,ac);
+    const double d20=dot(ap,ab),d21=dot(ap,ac);
+    const double denominator=d00*d11-d01*d01;
+    if(!(denominator>0)||!std::isfinite(denominator))
+        throw std::logic_error("Cut color interpolation has degenerate face");
+    const double u=(d11*d20-d01*d21)/denominator;
+    const double v=(d00*d21-d01*d20)/denominator;
+    if(!std::isfinite(u)||!std::isfinite(v))
+        throw std::logic_error("Non-finite interior cut color weight");
+    return combine({vertexColorAt(baseline,triangle[0]),
+                    vertexColorAt(baseline,triangle[1]),
+                    vertexColorAt(baseline,triangle[2])},{1.0-u-v,u,v});
+}
 
 ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     std::shared_ptr<const RegionTopologyIndex>,
@@ -78,6 +135,7 @@ ConformingCutCandidate materializeTransverseCutCandidate(
             owner=baseline->face(point.owningFace).owner;
         }
         const auto id=edit.appendLocalVertex(owner,point.position);
+        edit.setVertexColor(id,plannedCutPointColor(*baseline,point));
         assigned.push_back(id);
         output.insertedVertices.push_back(id);
     }
