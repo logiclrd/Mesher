@@ -247,8 +247,10 @@ the stored colour does not change just because its representation changes.
 Drag on the wheel to choose hue and saturation or drag the sliders to tune
 values. Left-dragging on the mesh paints visible vertices within the
 brush radius; the existing radius slider works in BOTH Paint and sculpt modes.
-The soft edge has a linear radial falloff after the hardness plateau, with
-the closest visible surface sample normalized to full brush strength.
+The soft edge has a linear radial falloff after the hardness plateau; the
+picked triangle's vertices receive full centre strength so interpolation
+at the cursor is saturated, and mirrored dabs without a picked FaceId
+use the nearest visible surface samples for the same correction.
 Colour dabs are applied on the background sculpt worker as immutable
 revisions, and a complete mouse drag creates ONE Ctrl+Z/redo history action
 without delaying intermediate visual updates. Save As preserves painted colours.
