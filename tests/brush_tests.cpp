@@ -52,6 +52,22 @@ void testImportedBrushPhysicalScale() {
         throw std::runtime_error("Zero physical scale incorrectly accepted");
     }catch(const std::invalid_argument&) {}
 }
+void testLargeImportedTriangleInflates() {
+    // At an arbitrary point inside a large imported triangle the closest
+    // vertex can be tens of source units away. A physically scaled brush
+    // must actually influence the mesh, not silently stamp zero vertices.
+    Mesh patch{{{0,0,0},{60,0,0},{0,60,0}},{{0,1,2}}};
+    const double physicalScale=120.0;
+    const auto range=BrushRadiusRange::forModelScale(19247,physicalScale);
+    const double radius=range.fromSliderFraction(.2);
+    InflateBrush brush(.012*physicalScale);
+    BrushStroke stroke(patch,brush,.02*physicalScale);
+    stroke.start({{{20,20,0},radius,.3}});
+    stroke.finish(std::array<Vec3,1>{{{20,20,0}}});
+    check(patch.vertices[0].z>0.01 &&
+          patch.vertices[1].z>0.0&&patch.vertices[2].z>0.0,
+          "Imported-scale Inflate reaches actual vertices under large triangles");
+}
 void testRadiusSliderAndLiveStroke() {
     constexpr double pi=3.14159265358979323846;
     const auto range=BrushRadiusRange::forVertexCount(100000);
@@ -536,7 +552,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testImportedBrushPhysicalScale();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testImportedBrushPhysicalScale();testLargeImportedTriangleInflates();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }
