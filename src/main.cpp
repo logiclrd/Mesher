@@ -914,6 +914,18 @@ int main(int argc, char** argv) {
                     std::cout<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
                 }
             };
+            interaction.paintNominalEdgeLength=brushRange.minimum;
+            interaction.paint=[&](const mesher::PaintDab& dab) {
+                if(repairSession&&repairSession->frozen())return;
+                std::vector<mesher::PaintDab> dabs{dab};
+                if(options.symmetric&&std::abs(dab.point.x)>1e-10) {
+                    auto mirrored=dab;
+                    mirrored.point.x=-mirrored.point.x;
+                    mirrored.outwardNormal.x=-mirrored.outwardNormal.x;
+                    dabs.push_back(mirrored);
+                }
+                liveWorker->paint(std::move(dabs));
+            };
             interaction.radiusRange=brushRange;
             interaction.radius=brushRadius;
             interaction.verboseInput=verboseInput;
