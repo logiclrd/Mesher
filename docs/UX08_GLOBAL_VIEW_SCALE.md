@@ -15,21 +15,31 @@ mesh revisions or durable checkpoints.
   framebuffer aspect and the existing 45-degree perspective.
 - A startup `--recover` checkpoint is framed similarly; default generated
   geometry retains the legacy original camera orientation and scale 10^0.
-- The renderer maps original source coordinates through a **fixed initial
-  fit scale**, orbit basis, and source-centre translation. Subsequent slider
-  decades above the initial fit exponent change optical magnification
-  (the X/Y projection rows), never pushing the camera through the mesh.
-  Below that exponent, the camera retreats along its original viewing
-  direction instead. The FOV remains 45 degrees, avoiding the extreme
-  perspective distortion of negative optical magnification. Each zoom-out
-  decade makes the model centre approximately one tenth as large on screen.
-  Picking applies the inverse optical ray mapping and then the inverse
-  orbit/source fit, returning original source-space rays to the immutable
-  BVH and brush worker. Orbit, dolly, strafe and symmetry remain intact.
-  GPU vertex positions are first rebased to the scene centre in double
-  precision, then converted to float; this prevents cancellation at
-  extreme optical zoom. An independent Open rebuilds every GPU partition
-  against the new centre. CPU source positions are never rescaled.
+- The renderer uses the same **fixed 45-degree field of view** at
+  every slider exponent. The slider directly changes a model/view transform
+  around the imported source-space AABB centre. The virtual camera is
+  translated to follow one selected original-space anchor, preventing
+  the camera from crossing the mesh at large positive exponents.
+- On the first actual scale change of a gesture, a 4x4 array of framebuffer
+  ray probes finds the **nearest visible surface hit** using the existing
+  CPU pick API. The anchor is latched for that gesture and never reprobed
+  while the slider is moving. If no hit exists, the same screen-parallel
+  orbit plane provides the fallback distance, using the mesh centroid
+  as anchor. An idle interval of **two seconds** terminates the gesture.
+- The camera-to-anchor vector is recorded in full 3D when the operation
+  begins. At each subsequent exponent, the new target camera position is
+  the displayed, newly scaled anchor PLUS that original vector. Each frame
+  moves 80% of the remaining displacement at the 60 FPS reference rate
+  (`1 - 0.2^(60*dt)`), with frame-time correction. A manual orbit,
+  strafe or dolly cancels the ongoing camera follow immediately.
+- Rendering keeps the original constant view orientation, and subtracts
+  the current camera-follow offset from the view model translation.
+  CPU picking adds this same offset to the eye before applying the inverse
+  orbit/source-scale transform. This preserves ray/solid congruence without
+  modifying immutable source geometry or checkpoint data.
+  GPU vertex positions are rebased to the source-centred local coordinate
+  system in double precision before conversion to float, avoiding the
+  translation precision loss that previously affected extreme scaling.
 - Mesh wires now fade *smoothly* with the median projected triangle altitude,
   not the shortest altitude, preventing isolated skinny faces from turning
   the wireframe on/off abruptly. Wires retain a faint minimum coverage at

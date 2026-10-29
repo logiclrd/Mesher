@@ -82,51 +82,71 @@ void testPickingAndOrbit() {
     const auto rayAfter=orbit.pickingRay(view);
     require(close(length(orbit.displayed(rayAfter.origin)-view.origin),0.0),
             "Picking remains inverse under turntable rotation");
-    const double fitExponent=std::log10(orbit.scale());
-    require(close(viewportOpticalZoom(fitExponent,fitExponent),1.0)&&
-            close(viewportOpticalZoom(3,fitExponent)/
-                  viewportOpticalZoom(2,fitExponent),10.0)&&
-            close(viewportOpticalZoom(4,fitExponent)/
-                  viewportOpticalZoom(3,fitExponent),10.0)&&
-            close(viewportOpticalZoom(5,fitExponent)/
-                  viewportOpticalZoom(4,fitExponent),10.0),
-            "Successive positive exponents remain true 10x optical zooms");
-    const auto ratio=viewportOpticalZoom(3,fitExponent);
-    const auto opticalRay=viewportOpticalRay(650,405,1200,800,ratio);
-    const auto plain=viewportRay(600+50/ratio,400+5/ratio,1200,800);
-    require(close(length(opticalRay.direction-plain.direction),0.0),
-            "Optical zoom inverse ray matches magnified projection");
-    require(close(orbit.scale(),0.008)&&
-            close(length(orbit.displayed(sourceCenter)-orbit.translation()),0.0),
-            "Optical zoom never pushes the fixed camera into the mesh");
-    const double farExponent=fitExponent-2;
-    require(close(viewportRelativeMagnification(farExponent,fitExponent),0.01)&&
-            viewportOpticalZoom(farExponent,fitExponent)==1.0&&
-            close(viewportCameraDistanceFactor(farExponent,fitExponent),100.0),
-            "Two zoom-out decades recede the eye 100x without widening FOV");
-    require(close(viewportCameraDistanceFactor(fitExponent,fitExponent),1)&&
-            close(viewportCameraDistanceFactor(fitExponent+2,fitExponent),1),
-            "Zoom-in retains fixed camera distance and cannot enter mesh");
-    const Vec3 farEye=viewportCameraEye(1200,800)*
-                      viewportCameraDistanceFactor(farExponent,fitExponent);
-    const Vec3 normalEye=viewportCameraEye(1200,800);
-    require(close(length(farEye)/length(normalEye),100),
-            "Zoomed-out camera keeps its viewing direction");
-    const auto farRay=viewportOpticalRay(900,500,1200,800,
-                viewportOpticalZoom(farExponent,fitExponent));
-    const auto originalRay=viewportRay(900,500,1200,800);
-    require(close(length(farRay.direction-originalRay.direction),0),
-            "Zoom-out preserves off-axis ray angles of the 45-degree camera");
-    ViewportOrbit nearPan,farPan;
-    nearPan.frame(sourceCenter,0.008);
-    farPan.frame(sourceCenter,0.008);
-    const Vec3 viewRight{1,0,0},viewUp{0,0,1};
-    nearPan.strafe(viewRight,viewUp,30,12,800,4);
-    farPan.strafe(viewRight,viewUp,30/10.0,12/10.0,800,4);
-    const Vec3 nearDelta=nearPan.displayed(sourceCenter);
-    const Vec3 farDelta=farPan.displayed(sourceCenter);
-    require(close(length(nearDelta-farDelta*10),0.0),
-            "Panning maintains the same physical-pixel sensitivity after optical zoom");
+    // Camera anchor is an original source vertex, including for an
+    // off-centre, previously rotated view.
+    ViewportScaleFollow follow;
+    const Vec3 baselineEye{0,-6,2};
+    const Vec3 anchor=sourceCenter+Vec3{10,3,2};
+    const Vec3 anchorBefore=orbit.displayed(anchor);
+    const Vec3 originalCameraToAnchor=baselineEye-anchorBefore;
+    follow.begin(anchor,anchorBefore,baselineEye,0.0);
+    require(follow.active()&&
+            close(length(follow.sourceAnchor()-anchor),0.0),
+            "First scale movement latches one original-space anchor");
+    orbit.setScale(0.08);
+    const Vec3 anchorAfter=orbit.displayed(anchor);
+    const Vec3 expectedCamera=anchorAfter+originalCameraToAnchor;
+    follow.change(anchorAfter,baselineEye,0.01);
+    require(close(length(baselineEye+follow.targetCameraOffset()-
+                         expectedCamera),0.0),
+            "Camera target follows scaled off-centre point, preserving full 3D vector");
+    follow.advance(1.0/60.0,0.01+1.0/60.0);
+    require(close(length(follow.cameraOffset()-
+                         follow.targetCameraOffset()*0.8),0.0),
+            "Single 60Hz frame covers exactly 80 percent of target displacement");
+    ViewportScaleFollow halfFrames;
+    halfFrames.begin(anchor,anchorBefore,baselineEye,0);
+    halfFrames.change(anchorAfter,baselineEye,0.01);
+    halfFrames.advance(1.0/120,0.01+1.0/120);
+    halfFrames.advance(1.0/120,0.01+1.0/60);
+    require(close(length(halfFrames.cameraOffset()-
+                         follow.cameraOffset()),0.0),
+            "Two 120Hz frames match one 60Hz smoothing frame");
+    const Vec3 intermediate=follow.cameraOffset();
+    follow.advance(1.0/60,1.95);
+    require(follow.active(),"Operation persists until 2 seconds without change");
+    orbit.setScale(0.8);
+    follow.change(orbit.displayed(anchor),baselineEye,1.96);
+    require(follow.active()&&
+            length(follow.cameraOffset()-intermediate)>0,
+            "Within a gesture, anchor stays fixed while camera target updates");
+    follow.advance(1.0/60,3.94);
+    require(follow.active(),"Changing scale resets idle expiry");
+    follow.advance(1.0/60,3.97);
+    require(!follow.active(),"Gesture ends after a full two-second idle");
+    follow.cancel();
+    require(close(length(follow.targetCameraOffset()-follow.cameraOffset()),0),
+            "Manual camera gesture cancels any residual automatic drift");
+    follow.reset();
+    require(close(length(follow.cameraOffset()),0)&&!follow.active(),
+            "Independent Open resets camera offset and gesture");
+    const std::vector<ViewportZoomProbe> probes{
+        {sourceCenter+Vec3{1,0,0},9,true},
+        {sourceCenter+Vec3{0,1,0},4,true},
+        {sourceCenter+Vec3{0,0,1},7,true},
+        {sourceCenter,1,false}};
+    const auto picked=nearestViewportProbe(probes,sourceCenter,3);
+    require(picked.surface&&picked.distance==4&&
+            close(length(picked.sourcePoint-
+                 (sourceCenter+Vec3{0,1,0})),0),
+            "Across all sixteen sample rays choose nearest real surface hit");
+    const auto fallback=nearestViewportProbe({},sourceCenter,3);
+    require(!fallback.surface&&fallback.distance==3&&
+            close(length(fallback.sourcePoint-sourceCenter),0),
+            "Empty grid falls back to centre-plane distance and mesh centroid");
+    require(close(viewportZoomFollowFraction(1.0/60.0),0.8)&&
+            viewportZoomFollowFraction(0)==0,
+            "Frame-rate-independent tracking has correct origin and 60Hz reference");
 }
 void testClipping() {
     const Vec3 eye=viewportCameraEye(1200,800);
