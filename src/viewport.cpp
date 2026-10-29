@@ -10,6 +10,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include "mesher/mapped_keyboard.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -480,6 +481,7 @@ class VulkanViewport {
     double statsBegin_ = 0, measuredFps_ = 0, measuredStampRate_ = 0;
     std::uint64_t framesThisInterval_ = 0, stampsThisInterval_ = 0;
     std::size_t lastInvertedCount_ = 0;
+    MappedKeyboard keyboard_;
     GLFWwindow* window=nullptr;
     std::unique_ptr<StartupSplash> startupSplash_;
     bool restorePreviousFocus_ = false;
@@ -828,10 +830,10 @@ class VulkanViewport {
     void updateMouseOrbit() {
         const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
         const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
-        const bool ctrl=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS||
-                        glfwGetKey(window,GLFW_KEY_RIGHT_CONTROL)==GLFW_PRESS;
-        const bool alt=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
-                       glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
+        const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                        keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+        const bool alt=keyboard_.down(GLFW_KEY_LEFT_ALT)||
+                       keyboard_.down(GLFW_KEY_RIGHT_ALT);
         const auto gesture=cameraGestures_.sample(
             left,right,ctrl,alt,!sculpting_&&!radiusDragging_);
         double x=0,y=0;
@@ -932,10 +934,10 @@ class VulkanViewport {
     }
     void updateMergeKeyboard() {
         const auto edges=mergeKeys_.sample(
-            glfwGetKey(window,GLFW_KEY_M)==GLFW_PRESS,
-            glfwGetKey(window,GLFW_KEY_ENTER)==GLFW_PRESS,
-            glfwGetKey(window,GLFW_KEY_BACKSPACE)==GLFW_PRESS,
-            glfwGetKey(window,GLFW_KEY_A)==GLFW_PRESS);
+            keyboard_.active(GLFW_KEY_M),
+            keyboard_.active(GLFW_KEY_ENTER),
+            keyboard_.active(GLFW_KEY_BACKSPACE),
+            keyboard_.active(GLFW_KEY_A));
         const bool ready=!interaction_.canBegin||interaction_.canBegin();
         if(edges.toggle) {
             const auto result=mergeInput_.toggle(
@@ -1194,8 +1196,8 @@ class VulkanViewport {
                 mouseStartTime_=glfwGetTime();
                 const double stampStart=glfwGetTime();
                 const bool inverted=
-                    glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
-                    glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
+                    keyboard_.down(GLFW_KEY_LEFT_ALT)||
+                    keyboard_.down(GLFW_KEY_RIGHT_ALT);
                 interaction_.begin(*picked,inverted);
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 lastConsoleTime_=glfwGetTime();
@@ -1484,9 +1486,10 @@ class VulkanViewport {
     }
 
     bool justPressed(int key, bool& wasDown) {
-        const bool down = glfwGetKey(window, key) == GLFW_PRESS;
-        const bool pressed = down && !wasDown;
-        wasDown = down;
+        // Consume the callback edge, including a quick tap entirely
+        // between successive frames. A key-repeat is not another edge.
+        const bool pressed=keyboard_.takePress(key);
+        wasDown=keyboard_.down(key);
         return pressed;
     }
 
@@ -1879,13 +1882,27 @@ public:
         window=glfwCreateWindow(960,720,"Mesher",nullptr,nullptr);
         if(!window)throw std::runtime_error("Cannot open Mesher window");
         setMesherWindowIcon(window,MESHER_ASSET_DIR);
-        // Callbacks observe user input solely to dismiss the splash; GLFW's
-        // existing polling retains the original sculpt/camera key semantics.
+        // GLFW key tokens identify US-layout positions. Translate printable
+        // keys using the active OS layout before assigning semantic actions;
+        // key releases always use their cached press-time mapping.
         glfwSetWindowUserPointer(window,this);
-        glfwSetKeyCallback(window,[](GLFWwindow* w,int,int,int action,int){
-            if(action==GLFW_PRESS) {
+        glfwSetKeyCallback(window,[](GLFWwindow* w,int key,int scancode,
+                                     int action,int){
+            auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
+            const char* mappedName=nullptr;
+            if(action==GLFW_PRESS && key>=GLFW_KEY_APOSTROPHE &&
+               key<=GLFW_KEY_WORLD_2)
+                mappedName=glfwGetKeyName(key,scancode);
+            self->keyboard_.onKey(key,action,mappedName?mappedName:"");
+            if(action==GLFW_PRESS && self->startupSplash_)
+                self->startupSplash_->dismiss();
+        });
+        glfwSetWindowFocusCallback(window,[](GLFWwindow* w,int focused){
+            if(!focused) {
                 auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
-                if(self->startupSplash_)self->startupSplash_->dismiss();
+                self->keyboard_.clear();
+                // Focus-loss synthetic releases may arrive after this
+                // callback. All held-key identity is already invalidated.
             }
         });
         glfwSetMouseButtonCallback(window,[](GLFWwindow* w,int,int action,int){
@@ -1991,7 +2008,7 @@ public:
                 startupSplash_->tick();
                 if(!startupSplash_->active())startupSplash_.reset();
             }
-            if(glfwGetKey(window,GLFW_KEY_ESCAPE)==GLFW_PRESS) {
+            if(keyboard_.down(GLFW_KEY_ESCAPE)) {
                 if(sculpting_&&interaction_.end) {
                     interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
                     sculpting_=false;
@@ -2002,10 +2019,18 @@ public:
             // History actions only when the worker is between strokes. The
             // actual root swap happens on the worker, then V9 dirty buffers
             // update from its coalesced snapshot as usual.
-            const bool ctrl=glfwGetKey(window,GLFW_KEY_LEFT_CONTROL)==GLFW_PRESS||
-                            glfwGetKey(window,GLFW_KEY_RIGHT_CONTROL)==GLFW_PRESS;
-            const bool shift=glfwGetKey(window,GLFW_KEY_LEFT_SHIFT)==GLFW_PRESS||
-                             glfwGetKey(window,GLFW_KEY_RIGHT_SHIFT)==GLFW_PRESS;
+            const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                            keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+#ifdef __APPLE__
+            // Finder-like edit shortcuts use Command on macOS; the
+            // established Control shortcuts remain accepted as well.
+            const bool shortcut=ctrl||keyboard_.down(GLFW_KEY_LEFT_SUPER)||
+                                keyboard_.down(GLFW_KEY_RIGHT_SUPER);
+#else
+            const bool shortcut=ctrl;
+#endif
+            const bool shift=keyboard_.down(GLFW_KEY_LEFT_SHIFT)||
+                             keyboard_.down(GLFW_KEY_RIGHT_SHIFT);
             const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
             const bool y=justPressed(GLFW_KEY_Y,redoWasDown_);
             const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
@@ -2047,7 +2072,7 @@ public:
                     refreshHud();
                 }
             }
-            if(ctrl&&!inspectionFrozen_&&!sculpting_&&
+            if(shortcut&&!inspectionFrozen_&&!sculpting_&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 if(shift&&z&&interaction_.redo)interaction_.redo();
                 else if(z&&interaction_.undo)interaction_.undo();
@@ -2058,16 +2083,16 @@ public:
             // Ctrl+S stores observed outcome, Ctrl+Shift+S annotates
             // "prefer zipper", Ctrl+Alt+S annotates "prefer caps".
             // All modes remain private, with no live checkpoint publication.
-            const bool alt=glfwGetKey(window,GLFW_KEY_LEFT_ALT)==GLFW_PRESS||
-                           glfwGetKey(window,GLFW_KEY_RIGHT_ALT)==GLFW_PRESS;
-            if(ctrl&&save&&inspectionFrozen_&&inspectionAutoRequested_&&
+            const bool alt=keyboard_.down(GLFW_KEY_LEFT_ALT)||
+                           keyboard_.down(GLFW_KEY_RIGHT_ALT);
+            if(shortcut&&save&&inspectionFrozen_&&inspectionAutoRequested_&&
                interaction_.frozenRepairCapture) {
                 if(shift&&alt)
                     std::cout<<"[repair-r06] CASE_SAVE_REFUSED choose Shift OR Alt, not both\n";
                 else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
-            }else if(ctrl&&save&&!inspectionFrozen_&&interaction_.checkpoint)
+            }else if(shortcut&&save&&!inspectionFrozen_&&interaction_.checkpoint)
                 interaction_.checkpoint();
-            if(!ctrl)updateMergeKeyboard();
+            if(!shortcut)updateMergeKeyboard();
             updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
@@ -2128,6 +2153,7 @@ public:
                         nextStampTime_=glfwGetTime();
                 }
             }
+            keyboard_.finishFrame();
             int width=0,height=0;
             glfwGetFramebufferSize(window,&width,&height);
             if(width==0||height==0){glfwWaitEvents();continue;}

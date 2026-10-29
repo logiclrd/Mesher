@@ -215,7 +215,17 @@ Alt+mouse gestures may be reserved for window management, including
 Alt+LMB; Ctrl+LMB remains an
 alternative. W controls surface-edge and grid ink;
 G independently shows/hides the floor. Ctrl+Z / Ctrl+Y
-undo/redo, Ctrl+S queues an asynchronous checkpoint.
+undo/redo, Ctrl+S queues an asynchronous checkpoint; on macOS,
+Command+Z / Command+Y / Command+S also work.
+
+Printable keyboard shortcuts (W, G, M, A, Z, Y, S, R, N, P and C)
+follow the active operating-system keyboard layout rather than physical
+US/QWERTY key positions. For example, to use **A** on an AZERTY layout,
+press the key which produces A, regardless of which key occupies that
+position on a US keyboard. Non-printable controls (Escape, F8, arrows,
+Enter and modifiers) retain their standard meanings. Layout changes and
+window focus loss clear or release held key state safely; non-Latin text
+entry is not part of the viewport key-binding system.
 
 **F8** performs exactly one diagnostic sculpt stamp at the surface under
 the cursor. Unlike briefly clicking LMB, F8 never opens a timed 4D stroke
