@@ -7,6 +7,7 @@
 #include <numbers>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 #include <string>
 namespace mesher {
 // View-only bounds: never quantizes, translates or edits saved source vertices.
@@ -67,33 +68,67 @@ inline std::string viewportScaleLabel(double exponent) {
     out<<"10^"<<std::fixed<<std::setprecision(4)<<exponent;
     return out.str();
 }
-// Model fitting happens once on Open. Above the fitting exponent, zoom
-// optically at fixed eye distance. Below it, move the camera backward
-// with a fixed 45-degree FOV instead of widening toward 180 degrees.
-inline double viewportRelativeMagnification(double exponent,
-                                            double fitExponent) noexcept {
-    return std::pow(10.0,std::clamp(exponent,kViewportMinExponent,
-                                    kViewportMaxExponent)-
-                         std::clamp(fitExponent,kViewportMinExponent,
-                                    kViewportMaxExponent));
+// The 4x4 screen-space probe is performed once per scale gesture. Each
+// source hit is compared in the displayed coordinate system, to select
+// the nearest visible point without changing the immutable mesh.
+struct ViewportZoomProbe {
+    Vec3 sourcePoint{};
+    double distance=0;
+    bool surface=false;
+};
+inline ViewportZoomProbe nearestViewportProbe(
+        const std::vector<ViewportZoomProbe>& candidates,
+        Vec3 fallbackPoint,double fallbackDistance) {
+    ViewportZoomProbe chosen{fallbackPoint,fallbackDistance,false};
+    for(const auto& candidate:candidates)
+        if(candidate.surface&&std::isfinite(candidate.distance)&&
+           candidate.distance>=0&&(!chosen.surface||
+           candidate.distance<chosen.distance))chosen=candidate;
+    return chosen;
 }
-inline double viewportOpticalZoom(double exponent,double fitExponent) noexcept {
-    return std::max(1.0,viewportRelativeMagnification(exponent,fitExponent));
+constexpr double kViewportZoomIdleSeconds=2.0;
+constexpr double kViewportZoomFollowAt60Fps=0.8;
+inline double viewportZoomFollowFraction(double deltaSeconds) noexcept {
+    if(!std::isfinite(deltaSeconds)||deltaSeconds<=0)return 0;
+    return 1.0-std::pow(1.0-kViewportZoomFollowAt60Fps,
+                         60.0*deltaSeconds);
 }
-inline double viewportCameraDistanceFactor(double exponent,
-                                           double fitExponent) noexcept {
-    return 1.0/std::min(1.0,
-        viewportRelativeMagnification(exponent,fitExponent));
-}
-// Inverse of multiplying the first two projection rows by opticalZoom.
-// The render ray and CPU source-space ray must agree at every exponent.
-inline Ray viewportOpticalRay(double x,double y,double width,double height,
-                              double opticalZoom) {
-    if(!(std::isfinite(opticalZoom)&&opticalZoom>0))
-        throw std::invalid_argument("Invalid optical view zoom");
-    const double centerX=width*0.5,centerY=height*0.5;
-    return viewportRay(centerX+(x-centerX)/opticalZoom,
-                       centerY+(y-centerY)/opticalZoom,width,height);
+class ViewportScaleFollow {
+public:
+    bool active() const noexcept {return active_;}
+    Vec3 cameraOffset() const noexcept {return offset_;}
+    Vec3 targetCameraOffset() const noexcept {return targetOffset_;}
+    Vec3 sourceAnchor() const noexcept {return sourceAnchor_;}
+    void reset() noexcept { *this=ViewportScaleFollow{}; }
+    void cancel() noexcept {
+        active_=false;
+        targetOffset_=offset_;
+    }
+    void begin(Vec3 anchorSource,Vec3 anchorDisplayed,Vec3 baseEye,
+               double timeSeconds) noexcept {
+        sourceAnchor_=anchorSource;
+        // Full vector, not a scalar distance: off-centre targets retain
+        // their original position relative to the camera.
+        cameraToAnchor_=(baseEye+offset_)-anchorDisplayed;
+        targetOffset_=offset_;
+        active_=true;
+        lastChange_=timeSeconds;
+    }
+    void change(Vec3 anchorDisplayed,Vec3 baseEye,double timeSeconds) noexcept {
+        if(!active_)return;
+        targetOffset_=anchorDisplayed+cameraToAnchor_-baseEye;
+        lastChange_=timeSeconds;
+    }
+    void advance(double deltaSeconds,double timeSeconds) noexcept {
+        const double alpha=viewportZoomFollowFraction(deltaSeconds);
+        offset_=offset_+(targetOffset_-offset_)*alpha;
+        if(active_&&timeSeconds-lastChange_>=kViewportZoomIdleSeconds)
+            active_=false;
+    }
+private:
+    bool active_=false;
+    double lastChange_=0;
+    Vec3 sourceAnchor_{},cameraToAnchor_{},offset_{},targetOffset_{};
 }
 struct ViewportClipRange {double nearPlane{},farPlane{};};
 inline ViewportClipRange viewportClipRange(Vec3 eye,Vec3 sceneCenter,

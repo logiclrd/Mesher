@@ -487,11 +487,11 @@ static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
                             const ViewportOrbit& orbit,
                             const ViewportSceneBounds& bounds,
-                            double opticalZoom,double cameraDistanceFactor) {
+                            Vec3 cameraOffset) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
-    const Vec3 eye=viewportCameraEye(double(width),double(height))*
-                   (cameraScale*cameraDistanceFactor);
+    const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
+    const Vec3 actualEye=eye+cameraOffset;
     PushConstants result;
     Matrix model;
     const auto& axes=orbit.basis();
@@ -501,25 +501,18 @@ PushConstants makeConstants(int width,int height,double cameraScale,
         at(model,2,col,float(axes[std::size_t(col)].z*orbit.scale()));
     }
     // GPU vertices are source-centred before float conversion.
-    const Vec3 offset=orbit.translation();
+    const Vec3 offset=orbit.translation()-cameraOffset;
     at(model,0,3,float(offset.x));
     at(model,1,3,float(offset.y));
     at(model,2,3,float(offset.z));
     at(model,3,3,1.0f);
-    const auto clips=viewportClipRange(eye,
+    const auto clips=viewportClipRange(actualEye,
         orbit.displayed(bounds.center()),bounds.radius()*orbit.scale());
     result.viewProjection=multiply(
         multiply(perspective(aspect,float(clips.nearPlane),
                             float(clips.farPlane)),cameraView(eye)),model);
-    // Optical zoom scales clip X/Y, not mesh geometry or clip Z/W.
-    // The viewport never moves inside the duck when the slider reaches
-    // +3, +4, +5: each is a genuine decade of projected magnification.
-    for(int col=0;col<4;++col) {
-        at(result.viewProjection,0,col,
-           float(double(at(result.viewProjection,0,col))*opticalZoom));
-        at(result.viewProjection,1,col,
-           float(double(at(result.viewProjection,1,col))*opticalZoom));
-    }
+    // Constant 45-degree perspective: movement comes exclusively from
+    // the source-centred model scale and tracked camera translation.
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
@@ -605,17 +598,15 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool scaleDragging_=false,scaleHovered_=false,scaleConsumedMouse_=false;
     double scaleDragLastY_=0;
-    double scaleExponent_=0.0,fitScaleExponent_=0.0;
+    double scaleExponent_=0.0;
     ViewportSceneBounds sceneBounds_{};
-    double opticalZoom() const noexcept {
-        return viewportOpticalZoom(scaleExponent_,fitScaleExponent_);
-    }
-    double cameraDistanceFactor() const noexcept {
-        return viewportCameraDistanceFactor(scaleExponent_,fitScaleExponent_);
+    ViewportScaleFollow scaleFollow_;
+    double previousFrameTime_=-1.0;
+    Vec3 baseCameraEye(double width,double height) const noexcept {
+        return viewportCameraEye(width,height)*interaction_.cameraScale;
     }
     Vec3 scaledCameraEye(double width,double height) const noexcept {
-        return viewportCameraEye(width,height)*
-               (interaction_.cameraScale*cameraDistanceFactor());
+        return baseCameraEye(width,height)+scaleFollow_.cameraOffset();
     }
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
@@ -1030,10 +1021,9 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
-        auto ray=viewportOpticalRay(px,py,double(fw),double(fh),
-                                    opticalZoom());
-        ray.origin=ray.origin*
-                   (interaction_.cameraScale*cameraDistanceFactor());
+        auto ray=viewportRay(px,py,double(fw),double(fh));
+        ray.origin=baseCameraEye(double(fw),double(fh))+
+                   scaleFollow_.cameraOffset();
         return ray;
     }
     std::optional<Ray> cursorSourceRay() const {
@@ -1053,13 +1043,53 @@ class VulkanViewport {
                                  interaction_.cameraScale;
         scaleExponent_=viewportFitExponent(bounds.radius(),eyeDistance,
                                             width/height);
-        fitScaleExponent_=scaleExponent_;
-        orbit_.frame(bounds.center(),viewportScaleFromExponent(fitScaleExponent_));
+        orbit_.frame(bounds.center(),viewportScaleFromExponent(scaleExponent_));
+        scaleFollow_.reset();
         std::cout<<"[view] fitted bounds radius="<<bounds.radius()
                  <<" centre="<<bounds.center().x<<","<<bounds.center().y
                  <<","<<bounds.center().z<<" scale=10^"<<scaleExponent_<<"\n";
     }
     // Every scale movement is UI-only; no worker or immutable mesh edit.
+    void beginScaleFollow(int width,int height,double now) {
+        const Vec3 eye=scaledCameraEye(width,height);
+        const Vec3 baseEye=baseCameraEye(width,height);
+        const Vec3 centroid=currentGeometryCentroid();
+        std::vector<ViewportZoomProbe> hits;
+        hits.reserve(16);
+        for(int row=0;row<4;++row)for(int col=0;col<4;++col) {
+            const double x=(double(col)+0.5)*double(width)/4.0;
+            const double y=(double(row)+0.5)*double(height)/4.0;
+            auto ray=viewportRay(x,y,width,height);
+            ray.origin=eye;
+            const auto source=orbit_.pickingRay(ray);
+            const auto hit=displayedIndex_?
+                displayedIndex_->firstRayHit(source):
+                firstMeshHit(mesh_,source);
+            if(hit)hits.push_back({*hit,
+                length(eye-orbit_.displayed(*hit)),true});
+        }
+        // Without a surface hit, use the centroid's screen-parallel
+        // orbit plane. It is the same depth fallback as the RMB gesture.
+        const Vec3 forward=normalized(Vec3{}-baseEye);
+        auto centreRay=viewportRay(width*.5,height*.5,width,height);
+        centreRay.origin=eye;
+        const Vec3 fallback=orbit_.choosePivot(
+            centreRay,std::nullopt,centroid,forward);
+        const auto chosen=nearestViewportProbe(
+            hits,centroid,length(eye-orbit_.displayed(fallback)));
+        scaleFollow_.begin(chosen.sourcePoint,
+                           orbit_.displayed(chosen.sourcePoint),baseEye,now);
+        std::cout<<"[view] global scale anchor="
+                 <<(chosen.surface?"surface 4x4":"centroid plane")
+                 <<" distance="<<chosen.distance<<"\n";
+    }
+    void updateScaleFollow() {
+        const double now=glfwGetTime();
+        const double dt=previousFrameTime_<0?1.0/60.0:
+            std::clamp(now-previousFrameTime_,0.0,0.25);
+        previousFrameTime_=now;
+        scaleFollow_.advance(dt,now);
+    }
     void updateGlobalScaleInput() {
         scaleConsumedMouse_=false;
         double cx=0,cy=0;
@@ -1093,9 +1123,13 @@ class VulkanViewport {
             double(std::max(1,slider.bottom-slider.top)),ctrl);
         scaleDragLastY_=y;
         if(exponent!=scaleExponent_) {
+            const double now=glfwGetTime();
+            const Vec3 eye=baseCameraEye(double(fw),double(fh));
+            if(!scaleFollow_.active())beginScaleFollow(fw,fh,now);
             scaleExponent_=exponent;
-            // Above fit zoom optically; below fit retreat the camera
-            // without changing its field of view or the source mesh.
+            orbit_.setScale(viewportScaleFromExponent(scaleExponent_));
+            scaleFollow_.change(orbit_.displayed(scaleFollow_.sourceAnchor()),
+                                eye,now);
             clearPaintPreview();
             refreshHud();
             updateTitle();
@@ -1111,6 +1145,7 @@ class VulkanViewport {
         const auto gesture=cameraGestures_.sample(
             left,right,ctrl,alt,!sculpting_&&!radiusDragging_&&
                                  !scaleDragging_);
+        if(gesture.started)scaleFollow_.cancel();
         double x=0,y=0;
         glfwGetCursorPos(window,&x,&y);
         int ww=0,wh=0,fw=0,fh=0;
@@ -1132,7 +1167,8 @@ class VulkanViewport {
                         displayedIndex_->firstRayHit(source):
                         firstMeshHit(mesh_,source);
                     const Vec3 eye=scaledCameraEye(double(fw),double(fh));
-                    const Vec3 forward=normalized(Vec3{}-eye);
+                    const Vec3 forward=normalized(
+                        Vec3{}-baseCameraEye(double(fw),double(fh)));
                     // Background centroid scan only on this real RMB press.
                     orbitPivotSource_=picked?*picked:orbit_.choosePivot(
                         *visual,std::nullopt,currentGeometryCentroid(),forward);
@@ -1162,14 +1198,15 @@ class VulkanViewport {
                 if(gesture.mode==ViewportCameraMode::Dolly||
                    gesture.mode==ViewportCameraMode::Strafe) {
                     const Vec3 eye=scaledCameraEye(double(fw),double(fh));
-                    const Vec3 forward=normalized(Vec3{}-eye);
+                    const Vec3 forward=normalized(
+                        Vec3{}-baseCameraEye(double(fw),double(fh)));
                     if(gesture.mode==ViewportCameraMode::Dolly)
-                        orbit_.dolly(forward,dx/opticalZoom(),span,length(eye));
+                        orbit_.dolly(forward,dx,span,length(eye));
                     else {
                         const Vec3 viewRight=normalized(cross(forward,{0,0,1}));
                         const Vec3 viewUp=cross(viewRight,forward);
-                        orbit_.strafe(viewRight,viewUp,dx/opticalZoom(),
-                                      dy/opticalZoom(),double(fh),length(eye));
+                        orbit_.strafe(viewRight,viewUp,dx,
+                                      dy,double(fh),length(eye));
                     }
                 }else
                     orbit_.drag(orbitPivotSource_,dx,dy,span);
@@ -2301,8 +2338,7 @@ class VulkanViewport {
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         auto constants=makeConstants(int(extent.width),int(extent.height),
                                            interaction_.cameraScale,orbit_,
-                                           sceneBounds_,opticalZoom(),
-                                           cameraDistanceFactor());
+                                           sceneBounds_,scaleFollow_.cameraOffset());
         // W drives mesh coverage inside the visible solid fragment.
         constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -2717,6 +2753,7 @@ public:
             if(!shortcut)updateMergeKeyboard();
             updateGlobalScaleInput();
             updateMouseOrbit();
+            updateScaleFollow();
             updateMouseSculpt();
             pumpMouseStroke();
             updatePaintPreview();
