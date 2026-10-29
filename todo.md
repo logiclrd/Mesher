@@ -2080,13 +2080,23 @@ variants already work.
   a robust non-self-occluding origin and test close parallel sheets,
   folds, silhouette edges and mirrored strokes. Paint changes must be
   bounded, undoable and compatible with ordinary immutable publication.
-- [ ] **UX05 — Ctrl+S system Save As for `.mshr`.** Open the operating
-  system's native Save As file dialog and allow the user to choose or
-  override the checkpoint filename/path, saving a valid `.mshr`
-  file. Cancel must not modify state or overwrite anything. Preserve
-  the existing durable checkpoint format, error reporting, atomic write
-  guarantees and relevant diagnostic/replay-specific shortcut behavior;
-  explicitly resolve shortcut conflicts when implementing UX03/UX05.
+- [x] **UX05 — Ctrl+S system Save As for `.mshr`.** Ctrl+S
+  (Command+S on macOS) now opens the platform-native Save As chooser:
+  Windows Shell `IFileSaveDialog`, Cocoa `NSSavePanel`, or KDE
+  `kdialog` / GTK `zenity` on Linux. The picker starts with the
+  `--checkpoint` filename and remembers the last accepted destination;
+  a bare default uses the platform's normal user folder. Cancellation,
+  invalid filenames and unavailable dialogs queue no write. Accepted
+  `.mshr` paths continue through the existing immutable worker snapshot
+  and durable asynchronous temp-file / sync / atomic rename path, without
+  changing the format. Frozen R06 Ctrl+S / modifier variants retain
+  separate private case capture; preview/inspection never checkpoints
+  unpublished geometry. Native file-picker process launch on Linux uses
+  `posix_spawn` to avoid unsafe child allocations with live workers.
+  **Accepted:** [PR #173](https://github.com/logiclrd/Mesher/pull/173),
+  [five-platform CI #40818920643](https://github.com/logiclrd/Mesher/actions/runs/40818920643),
+  [four-platform packaging CI #40818920688](https://github.com/logiclrd/Mesher/actions/runs/40818920688).
+  Physical GUI dialog / overwrite smoke tests remain desirable.
 - [ ] **UX06 — Ctrl+O system Open and replace current mesh.** Open a
   native file picker for `.mshr`, Wavefront `.obj`, `.ply` and
   `.stl`. Load into a **private candidate** and replace the current
