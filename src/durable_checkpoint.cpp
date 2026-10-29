@@ -291,7 +291,7 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
 }
 
 AsyncCheckpointWriter::AsyncCheckpointWriter()
-    :worker_([this](std::stop_token token){run(token);}) {}
+    :worker_([this](StopToken token){run(token);}) {}
 AsyncCheckpointWriter::~AsyncCheckpointWriter() {
     // ready_.wait() tests stop_requested() under mutex_. Synchronize
     // cancellation with that lock so an idle writer cannot miss the
@@ -328,7 +328,7 @@ void AsyncCheckpointWriter::drain() {
     std::unique_lock lock(mutex_);
     idle_.wait(lock,[this]{return !pending_&&!statistics_.busy;});
 }
-void AsyncCheckpointWriter::run(std::stop_token token) {
+void AsyncCheckpointWriter::run(StopToken token) {
     std::unique_lock lock(mutex_);
     while(true) {
         ready_.wait(lock,[&]{return token.stop_requested()||pending_.has_value();});
