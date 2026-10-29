@@ -90,12 +90,17 @@ void testPaintOriginCannotCrossOpposingSurface() {
     // Both layers deliberately face the same direction, so this test
     // catches an origin that has crossed the upper sheet rather than
     // relying on its vertex normals to reject the wrong paint.
-    for(const double separation:{.12,.018}) {
+    for(const double separation:{.12,.018})
+    for(const bool opposingNormals:{false,true}) {
         Mesh mesh;
         mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0},
                        {.02,.02,separation},{.14,.02,separation},
                        {.02,.14,separation}};
-        mesh.triangles={{0,1,2},{3,4,5}};
+        // Real torus interior walls face each other. Without the
+        // directional limit, a still-visible far wall gets painted
+        // despite the collision-aware origin being on the near side.
+        mesh.triangles={{0,1,2},
+                        opposingNormals?Triangle{3,5,4}:Triangle{3,4,5}};
         const auto parts=partitionFlatMesh(mesh,4);
         const auto source=RegionTopologyIndex::build(parts.revision);
         const PaintDab dab{{.05,.05,0},{0,0,1},.30,.2,

@@ -139,6 +139,13 @@ VisiblePaintSamples collectVisiblePaintSamples(
             const Vec3 target=source.vertex(id).position;
             const double radiusDistance=length(target-dab.point);
             if(radiusDistance>dab.radius)continue;
+            // The elevated point is a directional light source looking
+            // BACK toward the picked sheet. An opposing torus wall can
+            // face the origin from just beyond the clearance-limited
+            // lift, but it lies AHEAD of the brush and is not part of
+            // this dab's volume of effect. Never illuminate past the
+            // origin along the original outward normal.
+            if(dot(target-origin,outward)>0.0)continue;
             // Already opaque, exact-colour vertices cannot change under
             // source-over paint. Semi-transparent source paint must NOT
             // be skipped merely because its RGBA matches a prior coat:
