@@ -1,6 +1,7 @@
 #pragma once
 #include "mesher/versioned_sculpt.hpp"
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/portable_concurrency.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -144,7 +145,7 @@ private:
         std::vector<FaceId> intendedOriginals{};
     };
     void enqueue(Command command);
-    void run(std::stop_token token);
+    void run(StopToken token);
     void publish(bool force=false);
     void refreshStatus();
     std::vector<Vec3> centers(Vec3 p) const;
@@ -174,6 +175,6 @@ private:
     std::vector<FaceId> trustedFirstOriginalFaces_;
     std::size_t snapshotPublications_{},lastSnapshotDirtyOwners_{};
     std::size_t totalSnapshotDirtyOwners_{};
-    std::jthread worker_;
+    JoiningThread worker_;
 };
 } // namespace mesher
