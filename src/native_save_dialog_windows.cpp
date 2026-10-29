@@ -57,7 +57,9 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     require(dialog->SetDefaultExtension(L"mshr"),"SetDefaultExtension");
     const auto absolute=std::filesystem::absolute(suggestion);
     require(dialog->SetFileName(absolute.filename().c_str()),"SetFileName");
-    if(!absolute.parent_path().empty()) {
+    // An unqualified default filename should use the Shell's preferred
+    // location (typically Documents), not the packaged app's working dir.
+    if(!suggestion.parent_path().empty()) {
         IShellItem* rawFolder=nullptr;
         const HRESULT folderResult=SHCreateItemFromParsingName(
             absolute.parent_path().c_str(),nullptr,IID_PPV_ARGS(&rawFolder));
