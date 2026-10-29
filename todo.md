@@ -2035,13 +2035,21 @@ variants already work.
   GCC/Clang and Windows MSVC builds. Native .app packaging, app icon,
   signing/notarization and macOS release remain UX02; physical Mac GPU
   rendering has not been validated.
-- [ ] **UX02 — macOS (OS X) release distribution.** After UX01, build and
-  validate a self-contained macOS `.app` release, with a native Dock/app
-  icon, splash image, Vulkan/MoltenVK runtime, shaders and assets resolved
-  from within the bundle. Define supported macOS/CPU architectures and
-  signing/notarization policy, then attach a tested macOS package to the
-  versioned release workflow without regressing Windows/Linux artifacts.
-  This is a separate journey from the initial Windows/Linux release.
+- [x] **UX02 — macOS (OS X) release distribution.** Native macOS 15
+  ARM64 and Intel x86-64 `Mesher.app` ZIPs contain a Dock `.icns` icon,
+  the splash and SPIR-V resources, MoltenVK, the Vulkan loader, and
+  relocated non-system dylibs. Release jobs verify both architectures,
+  immutable `VERSION`, native bundle metadata, runtime dependencies,
+  code signatures and executable-relative resources, then re-extract
+  each ZIP and revalidate it. **Accepted:**
+  [PR #171](https://github.com/logiclrd/Mesher/pull/171);
+  [release-0.5b](https://github.com/logiclrd/Mesher/releases/tag/release-0.5b),
+  [publishing CI #40815126121](https://github.com/logiclrd/Mesher/actions/runs/40815126121):
+  both macOS ZIPs plus Windows/Linux archives published successfully.
+  These alpha `.app` packages are **ad-hoc signed, not Developer ID
+  signed or notarized** (Gatekeeper may require explicit user approval).
+  They are architecture-specific rather than Universal 2, and physical
+  Mac GPU rendering and older OS deployment remain unverified.
 - [ ] **UX03 — Keyboard-layout-aware mapped keys rather than scan codes.**
   Use the user's mapped/logical keys for input and shortcuts, not physical
   keyboard scan-code positions; verify different keyboard layouts and
