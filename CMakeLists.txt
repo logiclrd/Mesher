@@ -146,6 +146,7 @@ if(MESHER_BUILD_VIEWPORT)
                 COMMAND "${CMAKE_COMMAND}"
                     "-DLINUX_DIALOG_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/native_save_dialog_linux.cpp"
                     "-DAPP_CMAKE_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+                    "-DVIEWPORT_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/viewport.cpp"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_qt_native_dialog.cmake")
         endif()
     endif()

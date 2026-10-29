@@ -2347,6 +2347,12 @@ public:
         }
         if(surface)vkDestroySurfaceKHR(instance,surface,nullptr);
         if(instance)vkDestroyInstance(instance,nullptr);
+#ifdef __linux__
+        // Qt was lazily initialized by the first file dialog. Tear down
+        // its event dispatcher/QPA while the original GLFW X11 window
+        // and display still exist, rather than at static process exit.
+        shutdownNativeDialogs();
+#endif
         if(window)glfwDestroyWindow(window);
 #ifdef MESHER_X11_WM_FULLSCREEN
         // Only when Escape exits the viewport. Let the WM decide whether to

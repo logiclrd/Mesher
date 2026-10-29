@@ -51,9 +51,19 @@ label, so the filter description repeats it to retain the visible
 On X11/XWayland, `QWindow::fromWinId(glfwGetX11Window(...))` creates
 a non-owning transient-parent proxy for the GLFW window. Open, Save As
 and error messages use `setTransientParent()` so they are related
-top-level windows, not embedded children. Focus returns to GLFW after
-each modal dialog. QPA backends without foreign windows (e.g. native
-Wayland) retain the previous unparented fallback.
+top-level windows, not embedded children. For correct multi-monitor
+placement Qt also selects the screen containing the GLFW window centre
+and explicitly centres each dialog inside that screen's available area.
+Focus returns to GLFW after each modal dialog. QPA backends without
+foreign windows (e.g. native Wayland) retain the previous unparented
+fallback.
+
+The lazy `QApplication` lifetime is explicitly ended by the viewport
+destructor **before** `glfwDestroyWindow` and `glfwTerminate`. The prior
+static function-local QApplication was destroyed during C++ process exit,
+after GLFW's X11 teardown, which is a plausible cause of the reported
+exit segfault. No repeated QApplication initialization is supported;
+physical X11 runtime testing still verifies the actual shutdown behavior.
 
 Imported OBJ changes the
 new Save As default to its .mshr sibling; restored checkpoints preserve

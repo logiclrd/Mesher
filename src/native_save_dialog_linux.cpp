@@ -7,10 +7,14 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPoint>
+#include <QRect>
+#include <QScreen>
 #include <QString>
 #include <QStringList>
 #include <QWindow>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
@@ -28,24 +32,33 @@
 
 namespace mesher {
 namespace {
-// GLFW remains Mesher's main event loop. Qt is used solely for modal desktop
-// dialogs on the UI thread; no Qt widgets are created at process startup.
-// QApplication and its argument storage MUST outlive every dialog, and Qt
-// does not support repeatedly destroying/reconstructing the application.
+// GLFW owns the application window and remains the primary event loop.
+// Qt is initialized only when the first modal dialog is needed. Its
+// QApplication must be destroyed BEFORE glfwDestroyWindow/glfwTerminate;
+// otherwise its static destructor would run at process exit after the GLFW
+// X11 display and windows had already been torn down.
+struct QtLifetime {
+    int argc=1;
+    char name[7]="Mesher";
+    char* argv[2]={name,nullptr};
+    std::unique_ptr<QApplication> application;
+    bool shutdown=false;
+};
+QtLifetime& qtLifetime() {
+    static QtLifetime state;
+    return state;
+}
 QApplication& desktopQt() {
-    static int argc=1;
-    static char appName[]="Mesher";
-    static char* argv[]{appName,nullptr};
-    static QApplication application(argc,argv);
-    static const bool initialized=[] {
-        application.setApplicationName(QStringLiteral("Mesher"));
-        application.setQuitOnLastWindowClosed(false);
-        return true;
-    }();
-    (void)initialized;
-    // Respect QT_QPA_PLATFORMTHEME and system QPA plugins supplied by
-    // the user's desktop. Never forcibly override their chosen theme.
-    return application;
+    auto& state=qtLifetime();
+    if(state.shutdown)
+        throw std::runtime_error("Qt dialogs used after native dialog shutdown");
+    if(!state.application) {
+        state.application=std::make_unique<QApplication>(state.argc,state.argv);
+        state.application->setApplicationName(QStringLiteral("Mesher"));
+        state.application->setQuitOnLastWindowClosed(false);
+    }
+    // Never overwrite a user's QT_QPA_PLATFORMTHEME or platform choice.
+    return *state.application;
 }
 
 QString asQString(const std::filesystem::path& path) {
@@ -93,10 +106,39 @@ public:
     ScopedGlfwDialogOwner(const ScopedGlfwDialogOwner&)=delete;
     ScopedGlfwDialogOwner& operator=(const ScopedGlfwDialogOwner&)=delete;
     void attach(QDialog& dialog) {
-        if(!foreign_)return; // Wayland/non-foreign QPA fallback
+        if(!foreign_)return; // Native Wayland cannot wrap GLFW X11 IDs.
+        // A foreign-window transient relationship does not provide Qt
+        // with the GLFW window's desktop geometry. On multi-monitor X11,
+        // Qt may otherwise choose its own primary screen for the picker.
+        int x=0,y=0,width=0,height=0;
+        glfwGetWindowPos(owner_,&x,&y);
+        glfwGetWindowSize(owner_,&width,&height);
+        if(width<=0||height<=0)return;
+        const QPoint center(x+width/2,y+height/2);
+        QScreen* screen=QGuiApplication::screenAt(center);
+        if(!screen)screen=foreign_->screen();
         (void)dialog.winId();
-        if(auto* handle=dialog.windowHandle())
+        if(auto* handle=dialog.windowHandle()) {
+            // setScreen can recreate a Qt native window: do it BEFORE
+            // setting its transient parent, never the other way around.
+            if(screen&&handle->screen()!=screen)handle->setScreen(screen);
             handle->setTransientParent(foreign_.get());
+        }
+        if(screen) {
+            // Explicit placement is needed even when the X11 WM knows
+            // the transient parent: QFileDialog has no QWidget parent.
+            const QRect available=screen->availableGeometry();
+            if(available.isValid()) {
+                const QSize desired=dialog.sizeHint().expandedTo(
+                    QSize(540,360)).boundedTo(available.size());
+                dialog.resize(desired);
+                const int left=std::clamp(center.x()-desired.width()/2,
+                    available.left(),available.right()-desired.width()+1);
+                const int top=std::clamp(center.y()-desired.height()/2,
+                    available.top(),available.bottom()-desired.height()+1);
+                dialog.move(left,top);
+            }
+        }
     }
     ~ScopedGlfwDialogOwner() {
         if(owner_)glfwFocusWindow(owner_);
@@ -106,6 +148,16 @@ private:
     std::unique_ptr<QWindow> foreign_;
 };
 } // namespace
+
+void shutdownNativeDialogs() noexcept {
+    auto& state=qtLifetime();
+    if(state.shutdown)return;
+    state.shutdown=true;
+    // Every QFileDialog, QMessageBox and foreign QWindow wrapper has left
+    // scope before the viewport invokes this. Qt's XCB/GTK event handlers
+    // must be torn down while GLFW's X11 display is still alive.
+    state.application.reset();
+}
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion) {

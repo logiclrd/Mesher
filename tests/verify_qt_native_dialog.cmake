@@ -1,10 +1,12 @@
 # UX06: Linux uses one integrated Qt file-type chooser for both actions;
 # never regress to external kdialog/zenity or a second type-picker.
-if(NOT DEFINED LINUX_DIALOG_SOURCE OR NOT DEFINED APP_CMAKE_SOURCE)
+if(NOT DEFINED LINUX_DIALOG_SOURCE OR NOT DEFINED APP_CMAKE_SOURCE
+   OR NOT DEFINED VIEWPORT_SOURCE)
     message(FATAL_ERROR "Qt dialog source-contract input paths missing")
 endif()
 file(READ "${LINUX_DIALOG_SOURCE}" dialog)
 file(READ "${APP_CMAKE_SOURCE}" cmakeSrc)
+file(READ "${VIEWPORT_SOURCE}" viewport)
 foreach(required
     "QApplication"
     "QFileDialog"
@@ -15,7 +17,14 @@ foreach(required
     "dialog.setOption(QFileDialog::HideNameFilterDetails,true)"
     "std::optional<NativeOpenSelection> nativeOpenMeshDialog"
     "std::optional<std::filesystem::path> nativeSaveCheckpointDialog"
-    "static QApplication application(argc,argv)"
+    "state.application=std::make_unique<QApplication>(state.argc,state.argv)"
+    "state.application.reset()"
+    "void shutdownNativeDialogs() noexcept"
+    "QGuiApplication::screenAt(center)"
+    "glfwGetWindowPos(owner_,&x,&y)"
+    "glfwGetWindowSize(owner_,&width,&height)"
+    "handle->setScreen(screen)"
+    "dialog.move(left,top)"
     "dialog.exec()"
     "QWindow::fromWinId("
     "handle->setTransientParent(foreign_.get())"
@@ -35,6 +44,18 @@ foreach(disallowed "kdialog" "zenity" "posix_spawn" "QFileDialog::DontUseNativeD
         message(FATAL_ERROR "Linux dialog unexpectedly uses ${disallowed}")
     endif()
 endforeach()
+foreach(required "shutdownNativeDialogs();"
+                 "if(window)glfwDestroyWindow(window);")
+    string(FIND "${viewport}" "${required}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "Qt must shut down before GLFW: ${required}")
+    endif()
+endforeach()
+string(FIND "${viewport}" "shutdownNativeDialogs();" shutdownAt)
+string(FIND "${viewport}" "if(window)glfwDestroyWindow(window);" glfwAt)
+if(shutdownAt GREATER glfwAt)
+    message(FATAL_ERROR "Qt desktop lifetime must end before GLFW destroys X11")
+endif()
 foreach(required "find_package(Qt6 REQUIRED COMPONENTS Widgets)"
                  "target_link_libraries(Mesher PRIVATE Qt6::Widgets)")
     string(FIND "${cmakeSrc}" "${required}" at)
