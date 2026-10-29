@@ -1,6 +1,5 @@
 #include "mesher/viewport.hpp"
 #include "mesher/startup_splash.hpp"
-#include "mesher/mapped_keyboard.hpp"
 #include "mesher/repair_step_hud.hpp"
 #include "mesher/desktop_merge_input.hpp"
 #include "mesher/revision_retirement.hpp"
@@ -11,6 +10,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include "mesher/mapped_keyboard.hpp"
 
 #include <algorithm>
 #include <cctype>
