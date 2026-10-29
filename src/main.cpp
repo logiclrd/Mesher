@@ -555,6 +555,7 @@ int main(int argc, char** argv) {
         }
         mesher::Mesh mesh;
         std::optional<mesher::DurableCheckpoint> recovered;
+        std::optional<mesher::ViewportSceneBounds> initialViewBounds;
         if(!recoverPath.empty()) {
             if(demoMode||compareLocalRemesh||compareRemesh||
                compareMitigations||!inflate)
@@ -568,7 +569,7 @@ int main(int argc, char** argv) {
             options.symmetric=!recovered->mirrorPairs.empty();
             mesher::ViewportSceneBounds recoveryBounds;
             for(const auto vertex:mesh.vertices)recoveryBounds.include(vertex);
-            interaction.startupBounds=recoveryBounds;
+            initialViewBounds=recoveryBounds;
             std::cout<<"Recovered "<<mesh.vertices.size()<<" vertices, "
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
@@ -729,6 +730,7 @@ int main(int argc, char** argv) {
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
+        interaction.startupBounds=initialViewBounds;
         std::shared_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
         // The lambdas in ViewportInteraction outlive the setup block.
