@@ -206,13 +206,14 @@ void testIndependentOpenRootRebuild() {
     next->revision().forEachPartition([&](PartitionId id,const MeshPartition&) {
         owners.insert(id);
     });
-    cache.advance(next,{owners.begin(),owners.end()});
+    const std::vector<PartitionId> dirty(owners.begin(),owners.end());
+    cache.advance(next,dirty);
     equalFull(cache,next);
     check(cache.revision()==next&&cache.partitions().size()<oldCount,
           "Independent open root retires removed owners and repaints shared IDs");
     check(old->revision().partition(6)!=nullptr,
           "Importing another mesh must not edit the prior immutable root");
-    cache.advance(old,{owners.begin(),owners.end()});
+    cache.advance(old,dirty);
     equalFull(cache,old);
     check(cache.revision()==old&&cache.partitions().size()==oldCount,
           "Rebinding an unrelated old root must also rebuild correct geometry");
