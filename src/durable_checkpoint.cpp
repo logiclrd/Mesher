@@ -134,15 +134,19 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
     const auto marks=index.revision().identityWatermarks();
     const auto retiredVertices=index.retiredVertexIds();
     const auto retiredFaces=index.retiredFaceIds();
-    bool hasColor=false;
+    bool hasColor=false,hasSourceAlpha=false;
     index.revision().forEachPartition([&](PartitionId,const MeshPartition& p) {
-        for(const auto& v:p.vertices)
-            if(v.color!=VertexRGBA{})hasColor=true;
+        for(const auto& v:p.vertices) {
+            hasColor|=(v.color!=VertexRGBA{});
+            hasSourceAlpha|=v.color.sourceAlpha.has_value();
+        }
     });
     writer.number(magic);
     // Legacy V12/13 remain byte-for-byte unchanged for unpainted roots.
-    // New V14/15 add a 16-byte float RGBA stream per vertex.
-    writer.number(hasColor?(fidelityRequired?15:14):
+    // V14/15 add RGBA; V16/17 additionally encode the optional
+    // uninterpreted source alpha as a float plus a presence byte.
+    writer.number(hasSourceAlpha?(fidelityRequired?17:16):
+                  hasColor?(fidelityRequired?15:14):
                   (fidelityRequired?13:12),4);
     writer.number(marks.nextVertex);
     writer.number(marks.nextFace);
@@ -174,6 +178,11 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
                 if(hasColor)for(const float channel:{vertex.color.r,vertex.color.g,
                                                    vertex.color.b,vertex.color.a})
                     writer.number(std::bit_cast<std::uint32_t>(channel),4);
+                if(hasSourceAlpha) {
+                    const float value=vertex.color.sourceAlpha.value_or(0.f);
+                    writer.number(std::bit_cast<std::uint32_t>(value),4);
+                    writer.number(vertex.color.sourceAlpha.has_value()?1:0,1);
+                }
             }
             for(const auto& face:partition.faces) {
                 writer.number(face.id);
@@ -220,7 +229,8 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     if(reader.number()!=magic)
         throw std::runtime_error("Unsupported checkpoint magic/version");
     const auto version=reader.number(4);
-    if(version!=12&&version!=13&&version!=14&&version!=15)
+    if(version!=12&&version!=13&&version!=14&&version!=15&&
+       version!=16&&version!=17)
         throw std::runtime_error("Unsupported checkpoint magic/version");
     MeshIdentityWatermarks marks{reader.number(),reader.number(),reader.number()};
     const auto initialVertexCount=reader.number();
@@ -230,8 +240,9 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
     const auto pairs=reader.number();
     const auto retiredVertexCount=reader.number();
     const auto retiredFaceCount=reader.number();
-    const bool requiresOriginalFidelity=(version==13||version==15);
+    const bool requiresOriginalFidelity=(version==13||version==15||version==17);
     const bool hasColor=(version>=14);
+    const bool hasSourceAlpha=(version>=16);
     if(requiresOriginalFidelity&&reader.number(1)!=1)
         throw std::runtime_error("Checkpoint protected source marker invalid");
     if(partitions>maxRecords||pairs>maxRecords||
@@ -269,6 +280,15 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
                 if(!valid(v.color.r)||!valid(v.color.g)||
                    !valid(v.color.b)||!valid(v.color.a))
                     throw std::runtime_error("Checkpoint has invalid vertex RGBA");
+            }
+            if(hasSourceAlpha) {
+                const float source=std::bit_cast<float>(
+                    static_cast<std::uint32_t>(reader.number(4)));
+                const auto present=reader.number(1);
+                if(present>1||!std::isfinite(source)||
+                   (present&&(source<0.f||source>1.f)))
+                    throw std::runtime_error("Checkpoint has invalid source alpha");
+                if(present)v.color.sourceAlpha=source;
             }
             part.vertices.push_back(v);
         }

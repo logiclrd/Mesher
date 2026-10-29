@@ -256,8 +256,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
                                                   midpoint);
             const auto ca=vertexColorAt(*current,e.a);
             const auto cb=vertexColorAt(*current,e.b);
-            edit.setVertexColor(mid,{(ca.r+cb.r)*.5f,(ca.g+cb.g)*.5f,
-                                    (ca.b+cb.b)*.5f,(ca.a+cb.a)*.5f});
+            edit.setVertexColor(mid,interpolateVertexColor(ca,cb,0.5));
             const auto addedFaces=splitOne(*current,edit,e,mid);
             VertexId other=mid;
             std::array<FaceId,2> mirrorAdded{};
@@ -266,8 +265,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
                                              reflect(midpoint));
                 const auto ma=vertexColorAt(*current,mirrored.a);
                 const auto mb=vertexColorAt(*current,mirrored.b);
-                edit.setVertexColor(other,{(ma.r+mb.r)*.5f,(ma.g+mb.g)*.5f,
-                                           (ma.b+mb.b)*.5f,(ma.a+mb.a)*.5f});
+                edit.setVertexColor(other,interpolateVertexColor(ma,mb,0.5));
                 mirrorAdded=splitOne(*current,edit,mirrored,other);
             }
             const auto committed=edit.commit();

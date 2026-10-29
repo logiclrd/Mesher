@@ -140,6 +140,9 @@ std::shared_ptr<const MeshRevision> MeshRevision::restore(
                !std::isfinite(v.position.z)||!vertices.insert(v.id).second||
                 !std::isfinite(v.color.r)||!std::isfinite(v.color.g)||
                 !std::isfinite(v.color.b)||!std::isfinite(v.color.a)||
+                (v.color.sourceAlpha&&
+                 (!std::isfinite(*v.color.sourceAlpha)||
+                  *v.color.sourceAlpha<0||*v.color.sourceAlpha>1))||
                 v.color.r<0||v.color.r>1||v.color.g<0||v.color.g>1||
                 v.color.b<0||v.color.b>1||v.color.a<0||v.color.a>1)
                 throw std::invalid_argument("Invalid checkpoint stable vertex");
