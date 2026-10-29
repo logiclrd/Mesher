@@ -91,6 +91,7 @@ void interpolateClosurePaint(
         std::vector<VertexId> component{start};
         std::map<VertexId,std::array<double,5>> boundary;
         bool hasSourceAlpha=false;
+        bool originallyVaried=false;
         for(std::size_t index=0;index<component.size();++index) {
             for(const auto neighbor:adjacent.at(component[index])) {
                 if(newIds.contains(neighbor)) {
@@ -101,6 +102,7 @@ void interpolateClosurePaint(
                             "Closure paint lacks authoritative survivor colour");
                     const auto color=vertexColorAt(original,neighbor);
                     hasSourceAlpha|=color.sourceAlpha.has_value();
+                    originallyVaried|=color.sourceAlphaOriginallyVaried;
                     boundary.try_emplace(neighbor,channels(color));
                 }
             }
@@ -152,6 +154,7 @@ void interpolateClosurePaint(
                              static_cast<float>(value[2]),
                              static_cast<float>(value[3])};
             if(hasSourceAlpha)color.sourceAlpha=static_cast<float>(value[4]);
+            color.sourceAlphaOriginallyVaried=originallyVaried;
             view.setVertexColor(staged.vertexOwner(id),id,color);
         }
     }

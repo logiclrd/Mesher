@@ -269,6 +269,7 @@ PaintDabResult applyVertexPaintDabs(
         const auto previous=localColorAt(*source,id);
         auto rgba=paintOver(previous,choice.color,choice.strength);
         rgba.sourceAlpha=previous.sourceAlpha;
+        rgba.sourceAlphaOriginallyVaried=previous.sourceAlphaOriginallyVaried;
         if(rgba==previous)continue;
         view.setVertexColor(source->vertex(id).owner,id,rgba);
         changed.push_back(id);

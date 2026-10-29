@@ -40,6 +40,9 @@ VertexRGBA plannedCutPointColor(const RegionTopologyIndex& baseline,
         }
         if(sourceWeight>0.0)
             result.sourceAlpha=static_cast<float>(source/sourceWeight);
+        for(std::size_t i=0;i<c.size();++i)
+            if(w[i]>0.0&&c[i].sourceAlphaOriginallyVaried)
+                result.sourceAlphaOriginallyVaried=true;
         return result;
     };
     if(point.boundaryEdge) {
