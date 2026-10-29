@@ -30,7 +30,7 @@ struct Mesh {
     std::vector<Vec3> vertices;
     std::vector<Triangle> triangles;
     // Optional parallel colour stream; empty means every vertex is white.
-    std::vector<VertexRGBA> colors;
+    std::vector<VertexRGBA> colors{};
 };
 
 struct SphereOptions {
