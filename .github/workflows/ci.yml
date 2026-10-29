@@ -158,6 +158,17 @@ jobs:
             -DVulkan_LIBRARY="$(brew --prefix vulkan-loader)/lib/libvulkan.dylib"
       - name: Compile application and tests with Apple Clang warnings-as-errors
         run: cmake --build build-macos --parallel 2
+      - name: Verify portable atomic publication and cooperative worker cancellation
+        run: |
+          clang++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+            -Iinclude tests/portable_concurrency_tests.cpp \
+            -o build-macos/portable_concurrency_tests
+          ./build-macos/portable_concurrency_tests
+          clang++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+            -DMESHER_FORCE_THREAD_FALLBACK=1 -Iinclude \
+            tests/portable_concurrency_tests.cpp \
+            -o build-macos/portable_concurrency_fallback_tests
+          ./build-macos/portable_concurrency_fallback_tests
       - name: Verify CLI and Qhull backend without a GPU
         run: |
           ./build-macos/Mesher --version
