@@ -134,14 +134,26 @@ jobs:
             local-remesh.csv
 
   macos:
-    name: macOS / Apple Clang (arm64)
-    runs-on: macos-15
+    name: macOS / Apple Clang (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
     env:
       CC: clang
       CXX: clang++
       HOMEBREW_NO_AUTO_UPDATE: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Verify native runner architecture
+        run: |
+          echo "Expected ${{ matrix.arch }}, actual $(uname -m)"
+          test "$(uname -m)" = "${{ matrix.arch }}"
       - name: Install C++ and MoltenVK build dependencies
         run: |
           brew install cmake ninja glfw qhull glslang vulkan-headers vulkan-loader molten-vk
