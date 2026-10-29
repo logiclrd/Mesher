@@ -2097,12 +2097,9 @@ public:
                     const auto suggestion=interaction_.checkpointSuggestedPath?
                         interaction_.checkpointSuggestedPath():
                         std::filesystem::path("mesher-checkpoint.mshr");
-                    if(const auto chosen=nativeSaveCheckpointDialog(window,suggestion)) {
-                        const auto path=checkpointSaveDestination(*chosen);
-                        interaction_.checkpoint(path);
-                    } else {
+                    const auto choice=nativeSaveCheckpointDialog(window,suggestion);
+                    if(!dispatchCheckpointSaveAs(choice,interaction_.checkpoint))
                         std::cout<<"[checkpoint] Save As cancelled; no write queued\n";
-                    }
                 }catch(const std::exception& error) {
                     std::cerr<<"[checkpoint] Save As failed; no write queued: "
                              <<error.what()<<"\n";
