@@ -101,7 +101,9 @@ void testConcurrentReaderAndPublication() {
     std::atomic<int> readCount{0};
     std::atomic<int> misses{0};
     std::atomic<bool> readerStarted{false};
-    std::jthread observer([&] {
+    // The observer is explicitly joined; std::thread needs no C++20
+    // jthread support and preserves the same test concurrency.
+    std::thread observer([&] {
         readerStarted=true;
         while(!completed.load()) {
             auto state=repo.snapshot();
