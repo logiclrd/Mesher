@@ -26,6 +26,32 @@ struct RecordingBrush : Brush {
     }
     void end(Mesh&) override { ++ends; }
 };
+void testImportedBrushPhysicalScale() {
+    const auto base=BrushRadiusRange::forVertexCount(19247);
+    const auto large=BrushRadiusRange::forModelScale(19247,120.0);
+    near(large.minimum,base.minimum*120,1e-12,
+         "Imported nominal-edge radius follows original physical units");
+    near(large.maximum,60.0,1e-12,
+         "Imported maximum follows half the model bounding radius");
+    const double oldRadius=base.fromSliderFraction(.2);
+    const double preserved=large.fromSliderFraction(base.sliderFraction(oldRadius));
+    near(preserved,oldRadius*120,1e-10,
+         "Open preserves relative slider position across coordinate scales");
+    check(preserved>large.minimum&&preserved>0.5,
+          "Imported brush can cover vertices on a large source mesh");
+    const auto tiny=BrushRadiusRange::forModelScale(19247,0.001);
+    near(tiny.maximum,0.0005,1e-15,
+         "Small imported mesh permits smaller-than-unit brush radius");
+    const auto original=BrushRadiusRange::forModelScale(19247,1.0);
+    near(original.minimum,base.minimum,0,
+         "Unit sphere keeps the original nominal-edge minimum");
+    near(original.maximum,base.maximum,0,
+         "Unit sphere keeps the original brush maximum");
+    try {
+        (void)BrushRadiusRange::forModelScale(100,0);
+        throw std::runtime_error("Zero physical scale incorrectly accepted");
+    }catch(const std::invalid_argument&) {}
+}
 void testRadiusSliderAndLiveStroke() {
     constexpr double pi=3.14159265358979323846;
     const auto range=BrushRadiusRange::forVertexCount(100000);
@@ -510,7 +536,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testImportedBrushPhysicalScale();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

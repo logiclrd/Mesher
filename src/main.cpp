@@ -749,10 +749,19 @@ int main(int argc, char** argv) {
                 }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
+            // Fit view-only camera transformations separately from the
+            // physical brush/stroke controls. Preserve original vertices.
+            double liveMeshScale=initialViewBounds&&
+                initialViewBounds->hasVertices&&initialViewBounds->radius()>0?
+                initialViewBounds->radius():1.0;
+            const auto unitRange=mesher::BrushRadiusRange::forVertexCount(
+                options.vertexCount);
             auto brushRange=std::make_shared<mesher::BrushRadiusRange>(
-                mesher::BrushRadiusRange::forVertexCount(options.vertexCount));
+                mesher::BrushRadiusRange::forModelScale(
+                    options.vertexCount,liveMeshScale));
             const double requestedBrushRadius=brushRadius;
-            brushRadius=brushRange->clamp(brushRadius);
+            brushRadius=brushRange->fromSliderFraction(
+                unitRange.sliderFraction(brushRadius));
             if(brushRadius!=requestedBrushRadius)
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
@@ -762,7 +771,8 @@ int main(int argc, char** argv) {
             // changed partitions; no flat compatibility conversion remains.
             if(recovered)
                 liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
-                    std::move(*recovered),step,strength,timeSpeed,
+                    std::move(*recovered),step*liveMeshScale,
+                    strength*liveMeshScale,timeSpeed*liveMeshScale,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
             else {
@@ -891,23 +901,36 @@ int main(int argc, char** argv) {
                 const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
                 // No imported disk data can invent the authenticated
                 // FIRST-original authority of the previous session.
+                const double newMeshScale=openBounds.radius()>0?
+                    openBounds.radius():1.0;
                 auto preparedWorker=std::make_shared<mesher::AsyncSculptWorker>(
-                    std::move(candidate.snapshot),step,strength,timeSpeed,
+                    std::move(candidate.snapshot),step*newMeshScale,
+                    strength*newMeshScale,timeSpeed*newMeshScale,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
                 const auto root=preparedWorker->initialRevision();
-                const auto range=mesher::BrushRadiusRange::forVertexCount(
-                    static_cast<std::uint32_t>(count));
-                const auto radius=range.clamp(brushRadius);
+                const auto range=mesher::BrushRadiusRange::forModelScale(
+                    static_cast<std::uint32_t>(count),newMeshScale);
+                // Keep the user's relative slider selection when changing
+                // from one model's coordinate scale to another.
+                const auto radius=range.fromSliderFraction(
+                    brushRange->sliderFraction(brushRadius));
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),count,radius,mirrored,range]() mutable {
+                     selected=std::move(selected),count,radius,mirrored,range,
+                     newMeshScale]() mutable {
                         liveWorker=std::move(preparedWorker);
                         *brushRange=range;
+                        liveMeshScale=newMeshScale;
                         lastDisplayed=liveWorker->initialRevision();
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
                         brushRadius=radius;
+                        std::cout<<"[open] sculpt physical scale="
+                                 <<liveMeshScale<<" radius="<<radius
+                                 <<" range="<<range.minimum<<".."<<range.maximum
+                                 <<" strength="<<strength*liveMeshScale
+                                 <<" step="<<step*liveMeshScale<<"\n";
                         // Opened OBJ is not a durable checkpoint. Save As
                         // defaults to a new .mshr beside the imported OBJ.
                         checkpointPath=std::move(selected);

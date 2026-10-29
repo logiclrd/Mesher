@@ -61,3 +61,25 @@ more than ten orders of magnitude of variation cannot all fit at once.
 GPU render positions are rebased to the scene centre in double precision
 before float conversion, preserving features on widely translated models.
 The original source remains untouched in double precision.
+
+## Import-aware Inflate brush scale
+
+Source vertices remain in original units. Previously all imported models
+inherited the unit-sphere sculpt brush radius range, including the hard 0.5
+maximum: a large PLY triangle might have no vertices within that radius.
+Inflate would then publish no movement.
+
+Import and checkpoint recovery use the original model's bounding-sphere
+radius as the **physical unit scale**. The entire brush radius interval,
+normal displacement strength, spatial 4D stroke-sampling step, and temporal
+4D speed scale together. An independent Open retains the user's existing
+**relative slider position**, not the prior model's absolute radius. The
+replacement worker receives the new effective step, strength and speed
+before publication. A failed or canceled Open leaves the old worker and
+brush settings intact; generated spheres continue with factor 1 and
+unchanged historical behaviour. Paint's nominal edge length is updated
+from the new brush range as before.
+
+This uses the existing count-based nominal edge estimate multiplied by
+the bounding radius, not an actual median triangle edge measurement.
+Extreme nonuniform meshes may need more advanced local brush scaling later.
