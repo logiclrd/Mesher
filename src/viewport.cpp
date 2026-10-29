@@ -1017,6 +1017,63 @@ class VulkanViewport {
         return orbit_.pickingRay(*visual);
     }
 
+    void frameScene(const ViewportSceneBounds& bounds) {
+        if(!bounds.hasVertices)return;
+        sceneBounds_=bounds;
+        int fw=0,fh=0;
+        glfwGetFramebufferSize(window,&fw,&fh);
+        const double width=double(std::max(1,fw));
+        const double height=double(std::max(1,fh));
+        const double eyeDistance=length(viewportCameraEye(width,height))*
+                                 interaction_.cameraScale;
+        scaleExponent_=viewportFitExponent(bounds.radius(),eyeDistance,
+                                            width/height);
+        orbit_.frame(bounds.center(),viewportScaleFromExponent(scaleExponent_));
+        std::cout<<"[view] fitted bounds radius="<<bounds.radius()
+                 <<" centre="<<bounds.center().x<<","<<bounds.center().y
+                 <<","<<bounds.center().z<<" scale=10^"<<scaleExponent_<<"\n";
+    }
+    // Every scale movement is UI-only; no worker or immutable mesh edit.
+    void updateGlobalScaleInput() {
+        scaleConsumedMouse_=false;
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0)return;
+        const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
+        const auto slider=globalScaleSliderLayout(fw,fh);
+        const bool hovering=slider.contains(x,y);
+        if(hovering!=scaleHovered_) {
+            scaleHovered_=hovering;
+            refreshHud();
+        }
+        const bool down=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        if(!scaleDragging_&&down&&!mouseWasDown_&&hovering&&
+           !sculpting_&&!painting_&&!orbitDragging_&&!radiusDragging_&&
+           !paintPanelDragging_) {
+            scaleDragging_=true;
+            scaleDragLastY_=y;
+        }
+        if(!scaleDragging_)return;
+        scaleConsumedMouse_=true;
+        if(!down) {scaleDragging_=false;return;}
+        const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                        keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+        const double exponent=viewportScaleDrag(
+            scaleExponent_,y-scaleDragLastY_,
+            double(std::max(1,slider.bottom-slider.top)),ctrl);
+        scaleDragLastY_=y;
+        if(exponent!=scaleExponent_) {
+            scaleExponent_=exponent;
+            orbit_.setScale(viewportScaleFromExponent(exponent));
+            clearPaintPreview();
+            refreshHud();
+            updateTitle();
+        }
+    }
     void updateMouseOrbit() {
         const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
         const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -1025,7 +1082,8 @@ class VulkanViewport {
         const bool alt=keyboard_.down(GLFW_KEY_LEFT_ALT)||
                        keyboard_.down(GLFW_KEY_RIGHT_ALT);
         const auto gesture=cameraGestures_.sample(
-            left,right,ctrl,alt,!sculpting_&&!radiusDragging_);
+            left,right,ctrl,alt,!sculpting_&&!radiusDragging_&&
+                                 !scaleDragging_);
         double x=0,y=0;
         glfwGetCursorPos(window,&x,&y);
         int ww=0,wh=0,fw=0,fh=0;
@@ -1336,6 +1394,11 @@ class VulkanViewport {
     }
 
     void updateMouseSculpt() {
+        if(scaleConsumedMouse_) {
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
         if(!interaction_.begin)return;
         // A camera/inspection/merge transition cannot strand a paint
         // history transaction when input handling takes an early return.
@@ -1577,6 +1640,7 @@ class VulkanViewport {
     void updatePaintPreview() {
         if(!paintMode_||!interaction_.paint||!displayedIndex_||
            painting_||sculpting_||orbitDragging_||radiusDragging_||
+           scaleDragging_||
            paintPanelDragging_||inspectionFrozen_||
            mergeInput_.enabled()||
            glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS||
@@ -1596,7 +1660,8 @@ class VulkanViewport {
         const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
         const PaintPanelLayout panel;
         const auto slider=radiusSliderLayout(fh);
-        if(x<0||x>=fw||y<0||y>=fh||
+        const auto global=globalScaleSliderLayout(fw,fh);
+        if(x<0||x>=fw||y<0||y>=fh||global.contains(x,y)||
            (x>=panel.left&&x<=panel.left+panel.width&&
             y>=panel.top&&y<=panel.top+panel.height)||
            (x>=slider.left-8&&x<=slider.left+58&&
@@ -2288,6 +2353,7 @@ public:
         : mesh_(mesh), animation_(std::move(animation)),
           interaction_(std::move(interaction)) {
         displayedIndex_=interaction_.initialRevision;
+        for(const auto vertex:mesh_.vertices)sceneBounds_.include(vertex);
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))
             throw std::invalid_argument("Animation rate must be positive and finite");
@@ -2343,6 +2409,7 @@ public:
         glfwMaximizeWindow(window);
 #endif
         glfwWaitEventsTimeout(0.10); // Allow the fullscreen transition to settle.
+        if(interaction_.startupBounds)frameScene(*interaction_.startupBounds);
         // Open before expensive Vulkan uploads so the splash covers actual
         // startup time, not merely four seconds after initialization.
         startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
@@ -2361,7 +2428,10 @@ public:
         // The original imported source is the authority for scenery
         // clearance; never scan an evolving worker root on the UI loop.
         floorZ_=viewportWorkFloorZ(mesh_);
-        const auto scenery=buildWorkFloor(floorZ_);
+        const auto scenery=interaction_.startupBounds?
+            buildWorkFloor(floorZ_,sceneBounds_.center(),
+                           std::max(8.0,sceneBounds_.radius()*2.5)):
+            buildWorkFloor(floorZ_);
         floorSolid=upload(scenery.solid);
         auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
         // Indexed COW startup intentionally has no legacy flat model;
@@ -2551,7 +2621,8 @@ public:
             // the worker swap. A cancelled or invalid import touches no
             // existing session state, picking, history or GPU buffers.
             if(shortcut&&open&&!inspectionFrozen_&&!sculpting_&&!painting_&&
-               !radiusDragging_&&!orbitDragging_&&!mergeInput_.enabled()&&
+               !radiusDragging_&&!scaleDragging_&&!orbitDragging_&&
+                !mergeInput_.enabled()&&
                !interaction_.repairStepMode&&interaction_.prepareOpen&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 try {
@@ -2578,6 +2649,15 @@ public:
                         clearPaintPreview();
                         refreshPartitions(prepared.index,dirty);
                         prepared.commit();
+                        if(prepared.bounds&&prepared.bounds->hasVertices) {
+                            frameScene(*prepared.bounds);
+                            floorZ_=prepared.bounds->minimum.z-
+                                std::max(0.25,prepared.bounds->radius()*0.05);
+                            const auto scenery=buildWorkFloor(
+                                floorZ_,prepared.bounds->center(),
+                                std::max(8.0,prepared.bounds->radius()*2.5));
+                            replaceBuffer(floorSolid,scenery.solid);
+                        }
                         interaction_.radiusRange=prepared.radiusRange;
                         interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
                         interaction_.radius=prepared.radius;
@@ -2600,6 +2680,7 @@ public:
                 }
             }
             if(!shortcut)updateMergeKeyboard();
+            updateGlobalScaleInput();
             updateMouseOrbit();
             updateMouseSculpt();
             pumpMouseStroke();
@@ -2611,7 +2692,8 @@ public:
             // visible to picking and inspection.
             if(justPressed(GLFW_KEY_F8,oneShotWasDown_)&&
                interaction_.stampOnce&&!oneShotAwaitingDisplay_&&
-               !sculpting_&&!radiusDragging_&&!orbitDragging_&&
+               !sculpting_&&!radiusDragging_&&!scaleDragging_&&
+                !orbitDragging_&&
                !inspectionFrozen_&&!mergeInput_.enabled()&&
                glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS&&
                glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)!=GLFW_PRESS&&
