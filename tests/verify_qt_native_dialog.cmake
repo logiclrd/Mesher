@@ -12,6 +12,7 @@ foreach(required
     "dialog.selectedNameFilter()"
     "dialog.setNameFilters("
     "dialog.setDefaultSuffix("
+    "dialog.setOption(QFileDialog::HideNameFilterDetails,true)"
     "std::optional<NativeOpenSelection> nativeOpenMeshDialog"
     "std::optional<std::filesystem::path> nativeSaveCheckpointDialog"
     "static QApplication application(argc,argv)"
