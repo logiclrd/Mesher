@@ -154,6 +154,64 @@ void testConformingCutColorProvenance() {
     check(plannedCutPointColor(*source,interior)==mesh.colors[2],
           "Unsplit original cut vertex must retain its exact source RGBA");
 }
+void testLinearNormalizedFootprint() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{.2,.2,0},{0,.2,0}};
+    mesh.triangles={{0,1,2},{0,2,3}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab dab{{.06,.06,0},{0,0,1},.25,.2,
+                       {1,0,0,1},0};
+    const auto output=applyVertexPaintDabs(source,{dab});
+    const auto ids=parts.flatIndex.vertexIds;
+    const double nearest=std::hypot(.06,.06);
+    const double farther=std::hypot(.14,.06);
+    const double expected=1-(farther-nearest)/(.25-nearest);
+    const auto center=colorOf(*output.colored,ids[0]);
+    const auto edge=colorOf(*output.colored,ids[1]);
+    check(center.g==0.f&&center.b==0.f,
+          "Nearest visible surface sample must have full paint strength");
+    check(close(edge.g,1.0-expected)&&close(edge.b,1.0-expected),
+          "Soft brush must fall off linearly to its actual surface radius");
+    check(colorOf(*output.colored,ids[2])==VertexRGBA{},
+          "Vertices outside the full surface-radius must remain unpainted");
+}
+void testOneUndoPerPaintStroke() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
+    mesh.triangles={{0,1,2}};
+    VersionedSculptBrush brush(mesh,.01,{}, {},{},false,4);
+    const auto original=brush.snapshot();
+    PaintDab dab{{.05,.05,0},{0,0,1},.3,.2,{1,0,0,1},1};
+    brush.beginPaintStroke();
+    check(brush.paint({dab}),"First visible dab must publish");
+    const auto intermediate=brush.snapshot();
+    check(brush.paint({PaintDab{dab.point,dab.outwardNormal,dab.radius,
+                               dab.nominalEdgeLength,{0,0,1,1},dab.hardness}}),
+          "Second dab can repaint the same surface without new geometry");
+    const auto finished=brush.snapshot();
+    brush.endPaintStroke();
+    check(brush.historyStatistics().undoDepth==1,
+          "Two separately published dabs in one drag must share one history step");
+    check(brush.undo()&&brush.snapshot()==original,
+          "One Undo must restore the entire prior stroke");
+    check(brush.redo()&&brush.snapshot()==finished,
+          "One Redo must restore the complete final stroke");
+    check(intermediate!=finished&&
+          intermediate->pickingRootIdentity()==finished->pickingRootIdentity(),
+          "Intermediate paint remains immutable and shares picking geometry");
+    brush.beginPaintStroke();
+    check(brush.paint({dab}),"A later drag must publish independently");
+    brush.endPaintStroke();
+    check(brush.historyStatistics().undoDepth==2,
+          "A new drag creates a distinct undo step");
+    check(brush.undo()&&brush.snapshot()==finished,
+          "Undo of the later drag must retain the preceding stroke");
+    brush.beginPaintStroke();
+    brush.endPaintStroke();
+    check(brush.historyStatistics().undoDepth==1,
+          "An empty mouse drag must not create a history entry");
+}
 void testUndoRedoAndPaintPublication() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -238,6 +296,8 @@ int main() {
         testDistinctBatchColors();
         testMirroredDabsDoNotDoublePaintSeam();
         testConformingCutColorProvenance();
+        testLinearNormalizedFootprint();
+        testOneUndoPerPaintStroke();
         testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
