@@ -254,15 +254,20 @@ use the nearest visible surface samples for the same correction.
 Colour dabs are applied on the background sculpt worker as immutable
 revisions, and a complete mouse drag creates ONE Ctrl+Z/redo history action
 without delaying intermediate visual updates. Save As preserves painted colours.
-The brush uses a ray origin a quarter of the nominal mesh edge length
-above the surface ONLY for visibility: the paint footprint is centred on the
-surface hit and retains the selected radius, with visibility tested against
-the prepaint mesh;
-nearby hidden/back-facing sheets are not painted. Mirrored mode paints
-both symmetric sides without double-opacity at the seam. Native rendering
-uses an opaque surface with the stored RGBA alpha as colour-coat coverage,
-not translucent geometry. Existing V12/V13 unpainted checkpoints remain
-compatible; coloured saves use checksummed V14/V15 records.
+Brush alpha is the deposited paint's opacity: a low-alpha colour
+is composited **over the current vertex colour**, rather than replacing
+the vertex's alpha. Repeated low-alpha strokes can build coverage;
+zero-alpha dabs are no-ops. Vertex RGBA remains linear and unpremultiplied,
+and the rendered surface remains opaque.
+Visibility rays originate above the surface by at least one-quarter of
+the nominal mesh edge length, rising with the brush radius so the
+near-tangent horizon on convex surfaces does not truncate large brushes.
+The brush footprint itself is centred on the surface hit with the exact
+selected radius; existing faces still occlude other/hidden surfaces, and
+back-facing vertices are rejected. Mirrored mode paints both symmetric
+sides without double-opacity from overlapping mirror dabs.
+Legacy V12/V13 unpainted checkpoints remain compatible; coloured saves
+use checksummed V14/V15 records.
 
 **F8** performs exactly one diagnostic sculpt stamp at the surface under
 the cursor. Unlike briefly clicking LMB, F8 never opens a timed 4D stroke
