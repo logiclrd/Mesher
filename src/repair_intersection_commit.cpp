@@ -30,8 +30,17 @@ VertexRGBA plannedCutPointColor(const RegionTopologyIndex& baseline,
                 double(c[0].*member)*w[0]+double(c[1].*member)*w[1]+
                 double(c[2].*member)*w[2]);
         };
-        return VertexRGBA{channel(&VertexRGBA::r),channel(&VertexRGBA::g),
+        VertexRGBA result{channel(&VertexRGBA::r),channel(&VertexRGBA::g),
                           channel(&VertexRGBA::b),channel(&VertexRGBA::a)};
+        double source=0.0,sourceWeight=0.0;
+        for(std::size_t i=0;i<c.size();++i) {
+            if(!c[i].sourceAlpha||w[i]<=0.0)continue;
+            source+=double(*c[i].sourceAlpha)*w[i];
+            sourceWeight+=w[i];
+        }
+        if(sourceWeight>0.0)
+            result.sourceAlpha=static_cast<float>(source/sourceWeight);
+        return result;
     };
     if(point.boundaryEdge) {
         const auto edge=*point.boundaryEdge;
