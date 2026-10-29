@@ -2010,6 +2010,82 @@ painting tools, preserving brush-radius independence from editing
 density. The original detailed acceptance/non-goals are retained
 in [the full historical TODO](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
 
+## Planned platform, input, painting and file UX (2026-10-28)
+
+These are **unimplemented product TODOs**, recorded separately from the
+historical R06/R07 repair acceptance work and the existing Windows/Linux
+release pipeline. Keep each item an independently planned, reviewable and
+testable change; split implementation into flat peer milestones if its scope
+requires it. File-format conventions described below are requirements to
+investigate and support, **not** claims that current formats or colour
+variants already work.
+
+- [ ] **UX01 — macOS (OS X) build in CI.** Add a macOS runner that compiles
+  the complete Mesher application and runs applicable CPU/CLI tests. Set up
+  GLFW, Vulkan via MoltenVK, shaders, Qhull and build dependencies; address
+  platform-specific compilation, startup/splash and GPU portability issues
+  without weakening Linux/Windows CI. An automated compile/test is not
+  evidence of successful physical Mac GPU rendering; track that separately.
+- [ ] **UX02 — macOS (OS X) release distribution.** After UX01, build and
+  validate a self-contained macOS `.app` release, with a native Dock/app
+  icon, splash image, Vulkan/MoltenVK runtime, shaders and assets resolved
+  from within the bundle. Define supported macOS/CPU architectures and
+  signing/notarization policy, then attach a tested macOS package to the
+  versioned release workflow without regressing Windows/Linux artifacts.
+  This is a separate journey from the initial Windows/Linux release.
+- [ ] **UX03 — Keyboard-layout-aware mapped keys rather than scan codes.**
+  Use the user's mapped/logical keys for input and shortcuts, not physical
+  keyboard scan-code positions; verify different keyboard layouts and
+  modifier combinations without regressing existing sculpt/camera controls.
+  Define platform-appropriate Command/Ctrl bindings when macOS is supported.
+- [ ] **UX04 — Per-vertex RGBA colours and basic Paint brush.** Extend the
+  immutable mesh/revision, render, history and checkpoint representation
+  to preserve vertex colours (including alpha), and add a Paint sculpting
+  action. Expose a colour wheel with **linked channel sliders** switchable
+  between **RGB, HSV and HSL**, plus independently adjustable **alpha** and
+  brush **hardness**. Changing any representation must update the others
+  consistently and must not silently change the selected colour.
+  For paint visibility, treat the actual mesh as an occluder that **casts
+  shadows into the brush's volume of effect**, preventing paint from
+  reaching back-facing or hidden surfaces across thin sheets. Position
+  the brush's visibility/occlusion origin *above* the picked surface
+  (not coincident with it), offset by **one quarter of the current
+  standard mesh edge length** along the outward surface normal; ensure
+  a robust non-self-occluding origin and test close parallel sheets,
+  folds, silhouette edges and mirrored strokes. Paint changes must be
+  bounded, undoable and compatible with ordinary immutable publication.
+- [ ] **UX05 — Ctrl+S system Save As for `.mshr`.** Open the operating
+  system's native Save As file dialog and allow the user to choose or
+  override the checkpoint filename/path, saving a valid `.mshr`
+  file. Cancel must not modify state or overwrite anything. Preserve
+  the existing durable checkpoint format, error reporting, atomic write
+  guarantees and relevant diagnostic/replay-specific shortcut behavior;
+  explicitly resolve shortcut conflicts when implementing UX03/UX05.
+- [ ] **UX06 — Ctrl+O system Open and replace current mesh.** Open a
+  native file picker for `.mshr`, Wavefront `.obj`, `.ply` and
+  `.stl`. Load into a **private candidate** and replace the current
+  editable mesh state only after successful parsing, topology/format
+  validation and any necessary revision/index/renderer/worker rebind;
+  cancel or error must retain the entire original state. Support
+  vertex-colour extensions on import: investigate both common,
+  competing **nonstandard OBJ vertex-colour conventions** (including
+  vertex-record RGB vs comment/metadata conventions), and recognized
+  **STL colour extensions** (which may encode facet rather than true
+  vertex colours); support standard PLY vertex colour and alpha
+  properties where present. Define conversion and unsupported/ambiguous
+  variant diagnostics explicitly rather than guessing or silently
+  discarding colours.
+- [ ] **UX07 — Ctrl+E native Save As mesh export.** Offer `.obj`
+  (Alias/Wavefront), `.ply` and `.stl` output with distinct selectable
+  **file-type/encoding entries in the dialog's drop-down** for supported
+  vertex-colour conventions and for **no-colour/standard** output. Include
+  competing nonstandard OBJ colour encodings and recognized STL colour
+  variants, respecting format limits (e.g. facet colours vs vertex
+  colours, available alpha) with clear loss/conversion disclosure.
+  Export the current accepted mesh consistently without changing it or
+  its undo history; prevent incomplete outputs on failure and test
+  geometry/colour round trips against UX06 for each supported variant.
+
 ## R06-M24 — Shape-guided zipper postprocessing (2026-10-27)
 
 [Full design and acceptance criteria](docs/R06_M24_ZIPPER_SHAPE_REFINEMENT.md).
