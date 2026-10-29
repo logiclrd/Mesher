@@ -125,7 +125,8 @@ not the source scalar. Source alpha interpolates across edge splits,
 collision cuts and advanced cap interiors and survives durable V16/V17
 checkpoints (legacy V12–V15 remain readable). UX07 future PLY export will
 automatically use mesh alpha if the original source values were absent or
-identical; otherwise the operator will choose From File or From Mesh. This
+identical; the per-vertex sourceAlphaOriginallyVaried bit persists that
+original decision even when edited geometry no longer spans the range. Otherwise the operator will choose From File or From Mesh. This
 export chooser is **not** implemented by UX06B.
 
 Mesher's current fragment shader uses vertex alpha for paint-coat coverage

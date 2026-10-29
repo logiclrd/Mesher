@@ -216,6 +216,8 @@ void testPlyImportCandidates() {
         [&](PartitionId,const MeshPartition& part) {
             for(const auto& vertex:part.vertices) {
                 const auto alpha=vertex.color.a;
+                check(vertex.color.sourceAlphaOriginallyVaried,
+                      "Varied source-alpha provenance survives interpretation");
                 check(vertex.color.sourceAlpha.has_value()&&
                       std::abs(*vertex.color.sourceAlpha-alpha)<1e-6f,
                       "Interpreted alpha retains exact independent provenance");
@@ -235,6 +237,8 @@ void testPlyImportCandidates() {
     restored.snapshot.index->revision().forEachPartition(
         [&](PartitionId,const MeshPartition& part) {
             for(const auto& v:part.vertices) {
+                check(v.color.sourceAlphaOriginallyVaried,
+                      "V16 checkpoint preserves original variation provenance");
                 check(v.color.sourceAlpha.has_value()&&
                       std::abs(*v.color.sourceAlpha-v.color.a)<1e-6f,
                       "V16 checkpoint must preserve both source and editable alpha");
@@ -258,7 +262,8 @@ void testPlyImportCandidates() {
     zero.snapshot.index->revision().forEachPartition(
         [&](PartitionId,const MeshPartition& part) {
             for(const auto& v:part.vertices)
-                check(v.color.a==1.f&&v.color.sourceAlpha==0.f,
+                check(v.color.a==1.f&&v.color.sourceAlpha==0.f&&
+                      !v.color.sourceAlphaOriginallyVaried,
                       "Zero-alpha VCGLIB colour remains visible and source preserved");
         });
     const std::string nearRangeGeometry=
@@ -271,6 +276,22 @@ void testPlyImportCandidates() {
     check(!near.alphaDecisionRequired&&
           near.sourceAlphaMaximum-near.sourceAlphaMinimum<0.015f,
           "Sub-1.5% alpha range automatically presents opaque RGB");
+    near.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices)
+                check(v.color.a==1.f&&v.color.sourceAlphaOriginallyVaried,
+                      "Narrow, nonconstant alpha still requires source-choice on export");
+        });
+    VertexRGBA first{.r=0.2f,.g=0.3f,.b=0.4f,.a=0.7f,
+                     .sourceAlpha=0.25f,.sourceAlphaOriginallyVaried=true};
+    VertexRGBA second{.r=0.8f,.g=0.7f,.b=0.6f,.a=0.9f,
+                      .sourceAlpha=0.75f,.sourceAlphaOriginallyVaried=true};
+    const auto midpoint=interpolateVertexColor(first,second,0.5);
+    check(midpoint.sourceAlpha&&
+          std::abs(*midpoint.sourceAlpha-0.5f)<1e-6f&&
+          midpoint.sourceAlphaOriginallyVaried&&
+          std::abs(midpoint.a-0.8f)<1e-6f,
+          "Source scalar interpolates independently of editable mesh alpha");
     const std::string thresholdGeometry=
         "0 0 0 255 0 0 0\n"
         "1 0 0 0 255 0 1\n"

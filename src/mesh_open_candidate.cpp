@@ -263,8 +263,12 @@ MeshOpenCandidate readMeshOpenCandidate(
                         candidate.sourceAlphaMaximum,*color.sourceAlpha);
                 }
             }
+            const bool originallyVaried=anySource&&
+                candidate.sourceAlphaMaximum!=candidate.sourceAlphaMinimum;
             candidate.alphaDecisionRequired=anySource&&
                 (candidate.sourceAlphaMaximum-candidate.sourceAlphaMinimum)>=0.015f;
+            for(auto& color:mesh.colors)
+                color.sourceAlphaOriginallyVaried=originallyVaried;
         }
         auto parts=partitionFlatMesh(mesh,256);
         candidate.snapshot=DurableCheckpoint{

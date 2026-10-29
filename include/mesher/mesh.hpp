@@ -26,6 +26,9 @@ struct VertexRGBA {
     float r=1.f,g=1.f,b=1.f,a=1.f;
     // Uninterpreted source alpha is independent of editable paint opacity.
     std::optional<float> sourceAlpha{};
+    // Provenance of the ORIGINAL source stream, not its surviving range after
+    // destructive edits. UX07 must offer From File if this was ever varied.
+    bool sourceAlphaOriginallyVaried=false;
     constexpr bool operator==(const VertexRGBA&) const = default;
 };
 // Provenance follows the same interpolation factor as RGBA. Never quantize
@@ -38,6 +41,8 @@ inline VertexRGBA interpolateVertexColor(VertexRGBA a,VertexRGBA b,double t) {
     if(a.sourceAlpha&&b.sourceAlpha)
         result.sourceAlpha=mix(*a.sourceAlpha,*b.sourceAlpha);
     else result.sourceAlpha=a.sourceAlpha?a.sourceAlpha:b.sourceAlpha;
+    result.sourceAlphaOriginallyVaried=
+        a.sourceAlphaOriginallyVaried||b.sourceAlphaOriginallyVaried;
     return result;
 }
 struct Triangle { std::uint32_t a{}, b{}, c{}; };

@@ -181,7 +181,10 @@ void writePayload(BinaryWriter& writer,const DurableCheckpoint& snapshot) {
                 if(hasSourceAlpha) {
                     const float value=vertex.color.sourceAlpha.value_or(0.f);
                     writer.number(std::bit_cast<std::uint32_t>(value),4);
-                    writer.number(vertex.color.sourceAlpha.has_value()?1:0,1);
+                    const auto flags=
+                        (vertex.color.sourceAlpha.has_value()?1u:0u)|
+                        (vertex.color.sourceAlphaOriginallyVaried?2u:0u);
+                    writer.number(flags,1);
                 }
             }
             for(const auto& face:partition.faces) {
@@ -284,11 +287,12 @@ DurableCheckpoint readCheckpoint(const std::filesystem::path& destination) {
             if(hasSourceAlpha) {
                 const float source=std::bit_cast<float>(
                     static_cast<std::uint32_t>(reader.number(4)));
-                const auto present=reader.number(1);
-                if(present>1||!std::isfinite(source)||
-                   (present&&(source<0.f||source>1.f)))
+                const auto flags=reader.number(1);
+                if(flags>3||(flags==2)||!std::isfinite(source)||
+                   ((flags&1u)&&(source<0.f||source>1.f)))
                     throw std::runtime_error("Checkpoint has invalid source alpha");
-                if(present)v.color.sourceAlpha=source;
+                if(flags&1u)v.color.sourceAlpha=source;
+                v.color.sourceAlphaOriginallyVaried=(flags&2u)!=0;
             }
             part.vertices.push_back(v);
         }
