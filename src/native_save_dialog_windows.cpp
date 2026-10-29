@@ -94,8 +94,9 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     const COMDLG_FILTERSPEC filters[]{
         {L"Mesher mesh files (*.mshr)",L"*.mshr"},
         {L"Wavefront OBJ (*.obj)",L"*.obj"},
+        {L"Stanford PLY (*.ply)",L"*.ply"},
         {L"All Files (*.*)",L"*.*"}};
-    require(dialog->SetFileTypes(3,filters),"SetFileTypes Open");
+    require(dialog->SetFileTypes(4,filters),"SetFileTypes Open");
     require(dialog->SetFileTypeIndex(1),"SetFileTypeIndex Open");
     if(!suggestion.parent_path().empty()) {
         const auto absolute=std::filesystem::absolute(suggestion);
@@ -119,10 +120,11 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     CoTaskMemFree(path);
     UINT index=0;
     require(dialog->GetFileTypeIndex(&index),"GetFileTypeIndex Open");
-    if(index<1||index>3)
+    if(index<1||index>4)
         throw std::runtime_error("Open dialog selected unknown file type");
     const auto filter=index==1?MeshOpenFilter::MesherCheckpoint:
-                      index==2?MeshOpenFilter::WavefrontObj:MeshOpenFilter::AllFiles;
+                      index==2?MeshOpenFilter::WavefrontObj:
+                      index==3?MeshOpenFilter::StanfordPly:MeshOpenFilter::AllFiles;
     return NativeOpenSelection{selected,filter};
 }
 void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message) {

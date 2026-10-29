@@ -1,4 +1,5 @@
 #include "mesher/mesh_open_candidate.hpp"
+#include "mesher/mesh_ply.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -176,6 +177,8 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     const auto read=static_cast<std::size_t>(input.gcount());
     const std::string_view prefix(sample.data(),read);
     if(prefix.starts_with("MESHRV12"))return MeshOpenFilter::MesherCheckpoint;
+    if(prefix.starts_with("ply\n")||prefix.starts_with("ply\r\n"))
+        return MeshOpenFilter::StanfordPly;
     if(prefix.starts_with("MSHRCAS1"))
         throw std::runtime_error(
             "This is an R06 repair-case archive (.r06case), not an editable "
@@ -207,7 +210,7 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     if(vertex)return MeshOpenFilter::WavefrontObj;
     throw std::runtime_error(
         "Unrecognized mesh file header; supported formats: MESHRV12 "
-        "checkpoints and Wavefront OBJ text. R06 repair cases are replay-only.");
+        "checkpoints, PLY and Wavefront OBJ text. R06 repair cases are replay-only.");
 }
 } // namespace
 
@@ -234,8 +237,11 @@ MeshOpenCandidate readMeshOpenCandidate(
                 "not an editable .mshr checkpoint. Use --repair-replay.");
         candidate.snapshot=readCheckpoint(path);
         candidate.format=MeshOpenFormat::Checkpoint;
-    }else if(format==MeshOpenFilter::WavefrontObj) {
-        auto mesh=parseWavefrontObj(path);
+    }else if(format==MeshOpenFilter::WavefrontObj||
+             format==MeshOpenFilter::StanfordPly) {
+        auto mesh=format==MeshOpenFilter::StanfordPly?
+            parsePlyMesh(path):parseWavefrontObj(path);
+        validateClosedTriangles(mesh);
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
@@ -243,7 +249,8 @@ MeshOpenCandidate readMeshOpenCandidate(
         candidate.snapshot=DurableCheckpoint{
             RegionTopologyIndex::build(std::move(parts.revision)),
             {},mesh.vertices.size()};
-        candidate.format=MeshOpenFormat::WavefrontObj;
+        candidate.format=format==MeshOpenFilter::StanfordPly?
+            MeshOpenFormat::StanfordPly:MeshOpenFormat::WavefrontObj;
     }else throw std::runtime_error("Unsupported selected mesh interpretation");
     if(!candidate.snapshot.index)
         throw std::runtime_error("Candidate import has no valid indexed root");
