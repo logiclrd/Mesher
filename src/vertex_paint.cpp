@@ -93,8 +93,12 @@ PaintDabResult applyVertexPaintDabs(
             const double radiusDistance=length(target-dab.point);
             if(radiusDistance>dab.radius)continue;
             // Already-matched saturated vertices need neither ray tests
-            // nor COW writes. This matters when dragging over paint.
-            if(localColorAt(*source,id)==dab.rgba)continue;
+            // nor COW writes. Keep them as radial normalization anchors:
+            // repainting a partially coated dab must not shift its centre.
+            if(localColorAt(*source,id)==dab.rgba) {
+                closest=std::min(closest,radiusDistance);
+                continue;
+            }
             // Back-facing vertices do not receive paint even if a ray
             // grazes their shared edge or a thin sheet.
             const Vec3 surfaceNormal=normalAt(*source,id);
