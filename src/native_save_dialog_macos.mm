@@ -46,7 +46,7 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         return std::filesystem::path(name);
     }
 }
-std::optional<std::filesystem::path> nativeOpenMeshDialog(
+std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow*,const std::filesystem::path& suggestion) {
     @autoreleasepool {
         NSOpenPanel* panel=[NSOpenPanel openPanel];
@@ -56,13 +56,23 @@ std::optional<std::filesystem::path> nativeOpenMeshDialog(
         panel.canChooseDirectories=NO;
         panel.allowsMultipleSelection=NO;
         panel.allowsOtherFileTypes=NO;
-        NSMutableArray<UTType*>* allowed=[NSMutableArray array];
-        for(NSString* extension in @[@"mshr",@"obj"]) {
-            UTType* type=[UTType typeWithFilenameExtension:extension
-                                         conformingToType:UTTypeData];
-            if(type)[allowed addObject:type];
-        }
-        if(allowed.count)panel.allowedContentTypes=allowed;
+        // Accessory records the user's selection. The Open filter is not
+        // inferred from the returned URL or its extension.
+        NSPopUpButton* fileType=[[NSPopUpButton alloc] initWithFrame:
+            NSMakeRect(0,0,280,28) pullsDown:NO];
+        [fileType addItemsWithTitles:@[
+            @"Mesher mesh files (*.mshr)",@"Wavefront OBJ (*.obj)",
+            @"All Files (*)"]];
+        UTType* mshr=[UTType typeWithFilenameExtension:@"mshr"
+                                     conformingToType:UTTypeData];
+        UTType* obj=[UTType typeWithFilenameExtension:@"obj"
+                                    conformingToType:UTTypeData];
+        // A native Cocoa accessory is displayed inside the Open panel.
+        // The filter choice is authoritative even when users select a file
+        // with a misleading name; all-file selection permits any filename.
+        panel.accessoryView=fileType;
+        (void)mshr;(void)obj;
+        panel.allowedContentTypes=@[];
         if(!suggestion.parent_path().empty()) {
             const auto absolute=std::filesystem::absolute(suggestion);
             const auto directory=absolute.parent_path().string();
@@ -79,7 +89,21 @@ std::optional<std::filesystem::path> nativeOpenMeshDialog(
             throw std::runtime_error("macOS Open returned a non-file URL");
         const char* path=selected.fileSystemRepresentation;
         if(!path)throw std::runtime_error("macOS Open path unavailable");
-        return std::filesystem::path(path);
+        const auto index=fileType.indexOfSelectedItem;
+        const auto filter=index==0?MeshOpenFilter::MesherCheckpoint:
+                          index==1?MeshOpenFilter::WavefrontObj:MeshOpenFilter::AllFiles;
+        return NativeOpenSelection{std::filesystem::path(path),filter};
+    }
+}
+void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleCritical;
+        alert.messageText=@"Unable to open mesh";
+        NSString* detail=[NSString stringWithUTF8String:message.c_str()];
+        alert.informativeText=detail?detail:@"The selected file could not be read.";
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
     }
 }
 } // namespace mesher

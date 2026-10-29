@@ -850,7 +850,7 @@ int main(int argc, char** argv) {
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.openSuggestedPath=[&] {return checkpointPath;};
-            interaction.prepareOpen=[&](std::filesystem::path selected)
+            interaction.prepareOpen=[&](mesher::NativeOpenSelection selectedFile)
                 -> mesher::PreparedMeshOpen {
                 // An independent in-memory candidate is prepared before
                 // touching the active editor. Checkpoint writer must not
@@ -862,7 +862,9 @@ int main(int argc, char** argv) {
                    repairSession||mergeTestTetra||mergeTestReflectedTetra)
                     throw std::runtime_error(
                         "Open requires ordinary idle editor and completed Save As");
-                auto candidate=mesher::readMeshOpenCandidate(selected);
+                auto selected=std::move(selectedFile.path);
+                auto candidate=mesher::readMeshOpenCandidate(
+                    selected,selectedFile.filter);
                 const auto count=candidate.vertexCount;
                 if(count>std::numeric_limits<std::uint32_t>::max())
                     throw std::length_error("Imported mesh vertex count exceeds uint32");

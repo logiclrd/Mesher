@@ -36,7 +36,7 @@ bool executableOnPath(const std::string& command) {
 }
 
 std::optional<std::filesystem::path> runPicker(
-    const std::vector<std::string>& command) {
+    const std::vector<std::string>& command,bool allowEmpty=false) {
     int fds[2]{};
     if(pipe(fds)<0)throw std::runtime_error(
         std::string("Cannot open native dialog output pipe: ")+std::strerror(errno));
@@ -91,7 +91,10 @@ std::optional<std::filesystem::path> runPicker(
     if(code!=0)throw std::runtime_error(
         "Native Save As dialog failed (exit "+std::to_string(code)+")");
     if(!result.empty()&&result.back()=='\n')result.pop_back();
-    if(result.empty())throw std::runtime_error("Native dialog returned no filename");
+    if(result.empty()) {
+        if(allowEmpty)return std::nullopt;
+        throw std::runtime_error("Native dialog returned no selection");
+    }
     return std::filesystem::path(result);
 }
 
@@ -135,7 +138,7 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     throw std::runtime_error(
         "No desktop Save As provider installed (install kdialog or zenity)");
 }
-std::optional<std::filesystem::path> nativeOpenMeshDialog(
+std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow*,const std::filesystem::path& suggestion) {
     std::filesystem::path initial=suggestion;
     if(initial.parent_path().empty()) {
@@ -152,19 +155,60 @@ std::optional<std::filesystem::path> nativeOpenMeshDialog(
     const bool kde=environment.find("KDE")!=std::string_view::npos;
     const bool kdialog=executableOnPath("kdialog");
     const bool zenity=executableOnPath("zenity");
-    if(kde&&kdialog)
-        return runPicker({"kdialog","--title","Open Mesher mesh",
-                          "--getopenfilename",pathname,
-                          "Mesher mesh files (*.mshr *.obj)"});
-    if(zenity)
-        return runPicker({"zenity","--file-selection",
-                          "--title=Open Mesher mesh","--filename="+pathname,
-                          "--file-filter=Mesher mesh files | *.mshr *.obj"});
-    if(kdialog)
-        return runPicker({"kdialog","--title","Open Mesher mesh",
-                          "--getopenfilename",pathname,
-                          "Mesher mesh files (*.mshr *.obj)"});
-    throw std::runtime_error(
+    // kdialog/zenity CLI return only the chosen PATH, not their active
+    // native file-type filter. To preserve the explicit-as-selected
+    // contract, use a native file-type chooser first; then pass that
+    // single selected filter to the native file chooser itself. Never
+    // guess the selection based on the filename.
+    const bool useKdialog=kdialog&&(kde||!zenity);
+    if(!kdialog&&!zenity)throw std::runtime_error(
         "No desktop Open provider installed (install kdialog or zenity)");
+    const auto type=useKdialog?
+        runPicker({"kdialog","--title","Open Mesher mesh",
+                   "--combobox","File type",
+                   "Mesher mesh files (*.mshr)","Wavefront OBJ (*.obj)",
+                   "All Files (*)"}):
+        runPicker({"zenity","--forms","--title=Open Mesher mesh",
+                   "--text=Choose the file type",
+                   "--add-combo=File type",
+                   "--combo-values=Mesher mesh files (*.mshr)|Wavefront OBJ (*.obj)|All Files (*)"});
+    if(!type)return std::nullopt;
+    const auto filter=*type=="Mesher mesh files (*.mshr)"?
+        MeshOpenFilter::MesherCheckpoint:
+        *type=="Wavefront OBJ (*.obj)"?MeshOpenFilter::WavefrontObj:
+        *type=="All Files (*)"?MeshOpenFilter::AllFiles:
+        throw std::runtime_error("Unknown selected Open file type");
+    const std::string filterLabel=
+        filter==MeshOpenFilter::MesherCheckpoint?"Mesher mesh files (*.mshr)":
+        filter==MeshOpenFilter::WavefrontObj?"Wavefront OBJ (*.obj)":"All Files (*)";
+    const std::string pattern=
+        filter==MeshOpenFilter::MesherCheckpoint?"*.mshr":
+        filter==MeshOpenFilter::WavefrontObj?"*.obj":"*";
+    const auto selected=useKdialog?
+        runPicker({"kdialog","--title","Open Mesher mesh",
+                   "--getopenfilename",pathname,filterLabel}):
+        runPicker({"zenity","--file-selection",
+                   "--title=Open Mesher mesh","--filename="+pathname,
+                   "--file-filter="+filterLabel.substr(0,filterLabel.find(" ("))+
+                   " | "+pattern});
+    if(!selected)return std::nullopt;
+    return NativeOpenSelection{*selected,filter};
+}
+void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
+    const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
+    const std::string_view environment=desktop?desktop:"";
+    const bool kde=environment.find("KDE")!=std::string_view::npos;
+    try {
+        if(executableOnPath("kdialog")&&
+           (kde||!executableOnPath("zenity"))) {
+            (void)runPicker({"kdialog","--title","Mesher — Open failed",
+                             "--error",message},true);
+        }else if(executableOnPath("zenity"))
+            (void)runPicker({"zenity","--error",
+                             "--title=Mesher — Open failed",
+                             "--text="+message},true);
+    }catch(const std::exception&) {
+        // The original diagnostic is also sent to stderr by the caller.
+    }
 }
 } // namespace mesher

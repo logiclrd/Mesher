@@ -1,7 +1,9 @@
 #pragma once
 
+#include "mesher/mesh_open_candidate.hpp"
 #include <filesystem>
 #include <optional>
+#include <string>
 
 // Implemented by each platform's native file picker. This is a user-facing
 // modal operation, called exclusively from the GLFW/UI thread. Cancellation
@@ -13,6 +15,12 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion);
 // Native Open is modal on the UI thread; nullopt means cancelled.
 // Format support and validation are deliberately separate and private.
-std::optional<std::filesystem::path> nativeOpenMeshDialog(
+struct NativeOpenSelection {
+    std::filesystem::path path;
+    MeshOpenFilter filter{MeshOpenFilter::MesherCheckpoint};
+};
+std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion);
+// Never show an error for cancellation; only real failures reach here.
+void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message);
 }

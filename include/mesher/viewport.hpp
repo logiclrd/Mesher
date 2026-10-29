@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/mesh.hpp"
+#include "mesher/native_save_dialog.hpp"
 #include "mesher/brush_radius.hpp"
 #include "mesher/partition_render.hpp"
 #include "mesher/vertex_paint.hpp"
@@ -102,7 +103,7 @@ struct ViewportInteraction {
     std::function<std::filesystem::path()> checkpointSuggestedPath;
     std::function<void(std::filesystem::path)> checkpoint;
     std::function<std::filesystem::path()> openSuggestedPath;
-    std::function<PreparedMeshOpen(std::filesystem::path)> prepareOpen;
+    std::function<PreparedMeshOpen(NativeOpenSelection)> prepareOpen;
     // Paint-only worker publication; never changes the sculpt stroke geometry.
     std::function<void(const PaintDab&)> paint;
     std::function<void()> paintBegin;

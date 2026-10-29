@@ -2518,12 +2518,13 @@ public:
                         waitingForDrain_=false;
                         refreshHud();
                         updateTitle();
-                        std::cout<<"[open] loaded "<<choice->string()
+                        std::cout<<"[open] loaded "<<choice->path.string()
                                  <<" full_rebind_owners="<<dirty.size()<<"\n";
                     }else std::cout<<"[open] cancelled; session unchanged\n";
                 }catch(const std::exception& error) {
                     std::cerr<<"[open] refused; current session retained: "
                              <<error.what()<<"\n";
+                    nativeOpenErrorMessage(window,error.what());
                 }
             }
             if(!shortcut)updateMergeKeyboard();
