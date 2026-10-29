@@ -17,9 +17,20 @@ bool validColor(VertexRGBA c) {
            std::isfinite(c.b)&&c.b>=0&&c.b<=1&&
            std::isfinite(c.a)&&c.a>=0&&c.a<=1;
 }
-VertexRGBA mix(VertexRGBA a,VertexRGBA b,float f) {
-    return {a.r+(b.r-a.r)*f,a.g+(b.g-a.g)*f,
-            a.b+(b.b-a.b)*f,a.a+(b.a-a.a)*f};
+VertexRGBA paintOver(VertexRGBA previous,VertexRGBA brush,float influence) {
+    // Brush alpha is deposit opacity, not the destination alpha value.
+    // Compose source-over in linear, unpremultiplied RGBA. This preserves
+    // the existing coat under translucent brush dabs and keeps opaque
+    // painted/unpainted surfaces opaque.
+    const float opacity=brush.a*influence;
+    if(opacity<=0.f)return previous;
+    if(opacity>=1.f)return {brush.r,brush.g,brush.b,1.f};
+    const float retained=previous.a*(1.f-opacity);
+    const float alpha=opacity+retained;
+    if(alpha<=0.f)return previous;
+    return {(brush.r*opacity+previous.r*retained)/alpha,
+            (brush.g*opacity+previous.g*retained)/alpha,
+            (brush.b*opacity+previous.b*retained)/alpha,alpha};
 }
 VertexRGBA localColorAt(const RegionTopologyIndex& index,VertexId id) {
     const auto vertex=index.vertex(id);
@@ -77,11 +88,16 @@ PaintDabResult applyVertexPaintDabs(
            length(dab.outwardNormal)<1e-12)
             throw std::invalid_argument("Paint dab contains invalid parameters");
         const Vec3 outward=normalized(dab.outwardNormal);
-        // The ray source is deliberately above the surface by 1/4 of the
-        // current nominal edge length, NEVER coincident with its triangle.
-        const Vec3 origin=dab.point+outward*(dab.nominalEdgeLength*0.25);
-        // Never query a sphere centred at the elevated ray origin:
-        // that would silently shrink the effective surface footprint.
+        // A fixed quarter-edge ray lift cuts off a large brush at the
+        // sphere's near-tangent horizon. Widen the visibility cone with
+        // the selected radius; the ray still originates outside the
+        // surface and every target remains subject to self/other-sheet
+        // occlusion and backface tests.
+        const double lift=std::max(dab.nominalEdgeLength*0.25,dab.radius);
+        const Vec3 origin=dab.point+outward*lift;
+        // Alpha zero is a no-op (including for history), even at full
+        // hardness. Paint radius is measured from the SURFACE hit.
+        if(dab.rgba.a==0.f)continue;
         const auto ids=source->querySphere(dab.point,dab.radius);
         if(ids.size()>maxVertices-candidates)
             throw std::length_error("Paint local vertex budget exhausted");
@@ -103,10 +119,13 @@ PaintDabResult applyVertexPaintDabs(
             const Vec3 target=source->vertex(id).position;
             const double radiusDistance=length(target-dab.point);
             if(radiusDistance>dab.radius)continue;
-            // Already-matched saturated vertices need neither ray tests
-            // nor COW writes. Keep them as radial normalization anchors:
-            // repainting a partially coated dab must not shift its centre.
-            if(localColorAt(*source,id)==dab.rgba) {
+            // Already opaque, exact-colour vertices cannot change under
+            // source-over paint. Semi-transparent source paint must NOT
+            // be skipped merely because its RGBA matches a prior coat:
+            // repeated dabs legitimately build coverage.
+            const auto current=localColorAt(*source,id);
+            if(current.a==1.f&&current.r==dab.rgba.r&&
+               current.g==dab.rgba.g&&current.b==dab.rgba.b) {
                 addCenterSample(radiusDistance);
                 continue;
             }
@@ -168,7 +187,7 @@ PaintDabResult applyVertexPaintDabs(
         // Preserve the chosen dab's colour and apply exactly one blend
         // per stable vertex. Equal-strength overlaps retain first-dab order.
         const auto previous=localColorAt(*source,id);
-        const auto rgba=mix(previous,choice.color,choice.strength);
+        const auto rgba=paintOver(previous,choice.color,choice.strength);
         if(rgba==previous)continue;
         view.setVertexColor(source->vertex(id).owner,id,rgba);
         changed.push_back(id);
