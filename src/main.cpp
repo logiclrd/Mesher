@@ -925,6 +925,9 @@ int main(int argc, char** argv) {
                     auto mirrored=dab;
                     mirrored.point.x=-mirrored.point.x;
                     mirrored.outwardNormal.x=-mirrored.outwardNormal.x;
+                    // The picked source FaceId belongs to the first half,
+                    // not to the reflected half's independent stable IDs.
+                    mirrored.sourceFace=0;
                     dabs.push_back(mirrored);
                 }
                 liveWorker->paint(std::move(dabs));
