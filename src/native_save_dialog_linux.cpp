@@ -5,12 +5,15 @@
 #include <cstring>
 #include <filesystem>
 #include <stdexcept>
+#include <spawn.h>
 #include <string>
 #include <string_view>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
+
+extern "C" char** environ;
 
 namespace mesher {
 namespace {
@@ -37,24 +40,37 @@ std::optional<std::filesystem::path> runPicker(
     int fds[2]{};
     if(pipe(fds)<0)throw std::runtime_error(
         std::string("Cannot open native dialog output pipe: ")+std::strerror(errno));
-    const pid_t pid=fork();
-    if(pid<0) {
-        close(fds[0]);
-        close(fds[1]);
-        throw std::runtime_error("Cannot launch native save dialog");
+    // The sculpt and checkpoint workers are live. posix_spawnp, unlike
+    // fork followed by allocations in the child, does not expose the
+    // multithreaded parent to unsafe post-fork C++ operations.
+    posix_spawn_file_actions_t actions{};
+    const int init=posix_spawn_file_actions_init(&actions);
+    if(init!=0) {
+        close(fds[0]);close(fds[1]);
+        throw std::runtime_error("Cannot initialize Save As process actions");
     }
-    if(pid==0) {
-        close(fds[0]);
-        if(dup2(fds[1],STDOUT_FILENO)<0)_exit(127);
-        close(fds[1]);
-        std::vector<char*> argv;
-        for(const auto& word:command)
-            argv.push_back(const_cast<char*>(word.c_str()));
-        argv.push_back(nullptr);
-        execvp(argv[0],argv.data());
-        _exit(127);
+    const int dup=posix_spawn_file_actions_adddup2(&actions,fds[1],STDOUT_FILENO);
+    const int readClose=posix_spawn_file_actions_addclose(&actions,fds[0]);
+    const int writeClose=posix_spawn_file_actions_addclose(&actions,fds[1]);
+    if(dup!=0||readClose!=0||writeClose!=0) {
+        posix_spawn_file_actions_destroy(&actions);
+        close(fds[0]);close(fds[1]);
+        throw std::runtime_error("Cannot redirect native dialog output");
     }
+    std::vector<char*> argv;
+    for(const auto& word:command)
+        argv.push_back(const_cast<char*>(word.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid=-1;
+    const int launched=posix_spawnp(&pid,argv[0],&actions,nullptr,
+                                   argv.data(),environ);
+    posix_spawn_file_actions_destroy(&actions);
     close(fds[1]);
+    if(launched!=0) {
+        close(fds[0]);
+        throw std::runtime_error("Cannot launch native save dialog: "+
+                                 std::string(std::strerror(launched)));
+    }
     std::string result;
     char buffer[4096];
     while(true) {
