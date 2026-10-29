@@ -235,7 +235,6 @@ void testPlyImportCandidates() {
     refuse("invalid-index.ply",prefix+geometry+
            "3 0 2 9\n3 0 1 3\n3 1 2 3\n3 2 0 3\n",
            MeshOpenFilter::AllFiles,"index out of range");
-    const auto differentColorType=prefix.replace(0,0,"");
     std::string sixteen=prefix;
     const auto p=sixteen.find("property uchar red");
     check(p!=std::string::npos,"Fixture has colour declaration");
