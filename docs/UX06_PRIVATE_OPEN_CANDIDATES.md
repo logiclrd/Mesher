@@ -51,12 +51,21 @@ label, so the filter description repeats it to retain the visible
 On X11/XWayland, `QWindow::fromWinId(glfwGetX11Window(...))` creates
 a non-owning transient-parent proxy for the GLFW window. Open, Save As
 and error messages use `setTransientParent()` so they are related
-top-level windows, not embedded children. For correct multi-monitor
-placement Qt also selects the screen containing the GLFW window centre
-and explicitly centres each dialog inside that screen's available area.
+top-level windows, not embedded children. The native QPA file picker may ignore all
+QFileDialog widget geometry and create its own window on the primary
+monitor. Therefore Linux Open and Save As deliberately use the Qt
+widget-based QFileDialog (with system Qt style) so Mesher controls the
+actual top-level geometry. Qt selects the screen containing the GLFW
+window centre and places the dialog within its available area, then
+reapplies the position just after the modal loop starts, in case the
+window manager initially overrides placement.
 Focus returns to GLFW after each modal dialog. QPA backends without
 foreign windows (e.g. native Wayland) retain the previous unparented
 fallback.
+
+The Xvfb-backed lifetime regression now also checks that repeated
+widget file dialogs are positioned near an off-centre GLFW owner,
+rather than centered on the display.
 
 The lazy `QApplication` lifetime is explicitly ended by the viewport
 destructor **before** `glfwDestroyWindow` and `glfwTerminate`. The prior

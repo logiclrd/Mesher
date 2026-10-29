@@ -225,8 +225,10 @@ asynchronous worker and uses its atomic temporary-file-and-rename
 mechanism; an accepted dialog does not imply that disk I/O has finished.
 The writer's checkpoint status/errors remain in the console. On Linux,
 **Open, Save As and error messages use Qt 6 Widgets** and the system's
-installed KDE/GTK/portal integration, with a file-type selector inside
-Open rather than a separate preliminary prompt. Qt is a required desktop
+installed Qt desktop style. Open and Save As use Qt's widget-backed
+file picker (rather than a native platform helper) so their position
+can follow the main GLFW window on multi-monitor systems, with a
+file-type selector inside Open rather than a separate preliminary prompt. Qt is a required desktop
 dependency, but no Qt dependency is added to headless mesh tests.
 The Linux archive relies on the host's Qt 6 runtime and QPA plugins;
 `QT_QPA_PLATFORMTHEME` is respected if configured rather than overwritten.

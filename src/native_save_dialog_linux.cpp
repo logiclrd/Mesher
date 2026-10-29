@@ -12,6 +12,7 @@
 #include <QScreen>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QWindow>
 
 #include <algorithm>
@@ -137,6 +138,14 @@ public:
                 const int top=std::clamp(center.y()-desired.height()/2,
                     available.top(),available.bottom()-desired.height()+1);
                 dialog.move(left,top);
+                // With the Qt-owned widget dialog, a window manager may
+                // still apply placement at map time. Move once more as
+                // the modal event loop starts, after the top-level window
+                // exists and the window manager has had its first chance
+                // to position it. The dialog remains on the GLFW screen.
+                QTimer::singleShot(0,&dialog,[&dialog,left,top] {
+                    dialog.move(left,top);
+                });
             }
         }
     }
@@ -167,6 +176,12 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
+    // The QPA/native platform helper is free to place its OWN popup
+    // on the primary display and ignore geometry on this QFileDialog.
+    // Use Qt's actual widget-backed window so screen, transient parent
+    // and post-map placement refer to the same visible top-level.
+    // Must be set before other QFileDialog properties or showing it.
+    dialog.setOption(QFileDialog::DontUseNativeDialog,true);
     // Both native helpers and the fallback Qt widget dialog display only
     // the description. It already contains the visible extension; the
     // final wildcard group remains reserved for actual filtering.
@@ -191,6 +206,12 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
+    // The QPA/native platform helper is free to place its OWN popup
+    // on the primary display and ignore geometry on this QFileDialog.
+    // Use Qt's actual widget-backed window so screen, transient parent
+    // and post-map placement refer to the same visible top-level.
+    // Must be set before other QFileDialog properties or showing it.
+    dialog.setOption(QFileDialog::DontUseNativeDialog,true);
     // Both native helpers and the fallback Qt widget dialog display only
     // the description. It already contains the visible extension; the
     // final wildcard group remains reserved for actual filtering.

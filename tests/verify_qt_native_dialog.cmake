@@ -15,6 +15,8 @@ foreach(required
     "dialog.setNameFilters("
     "dialog.setDefaultSuffix("
     "dialog.setOption(QFileDialog::HideNameFilterDetails,true)"
+    "dialog.setOption(QFileDialog::DontUseNativeDialog,true)"
+    "QTimer::singleShot(0,&dialog"
     "std::optional<NativeOpenSelection> nativeOpenMeshDialog"
     "std::optional<std::filesystem::path> nativeSaveCheckpointDialog"
     "state.application=std::make_unique<QApplication>(state.argc,state.argv)"
@@ -39,7 +41,8 @@ foreach(required
         message(FATAL_ERROR "Linux native Open/Save requires Qt: ${required}")
     endif()
 endforeach()
-foreach(disallowed "kdialog" "zenity" "posix_spawn" "QFileDialog::DontUseNativeDialog" "handle->setParent(")
+foreach(disallowed "kdialog" "zenity" "posix_spawn"
+                   "handle->setParent(")
     string(FIND "${dialog}" "${disallowed}" at)
     if(NOT at EQUAL -1)
         message(FATAL_ERROR "Linux dialog unexpectedly uses ${disallowed}")

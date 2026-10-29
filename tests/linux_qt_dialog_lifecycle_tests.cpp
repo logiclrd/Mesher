@@ -6,7 +6,11 @@
 
 #include <QApplication>
 #include <QDialog>
+#include <QFileDialog>
+#include <QScreen>
 #include <QTimer>
+
+#include <cmath>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -14,18 +18,36 @@
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 namespace {
-void autoCancelNextDialog() {
-    QTimer::singleShot(120,[] {
-        if(auto* widget=QApplication::activeModalWidget()) {
-            if(auto* dialog=qobject_cast<QDialog*>(widget)) {
-                dialog->reject();
-                return;
+void autoCancelNextDialog(GLFWwindow* owner,bool* wasPositioned=nullptr) {
+    QTimer::singleShot(120,[owner,wasPositioned] {
+        if(auto* dialog=qobject_cast<QDialog*>(
+               QApplication::activeModalWidget())) {
+            if(wasPositioned) {
+                // A real widget QFileDialog must be positioned near the
+                // GLFW window, not implicitly centered on screen zero.
+                if(auto* picker=qobject_cast<QFileDialog*>(dialog)) {
+                    int x=0,y=0,width=0,height=0;
+                    glfwGetWindowPos(owner,&x,&y);
+                    glfwGetWindowSize(owner,&width,&height);
+                    const QPoint center(x+width/2,y+height/2);
+                    const QPoint actual=picker->frameGeometry().center();
+                    QScreen* screen=QGuiApplication::screenAt(center);
+                    const bool onOwnerScreen=screen&&
+                        screen->geometry().contains(actual);
+                    *wasPositioned=picker->testOption(
+                        QFileDialog::DontUseNativeDialog)&&onOwnerScreen&&
+                        std::abs(actual.x()-center.x())<190&&
+                        std::abs(actual.y()-center.y())<190;
+                }
             }
+            dialog->reject();
+            return;
         }
-        // Some native file helpers expose their Qt shell as a top-level
-        // widget without setting activeModalWidget().
+        // Error alerts or unusual desktop Qt backends may expose a
+        // visible top-level without activeModalWidget().
         for(auto* widget:QApplication::topLevelWidgets()) {
             if(auto* dialog=qobject_cast<QDialog*>(widget)) {
                 if(dialog->isVisible()) {
@@ -49,18 +71,27 @@ int main() {
         glfwTerminate();
         return 2;
     }
+    glfwSetWindowPos(window,30,500);
+    glfwShowWindow(window);
+    glfwPollEvents();
     try {
         mesher::initializeNativeDialogs();
         if(!QApplication::instance())
             throw std::runtime_error("Qt application did not initialize");
         for(int i=0;i<2;++i) {
-            autoCancelNextDialog();
+            bool openPositioned=false;
+            autoCancelNextDialog(window,&openPositioned);
             if(mesher::nativeOpenMeshDialog(window,"fixture.mshr"))
                 throw std::runtime_error("An auto-cancelled Open returned a path");
-            autoCancelNextDialog();
+            if(!openPositioned)
+                throw std::runtime_error("Open did not appear near GLFW owner");
+            bool savePositioned=false;
+            autoCancelNextDialog(window,&savePositioned);
             if(mesher::nativeSaveCheckpointDialog(window,"fixture.mshr"))
                 throw std::runtime_error("An auto-cancelled Save returned a path");
-            autoCancelNextDialog();
+            if(!savePositioned)
+                throw std::runtime_error("Save As did not appear near GLFW owner");
+            autoCancelNextDialog(window);
             mesher::nativeOpenErrorMessage(window,"Expected test error");
         }
         mesher::shutdownNativeDialogs();
