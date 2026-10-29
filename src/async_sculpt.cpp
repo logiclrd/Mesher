@@ -158,6 +158,15 @@ void AsyncSculptWorker::mergeDiscoveredContacts(
         throw;
     }
 }
+void AsyncSculptWorker::beginPaintStroke() {
+    if(reserved_.load())return;
+    enqueue({Kind::PaintBegin});
+}
+void AsyncSculptWorker::endPaintStroke() {
+    // Always enqueue the matching end, even when a later geometry action
+    // has reserved the worker. FIFO commands close history before sculpt.
+    enqueue({Kind::PaintEnd});
+}
 void AsyncSculptWorker::paint(std::vector<PaintDab> dabs) {
     if(dabs.empty())return;
     if(reserved_.load())return; // Never interleave with a timed sculpt stroke.
@@ -378,6 +387,14 @@ void AsyncSculptWorker::run(StopToken token) {
                             changed=true;
                         }
                     }
+                    break;
+                case Kind::PaintBegin:
+                    if(stroke_.active()||stroke_.pendingSamples())
+                        throw std::logic_error("Paint stroke overlaps sculpt");
+                    brush_->beginPaintStroke();
+                    break;
+                case Kind::PaintEnd:
+                    brush_->endPaintStroke();
                     break;
                 case Kind::Paint:
                     if(stroke_.active()||stroke_.pendingSamples())break;
