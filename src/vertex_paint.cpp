@@ -57,7 +57,8 @@ PaintDabResult applyVertexPaintDabs(
     if(dabs.empty())return {source,{},{},0};
     // Mirrored halves may overlap near X=0. The strongest visible dab
     // wins for each stable vertex, preventing double-opacity at the seam.
-    std::map<VertexId,float> influences;
+    struct Influence {float strength;VertexRGBA color;};
+    std::map<VertexId,Influence> influences;
     std::size_t candidates=0,triangleTests=0;
     for(const auto& dab:dabs) {
         if(!std::isfinite(dab.point.x)||!std::isfinite(dab.point.y)||
@@ -104,19 +105,21 @@ PaintDabResult applyVertexPaintDabs(
             if(first&&length(*first-origin)<distance-endpointTolerance)
                 continue;
             const float influence=weight(radiusDistance,dab);
-            auto& strongest=influences[id];
-            strongest=std::max(strongest,influence);
+            const auto [it,inserted]=influences.try_emplace(
+                id,Influence{influence,dab.rgba});
+            if(!inserted&&influence>it->second.strength)
+                it->second={influence,dab.rgba};
         }
     }
     if(influences.empty())return {source,{},{},0};
     auto view=source->revision().createMutableView();
     std::vector<VertexId> changed;
     changed.reserve(influences.size());
-    for(const auto& [id,influence]:influences) {
-        // Symmetric mirrors use the same selected paint RGBA. There is
-        // precisely one blend per vertex even when both dabs are visible.
+    for(const auto& [id,choice]:influences) {
+        // Preserve the chosen dab's colour and apply exactly one blend
+        // per stable vertex. Equal-strength overlaps retain first-dab order.
         const auto previous=localColorAt(*source,id);
-        const auto rgba=mix(previous,dabs.front().rgba,influence);
+        const auto rgba=mix(previous,choice.color,choice.strength);
         if(rgba==previous)continue;
         view.setVertexColor(source->vertex(id).owner,id,rgba);
         changed.push_back(id);
