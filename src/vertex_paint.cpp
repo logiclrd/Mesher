@@ -80,17 +80,44 @@ VisiblePaintSamples collectVisiblePaintSamples(
            !std::isfinite(dab.outwardNormal.z)||
            length(dab.outwardNormal)<1e-12)
             throw std::invalid_argument("Paint dab contains invalid parameters");
-        const Vec3 outward=normalized(dab.outwardNormal);
-        // A fixed quarter-edge ray lift cuts off a large brush at the
-        // sphere's near-tangent horizon. Widen the visibility cone with
-        // the selected radius; the ray still originates outside the
-        // surface and every target remains subject to self/other-sheet
-        // occlusion and backface tests.
-        const double lift=std::max(dab.nominalEdgeLength*0.25,dab.radius);
-        const Vec3 origin=dab.point+outward*lift;
         // Alpha zero is a no-op (including for history), even at full
         // hardness. Paint radius is measured from the SURFACE hit.
         if(!preview&&dab.rgba.a==0.f)return {};
+        const Vec3 outward=normalized(dab.outwardNormal);
+        // A radius-scaled origin prevents near-tangent horizon clipping
+        // on convex patches. However, on concave surfaces (the centre of
+        // a torus, tight folds, opposite sheets) it can pass THROUGH an
+        // intervening surface and illuminate geometry from its far side.
+        // Probe the travel corridor from immediately above the selected
+        // surface before placing the origin. Both real paint and hover
+        // share this source-immutable clearance test.
+        double lift=std::max(dab.nominalEdgeLength*0.25,dab.radius);
+        const double epsilon=std::max(
+            1e-9*std::max(1.0,dab.nominalEdgeLength),
+            dab.nominalEdgeLength*1e-4);
+        RegionTopologyIndex::PickStatistics clearanceWork{};
+        const auto collision=source.firstRayHit(
+            {dab.point+outward*epsilon,outward},&clearanceWork);
+        if(clearanceWork.trianglesTested>maxRayTriangles-triangleTests)
+            throw std::length_error("Paint origin clearance ray budget exhausted");
+        triangleTests+=clearanceWork.trianglesTested;
+        if(collision) {
+            const double distance=dot(*collision-dab.point,outward);
+            if(distance<=epsilon) {
+                // No reliable free-space corridor exists in this
+                // direction: never start on the far side of a sheet.
+                return {};
+            }
+            if(distance<=lift) {
+                // Stay just on the source side of the first obstruction.
+                // The 10% gap avoids grazing its triangles at the origin.
+                // This may be below the nominal quarter-edge offset in a
+                // narrow gap, but is always safer than crossing the wall.
+                lift=std::min(lift,0.9*distance);
+                if(lift<=epsilon)return {};
+            }
+        }
+        const Vec3 origin=dab.point+outward*lift;
         const auto ids=source.querySphere(dab.point,dab.radius);
         if(ids.size()>maxVertices-candidates)
             throw std::length_error("Paint local vertex budget exhausted");
