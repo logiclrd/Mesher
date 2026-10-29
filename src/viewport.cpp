@@ -2496,7 +2496,7 @@ public:
                         std::filesystem::path("mesher-checkpoint.mshr");
                     const auto choice=nativeOpenMeshDialog(window,suggestion);
                     if(choice) {
-                        auto prepared=interaction_.prepareOpen(*choice);
+                        auto prepared=interaction_.prepareOpen(window,*choice);
                         if(!prepared.index||!prepared.commit)
                             throw std::runtime_error("Open produced no valid source");
                         std::set<PartitionId> owners;
@@ -2527,6 +2527,8 @@ public:
                         std::cout<<"[open] loaded "<<choice->path.string()
                                  <<" full_rebind_owners="<<dirty.size()<<"\n";
                     }else std::cout<<"[open] cancelled; session unchanged\n";
+                }catch(const MeshOpenCancelled&) {
+                    std::cout<<"[open] PLY alpha decision cancelled; session unchanged\n";
                 }catch(const std::exception& error) {
                     std::cerr<<"[open] refused; current session retained: "
                              <<error.what()<<"\n";

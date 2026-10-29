@@ -127,6 +127,24 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
                       index==3?MeshOpenFilter::StanfordPly:MeshOpenFilter::AllFiles;
     return NativeOpenSelection{selected,filter};
 }
+std::optional<bool> nativePlyAlphaOpacityDialog(
+    GLFWwindow* owner,float minimum,float maximum) {
+    const auto low=static_cast<int>(minimum*255.f+0.5f);
+    const auto high=static_cast<int>(maximum*255.f+0.5f);
+    const std::wstring text=L"PLY vertex alpha ranges from "+
+        std::to_wstring(low)+L" to "+std::to_wstring(high)+
+        L" / 255. These values might be opacity or unrelated data.\n\n"
+        L"Yes: import as Mesher alpha.\n"
+        L"No: display opaque RGB; preserve source alpha for export.\n"
+        L"Cancel: leave the existing mesh unchanged.";
+    const int result=MessageBoxW(owner?glfwGetWin32Window(owner):nullptr,
+        text.c_str(),L"Interpret PLY alpha?",
+        MB_YESNOCANCEL|MB_ICONQUESTION|MB_TASKMODAL|MB_DEFBUTTON2);
+    if(result==IDYES)return true;
+    if(result==IDNO)return false;
+    if(result==IDCANCEL)return std::nullopt;
+    throw std::runtime_error("Windows PLY alpha prompt failed");
+}
 void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message) {
     const int chars=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,
         message.c_str(),-1,nullptr,0);

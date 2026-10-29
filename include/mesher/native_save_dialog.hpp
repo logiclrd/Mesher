@@ -23,6 +23,12 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion);
 // Never show an error for cancellation; only real failures reach here.
 void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message);
+// Yes: use PLY source alpha as editable mesh alpha. No: keep mesh opaque,
+// with source alpha retained. Cancel: leave the current editor unchanged.
+std::optional<bool> nativePlyAlphaOpacityDialog(
+    GLFWwindow* owner,float minimum,float maximum);
+struct MeshOpenCancelled {};
+
 #ifdef __linux__
 // Called once by VulkanViewport, before GLFW destroys its X11 window.
 // Does nothing if Qt dialogs were never used. Cannot be reinitialized

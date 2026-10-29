@@ -127,6 +127,32 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         return NativeOpenSelection{std::filesystem::path(path),filter};
     }
 }
+std::optional<bool> nativePlyAlphaOpacityDialog(
+    GLFWwindow*,float minimum,float maximum) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleInformational;
+        alert.messageText=@"Interpret PLY alpha?";
+        const auto low=static_cast<int>(minimum*255.f+0.5f);
+        const auto high=static_cast<int>(maximum*255.f+0.5f);
+        NSString* detail=[NSString stringWithFormat:
+            @"PLY vertex alpha ranges from %d to %d / 255. "
+             "It may be opacity or unrelated source data.\n\n"
+             "Yes: import as Mesher alpha.\n"
+             "No: display opaque RGB and preserve source alpha.\n"
+             "Cancel: leave the existing mesh unchanged.",low,high];
+        alert.informativeText=detail;
+        [alert addButtonWithTitle:@"Yes"];
+        [alert addButtonWithTitle:@"No"];
+        [alert addButtonWithTitle:@"Cancel"];
+        const NSModalResponse choice=[alert runModal];
+        [alert release];
+        if(choice==NSAlertFirstButtonReturn)return true;
+        if(choice==NSAlertSecondButtonReturn)return false;
+        if(choice==NSAlertThirdButtonReturn)return std::nullopt;
+        throw std::runtime_error("macOS PLY alpha prompt failed");
+    }
+}
 void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
     @autoreleasepool {
         NSAlert* alert=[[NSAlert alloc] init];

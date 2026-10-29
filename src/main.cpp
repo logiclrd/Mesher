@@ -850,7 +850,8 @@ int main(int argc, char** argv) {
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.openSuggestedPath=[&] {return checkpointPath;};
-            interaction.prepareOpen=[&](mesher::NativeOpenSelection selectedFile)
+            interaction.prepareOpen=[&](GLFWwindow* owner,
+                                          mesher::NativeOpenSelection selectedFile)
                 -> mesher::PreparedMeshOpen {
                 // An independent in-memory candidate is prepared before
                 // touching the active editor. Checkpoint writer must not
@@ -865,6 +866,14 @@ int main(int argc, char** argv) {
                 auto selected=std::move(selectedFile.path);
                 auto candidate=mesher::readMeshOpenCandidate(
                     selected,selectedFile.filter);
+                if(candidate.alphaDecisionRequired) {
+                    const auto interpreted=mesher::nativePlyAlphaOpacityDialog(
+                        owner,candidate.sourceAlphaMinimum,
+                        candidate.sourceAlphaMaximum);
+                    if(!interpreted)throw mesher::MeshOpenCancelled{};
+                    if(*interpreted)
+                        mesher::applyPlySourceAlphaAsOpacity(candidate);
+                }
                 const auto count=candidate.vertexCount;
                 if(count>std::numeric_limits<std::uint32_t>::max())
                     throw std::length_error("Imported mesh vertex count exceeds uint32");

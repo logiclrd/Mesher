@@ -243,6 +243,31 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         throw std::runtime_error("Qt Open returned an unknown file-type filter");
     return NativeOpenSelection{asPath(names.front()),filter};
 }
+std::optional<bool> nativePlyAlphaOpacityDialog(
+    GLFWwindow* owner,float minimum,float maximum) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    const auto range=QString::number(double(minimum)*255.0,'f',0)+
+        QStringLiteral(" to ")+QString::number(double(maximum)*255.0,'f',0);
+    QMessageBox dialog(QMessageBox::Question,
+        QStringLiteral("Interpret PLY alpha?"),
+        QStringLiteral("This PLY has varying vertex alpha values (")+
+            range+QStringLiteral(" / 255). They may represent opacity or "
+            "unrelated data.\n\n"
+            "Yes: use them as Mesher alpha.\n"
+            "No: show opaque RGB and preserve source alpha for export.\n"
+            "Cancel: leave the current mesh unchanged."),
+        QMessageBox::Yes|QMessageBox::No|QMessageBox::Cancel);
+    dialog.setDefaultButton(QMessageBox::No);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    const auto answer=dialog.exec();
+    if(answer==QMessageBox::Yes)return true;
+    if(answer==QMessageBox::No)return false;
+    if(answer==QMessageBox::Cancel||answer==QMessageBox::NoButton)
+        return std::nullopt;
+    throw std::runtime_error("Unexpected Qt PLY alpha choice");
+}
 void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message) {
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
