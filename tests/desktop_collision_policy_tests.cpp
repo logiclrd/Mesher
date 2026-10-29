@@ -20,6 +20,56 @@ Mesh parallelSheets() {
     m.triangles={{0,1,2},{3,4,5}};
     return m;
 }
+void largeImportedAutoSourceCanPublishCleanStamp() {
+    // Reproduce the duck's source-size class without requiring its private
+    // file. A closed torus with >19,247 vertices AND >38,490 faces must not
+    // be refused solely because the old R07 source envelope was exceeded.
+    constexpr int rings=130,segments=160;
+    Mesh mesh;
+    mesh.vertices.reserve(rings*segments);
+    mesh.triangles.reserve(rings*segments*2);
+    constexpr double pi=3.14159265358979323846;
+    for(int i=0;i<rings;++i)for(int j=0;j<segments;++j) {
+        const double u=2*pi*i/rings,v=2*pi*j/segments;
+        const double radius=2.0+0.5*std::cos(v);
+        mesh.vertices.push_back(
+            {radius*std::cos(u),radius*std::sin(u),0.5*std::sin(v)});
+    }
+    for(int i=0;i<rings;++i)for(int j=0;j<segments;++j) {
+        const auto idx=[&](int a,int b)->std::uint32_t {
+            return static_cast<std::uint32_t>(
+                ((a+rings)%rings)*segments+(b+segments)%segments);
+        };
+        const auto a=idx(i,j),b=idx(i+1,j);
+        const auto c=idx(i,j+1),d=idx(i+1,j+1);
+        mesh.triangles.push_back({a,b,c});
+        mesh.triangles.push_back({b,d,c});
+    }
+    require(mesh.vertices.size()>19247&&mesh.triangles.size()>38490,
+            "Large AUTO fixture must exceed the exact imported duck dimensions");
+    SculptCollisionSettings policy;
+    policy.certifiedAutoClosure=true;
+    require(policy.certifiedAutoSourceLimits.maxVertices>=mesh.vertices.size()&&
+            policy.certifiedAutoSourceLimits.maxFaces>=mesh.triangles.size()&&
+            policy.certifiedAutoCompleteSourceLimits.maxVertices>=mesh.vertices.size()&&
+            policy.certifiedAutoCompleteSourceLimits.maxFaces>=mesh.triangles.size(),
+            "Live AUTO finite source envelopes admit a source at duck scale");
+    require(SculptSourceContactLimits{}.maxVertices==16384&&
+            SculptSourceContactLimits{}.maxFaces==32768,
+            "Protected whole-original Merge source limits remain separate");
+    VersionedSculptBrush brush(
+        mesh,.002,{},{},{},false,256,{},policy);
+    const auto before=brush.snapshot();
+    Mesh dummy;
+    const std::array<BrushArea,1> area{{{{2.5,0,0},.12,.3}}};
+    brush.stamp(dummy,area);
+    require(brush.rejectedStamps()==0&&
+            brush.publishedRevisions()==1&&
+            brush.snapshot()!=before&&
+            brush.lastRejection().empty(),
+            "A clean source-size duck-class Inflate stamp publishes instead of"
+            " hitting the obsolete whole-root R07 budget");
+}
 void selectionsDoNotAliasMerge() {
     const auto defaults=desktopCollisionSettings({});
     require(!defaults.enabled&&!defaults.physicalExact&&
@@ -126,6 +176,7 @@ void oldCheckpointDoesNotRestoreFeatureFlags() {
 int main() {
     try {
         selectionsDoNotAliasMerge();
+        largeImportedAutoSourceCanPublishCleanStamp();
         freshSymmetricDesktopSourceIsArmedNotMerged();
         oldCheckpointDoesNotRestoreFeatureFlags();
         std::cout<<"V18-M06 desktop policy and legacy checkpoint contract: PASS\n";
