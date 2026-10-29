@@ -171,11 +171,56 @@ void testMirroredDabsDoNotDoublePaintSeam() {
     check(colorOf(*mirrored.colored,seam)!=VertexRGBA{},
           "Seam overlap test must exercise a real visible paint influence");
 }
+void testSourceAlphaSurvivesPaintAndCheckpoint() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
+    mesh.triangles={{0,1,2}};
+    mesh.colors={{1,0,0,1},{0,1,0,1},{0,0,1,1}};
+    for(unsigned i=0;i<3;++i) {
+        mesh.colors[i].sourceAlpha=static_cast<float>(i+1)/4.f;
+        mesh.colors[i].sourceAlphaOriginallyVaried=true;
+    }
+    const auto parts=partitionFlatMesh(mesh,4);
+    auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab dab{{.05,.05,0},{0,0,1},.25,.2,{1,1,0,1},1};
+    const auto result=applyVertexPaintDabs(source,{dab});
+    check(result.colored!=source&& !result.changedVertices.empty(),
+          "Source-alpha test must perform a real paint publication");
+    for(unsigned i=0;i<3;++i) {
+        const auto id=parts.flatIndex.vertexIds[i];
+        const auto before=colorOf(*source,id);
+        const auto after=colorOf(*result.colored,id);
+        check(before.sourceAlpha==after.sourceAlpha&&
+              after.sourceAlphaOriginallyVaried,
+              "Paint must never edit original non-opacity source alpha");
+    }
+    const auto path=std::filesystem::temp_directory_path()/
+                    "mesher-ux06-source-alpha-paint.mshr";
+    try {
+        DurableCheckpoint checkpoint;
+        checkpoint.index=result.colored;
+        checkpoint.initialVertexCount=3;
+        writeCheckpoint(path,checkpoint);
+        const auto restored=readCheckpoint(path);
+        for(const auto id:parts.flatIndex.vertexIds)
+            check(colorOf(*restored.index,id)==colorOf(*result.colored,id),
+                  "Source alpha, variation bit and painted RGBA survive checkpoint");
+        std::filesystem::remove(path);
+    }catch(...) {
+        std::error_code error;
+        std::filesystem::remove(path,error);
+        throw;
+    }
+}
 void testConformingCutColorProvenance() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{1,0,0},{0,1,0}};
     mesh.triangles={{0,1,2}};
     mesh.colors={{1,0,0,0.2f},{0,1,0,0.6f},{0,0,1,1.f}};
+    mesh.colors[0].sourceAlpha=0.1f;
+    mesh.colors[1].sourceAlpha=0.5f;
+    mesh.colors[2].sourceAlpha=0.9f;
+    for(auto& color:mesh.colors)color.sourceAlphaOriginallyVaried=true;
     const auto parts=partitionFlatMesh(mesh,4);
     const auto source=RegionTopologyIndex::build(parts.revision);
     ConformingCutPoint edge;
@@ -184,14 +229,18 @@ void testConformingCutColorProvenance() {
         parts.flatIndex.vertexIds[0],parts.flatIndex.vertexIds[1]};
     const auto onEdge=plannedCutPointColor(*source,edge);
     check(close(onEdge.r,0.75)&&close(onEdge.g,0.25)&&
-          close(onEdge.b,0)&&close(onEdge.a,0.3),
+          close(onEdge.b,0)&&close(onEdge.a,0.3)&&
+          onEdge.sourceAlpha&&close(*onEdge.sourceAlpha,0.2)&&
+          onEdge.sourceAlphaOriginallyVaried,
           "Boundary cut RGBA must be interpolated on its original source edge");
     ConformingCutPoint interior;
     interior.position={0.25,0.25,0};
     interior.owningFace=parts.flatIndex.faceIds[0];
     const auto inside=plannedCutPointColor(*source,interior);
     check(close(inside.r,0.5)&&close(inside.g,0.25)&&
-          close(inside.b,0.25)&&close(inside.a,0.5),
+          close(inside.b,0.25)&&close(inside.a,0.5)&&
+          inside.sourceAlpha&&close(*inside.sourceAlpha,0.4)&&
+          inside.sourceAlphaOriginallyVaried,
           "Interior cut RGBA must follow its original face barycentrics");
     interior.existingVertex=parts.flatIndex.vertexIds[2];
     check(plannedCutPointColor(*source,interior)==mesh.colors[2],
@@ -548,6 +597,7 @@ int main() {
         testDistinctBatchColors();
         testMirroredDabsDoNotDoublePaintSeam();
         testConformingCutColorProvenance();
+        testSourceAlphaSurvivesPaintAndCheckpoint();
         testLinearNormalizedFootprint();
         testConvexSurfaceBrushRadiusGrowth();
         testPaintAlphaCompositesOverExistingColor();
