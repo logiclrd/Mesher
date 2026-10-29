@@ -76,6 +76,8 @@ void invalidNamesDoNotBecomePhysicalShortcuts() {
     // Quick taps remain visible even if the release arrives before draw.
     keys.onKey(GLFW_KEY_Q,GLFW_PRESS,"w");
     keys.onKey(GLFW_KEY_Q,GLFW_RELEASE);
+    check(keys.active(GLFW_KEY_W),
+          "A quick tap must also register in held-state merge input");
     check(keys.takePress(GLFW_KEY_W),"Quick mapped tap must be delivered");
     check(!keys.takePress(GLFW_KEY_W),"Tap is consumed exactly once");
     keys.onKey(GLFW_KEY_Q,GLFW_PRESS,"n");
