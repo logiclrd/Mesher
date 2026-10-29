@@ -64,6 +64,13 @@ public:
     bool down(int key) const noexcept {
         return key>=0 && key<=GLFW_KEY_LAST && held_[key]!=0;
     }
+    // Edge-consuming handlers use takePress; legacy state-machine handlers
+    // may sample held-or-newly-pressed, so a very short tap still has one
+    // observable active frame even if its release was in the same poll.
+    bool active(int key) const noexcept {
+        return key>=0&&key<=GLFW_KEY_LAST &&
+               (held_[key]!=0||pressed_[key]);
+    }
     bool takePress(int key) noexcept {
         if(key<0||key>GLFW_KEY_LAST)return false;
         const bool result=pressed_[key];
