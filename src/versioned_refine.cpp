@@ -1,4 +1,5 @@
 #include "mesher/versioned_refine.hpp"
+#include "mesher/vertex_paint.hpp"
 
 #include <algorithm>
 #include <array>
@@ -253,12 +254,20 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             RegionEdit edit(current,seeds,{},partitionCapacity_);
             const auto mid=edit.appendLocalVertex(current->vertex(e.a).owner,
                                                   midpoint);
+            const auto ca=vertexColorAt(*current,e.a);
+            const auto cb=vertexColorAt(*current,e.b);
+            edit.setVertexColor(mid,{(ca.r+cb.r)*.5f,(ca.g+cb.g)*.5f,
+                                    (ca.b+cb.b)*.5f,(ca.a+cb.a)*.5f});
             const auto addedFaces=splitOne(*current,edit,e,mid);
             VertexId other=mid;
             std::array<FaceId,2> mirrorAdded{};
             if(paired) {
                 other=edit.appendLocalVertex(current->vertex(mirrored.a).owner,
                                              reflect(midpoint));
+                const auto ma=vertexColorAt(*current,mirrored.a);
+                const auto mb=vertexColorAt(*current,mirrored.b);
+                edit.setVertexColor(other,{(ma.r+mb.r)*.5f,(ma.g+mb.g)*.5f,
+                                           (ma.b+mb.b)*.5f,(ma.a+mb.a)*.5f});
                 mirrorAdded=splitOne(*current,edit,mirrored,other);
             }
             const auto committed=edit.commit();
