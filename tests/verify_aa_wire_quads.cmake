@@ -16,7 +16,11 @@ endforeach()
 foreach(needle "noperspective in vec3 edgeBarycentric"
                "dFdx(edgeBarycentric)" "dFdy(edgeBarycentric)"
                "nearest=abs(worldPosition.xy-round(worldPosition.xy));"
-               "float minAltitudePx=1.0/max(perPixel.x,max(perPixel.y,perPixel.z));"
+               "vec3 altitudesPx=1.0/perPixel;"
+               "float typicalAltitudePx=altitudesPx.x+altitudesPx.y+altitudesPx.z-"
+               "float densityFade=mix(0.30,1.0,density);"
+               "wireHalfwidth=mix(0.42,constants.wireRaster.z,density*density);"
+               "coverage=1.0-smoothstep(wireHalfwidth-0.45,"
                "wireOpacity=densityFade;"
                "color=mix(color,vec3(0.073239),coverage*wireOpacity);")
     string(FIND "${frag}" "${needle}" at)
