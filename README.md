@@ -259,9 +259,14 @@ is composited **over the current vertex colour**, rather than replacing
 the vertex's alpha. Repeated low-alpha strokes can build coverage;
 zero-alpha dabs are no-ops. Vertex RGBA remains linear and unpremultiplied,
 and the rendered surface remains opaque.
-Visibility rays originate above the surface by at least one-quarter of
-the nominal mesh edge length, rising with the brush radius so the
-near-tangent horizon on convex surfaces does not truncate large brushes.
+Visibility rays normally originate above the surface by at least one-quarter
+of the nominal mesh edge length and rise with brush radius to avoid
+convex-surface horizon clipping. A source-side clearance ray caps that
+lift before any intervening surface, even below the quarter-edge offset
+when a narrow fold or opposing torus wall would otherwise be crossed.
+Visible targets must also lie behind the lifted origin along the dab's
+outward normal: an opposing torus wall is not painted merely because its
+front faces can see the brush from beyond that origin.
 The brush footprint itself is centred on the surface hit with the exact
 selected radius; existing faces still occlude other/hidden surfaces, and
 back-facing vertices are rejected. Mirrored mode paints both symmetric
