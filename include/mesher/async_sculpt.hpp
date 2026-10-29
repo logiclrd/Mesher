@@ -117,6 +117,8 @@ public:
         SculptSourceContactLimits discovery={});
     void saveCheckpoint(std::filesystem::path destination);
     void paint(std::vector<PaintDab> dabs);
+    void beginPaintStroke();
+    void endPaintStroke();
     CheckpointStatistics checkpointStatistics() const {
         return checkpoints_.statistics();
     }
@@ -132,7 +134,8 @@ public:
     }
 
 private:
-    enum class Kind {Begin,SingleStamp,Update,End,Radius,Undo,Redo,Checkpoint,Paint,Merge,DiscoverMerge};
+    enum class Kind {Begin,SingleStamp,Update,End,Radius,Undo,Redo,Checkpoint,
+                     PaintBegin,Paint,PaintEnd,Merge,DiscoverMerge};
     struct Command {
         Kind kind;
         Vec3 point{};
