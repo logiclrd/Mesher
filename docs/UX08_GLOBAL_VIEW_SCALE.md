@@ -17,9 +17,12 @@ mesh revisions or durable checkpoints.
   geometry retains the legacy original camera orientation and scale 10^0.
 - The renderer maps original source coordinates through a **fixed initial
   fit scale**, orbit basis, and source-centre translation. Subsequent slider
-  decades change optical magnification (the X/Y projection rows), never
-  push the camera through the mesh. Thus +3, +4, and +5 differ by exactly
-  10x in screen projection while physical viewing depth stays fixed.
+  decades above the initial fit exponent change optical magnification
+  (the X/Y projection rows), never pushing the camera through the mesh.
+  Below that exponent, the camera retreats along its original viewing
+  direction instead. The FOV remains 45 degrees, avoiding the extreme
+  perspective distortion of negative optical magnification. Each zoom-out
+  decade makes the model centre approximately one tenth as large on screen.
   Picking applies the inverse optical ray mapping and then the inverse
   orbit/source fit, returning original source-space rays to the immutable
   BVH and brush worker. Orbit, dolly, strafe and symmetry remain intact.

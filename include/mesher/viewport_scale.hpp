@@ -67,14 +67,23 @@ inline std::string viewportScaleLabel(double exponent) {
     out<<"10^"<<std::fixed<<std::setprecision(4)<<exponent;
     return out.str();
 }
-// Model fitting is performed only once on Open. Subsequent slider movement
-// changes *optical* magnification so the camera never enters the source
-// volume merely because the selected exponent becomes positive.
-inline double viewportOpticalZoom(double exponent,double fitExponent) noexcept {
+// Model fitting happens once on Open. Above the fitting exponent, zoom
+// optically at fixed eye distance. Below it, move the camera backward
+// with a fixed 45-degree FOV instead of widening toward 180 degrees.
+inline double viewportRelativeMagnification(double exponent,
+                                            double fitExponent) noexcept {
     return std::pow(10.0,std::clamp(exponent,kViewportMinExponent,
                                     kViewportMaxExponent)-
                          std::clamp(fitExponent,kViewportMinExponent,
                                     kViewportMaxExponent));
+}
+inline double viewportOpticalZoom(double exponent,double fitExponent) noexcept {
+    return std::max(1.0,viewportRelativeMagnification(exponent,fitExponent));
+}
+inline double viewportCameraDistanceFactor(double exponent,
+                                           double fitExponent) noexcept {
+    return 1.0/std::min(1.0,
+        viewportRelativeMagnification(exponent,fitExponent));
 }
 // Inverse of multiplying the first two projection rows by opticalZoom.
 // The render ray and CPU source-space ray must agree at every exponent.

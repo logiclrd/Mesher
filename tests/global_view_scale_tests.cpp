@@ -99,6 +99,24 @@ void testPickingAndOrbit() {
     require(close(orbit.scale(),0.008)&&
             close(length(orbit.displayed(sourceCenter)-orbit.translation()),0.0),
             "Optical zoom never pushes the fixed camera into the mesh");
+    const double farExponent=fitExponent-2;
+    require(close(viewportRelativeMagnification(farExponent,fitExponent),0.01)&&
+            viewportOpticalZoom(farExponent,fitExponent)==1.0&&
+            close(viewportCameraDistanceFactor(farExponent,fitExponent),100.0),
+            "Two zoom-out decades recede the eye 100x without widening FOV");
+    require(close(viewportCameraDistanceFactor(fitExponent,fitExponent),1)&&
+            close(viewportCameraDistanceFactor(fitExponent+2,fitExponent),1),
+            "Zoom-in retains fixed camera distance and cannot enter mesh");
+    const Vec3 farEye=viewportCameraEye(1200,800)*
+                      viewportCameraDistanceFactor(farExponent,fitExponent);
+    const Vec3 normalEye=viewportCameraEye(1200,800);
+    require(close(length(farEye)/length(normalEye),100),
+            "Zoomed-out camera keeps its viewing direction");
+    const auto farRay=viewportOpticalRay(900,500,1200,800,
+                viewportOpticalZoom(farExponent,fitExponent));
+    const auto originalRay=viewportRay(900,500,1200,800);
+    require(close(length(farRay.direction-originalRay.direction),0),
+            "Zoom-out preserves off-axis ray angles of the 45-degree camera");
     ViewportOrbit nearPan,farPan;
     nearPan.frame(sourceCenter,0.008);
     farPan.frame(sourceCenter,0.008);

@@ -487,10 +487,11 @@ static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
                             const ViewportOrbit& orbit,
                             const ViewportSceneBounds& bounds,
-                            double opticalZoom) {
+                            double opticalZoom,double cameraDistanceFactor) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
-    const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
+    const Vec3 eye=viewportCameraEye(double(width),double(height))*
+                   (cameraScale*cameraDistanceFactor);
     PushConstants result;
     Matrix model;
     const auto& axes=orbit.basis();
@@ -608,6 +609,13 @@ class VulkanViewport {
     ViewportSceneBounds sceneBounds_{};
     double opticalZoom() const noexcept {
         return viewportOpticalZoom(scaleExponent_,fitScaleExponent_);
+    }
+    double cameraDistanceFactor() const noexcept {
+        return viewportCameraDistanceFactor(scaleExponent_,fitScaleExponent_);
+    }
+    Vec3 scaledCameraEye(double width,double height) const noexcept {
+        return viewportCameraEye(width,height)*
+               (interaction_.cameraScale*cameraDistanceFactor());
     }
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
@@ -1024,7 +1032,8 @@ class VulkanViewport {
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
         auto ray=viewportOpticalRay(px,py,double(fw),double(fh),
                                     opticalZoom());
-        ray.origin=ray.origin*interaction_.cameraScale;
+        ray.origin=ray.origin*
+                   (interaction_.cameraScale*cameraDistanceFactor());
         return ray;
     }
     std::optional<Ray> cursorSourceRay() const {
@@ -1085,8 +1094,8 @@ class VulkanViewport {
         scaleDragLastY_=y;
         if(exponent!=scaleExponent_) {
             scaleExponent_=exponent;
-            // Keep the static, fitted model transform intact. All later
-            // decades are represented by the camera's optical projection.
+            // Above fit zoom optically; below fit retreat the camera
+            // without changing its field of view or the source mesh.
             clearPaintPreview();
             refreshHud();
             updateTitle();
@@ -1122,8 +1131,7 @@ class VulkanViewport {
                     const auto picked=displayedIndex_?
                         displayedIndex_->firstRayHit(source):
                         firstMeshHit(mesh_,source);
-                    const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
-                                   interaction_.cameraScale;
+                    const Vec3 eye=scaledCameraEye(double(fw),double(fh));
                     const Vec3 forward=normalized(Vec3{}-eye);
                     // Background centroid scan only on this real RMB press.
                     orbitPivotSource_=picked?*picked:orbit_.choosePivot(
@@ -1153,8 +1161,7 @@ class VulkanViewport {
                 const double span=double(std::min(fw,fh));
                 if(gesture.mode==ViewportCameraMode::Dolly||
                    gesture.mode==ViewportCameraMode::Strafe) {
-                    const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
-                                   interaction_.cameraScale;
+                    const Vec3 eye=scaledCameraEye(double(fw),double(fh));
                     const Vec3 forward=normalized(Vec3{}-eye);
                     if(gesture.mode==ViewportCameraMode::Dolly)
                         orbit_.dolly(forward,dx/opticalZoom(),span,length(eye));
@@ -2294,7 +2301,8 @@ class VulkanViewport {
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         auto constants=makeConstants(int(extent.width),int(extent.height),
                                            interaction_.cameraScale,orbit_,
-                                           sceneBounds_,opticalZoom());
+                                           sceneBounds_,opticalZoom(),
+                                           cameraDistanceFactor());
         // W drives mesh coverage inside the visible solid fragment.
         constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
