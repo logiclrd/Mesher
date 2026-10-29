@@ -239,6 +239,24 @@ Enter and modifiers) retain their standard meanings. Layout changes and
 window focus loss clear or release held key state safely; non-Latin text
 entry is not part of the viewport key-binding system.
 
+**B** toggles the RGBA **Paint brush** while sculpting is idle.
+Paint mode exposes a native Vulkan HUD colour wheel, a RGB / HSV / HSL mode
+selector with three linked channel sliders, and independent alpha and
+hardness sliders. Click a mode tab to switch the slider interpretation;
+the stored colour does not change just because its representation changes.
+Drag on the wheel to choose hue and saturation or drag the sliders to tune
+values. Left-dragging on the mesh paints visible vertices within the
+brush radius; the existing radius slider remains available in sculpt mode.
+Colour dabs are applied on the background sculpt worker as immutable
+revisions, so Ctrl+Z/redo and Save As preserve painted colours.
+The brush uses a ray origin a quarter of the nominal mesh edge length
+above the surface, with visibility tested against the prepaint mesh;
+nearby hidden/back-facing sheets are not painted. Mirrored mode paints
+both symmetric sides without double-opacity at the seam. Native rendering
+uses an opaque surface with the stored RGBA alpha as colour-coat coverage,
+not translucent geometry. Existing V12/V13 unpainted checkpoints remain
+compatible; coloured saves use checksummed V14/V15 records.
+
 **F8** performs exactly one diagnostic sculpt stamp at the surface under
 the cursor. Unlike briefly clicking LMB, F8 never opens a timed 4D stroke
 or queues catch-up steps. Each request waits for the previous stamp's
