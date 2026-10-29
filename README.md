@@ -246,11 +246,16 @@ hardness sliders. Click a mode tab to switch the slider interpretation;
 the stored colour does not change just because its representation changes.
 Drag on the wheel to choose hue and saturation or drag the sliders to tune
 values. Left-dragging on the mesh paints visible vertices within the
-brush radius; the existing radius slider remains available in sculpt mode.
+brush radius; the existing radius slider works in BOTH Paint and sculpt modes.
+The soft edge has a linear radial falloff after the hardness plateau, with
+the closest visible surface sample normalized to full brush strength.
 Colour dabs are applied on the background sculpt worker as immutable
-revisions, so Ctrl+Z/redo and Save As preserve painted colours.
+revisions, and a complete mouse drag creates ONE Ctrl+Z/redo history action
+without delaying intermediate visual updates. Save As preserves painted colours.
 The brush uses a ray origin a quarter of the nominal mesh edge length
-above the surface, with visibility tested against the prepaint mesh;
+above the surface ONLY for visibility: the paint footprint is centred on the
+surface hit and retains the selected radius, with visibility tested against
+the prepaint mesh;
 nearby hidden/back-facing sheets are not painted. Mirrored mode paints
 both symmetric sides without double-opacity at the seam. Native rendering
 uses an opaque surface with the stored RGBA alpha as colour-coat coverage,
