@@ -1545,7 +1545,8 @@ class VulkanViewport {
         const auto same=[&](Vec3 a,Vec3 b) {
             return a.x==b.x&&a.y==b.y&&a.z==b.z;
         };
-        if(paintPreviewIndex_==displayedIndex_&&paintPreviewRay_&&
+        const bool newSourceRoot=paintPreviewIndex_!=displayedIndex_;
+        if(!newSourceRoot&&paintPreviewRay_&&
            paintPreviewRadius_==interaction_.radius&&
            same(ray->origin,paintPreviewRay_->origin)&&
            same(ray->direction,paintPreviewRay_->direction))return;
@@ -1576,7 +1577,9 @@ class VulkanViewport {
             // Budget exhaustion cannot expose a partial/misleading brush.
             faces.clear();
         }
-        if(faces==paintPreviewFaces_)return;
+        // Stable FaceIds can survive a sculpt/Undo geometry change.
+        // Rebuild positions even when their selected IDs are unchanged.
+        if(!newSourceRoot&&faces==paintPreviewFaces_)return;
         paintPreviewFaces_=std::move(faces);
         if(paintPreviewFaces_.empty()) {
             paintPreviewSolid.vertexCount=0;
