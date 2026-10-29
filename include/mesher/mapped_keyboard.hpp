@@ -70,6 +70,10 @@ public:
         pressed_[key]=false;
         return result;
     }
+    // Unconsumed edges are valid for only one UI iteration. A command
+    // unavailable in the current mode must not activate much later.
+    void finishFrame() noexcept {pressed_.fill(false);}
+
     void clear() noexcept {
         assigned_.fill(GLFW_KEY_UNKNOWN);
         held_.fill(0);
