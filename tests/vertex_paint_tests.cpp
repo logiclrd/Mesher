@@ -83,6 +83,32 @@ void testShadowedSurface() {
     check(original->vertices[0].color==VertexRGBA{},
           "Published COW colors must never mutate previous revision");
 }
+void testDistinctBatchColors() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0},
+                   {1,0,0},{1.2,0,0},{1,.2,0}};
+    mesh.triangles={{0,1,2},{3,4,5}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab left{{.05,.05,0},{0,0,1},.3,.2,{1,0,0,1},1};
+    const PaintDab right{{1.05,.05,0},{0,0,1},.3,.2,{0,0,1,1},1};
+    const auto result=applyVertexPaintDabs(source,{left,right});
+    check(result.colored!=source &&
+          result.colored->pickingRootIdentity()==source->pickingRootIdentity(),
+          "Different-color dabs must create one geometry-sharing paint root");
+    for(int i=0;i<3;++i) {
+        const auto id=parts.flatIndex.vertexIds[i];
+        check(colorOf(*result.colored,id)==left.rgba,
+              "First visible dab must use its own RGBA");
+        check(colorOf(*source,id)==VertexRGBA{},
+              "Multi-dab paint must not mutate the source root");
+    }
+    for(int i=3;i<6;++i) {
+        const auto id=parts.flatIndex.vertexIds[i];
+        check(colorOf(*result.colored,id)==right.rgba,
+              "Later visible dabs must retain their own RGBA");
+    }
+}
 void testUndoRedoAndPaintPublication() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -164,6 +190,7 @@ int main() {
     try {
         testColorControls();
         testShadowedSurface();
+        testDistinctBatchColors();
         testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
