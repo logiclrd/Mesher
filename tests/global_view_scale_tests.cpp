@@ -31,8 +31,9 @@ void testSlider() {
             viewportScaleDrag(-5,2000,200,false)==-5,
             "Dragging outside the track clamps at both endpoints");
     require(viewportScaleLabel(-3.2455)=="10^-3.2455"&&
-            viewportScaleLabel(0)=="10^+0.0000",
-            "Hover readout carries four decimal places and the exponent sign");
+            viewportScaleLabel(0)=="10^0.0000"&&
+            viewportScaleLabel(3)=="10^3.0000",
+            "Hover readout uses four decimals without an extraneous plus sign");
 }
 void testBoundsAndFit() {
     ViewportSceneBounds duck;
@@ -81,10 +82,23 @@ void testPickingAndOrbit() {
     const auto rayAfter=orbit.pickingRay(view);
     require(close(length(orbit.displayed(rayAfter.origin)-view.origin),0.0),
             "Picking remains inverse under turntable rotation");
-    orbit.setScale(.04);
-    require(close(orbit.scale(),.04)&&
+    const double fitExponent=std::log10(orbit.scale());
+    require(close(viewportOpticalZoom(fitExponent,fitExponent),1.0)&&
+            close(viewportOpticalZoom(3,fitExponent)/
+                  viewportOpticalZoom(2,fitExponent),10.0)&&
+            close(viewportOpticalZoom(4,fitExponent)/
+                  viewportOpticalZoom(3,fitExponent),10.0)&&
+            close(viewportOpticalZoom(5,fitExponent)/
+                  viewportOpticalZoom(4,fitExponent),10.0),
+            "Successive positive exponents remain true 10x optical zooms");
+    const auto ratio=viewportOpticalZoom(3,fitExponent);
+    const auto opticalRay=viewportOpticalRay(650,405,1200,800,ratio);
+    const auto plain=viewportRay(600+50/ratio,400+5/ratio,1200,800);
+    require(close(length(opticalRay.direction-plain.direction),0.0),
+            "Optical zoom inverse ray matches magnified projection");
+    require(close(orbit.scale(),0.008)&&
             close(length(orbit.displayed(sourceCenter)-orbit.translation()),0.0),
-            "Slider changes view scale without disturbing scene centre or pan");
+            "Optical zoom never pushes the fixed camera into the mesh");
 }
 void testClipping() {
     const Vec3 eye=viewportCameraEye(1200,800);

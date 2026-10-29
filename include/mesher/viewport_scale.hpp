@@ -1,5 +1,5 @@
 #pragma once
-#include "mesher/mesh.hpp"
+#include "mesher/picking.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
@@ -64,8 +64,27 @@ inline double viewportScaleDrag(double exponent,double deltaY,
 }
 inline std::string viewportScaleLabel(double exponent) {
     std::ostringstream out;
-    out<<"10^"<<std::showpos<<std::fixed<<std::setprecision(4)<<exponent;
+    out<<"10^"<<std::fixed<<std::setprecision(4)<<exponent;
     return out.str();
+}
+// Model fitting is performed only once on Open. Subsequent slider movement
+// changes *optical* magnification so the camera never enters the source
+// volume merely because the selected exponent becomes positive.
+inline double viewportOpticalZoom(double exponent,double fitExponent) noexcept {
+    return std::pow(10.0,std::clamp(exponent,kViewportMinExponent,
+                                    kViewportMaxExponent)-
+                         std::clamp(fitExponent,kViewportMinExponent,
+                                    kViewportMaxExponent));
+}
+// Inverse of multiplying the first two projection rows by opticalZoom.
+// The render ray and CPU source-space ray must agree at every exponent.
+inline Ray viewportOpticalRay(double x,double y,double width,double height,
+                              double opticalZoom) {
+    if(!(std::isfinite(opticalZoom)&&opticalZoom>0))
+        throw std::invalid_argument("Invalid optical view zoom");
+    const double centerX=width*0.5,centerY=height*0.5;
+    return viewportRay(centerX+(x-centerX)/opticalZoom,
+                       centerY+(y-centerY)/opticalZoom,width,height);
 }
 struct ViewportClipRange {double nearPlane{},farPlane{};};
 inline ViewportClipRange viewportClipRange(Vec3 eye,Vec3 sceneCenter,

@@ -486,7 +486,8 @@ struct PushConstants {
 static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
                             const ViewportOrbit& orbit,
-                            const ViewportSceneBounds& bounds) {
+                            const ViewportSceneBounds& bounds,
+                            double opticalZoom) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
     const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
@@ -509,6 +510,15 @@ PushConstants makeConstants(int width,int height,double cameraScale,
     result.viewProjection=multiply(
         multiply(perspective(aspect,float(clips.nearPlane),
                             float(clips.farPlane)),cameraView(eye)),model);
+    // Optical zoom scales clip X/Y, not mesh geometry or clip Z/W.
+    // The viewport never moves inside the duck when the slider reaches
+    // +3, +4, +5: each is a genuine decade of projected magnification.
+    for(int col=0;col<4;++col) {
+        at(result.viewProjection,0,col,
+           float(double(at(result.viewProjection,0,col))*opticalZoom));
+        at(result.viewProjection,1,col,
+           float(double(at(result.viewProjection,1,col))*opticalZoom));
+    }
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
@@ -594,8 +604,11 @@ class VulkanViewport {
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
     bool scaleDragging_=false,scaleHovered_=false,scaleConsumedMouse_=false;
     double scaleDragLastY_=0;
-    double scaleExponent_=0.0;
+    double scaleExponent_=0.0,fitScaleExponent_=0.0;
     ViewportSceneBounds sceneBounds_{};
+    double opticalZoom() const noexcept {
+        return viewportOpticalZoom(scaleExponent_,fitScaleExponent_);
+    }
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
     // Hover preview is UI-owned only: never part of COW state or undo history.
@@ -1007,7 +1020,8 @@ class VulkanViewport {
         if(ww<=0||wh<=0||fw<=0||fh<=0)return std::nullopt;
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
-        auto ray=viewportRay(px,py,double(fw),double(fh));
+        auto ray=viewportOpticalRay(px,py,double(fw),double(fh),
+                                    opticalZoom());
         ray.origin=ray.origin*interaction_.cameraScale;
         return ray;
     }
@@ -1028,7 +1042,8 @@ class VulkanViewport {
                                  interaction_.cameraScale;
         scaleExponent_=viewportFitExponent(bounds.radius(),eyeDistance,
                                             width/height);
-        orbit_.frame(bounds.center(),viewportScaleFromExponent(scaleExponent_));
+        fitScaleExponent_=scaleExponent_;
+        orbit_.frame(bounds.center(),viewportScaleFromExponent(fitScaleExponent_));
         std::cout<<"[view] fitted bounds radius="<<bounds.radius()
                  <<" centre="<<bounds.center().x<<","<<bounds.center().y
                  <<","<<bounds.center().z<<" scale=10^"<<scaleExponent_<<"\n";
@@ -1068,7 +1083,8 @@ class VulkanViewport {
         scaleDragLastY_=y;
         if(exponent!=scaleExponent_) {
             scaleExponent_=exponent;
-            orbit_.setScale(viewportScaleFromExponent(exponent));
+            // Keep the static, fitted model transform intact. All later
+            // decades are represented by the camera's optical projection.
             clearPaintPreview();
             refreshHud();
             updateTitle();
@@ -2269,7 +2285,7 @@ class VulkanViewport {
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         auto constants=makeConstants(int(extent.width),int(extent.height),
                                            interaction_.cameraScale,orbit_,
-                                           sceneBounds_);
+                                           sceneBounds_,opticalZoom());
         // W drives mesh coverage inside the visible solid fragment.
         constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,

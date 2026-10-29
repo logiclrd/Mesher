@@ -15,12 +15,19 @@ mesh revisions or durable checkpoints.
   framebuffer aspect and the existing 45-degree perspective.
 - A startup `--recover` checkpoint is framed similarly; default generated
   geometry retains the legacy original camera orientation and scale 10^0.
-- The renderer maps original source coordinates through scaled orbit basis
-  and source-centre translation. Picking applies the inverse, returning
-  exactly original source-space rays to the immutable BVH and brush worker.
-  Orbit, dolly, strafe and symmetry continue to use the existing input
-  gesture APIs; their only changed aspect is view transformation.
-- Near/far clipping adapt to camera-to-scene distance and scaled bounds;
+- The renderer maps original source coordinates through a **fixed initial
+  fit scale**, orbit basis, and source-centre translation. Subsequent slider
+  decades change optical magnification (the X/Y projection rows), never
+  push the camera through the mesh. Thus +3, +4, and +5 differ by exactly
+  10x in screen projection while physical viewing depth stays fixed.
+  Picking applies the inverse optical ray mapping and then the inverse
+  orbit/source fit, returning original source-space rays to the immutable
+  BVH and brush worker. Orbit, dolly, strafe and symmetry remain intact.
+- Mesh wireframe thickness and opacity fade as projected triangles approach
+  pixel/subpixel size. The floor grid fades independently as pixel density
+  increases. W remains the existing wireframe toggle; G remains the
+  separate floor-grid visibility toggle. Dense meshes retain RGB legibility.
+- Near/far clipping adapt to camera-to-scene distance and fitted bounds;
   this prevents the fixed 100-unit far plane from amputating very large
   displayed models after zoom/dolly. The floor is rebuilt below and centred
   under imported bounds, without becoming part of source geometry.
