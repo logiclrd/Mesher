@@ -6,6 +6,25 @@
 #include <stdexcept>
 #include <string>
 
+// The accessory button is a real parser-selection control, and its choice
+// also updates Cocoa's visible-file filter as it changes.
+@interface MesherOpenFilterController : NSObject {
+@public
+    NSOpenPanel* panel;
+    UTType* checkpointType;
+    UTType* objType;
+}
+- (void)change:(id)sender;
+@end
+@implementation MesherOpenFilterController
+- (void)change:(id)sender {
+    const NSInteger index=[(NSPopUpButton*)sender indexOfSelectedItem];
+    if(index==0)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
+    else if(index==1)panel.allowedContentTypes=objType?@[objType]:@[];
+    else panel.allowedContentTypes=@[];
+}
+@end
+
 namespace mesher {
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
@@ -67,12 +86,18 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
                                      conformingToType:UTTypeData];
         UTType* obj=[UTType typeWithFilenameExtension:@"obj"
                                     conformingToType:UTTypeData];
-        // A native Cocoa accessory is displayed inside the Open panel.
-        // The filter choice is authoritative even when users select a file
-        // with a misleading name; all-file selection permits any filename.
+        // Cocoa exposes the selected item, and the accessory controller
+        // updates the actual visible filter without using the filename
+        // extension as a parser hint. All Files clears the restriction.
+        MesherOpenFilterController* controller=
+            [[MesherOpenFilterController alloc] init];
+        controller->panel=panel;
+        controller->checkpointType=mshr;
+        controller->objType=obj;
+        [fileType setTarget:controller];
+        [fileType setAction:@selector(change:)];
         panel.accessoryView=fileType;
-        (void)mshr;(void)obj;
-        panel.allowedContentTypes=@[];
+        [controller change:fileType];
         if(!suggestion.parent_path().empty()) {
             const auto absolute=std::filesystem::absolute(suggestion);
             const auto directory=absolute.parent_path().string();
@@ -81,6 +106,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
                 isDirectory:YES];
         }
         const NSModalResponse response=[panel runModal];
+        [controller release];
         if(response==NSModalResponseCancel)return std::nullopt;
         if(response!=NSModalResponseOK)
             throw std::runtime_error("macOS Open did not complete");
