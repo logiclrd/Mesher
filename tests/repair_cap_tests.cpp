@@ -4,6 +4,7 @@
 #include "mesher/region_edit.hpp"
 #include "mesher/sculpt_fixtures.hpp"
 #include "mesher/mesh_partitioning.hpp"
+#include "mesher/vertex_paint.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -56,6 +57,10 @@ void exercise(const char* name,const Fixture& source,
     for(const auto id:result.greenFaces)
         require(result.index->maybeFace(id)&&!cut.index->maybeFace(id),
                 "R05 green faces must have new stable private IDs");
+    const auto selected=vertexColorAt(*source.mesh,source.flat.vertexIds[0]);
+    if(selected!=VertexRGBA{})for(const auto id:result.insertedVertices)
+        require(vertexColorAt(*result.index,id)==selected,
+                "R05 new refinement vertices must inherit uniform source RGBA");
     require(source.mesh->retiredFaceCount()==0&&
             cut.index->retiredFaceCount()==plan.proposedFaces.size(),
             "R05 must not modify the published source or R03 cut");
@@ -112,7 +117,9 @@ void hollowSingle() {
 void sphereSingle() {
     SphereOptions options;
     options.vertexCount=320;options.symmetric=false;options.relaxationIterations=8;
-    const auto f=fixture(generateSphere(options));
+    auto mesh=generateSphere(options);
+    mesh.colors.assign(mesh.vertices.size(),{0.25f,0.5f,0.75f,0.625f});
+    const auto f=fixture(std::move(mesh));
     const auto face=nearest(f,{0,1,0});
     const auto t=f.mesh->face(face).vertices;
     auto a=t[0],b=t[1];
