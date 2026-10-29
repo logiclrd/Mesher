@@ -99,6 +99,16 @@ void testPickingAndOrbit() {
     require(close(orbit.scale(),0.008)&&
             close(length(orbit.displayed(sourceCenter)-orbit.translation()),0.0),
             "Optical zoom never pushes the fixed camera into the mesh");
+    ViewportOrbit nearPan,farPan;
+    nearPan.frame(sourceCenter,0.008);
+    farPan.frame(sourceCenter,0.008);
+    const Vec3 viewRight{1,0,0},viewUp{0,0,1};
+    nearPan.strafe(viewRight,viewUp,30,12,800,4);
+    farPan.strafe(viewRight,viewUp,30/10.0,12/10.0,800,4);
+    const Vec3 nearDelta=nearPan.displayed(sourceCenter);
+    const Vec3 farDelta=farPan.displayed(sourceCenter);
+    require(close(length(nearDelta-farDelta*10),0.0),
+            "Panning maintains the same physical-pixel sensitivity after optical zoom");
 }
 void testClipping() {
     const Vec3 eye=viewportCameraEye(1200,800);

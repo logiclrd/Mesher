@@ -1157,11 +1157,12 @@ class VulkanViewport {
                                    interaction_.cameraScale;
                     const Vec3 forward=normalized(Vec3{}-eye);
                     if(gesture.mode==ViewportCameraMode::Dolly)
-                        orbit_.dolly(forward,dx,span,length(eye));
+                        orbit_.dolly(forward,dx/opticalZoom(),span,length(eye));
                     else {
                         const Vec3 viewRight=normalized(cross(forward,{0,0,1}));
                         const Vec3 viewUp=cross(viewRight,forward);
-                        orbit_.strafe(viewRight,viewUp,dx,dy,double(fh),length(eye));
+                        orbit_.strafe(viewRight,viewUp,dx/opticalZoom(),
+                                      dy/opticalZoom(),double(fh),length(eye));
                     }
                 }else
                     orbit_.drag(orbitPivotSource_,dx,dy,span);

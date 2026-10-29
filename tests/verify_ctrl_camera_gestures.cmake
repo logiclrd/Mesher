@@ -12,8 +12,9 @@ foreach(needle
     "GLFW_KEY_RIGHT_CONTROL"
     "ViewportCameraMode::Strafe"
     "ViewportCameraMode::Dolly"
-    "orbit_.strafe(viewRight,viewUp,dx,dy,double(fh),length(eye));"
-    "orbit_.dolly(forward,dx,span,length(eye));"
+    "orbit_.strafe(viewRight,viewUp,dx/opticalZoom(),"
+    "dy/opticalZoom(),double(fh),length(eye));"
+    "orbit_.dolly(forward,dx/opticalZoom(),span,length(eye));"
     "if(orbitDragging_) {"
     "if(right&&!wasRight_&&!left)"
     "else if(left&&!wasLeft_&&!right&&ctrl)")
