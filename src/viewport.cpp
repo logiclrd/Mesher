@@ -1313,50 +1313,6 @@ class VulkanViewport {
             mouseWasDown_=down;
             return; // Never accidentally stamp while selecting Merge source.
         }
-        if(paintMode_&&interaction_.paint) {
-            double cx=0,cy=0;
-            glfwGetCursorPos(window,&cx,&cy);
-            int ww=0,wh=0,fw=0,fh=0;
-            glfwGetWindowSize(window,&ww,&wh);
-            glfwGetFramebufferSize(window,&fw,&fh);
-            if(ww>0&&wh>0&&fw>0&&fh>0) {
-                cx*=double(fw)/ww;
-                cy*=double(fh)/wh;
-            }
-            if(updatePaintPanel(cx,cy,down,mouseWasDown_)) {
-                mouseWasDown_=down;
-                painting_=false;
-                lastPaintCursor_.reset();
-                return;
-            }
-            if(down&&(!interaction_.canBegin||interaction_.canBegin())&&
-               (!lastPaintCursor_||
-                std::hypot(cx-lastPaintCursor_->first,
-                           cy-lastPaintCursor_->second)>=1.0)) {
-                if(const auto hit=pickCursorSourceFace()) {
-                    const auto face=displayedIndex_->face(hit->face).vertices;
-                    const auto a=displayedIndex_->vertex(face[0]).position;
-                    const auto b=displayedIndex_->vertex(face[1]).position;
-                    const auto c=displayedIndex_->vertex(face[2]).position;
-                    const auto normal=cross(b-a,c-a);
-                    if(length(normal)>1e-12) {
-                        interaction_.paint(PaintDab{
-                            hit->point,normalized(normal),
-                            interaction_.radius,
-                            interaction_.paintNominalEdgeLength,
-                            paintControls_.rgba,paintControls_.hardness});
-                        painting_=true;
-                        lastPaintCursor_=std::pair{cx,cy};
-                    }
-                }
-            }
-            if(!down) {
-                painting_=false;
-                lastPaintCursor_.reset();
-            }
-            mouseWasDown_=down;
-            return; // Painting never enqueues Inflate or remesh geometry.
-        }
         if(interaction_.setRadius) {
             double cx=0,cy=0;
             glfwGetCursorPos(window,&cx,&cy);
@@ -1390,6 +1346,54 @@ class VulkanViewport {
             if(!down)radiusDragging_=false;
             mouseWasDown_=down;
             return;
+        }
+        if(paintMode_&&interaction_.paint) {
+            double cx=0,cy=0;
+            glfwGetCursorPos(window,&cx,&cy);
+            int ww=0,wh=0,fw=0,fh=0;
+            glfwGetWindowSize(window,&ww,&wh);
+            glfwGetFramebufferSize(window,&fw,&fh);
+            if(ww>0&&wh>0&&fw>0&&fh>0) {
+                cx*=double(fw)/ww;
+                cy*=double(fh)/wh;
+            }
+            if(updatePaintPanel(cx,cy,down,mouseWasDown_)) {
+                if(painting_&&interaction_.paintEnd)interaction_.paintEnd();
+                mouseWasDown_=down;
+                painting_=false;
+                lastPaintCursor_.reset();
+                return;
+            }
+            if(down&&(!interaction_.canBegin||interaction_.canBegin())&&
+               (!lastPaintCursor_||
+                std::hypot(cx-lastPaintCursor_->first,
+                           cy-lastPaintCursor_->second)>=1.0)) {
+                if(const auto hit=pickCursorSourceFace()) {
+                    const auto face=displayedIndex_->face(hit->face).vertices;
+                    const auto a=displayedIndex_->vertex(face[0]).position;
+                    const auto b=displayedIndex_->vertex(face[1]).position;
+                    const auto c=displayedIndex_->vertex(face[2]).position;
+                    const auto normal=cross(b-a,c-a);
+                    if(length(normal)>1e-12) {
+                        if(!painting_&&interaction_.paintBegin)
+                            interaction_.paintBegin();
+                        interaction_.paint(PaintDab{
+                            hit->point,normalized(normal),
+                            interaction_.radius,
+                            interaction_.paintNominalEdgeLength,
+                            paintControls_.rgba,paintControls_.hardness});
+                        painting_=true;
+                        lastPaintCursor_=std::pair{cx,cy};
+                    }
+                }
+            }
+            if(!down) {
+                if(painting_&&interaction_.paintEnd)interaction_.paintEnd();
+                painting_=false;
+                lastPaintCursor_.reset();
+            }
+            mouseWasDown_=down;
+            return; // Painting never enqueues Inflate or remesh geometry.
         }
         if(down&&!mouseWasDown_ &&
            (!interaction_.canBegin || interaction_.canBegin())) {
@@ -2219,6 +2223,10 @@ public:
                 if(!startupSplash_->active())startupSplash_.reset();
             }
             if(keyboard_.down(GLFW_KEY_ESCAPE)) {
+                if(painting_&&interaction_.paintEnd) {
+                    interaction_.paintEnd();
+                    painting_=false;
+                }
                 if(sculpting_&&interaction_.end) {
                     interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
                     sculpting_=false;
