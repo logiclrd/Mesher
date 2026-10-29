@@ -109,6 +109,24 @@ void testDistinctBatchColors() {
               "Later visible dabs must retain their own RGBA");
     }
 }
+void testMirroredDabsDoNotDoublePaintSeam() {
+    Mesh mesh;
+    mesh.vertices={{-.1,0,0},{.1,0,0},{0,.1,0}};
+    mesh.triangles={{0,1,2}};
+    const auto parts=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(parts.revision);
+    const PaintDab left{{-.02,.02,0},{0,0,1},.3,.2,
+                        {0.2f,0.4f,0.8f,0.25f},0};
+    auto right=left;
+    right.point.x=-right.point.x;
+    const auto once=applyVertexPaintDabs(source,{left});
+    const auto mirrored=applyVertexPaintDabs(source,{left,right});
+    const auto seam=parts.flatIndex.vertexIds[2];
+    check(colorOf(*mirrored.colored,seam)==colorOf(*once.colored,seam),
+          "A vertex visible to both reflected dabs must be blended only once");
+    check(colorOf(*mirrored.colored,seam)!=VertexRGBA{},
+          "Seam overlap test must exercise a real visible paint influence");
+}
 void testUndoRedoAndPaintPublication() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -191,6 +209,7 @@ int main() {
         testColorControls();
         testShadowedSurface();
         testDistinctBatchColors();
+        testMirroredDabsDoNotDoublePaintSeam();
         testUndoRedoAndPaintPublication();
         testCheckpointColorsAndLegacy();
         std::cout<<"RGBA colour models, immutable shadow paint and checkpoint tests passed\n";
