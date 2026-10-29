@@ -510,7 +510,8 @@ int main(int argc, char** argv) {
             inspect.canBegin=[]{return false;};
             inspect.undo=[]{};
             inspect.redo=[]{};
-            inspect.checkpoint=[]{};
+            // Private inspection has no published checkpoint to save.
+            inspect.checkpoint=nullptr;
             inspect.completedStamps=[]{return std::size_t{0};};
             inspect.caption=[succeeded] {
                 return std::string("R06 exact case replay FROZEN | ")+
