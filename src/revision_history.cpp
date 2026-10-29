@@ -117,6 +117,53 @@ void RevisionHistory::append(
         }
     }
 }
+void RevisionHistory::amendCurrent(
+    std::shared_ptr<const RegionTopologyIndex> index,
+    std::vector<PartitionId> additionalDirty,
+    std::size_t additionalCopiedPayloadBytes) {
+    if(!index||!canUndo()||canRedo())
+        throw std::logic_error("Paint amendment requires terminal history entry");
+    auto& currentEntry=entries_[cursor_];
+    if(index==currentEntry.index)return;
+    if(currentEntry.added.size()||currentEntry.removed.size())
+        throw std::logic_error("Paint cannot amend a topology-mirror transition");
+    if(currentEntry.fidelity)
+        verifyOriginalPatchPublicationTransition(
+            *currentEntry.fidelity,*currentEntry.fidelity,
+            currentEntry.index,index);
+    if(additionalCopiedPayloadBytes>
+       std::numeric_limits<std::size_t>::max()-totalBytes_)
+        throw std::overflow_error("Paint history byte accounting overflow");
+    std::vector<PartitionId> dirty=currentEntry.dirty;
+    dirty.insert(dirty.end(),additionalDirty.begin(),additionalDirty.end());
+    std::sort(dirty.begin(),dirty.end());
+    dirty.erase(std::unique(dirty.begin(),dirty.end()),dirty.end());
+    if(additionalCopiedPayloadBytes>
+       std::numeric_limits<std::size_t>::max()-currentEntry.bytes)
+        throw std::overflow_error("Paint history entry size overflow");
+    // Commit the amended endpoint only after all validation/allocation.
+    auto previous=std::move(currentEntry.index);
+    currentEntry.index=std::move(index);
+    currentEntry.dirty=std::move(dirty);
+    currentEntry.bytes+=additionalCopiedPayloadBytes;
+    totalBytes_+=additionalCopiedPayloadBytes;
+    if(retirement_)retirement_->retire(std::move(previous));
+    while(entries_.size()>1 &&
+          (entries_.size()>maximumRevisions_||totalBytes_>maximumChangeBytes_)) {
+        auto old=std::move(entries_.front());
+        entries_.pop_front();
+        --cursor_;
+        retire(std::move(old));
+        ++dropped_;
+        if(!entries_.empty()) {
+            totalBytes_-=entries_.front().bytes;
+            entries_.front().bytes=0;
+            entries_.front().added.clear();
+            entries_.front().removed.clear();
+            entries_.front().dirty.clear();
+        }
+    }
+}
 HistoryTransition RevisionHistory::undo() {
     if(!canUndo())throw std::logic_error("History has no undo revision");
     auto& previous=entries_[cursor_];
