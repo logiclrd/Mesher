@@ -74,7 +74,8 @@ triangle-edge length** from a bounded, evenly distributed sample of face
 edges. The smallest brush radius is half that length; the largest remains
 half the model's bounding radius. Normal displacement strength, spatial 4D
 stroke step and temporal speed scale by the ratio of the measured edge to
-the unit sphere's nominal edge. An independent Open retains the selected
+the initial generated sphere's nominal edge (fixed across later Opens).
+An independent Open retains the selected
 **number of triangle-edge units**, rather than a global slider fraction. The
 replacement worker receives the new effective step, strength and speed
 before publication. A failed or canceled Open leaves the old worker and

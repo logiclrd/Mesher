@@ -35,13 +35,15 @@ void testMeasuredImportedBrush() {
     const double edge=medianImportedEdgeLength(*index);
     check(edge>=2&&edge<4,
           "Measured median comes from actual triangle edges");
-    const auto fit=calibrateImportedBrush(*index,4,1000);
+    const auto unit=BrushRadiusRange::forVertexCount(5000);
+    const auto fit=calibrateImportedBrush(*index,unit.minimum,1000);
     near(fit.radius.minimum,edge*.5,1e-12,
          "Smallest brush uses measured source triangle size");
     near(fit.radius.maximum,500,1e-12,
          "Largest brush may still span half the source bounds");
-    const auto unit=BrushRadiusRange::forVertexCount(5000);
     const double start=relativeImportedBrushRadius(unit,.4,fit.radius);
+    near(fit.workerScale*unit.minimum,edge,1e-12,
+         "Inflate strength and 4D step use one generated-edge reference");
     check(start>=fit.radius.minimum&&start<fit.radius.maximum,
           "Opening imported mesh chooses locally useful brush radius");
     near(relativeImportedBrushRadius(fit.radius,start,fit.radius),

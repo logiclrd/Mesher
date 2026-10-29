@@ -758,7 +758,7 @@ int main(int argc, char** argv) {
             auto range=unitRange;
             if(recovered&&initialViewBounds&&initialViewBounds->hasVertices) {
                 const auto calibration=mesher::calibrateImportedBrush(
-                    *recovered->index,options.vertexCount,
+                    *recovered->index,unitRange.minimum,
                     initialViewBounds->radius());
                 liveMeshScale=calibration.workerScale;
                 range=calibration.radius;
@@ -908,7 +908,7 @@ int main(int argc, char** argv) {
                 // FIRST-original authority of the previous session.
                 const auto calibration=mesher::calibrateImportedBrush(
                     *candidate.snapshot.index,
-                    static_cast<std::uint32_t>(count),openBounds.radius());
+                    unitRange.minimum,openBounds.radius());
                 const double newMeshScale=calibration.workerScale;
                 const auto range=calibration.radius;
                 // Preserve brush width in local triangle-edge units,

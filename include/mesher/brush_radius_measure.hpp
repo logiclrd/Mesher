@@ -52,15 +52,16 @@ struct ImportedBrushCalibration {
 };
 
 inline ImportedBrushCalibration calibrateImportedBrush(
-    const RegionTopologyIndex& source,std::uint32_t count,
+    const RegionTopologyIndex& source,double generatedNominalEdge,
     double sourceBoundingRadius) {
     if(!std::isfinite(sourceBoundingRadius)||sourceBoundingRadius<=0)
         throw std::invalid_argument("Imported brush requires finite source bounds");
     const double edge=medianImportedEdgeLength(source);
     const double maximum=sourceBoundingRadius*0.5;
     const double minimum=std::min(maximum,edge*0.5);
-    const double generatedNominal=BrushRadiusRange::forVertexCount(count).minimum;
-    const double workerScale=edge/generatedNominal;
+    if(!std::isfinite(generatedNominalEdge)||generatedNominalEdge<=0)
+        throw std::invalid_argument("Invalid generated reference edge length");
+    const double workerScale=edge/generatedNominalEdge;
     if(!std::isfinite(workerScale)||workerScale<=0||
        !std::isfinite(maximum)||maximum<=0||
        !std::isfinite(minimum)||minimum<=0)
