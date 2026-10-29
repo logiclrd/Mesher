@@ -230,6 +230,10 @@ Open rather than a separate preliminary prompt. Qt is a required desktop
 dependency, but no Qt dependency is added to headless mesh tests.
 The Linux archive relies on the host's Qt 6 runtime and QPA plugins;
 `QT_QPA_PLATFORMTHEME` is respected if configured rather than overwritten.
+On X11/XWayland, dialogs use a non-owning transient-parent proxy for the
+GLFW window. Native Wayland without foreign-window support retains the
+working unparented modal fallback. The filter descriptions show extensions
+even when the platform's native file picker hides the final wildcard.
 Frozen repair inspection
 retains its specialized Ctrl+S / Ctrl+Shift+S / Ctrl+Alt+S case captures
 without opening a regular checkpoint Save As dialog.

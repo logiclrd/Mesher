@@ -3,17 +3,26 @@
 #include <QApplication>
 #include <QDialog>
 #include <QDir>
+#include <QGuiApplication>
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QString>
 #include <QStringList>
+#include <QWindow>
 
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+
+// Native GLFW X11 handle for Qt's non-owning transient-parent proxy.
+#include <X11/Xlib.h>
+#define GLFW_EXPOSE_NATIVE_X11
+#define GLFW_NATIVE_INCLUDE_NONE
+#include <GLFW/glfw3native.h>
 
 namespace mesher {
 namespace {
@@ -63,23 +72,53 @@ void setInitialFile(QFileDialog& dialog,const std::filesystem::path& file) {
     if(!absolute.filename().empty())
         dialog.selectFile(asQString(absolute.filename()));
 }
-constexpr const char* checkpointFilter="Mesher mesh files (*.mshr)";
-constexpr const char* objFilter="Wavefront OBJ (*.obj)";
+// Platform helpers may hide the final wildcard group from the UI. The
+// description repeats it so users still see the extension in the label.
+constexpr const char* checkpointFilter="Mesher mesh files (*.mshr) (*.mshr)";
+constexpr const char* objFilter="Wavefront OBJ (*.obj) (*.obj)";
 constexpr const char* allFilter="All Files (*)";
+// Qt has no QWidget ownership of Mesher's GLFW window. On X11/XWayland,
+// represent the GLFW XID as a non-owning QWindow, and make each modal
+// dialog transient for it (NOT an embedded child via setParent).
+class ScopedGlfwDialogOwner {
+public:
+    explicit ScopedGlfwDialogOwner(GLFWwindow* owner):owner_(owner) {
+        if(!owner_||QGuiApplication::platformName()!=QStringLiteral("xcb"))
+            return;
+        const Window xid=glfwGetX11Window(owner_);
+        if(xid)foreign_.reset(QWindow::fromWinId(static_cast<WId>(xid)));
+    }
+    ScopedGlfwDialogOwner(const ScopedGlfwDialogOwner&)=delete;
+    ScopedGlfwDialogOwner& operator=(const ScopedGlfwDialogOwner&)=delete;
+    void attach(QDialog& dialog) {
+        if(!foreign_)return; // Wayland/non-foreign QPA fallback
+        (void)dialog.winId();
+        if(auto* handle=dialog.windowHandle())
+            handle->setTransientParent(foreign_.get());
+    }
+    ~ScopedGlfwDialogOwner() {
+        if(owner_)glfwFocusWindow(owner_);
+    }
+private:
+    GLFWwindow* owner_{};
+    std::unique_ptr<QWindow> foreign_;
+};
 } // namespace
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
-    GLFWwindow*,const std::filesystem::path& suggestion) {
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
     (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
     dialog.setWindowTitle(QStringLiteral("Save Mesher checkpoint"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.setFileMode(QFileDialog::AnyFile);
     dialog.setWindowModality(Qt::ApplicationModal);
-    dialog.setNameFilters({QStringLiteral("Mesher checkpoints (*.mshr)")});
+    dialog.setNameFilters({QString::fromUtf8(checkpointFilter)});
     dialog.setDefaultSuffix(QStringLiteral("mshr"));
     dialog.setOption(QFileDialog::DontConfirmOverwrite,false);
     setInitialFile(dialog,suggestion);
+    parent.attach(dialog);
     if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
     const auto names=dialog.selectedFiles();
     if(names.size()!=1||names.front().isEmpty())
@@ -87,8 +126,9 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     return asPath(names.front());
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
-    GLFWwindow*,const std::filesystem::path& suggestion) {
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
     (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
     dialog.setWindowTitle(QStringLiteral("Open Mesher mesh"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
@@ -99,6 +139,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
                            QString::fromUtf8(allFilter)});
     dialog.selectNameFilter(QString::fromUtf8(checkpointFilter));
     setInitialFile(dialog,suggestion);
+    parent.attach(dialog);
     if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
     const auto names=dialog.selectedFiles();
     if(names.size()!=1||names.front().isEmpty())
@@ -113,10 +154,16 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         throw std::runtime_error("Qt Open returned an unknown file-type filter");
     return NativeOpenSelection{asPath(names.front()),filter};
 }
-void nativeOpenErrorMessage(GLFWwindow*,const std::string& message) {
+void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message) {
     (void)desktopQt();
-    QMessageBox::critical(nullptr,QStringLiteral("Mesher — Open failed"),
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Critical,
+        QStringLiteral("Mesher — Open failed"),
         QString::fromUtf8(message.data(),
-                          static_cast<qsizetype>(message.size())));
+                          static_cast<qsizetype>(message.size())),
+        QMessageBox::Ok);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    (void)dialog.exec();
 }
 } // namespace mesher

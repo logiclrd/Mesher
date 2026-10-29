@@ -15,13 +15,20 @@ foreach(required
     "std::optional<NativeOpenSelection> nativeOpenMeshDialog"
     "std::optional<std::filesystem::path> nativeSaveCheckpointDialog"
     "static QApplication application(argc,argv)"
-    "dialog.exec()")
+    "dialog.exec()"
+    "QWindow::fromWinId("
+    "handle->setTransientParent(foreign_.get())"
+    "glfwGetX11Window(owner_)"
+    "parent.attach(dialog)"
+    "glfwFocusWindow(owner_)"
+    "Mesher mesh files (*.mshr) (*.mshr)"
+    "Wavefront OBJ (*.obj) (*.obj)")
     string(FIND "${dialog}" "${required}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "Linux native Open/Save requires Qt: ${required}")
     endif()
 endforeach()
-foreach(disallowed "kdialog" "zenity" "posix_spawn" "QFileDialog::DontUseNativeDialog")
+foreach(disallowed "kdialog" "zenity" "posix_spawn" "QFileDialog::DontUseNativeDialog" "handle->setParent(")
     string(FIND "${dialog}" "${disallowed}" at)
     if(NOT at EQUAL -1)
         message(FATAL_ERROR "Linux dialog unexpectedly uses ${disallowed}")
