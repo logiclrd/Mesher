@@ -221,7 +221,7 @@ struct SculptCollisionSettings {
     // never charged to ordinary clean brush stamps. Protected Merge keeps
     // its separate strict V13 limits.
     SculptSourceContactLimits certifiedAutoCompleteSourceLimits{
-        262144,524288,{32768,33554432,8388608,2097152,1048576,2048},2048};
+        262144,524288,{262144,33554432,8388608,2097152,1048576,2048},2048};
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};

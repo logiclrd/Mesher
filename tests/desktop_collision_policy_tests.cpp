@@ -53,8 +53,10 @@ void largeImportedAutoSourceCanPublishCleanStamp() {
     require(policy.certifiedAutoSourceLimits.maxVertices>=mesh.vertices.size()&&
             policy.certifiedAutoSourceLimits.maxFaces>=mesh.triangles.size()&&
             policy.certifiedAutoCompleteSourceLimits.maxVertices>=mesh.vertices.size()&&
-            policy.certifiedAutoCompleteSourceLimits.maxFaces>=mesh.triangles.size(),
-            "Live AUTO finite source envelopes admit a source at duck scale");
+            policy.certifiedAutoCompleteSourceLimits.maxFaces>=mesh.triangles.size()&&
+            policy.certifiedAutoCompleteSourceLimits.query.maxSeedFaces>=
+                mesh.triangles.size(),
+            "Live AUTO full source and escalated face-seed budgets admit duck scale");
     require(SculptSourceContactLimits{}.maxVertices==16384&&
             SculptSourceContactLimits{}.maxFaces==32768,
             "Protected whole-original Merge source limits remain separate");
