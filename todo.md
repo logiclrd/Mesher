@@ -2020,17 +2020,21 @@ requires it. File-format conventions described below are requirements to
 investigate and support, **not** claims that current formats or colour
 variants already work.
 
-- [x] **UX01 — macOS (OS X) build in CI.** Apple Silicon macOS 15
-  runner builds the complete Vulkan/GLFW desktop application with Apple
-  Clang and `-Werror`, using Homebrew GLFW, Qhull, MoltenVK/Vulkan loader
-  and shader tools, then runs CLI/Qhull, portable concurrency, and all CPU
-  CTests. Apple libc++ compatibility uses atomic shared_ptr free operations
-  and cooperative joining-thread fallback without weakening the existing
-  Linux GCC/Clang or Windows MSVC paths. **Accepted:** [PR #169](https://github.com/logiclrd/Mesher/pull/169),
-  [CI #40811060709](https://github.com/logiclrd/Mesher/actions/runs/40811060709):
-  macOS 136/136 CTests passed; Linux GCC/Clang and Windows MSVC green.
-  Native .app packaging, app icon, signing/notarization and macOS release
-  remain UX02; physical Mac GPU rendering has not been validated.
+- [x] **UX01 — macOS (OS X) build in CI.** A two-architecture
+  matrix builds the complete Vulkan/GLFW desktop application on Apple
+  Silicon (`macos-15`, arm64) and Intel (`macos-15-intel`, x86_64)
+  using Apple Clang and `-Werror`, with Homebrew GLFW, Qhull,
+  MoltenVK/Vulkan loader and shader tools. Both run the CLI/Qhull
+  benchmark, portable concurrency checks and all CPU CTests. Apple
+  libc++ compatibility uses atomic shared_ptr free operations and
+  cooperative joining-thread fallback. **Accepted:**
+  [PR #169](https://github.com/logiclrd/Mesher/pull/169) and
+  [PR #170](https://github.com/logiclrd/Mesher/pull/170);
+  [CI #40812371016](https://github.com/logiclrd/Mesher/actions/runs/40812371016):
+  both macOS architectures passed 136/136 CTests, alongside green Linux
+  GCC/Clang and Windows MSVC builds. Native .app packaging, app icon,
+  signing/notarization and macOS release remain UX02; physical Mac GPU
+  rendering has not been validated.
 - [ ] **UX02 — macOS (OS X) release distribution.** After UX01, build and
   validate a self-contained macOS `.app` release, with a native Dock/app
   icon, splash image, Vulkan/MoltenVK runtime, shaders and assets resolved
