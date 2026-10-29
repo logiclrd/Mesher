@@ -1395,7 +1395,8 @@ class VulkanViewport {
                             hit->point,normalized(normal),
                             interaction_.radius,
                             interaction_.paintNominalEdgeLength,
-                            paintControls_.rgba,paintControls_.hardness});
+                            paintControls_.rgba,paintControls_.hardness,
+                            hit->face});
                         painting_=true;
                         lastPaintCursor_=std::pair{cx,cy};
                     }
