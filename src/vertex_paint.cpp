@@ -55,7 +55,9 @@ PaintDabResult applyVertexPaintDabs(
     if(maxVertices==0||maxRayTriangles==0)
         throw std::invalid_argument("Paint work budgets must be positive");
     if(dabs.empty())return {source,{},{},0};
-    std::map<VertexId,VertexRGBA> changes;
+    // Mirrored halves may overlap near X=0. The strongest visible dab
+    // wins for each stable vertex, preventing double-opacity at the seam.
+    std::map<VertexId,float> influences;
     std::size_t candidates=0,triangleTests=0;
     for(const auto& dab:dabs) {
         if(!std::isfinite(dab.point.x)||!std::isfinite(dab.point.y)||
@@ -101,20 +103,25 @@ PaintDabResult applyVertexPaintDabs(
                 dab.nominalEdgeLength*1e-4);
             if(first&&length(*first-origin)<distance-endpointTolerance)
                 continue;
-            const auto current=changes.contains(id)?changes.at(id):
-                localColorAt(*source,id);
-            const auto blended=mix(current,dab.rgba,weight(radiusDistance,dab));
-            if(blended!=current)changes[id]=blended;
+            const float influence=weight(radiusDistance,dab);
+            auto& strongest=influences[id];
+            strongest=std::max(strongest,influence);
         }
     }
-    if(changes.empty())return {source,{},{},0};
+    if(influences.empty())return {source,{},{},0};
     auto view=source->revision().createMutableView();
     std::vector<VertexId> changed;
-    changed.reserve(changes.size());
-    for(const auto& [id,rgba]:changes) {
+    changed.reserve(influences.size());
+    for(const auto& [id,influence]:influences) {
+        // Symmetric mirrors use the same selected paint RGBA. There is
+        // precisely one blend per vertex even when both dabs are visible.
+        const auto previous=localColorAt(*source,id);
+        const auto rgba=mix(previous,dabs.front().rgba,influence);
+        if(rgba==previous)continue;
         view.setVertexColor(source->vertex(id).owner,id,rgba);
         changed.push_back(id);
     }
+    if(changed.empty())return {source,{},{},0};
     auto commit=view.commit();
     auto colored=RegionTopologyIndex::withVertexColors(*source,commit.revision);
     auto dirty=dirtyRenderPartitions(*source,*colored,changed,{});
