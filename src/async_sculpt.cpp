@@ -3,6 +3,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <stdexcept>
 #include <set>
 #include <utility>
@@ -77,6 +78,7 @@ void AsyncSculptWorker::enqueue(Command command) {
     }
     {
         std::lock_guard guard(commandsMutex_);
+        command.queuedAt=std::chrono::steady_clock::now();
         commands_.push_back(std::move(command));
     }
     ready_.notify_one();
@@ -376,6 +378,7 @@ void AsyncSculptWorker::run(StopToken token) {
                 case Kind::Undo:
                 case Kind::Redo:
                     if(!stroke_.active()&&stroke_.pendingSamples()==0) {
+                        const auto processingStarted=Clock::now();
                         const bool restored=command->kind==Kind::Undo?
                             brush_->undo():brush_->redo();
                         if(restored) {
@@ -386,6 +389,21 @@ void AsyncSculptWorker::run(StopToken token) {
                                                       dirty.begin(),dirty.end());
                             changed=true;
                         }
+                        const auto finished=Clock::now();
+                        const auto ms=[](Clock::duration interval) {
+                            return std::chrono::duration<double,std::milli>(
+                                interval).count();
+                        };
+                        std::cout<<"[history] "
+                                 <<(command->kind==Kind::Undo?"undo":"redo")
+                                 <<" changed="<<restored
+                                 <<" queue_ms="<<ms(processingStarted-command->queuedAt)
+                                 <<" worker_ms="<<ms(finished-processingStarted)
+                                 <<" dirty_owners="<<(restored?
+                                     brush_->lastDirtyPartitions().size():0)
+                                 <<" undo_depth="<<brush_->historyStatistics().undoDepth
+                                 <<" redo_depth="<<brush_->historyStatistics().redoDepth
+                                 <<"\n";
                     }
                     break;
                 case Kind::PaintBegin:
