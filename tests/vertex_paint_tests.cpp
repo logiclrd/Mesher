@@ -351,8 +351,14 @@ void testConvexPaintPreviewGrowth() {
           medium.visibleVertices.size()>small.visibleVertices.size()&&
           large.visibleVertices.size()>medium.visibleVertices.size(),
           "Convex preview radius grows through all rings despite ray horizon");
-    check(large.affectedFaces.size()>medium.affectedFaces.size(),
-          "Preview face coverage grows with radius despite zero alpha");
+    // The outer triangles already touch the medium-radius ring, so
+    // expanding to their far vertices need not add any new FaceIds.
+    // Face coverage is monotonically nondecreasing and reaches the
+    // entire connected cap once its outer ring is inside the radius.
+    check(medium.affectedFaces.size()>small.affectedFaces.size()&&
+          large.affectedFaces.size()>=medium.affectedFaces.size()&&
+          large.affectedFaces.size()==mesh.triangles.size(),
+          "Preview includes all incident faces without shrinking at larger radii");
 }
 void testOneUndoPerPaintStroke() {
     Mesh mesh;
