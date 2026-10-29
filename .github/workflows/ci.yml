@@ -133,6 +133,50 @@ jobs:
             fourway-*.csv
             local-remesh.csv
 
+  macos:
+    name: macOS / Apple Clang (arm64)
+    runs-on: macos-15
+    env:
+      CC: clang
+      CXX: clang++
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install C++ and MoltenVK build dependencies
+        run: |
+          brew install cmake ninja glfw qhull glslang vulkan-headers vulkan-loader molten-vk
+          echo "Apple Clang:"
+          clang++ --version
+          echo "Homebrew prefix: $(brew --prefix)"
+      - name: Configure complete Vulkan/GLFW application and CPU tests
+        run: |
+          cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DMESHER_BUILD_VIEWPORT=ON -DMESHER_BUILD_TESTS=ON \
+            -DMESHER_FIND_QHULL=ON \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+            -DVulkan_INCLUDE_DIR="$(brew --prefix vulkan-headers)/include" \
+            -DVulkan_LIBRARY="$(brew --prefix vulkan-loader)/lib/libvulkan.dylib"
+      - name: Compile application and tests with Apple Clang warnings-as-errors
+        run: cmake --build build-macos --parallel 2
+      - name: Verify portable atomic publication and cooperative worker cancellation
+        run: |
+          clang++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+            -Iinclude tests/portable_concurrency_tests.cpp \
+            -o build-macos/portable_concurrency_tests
+          ./build-macos/portable_concurrency_tests
+          clang++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -pthread \
+            -DMESHER_FORCE_THREAD_FALLBACK=1 -Iinclude \
+            tests/portable_concurrency_tests.cpp \
+            -o build-macos/portable_concurrency_fallback_tests
+          ./build-macos/portable_concurrency_fallback_tests
+      - name: Verify CLI and Qhull backend without a GPU
+        run: |
+          ./build-macos/Mesher --version
+          ./build-macos/mesher_benchmark 10000 10 2>&1 | tee macos-benchmark.txt
+          grep 'hull=Qhull' macos-benchmark.txt
+      - name: Run CPU-only CTest suite
+        run: ctest --test-dir build-macos --output-on-failure --verbose
+
   windows-msvc:
     name: Windows / MSVC
     runs-on: windows-2022

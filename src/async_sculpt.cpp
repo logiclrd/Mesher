@@ -21,7 +21,7 @@ AsyncSculptWorker::AsyncSculptWorker(Mesh initial,double step,double strength,
             throw std::invalid_argument("Sculpt time speed must be positive");
         return t;
      }(timeSpeed)),symmetric_(symmetric),
-     worker_([this](std::stop_token token){run(token);}) {}
+     worker_([this](StopToken token){run(token);}) {}
 AsyncSculptWorker::AsyncSculptWorker(
     DurableCheckpoint recovered,double step,double strength,double timeSpeed,
     CurvatureSettings curvature,CollapseSettings collapse,RefineSettings refine,
@@ -36,7 +36,7 @@ AsyncSculptWorker::AsyncSculptWorker(
         return t;
      }(timeSpeed)),symmetric_(!recovered.mirrorPairs.empty()),
      trustedFirstOriginalFaces_(std::move(trustedFirstOriginalFaces)),
-     worker_([this](std::stop_token token){run(token);}) {
+     worker_([this](StopToken token){run(token);}) {
     if(!trustedFirstOriginalFaces_.empty()) {
         const auto& proof=recovered.verifiedOriginalFidelity;
         if(!proof||!proof->certificate||!proof->anchors.original||
@@ -57,7 +57,12 @@ AsyncSculptWorker::AsyncSculptWorker(
     }
 }
 AsyncSculptWorker::~AsyncSculptWorker() {
-    worker_.request_stop();
+    // Publish cancellation under the same lock guarding the wait
+    // predicate. Otherwise an idle worker can miss the notification.
+    {
+        std::lock_guard lock(commandsMutex_);
+        worker_.request_stop();
+    }
     ready_.notify_all();
     worker_.join();
 }
@@ -268,7 +273,7 @@ void AsyncSculptWorker::publish(bool force) {
         status_.totalSnapshotDirtyOwners=totalSnapshotDirtyOwners_;
     }
 }
-void AsyncSculptWorker::run(std::stop_token token) {
+void AsyncSculptWorker::run(StopToken token) {
     using Clock=std::chrono::steady_clock;
     // The UI can reserve and enqueue the NEXT Begin while this worker is
     // completing an unrelated queued Merge/Undo/Checkpoint iteration.
@@ -283,7 +288,9 @@ void AsyncSculptWorker::run(std::stop_token token) {
             {
                 std::unique_lock lock(commandsMutex_);
                 if(commands_.empty() && stroke_.pendingSamples()==0)
-                    ready_.wait(lock,token,[&]{return !commands_.empty();});
+                    ready_.wait(lock,[&]{
+                        return token.stop_requested()||!commands_.empty();
+                    });
                 if(token.stop_requested())break;
                 if(!commands_.empty()) {
                     command=commands_.front();
