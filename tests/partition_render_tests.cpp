@@ -183,6 +183,40 @@ void testSplitAndCollapseTopology() {
     check(result.index->retiredVertex(b),
           "Obsolete vertex ID is tombstoned while render partition is updated");
 }
+void testIndependentOpenRootRebuild() {
+    // UX06 accepts a new source with unrelated stable IDs and different
+    // partition densities. The old owners must disappear, shared-number
+    // owners must be regenerated, and the new root must match a full rebuild.
+    auto oldImport=partitionFlatMesh(octahedron(),1);
+    auto old=RegionTopologyIndex::build(oldImport.revision);
+    PartitionRenderCache cache;
+    cache.initialize(old);
+    const auto oldCount=cache.partitions().size();
+    Mesh replacement=octahedron();
+    for(auto& p:replacement.vertices) {
+        p.x=p.x*0.5+2.0;
+        p.z=p.z*1.75;
+    }
+    auto nextImport=partitionFlatMesh(replacement,4);
+    auto next=RegionTopologyIndex::build(nextImport.revision);
+    std::set<PartitionId> owners;
+    old->revision().forEachPartition([&](PartitionId id,const MeshPartition&) {
+        owners.insert(id);
+    });
+    next->revision().forEachPartition([&](PartitionId id,const MeshPartition&) {
+        owners.insert(id);
+    });
+    cache.advance(next,{owners.begin(),owners.end()});
+    equalFull(cache,next);
+    check(cache.revision()==next&&cache.partitions().size()<oldCount,
+          "Independent open root retires removed owners and repaints shared IDs");
+    check(old->revision().partition(6)!=nullptr,
+          "Importing another mesh must not edit the prior immutable root");
+    cache.advance(old,{owners.begin(),owners.end()});
+    equalFull(cache,old);
+    check(cache.revision()==old&&cache.partitions().size()==oldCount,
+          "Rebinding an unrelated old root must also rebuild correct geometry");
+}
 void testCoalescedDirtyUnion() {
     SphereOptions options;
     options.vertexCount=800;
@@ -224,6 +258,7 @@ int main() {
         testLocalMoveAndSharedBoundaries();
         testWireOwnershipIndependentOfFaceStorageOrder();
         testSplitAndCollapseTopology();
+        testIndependentOpenRootRebuild();
         testCoalescedDirtyUnion();
         std::cout<<"Dirty partition CPU rendering regression passed\n";
     }catch(const std::exception& e) {
