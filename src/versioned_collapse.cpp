@@ -213,10 +213,12 @@ bool VersionedDirectionalCollapser::attempt(
            length(newMa-current->vertex(ma).position)>0)
             transaction.moveVertex(ma,newMa);
         if(paired&&ma!=a) {
-            const auto ca=vertexColorAt(*current,ma);
-            const auto cb=vertexColorAt(*current,mb);
-            transaction.setVertexColor(ma,{(ca.r+cb.r)*.5f,(ca.g+cb.g)*.5f,
-                                           (ca.b+cb.b)*.5f,(ca.a+cb.a)*.5f});
+            const auto mirrorColorA=vertexColorAt(*current,ma);
+            const auto mirrorColorB=vertexColorAt(*current,mb);
+            transaction.setVertexColor(ma,{(mirrorColorA.r+mirrorColorB.r)*.5f,
+                                           (mirrorColorA.g+mirrorColorB.g)*.5f,
+                                           (mirrorColorA.b+mirrorColorB.b)*.5f,
+                                           (mirrorColorA.a+mirrorColorB.a)*.5f});
         }
         for(const auto& f:changes) {
             if(f.deleted)transaction.removeFace(f.id);
