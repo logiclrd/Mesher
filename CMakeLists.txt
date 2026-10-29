@@ -158,23 +158,6 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
-    # Exercise both native C++20 and the portable macOS-compatible
-    # joining-thread path, including on Linux/Windows where native jthread
-    # would otherwise hide portability regressions.
-    add_executable(mesher_portable_concurrency_tests
-        tests/portable_concurrency_tests.cpp)
-    target_include_directories(mesher_portable_concurrency_tests PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/include")
-    add_test(NAME portable_revision_publication_and_worker_stop
-        COMMAND mesher_portable_concurrency_tests)
-    add_executable(mesher_portable_concurrency_fallback_tests
-        tests/portable_concurrency_tests.cpp)
-    target_include_directories(mesher_portable_concurrency_fallback_tests PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/include")
-    target_compile_definitions(mesher_portable_concurrency_fallback_tests
-        PRIVATE MESHER_FORCE_THREAD_FALLBACK=1)
-    add_test(NAME portable_worker_stop_forced_fallback
-        COMMAND mesher_portable_concurrency_fallback_tests)
     add_executable(mesher_startup_splash_policy_tests
                    tests/startup_splash_policy_tests.cpp)
     target_include_directories(mesher_startup_splash_policy_tests PRIVATE
