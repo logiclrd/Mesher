@@ -23,12 +23,17 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         UTType* type=[UTType typeWithFilenameExtension:@"mshr"
                                     conformingToType:UTTypeData];
         if(type)dialog.allowedContentTypes=@[type];
-        const auto initial=std::filesystem::absolute(suggestion);
-        const std::string filename=initial.filename().string();
-        const std::string directory=initial.parent_path().string();
+        // Finder launches may have an unwritable process working directory.
+        // Do not force that directory for a bare default filename; let
+        // NSSavePanel use the user's normal Documents/last-used location.
+        const std::string filename=suggestion.filename().string();
         dialog.nameFieldStringValue=[NSString stringWithUTF8String:filename.c_str()];
-        dialog.directoryURL=[NSURL fileURLWithPath:
-            [NSString stringWithUTF8String:directory.c_str()] isDirectory:YES];
+        if(!suggestion.parent_path().empty()) {
+            const auto initial=std::filesystem::absolute(suggestion);
+            const std::string directory=initial.parent_path().string();
+            dialog.directoryURL=[NSURL fileURLWithPath:
+                [NSString stringWithUTF8String:directory.c_str()] isDirectory:YES];
+        }
         const NSModalResponse response=[dialog runModal];
         if(response==NSModalResponseCancel)return std::nullopt;
         if(response!=NSModalResponseOK)
