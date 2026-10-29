@@ -122,6 +122,21 @@ if(MESHER_BUILD_VIEWPORT)
     else()
         add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
     endif()
+    # Native Save As is intentionally a desktop-only integration. CPU/CLI
+    # targets need no Cocoa, Shell COM, or Linux desktop services.
+    if(WIN32)
+        target_sources(Mesher PRIVATE src/native_save_dialog_windows.cpp)
+        target_link_libraries(Mesher PRIVATE ole32 shell32 uuid)
+    elseif(APPLE)
+        enable_language(OBJCXX)
+        set(CMAKE_OBJCXX_STANDARD 20)
+        set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+        target_sources(Mesher PRIVATE src/native_save_dialog_macos.mm)
+        target_link_libraries(Mesher PRIVATE "-framework Cocoa"
+            "-framework UniformTypeIdentifiers")
+    else()
+        target_sources(Mesher PRIVATE src/native_save_dialog_linux.cpp)
+    endif()
     add_dependencies(Mesher mesher_shaders mesher_images)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)
     target_compile_definitions(Mesher PRIVATE MESHER_ASSET_DIR="${MESHER_ASSET_DIR}"
@@ -172,6 +187,11 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
+    add_executable(mesher_save_as_policy_tests tests/save_as_policy_tests.cpp)
+    target_include_directories(mesher_save_as_policy_tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    add_test(NAME native_save_as_checkpoint_policy
+        COMMAND mesher_save_as_policy_tests)
     add_executable(mesher_startup_splash_policy_tests
                    tests/startup_splash_policy_tests.cpp)
     target_include_directories(mesher_startup_splash_policy_tests PRIVATE
