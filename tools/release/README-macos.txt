@@ -23,3 +23,7 @@ native GPU smoke tests remain a follow-up.
 
 System requirement: macOS 13 or newer and a Metal-capable Mac.
 The archives are architecture-specific (not Universal 2).
+
+Saving interactive meshes:
+    Command+S (or Ctrl+S) opens the native macOS Save As panel for
+    .mshr checkpoints. The durable write is queued asynchronously.

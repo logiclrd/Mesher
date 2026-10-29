@@ -23,3 +23,9 @@ For a headless executable smoke test:
 compiler-benchmark.json contains both GCC and Clang timings collected
 on one GitHub Actions runner. The faster measured Release build is used
 for the archive; no compiler choice is hard-coded.
+
+Saving interactive meshes:
+    Ctrl+S opens a native Save As dialog for .mshr checkpoints.
+    The picker uses kdialog on KDE Plasma and zenity on GTK desktops;
+    install at least one (e.g. sudo apt install kdialog or zenity).
+    The checkpoint write is queued asynchronously after selection.

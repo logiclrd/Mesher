@@ -215,8 +215,20 @@ Alt+mouse gestures may be reserved for window management, including
 Alt+LMB; Ctrl+LMB remains an
 alternative. W controls surface-edge and grid ink;
 G independently shows/hides the floor. Ctrl+Z / Ctrl+Y
-undo/redo, Ctrl+S queues an asynchronous checkpoint; on macOS,
-Command+Z / Command+Y / Command+S also work.
+undo/redo. **Ctrl+S** opens the operating system's native **Save As**
+dialog for a durable `.mshr` checkpoint. On macOS, Command+Z /
+Command+Y / Command+S also work. The first suggestion is the
+`--checkpoint` filename (default `mesher-checkpoint.mshr`); subsequent
+saves suggest the most recently accepted path. Cancel leaves the mesh,
+history, and destination unchanged. Saving is queued on the existing
+asynchronous worker and uses its atomic temporary-file-and-rename
+mechanism; an accepted dialog does not imply that disk I/O has finished.
+The writer's checkpoint status/errors remain in the console. On KDE,
+the Linux picker uses **kdialog**; on GTK desktops it uses **zenity**.
+Install at least one of these native dialog frontends to enable Save As;
+neither is bundled into the Linux archive. Frozen repair inspection
+retains its specialized Ctrl+S / Ctrl+Shift+S / Ctrl+Alt+S case captures
+without opening a regular checkpoint Save As dialog.
 
 Printable keyboard shortcuts (W, G, M, A, Z, Y, S, R, N, P and C)
 follow the active operating-system keyboard layout rather than physical

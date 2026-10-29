@@ -510,7 +510,8 @@ int main(int argc, char** argv) {
             inspect.canBegin=[]{return false;};
             inspect.undo=[]{};
             inspect.redo=[]{};
-            inspect.checkpoint=[]{};
+            // Private inspection has no published checkpoint to save.
+            inspect.checkpoint=nullptr;
             inspect.completedStamps=[]{return std::size_t{0};};
             inspect.caption=[succeeded] {
                 return std::string("R06 exact case replay FROZEN | ")+
@@ -846,12 +847,17 @@ int main(int argc, char** argv) {
             }
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
-            interaction.checkpoint=[&] {
-                // The frozen branch uses a distinct, outcome-aware callback.
-                // Never checkpoint unpublished automatic repair geometry.
+            interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
+            interaction.checkpoint=[&](std::filesystem::path selectedPath) {
+                // Frozen R06 case capture is a completely different shortcut;
+                // never checkpoint unpublished automatic repair geometry.
                 if(repairSession&&repairSession->frozen())return;
-                liveWorker->saveCheckpoint(checkpointPath);
-                std::cout<<"[checkpoint] queued "<<checkpointPath.string()<<"\n";
+                // The UI chooses the pathname. The worker still captures the
+                // current accepted immutable root in its existing queue.
+                liveWorker->saveCheckpoint(selectedPath);
+                checkpointPath=std::move(selectedPath);
+                std::cout<<"[checkpoint] queued Save As "
+                         <<checkpointPath.string()<<"\n";
             };
             interaction.frozenRepairCapture=[&](int requestedIntent) {
                 if(!repairAuto||!repairSession||!repairSession->frozen())return;
@@ -1347,7 +1353,8 @@ int main(int argc, char** argv) {
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
                      <<"Vulkan refreshes only dirty face partitions.\n"
                      <<"Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo, Ctrl+S "
-                     <<"background checkpoint to "<<checkpointPath.string()<<".\n";
+                     <<"opens native Save As (.mshr), initially at "
+                     <<checkpointPath.string()<<"; writing remains asynchronous.\n";
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";

@@ -11,6 +11,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include "mesher/mapped_keyboard.hpp"
+#include "mesher/native_save_dialog.hpp"
+#include "mesher/save_as_policy.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -2090,8 +2092,19 @@ public:
                 if(shift&&alt)
                     std::cout<<"[repair-r06] CASE_SAVE_REFUSED choose Shift OR Alt, not both\n";
                 else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
-            }else if(shortcut&&save&&!inspectionFrozen_&&interaction_.checkpoint)
-                interaction_.checkpoint();
+            }else if(shortcut&&save&&!inspectionFrozen_&&interaction_.checkpoint) {
+                try {
+                    const auto suggestion=interaction_.checkpointSuggestedPath?
+                        interaction_.checkpointSuggestedPath():
+                        std::filesystem::path("mesher-checkpoint.mshr");
+                    const auto choice=nativeSaveCheckpointDialog(window,suggestion);
+                    if(!dispatchCheckpointSaveAs(choice,interaction_.checkpoint))
+                        std::cout<<"[checkpoint] Save As cancelled; no write queued\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[checkpoint] Save As failed; no write queued: "
+                             <<error.what()<<"\n";
+                }
+            }
             if(!shortcut)updateMergeKeyboard();
             updateMouseOrbit();
             updateMouseSculpt();

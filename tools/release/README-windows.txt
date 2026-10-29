@@ -18,3 +18,7 @@ For a no-GPU smoke test:
     Mesher.exe --version
 
 The version displayed must match VERSION in this directory.
+
+Saving interactive meshes:
+    Ctrl+S opens the native Windows Save As dialog with a .mshr filter.
+    Choosing a filename queues the existing durable background checkpoint.
