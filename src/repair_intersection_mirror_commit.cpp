@@ -231,6 +231,8 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
         const auto [first,second]=edit.appendMirroredVertices(
             pointOwner(*baseline,plan.points[i]),
             pointOwner(*baseline,plan.points[j]),plan.points[i].position);
+        edit.setVertexColor(first,plannedCutPointColor(*baseline,plan.points[i]));
+        edit.setVertexColor(second,plannedCutPointColor(*baseline,plan.points[j]));
         assigned[i]=first;assigned[j]=second;
         output.insertedVertices.push_back(first);
         output.insertedVertices.push_back(second);
@@ -239,6 +241,7 @@ ConformingCutCandidate materializeMirroredTransverseCutCandidate(
     for(const auto i:plan.mirroredSeamCutPoints) {
         const auto id=edit.appendSeamVertex(
             pointOwner(*baseline,plan.points[i]),plan.points[i].position);
+        edit.setVertexColor(id,plannedCutPointColor(*baseline,plan.points[i]));
         assigned[i]=id;
         output.insertedVertices.push_back(id);
         output.mirroredSeamVertices.push_back(id);
