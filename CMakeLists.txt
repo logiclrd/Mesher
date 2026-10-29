@@ -107,7 +107,21 @@ if(MESHER_BUILD_VIEWPORT)
         list(APPEND SPIRV_FILES "${DESTINATION}")
     endforeach()
     add_custom_target(mesher_shaders DEPENDS ${SPIRV_FILES})
-    add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
+    # UX02: CI and developer builds remain a command-line binary by default.
+    # Release packaging opts into a native Finder/Dock .app bundle.
+    option(MESHER_MACOS_BUNDLE "Build a native Mesher.app on macOS" OFF)
+    if(APPLE AND MESHER_MACOS_BUNDLE)
+        configure_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/release/Mesher-Info.plist.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/Mesher-Info.plist" @ONLY)
+        add_executable(Mesher MACOSX_BUNDLE
+            src/main.cpp src/viewport.cpp src/startup_splash.cpp)
+        set_target_properties(Mesher PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST
+            "${CMAKE_CURRENT_BINARY_DIR}/Mesher-Info.plist")
+    else()
+        add_executable(Mesher src/main.cpp src/viewport.cpp src/startup_splash.cpp)
+    endif()
     add_dependencies(Mesher mesher_shaders mesher_images)
     target_link_libraries(Mesher PRIVATE mesher_mesh Vulkan::Vulkan glfw OpenGL::GL)
     target_compile_definitions(Mesher PRIVATE MESHER_ASSET_DIR="${MESHER_ASSET_DIR}"
