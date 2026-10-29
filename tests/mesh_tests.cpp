@@ -141,7 +141,7 @@ void testPrivateMeshOpenCandidates() {
     refuseWith(put("bad_header.dat","garbage contents"),
                MeshOpenFilter::AllFiles,"Unrecognized mesh file header");
     refuseWith(put("bad_contents.mshr","MESHRV12"),
-               MeshOpenFilter::AllFiles,"Checkpoint");
+               MeshOpenFilter::AllFiles,"Truncated checkpoint");
     check(readMeshOpenCandidate(put("actually.mshr",tetra),
               MeshOpenFilter::AllFiles).format==MeshOpenFormat::WavefrontObj,
           "All Files must ignore a false .mshr extension");
