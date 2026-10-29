@@ -13,9 +13,10 @@
 
 namespace mesher {
 
-// Layout matches the Vulkan viewport's existing seven-float binding.
+// Vulkan vertex format retains the original seven floats and adds RGBA.
 struct PartitionRenderVertex {
     float px{},py{},pz{},nx{},ny{},nz{},material{};
+    float r=1.f,g=1.f,b=1.f,a=1.f;
 };
 struct PartitionRenderGeometry {
     std::vector<PartitionRenderVertex> solid;
