@@ -137,10 +137,10 @@ std::optional<bool> nativePlyAlphaOpacityDialog(
         const auto high=static_cast<int>(maximum*255.f+0.5f);
         NSString* detail=[NSString stringWithFormat:
             @"PLY vertex alpha ranges from %d to %d / 255. "
-             "It may be opacity or unrelated source data.\n\n"
-             "Yes: import as Mesher alpha.\n"
-             "No: display opaque RGB and preserve source alpha.\n"
-             "Cancel: leave the existing mesh unchanged.",low,high];
+             @"It may be opacity or unrelated source data.\n\n"
+             @"Yes: import as Mesher alpha.\n"
+             @"No: display opaque RGB and preserve source alpha.\n"
+             @"Cancel: leave the existing mesh unchanged.",low,high];
         alert.informativeText=detail;
         [alert addButtonWithTitle:@"Yes"];
         [alert addButtonWithTitle:@"No"];

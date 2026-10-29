@@ -110,3 +110,25 @@ acceptance tests. UX06 remains unchecked until full acceptance.
 - Additional PLY element/property variants are not silently interpreted.
   The current PLY importer intentionally handles precisely closed
   triangle meshes with standard uchar vertex RGB(A).
+
+
+## PLY alpha ambiguity (UX06B follow-up)
+
+PLY `uchar alpha` is retained independently as `VertexRGBA::sourceAlpha`
+(an optional, normalized, full-precision scalar), even if the user does
+not treat it as opacity. RGB is visible with opaque editable alpha by
+default. A strictly sub-1.5% span of source bytes is automatically treated
+as non-opacity; larger spans prompt **Yes** (copy source into editable
+alpha), **No** (keep editable alpha opaque) or **Cancel** (retain the live
+session). All choices preserve the source stream. Paint modifies mesh RGBA,
+not the source scalar. Source alpha interpolates across edge splits,
+collision cuts and advanced cap interiors and survives durable V16/V17
+checkpoints (legacy V12–V15 remain readable). UX07 future PLY export will
+automatically use mesh alpha if the original source values were absent or
+identical; otherwise the operator will choose From File or From Mesh. This
+export chooser is **not** implemented by UX06B.
+
+Mesher's current fragment shader uses vertex alpha for paint-coat coverage
+on an opaque surface; true physically transparent rendering is a separate
+future renderer requirement. Do not claim that opting into opacity has
+introduced translucent geometry in this PR.

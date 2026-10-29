@@ -196,12 +196,29 @@ void testPlyImportCandidates() {
     check(readMeshOpenCandidate(path,MeshOpenFilter::StanfordPly).format==
           MeshOpenFormat::StanfordPly,
           "Explicit PLY filter ignores the extension");
+    check(candidate.alphaDecisionRequired,
+          "Wide-range PLY alpha requires explicit interpretation");
+    bool opaqueBeforeChoice=true;
+    candidate.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                opaqueBeforeChoice&=v.color.a==1.f;
+                check(v.color.sourceAlpha.has_value(),
+                      "PLY retains source alpha separately from editable RGBA");
+            }
+        });
+    check(opaqueBeforeChoice,
+          "PLY source alpha must not hide RGB before user interpretation");
+    applyPlySourceAlphaAsOpacity(candidate);
     auto oldRoot=candidate.snapshot.index;
     std::array<bool,4> found{};
     candidate.snapshot.index->revision().forEachPartition(
         [&](PartitionId,const MeshPartition& part) {
             for(const auto& vertex:part.vertices) {
                 const auto alpha=vertex.color.a;
+                check(vertex.color.sourceAlpha.has_value()&&
+                      std::abs(*vertex.color.sourceAlpha-alpha)<1e-6f,
+                      "Interpreted alpha retains exact independent provenance");
                 for(std::size_t i=0;i<found.size();++i)
                     if(std::abs(alpha-static_cast<float>((i+1)*64-((i==3)?1:0))/255.f)<1e-5f)
                         found[i]=true;
@@ -214,6 +231,56 @@ void testPlyImportCandidates() {
     const auto restored=readMeshOpenCandidate(checkpoint);
     check(restored.hasVertexColors&&restored.vertexCount==4,
           "PLY candidate RGBA survives durable mshr round trip");
+    std::array<bool,4> restoredAlpha{};
+    restored.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices) {
+                check(v.color.sourceAlpha.has_value()&&
+                      std::abs(*v.color.sourceAlpha-v.color.a)<1e-6f,
+                      "V16 checkpoint must preserve both source and editable alpha");
+                for(std::size_t i=0;i<restoredAlpha.size();++i)
+                    if(std::abs(v.color.a-
+                        static_cast<float>((i+1)*64-((i==3)?1:0))/255.f)<1e-5f)
+                        restoredAlpha[i]=true;
+            }
+        });
+    check(restoredAlpha[0]&&restoredAlpha[1]&&restoredAlpha[2]&&
+          restoredAlpha[3],"All four source alphas survive .mshr reopen");
+    const std::string allZeroGeometry=
+        "0 0 0 35 56 37 0\n"
+        "1 0 0 45 57 43 0\n"
+        "0 1 0 36 61 40 0\n"
+        "0 0 1 32 52 27 0\n";
+    const auto zero=readMeshOpenCandidate(
+        put("meshlab-zero-alpha.ply",prefix+allZeroGeometry+faces));
+    check(!zero.alphaDecisionRequired,
+          "Constant zero PLY source alpha must not prompt");
+    zero.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part) {
+            for(const auto& v:part.vertices)
+                check(v.color.a==1.f&&v.color.sourceAlpha==0.f,
+                      "Zero-alpha VCGLIB colour remains visible and source preserved");
+        });
+    const std::string nearRangeGeometry=
+        "0 0 0 255 0 0 0\n"
+        "1 0 0 0 255 0 1\n"
+        "0 1 0 0 0 255 2\n"
+        "0 0 1 255 255 0 3\n";
+    const auto near=readMeshOpenCandidate(
+        put("near-alpha.ply",prefix+nearRangeGeometry+faces));
+    check(!near.alphaDecisionRequired&&
+          near.sourceAlphaMaximum-near.sourceAlphaMinimum<0.015f,
+          "Sub-1.5% alpha range automatically presents opaque RGB");
+    const std::string thresholdGeometry=
+        "0 0 0 255 0 0 0\n"
+        "1 0 0 0 255 0 1\n"
+        "0 1 0 0 0 255 2\n"
+        "0 0 1 255 255 0 4\n";
+    const auto threshold=readMeshOpenCandidate(
+        put("threshold-alpha.ply",prefix+thresholdGeometry+faces));
+    check(threshold.alphaDecisionRequired,
+          "4/255 PLY alpha span must prompt for opacity");
+
     const auto refuse=[&](const std::string& filename,
                           const std::string& content,
                           MeshOpenFilter filter,const char* why) {
