@@ -83,7 +83,19 @@ std::optional<std::filesystem::path> runPicker(
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     GLFWwindow*,const std::filesystem::path& suggestion) {
-    const auto initial=std::filesystem::absolute(suggestion).string();
+    // GUI launchers may start Mesher in a read-only bundle directory.
+    // For a bare filename, use the user's Documents (or home) folder;
+    // an explicit --checkpoint directory and a previously chosen path win.
+    std::filesystem::path initialPath=suggestion;
+    if(suggestion.parent_path().empty()) {
+        if(const char* home=std::getenv("HOME");home&&*home) {
+            const std::filesystem::path homePath(home);
+            const auto documents=homePath/"Documents";
+            initialPath=(std::filesystem::is_directory(documents)?
+                         documents:homePath)/suggestion.filename();
+        }
+    }
+    const auto initial=std::filesystem::absolute(initialPath).string();
     const char* desktop=std::getenv("XDG_CURRENT_DESKTOP");
     const std::string_view environment=desktop?desktop:"";
     const bool kde=environment.find("KDE")!=std::string_view::npos;
