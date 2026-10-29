@@ -934,10 +934,10 @@ class VulkanViewport {
     }
     void updateMergeKeyboard() {
         const auto edges=mergeKeys_.sample(
-            keyboard_.down(GLFW_KEY_M),
-            keyboard_.down(GLFW_KEY_ENTER),
-            keyboard_.down(GLFW_KEY_BACKSPACE),
-            keyboard_.down(GLFW_KEY_A));
+            keyboard_.active(GLFW_KEY_M),
+            keyboard_.active(GLFW_KEY_ENTER),
+            keyboard_.active(GLFW_KEY_BACKSPACE),
+            keyboard_.active(GLFW_KEY_A));
         const bool ready=!interaction_.canBegin||interaction_.canBegin();
         if(edges.toggle) {
             const auto result=mergeInput_.toggle(
