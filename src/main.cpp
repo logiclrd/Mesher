@@ -914,6 +914,8 @@ int main(int argc, char** argv) {
                     std::cout<<"[repair-r06] CASE_SAVE_REFUSED "<<error.what()<<"\n";
                 }
             };
+            interaction.paintBegin=[&] {liveWorker->beginPaintStroke();};
+            interaction.paintEnd=[&] {liveWorker->endPaintStroke();};
             interaction.paintNominalEdgeLength=brushRange.minimum;
             interaction.paint=[&](const mesher::PaintDab& dab) {
                 if(repairSession&&repairSession->frozen())return;
