@@ -149,6 +149,9 @@ private:
 };
 } // namespace
 
+void initializeNativeDialogs() {
+    (void)desktopQt();
+}
 void shutdownNativeDialogs() noexcept {
     auto& state=qtLifetime();
     if(state.shutdown)return;

@@ -141,7 +141,25 @@ if(MESHER_BUILD_VIEWPORT)
         find_package(Qt6 REQUIRED COMPONENTS Widgets)
         target_sources(Mesher PRIVATE src/native_save_dialog_linux.cpp)
         target_link_libraries(Mesher PRIVATE Qt6::Widgets)
+        # An actual modal lifecycle regression runs under a virtual X11
+        # display when available; no Vulkan device or window manager is
+        # needed. Keep the Qt dependency strictly in desktop-only tests.
         if(MESHER_BUILD_TESTS)
+            find_program(MESHER_XVFB_RUN xvfb-run)
+            if(MESHER_XVFB_RUN)
+                add_executable(mesher_qt_dialog_lifecycle_tests
+                    tests/linux_qt_dialog_lifecycle_tests.cpp
+                    src/native_save_dialog_linux.cpp)
+                target_include_directories(mesher_qt_dialog_lifecycle_tests
+                    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+                target_link_libraries(mesher_qt_dialog_lifecycle_tests
+                    PRIVATE Qt6::Widgets glfw)
+                add_test(NAME linux_qt_dialog_lifecycle
+                    COMMAND "${MESHER_XVFB_RUN}" -a
+                            $<TARGET_FILE:mesher_qt_dialog_lifecycle_tests>)
+                set_tests_properties(linux_qt_dialog_lifecycle
+                    PROPERTIES TIMEOUT 30)
+            endif()
             add_test(NAME linux_qt_native_open_save_contract
                 COMMAND "${CMAKE_COMMAND}"
                     "-DLINUX_DIALOG_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/src/native_save_dialog_linux.cpp"

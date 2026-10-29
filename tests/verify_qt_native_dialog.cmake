@@ -20,6 +20,7 @@ foreach(required
     "state.application=std::make_unique<QApplication>(state.argc,state.argv)"
     "state.application.reset()"
     "void shutdownNativeDialogs() noexcept"
+    "void initializeNativeDialogs()"
     "QGuiApplication::screenAt(center)"
     "glfwGetWindowPos(owner_,&x,&y)"
     "glfwGetWindowSize(owner_,&width,&height)"

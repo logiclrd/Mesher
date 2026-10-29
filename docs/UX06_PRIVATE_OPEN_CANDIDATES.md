@@ -63,7 +63,9 @@ destructor **before** `glfwDestroyWindow` and `glfwTerminate`. The prior
 static function-local QApplication was destroyed during C++ process exit,
 after GLFW's X11 teardown, which is a plausible cause of the reported
 exit segfault. No repeated QApplication initialization is supported;
-physical X11 runtime testing still verifies the actual shutdown behavior.
+the Xvfb-backed `linux_qt_dialog_lifecycle` regression now exercises
+multiple Open, Save and error dialogs, then shuts down Qt before GLFW
+and exits normally. It does not replace local multi-monitor testing.
 
 Imported OBJ changes the
 new Save As default to its .mshr sibling; restored checkpoints preserve

@@ -27,6 +27,9 @@ void nativeOpenErrorMessage(GLFWwindow* owner,const std::string& message);
 // Called once by VulkanViewport, before GLFW destroys its X11 window.
 // Does nothing if Qt dialogs were never used. Cannot be reinitialized
 // later in the same process (Qt disallows repeated QApplication lifetimes).
+// Optional early lazy initialization for a modal-dialog test or UI user;
+// the process still owns only one QApplication for its entire lifetime.
+void initializeNativeDialogs();
 void shutdownNativeDialogs() noexcept;
 #endif
 }
