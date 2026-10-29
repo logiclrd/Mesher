@@ -191,6 +191,92 @@ void testLinearNormalizedFootprint() {
         check(colorOf(*elevated.colored,id)==colorOf(*output.colored,id),
               "Visibility ray height must never shrink the surface brush radius");
 }
+void testConvexSurfaceBrushRadiusGrowth() {
+    // Three concentric spherical surface rings. A fixed 1/4-edge ray
+    // origin sees only the nearest ring (self-occlusion at the horizon)
+    // even when querySphere admits the far ring.
+    Mesh mesh;
+    mesh.vertices.push_back({0,0,1});
+    const double nearAngle=.25,farAngle=.48;
+    for(const double angle:{nearAngle,farAngle}) {
+        const double r=std::sin(angle),z=std::cos(angle);
+        mesh.vertices.push_back({r,0,z});
+        mesh.vertices.push_back({0,r,z});
+        mesh.vertices.push_back({-r,0,z});
+        mesh.vertices.push_back({0,-r,z});
+    }
+    for(std::uint32_t j=0;j<4;++j) {
+        const auto next=(j+1)%4;
+        mesh.triangles.push_back({0,1+j,1+next});
+        mesh.triangles.push_back({1+j,5+j,5+next});
+        mesh.triangles.push_back({1+j,5+next,1+next});
+    }
+    const auto imported=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(imported.revision);
+    auto dab=PaintDab{{0,0,1},{0,0,1},.12,.06,
+                      {1,0,0,1},1,imported.flatIndex.faceIds[0]};
+    const auto small=applyVertexPaintDabs(source,{dab});
+    dab.radius=.30;
+    const auto medium=applyVertexPaintDabs(source,{dab});
+    dab.radius=.50;
+    const auto large=applyVertexPaintDabs(source,{dab});
+    const auto& ids=imported.flatIndex.vertexIds;
+    check(colorOf(*small.colored,ids[0])==dab.rgba,
+          "Small dab must paint its centre");
+    check(colorOf(*small.colored,ids[1])==VertexRGBA{},
+          "Small dab must not reach the middle ring");
+    check(colorOf(*medium.colored,ids[1])==dab.rgba,
+          "Middle brush radius must paint the first curved ring");
+    check(colorOf(*medium.colored,ids[5])==VertexRGBA{},
+          "Middle radius must not reach the far curved ring");
+    for(std::size_t i=5;i<9;++i)
+        check(colorOf(*large.colored,ids[i])==dab.rgba,
+              "Largest radius must reach far convex vertices despite horizon");
+}
+void testPaintAlphaCompositesOverExistingColor() {
+    Mesh mesh;
+    mesh.vertices={{0,0,0},{.1,0,0},{0,.1,0}};
+    mesh.triangles={{0,1,2}};
+    const auto imported=partitionFlatMesh(mesh,4);
+    const auto source=RegionTopologyIndex::build(imported.revision);
+    const auto id=imported.flatIndex.vertexIds[0];
+    PaintDab dab{{.03,.03,0},{0,0,1},.30,.05,
+                 {0,0,1,.25f},1,imported.flatIndex.faceIds[0]};
+    const auto first=applyVertexPaintDabs(source,{dab});
+    const auto coat=colorOf(*first.colored,id);
+    check(close(coat.r,.75)&&close(coat.g,.75)&&
+          close(coat.b,1)&&coat.a==1.f,
+          "25% blue must mix with opaque white and retain opaque destination");
+    const auto second=applyVertexPaintDabs(first.colored,{dab});
+    const auto layered=colorOf(*second.colored,id);
+    check(close(layered.r,.5625)&&close(layered.g,.5625)&&
+          layered.a==1.f,
+          "A second translucent dab must accumulate against the existing colour");
+    dab.rgba={1,0,0,.5f};
+    const auto red=applyVertexPaintDabs(second.colored,{dab});
+    const auto mixed=colorOf(*red.colored,id);
+    check(close(mixed.r,.78125)&&close(mixed.g,.28125)&&
+          close(mixed.b,.5)&&mixed.a==1.f,
+          "Brush alpha must mix new hue over the existing painted hue");
+    dab.rgba={0,1,0,0};
+    const auto transparent=applyVertexPaintDabs(red.colored,{dab});
+    check(transparent.colored==red.colored&&
+          transparent.changedVertices.empty(),
+          "Zero opacity is a complete no-op without a history revision");
+    // A pre-existing partial coat is also composited source-over rather
+    // than overwriting its alpha with the brush's alpha.
+    mesh.colors.assign(3,{1,0,0,.5f});
+    const auto partialImport=partitionFlatMesh(mesh,4);
+    const auto partial=RegionTopologyIndex::build(partialImport.revision);
+    dab.rgba={0,0,1,.5f};
+    dab.sourceFace=partialImport.flatIndex.faceIds[0];
+    const auto mixedPartial=applyVertexPaintDabs(partial,{dab});
+    const auto result=colorOf(*mixedPartial.colored,
+                               partialImport.flatIndex.vertexIds[0]);
+    check(close(result.a,.75)&&close(result.r,1./3)&&
+          close(result.b,2./3),
+          "Source-over paint must preserve and combine partial coat coverage");
+}
 void testOneUndoPerPaintStroke() {
     Mesh mesh;
     mesh.vertices={{0,0,0},{.2,0,0},{0,.2,0}};
@@ -336,6 +422,8 @@ int main() {
         testMirroredDabsDoNotDoublePaintSeam();
         testConformingCutColorProvenance();
         testLinearNormalizedFootprint();
+        testConvexSurfaceBrushRadiusGrowth();
+        testPaintAlphaCompositesOverExistingColor();
         testOneUndoPerPaintStroke();
         testLongPaintDragKeepsOriginalUndoRoot();
         testUndoRedoAndPaintPublication();
