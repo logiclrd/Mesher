@@ -166,15 +166,13 @@ def validate_bundle(app, version, arch):
         plist = plistlib.load(file)
     if plist["CFBundleExecutable"] != "Mesher" or plist["CFBundleIconFile"] != "Mesher.icns":
         raise RuntimeError("Invalid app bundle metadata")
-    if plist["CFBundleShortVersionString"] != version.rstrip("abcdefghijklmnopqrstuvwxyz"):
-        # CMake's numeric version is authoritative for Info.plist.
-        numeric = re.match(r"^[0-9]+(?:\\.[0-9]+)*", version)
-        if not numeric or plist["CFBundleShortVersionString"] != numeric.group(0):
-            raise RuntimeError("Wrong bundle version")
+    numeric = re.match(r"^[0-9]+(?:[.][0-9]+)*", version)
+    if not numeric or plist["CFBundleShortVersionString"] != numeric.group(0):
+        raise RuntimeError("Wrong bundle version")
     actual = execute(executable, "--version", capture=True).stdout.strip()
     if actual != f"Mesher {version}":
         raise RuntimeError(f"Packaged version mismatch: {actual!r}")
-    icd = json.loads(required[9].read_text(encoding="utf-8"))
+    icd = json.loads(required[8].read_text(encoding="utf-8"))
     if icd.get("ICD", {}).get("library_path") != "../../../Frameworks/libMoltenVK.dylib":
         raise RuntimeError("MoltenVK ICD points outside bundle")
     if icd["ICD"].get("is_portability_driver") is not True:
