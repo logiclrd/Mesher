@@ -1166,7 +1166,6 @@ class VulkanViewport {
                     const auto picked=displayedIndex_?
                         displayedIndex_->firstRayHit(source):
                         firstMeshHit(mesh_,source);
-                    const Vec3 eye=scaledCameraEye(double(fw),double(fh));
                     const Vec3 forward=normalized(
                         Vec3{}-baseCameraEye(double(fw),double(fh)));
                     // Background centroid scan only on this real RMB press.
