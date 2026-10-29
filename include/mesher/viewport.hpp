@@ -4,6 +4,7 @@
 #include "mesher/partition_render.hpp"
 
 #include <array>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <memory>
@@ -85,7 +86,10 @@ struct ViewportInteraction {
     std::function<bool()> canBegin;
     std::function<void()> undo;
     std::function<void()> redo;
-    std::function<void()> checkpoint;
+    // UI owns the native Save As interaction; the host worker owns the
+    // immutable checkpoint snapshot and durable asynchronous writer.
+    std::function<std::filesystem::path()> checkpointSuggestedPath;
+    std::function<void(std::filesystem::path)> checkpoint;
     // Frozen R06 only: 0=ordinary, 1=prefer caps, 2=prefer zipper.
     // This captures the ORIGINAL complete candidate even when M04 succeeded.
     std::function<void(int)> frozenRepairCapture;
