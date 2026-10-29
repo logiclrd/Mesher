@@ -566,6 +566,9 @@ int main(int argc, char** argv) {
             if(mesh.vertices.empty())throw std::runtime_error("Empty checkpoint mesh");
             options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
             options.symmetric=!recovered->mirrorPairs.empty();
+            mesher::ViewportSceneBounds recoveryBounds;
+            for(const auto vertex:mesh.vertices)recoveryBounds.include(vertex);
+            interaction.startupBounds=recoveryBounds;
             std::cout<<"Recovered "<<mesh.vertices.size()<<" vertices, "
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
@@ -874,6 +877,12 @@ int main(int argc, char** argv) {
                     if(*interpreted)
                         mesher::applyPlySourceAlphaAsOpacity(candidate);
                 }
+                mesher::ViewportSceneBounds openBounds;
+                candidate.snapshot.index->revision().forEachPartition(
+                    [&](mesher::PartitionId,const mesher::MeshPartition& part) {
+                        for(const auto& vertex:part.vertices)
+                            openBounds.include(vertex.position);
+                    });
                 const auto count=candidate.vertexCount;
                 if(count>std::numeric_limits<std::uint32_t>::max())
                     throw std::length_error("Imported mesh vertex count exceeds uint32");
@@ -901,7 +910,7 @@ int main(int argc, char** argv) {
                         // defaults to a new .mshr beside the imported OBJ.
                         checkpointPath=std::move(selected);
                         checkpointPath.replace_extension(".mshr");
-                    }};
+                    },openBounds};
             };
             interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {

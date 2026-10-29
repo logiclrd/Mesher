@@ -2,6 +2,7 @@
 #include "mesher/mesh.hpp"
 #include "mesher/native_save_dialog.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/viewport_scale.hpp"
 #include "mesher/partition_render.hpp"
 #include "mesher/vertex_paint.hpp"
 
@@ -71,6 +72,7 @@ struct PreparedMeshOpen {
     double radius{};
     bool symmetric{};
     std::function<void()> commit;
+    std::optional<ViewportSceneBounds> bounds;
 };
 struct ViewportInteraction {
     // Latch inversion on mouse-down, never switch queued 4D samples mid-stroke.
@@ -142,6 +144,7 @@ struct ViewportInteraction {
     // M51: explicit developer fixtures are larger than the default unit
     // sphere. Shared render/picker scale only; normal sessions stay 1.0.
     double cameraScale = 1.0;
+    std::optional<ViewportSceneBounds> startupBounds;
     double stationaryStampsPerSecond = 0;
 };
 
