@@ -1,0 +1,33 @@
+#pragma once
+#include "mesher/region_edit.hpp"
+
+#include <cstddef>
+#include <memory>
+#include <vector>
+
+namespace mesher {
+
+// This is a colour-only immutable COW edit, never a geometry mutation.
+// The exact original surface is used for line-of-sight visibility.
+struct PaintDab {
+    Vec3 point{};
+    Vec3 outwardNormal{};
+    double radius{};
+    double nominalEdgeLength{};
+    VertexRGBA rgba{};
+    double hardness=0.5; // 0: gradual falloff throughout disc, 1: hard edge
+};
+struct PaintDabResult {
+    std::shared_ptr<const RegionTopologyIndex> colored;
+    std::vector<VertexId> changedVertices;
+    std::vector<PartitionId> dirtyPartitions;
+    std::size_t copiedPayloadBytes{};
+};
+// At most maxVertices candidates and maxRayTriangles primitive tests.
+// Any exhaustion throws before publishing ANY colour change.
+PaintDabResult applyVertexPaintDabs(
+    std::shared_ptr<const RegionTopologyIndex> source,
+    const std::vector<PaintDab>& dabs,
+    std::size_t maxVertices=65536,
+    std::size_t maxRayTriangles=1048576);
+}
