@@ -20,7 +20,7 @@ VertexRGBA mix(VertexRGBA a,VertexRGBA b,float f) {
     return {a.r+(b.r-a.r)*f,a.g+(b.g-a.g)*f,
             a.b+(b.b-a.b)*f,a.a+(b.a-a.a)*f};
 }
-VertexRGBA colorAt(const RegionTopologyIndex& index,VertexId id) {
+VertexRGBA localColorAt(const RegionTopologyIndex& index,VertexId id) {
     const auto vertex=index.vertex(id);
     const auto storage=index.revision().partition(vertex.owner);
     if(!storage)throw std::logic_error("Paint vertex owner missing");
@@ -102,7 +102,7 @@ PaintDabResult applyVertexPaintDabs(
             if(first&&length(*first-origin)<distance-endpointTolerance)
                 continue;
             const auto current=changes.contains(id)?changes.at(id):
-                colorAt(*source,id);
+                localColorAt(*source,id);
             const auto blended=mix(current,dab.rgba,weight(radiusDistance,dab));
             if(blended!=current)changes[id]=blended;
         }
@@ -120,5 +120,8 @@ PaintDabResult applyVertexPaintDabs(
     auto dirty=dirtyRenderPartitions(*source,*colored,changed,{});
     return {std::move(colored),std::move(changed),std::move(dirty),
             commit.statistics.clonedPartitionBytes};
+}
+VertexRGBA vertexColorAt(const RegionTopologyIndex& source,VertexId id) {
+    return localColorAt(source,id);
 }
 } // namespace mesher
