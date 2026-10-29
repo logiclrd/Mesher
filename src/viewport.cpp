@@ -55,16 +55,16 @@ Vertex makeVertex(Vec3 p, Vec3 n={}, float material=0) {
 }
 struct Drawing {std::vector<Vertex> solid;};
 
-Drawing buildDrawing(const Mesh& mesh) {
+Drawing buildDrawing(const Mesh& mesh,Vec3 renderOrigin={}) {
     Drawing out;
     out.solid.reserve(mesh.triangles.size()*3);
     for(const auto& t:mesh.triangles) {
         const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
         const Vec3 rawNormal=cross(b-a,c-a);
         const Vec3 normal=length(rawNormal)>1e-20 ? normalized(rawNormal) : Vec3{};
-        out.solid.push_back(makeVertex(a,normal));
-        out.solid.push_back(makeVertex(b,normal));
-        out.solid.push_back(makeVertex(c,normal));
+        out.solid.push_back(makeVertex(a-renderOrigin,normal));
+        out.solid.push_back(makeVertex(b-renderOrigin,normal));
+        out.solid.push_back(makeVertex(c-renderOrigin,normal));
     }
     return out;
 }
@@ -80,7 +80,7 @@ Drawing buildWorkFloor(double z,Vec3 center={},double halfExtent=8.0) {
     const Vec3 c{center.x+halfExtent,center.y+halfExtent,z};
     const Vec3 d{center.x-halfExtent,center.y+halfExtent,z};
     for(const auto p:{a,b,c,a,c,d})
-        out.solid.push_back(makeVertex(p,{0,0,1},1));
+        out.solid.push_back(makeVertex(p-center,{0,0,1},1));
     // Unit XY grid now shaded on actual floor fragments (M68).
     return out;
 }
@@ -499,8 +499,8 @@ PushConstants makeConstants(int width,int height,double cameraScale,
         at(model,1,col,float(axes[std::size_t(col)].y*orbit.scale()));
         at(model,2,col,float(axes[std::size_t(col)].z*orbit.scale()));
     }
-    const Vec3 offset=orbit.translation()-
-        orbit.transformVector(orbit.center()*orbit.scale());
+    // GPU vertices are source-centred before float conversion.
+    const Vec3 offset=orbit.translation();
     at(model,0,3,float(offset.x));
     at(model,1,3,float(offset.y));
     at(model,2,3,float(offset.z));
@@ -891,7 +891,7 @@ class VulkanViewport {
         vkUnmapMemory(device,buffer.memory);
     }
     void initializePartitions() {
-        partitionCache_.initialize(displayedIndex_);
+        partitionCache_.initialize(displayedIndex_,orbit_.center());
         for(const auto& [id,geometry]:partitionCache_.partitions()) {
             auto& dst=partitionBuffers_[id];
             if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
@@ -899,7 +899,8 @@ class VulkanViewport {
     }
     void refreshPartitions(
         std::shared_ptr<const RegionTopologyIndex> next,
-        const std::vector<PartitionId>& dirty) {
+        const std::vector<PartitionId>& dirty,
+        std::optional<Vec3> nextRenderOrigin=std::nullopt) {
         const double started=glfwGetTime();
         // The one-in-flight graphics submission has stopped reading all
         // older vertex buffers before we map, replace, or destroy any of
@@ -909,6 +910,7 @@ class VulkanViewport {
               "Wait before retiring dirty Vulkan partition buffers");
         lastGpuFenceWaitMs_=(glfwGetTime()-fenceBegin)*1000;
         drainGpuRetirements();
+        if(nextRenderOrigin)partitionCache_.setRenderOrigin(*nextRenderOrigin);
         const auto stats=partitionCache_.advance(next,dirty,&retiredRevisions_);
         std::set<PartitionId> unique(dirty.begin(),dirty.end());
         for(const auto id:unique) {
@@ -944,7 +946,7 @@ class VulkanViewport {
         // Synchronous demo mode retains its original flat-mesh buffers.
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
               "Wait before updating legacy geometry");
-        const auto drawing=buildDrawing(currentMesh());
+        const auto drawing=buildDrawing(currentMesh(),orbit_.center());
         replaceBuffer(solid,drawing.solid);
         lastUploadMs_=(glfwGetTime()-started)*1000;
     }
@@ -1741,7 +1743,7 @@ class VulkanViewport {
             const Vec3 normal=length(rawNormal)>1e-20?
                 normalized(rawNormal):Vec3{};
             for(const auto p:{a,b,c})
-                geometry.push_back(makeVertex(p,normal,15.5f));
+                geometry.push_back(makeVertex(p-orbit_.center(),normal,15.5f));
         }
         // Reuse the existing single-flight Vulkan retirement contract:
         // the old buffer must not be mapped or replaced while rendered.
@@ -1799,7 +1801,13 @@ class VulkanViewport {
                     }
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
-                    replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
+                    auto localOverlay=snapshot->inspectionOverlay;
+                    for(auto& vertex:localOverlay) {
+                        vertex.px-=float(orbit_.center().x);
+                        vertex.py-=float(orbit_.center().y);
+                        vertex.pz-=float(orbit_.center().z);
+                    }
+                    replaceBuffer(inspectionSolid,localOverlay);
                     // This mode is fullscreen on Linux; the window title is
                     // not visible. Update the persistent HUD immediately so
                     // refusal cannot masquerade as a successful orange cut.
@@ -2449,7 +2457,7 @@ public:
                            std::max(8.0,sceneBounds_.radius()*2.5)):
             buildWorkFloor(floorZ_);
         floorSolid=upload(scenery.solid);
-        auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
+        auto drawing=buildDrawing(displayedIndex_?empty:mesh_,orbit_.center());
         // Indexed COW startup intentionally has no legacy flat model;
         // do not upload its zero-byte arrays (M59), including AA wires.
         if(!drawing.solid.empty())solid=upload(drawing.solid);
@@ -2663,7 +2671,9 @@ public:
                         const std::vector<PartitionId> dirty(
                             owners.begin(),owners.end());
                         clearPaintPreview();
-                        refreshPartitions(prepared.index,dirty);
+                        refreshPartitions(prepared.index,dirty,
+                            prepared.bounds?std::optional<Vec3>(
+                                prepared.bounds->center()):std::nullopt);
                         prepared.commit();
                         if(prepared.bounds&&prepared.bounds->hasVertices) {
                             frameScene(*prepared.bounds);

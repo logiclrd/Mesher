@@ -23,6 +23,10 @@ mesh revisions or durable checkpoints.
   Picking applies the inverse optical ray mapping and then the inverse
   orbit/source fit, returning original source-space rays to the immutable
   BVH and brush worker. Orbit, dolly, strafe and symmetry remain intact.
+  GPU vertex positions are first rebased to the scene centre in double
+  precision, then converted to float; this prevents cancellation at
+  extreme optical zoom. An independent Open rebuilds every GPU partition
+  against the new centre. CPU source positions are never rescaled.
 - Mesh wireframe thickness and opacity fade as projected triangles approach
   pixel/subpixel size. The floor grid fades independently as pixel density
   increases. W remains the existing wireframe toggle; G remains the

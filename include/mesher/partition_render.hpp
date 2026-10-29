@@ -41,7 +41,7 @@ std::vector<PartitionId> dirtyRenderPartitions(
 // physical vertex and face partition ownership. This prevents missing or
 // doubled wires across partition boundaries.
 PartitionRenderGeometry buildPartitionRenderGeometry(
-    const RegionTopologyIndex& index,PartitionId owner);
+    const RegionTopologyIndex& index,PartitionId owner,Vec3 renderOrigin={});
 
 // UI-owned CPU staging/cache, not part of worker publication. It preserves
 // identical geometry pointers for untouched partitions and rebuilds only
@@ -49,7 +49,10 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
 class RevisionRetirementQueue;
 class PartitionRenderCache {
 public:
-    void initialize(std::shared_ptr<const RegionTopologyIndex> initial);
+    void initialize(std::shared_ptr<const RegionTopologyIndex> initial,
+                    Vec3 renderOrigin={});
+    // Only during a complete independent-file rebind (all owners dirty).
+    void setRenderOrigin(Vec3 value) noexcept {renderOrigin_=value;}
     PartitionRenderUpdate advance(
         std::shared_ptr<const RegionTopologyIndex> revision,
         std::span<const PartitionId> dirty,
@@ -66,6 +69,7 @@ public:
 private:
     std::map<PartitionId,std::shared_ptr<const PartitionRenderGeometry>> partitions_;
     std::shared_ptr<const RegionTopologyIndex> revision_;
+    Vec3 renderOrigin_{};
 };
 
 } // namespace mesher

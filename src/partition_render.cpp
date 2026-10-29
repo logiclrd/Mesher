@@ -66,7 +66,7 @@ std::vector<PartitionId> dirtyRenderPartitions(
 }
 
 PartitionRenderGeometry buildPartitionRenderGeometry(
-    const RegionTopologyIndex& index,PartitionId owner) {
+    const RegionTopologyIndex& index,PartitionId owner,Vec3 renderOrigin) {
     PartitionRenderGeometry out;
     const auto p=index.revision().partition(owner);
     if(!p)return out;
@@ -88,9 +88,9 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
         const auto c=index.vertex(t[2]).position;
         const Vec3 n=cross(b-a,c-a);
         const Vec3 normal=length(n)>1e-20?normalized(n):Vec3{};
-        out.solid.push_back(vertex(a,normal,colorOf(t[0])));
-        out.solid.push_back(vertex(b,normal,colorOf(t[1])));
-        out.solid.push_back(vertex(c,normal,colorOf(t[2])));
+        out.solid.push_back(vertex(a-renderOrigin,normal,colorOf(t[0])));
+        out.solid.push_back(vertex(b-renderOrigin,normal,colorOf(t[1])));
+        out.solid.push_back(vertex(c-renderOrigin,normal,colorOf(t[2])));
         for(unsigned i=0;i<3;++i) {
             const auto e=edge(t[i],t[(i+1)%3]);
             const auto sides=index.maybeEdgeSides(e);
@@ -100,23 +100,24 @@ PartitionRenderGeometry buildPartitionRenderGeometry(
             for(const auto& side:*sides)
                 smallest=std::min(smallest,side.face);
             if(smallest!=face.id||!emitted.insert(e).second)continue;
-            out.wire.push_back(vertex(index.vertex(e.a).position));
-            out.wire.push_back(vertex(index.vertex(e.b).position));
+            out.wire.push_back(vertex(index.vertex(e.a).position-renderOrigin));
+            out.wire.push_back(vertex(index.vertex(e.b).position-renderOrigin));
         }
     }
     return out;
 }
 
 void PartitionRenderCache::initialize(
-    std::shared_ptr<const RegionTopologyIndex> initial) {
+    std::shared_ptr<const RegionTopologyIndex> initial,Vec3 renderOrigin) {
     if(!initial)throw std::invalid_argument("Partition renderer needs a revision");
     partitions_.clear();
+    renderOrigin_=renderOrigin;
     revision_=std::move(initial);
     revision_->revision().forEachPartition(
         [&](PartitionId id,const MeshPartition& partition) {
             if(partition.faces.empty())return;
             partitions_.emplace(id,std::make_shared<const PartitionRenderGeometry>(
-                buildPartitionRenderGeometry(*revision_,id)));
+                buildPartitionRenderGeometry(*revision_,id,renderOrigin_)));
         });
 }
 
@@ -137,7 +138,7 @@ PartitionRenderUpdate PartitionRenderCache::advance(
             continue;
         }
         auto geometry=std::make_shared<const PartitionRenderGeometry>(
-            buildPartitionRenderGeometry(*revision,id));
+            buildPartitionRenderGeometry(*revision,id,renderOrigin_));
         stats.rebuiltFaces+=partition->faces.size();
         stats.uploadedBytes+=(geometry->solid.size()+geometry->wire.size())*
                              sizeof(PartitionRenderVertex);
