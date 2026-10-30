@@ -3088,15 +3088,25 @@ public:
                 else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
             }else if(shortcut&&save&&!inspectionFrozen_&&interaction_.checkpoint) {
                 try {
-                    const auto suggestion=interaction_.checkpointSuggestedPath?
-                        interaction_.checkpointSuggestedPath():
-                        std::filesystem::path("mesher-checkpoint.mshr");
-                    const auto choice=nativeSaveCheckpointDialog(window,suggestion);
-                    if(!dispatchCheckpointSaveAs(choice,interaction_.checkpoint))
-                        std::cout<<"[checkpoint] Save As cancelled; no write queued\n";
+                    const auto info=interaction_.newDocumentInfo?
+                        interaction_.newDocumentInfo(displayedIndex_):
+                        NewDocumentInfo{};
+                    if(info.canDirectSave&&interaction_.directCheckpoint) {
+                        interaction_.directCheckpoint(displayedIndex_);
+                        std::cout<<"[checkpoint] queued native direct Save\n";
+                    }else {
+                        const auto suggestion=interaction_.checkpointSuggestedPath?
+                            interaction_.checkpointSuggestedPath():
+                            std::filesystem::path("mesher-checkpoint.mshr");
+                        const auto choice=nativeSaveCheckpointDialog(
+                            window,suggestion);
+                        if(!dispatchCheckpointSaveAs(choice,
+                                                    interaction_.checkpoint))
+                            std::cout<<"[checkpoint] Save As cancelled; unchanged\n";
+                    }
                 }catch(const std::exception& error) {
-                    std::cerr<<"[checkpoint] Save As failed; no write queued: "
-                             <<error.what()<<"\n";
+                    std::cerr<<"[checkpoint] Save refused: "<<error.what()<<"\n";
+                    nativeOpenErrorMessage(window,error.what());
                 }
             }
             // UX07E: export only the exact accepted root currently displayed.
