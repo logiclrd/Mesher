@@ -173,6 +173,7 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
 MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     std::ifstream input(path,std::ios::binary);
     if(!input)throw std::runtime_error("Cannot open file for format detection");
+    const auto bytes=std::filesystem::file_size(path);
     std::array<char,4096> sample{};
     input.read(sample.data(),static_cast<std::streamsize>(sample.size()));
     const auto read=static_cast<std::size_t>(input.gcount());
