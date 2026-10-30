@@ -22,9 +22,11 @@ leaves the entire current editing session untouched.
   facet colours, extra elements, nontriangular polygons, unknown list
   properties and unsupported colour types are **explicitly refused**
   to avoid silently dropping colour information.
-- OBJ material and metadata-colour variants, textured/normal-indexed faces,
-  polygons, byte-range colours, mixed coloured/uncoloured vertices, and
-  `.stl` are **explicitly refused**, not silently converted.
+- Unsupported OBJ material and non-MRGB metadata-colour variants,
+  textured/normal-indexed faces, polygons, byte-range inline colours and
+  mixed inline RGB(A) plus MRGB are **explicitly refused**, not silently
+  converted. (Supported STL encodings and facet-colour conversion are
+  documented separately below.)
 - Bounded file size, line counts, vertex/face counts, finite coordinates,
   triangle quality, and exact undirected/directed manifold edge checks.
 
@@ -91,11 +93,11 @@ new Save As default to its .mshr sibling; restored checkpoints preserve
 their checkpoint destination. The new source owns a fresh undo history,
 with no attempt to splice unrelated mesh lineages.
 
-Remaining UX06 work: STL, advanced PLY variants, and additional explicit OBJ colour variants,
-more complex polygon/texture conventions, complete interactive Windows/
-macOS/Linux replacement testing (including GPU error behavior, camera/floor
-framing, symmetry and multiple consecutive Opens), and state-replacement
-acceptance tests. UX06 remains unchecked until full acceptance.
+Remaining UX06 work: optional advanced PLY variants, OBJ conventions
+beyond inline RGB(A) and ZBrush MRGB, complex polygon/texture conventions,
+and interactive Windows/macOS/Linux replacement testing (including GPU
+error behavior, camera/floor framing, symmetry and multiple consecutive
+Opens). UX06 remains unchecked until complete acceptance.
 
 
 ## UX06B PLY import verification
@@ -221,3 +223,31 @@ the actual castle image into a temporary STL and imports it through the
 normal C++ candidate path. Until the checked-in binary is replaced,
 the old castle binary still contains malformed pole geometry and remains
 a failure reproducer, not a valid STL acceptance fixture.
+
+## UX06E — ZBrush OBJ `#MRGB` vertex colours
+
+The OBJ importer now recognizes two common nonstandard per-vertex colour
+encodings: normalized inline `v x y z r g b [a]` and ZBrush `#MRGB`
+comment records. Each ZBrush record encodes up to **64** sequential
+eight-hex-digit `MMRRGGBB` words. The first byte is the ZBrush editor
+**mask**; it is neither colour nor transparency and Mesher intentionally
+does **not** import it. The remaining bytes are RGB scaled from [0,255]
+to [0,1], with editable Mesher alpha fixed at **1.0** and no separate
+source-alpha metadata. No mask values affect the rendered appearance.
+
+A ZBrush export can contain multiple `#MRGB` lines; the words are assigned
+to vertices in their original `v`-record order, irrespective of where the
+metadata lines occur in the OBJ. Packed words and whitespace-separated
+complete words are accepted. There must be **exactly one colour word for
+each vertex**. The importer rejects empty/malformed markers, partial or
+nonhex words, overlong records, and missing/surplus entries. It also
+rejects ANY mixture of inline vertex colours and MRGB, even if identical:
+the source encoding would otherwise be ambiguous. Other metadata colour
+dialects and material colours remain explicitly unsupported.
+
+Positive CTests import ZBrush-style tetrahedra, prove that varying mask
+bytes do not affect RGB or alpha, check before/after-geometry metadata,
+a multi-line 68-vertex colour block, and durable checkpoint preservation.
+Negative tests require clear diagnostics for incomplete/ambiguous records
+without altering an earlier private candidate. All existing atomic Ctrl+O
+replacement and topology rules remain unchanged.
