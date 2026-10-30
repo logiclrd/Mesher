@@ -91,28 +91,93 @@ void validateClosedTriangles(const Mesh& mesh,const char* format) {
                 std::string(format)+": requires a closed, consistently wound 2-manifold");
     }
 }
+unsigned objHexDigit(char ch) {
+    if(ch>='0'&&ch<='9')return static_cast<unsigned>(ch-'0');
+    if(ch>='a'&&ch<='f')return static_cast<unsigned>(ch-'a'+10);
+    if(ch>='A'&&ch<='F')return static_cast<unsigned>(ch-'A'+10);
+    throw std::runtime_error("OBJ MRGB contains a non-hexadecimal digit");
+}
+void appendObjMrgbLine(std::istringstream& row,
+                       std::vector<VertexRGBA>& colours,
+                       const std::string& location) {
+    // ZBrush emits up to 64 MMRRGGBB words per #MRGB line. Accept packed
+    // words or whitespace-separated COMPLETE words; do not join half words.
+    std::size_t lineCount=0;
+    std::string group;
+    while(row>>group) {
+        if(group.size()%8!=0)
+            throw std::runtime_error(location+
+                ": OBJ MRGB requires complete eight-hex-digit MMRRGGBB words");
+        for(char ch:group)(void)objHexDigit(ch); // validate mask too
+        for(std::size_t at=0;at<group.size();at+=8) {
+            if(++lineCount>64)
+                throw std::runtime_error(location+
+                    ": OBJ MRGB permits at most 64 vertex colours per line");
+            if(colours.size()>=maxVertices)
+                throw std::length_error(location+
+                    ": OBJ MRGB vertex-colour limit exceeded");
+            const auto byte=[&](std::size_t offset) {
+                return (objHexDigit(group[at+offset])<<4)|
+                        objHexDigit(group[at+offset+1]);
+            };
+            // MM (the first byte) is a ZBrush *mask*, NEVER alpha.
+            colours.push_back({byte(2)/255.f,byte(4)/255.f,
+                               byte(6)/255.f,1.f});
+        }
+    }
+    if(lineCount==0)
+        throw std::runtime_error(location+": OBJ MRGB record has no colour words");
+}
 Mesh parseWavefrontObj(const std::filesystem::path& path) {
     std::ifstream input(path);
     if(!input)throw std::runtime_error("Cannot open OBJ for reading");
     input.imbue(std::locale::classic());
     Mesh mesh;
-    bool anyColor=false,anyPlain=false;
+    bool anyColor=false,anyPlain=false,hasMrgb=false;
+    std::vector<VertexRGBA> mrgbColours;
     std::string line;
     std::size_t lineNumber=0;
     while(std::getline(input,line)) {
         if(++lineNumber>10000000||line.size()>1048576)
             throw std::runtime_error("OBJ line/work limit exceeded");
+        // ZBrush 2025 exports valid OBJ records followed by a single
+        // NUL C-string terminator, even after the final newline. Treat
+        // NUL bytes as padding ONLY when they occupy the file's tail;
+        // an embedded NUL must never conceal subsequent OBJ records.
+        const auto terminator=line.find('\0');
+        if(terminator!=std::string::npos) {
+            const bool onlyZeroPadding=std::all_of(
+                line.begin()+static_cast<std::string::difference_type>(terminator),
+                line.end(),[](char ch){return ch=='\0';});
+            if(!onlyZeroPadding||
+               input.peek()!=std::char_traits<char>::eof())
+                throw std::runtime_error(
+                    "OBJ line "+std::to_string(lineNumber)+
+                    ": embedded NUL byte; only terminal NUL padding is permitted");
+            line.resize(terminator);
+        }
         std::istringstream row(line);
         row.imbue(std::locale::classic());
         std::string tag;
         if(!(row>>tag))continue;
         const auto loc="OBJ line "+std::to_string(lineNumber);
         if(tag[0]=='#') {
+            const auto commentTag=lowercase(tag);
+            if(commentTag=="#mrgb") {
+                if(anyColor)
+                    throw std::runtime_error(loc+
+                        ": OBJ MRGB conflicts with inline vertex RGB(A)");
+                appendObjMrgbLine(row,mrgbColours,loc);
+                hasMrgb=true;
+                continue;
+            }
+            if(commentTag.starts_with("#mrgb"))
+                throw std::runtime_error(loc+
+                    ": malformed OBJ MRGB marker; expected '#MRGB ' and words");
             const auto comment=lowercase(line);
-            // Competing comment/metadata colour variants have no reliable
-            // standard mapping to vertex IDs. Never silently drop them.
-            if(comment.find("#mrgb")!=std::string::npos||
-               comment.find("#vc ")!=std::string::npos||
+            // Other colour metadata conventions remain unsupported rather
+            // than being silently discarded.
+            if(comment.find("#vc ")!=std::string::npos||
                comment.find("# vertex color")!=std::string::npos||
                comment.find("# vertex colour")!=std::string::npos)
                 throw std::runtime_error(loc+
@@ -130,6 +195,9 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
                     ": expected XYZ, XYZ RGB or XYZ RGBA vertex values");
             mesh.vertices.push_back({data[0],data[1],data[2]});
             const bool colored=data.size()>=6;
+            if(colored&&hasMrgb)
+                throw std::runtime_error(loc+
+                    ": OBJ inline vertex RGB(A) conflicts with MRGB");
             anyColor|=colored;
             anyPlain|=!colored;
             if(colored) {
@@ -165,7 +233,16 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
             throw std::runtime_error(loc+": unsupported OBJ record '"+tag+"'");
     }
     if(!input.eof()&&input.fail())throw std::runtime_error("OBJ read failure");
-    if(anyColor&&anyPlain)
+    if(hasMrgb) {
+        if(anyColor)
+            throw std::runtime_error("OBJ MRGB conflicts with inline vertex RGB(A)");
+        if(mrgbColours.size()!=mesh.vertices.size())
+            throw std::runtime_error(
+                "OBJ MRGB colour count ("+std::to_string(mrgbColours.size())+
+                ") does not match vertex count ("+
+                std::to_string(mesh.vertices.size())+")");
+        mesh.colors=std::move(mrgbColours);
+    }else if(anyColor&&anyPlain)
         throw std::runtime_error("OBJ mixes coloured and uncoloured vertices");
     validateClosedTriangles(mesh,"OBJ");
     return mesh;
@@ -199,11 +276,26 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     if(prefix.starts_with("solid ")||prefix.starts_with("solid\n")||
        prefix.starts_with("solid\r\n"))
         return MeshOpenFilter::StereolithographyStl;
+    // A small, valid ZBrush OBJ may fit entirely in the 4-KiB preview
+    // including its terminal C-string NUL byte(s). Do not misclassify it
+    // as unknown binary data. Only trim NUL padding when the preview is
+    // the ENTIRE file and every remaining byte is NUL; otherwise preserve
+    // the strict rejection of unknown or embedded binary content.
+    std::string_view objPrefix=prefix;
+    if(const auto zero=objPrefix.find('\0');zero!=std::string_view::npos) {
+        if(read!=bytes||
+           !std::all_of(objPrefix.begin()+
+                            static_cast<std::string_view::difference_type>(zero),
+                        objPrefix.end(),[](char c){return c=='\0';}))
+            throw std::runtime_error(
+                "Unrecognized mesh file header; embedded NUL in format preview");
+        objPrefix=objPrefix.substr(0,zero);
+    }
     // Conservative OBJ heuristic: only match recognized geometry records,
     // not arbitrary text; the strict OBJ parser will validate full contents.
     // Skip blank/comment lines; at least one vertex and face directive are
     // required in the peek window to avoid accepting unrelated text.
-    std::istringstream lines{std::string(prefix)};
+    std::istringstream lines{std::string(objPrefix)};
     std::string line;
     bool vertex=false,face=false;
     while(std::getline(lines,line)) {
