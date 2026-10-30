@@ -824,7 +824,7 @@ class VulkanViewport {
     std::filesystem::path newModelHint_;
     std::string newModelError_;
     std::vector<char> newModelText_;
-    bool newWasDown_=false,modalBackspaceWasDown_=false;
+    bool modalBackspaceWasDown_=false;
     bool modalEscapeWasDown_=false,modalMouseWasDown_=false;
     bool suppressExitEscape_=false;
 
@@ -2948,31 +2948,69 @@ public:
                 startupSplash_->tick();
                 if(!startupSplash_->active())startupSplash_.reset();
             }
-            if(keyboard_.down(GLFW_KEY_ESCAPE)) {
-                if(painting_&&interaction_.paintEnd) {
-                    interaction_.paintEnd();
-                    painting_=false;
-                }
-                if(sculpting_&&interaction_.end) {
-                    interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
-                    sculpting_=false;
-                }
-                restorePreviousFocus_=true;
-                break;
-            }
-            // History actions only when the worker is between strokes. The
-            // actual root swap happens on the worker, then V9 dirty buffers
-            // update from its coalesced snapshot as usual.
+            // Modal interception precedes the application-wide Escape-to-
+            // exit shortcut. Holding Escape after dismissing New must not
+            // accidentally close Mesher on the following frame.
             const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
                             keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
 #ifdef __APPLE__
-            // Finder-like edit shortcuts use Command on macOS; the
-            // established Control shortcuts remain accepted as well.
             const bool shortcut=ctrl||keyboard_.down(GLFW_KEY_LEFT_SUPER)||
                                 keyboard_.down(GLFW_KEY_RIGHT_SUPER);
 #else
             const bool shortcut=ctrl;
 #endif
+            if(!newModelDialog_.visible()&&shortcut&&
+               !inspectionFrozen_&&!interaction_.repairStepMode&&
+               !sculpting_&&!painting_&&!orbitDragging_&&
+               !radiusDragging_&&!scaleDragging_&&
+               !mergeInput_.enabled()&&interaction_.prepareNewModel&&
+               (!interaction_.canBegin||interaction_.canBegin())&&
+               keyboard_.takePress(GLFW_KEY_N)) {
+                try {
+                    // Always use original startup --vertices, never the
+                    // currently edited/imported vertex count.
+                    newModelDialog_.open(interaction_.startupVertexCount);
+                    newModelText_.clear();
+                    newModelError_.clear();
+                    modalMouseWasDown_=glfwGetMouseButton(
+                        window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+                    std::cout<<"[new] opened in-viewport model chooser\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[new] cannot open chooser: "
+                             <<error.what()<<"\n";
+                }
+            }
+            if(newModelDialog_.visible()) {
+                processNewModelModal();
+                keyboard_.finishFrame();
+                int width=0,height=0;
+                glfwGetFramebufferSize(window,&width,&height);
+                if(width==0||height==0){glfwWaitEvents();continue;}
+                if(std::uint32_t(width)!=extent.width||
+                   std::uint32_t(height)!=extent.height)
+                    recreateSwapchain();
+                else {
+                    refreshHud();
+                    draw();
+                }
+                sampleFrameRates();
+                continue; // never sculpt, paint, orbit or queue normal shortcuts
+            }
+            if(!keyboard_.down(GLFW_KEY_ESCAPE))suppressExitEscape_=false;
+            if(keyboard_.down(GLFW_KEY_ESCAPE)&&!suppressExitEscape_) {
+                if(painting_&&interaction_.paintEnd) {
+                    interaction_.paintEnd();
+                    painting_=false;
+                }
+                if(sculpting_&&interaction_.end) {
+                    interaction_.end(lastCursorHit_,std::max(
+                        0.0,glfwGetTime()-mouseStartTime_));
+                    sculpting_=false;
+                }
+                restorePreviousFocus_=true;
+                break;
+            }
+            // History actions only when the worker is between strokes.
             const bool shift=keyboard_.down(GLFW_KEY_LEFT_SHIFT)||
                              keyboard_.down(GLFW_KEY_RIGHT_SHIFT);
             const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
