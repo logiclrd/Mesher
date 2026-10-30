@@ -164,7 +164,7 @@ struct Builder {
                     "STL coincident but disconnected vertex fans cannot be welded");
         }
         if(anyColoured)
-            mesh.colors=compareStlFacetColours(
+            mesh.colors=convertStlFacetColours(
                 mesh,facetColours,options.method,options.seed);
         return std::move(mesh);
     }
