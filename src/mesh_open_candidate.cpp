@@ -276,11 +276,26 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     if(prefix.starts_with("solid ")||prefix.starts_with("solid\n")||
        prefix.starts_with("solid\r\n"))
         return MeshOpenFilter::StereolithographyStl;
+    // A small, valid ZBrush OBJ may fit entirely in the 4-KiB preview
+    // including its terminal C-string NUL byte(s). Do not misclassify it
+    // as unknown binary data. Only trim NUL padding when the preview is
+    // the ENTIRE file and every remaining byte is NUL; otherwise preserve
+    // the strict rejection of unknown or embedded binary content.
+    std::string_view objPrefix=prefix;
+    if(const auto zero=objPrefix.find('\0');zero!=std::string_view::npos) {
+        if(read!=bytes||
+           !std::all_of(objPrefix.begin()+
+                            static_cast<std::string_view::difference_type>(zero),
+                        objPrefix.end(),[](char c){return c=='\0';}))
+            throw std::runtime_error(
+                "Unrecognized mesh file header; embedded NUL in format preview");
+        objPrefix=objPrefix.substr(0,zero);
+    }
     // Conservative OBJ heuristic: only match recognized geometry records,
     // not arbitrary text; the strict OBJ parser will validate full contents.
     // Skip blank/comment lines; at least one vertex and face directive are
     // required in the peek window to avoid accepting unrelated text.
-    std::istringstream lines{std::string(prefix)};
+    std::istringstream lines{std::string(objPrefix)};
     std::string line;
     bool vertex=false,face=false;
     while(std::getline(lines,line)) {
