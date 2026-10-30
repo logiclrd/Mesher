@@ -9,6 +9,9 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_export_dispatch.hpp"
+#include "mesher/document_filename_state.hpp"
+#include "mesher/random_filename.hpp"
+#include "mesher/new_model.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -274,6 +277,7 @@ int main(int argc, char** argv) {
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
         }
+        const std::uint32_t startupVertexCount=options.vertexCount;
         std::cout<<"Build: "<<MESHER_BUILD_CONFIGURATION
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
