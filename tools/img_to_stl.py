@@ -40,7 +40,7 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     """
     A = radius
     B = radius
-    C = 1.6 * radius  # stretch along the pole-to-pole axis
+    C = 1.4 * radius  # stretch along the pole-to-pole axis
 
     try:
         W, H, pixels = load_rgb_image(image_path)
@@ -50,21 +50,21 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
 
     Nx = W // 2  # Quads along image X (pole-to-pole axis)
     Ny = H // 2  # Quads along image Y (circumference loop axis)
-    
+
     if Nx == 0 or Ny == 0:
         raise ValueError("Image resolution is too low to map 2x2 macro-pixel blocks.")
-        
+
 
     # The end of the circumference folds exactly into the beginning for a manifold seal
-    total_circumference_steps = Ny * 4  
-    
+    total_circumference_steps = Ny * 4
+
     # Image X maps along the phi trajectory occupying the middle 75%
     phi_start = 0.25 * math.pi
     phi_end = 0.75 * math.pi
-    
-    num_cap_steps = 10  
+
+    num_cap_steps = 10
     phi_array = []
-    
+
     # Interior rings ONLY. A zero-radius ring at phi=0 consists of
     # coincident vertices, producing zero-area STL facets after welding.
     # The single true pole is connected by a triangle fan below.
@@ -77,7 +77,7 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     # number, which would create a pathological sliver ring at the south pole.
     for step in range(1, num_cap_steps):
         phi_array.append(phi_end + (step / num_cap_steps) * (math.pi - phi_end))
-        
+
     total_phi_points = len(phi_array)
 
     # Generate the 3D vertex coordinate grid
@@ -86,17 +86,17 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
         phi = phi_array[j]
         row_vertices = []
         for i in range(total_circumference_steps):
-            theta = (i / total_circumference_steps) * 2.0 * math.pi
-            
-            x = A * math.sin(phi) * math.cos(theta)
-            y = B * math.sin(phi) * math.sin(theta)
-            z = C * math.cos(phi)
+            theta = (.3 + (i / total_circumference_steps)) * 2.0 * math.pi
+
+            x = C * math.cos(phi)
+            y = A * math.sin(phi) * math.cos(theta)
+            z = B * math.sin(phi) * math.sin(theta)
             row_vertices.append((x, y, z))
         grid.append(row_vertices)
 
     # Watertight point coordinates for the physical caps
-    north_pole_xyz = (0.0, 0.0, C)
-    south_pole_xyz = (0.0, 0.0, -C)
+    north_pole_xyz = (C, 0.0, 0.0)
+    south_pole_xyz = (-C, 0.0, 0.0)
 
     def rgb_to_magics_attr(r, g, b):
         r_5 = int(round(r * 31.0 / 255.0)) & 0x1F
@@ -133,32 +133,32 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
         first_texture_ring = num_cap_steps - 1
         in_texture_phi = (j >= first_texture_ring) and (j < first_texture_ring + Nx)
         img_x_idx = j - first_texture_ring if in_texture_phi else None
-        
+
         for i in range(total_circumference_steps):
             i_next = (i + 1) % total_circumference_steps
             in_texture_theta = (i < Ny)
             img_y_idx = i if in_texture_theta else None
-            
+
             v_tl = grid[j][i]        # A
             v_tr = grid[j][i_next]   # B
             v_bl = grid[j+1][i]      # C
             v_br = grid[j+1][i_next] # D
-            
+
             if img_x_idx is not None and img_y_idx is not None:
                 pix_x = 2 * img_x_idx
                 pix_y = 2 * img_y_idx
-                
+
                 a = pixels[pix_x, pix_y]
                 b = pixels[pix_x + 1, pix_y]
                 c = pixels[pix_x, pix_y + 1]
                 d = pixels[pix_x + 1, pix_y + 1]
-                
+
                 # Triangle 1 color: (a + b + c) / 3
                 r_abc = (a[0] + b[0] + c[0]) / 3.0
                 g_abc = (a[1] + b[1] + c[1]) / 3.0
                 b_abc = (a[2] + b[2] + c[2]) / 3.0
                 attr_abc = rgb_to_magics_attr(r_abc, g_abc, b_abc)
-                
+
                 # Triangle 2 color: (b + d + c) / 3 -> mathematically identical to (b + c + d) / 3
                 r_bdc = (b[0] + d[0] + c[0]) / 3.0
                 g_bdc = (b[1] + d[1] + c[1]) / 3.0
@@ -235,7 +235,7 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
         header = b"COLOR=\xaa\xaa\xaa\xff 2x Stretched Fixed Normal Ellipsoid"
         header = header.ljust(80, b'\x00')[:80]
         f.write(header)
-        
+
         f.write(struct.pack('<I', len(facets)))
         for normal, v1, v2, v3, attr in facets:
             data = struct.pack(
@@ -259,6 +259,6 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--image", required=True, help="Path to input image file.")
     parser.add_argument("-o", "--output", default="output.stl", help="Output filename.")
     parser.add_argument("-r", "--radius", type=float, default=50.0, help="Equatorial radius.")
-    
+
     args = parser.parse_args()
     generate_stretched_manifold_ellipsoid(args.image, args.output, args.radius)
