@@ -8,6 +8,7 @@
 #include "mesher/viewport_floor.hpp"
 #include "mesher/wire_appearance.hpp"
 #include "mesher/paint_controls.hpp"
+#include "mesher/new_model_dialog.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -430,6 +431,166 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
         appendTriangle(a,b,c);appendTriangle(a,c,d);
     }
     return vertices;
+}
+
+// UX09C: primitives are rendered inside the existing Vulkan HUD. No native
+// popup and no secondary window can take keyboard focus away from the model.
+void appendNewModelHud(std::vector<Vertex>& vertices,int width,int height,
+                       const NewModelDialog& dialog,
+                       const std::filesystem::path& hint,
+                       const std::string& errorMessage) {
+    if(!dialog.visible()||width<=0||height<=0)return;
+    const auto layout=newDialogLayout(
+        width,height,dialog.phase(),dialog.canDirectSave());
+    const auto point=[&](double x,double y,float material) {
+        return makeVertex({2.0*x/width-1.0,2.0*y/height-1.0,0.0},
+                          {},material);
+    };
+    const auto quad=[&](double x0,double y0,double x1,double y1,
+                        float material) {
+        if(x1<=x0||y1<=y0)return;
+        const auto a=point(x0,y0,material);
+        const auto b=point(x1,y0,material);
+        const auto c=point(x1,y1,material);
+        const auto d=point(x0,y1,material);
+        for(const auto& v:{a,b,c,a,c,d})vertices.push_back(v);
+    };
+    const auto box=[&](NewDialogRect r,float material) {
+        quad(r.x,r.y,r.x+r.width,r.y+r.height,material);
+    };
+    const auto line=[&](double x0,double y0,double x1,double y1,
+                        float material) {
+        const double dx=x1-x0,dy=y1-y0;
+        const double len=std::hypot(dx,dy);
+        if(len<0.01)return;
+        const double nx=-dy/len*0.95,ny=dx/len*0.95;
+        const auto a=point(x0-nx,y0-ny,material);
+        const auto b=point(x1-nx,y1-ny,material);
+        const auto c=point(x1+nx,y1+ny,material);
+        const auto d=point(x0+nx,y0+ny,material);
+        for(const auto& v:{a,b,c,a,c,d})vertices.push_back(v);
+    };
+    const auto label=[&](int x,int y,std::string_view msg,int scale=2) {
+        for(std::size_t i=0;i<msg.size();++i) {
+            const auto ch=static_cast<unsigned char>(msg[i]);
+            const auto glyph=hudGlyph(char(std::toupper(ch)));
+            for(int row=0;row<7;++row)for(int column=0;column<5;++column)
+                if(glyph[std::size_t(row)]&(1u<<(4-column)))
+                    quad(x+int(i)*6*scale+column*scale+0.0,
+                         y+row*scale,
+                         x+int(i)*6*scale+(column+1)*scale,
+                         y+(row+1)*scale,0.0f);
+        }
+    };
+    // Dim the viewport, including ordinary HUD inputs. The full-screen
+    // backdrop also visually distinguishes the active modal from sculpt.
+    box(layout.backdrop,1.0f);
+    box(layout.panel,2.0f);
+    quad(layout.panel.x+5,layout.panel.y+5,
+         layout.panel.x+layout.panel.width-5,
+         layout.panel.y+layout.panel.height-5,1.0f);
+    if(dialog.phase()==NewDialogPhase::ChoosePrimitive) {
+        label(layout.panel.x+22,layout.panel.y+17,
+              "NEW MODEL - SELECT A PRIMITIVE",2);
+        const auto tile=[&](NewDialogRect card,NewModelKind kind) {
+            box(card,2.0f);
+            quad(card.x+4,card.y+4,
+                 card.x+card.width-4,card.y+card.height-4,1.0f);
+            const double cx=card.x+card.width/2.0;
+            const double cy=card.y+std::min(card.height-44,card.height/2);
+            const double r=std::max(14.0,
+                std::min(card.width*0.36,(card.height-58)*0.43));
+            constexpr double pi=3.14159265358979323846;
+            if(kind==NewModelKind::Torus) {
+                // Oblique concentric triangulated loops depict a hole,
+                // unlike the two watertight sphere thumbnails.
+                for(int j=0;j<32;++j) {
+                    const double a=2*pi*j/32,b=2*pi*(j+1)/32;
+                    for(const double radius:{0.48,1.0}) {
+                        line(cx+r*radius*std::cos(a),
+                             cy+r*radius*0.61*std::sin(a),
+                             cx+r*radius*std::cos(b),
+                             cy+r*radius*0.61*std::sin(b),0.0f);
+                    }
+                    if(j%2==0)
+                        line(cx+r*0.48*std::cos(a),
+                             cy+r*0.48*0.61*std::sin(a),
+                             cx+r*std::cos(a+pi/32),
+                             cy+r*0.61*std::sin(a+pi/32),0.0f);
+                }
+            }else {
+                for(int j=0;j<32;++j) {
+                    const double a=2*pi*j/32,b=2*pi*(j+1)/32;
+                    line(cx+r*std::cos(a),cy+r*std::sin(a),
+                         cx+r*std::cos(b),cy+r*std::sin(b),0.0f);
+                }
+                for(int latitude=-2;latitude<=2;++latitude) {
+                    const double t=latitude/3.0;
+                    const double yy=cy+t*r;
+                    const double rx=r*std::sqrt(std::max(0.0,1-t*t));
+                    for(int col=0;col<12;++col) {
+                        const double x0=cx-rx+2*rx*col/12;
+                        const double x1=cx-rx+2*rx*(col+1)/12;
+                        line(x0,yy,x1,yy,0.0f);
+                    }
+                }
+                if(kind==NewModelKind::SymmetricSphere)
+                    line(cx,cy-r,cx,cy+r,0.0f);
+                else for(int j=0;j<6;++j) {
+                    const double a=2*pi*j/6;
+                    line(cx+0.15*r*std::cos(a),cy+0.15*r*std::sin(a),
+                         cx+r*std::cos(a),cy+r*std::sin(a),0.0f);
+                }
+            }
+            const auto title=std::string(newModelName(kind));
+            const int tx=card.x+std::max(
+                4,(card.width-int(title.size())*6)/2);
+            label(tx,card.y+card.height-23,title,1);
+        };
+        tile(layout.asymmetric,NewModelKind::AsymmetricSphere);
+        tile(layout.symmetric,NewModelKind::SymmetricSphere);
+        tile(layout.torus,NewModelKind::Torus);
+        label(layout.vertices.x-105,layout.vertices.y+9,"VERTICES:",2);
+        box(layout.vertices,2.0f);
+        label(layout.vertices.x+10,layout.vertices.y+9,
+              dialog.verticesText(),2);
+        box(layout.cancel,2.0f);
+        label(layout.cancel.x+19,layout.cancel.y+9,"CANCEL",2);
+    }else {
+        label(layout.panel.x+22,layout.panel.y+24,
+              "SAVE CHANGES BEFORE NEW?",2);
+        if(!hint.empty()) {
+            std::string name=hint.filename().string();
+            if(name.size()>46)name=name.substr(0,43)+"...";
+            label(layout.panel.x+22,layout.panel.y+70,name,2);
+        }else label(layout.panel.x+22,layout.panel.y+70,
+                    "UNTITLED DOCUMENT",2);
+        const bool saving=dialog.phase()==NewDialogPhase::AwaitSave;
+        if(saving)label(layout.panel.x+22,layout.panel.y+115,
+                        "SAVING... ESC CANCELS NEW",1);
+        else label(layout.panel.x+22,layout.panel.y+115,
+                   "SAVE, SAVE AS, NO OR CANCEL",1);
+        const auto button=[&](NewDialogRect r,std::string_view name) {
+            if(r.width<=0)return;
+            box(r,2.0f);
+            const int x=r.x+std::max(
+                4,(r.width-int(name.size())*12)/2);
+            label(x,r.y+11,name,2);
+        };
+        if(!saving) {
+            button(layout.save,"SAVE");
+            button(layout.saveAs,"SAVE AS");
+            button(layout.discard,"NO");
+        }
+        button(layout.cancel,"CANCEL");
+    }
+    if(!errorMessage.empty()) {
+        auto msg=errorMessage;
+        if(msg.size()>84)msg.resize(84);
+        const int y=std::min(height-17,
+            layout.panel.y+layout.panel.height+9);
+        label(std::max(6,layout.panel.x),y,msg,1);
+    }
 }
 
 std::string hudDecimal(double value) {
