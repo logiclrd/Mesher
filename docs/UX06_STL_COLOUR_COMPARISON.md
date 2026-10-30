@@ -106,8 +106,10 @@ blurring boundaries. These metrics do not stand in for screenshots.
   Verify default output matches an explicit diffusion selection.
 - Original uncoloured STL bypasses the candidate computation; invalid
   topology/unknown format still refuses and leaves the current editor intact.
-- Run five-platform CI and packaging, plus physical colour comparisons on a
-  coloured STL on Windows or Linux. **Do not merge PR #179 until reviewed.**
+- The real castle STL has been compared visually with all three methods;
+  diffusion is the accepted production selection for this attribute model.
+  Complete exact-head five-platform CI and packaging, and retain PR #179
+  unmerged until the user explicitly authorizes merging it.
 
 ## Limitations to investigate
 
