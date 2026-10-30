@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -155,10 +156,76 @@ void run() {
                 check(v.color.r==1&&v.color.g==0&&v.color.b==0,
                       "Magics red-low packing / override-bit polarity");
         });
-    refuse("colour-seam.stl",makeBinary(vertices,{0xfc00,0x83e0,0xfc00,0xfc00}),
-           "per-facet colour seam");
-    refuse("mixed.stl",makeBinary(vertices,{0xfc00,0,0xfc00,0xfc00}),
-           "per-facet colour seam");
+    // Discontinuous face colours are now an approximation task, never a
+    // reason to refuse geometrically valid closed source topology.
+    const auto seams=put("colour-seam.stl",
+        makeBinary(vertices,{0xfc00,0x83e0,0xfc00,0xfc00}));
+    const auto mixed=put("mixed.stl",
+        makeBinary(vertices,{0xfc00,0,0xfc00,0xfc00}));
+    for(const auto method:{StlColourMethod::Average,
+                           StlColourMethod::Stochastic,
+                           StlColourMethod::Diffusion}) {
+        const StlImportOptions options{method,12345};
+        const auto seam=readMeshOpenCandidate(
+            seams,MeshOpenFilter::StereolithographyStl,options);
+        const auto white=readMeshOpenCandidate(
+            mixed,MeshOpenFilter::StereolithographyStl,options);
+        check(seam.hasVertexColors&&seam.vertexCount==4&&
+              white.hasVertexColors&&white.vertexCount==4,
+              "All three methods must import conflicting/missing facet colour");
+        const auto a=parseStlMesh(seams,options);
+        const auto b=parseStlMesh(seams,options);
+        check(a.colors==b.colors,
+              "Every STL candidate must be deterministic for a fixed seed");
+        for(const auto& color:a.colors)
+            check(std::isfinite(color.r)&&std::isfinite(color.g)&&
+                  std::isfinite(color.b)&&std::isfinite(color.a)&&
+                  color.r>=0&&color.r<=1&&color.g>=0&&color.g<=1&&
+                  color.b>=0&&color.b<=1&&color.a>=0&&color.a<=1,
+                  "Converted RGBA must remain finite and within [0,1]");
+    }
+    // Evaluate and profile the same original facet stream without
+    // committing a worker or changing any source coordinates.
+    const auto geometry=parseStlMesh(seams);
+    const std::vector<std::optional<VertexRGBA>> sourceColours{
+        VertexRGBA{1,0,0,1},VertexRGBA{0,1,0,1},
+        VertexRGBA{1,0,0,1},VertexRGBA{1,0,0,1}};
+    StlColourComparison metrics;
+    const auto output=compareStlFacetColours(
+        geometry,sourceColours,StlColourMethod::Diffusion,777,&metrics);
+    check(metrics.vertices==4&&metrics.faces==4&&
+          output.size()==geometry.vertices.size()&&
+          metrics.selected==StlColourMethod::Diffusion,
+          "Comparison reports exact input size and selected candidate");
+    for(int i=0;i<3;++i) {
+        const auto& stat=metrics.methods[static_cast<std::size_t>(i)];
+        check(static_cast<int>(stat.method)==i&&
+              std::isfinite(stat.conversionMs)&&stat.conversionMs>=0&&
+              std::isfinite(stat.evaluationMs)&&stat.evaluationMs>=0&&
+              std::isfinite(stat.rgbRms)&&stat.rgbRms>=0&&
+              std::isfinite(stat.alphaRms)&&stat.alphaRms>=0&&
+              std::isfinite(stat.contrastError)&&stat.contrastError>=0,
+              "All three candidate timings and fidelity metrics are finite");
+    }
+    check(metrics.graphPreparationMs>=0&&
+          std::isfinite(metrics.graphPreparationMs),
+          "Graph preparation reports its separate import-time cost");
+    // Exact uniform facet colour is a lossless case under ALL methods.
+    const Mesh whiteGeometry=parseStlMesh(binary);
+    const std::vector<std::optional<VertexRGBA>> uniform(
+        whiteGeometry.triangles.size(),VertexRGBA{.2f,.4f,.6f,.8f});
+    for(const auto method:{StlColourMethod::Average,
+                           StlColourMethod::Stochastic,
+                           StlColourMethod::Diffusion}) {
+        const auto colors=compareStlFacetColours(
+            whiteGeometry,uniform,method,99);
+        for(const auto& color:colors)
+            check(std::abs(color.r-.2f)<1e-6f&&
+                  std::abs(color.g-.4f)<1e-6f&&
+                  std::abs(color.b-.6f)<1e-6f&&
+                  std::abs(color.a-.8f)<1e-6f,
+                  "Uniform original facet colours remain exact in each method");
+    }
     refuse("materials.stl",makeBinary(vertices,{0,0,0,0},"MATERIAL="),
            "MATERIAL=");
     // Two closed tetrahedra touching only at an exactly coincident corner
