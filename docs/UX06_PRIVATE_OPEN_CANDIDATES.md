@@ -251,3 +251,30 @@ a multi-line 68-vertex colour block, and durable checkpoint preservation.
 Negative tests require clear diagnostics for incomplete/ambiguous records
 without altering an earlier private candidate. All existing atomic Ctrl+O
 replacement and topology rules remain unchanged.
+
+### ZBrush 2025.0.1 OBJ termination compatibility
+
+A real ZBrush 2025.0.1 export in `test-files/Duck-ZBrush.obj` uses
+19,247 `v` records, 38,490 `f` records and 301 correctly packed
+`#MRGB` lines (300 full 64-word lines plus a 47-word line). It appends
+one literal NUL byte (0x00) **after** its last blank line. Earlier Mesher
+rejected that terminal byte as an unsupported OBJ record on line 58,049.
+
+The OBJ reader now permits trailing NUL bytes **only at end of file**,
+including immediately after the last valid record. Embedded NUL bytes
+or NUL padding followed by further source records are still rejected;
+the file is never silently truncated at an internal NUL. This is a
+file-termination compatibility detail, not a new OBJ field or colour
+interpretation.
+
+CTest `obj_zbrush_mrgb_2025_export` opens both checked-in
+`test-files/Duck-ZBrush.obj` and `test-files/Duck-xyzrgb.obj` through
+the real private Ctrl+O candidate parser. Both must retain the same
+19,247 vertices, 38,490 faces, and opaque vertex RGB, and their complete
+RGB-byte histograms must agree. Source-record comparison confirms that
+their RGB bytes match in original vertex order as well. Additional small
+positive and negative OBJ tests distinguish valid terminal NUL padding
+from malformed NUL bytes embedded within source records.
+
+ZBrush `MM` remains an editor mask, wholly ignored on import. Neither
+the terminal NUL nor that mask is interpreted as vertex alpha.
