@@ -125,15 +125,20 @@ void testPrivateMeshOpenCandidates() {
         try {(void)readMeshOpenCandidate(path,filter);}
         catch(const std::exception& e) {
             refused=true;
-            check(std::string(e.what()).find(diagnostic)!=std::string::npos,
-                  "Import refused for an unexpected reason");
+            const auto reason=std::string(e.what());
+            check(reason.find(diagnostic)!=std::string::npos,
+                  ("Import refused unexpectedly for "+path.string()+
+                   ": "+reason).c_str());
         }
         check(refused,"Wrong forced format must be refused");
     };
     refuseWith(put("really.obj",tetra),MeshOpenFilter::MesherCheckpoint,
                "Unsupported checkpoint magic/version");
+    // The binary checkpoint has NUL metadata bytes. The stricter OBJ
+    // reader now identifies embedded NULs rather than just an unknown
+    // record. Wrong-filter refusal, not its historical wording, matters.
     refuseWith(renamedCheckpoint,MeshOpenFilter::WavefrontObj,
-               "unsupported OBJ record");
+               "OBJ line");
     const auto repairArchive=dir/"old-repair-case.mshr";
     {
         std::ofstream output(repairArchive,std::ios::binary);
