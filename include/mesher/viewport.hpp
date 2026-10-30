@@ -113,6 +113,7 @@ struct ViewportInteraction {
     // immutable checkpoint snapshot and durable asynchronous writer.
     std::function<std::filesystem::path()> checkpointSuggestedPath;
     std::function<void(std::filesystem::path)> checkpoint;
+    std::function<void(std::shared_ptr<const RegionTopologyIndex>)> directCheckpoint;
     // Ctrl+E: the viewport supplies its latest displayed *accepted* root,
     // not a future worker edit or a private repair preview. The host retains
     // that root and enqueues immutable output on AsyncMeshExportWriter.
