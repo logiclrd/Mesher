@@ -2969,6 +2969,10 @@ public:
                 try {
                     // Always use original startup --vertices, never the
                     // currently edited/imported vertex count.
+                    if(interaction_.newDocumentInfo&&
+                       interaction_.newDocumentInfo(displayedIndex_).busy)
+                        throw std::runtime_error(
+                            "New requires finished worker edits and disk saves");
                     newModelDialog_.open(interaction_.startupVertexCount);
                     newModelText_.clear();
                     newModelError_.clear();
