@@ -2248,22 +2248,47 @@ never changes editor geometry, checkpoint identity or undo history.
   chosen primitive. The three previews must remain previews, never
   editable or mistaken for the current authoritative mesh.
 
-  Track document modifications separately from **export**: only a
-  successful document **Save/Save As** marks edits saved. Exporting OBJ,
-  PLY or STL via Ctrl+E does **not** mark the document clean or change its
-  saved filename. Remember the current document filename from the last
-  successful Save or Open; clear it on successful New. When New would
-  discard unsaved edits, show a second in-viewport modal confirmation
-  *before* replacing the original. Mention the remembered filename when
-  one exists, and show buttons, ordered from left to right:
-  **Save** (only when a remembered filename exists), **Save As**,
-  **No**, **Cancel**. `Save` writes to the remembered filename without
-  opening a file picker; `Save As` performs the existing native document
-  Save As flow; `No` discards edits and proceeds with New; `Cancel`
-  (or Escape) returns to the previous document, leaving it unchanged.
+  Track document modifications separately from **Ctrl+E Export**:
+  exporting OBJ, PLY or STL does **not** mark the document clean or update
+  its Save filename. Retain the last successfully Opened or Saved
+  filename/path **and its source/import format provenance**. Clear the
+  remembered filename and provenance on successful New. A remembered
+  path may be an imported `.obj`, `.ply` or `.stl` path, even though it
+  cannot be the destination of a one-click native checkpoint Save.
+
+  When New would discard unsaved edits, show an in-viewport modal
+  confirmation *before* replacing the original. Mention the remembered
+  filename when one exists. Buttons in left-to-right order:
+  **Save** (ONLY when the current document has a remembered, confirmed
+  native `.mshr` Save destination, e.g. opened as `.mshr` or subsequently
+  saved as `.mshr`), **Save As**, **No**, **Cancel**. Never offer direct
+  Save for a remembered foreign-format import. Direct **Save** writes a
+  native `.mshr` checkpoint to that path without a picker; **Save As**
+  opens the save-format picker with the remembered **filename and path
+  prepopulated** and the filter matching the source format of the last
+  Open operation selected by default (use the **detected import format**,
+  not a misleading filename extension). Users may change the filter.
+  **No** discards edits and proceeds with New; **Cancel** or Escape
+  leaves the original unchanged.
+
+  With no imported/saved filename provenance (e.g. a fresh generated
+  blank-slate model), Save As defaults to the **native `.mshr` filter**.
+  If no filename is available to preload, construct a memorable suggested
+  basename from one randomly selected adjective and one randomly
+  selected noun, separated by one space, e.g. `exquisite goldfish`.
+  Append the selected format's extension (`exquisite goldfish.mshr`
+  for the default, or `exquisite goldfish.ply` if PLY is selected).
+  The source word lists are `words/adjectives.txt` and
+  `words/nouns.txt`; embed their data in the executable at build time
+  (generated C++/linked resource or equivalent), NEVER require or ship
+  adjacent runtime text files. Generate only a *suggestion*: don't write
+  anything or alter CWD until the user accepts the dialog, and keep
+  filename characters portable across Windows, Linux and macOS.
+
   Accelerator keys: **S** for Save if present, otherwise **S** for Save As;
-  **A** for Save As when Save is present; **N** for No. Cancel/Escape must
-  never queue a write or replace the original.
+  **A** for Save As when Save is present; **N** for No. Escape cancels
+  identically to clicking **Cancel**. Cancellation must never queue a
+  write or replace the original.
 
   IMPORTANT: the document writer is asynchronous today. New must wait
   for a **confirmed successful durable checkpoint completion** before
@@ -2274,14 +2299,19 @@ never changes editor geometry, checkpoint identity or undo history.
   Avoid race conditions when brush/paint/undo changes arrive while a
   save or replacement is pending.
 
-  **Preimplementation policy to settle:** Ctrl+O can open `.obj`,
-  `.ply`, or `.stl` as well as native `.mshr` checkpoints. Remembering
-  an imported filename for the displayed prompt does not by itself make
-  it safe for `Save` to write checkpoint bytes to that non-`.mshr`
-  path. Define format-aware direct Save semantics (or a specific
-  conversion/promotion policy) before enabling Save against an imported
-  non-checkpoint filename; never silently overwrite a foreign-format file
-  with `.mshr` bytes.
+  **Resolved direct-Save policy:** direct Save is native `.mshr` only.
+  Filename remembrance after importing a foreign format is distinct from
+  native checkpoint Save eligibility. A successful native `.mshr` Save As
+  may establish a new remembered native destination for subsequent Saves;
+  no foreign-format file is ever overwritten with checkpoint bytes.
+  **Implementation design point:** Save As now offers a format matching
+  a non-native import, whereas Ctrl+E Export explicitly does not clear
+  the dirty flag. The implementation must explicitly distinguish
+  document-save completion from lossy/foreign-format serialization,
+  and must not allow an export that fails to preserve the document's
+  required edit state to silently satisfy the dirty-document New gate.
+  Decide and test the exact dirty-baseline policy for non-`.mshr`
+  Save As before wiring confirmation-to-New continuation.
 
   Acceptance: keyboard accelerators and Escape precedence, clean vs
   dirty documents, filename remembered/cleared across Open/Save/New,
@@ -2289,6 +2319,18 @@ never changes editor geometry, checkpoint identity or undo history.
   Save As cancel, No, modal focus and pointer interception, all three
   primitives and vertex-count constraints, new revision/worker/undo
   reset, and unchanged original state on generation or I/O failure.
+
+
+- [ ] **UX09A — Curate generated filename word lists.** Review
+  `words/adjectives.txt` and `words/nouns.txt` **before enabling random
+  suggestions**. Remove potentially offensive, disparaging, exclusionary,
+  sensitive, frightening, unpleasant or negative-sounding entries (including
+  unexpectedly awkward adjective/noun combinations); also reject words
+  unsuitable as pleasant, portable filenames. Keep the source lists
+  maintainable and the embedded runtime vocabulary aligned with the
+  curated files. Add validation/tests for nonempty safe lists, portable
+  filename characters and reliable embedded vocabulary generation, without
+  hardcoding or testing the presence of undesirable entries.
 
 
 ## Build and test efficiency (2026-10-29)
