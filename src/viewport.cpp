@@ -826,6 +826,7 @@ class VulkanViewport {
     std::vector<char> newModelText_;
     bool newWasDown_=false,modalBackspaceWasDown_=false;
     bool modalEscapeWasDown_=false,modalMouseWasDown_=false;
+    bool suppressExitEscape_=false;
 
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
@@ -2586,6 +2587,196 @@ class VulkanViewport {
         ++framesThisInterval_;
         ++logFrames_;
     }
+    // The same owner-union and prepare/commit protocol as Ctrl+O. Only
+    // prepared, validated geometry can cross into the live viewport. New
+    // additionally resets input, history-facing UI and camera framing.
+    void publishPreparedNew(PreparedMeshOpen prepared) {
+        if(!prepared.index||!prepared.commit)
+            throw std::runtime_error("New produced no valid indexed source");
+        std::set<PartitionId> owners;
+        if(displayedIndex_)
+            displayedIndex_->revision().forEachPartition(
+                [&](PartitionId id,const MeshPartition&){owners.insert(id);});
+        prepared.index->revision().forEachPartition(
+            [&](PartitionId id,const MeshPartition&){owners.insert(id);});
+        const std::vector<PartitionId> dirty(owners.begin(),owners.end());
+        clearPaintPreview();
+        refreshPartitions(prepared.index,dirty,
+            prepared.bounds?std::optional<Vec3>(prepared.bounds->center()):
+                            std::nullopt);
+        prepared.commit();
+        if(prepared.bounds&&prepared.bounds->hasVertices) {
+            frameScene(*prepared.bounds);
+            floorZ_=prepared.bounds->minimum.z-
+                std::max(0.25,prepared.bounds->radius()*0.05);
+            const auto scenery=buildWorkFloor(
+                floorZ_,prepared.bounds->center(),
+                std::max(8.0,prepared.bounds->radius()*2.5));
+            replaceBuffer(floorSolid,scenery.solid);
+        }
+        interaction_.radiusRange=prepared.radiusRange;
+        interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
+        interaction_.radius=prepared.radius;
+        interaction_.paintSymmetric=prepared.symmetric;
+        paintMode_=false;
+        painting_=false;
+        paintPanelDragging_=false;
+        paintControls_=PaintControls{};
+        lastPaintCursor_.reset();
+        mergeInput_.revisionChanged(displayedIndex_);
+        oneShotAwaitingDisplay_=false;
+        displayedStamps_=0;
+        waitingForDrain_=false;
+        mouseWasDown_=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        newModelHint_.clear();
+        newModelError_.clear();
+        refreshHud();
+        updateTitle();
+        std::cout<<"[new] published independent initial model "
+                 <<"updated_owners="<<dirty.size()<<"\n";
+    }
+    void applyNewModalAction(NewDialogResult action) {
+        if(action.action==NewDialogAction::None)return;
+        try {
+            if(action.action==NewDialogAction::Create) {
+                if(!action.model||!interaction_.prepareNewModel)
+                    throw std::logic_error(
+                        "New source creation unavailable");
+                auto prepared=interaction_.prepareNewModel(*action.model);
+                publishPreparedNew(std::move(prepared));
+                return;
+            }
+            const bool saveAs=action.action==NewDialogAction::RequestSaveAs;
+            if(!interaction_.startNewSave)
+                throw std::logic_error("New document Save callback unavailable");
+            const bool queued=interaction_.startNewSave(
+                window,saveAs,displayedIndex_);
+            if(queued)newModelDialog_.saveQueued();
+            else newModelDialog_.saveCancelled();
+        }catch(const std::exception& error) {
+            newModelError_=error.what();
+            std::cerr<<"[new] source/save rejected; current document retained: "
+                     <<newModelError_<<"\n";
+            // A failed generator must leave a retryable chooser, not silently
+            // discard the user's previous document or start an empty model.
+            if(action.action==NewDialogAction::Create&&action.model)
+                newModelDialog_.open(action.model->vertices);
+            else if(newModelDialog_.phase()==NewDialogPhase::AwaitSave)
+                newModelDialog_.saveCompleted(false);
+        }
+    }
+    void processNewModelModal() {
+        if(!newModelDialog_.visible())return;
+        const auto info=interaction_.newDocumentInfo?
+            interaction_.newDocumentInfo(displayedIndex_):
+            NewDocumentInfo{};
+        newModelHint_=info.filenameHint;
+        if(newModelDialog_.phase()==NewDialogPhase::AwaitSave&&
+           interaction_.pollNewSave) {
+            const auto state=interaction_.pollNewSave();
+            if(state!=NewDocumentSaveProgress::Pending) {
+                const bool success=state==NewDocumentSaveProgress::Succeeded;
+                const auto decision=newModelDialog_.saveCompleted(success);
+                if(!success)newModelError_="SAVE FAILED; OLD DOCUMENT PRESERVED";
+                else applyNewModalAction(decision);
+            }
+        }
+        if(!newModelDialog_.visible()) {
+            newModelText_.clear();
+            return;
+        }
+        if(justPressed(GLFW_KEY_ESCAPE,modalEscapeWasDown_)) {
+            newModelDialog_.cancel();
+            newModelText_.clear();
+            suppressExitEscape_=true;
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
+        const auto phase=newModelDialog_.phase();
+        if(phase==NewDialogPhase::ChoosePrimitive) {
+            if(justPressed(GLFW_KEY_BACKSPACE,modalBackspaceWasDown_))
+                newModelDialog_.backspace();
+            const bool control=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                               keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+            if(control&&keyboard_.takePress(GLFW_KEY_A))
+                newModelDialog_.clearVertexInput();
+        }
+        auto choose=[&](NewModelKind kind) {
+            try {
+                newModelError_.clear();
+                const auto decision=newModelDialog_.choose(
+                    kind,info.dirty,info.canDirectSave);
+                applyNewModalAction(decision);
+            }catch(const std::exception& error) {
+                newModelError_=error.what();
+            }
+        };
+        auto save=[&](bool saveAs) {
+            try {
+                newModelError_.clear();
+                applyNewModalAction(newModelDialog_.save(saveAs));
+            }catch(const std::exception& error) {
+                newModelError_=error.what();
+            }
+        };
+        for(const auto codepoint:newModelText_) {
+            if(!newModelDialog_.visible())break;
+            if(phase==NewDialogPhase::ChoosePrimitive) {
+                if(codepoint>='0'&&codepoint<='9')
+                    newModelDialog_.typeDigit(codepoint);
+            }else if(phase==NewDialogPhase::ConfirmDiscard) {
+                const char letter=char(std::toupper(
+                    static_cast<unsigned char>(codepoint)));
+                if(letter=='N')applyNewModalAction(newModelDialog_.discard());
+                else if(letter=='S')
+                    save(!newModelDialog_.canDirectSave());
+                else if(letter=='A'&&newModelDialog_.canDirectSave())
+                    save(true);
+            }
+        }
+        newModelText_.clear();
+        double cursorX=0,cursorY=0;
+        glfwGetCursorPos(window,&cursorX,&cursorY);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww>0&&wh>0&&fw>0&&fh>0) {
+            cursorX*=double(fw)/ww;
+            cursorY*=double(fh)/wh;
+        }
+        const bool down=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        const bool clicked=down&&!modalMouseWasDown_;
+        modalMouseWasDown_=down;
+        if(!clicked||!newModelDialog_.visible())return;
+        const auto layout=newDialogLayout(
+            fw,fh,newModelDialog_.phase(),newModelDialog_.canDirectSave());
+        if(layout.cancel.contains(cursorX,cursorY)) {
+            newModelDialog_.cancel();
+            mouseWasDown_=down;
+            return;
+        }
+        if(newModelDialog_.phase()==NewDialogPhase::ChoosePrimitive) {
+            if(layout.vertices.contains(cursorX,cursorY))
+                newModelDialog_.clearVertexInput();
+            else if(layout.asymmetric.contains(cursorX,cursorY))
+                choose(NewModelKind::AsymmetricSphere);
+            else if(layout.symmetric.contains(cursorX,cursorY))
+                choose(NewModelKind::SymmetricSphere);
+            else if(layout.torus.contains(cursorX,cursorY))
+                choose(NewModelKind::Torus);
+        }else if(newModelDialog_.phase()==NewDialogPhase::ConfirmDiscard) {
+            if(newModelDialog_.canDirectSave()&&
+               layout.save.contains(cursorX,cursorY))
+                save(false);
+            else if(layout.saveAs.contains(cursorX,cursorY))save(true);
+            else if(layout.discard.contains(cursorX,cursorY))
+                applyNewModalAction(newModelDialog_.discard());
+        }
+    }
+
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
                             ViewportInteraction interaction)
