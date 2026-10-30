@@ -1,4 +1,5 @@
 #include "mesher/native_save_dialog.hpp"
+#include "mesher/native_dialog_path.hpp"
 
 #import <Cocoa/Cocoa.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -15,16 +16,18 @@
     UTType* objType;
     UTType* plyType;
     UTType* stlType;
+    NSArray<UTType*>* supportedTypes;
 }
 - (void)change:(id)sender;
 @end
 @implementation MesherOpenFilterController
 - (void)change:(id)sender {
     const NSInteger index=[(NSPopUpButton*)sender indexOfSelectedItem];
-    if(index==0)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
-    else if(index==1)panel.allowedContentTypes=objType?@[objType]:@[];
-    else if(index==2)panel.allowedContentTypes=plyType?@[plyType]:@[];
-    else if(index==3)panel.allowedContentTypes=stlType?@[stlType]:@[];
+    if(index==0)panel.allowedContentTypes=supportedTypes;
+    else if(index==1)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
+    else if(index==2)panel.allowedContentTypes=objType?@[objType]:@[];
+    else if(index==3)panel.allowedContentTypes=plyType?@[plyType]:@[];
+    else if(index==4)panel.allowedContentTypes=stlType?@[stlType]:@[];
     else panel.allowedContentTypes=@[];
 }
 @end
@@ -46,17 +49,11 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         UTType* type=[UTType typeWithFilenameExtension:@"mshr"
                                     conformingToType:UTTypeData];
         if(type)dialog.allowedContentTypes=@[type];
-        // Finder launches may have an unwritable process working directory.
-        // Do not force that directory for a bare default filename; let
-        // NSSavePanel use the user's normal Documents/last-used location.
         const std::string filename=suggestion.filename().string();
         dialog.nameFieldStringValue=[NSString stringWithUTF8String:filename.c_str()];
-        if(!suggestion.parent_path().empty()) {
-            const auto initial=std::filesystem::absolute(suggestion);
-            const std::string directory=initial.parent_path().string();
-            dialog.directoryURL=[NSURL fileURLWithPath:
-                [NSString stringWithUTF8String:directory.c_str()] isDirectory:YES];
-        }
+        const auto cwd=nativeDialogInitialDirectory().string();
+        dialog.directoryURL=[NSURL fileURLWithPath:
+            [NSString stringWithUTF8String:cwd.c_str()] isDirectory:YES];
         const NSModalResponse response=[dialog runModal];
         if(response==NSModalResponseCancel)return std::nullopt;
         if(response!=NSModalResponseOK)
@@ -66,7 +63,7 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
             throw std::runtime_error("macOS Save As did not select a filesystem path");
         const char* name=selected.fileSystemRepresentation;
         if(!name)throw std::runtime_error("Cannot retrieve macOS Save As path");
-        return std::filesystem::path(name);
+        return acceptNativeDialogFilePath(std::filesystem::path(name));
     }
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
@@ -84,6 +81,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         NSPopUpButton* fileType=[[NSPopUpButton alloc] initWithFrame:
             NSMakeRect(0,0,280,28) pullsDown:NO];
         [fileType addItemsWithTitles:@[
+            @"All supported files (*.mshr, *.obj, *.ply, *.stl)",
             @"Mesher mesh files (*.mshr)",@"Wavefront OBJ (*.obj)",
             @"Stanford PLY (*.ply)",@"STL surface (*.stl)",@"All Files (*)"]];
         UTType* mshr=[UTType typeWithFilenameExtension:@"mshr"
@@ -104,17 +102,20 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         controller->objType=obj;
         controller->plyType=ply;
         controller->stlType=stl;
+        // All four UTTypes apply to the default filter. A missing type
+        // would otherwise turn an allegedly restricted filter into All.
+        if(!mshr||!obj||!ply||!stl)
+            throw std::runtime_error("Cannot construct supported macOS Open types");
+        controller->supportedTypes=@[mshr,obj,ply,stl];
         [fileType setTarget:controller];
         [fileType setAction:@selector(change:)];
         panel.accessoryView=fileType;
         [controller change:fileType];
-        if(!suggestion.parent_path().empty()) {
-            const auto absolute=std::filesystem::absolute(suggestion);
-            const auto directory=absolute.parent_path().string();
-            panel.directoryURL=[NSURL fileURLWithPath:
-                [NSString stringWithUTF8String:directory.c_str()]
-                isDirectory:YES];
-        }
+        (void)suggestion; // Opening directory is ALWAYS process CWD.
+        const auto cwd=nativeDialogInitialDirectory().string();
+        panel.directoryURL=[NSURL fileURLWithPath:
+            [NSString stringWithUTF8String:cwd.c_str()]
+            isDirectory:YES];
         const NSModalResponse response=[panel runModal];
         [controller release];
         if(response==NSModalResponseCancel)return std::nullopt;
@@ -126,12 +127,13 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         const char* path=selected.fileSystemRepresentation;
         if(!path)throw std::runtime_error("macOS Open path unavailable");
         const auto index=fileType.indexOfSelectedItem;
-        const auto filter=index==0?MeshOpenFilter::MesherCheckpoint:
-                          index==1?MeshOpenFilter::WavefrontObj:
-                          index==2?MeshOpenFilter::StanfordPly:
-                          index==3?MeshOpenFilter::StereolithographyStl:
+        const auto filter=index==1?MeshOpenFilter::MesherCheckpoint:
+                          index==2?MeshOpenFilter::WavefrontObj:
+                          index==3?MeshOpenFilter::StanfordPly:
+                          index==4?MeshOpenFilter::StereolithographyStl:
                                    MeshOpenFilter::AllFiles;
-        return NativeOpenSelection{std::filesystem::path(path),filter};
+        return NativeOpenSelection{
+            acceptNativeDialogFilePath(std::filesystem::path(path)),filter};
     }
 }
 std::optional<bool> nativePlyAlphaOpacityDialog(
