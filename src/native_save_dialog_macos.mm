@@ -147,9 +147,33 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         const char* path=url.fileSystemRepresentation;
         if(!path)throw std::runtime_error("macOS export path unavailable");
         const auto preset=static_cast<MeshExportPreset>(selection);
+        const std::filesystem::path raw(path);
+        const auto final=validateExportFilename(raw,preset);
+        if(raw!=final&&std::filesystem::exists(final)&&
+           !nativeConfirmMeshExportOverwrite(nullptr,final))
+            return std::nullopt;
         return NativeMeshExportSelection{
-            acceptNativeDialogFilePath(validateExportFilename(
-                std::filesystem::path(path),preset)),preset};
+            acceptNativeDialogFilePath(final),preset};
+    }
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow*,const std::filesystem::path& destination) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleWarning;
+        alert.messageText=@"Replace existing mesh export?";
+        const auto path=destination.string();
+        NSString* label=[NSString stringWithUTF8String:path.c_str()];
+        alert.informativeText=[NSString stringWithFormat:
+            @"The final export file already exists:\n%@\n\nReplace its contents?",
+            label?label:@"(unavailable path)"];
+        [alert addButtonWithTitle:@"Replace"];
+        [alert addButtonWithTitle:@"Cancel"];
+        const auto result=[alert runModal];
+        [alert release];
+        if(result==NSAlertFirstButtonReturn)return true;
+        if(result==NSAlertSecondButtonReturn)return false;
+        throw std::runtime_error("macOS mesh export overwrite confirmation failed");
     }
 }
 bool nativeConfirmMeshExportDisclosure(GLFWwindow*,
