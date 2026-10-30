@@ -15,7 +15,10 @@ void check(bool condition,const char* message) {
 void testDialogCwdSelectionPolicy() {
     namespace fs=std::filesystem;
     const auto original=fs::current_path();
-    const auto scratch=fs::temp_directory_path()/
+    // macOS may expose /var as a symlink to /private/var. current_path()
+    // reports the physical path, so use that representation for the
+    // temporary test root before comparing any accepted CWDs.
+    const auto scratch=fs::canonical(fs::temp_directory_path())/
         ("mesher-dialog-cwd-"+std::to_string(
             std::chrono::steady_clock::now().time_since_epoch().count()));
     struct Restore {
