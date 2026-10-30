@@ -842,11 +842,16 @@ int main(int argc, char** argv) {
             std::cout<<"[checkpoint] queued native durable Save "
                      <<destination.string()<<"\n";
         };
+        // These are shared by callbacks invoked during runViewport(), which
+        // starts AFTER the setup scope below. They must outlive that scope.
+        double liveMeshScale=1.0;
+        mesher::BrushRadiusRange unitRange{};
+        std::shared_ptr<mesher::BrushRadiusRange> brushRange;
         if(inflate && !demoMode) {
             // Fit view-only camera transformations separately from the
             // physical brush/stroke controls. Preserve original vertices.
-            double liveMeshScale=1.0;
-            const auto unitRange=mesher::BrushRadiusRange::forVertexCount(
+            liveMeshScale=1.0;
+            unitRange=mesher::BrushRadiusRange::forVertexCount(
                 options.vertexCount);
             auto range=unitRange;
             if(recovered&&initialViewBounds&&initialViewBounds->hasVertices) {
@@ -856,7 +861,7 @@ int main(int argc, char** argv) {
                 liveMeshScale=calibration.workerScale;
                 range=calibration.radius;
             }
-            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
+            brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
             const double requestedBrushRadius=brushRadius;
             brushRadius=mesher::relativeImportedBrushRadius(
                 unitRange,brushRadius,*brushRange);
