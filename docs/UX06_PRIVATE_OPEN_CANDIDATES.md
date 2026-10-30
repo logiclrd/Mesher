@@ -158,16 +158,28 @@ Binary STL facet-colour extensions are interpreted explicitly:
   RGBA bytes selects the dialect. Bit 15 set uses the object RGBA;
   bit 15 clear uses per-facet BGR555 (R low, B high), even when zero.
   MATERIAL= is refused: Mesher cannot faithfully represent its materials.
-- ASCII STL is colourless. Unknown or conflicting facet-colour conventions
-  are refused, never ignored or silently converted.
+- ASCII STL is colourless. Unknown *encoding conventions* are refused;
+  a recognised dialect with conflicting colours is **not** refused.
 
-Mesher has per-vertex RGBA, whereas STL colours are per facet. Conversion
-is accepted only when all facets incident to each welded vertex assign
-identical colours. A per-facet colour seam, missing per-facet colour among
-coloured facets or a mixed-colour shared vertex is explicitly refused.
-Vertex splitting to preserve a colour seam would compromise the closed
-indexed surface. Magics RGBA is preserved as editable vertex RGBA,
-but actual surface translucency remains a separate renderer feature.
+Mesher has per-vertex RGBA, whereas STL colours are per facet. UX06D
+supersedes the original strict colour matching rule: conflicting facet
+colours are now converted approximately using three benchmarked candidates.
+They share the same welded mesh, never split logical vertices, and keep
+geometry validation strict. Missing facet colours in a partly coloured
+VisCAM mesh use explicitly documented opaque white for those facets.
+An entirely colourless STL still produces an empty colour stream.
+
+By default the current experiment displays the contrast-aware diffusion
+candidate; start the app with `--stl-colour-method average`, `stochastic`
+or `diffusion` and optionally `--stl-colour-seed N` to compare appearances.
+Every coloured STL loads and profiles all three candidates, printing
+per-method conversion milliseconds, evaluation milliseconds, integrated
+RGB/alpha RMS and adjacent-facet contrast error to the console. See
+[UX06D design](UX06_STL_COLOUR_COMPARISON.md) for the objective, controlled
+experiment, metrics and acceptance criteria. No final architecture is chosen
+until rendered comparisons have been reviewed. Magics RGBA is preserved as
+editable vertex RGBA where supported, but actual translucency is still a
+separate renderer feature.
 
 Bounds: the existing 256 MiB file limit, plus finite 2,000,000 facets
 and 1,000,000 welded vertices. Source geometry/units and the previous
