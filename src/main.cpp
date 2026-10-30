@@ -1079,6 +1079,14 @@ int main(int argc, char** argv) {
                 auto selected=std::move(selectedFile.path);
                 auto candidate=mesher::readMeshOpenCandidate(
                     selected,selectedFile.filter,stlOptions);
+                const auto openedKind=
+                    candidate.format==mesher::MeshOpenFormat::Checkpoint?
+                        mesher::DocumentSourceFormat::NativeMshr:
+                    candidate.format==mesher::MeshOpenFormat::WavefrontObj?
+                        mesher::DocumentSourceFormat::WavefrontObj:
+                    candidate.format==mesher::MeshOpenFormat::StanfordPly?
+                        mesher::DocumentSourceFormat::StanfordPly:
+                        mesher::DocumentSourceFormat::Stl;
                 if(candidate.alphaDecisionRequired) {
                     const auto interpreted=mesher::nativePlyAlphaOpacityDialog(
                         owner,candidate.sourceAlphaMinimum,
@@ -1116,12 +1124,16 @@ int main(int argc, char** argv) {
                 const auto root=preparedWorker->initialRevision();
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),count,radius,mirrored,range,
+                     selected=std::move(selected),openedKind,count,radius,mirrored,range,
                      newMeshScale]() mutable {
                         liveWorker=std::move(preparedWorker);
                         *brushRange=range;
                         liveMeshScale=newMeshScale;
                         lastDisplayed=liveWorker->initialRevision();
+                        cleanRevision=lastDisplayed;
+                        documentNames.opened(selected,openedKind);
+                        pendingCheckpoint.reset();
+                        newSaveOutcome.reset();
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
                         brushRadius=radius;
