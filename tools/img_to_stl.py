@@ -7,8 +7,10 @@ from PIL import Image
 
 def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     """
-    Generates a full manifold ellipsoid stretched 2x along the pole-to-pole (Z) axis.
-    Emits quads split into triangles ABC and BDC to maintain matching normals.
+    Generates an outward-oriented, watertight manifold ellipsoid stretched
+    along the pole-to-pole (Z) axis. The poles are unique vertices, not
+    zero-radius latitude rings. Each quad is split into outward-facing ACB
+    and BCD triangles; facet colouring remains tied to the same image pixels.
     """
     A = radius
     B = radius
@@ -39,14 +41,17 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     num_cap_steps = 10  
     phi_array = []
     
-    # North Cap
-    for step in range(num_cap_steps):
+    # Interior rings ONLY. A zero-radius ring at phi=0 consists of
+    # coincident vertices, producing zero-area STL facets after welding.
+    # The single true pole is connected by a triangle fan below.
+    for step in range(1, num_cap_steps):
         phi_array.append((step / num_cap_steps) * phi_start)
     # Texture Zone
     for step in range(Nx + 1):
         phi_array.append(phi_start + (step / Nx) * (phi_end - phi_start))
-    # South Cap
-    for step in range(1, num_cap_steps + 1):
+    # Likewise exclude phi=pi: sin(pi) is a tiny nonzero floating-point
+    # number, which would create a pathological sliver ring at the south pole.
+    for step in range(1, num_cap_steps):
         phi_array.append(phi_end + (step / num_cap_steps) * (math.pi - phi_end))
         
     total_phi_points = len(phi_array)
@@ -100,8 +105,10 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
 
     # Main structural grid loop
     for j in range(total_phi_points - 1):
-        in_texture_phi = (j >= num_cap_steps) and (j < num_cap_steps + Nx)
-        img_x_idx = j - num_cap_steps if in_texture_phi else None
+        # One fewer ring on the north cap after removing the duplicate pole.
+        first_texture_ring = num_cap_steps - 1
+        in_texture_phi = (j >= first_texture_ring) and (j < first_texture_ring + Nx)
+        img_x_idx = j - first_texture_ring if in_texture_phi else None
         
         for i in range(total_circumference_steps):
             i_next = (i + 1) % total_circumference_steps
@@ -137,13 +144,15 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
                 attr_abc = fallback_attr
                 attr_bdc = fallback_attr
 
-            # Triangle 1: ABC (Top-Left, Top-Right, Bottom-Left)
-            n_abc = calculate_normal(v_tl, v_tr, v_bl)
-            facets.append((n_abc, v_tl, v_tr, v_bl, attr_abc))
-            
-            # Triangle 2: BDC (Top-Right, Bottom-Right, Bottom-Left) -> Flipped winding order
-            n_bdc = calculate_normal(v_tr, v_br, v_bl)
-            facets.append((n_bdc, v_tr, v_br, v_bl, attr_bdc))
+            # X increases towards the south pole and Y increases along
+            # the circumference, so A-B-C and B-D-C point INWARD.
+            # Reverse BOTH faces to match the outward-facing pole fans.
+            # The face/colour association is unchanged.
+            n_acb = calculate_normal(v_tl, v_bl, v_tr)
+            facets.append((n_acb, v_tl, v_bl, v_tr, attr_abc))
+
+            n_bcd = calculate_normal(v_tr, v_bl, v_br)
+            facets.append((n_bcd, v_tr, v_bl, v_br, attr_bdc))
 
     # South Pole triangle fan segment
     last_ring_idx = total_phi_points - 1
@@ -155,7 +164,49 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
         n = calculate_normal(v1, v2, v3)
         facets.append((n, v1, v2, v3, fallback_attr))
 
-    # Stream out the binary STL data 
+    # Validate the EXACT float32 coordinates that STL serializes, rather
+    # than just the higher-precision Python grid. Reject degenerate facets,
+    # inverted normals and edges that are not paired with opposite winding.
+    # This prevents publishing a file that only appears healthy in a viewer
+    # that silently drops redundant or nearly zero-area facets.
+    edge_uses = {}
+    unique_vertices = set()
+    for face_index, (_normal, a, b, c, _colour) in enumerate(facets):
+        corners = tuple(
+            struct.unpack('<fff', struct.pack('<fff', *v))
+            for v in (a, b, c)
+        )
+        if len(set(corners)) != 3:
+            raise ValueError(f"STL facet {face_index} collapses after float32 welding")
+        p, q, t = corners
+        u = tuple(q[k] - p[k] for k in range(3))
+        v = tuple(t[k] - p[k] for k in range(3))
+        normal = (
+            u[1] * v[2] - u[2] * v[1],
+            u[2] * v[0] - u[0] * v[2],
+            u[0] * v[1] - u[1] * v[0],
+        )
+        if sum(n * n for n in normal) <= (
+            1e-12 * math.sqrt(sum(x * x for x in u))
+                  * math.sqrt(sum(x * x for x in v))
+        ) ** 2:
+            raise ValueError(f"STL facet {face_index} has zero effective area")
+        centre = tuple((p[k] + q[k] + t[k]) / 3.0 for k in range(3))
+        if sum(normal[k] * centre[k] for k in range(3)) <= 0:
+            raise ValueError(f"STL facet {face_index} faces inward")
+        unique_vertices.update(corners)
+        for source, destination in ((p, q), (q, t), (t, p)):
+            key = tuple(sorted((source, destination)))
+            uses = edge_uses.setdefault(key, [0, 0])
+            uses[0 if source < destination else 1] += 1
+
+    invalid_edges = sum(uses != [1, 1] for uses in edge_uses.values())
+    if invalid_edges:
+        raise ValueError(
+            f"STL has {invalid_edges} open, nonmanifold or inconsistently wound edges"
+        )
+
+    # Stream out only after validation succeeds.
     with open(out_path, 'wb') as f:
         header = b"COLOR=\xaa\xaa\xaa\xff 2x Stretched Fixed Normal Ellipsoid"
         header = header.ljust(80, b'\x00')[:80]
@@ -173,7 +224,11 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
             )
             f.write(data)
 
-    print(f"Successfully exported watertight 2x stretched polar mesh with {len(facets)} facets (BDC configuration).")
+    print(
+        f"Exported validated watertight mesh: {len(facets)} facets, "
+        f"{len(unique_vertices)} welded float32 vertices, "
+        f"{len(edge_uses)} paired edges."
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Map an image onto a manifold ellipsoid with aligned normals.")
