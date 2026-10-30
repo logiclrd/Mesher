@@ -1,0 +1,12 @@
+#pragma once
+
+#include <string_view>
+
+// Generated at CMake configure time, directly from curated source word lists.
+// Never ship these .txt files adjacent to Mesher's executable.
+namespace mesher::embedded_filename_words {
+inline constexpr std::string_view adjectives =
+    "@MESHER_FILENAME_ADJECTIVES_LITERAL@";
+inline constexpr std::string_view nouns =
+    "@MESHER_FILENAME_NOUNS_LITERAL@";
+} // namespace mesher::embedded_filename_words
