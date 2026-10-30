@@ -79,6 +79,7 @@ struct PreparedMeshOpen {
 // Ctrl+N confirmation; a filename hint does not imply direct Save eligibility.
 struct NewDocumentInfo {
     bool dirty=false;
+    bool busy=false;
     bool canDirectSave=false;
     std::filesystem::path filenameHint;
 };
