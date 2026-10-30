@@ -1039,7 +1039,7 @@ consul
 consulate
 consumer
 contact
-contact lens
+contact-lens
 container
 content
 contention
@@ -1170,7 +1170,7 @@ credenza
 credit
 creditor
 creek
-creme brulee
+creme-brulee
 crepe
 crest
 crew
@@ -1561,16 +1561,16 @@ dugout
 dulcimer
 dumbwaiter
 dump
-dump truck
+dump-truck
 dune
-dune buggy
+dune-buggy
 dungarees
 duplexer
 duration
 durian
 dusk
 dust
-dust storm
+dust-storm
 duster
 duty
 dwarf
@@ -2740,7 +2740,7 @@ jacket
 jackfruit
 jade
 jaguar
-jalapeño
+jalapeno
 jam
 jar
 jasmine
