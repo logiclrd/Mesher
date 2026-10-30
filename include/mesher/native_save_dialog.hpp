@@ -17,7 +17,9 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
 // Format support and validation are deliberately separate and private.
 struct NativeOpenSelection {
     std::filesystem::path path;
-    MeshOpenFilter filter{MeshOpenFilter::MesherCheckpoint};
+    // "All supported files" (default) and "All Files" both map to
+    // MeshOpenFilter::AllFiles for content-based interpretation.
+    MeshOpenFilter filter{MeshOpenFilter::AllFiles};
 };
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion);
