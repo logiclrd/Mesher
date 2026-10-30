@@ -1673,7 +1673,7 @@ int main(int argc, char** argv) {
             interaction.caption=[&] {
                 const auto status=liveWorker->status();
                 return "Mouse Inflate | vertices "+std::to_string(status.details.vertices
-                              ?status.details.vertices:mesh.vertices.size())+
+                              ?status.details.vertices:options.vertexCount)+
                        " | stamps "+std::to_string(status.completedStamps)+
                        " | pending "+std::to_string(status.pendingSteps)+
                        " | input "+std::to_string(status.inputCommands)+
