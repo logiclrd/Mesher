@@ -113,9 +113,13 @@ public:
             file_=::fdopen(descriptor,"wb");
             if(!file_)::close(descriptor);
 #endif
-            if(!file_)
-                throw std::system_error(errno,std::generic_category(),
+            if(!file_) {
+                const auto failure=errno;
+                std::error_code ignored;
+                fs::remove(path_,ignored);
+                throw std::system_error(failure,std::generic_category(),
                                         "Unable to attach export output stream");
+            }
             return;
         }
         throw std::runtime_error("Export temporary filename collisions exhausted");
