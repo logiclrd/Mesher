@@ -5,6 +5,7 @@
 #include "mesher/viewport_scale.hpp"
 #include "mesher/partition_render.hpp"
 #include "mesher/vertex_paint.hpp"
+#include "mesher/new_model.hpp"
 
 #include <array>
 #include <filesystem>
@@ -74,6 +75,14 @@ struct PreparedMeshOpen {
     std::function<void()> commit;
     std::optional<ViewportSceneBounds> bounds;
 };
+// Snapshot of the authoritative document identity for the in-window
+// Ctrl+N confirmation; a filename hint does not imply direct Save eligibility.
+struct NewDocumentInfo {
+    bool dirty=false;
+    bool canDirectSave=false;
+    std::filesystem::path filenameHint;
+};
+enum class NewDocumentSaveProgress {Pending,Succeeded,Failed};
 struct ViewportInteraction {
     // Latch inversion on mouse-down, never switch queued 4D samples mid-stroke.
     std::function<void(Vec3,bool inverted)> begin;
@@ -115,6 +124,19 @@ struct ViewportInteraction {
     std::function<std::optional<std::string>()> exportFailure;
     std::function<std::filesystem::path()> openSuggestedPath;
     std::function<PreparedMeshOpen(GLFWwindow*,NativeOpenSelection)> prepareOpen;
+    // UX09C: private New source is committed through the same indexed Open
+    // rebind transaction. No replacement occurs until the save gate resolves.
+    std::uint32_t startupVertexCount=5000;
+    std::function<NewDocumentInfo(
+        std::shared_ptr<const RegionTopologyIndex>)> newDocumentInfo;
+    std::function<PreparedMeshOpen(NewModelRequest)> prepareNewModel;
+    // Start native .mshr Save/Save As after a confirmation. Returning false
+    // means the user cancelled the picker without queueing a writer task.
+    std::function<bool(GLFWwindow*,bool saveAs,
+                       std::shared_ptr<const RegionTopologyIndex>)> startNewSave;
+    // Completion is never inferred merely from enqueueing a worker command.
+    std::function<NewDocumentSaveProgress()> pollNewSave;
+
     // Paint-only worker publication; never changes the sculpt stroke geometry.
     std::function<void(const PaintDab&)> paint;
     std::function<void()> paintBegin;
