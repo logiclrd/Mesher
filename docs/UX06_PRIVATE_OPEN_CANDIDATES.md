@@ -169,17 +169,19 @@ geometry validation strict. Missing facet colours in a partly coloured
 VisCAM mesh use explicitly documented opaque white for those facets.
 An entirely colourless STL still produces an empty colour stream.
 
-By default the current experiment displays the contrast-aware diffusion
-candidate; start the app with `--stl-colour-method average`, `stochastic`
-or `diffusion` and optionally `--stl-colour-seed N` to compare appearances.
-Every coloured STL loads and profiles all three candidates, printing
-per-method conversion milliseconds, evaluation milliseconds, integrated
-RGB/alpha RMS and adjacent-facet contrast error to the console. See
-[UX06D design](UX06_STL_COLOUR_COMPARISON.md) for the objective, controlled
-experiment, metrics and acceptance criteria. No final architecture is chosen
-until rendered comparisons have been reviewed. Magics RGBA is preserved as
-editable vertex RGBA where supported, but actual translucency is still a
-separate renderer feature.
+Following comparison of the three methods on the regenerated castle STL,
+**diffusion is the production default** for facet-to-vertex approximation.
+The image-based visual test favoured its detail retention over averaging and
+its reduced noise over stochastic selection; it is not guaranteed to be optimal
+for every mesh. Specify `--stl-colour-method average` or `stochastic` for
+explicit comparison, or `--stl-colour-method diffusion` to select the default
+explicitly. `--stl-colour-seed N` controls repeatability. A normal coloured
+STL Open runs and profiles only the selected method (not all three); the
+dedicated comparison benchmark still measures all three. See
+[UX06D design](UX06_STL_COLOUR_COMPARISON.md). The current *vertex* attribute
+model is unchanged: lossless per-facet discontinuities would require separate
+per-face/per-corner attributes. Magics RGBA is preserved as editable vertex
+RGBA where supported, but actual translucency is a separate renderer feature.
 
 Bounds: the existing 256 MiB file limit, plus finite 2,000,000 facets
 and 1,000,000 welded vertices. Source geometry/units and the previous
