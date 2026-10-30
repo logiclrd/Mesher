@@ -12,6 +12,7 @@ foreach(required
     "QFileDialog"
     "QMessageBox"
     "dialog.selectedNameFilter()"
+    "QFileDialog::filterSelected"
     "dialog.setNameFilters("
     "dialog.setDefaultSuffix("
     "dialog.setOption(QFileDialog::HideNameFilterDetails,true)"

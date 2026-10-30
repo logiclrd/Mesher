@@ -1480,8 +1480,8 @@ int main(int argc, char** argv) {
             std::cout<<"Interactive sculpting uses a dedicated background worker; "
                      <<"Vulkan refreshes only dirty face partitions.\n"
                      <<"Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo, Ctrl+S "
-                     <<"opens native Save As (.mshr), initially at "
-                     <<checkpointPath.string()<<"; writing remains asynchronous.\n";
+                     <<"opens native Save As (.mshr), starting in CWD with filename "
+                     <<checkpointPath.filename().string()<<"; writing remains asynchronous.\n";
             if(verboseInput)
                 std::cout<<"Verbose interactive input logging enabled: [input] "
                          <<"down, up, moves that queue Steps, and queue drain.\n";
