@@ -140,16 +140,21 @@ inline std::filesystem::path validateExportFilename(
     const auto suffix=path.extension().string();
     if(suffix.empty())path+=expected;
     else {
-        // The dropdown is the authority; an explicit incompatible suffix
-        // must be corrected by the user, not used as a silent codec hint.
+        // The dropdown is the authority. Switching between the three known
+        // export suffixes updates the filename, as native Save As dialogs do.
+        // Unknown unrelated suffixes require an explicit user correction.
         auto lowercase=[](std::string value) {
             for(auto& c:value)
                 if(c>='A'&&c<='Z')c=static_cast<char>(c-'A'+'a');
             return value;
         };
-        if(lowercase(suffix)!=expected)
-            throw std::invalid_argument(
-                "Selected export file type and filename extension disagree");
+        const auto normalized=lowercase(suffix);
+        if(normalized!=expected) {
+            if(normalized==".obj"||normalized==".ply"||normalized==".stl")
+                path.replace_extension(expected);
+            else throw std::invalid_argument(
+                "Selected export file type conflicts with a non-export extension");
+        }
     }
     return path;
 }
