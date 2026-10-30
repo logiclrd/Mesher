@@ -136,8 +136,23 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     const std::filesystem::path chosen(pathname);
     CoTaskMemFree(pathname);
     const auto preset=static_cast<MeshExportPreset>(selectedIndex-1u);
-    return NativeMeshExportSelection{
-        acceptNativeDialogFilePath(validateExportFilename(chosen,preset)),preset};
+    const auto final=validateExportFilename(chosen,preset);
+    if(chosen!=final&&std::filesystem::exists(final)&&
+       !nativeConfirmMeshExportOverwrite(owner,final))
+        return std::nullopt;
+    return NativeMeshExportSelection{acceptNativeDialogFilePath(final),preset};
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow* owner,const std::filesystem::path& destination) {
+    const std::wstring message=
+        L"The final export file already exists:\n"+
+        destination.wstring()+L"\n\nReplace its contents?";
+    const int answer=MessageBoxW(owner?glfwGetWin32Window(owner):nullptr,
+        message.c_str(),L"Replace existing mesh export?",
+        MB_YESNOCANCEL|MB_ICONWARNING|MB_TASKMODAL|MB_DEFBUTTON2);
+    if(answer==IDYES)return true;
+    if(answer==IDNO||answer==IDCANCEL)return false;
+    throw std::runtime_error("Windows mesh export overwrite confirmation failed");
 }
 bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
                                        std::string_view disclosure) {
