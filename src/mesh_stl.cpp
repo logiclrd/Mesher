@@ -63,8 +63,9 @@ struct Facet {
 struct Builder {
     Mesh mesh{};
     std::map<std::tuple<double,double,double>,std::uint32_t> lookup{};
-    std::vector<std::optional<VertexRGBA>> colours{};
-    bool anyColoured=false,anyPlain=false;
+    std::vector<std::optional<VertexRGBA>> facetColours{};
+    StlImportOptions options{};
+    bool anyColoured=false;
 
     void add(const Facet& f) {
         if(mesh.triangles.size()>=maxStlFacets)
@@ -82,15 +83,10 @@ struct Builder {
                 ids[i]=static_cast<std::uint32_t>(mesh.vertices.size());
                 lookup.emplace(key,ids[i]);
                 mesh.vertices.push_back(v);
-                colours.push_back(f.color);
+                // Decoded colour belongs to the facet, not this vertex.
             }else {
                 ids[i]=it->second;
-                auto& old=colours[ids[i]];
-                if(old.has_value()!=f.color.has_value()||
-                   (old&&f.color&&*old!=*f.color))
-                    throw std::runtime_error(
-                        "STL per-facet colour seam conflicts at welded vertex; "
-                        "lossless vertex-colour conversion is unavailable");
+                // Preserve shared topology even if incident facet colours disagree.
             }
         }
         if(ids[0]==ids[1]||ids[1]==ids[2]||ids[0]==ids[2])
@@ -103,16 +99,11 @@ struct Builder {
             throw std::runtime_error("STL facet has zero area");
         mesh.triangles.push_back({ids[0],ids[1],ids[2]});
         anyColoured|=f.color.has_value();
-        anyPlain|=!f.color.has_value();
+        facetColours.push_back(f.color);
     }
     Mesh finish() {
-        if(anyColoured&&anyPlain)
-            throw std::runtime_error(
-                "STL mixes coloured and uncoloured facets; cannot preserve vertex colours");
-        if(anyColoured) {
-            mesh.colors.reserve(colours.size());
-            for(const auto& c:colours)mesh.colors.push_back(*c);
-        }
+        // A mixed coloured/uncoloured VisCAM source uses opaque-white
+        // fallback for absent colours in the comparative approximation.
         // Every exactly welded edge must have two oppositely oriented
         // incident triangles; no open seams or duplicate facet shells.
         using Edge=std::pair<std::uint32_t,std::uint32_t>;
@@ -168,10 +159,13 @@ struct Builder {
                 throw std::runtime_error(
                     "STL coincident but disconnected vertex fans cannot be welded");
         }
+        if(anyColoured)
+            mesh.colors=compareStlFacetColours(
+                mesh,facetColours,options.method,options.seed);
         return std::move(mesh);
     }
 };
-Mesh binary(const Bytes& data) {
+Mesh binary(const Bytes& data,StlImportOptions options) {
     if(data.size()<84)throw std::runtime_error("STL binary header is truncated");
     const std::size_t count=u32(data.data()+80);
     if(count>maxStlFacets||count==0)
@@ -182,6 +176,7 @@ Mesh binary(const Bytes& data) {
     const auto defaultColor=magicsDefault(data.data());
     const bool magics=defaultColor.has_value();
     Builder builder;
+    builder.options=options;
     for(std::size_t i=0;i<count;++i) {
         const auto* bytes=data.data()+84+50*i;
         // STL normals are advisory, but nonfinite normals are malformed.
@@ -215,7 +210,7 @@ void expect(std::istream& in,const char* expected) {
     if(!(in>>token)||token!=expected)
         throw std::runtime_error(std::string("STL expected '")+expected+"'");
 }
-Mesh ascii(const Bytes& data) {
+Mesh ascii(const Bytes& data,StlImportOptions options) {
     const std::string input(data.begin(),data.end());
     if(input.find('\0')!=std::string::npos)
         throw std::runtime_error("STL ASCII contains embedded NUL");
@@ -224,6 +219,7 @@ Mesh ascii(const Bytes& data) {
     std::string rest;
     std::getline(file,rest);
     Builder builder;
+    builder.options=options;
     std::string tag;
     bool closed=false;
     while(file>>tag) {
@@ -251,7 +247,8 @@ Mesh ascii(const Bytes& data) {
 }
 } // namespace
 
-Mesh parseStlMesh(const std::filesystem::path& path) {
+Mesh parseStlMesh(const std::filesystem::path& path,
+                  StlImportOptions options) {
     std::ifstream file(path,std::ios::binary);
     if(!file)throw std::runtime_error("Cannot open STL mesh");
     file.seekg(0,std::ios::end);
@@ -267,12 +264,12 @@ Mesh parseStlMesh(const std::filesystem::path& path) {
         std::size_t(u32(data.data()+80))<=maxStlFacets&&
         std::size_t(u32(data.data()+80))>0&&
         data.size()==84+std::size_t(u32(data.data()+80))*50;
-    if(exactBinary)return binary(data);
+    if(exactBinary)return binary(data,options);
     // Binary files may begin "solid". Prefer an exact binary layout above.
     // The explicit STL filter nevertheless detects partial binary payloads.
     const bool beginsSolid=data.size()>=5&&
         std::memcmp(data.data(),"solid",5)==0;
-    if(beginsSolid)return ascii(data);
+    if(beginsSolid)return ascii(data,options);
     if(data.size()>=84)
         throw std::runtime_error("STL binary facet count/length mismatch or truncated data");
     throw std::runtime_error("STL missing solid header or complete binary header");

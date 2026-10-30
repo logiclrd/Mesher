@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/durable_checkpoint.hpp"
+#include "mesher/mesh_stl.hpp"
 #include <cstddef>
 #include <filesystem>
 
@@ -25,5 +26,6 @@ struct MeshOpenCandidate {
 void applyPlySourceAlphaAsOpacity(MeshOpenCandidate& candidate);
 MeshOpenCandidate readMeshOpenCandidate(
     const std::filesystem::path& path,
-    MeshOpenFilter selectedFilter=MeshOpenFilter::AllFiles);
+    MeshOpenFilter selectedFilter=MeshOpenFilter::AllFiles,
+    StlImportOptions stlOptions={});
 } // namespace mesher

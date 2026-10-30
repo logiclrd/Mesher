@@ -229,7 +229,8 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
 } // namespace
 
 MeshOpenCandidate readMeshOpenCandidate(
-    const std::filesystem::path& path,MeshOpenFilter selectedFilter) {
+    const std::filesystem::path& path,MeshOpenFilter selectedFilter,
+    StlImportOptions stlOptions) {
     if(path.empty())throw std::invalid_argument("Open path is empty");
     const auto bytes=std::filesystem::file_size(path);
     if(!bytes||bytes>maxInputBytes)
@@ -256,7 +257,7 @@ MeshOpenCandidate readMeshOpenCandidate(
              format==MeshOpenFilter::StereolithographyStl) {
         auto mesh=format==MeshOpenFilter::StanfordPly?parsePlyMesh(path):
                   format==MeshOpenFilter::StereolithographyStl?
-                  parseStlMesh(path):parseWavefrontObj(path);
+                  parseStlMesh(path,stlOptions):parseWavefrontObj(path);
         // OBJ validated before returning; PLY must enforce the same
         // topology invariants before its private revision is published.
         if(format==MeshOpenFilter::StanfordPly||
