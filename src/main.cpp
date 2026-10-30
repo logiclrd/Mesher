@@ -970,6 +970,12 @@ int main(int argc, char** argv) {
                 pollCheckpoint();
                 mesher::NewDocumentInfo result;
                 result.dirty=!root||root!=cleanRevision;
+                const auto status=liveWorker->status();
+                result.busy=pendingCheckpoint.has_value()||
+                    status.active||status.pendingSteps||
+                    status.pendingSegments||status.inputCommands||
+                    status.checkpoints.busy||
+                    !liveWorker->canBegin();
                 result.canDirectSave=documentNames.canDirectSave();
                 if(documentNames.filenameHint())
                     result.filenameHint=*documentNames.filenameHint();
