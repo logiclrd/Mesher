@@ -1,5 +1,6 @@
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_ply.hpp"
+#include "mesher/mesh_stl.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
@@ -183,6 +184,18 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
         throw std::runtime_error(
             "This is an R06 repair-case archive (.r06case), not an editable "
             ".mshr checkpoint. Use --repair-replay to inspect the case.");
+    // Binary STL has no magic; recognize only exact 84 + 50*N layout.
+    // Check before the text heuristic because binary headers can say "solid".
+    if(bytes>=134&&read>=84) {
+        const auto* q=reinterpret_cast<const unsigned char*>(sample.data()+80);
+        const auto count=std::uint64_t(q[0])|(std::uint64_t(q[1])<<8)|
+                         (std::uint64_t(q[2])<<16)|(std::uint64_t(q[3])<<24);
+        if(count>0&&count<=maxFaces&&bytes==84+50*count)
+            return MeshOpenFilter::StereolithographyStl;
+    }
+    if(prefix.starts_with("solid ")||prefix.starts_with("solid\n")||
+       prefix.starts_with("solid\r\n"))
+        return MeshOpenFilter::StereolithographyStl;
     // Conservative OBJ heuristic: only match recognized geometry records,
     // not arbitrary text; the strict OBJ parser will validate full contents.
     // Skip blank/comment lines; at least one vertex and face directive are
@@ -210,7 +223,7 @@ MeshOpenFilter classifyMeshOpenFile(const std::filesystem::path& path) {
     if(vertex)return MeshOpenFilter::WavefrontObj;
     throw std::runtime_error(
         "Unrecognized mesh file header; supported formats: MESHRV12 "
-        "checkpoints, PLY and Wavefront OBJ text. R06 repair cases are replay-only.");
+        "checkpoints, PLY, STL and Wavefront OBJ text. R06 repair cases are replay-only.");
 }
 } // namespace
 
@@ -238,13 +251,17 @@ MeshOpenCandidate readMeshOpenCandidate(
         candidate.snapshot=readCheckpoint(path);
         candidate.format=MeshOpenFormat::Checkpoint;
     }else if(format==MeshOpenFilter::WavefrontObj||
-             format==MeshOpenFilter::StanfordPly) {
-        auto mesh=format==MeshOpenFilter::StanfordPly?
-            parsePlyMesh(path):parseWavefrontObj(path);
+             format==MeshOpenFilter::StanfordPly||
+             format==MeshOpenFilter::StereolithographyStl) {
+        auto mesh=format==MeshOpenFilter::StanfordPly?parsePlyMesh(path):
+                  format==MeshOpenFilter::StereolithographyStl?
+                  parseStlMesh(path):parseWavefrontObj(path);
         // OBJ validated before returning; PLY must enforce the same
         // topology invariants before its private revision is published.
-        if(format==MeshOpenFilter::StanfordPly)
-            validateClosedTriangles(mesh,"PLY");
+        if(format==MeshOpenFilter::StanfordPly||
+           format==MeshOpenFilter::StereolithographyStl)
+            validateClosedTriangles(mesh,
+                format==MeshOpenFilter::StanfordPly?"PLY":"STL");
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
@@ -275,7 +292,9 @@ MeshOpenCandidate readMeshOpenCandidate(
             RegionTopologyIndex::build(std::move(parts.revision)),
             {},mesh.vertices.size()};
         candidate.format=format==MeshOpenFilter::StanfordPly?
-            MeshOpenFormat::StanfordPly:MeshOpenFormat::WavefrontObj;
+            MeshOpenFormat::StanfordPly:
+            format==MeshOpenFilter::StereolithographyStl?
+            MeshOpenFormat::StereolithographyStl:MeshOpenFormat::WavefrontObj;
     }else throw std::runtime_error("Unsupported selected mesh interpretation");
     if(!candidate.snapshot.index)
         throw std::runtime_error("Candidate import has no valid indexed root");

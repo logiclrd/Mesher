@@ -8,10 +8,10 @@ namespace mesher {
 // Private, validated inputs for UX06. Construction never changes the active
 // worker, viewport, renderer, history, checkpoint path, or brush settings.
 // The UI may publish a replacement only after completing its own rebind.
-enum class MeshOpenFormat {Checkpoint,WavefrontObj,StanfordPly};
+enum class MeshOpenFormat {Checkpoint,WavefrontObj,StanfordPly,StereolithographyStl};
 // Caller-selected interpretation is authoritative; only AutoDetect
 // examines contents, never the extension (or an alleged file name).
-enum class MeshOpenFilter {MesherCheckpoint,WavefrontObj,StanfordPly,AllFiles};
+enum class MeshOpenFilter {MesherCheckpoint,WavefrontObj,StanfordPly,StereolithographyStl,AllFiles};
 struct MeshOpenCandidate {
     DurableCheckpoint snapshot;
     MeshOpenFormat format{};
