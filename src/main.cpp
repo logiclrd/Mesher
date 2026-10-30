@@ -241,7 +241,7 @@ int main(int argc, char** argv) {
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
-                         <<"       [--stl-colour-method average|stochastic|diffusion] (coloured STL Ctrl+O)\n"
+                         <<"       [--stl-colour-method average|stochastic|diffusion] (default diffusion; other modes diagnostic)\n"
                          <<"       [--stl-colour-seed N] (repeatable graph traversal and sampling)\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
