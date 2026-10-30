@@ -278,3 +278,39 @@ from malformed NUL bytes embedded within source records.
 
 ZBrush `MM` remains an editor mask, wholly ignored on import. Neither
 the terminal NUL nor that mask is interpreted as vertex alpha.
+
+
+## UX06F/UX06G — Default supported Open filter and CWD dialogs
+
+The Ctrl+O file picker now defaults to **All supported files
+(`*.mshr, *.obj, *.ply, *.stl`)**, showing only these extensions. Its
+selection is interpreted exactly like unrestricted **All Files**: detect
+format from file contents, not the apparent filename or the filter label.
+Each individual format filter remains available and uses its explicit
+parser; the unrestricted All Files filter also remains available. The
+Linux Qt, Windows Shell COM and macOS Cocoa pickers all implement the
+same initial filter and content-based semantics.
+
+Every Ctrl+O and Ctrl+S file dialog starts in the process's **current
+working directory**. The last suggested checkpoint filename is used only
+as a basename, and must never silently choose the starting directory;
+Windows Shell and Cocoa remembered-folder defaults are also overridden.
+After the user accepts a file selection (not on Cancel), the picker
+resolves the returned name to an **absolute, normalized filename before**
+changing process CWD to its parent. That absolute path is passed to the
+private Open candidate reader or durable asynchronous checkpoint worker,
+so later CWD changes cannot redirect an in-flight operation.
+
+CWD follows the accepted **file-dialog selection**, even if a later
+content validation or optional PLY alpha decision refuses the imported
+mesh. The existing editor state remains untouched on those refusals.
+Cancelled dialogs, error alerts and failed path selection never change
+CWD. If an accepted parent folder cannot be entered, that acceptance
+reports a file-dialog error instead of returning a path with stale CWD.
+
+Positive regression coverage includes CWD versus suggestion precedence,
+normalizing relative paths before CWD change, successive different
+directories, cancellation/failed parent transitions, default filtered
+Qt picker on virtual X11, and actual accepted Save As/Open selections
+through the modal Qt lifecycle. Physical Windows/macOS and multimonitor
+checks remain necessary before marking UX06F/G accepted.
