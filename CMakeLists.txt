@@ -54,7 +54,8 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/mesher_embedded_filename_words.hpp"
     @ONLY)
 target_sources(mesher_mesh PRIVATE
-    src/random_filename.cpp src/document_filename_state.cpp)
+    src/random_filename.cpp src/document_filename_state.cpp
+    src/new_model.cpp src/new_model_dialog.cpp)
 target_include_directories(mesher_mesh PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
@@ -241,6 +242,13 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
+    add_executable(mesher_new_model_dialog_tests
+                   tests/new_model_dialog_tests.cpp)
+    target_link_libraries(mesher_new_model_dialog_tests PRIVATE mesher_mesh)
+    add_test(NAME ux09_new_model_private_candidate_and_modal_policy
+             COMMAND mesher_new_model_dialog_tests)
+    set_tests_properties(ux09_new_model_private_candidate_and_modal_policy
+                         PROPERTIES TIMEOUT 90)
     add_executable(mesher_document_filename_tests
                    tests/document_filename_state_tests.cpp)
     target_link_libraries(mesher_document_filename_tests PRIVATE mesher_mesh)
