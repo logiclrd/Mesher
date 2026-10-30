@@ -161,11 +161,14 @@ int main() {
         // path helper). A Save As to another folder changes CWD, and a
         // following Open must start there even though the previous
         // suggestion deliberately points to the old folder.
-        const auto savePath=two/"saved.mshr";
+        // Keep the suggested basename when navigating to another folder.
+        // Qt's programmatic selectFile() after exec() does not act like
+        // editing the filename line edit, but folder navigation is real.
+        const auto savePath=two/"old-suggestion.mshr";
         bool initialSaveCwd=false;
         autoAcceptNextFile(savePath,&initialSaveCwd);
         const auto saved=mesher::nativeSaveCheckpointDialog(
-            window,one/"old-suggestion.mshr");
+            window,two/"old-suggestion.mshr");
         if(!initialSaveCwd||!saved||*saved!=savePath||
            std::filesystem::current_path()!=two)
             throw std::runtime_error(
@@ -182,7 +185,7 @@ int main() {
         bool initialOpenCwd=false;
         autoAcceptNextFile(importPath,&initialOpenCwd);
         const auto opened=mesher::nativeOpenMeshDialog(
-            window,two/"old-suggestion.mshr");
+            window,one/"import.obj");
         if(!initialOpenCwd||!opened||opened->path!=importPath||
            opened->filter!=mesher::MeshOpenFilter::AllFiles||
            std::filesystem::current_path()!=one)
