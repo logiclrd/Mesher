@@ -3,7 +3,32 @@ import argparse
 import struct
 import math
 import sys
-from PIL import Image
+from pathlib import Path
+
+def load_rgb_image(image_path):
+    """Return width, height, RGB pixel accessor.
+
+    Mesher's existing lossless PNG decoder avoids a Pillow dependency for
+    PNG test fixtures and CI. Pillow remains a fallback for other formats.
+    """
+    if Path(image_path).suffix.lower() == '.png':
+        from png_to_rgba import read_png
+        width, height, rgba = read_png(image_path)
+
+        class Pixels:
+            def __getitem__(self, xy):
+                x, y = xy
+                if not (0 <= x < width and 0 <= y < height):
+                    raise IndexError(xy)
+                offset = 4 * (y * width + x)
+                return tuple(rgba[offset:offset+3])
+
+        return width, height, Pixels()
+
+    from PIL import Image
+    image = Image.open(image_path).convert('RGB')
+    return *image.size, image.load()
+
 
 def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     """
@@ -17,19 +42,17 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
     C = 1.6 * radius  # stretch along the pole-to-pole axis
 
     try:
-        img = Image.open(image_path).convert('RGB')
+        W, H, pixels = load_rgb_image(image_path)
     except Exception as e:
         print(f"Error opening image file: {e}", file=sys.stderr)
         sys.exit(1)
-        
-    W, H = img.size
+
     Nx = W // 2  # Quads along image X (pole-to-pole axis)
     Ny = H // 2  # Quads along image Y (circumference loop axis)
     
     if Nx == 0 or Ny == 0:
         raise ValueError("Image resolution is too low to map 2x2 macro-pixel blocks.")
         
-    pixels = img.load()
 
     # The end of the circumference folds exactly into the beginning for a manifold seal
     total_circumference_steps = Ny * 4  
