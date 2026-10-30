@@ -894,6 +894,120 @@ int main(int argc, char** argv) {
                     return text;
                 };
             }
+            // UX09: filename hints, native checkpoint identity and dirty
+            // revision baselines are independent. A CLI default checkpoint
+            // path is not a successfully opened or saved document.
+            mesher::DocumentFilenameState documentNames;
+            if(!recoverPath.empty())
+                documentNames.opened(
+                    recoverPath,mesher::DocumentSourceFormat::NativeMshr);
+            std::shared_ptr<const mesher::RegionTopologyIndex> cleanRevision=
+                liveWorker->initialRevision();
+            struct CheckpointTicket {
+                std::filesystem::path destination;
+                std::shared_ptr<const mesher::RegionTopologyIndex> revision;
+                std::uint64_t generation{};
+                std::uint64_t beforeRequested{},beforeCompleted{},beforeFailed{};
+                bool forNew{};
+            };
+            std::optional<CheckpointTicket> pendingCheckpoint;
+            std::optional<mesher::NewDocumentSaveProgress> newSaveOutcome;
+            const auto pollCheckpoint=[&]() {
+                if(!pendingCheckpoint)return;
+                const auto status=liveWorker->checkpointStatistics();
+                const auto& ticket=*pendingCheckpoint;
+                // The worker may not have dequeued the checkpoint command.
+                if(status.requested<=ticket.beforeRequested)return;
+                if(status.completed<=ticket.beforeCompleted&&
+                   status.failed<=ticket.beforeFailed)return;
+                const bool success=status.completed>ticket.beforeCompleted&&
+                                   status.failed==ticket.beforeFailed;
+                if(success) {
+                    if(documentNames.completedNativeSave(
+                           ticket.destination,ticket.generation)) {
+                        cleanRevision=ticket.revision;
+                        checkpointPath=ticket.destination;
+                    }
+                    std::cout<<"[checkpoint] durable Save completed "
+                             <<ticket.destination.string()<<"\n";
+                }else std::cerr<<"[checkpoint] durable Save failed "
+                                <<status.lastError<<"\n";
+                if(ticket.forNew)
+                    newSaveOutcome=success?
+                        mesher::NewDocumentSaveProgress::Succeeded:
+                        mesher::NewDocumentSaveProgress::Failed;
+                pendingCheckpoint.reset();
+            };
+            const auto queueCheckpoint=[&](
+                std::filesystem::path destination,
+                std::shared_ptr<const mesher::RegionTopologyIndex> root,
+                bool forNew) {
+                pollCheckpoint();
+                if(!root||pendingCheckpoint)
+                    throw std::runtime_error(
+                        "Save requires an accepted idle revision and no pending write");
+                const auto status=liveWorker->status();
+                if(!liveWorker->canBegin()||status.active||
+                   status.pendingSteps||status.pendingSegments||
+                   status.inputCommands||status.checkpoints.busy||
+                   repairSession||mergeTestTetra||mergeTestReflectedTetra)
+                    throw std::runtime_error(
+                        "Save requires idle editor and completed prior checkpoint");
+                destination=mesher::checkpointSaveDestination(
+                    std::move(destination));
+                const auto counters=liveWorker->checkpointStatistics();
+                liveWorker->saveCheckpoint(destination);
+                pendingCheckpoint=CheckpointTicket{
+                    destination,std::move(root),documentNames.generation(),
+                    counters.requested,counters.completed,counters.failed,
+                    forNew};
+                newSaveOutcome.reset();
+                std::cout<<"[checkpoint] queued native durable Save "
+                         <<destination.string()<<"\n";
+            };
+            interaction.startupVertexCount=startupVertexCount;
+            interaction.newDocumentInfo=[&](
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                pollCheckpoint();
+                mesher::NewDocumentInfo result;
+                result.dirty=!root||root!=cleanRevision;
+                result.canDirectSave=documentNames.canDirectSave();
+                if(documentNames.filenameHint())
+                    result.filenameHint=*documentNames.filenameHint();
+                return result;
+            };
+            interaction.startNewSave=[&](
+                GLFWwindow* owner,bool saveAs,
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                pollCheckpoint();
+                std::filesystem::path destination;
+                if(saveAs) {
+                    auto suggestion=documentNames.suggestSaveAs(
+                        mesher::randomFilenameStem()).filename;
+                    // UX09C implements the safe native checkpoint path.
+                    // Foreign-format Save As picker variants follow in UX09D.
+                    suggestion.replace_extension(".mshr");
+                    const auto chosen=mesher::nativeSaveCheckpointDialog(
+                        owner,suggestion);
+                    if(!chosen)return false;
+                    destination=*chosen;
+                }else {
+                    if(!documentNames.nativeSaveDestination())
+                        throw std::runtime_error(
+                            "No native .mshr filename for direct Save");
+                    destination=*documentNames.nativeSaveDestination();
+                }
+                queueCheckpoint(std::move(destination),std::move(root),true);
+                return true;
+            };
+            interaction.pollNewSave=[&] {
+                pollCheckpoint();
+                if(!newSaveOutcome)
+                    return mesher::NewDocumentSaveProgress::Pending;
+                const auto state=*newSaveOutcome;
+                newSaveOutcome.reset();
+                return state;
+            };
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.openSuggestedPath=[&] {return checkpointPath;};
