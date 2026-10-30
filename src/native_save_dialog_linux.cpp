@@ -196,6 +196,119 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         throw std::runtime_error("Qt Save As did not return a filename");
     return acceptNativeDialogFilePath(asPath(names.front()));
 }
+std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QFileDialog dialog;
+    dialog.setOption(QFileDialog::DontUseNativeDialog,true);
+    dialog.setOption(QFileDialog::HideNameFilterDetails,true);
+    dialog.setWindowTitle(QStringLiteral("Export Mesher mesh"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    dialog.setOption(QFileDialog::DontConfirmOverwrite,false);
+    QStringList filters;
+    for(const auto& format:meshExportFormats) {
+        const auto label=QString::fromUtf8(
+            format.label.data(),static_cast<qsizetype>(format.label.size()));
+        const auto suffix=QString::fromUtf8(
+            format.extension.data(),
+            static_cast<qsizetype>(format.extension.size()));
+        filters.push_back(label+QStringLiteral(" (*.")+suffix+
+                          QStringLiteral(")"));
+    }
+    dialog.setNameFilters(filters);
+    auto index=static_cast<int>(MeshExportPreset::PlyLittleMeshAlpha);
+    dialog.selectNameFilter(filters.at(index));
+    dialog.setDefaultSuffix(QStringLiteral("ply"));
+    const auto resolveFilter=[&](const QString& chosen) {
+        // Qt themes may strip the final wildcard group. The user-visible
+        // label stays unique even when multiple encodings share *.ply.
+        for(int i=0;i<static_cast<int>(meshExportFormats.size());++i) {
+            const auto label=QString::fromUtf8(
+                meshExportFormats[static_cast<std::size_t>(i)].label.data(),
+                static_cast<qsizetype>(
+                    meshExportFormats[static_cast<std::size_t>(i)].label.size()));
+            if(chosen.startsWith(label))return i;
+        }
+        return -1;
+    };
+    bool known=true;
+    QObject::connect(&dialog,&QFileDialog::filterSelected,&dialog,
+        [&](const QString& chosen) {
+            const auto position=resolveFilter(chosen);
+            known=position>=0;
+            if(!known)return;
+            index=position;
+            const auto& format=meshExportFormats[static_cast<std::size_t>(position)];
+            dialog.setDefaultSuffix(QString::fromUtf8(
+                format.extension.data(),
+                static_cast<qsizetype>(format.extension.size())));
+        });
+    setInitialFile(dialog,suggestion);
+    parent.attach(dialog);
+    if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
+    const auto names=dialog.selectedFiles();
+    if(names.size()!=1||names.front().isEmpty())
+        throw std::runtime_error("Qt Export Save As did not return a filename");
+    // Prefer the final filter when Qt exposes it; its signal is retained
+    // because some native Qt themes clear the final selectedNameFilter().
+    const auto finalIndex=resolveFilter(dialog.selectedNameFilter());
+    if(finalIndex>=0)index=finalIndex;
+    else if(!known)
+        throw std::runtime_error("Qt Export returned an unknown file-type filter");
+    const auto preset=static_cast<MeshExportPreset>(index);
+    const auto raw=asPath(names.front());
+    const auto pathname=validateExportFilename(raw,preset);
+    if(raw!=pathname&&std::filesystem::exists(pathname)&&
+       !nativeConfirmMeshExportOverwrite(owner,pathname))
+        return std::nullopt;
+    return NativeMeshExportSelection{
+        acceptNativeDialogFilePath(pathname),preset};
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow* owner,const std::filesystem::path& destination) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Warning,
+        QStringLiteral("Replace existing mesh export?"),
+        QStringLiteral("The final export file already exists:\n")+
+            asQString(destination)+
+            QStringLiteral("\n\nReplace its contents?"),
+        QMessageBox::Yes|QMessageBox::Cancel);
+    dialog.setDefaultButton(QMessageBox::Cancel);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    return dialog.exec()==QMessageBox::Yes;
+}
+bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
+                                       std::string_view disclosure) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Warning,
+        QStringLiteral("Confirm mesh export format"),
+        QString::fromUtf8(disclosure.data(),
+                          static_cast<qsizetype>(disclosure.size()))+
+            QStringLiteral("\n\nContinue with this export?"),
+        QMessageBox::Yes|QMessageBox::Cancel);
+    dialog.setDefaultButton(QMessageBox::Cancel);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    return dialog.exec()==QMessageBox::Yes;
+}
+void nativeMeshExportErrorMessage(GLFWwindow* owner,const std::string& message) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Critical,
+        QStringLiteral("Mesher - Export failed"),
+        QString::fromUtf8(message.data(),
+                          static_cast<qsizetype>(message.size())),
+        QMessageBox::Ok);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    (void)dialog.exec();
+}
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion) {
     (void)desktopQt();

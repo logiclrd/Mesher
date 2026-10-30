@@ -657,7 +657,7 @@ class VulkanViewport {
     double mouseStartTime_=0;
     bool paused_ = false, complete_ = false;
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
-    bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false;
+    bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false,exportWasDown_=false;
     bool openWasDown_=false;
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
@@ -2483,6 +2483,13 @@ public:
         startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
         const auto pumpStartupSplash=[this] {
             glfwPollEvents();
+            if(interaction_.exportFailure) {
+                if(auto failure=interaction_.exportFailure()) {
+                    std::cerr<<"[export] background writer failed: "
+                             <<*failure<<"\n";
+                    nativeMeshExportErrorMessage(window,*failure);
+                }
+            }
             if(startupSplash_) {
                 startupSplash_->tick();
                 if(!startupSplash_->active())startupSplash_.reset();
@@ -2603,6 +2610,7 @@ public:
             const bool y=justPressed(GLFW_KEY_Y,redoWasDown_);
             const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
             const bool open=justPressed(GLFW_KEY_O,openWasDown_);
+            const bool exportPressed=justPressed(GLFW_KEY_E,exportWasDown_);
             // Deliberate solid-only visual diagnostic. This does not edit
             // source triangles, select FaceIds or affect history.
             if(justPressed(GLFW_KEY_W,wireKeyWasDown_)) {
@@ -2682,6 +2690,37 @@ public:
                 }catch(const std::exception& error) {
                     std::cerr<<"[checkpoint] Save As failed; no write queued: "
                              <<error.what()<<"\n";
+                }
+            }
+            // UX07E: export only the exact accepted root currently displayed.
+            // Dialog and disclosure run on this GLFW UI thread; flattening,
+            // encoding, sync and replacement run only on the export worker.
+            if(shortcut&&exportPressed&&interaction_.exportMesh&&
+               displayedIndex_&&!inspectionFrozen_&&!sculpting_&&!painting_&&
+               !radiusDragging_&&!scaleDragging_&&!orbitDragging_&&
+               !mergeInput_.enabled()&&!interaction_.repairStepMode&&
+               (!interaction_.canBegin||interaction_.canBegin())) {
+                try {
+                    const auto suggestion=interaction_.exportSuggestedPath?
+                        interaction_.exportSuggestedPath():
+                        std::filesystem::path("mesher-export.ply");
+                    const auto choice=nativeSaveMeshExportDialog(window,suggestion);
+                    if(choice) {
+                        const auto& format=meshExportFormat(choice->preset);
+                        if(!format.disclosure.empty()&&
+                           !nativeConfirmMeshExportDisclosure(
+                               window,format.disclosure)) {
+                            std::cout<<"[export] conversion declined; no write queued\n";
+                        }else {
+                            interaction_.exportMesh(displayedIndex_,*choice);
+                            std::cout<<"[export] queued "
+                                     <<choice->path.string()<<" codec="
+                                     <<format.label<<"\n";
+                        }
+                    }else std::cout<<"[export] Save As cancelled\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[export] Save As refused: "<<error.what()<<"\n";
+                    nativeMeshExportErrorMessage(window,error.what());
                 }
             }
             // UX06: prepare a complete private indexed source and worker,

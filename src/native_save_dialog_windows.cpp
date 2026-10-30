@@ -10,6 +10,8 @@
 #include <shobjidl.h>
 #include <shlobj_core.h>
 #include <memory>
+#include <array>
+#include <vector>
 #include <stdexcept>
 #include <string>
 
@@ -76,6 +78,111 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     const std::filesystem::path destination(chosen);
     CoTaskMemFree(chosen);
     return acceptNativeDialogFilePath(destination);
+}
+std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
+    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    ComApartment apartment;
+    IFileSaveDialog* raw=nullptr;
+    require(CoCreateInstance(CLSID_FileSaveDialog,nullptr,CLSCTX_INPROC_SERVER,
+                              IID_PPV_ARGS(&raw)),"CoCreateInstance Export");
+    ComPtr<IFileSaveDialog> dialog(raw);
+    DWORD flags=0;
+    require(dialog->GetOptions(&flags),"GetOptions Export");
+    require(dialog->SetOptions(flags|FOS_FORCEFILESYSTEM|FOS_OVERWRITEPROMPT|
+                               FOS_STRICTFILETYPES|FOS_PATHMUSTEXIST),
+            "SetOptions Export");
+    // The filter strings must remain alive until the modal COM dialog ends.
+    std::vector<std::wstring> titles,patterns;
+    titles.reserve(meshExportFormats.size());
+    patterns.reserve(meshExportFormats.size());
+    std::array<COMDLG_FILTERSPEC,meshExportFormats.size()> filters{};
+    for(std::size_t i=0;i<meshExportFormats.size();++i) {
+        const auto& entry=meshExportFormats[i];
+        titles.emplace_back(entry.label.begin(),entry.label.end());
+        patterns.emplace_back(L"*."+std::wstring(
+            entry.extension.begin(),entry.extension.end()));
+        filters[i]={titles.back().c_str(),patterns.back().c_str()};
+    }
+    require(dialog->SetFileTypes(static_cast<UINT>(filters.size()),
+                                  filters.data()),"SetFileTypes Export");
+    require(dialog->SetFileTypeIndex(
+        static_cast<UINT>(MeshExportPreset::PlyLittleMeshAlpha)+1u),
+        "SetFileTypeIndex Export");
+    if(!suggestion.filename().empty())
+        require(dialog->SetFileName(suggestion.filename().c_str()),
+                "SetFileName Export");
+    const auto cwd=nativeDialogInitialDirectory();
+    IShellItem* folderRaw=nullptr;
+    require(SHCreateItemFromParsingName(
+        cwd.c_str(),nullptr,IID_PPV_ARGS(&folderRaw)),
+        "Export CWD folder");
+    ComPtr<IShellItem> folder(folderRaw);
+    require(dialog->SetFolder(folder.get()),"SetFolder Export CWD");
+    const HRESULT shown=dialog->Show(
+        owner?glfwGetWin32Window(owner):nullptr);
+    if(shown==HRESULT_FROM_WIN32(ERROR_CANCELLED))return std::nullopt;
+    require(shown,"Show Export");
+    UINT selectedIndex=0;
+    require(dialog->GetFileTypeIndex(&selectedIndex),
+            "GetFileTypeIndex Export");
+    if(selectedIndex==0||selectedIndex>meshExportFormats.size())
+        throw std::runtime_error("Windows Export selected an unknown file type");
+    IShellItem* resultRaw=nullptr;
+    require(dialog->GetResult(&resultRaw),"GetResult Export");
+    ComPtr<IShellItem> result(resultRaw);
+    PWSTR pathname=nullptr;
+    require(result->GetDisplayName(SIGDN_FILESYSPATH,&pathname),
+            "GetDisplayName Export");
+    const std::filesystem::path chosen(pathname);
+    CoTaskMemFree(pathname);
+    const auto preset=static_cast<MeshExportPreset>(selectedIndex-1u);
+    const auto final=validateExportFilename(chosen,preset);
+    if(chosen!=final&&std::filesystem::exists(final)&&
+       !nativeConfirmMeshExportOverwrite(owner,final))
+        return std::nullopt;
+    return NativeMeshExportSelection{acceptNativeDialogFilePath(final),preset};
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow* owner,const std::filesystem::path& destination) {
+    const std::wstring message=
+        L"The final export file already exists:\n"+
+        destination.wstring()+L"\n\nReplace its contents?";
+    const int answer=MessageBoxW(owner?glfwGetWin32Window(owner):nullptr,
+        message.c_str(),L"Replace existing mesh export?",
+        MB_YESNOCANCEL|MB_ICONWARNING|MB_TASKMODAL|MB_DEFBUTTON2);
+    if(answer==IDYES)return true;
+    if(answer==IDNO||answer==IDCANCEL)return false;
+    throw std::runtime_error("Windows mesh export overwrite confirmation failed");
+}
+bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
+                                       std::string_view disclosure) {
+    const std::string utf8(disclosure);
+    const int count=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,
+        utf8.c_str(),-1,nullptr,0);
+    if(count<=0)throw std::runtime_error("Cannot display export warning");
+    std::wstring message(static_cast<std::size_t>(count),L'\0');
+    (void)MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,utf8.c_str(),
+                              -1,message.data(),count);
+    message.resize(static_cast<std::size_t>(count-1));
+    message+=L"\n\nContinue with this export?";
+    const auto choice=MessageBoxW(owner?glfwGetWin32Window(owner):nullptr,
+        message.c_str(),L"Confirm mesh export format",
+        MB_YESNOCANCEL|MB_ICONWARNING|MB_TASKMODAL|MB_DEFBUTTON2);
+    if(choice==IDYES)return true;
+    if(choice==IDCANCEL||choice==IDNO)return false;
+    throw std::runtime_error("Windows mesh export confirmation failed");
+}
+void nativeMeshExportErrorMessage(GLFWwindow* owner,const std::string& message) {
+    const int count=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,
+        message.c_str(),-1,nullptr,0);
+    std::wstring text;
+    if(count>0) {
+        text.resize(static_cast<std::size_t>(count));
+        (void)MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,
+            message.c_str(),-1,text.data(),count);
+    }else text=L"Unable to export the selected mesh.";
+    (void)MessageBoxW(owner?glfwGetWin32Window(owner):nullptr,text.c_str(),
+        L"Mesher - Export failed",MB_OK|MB_ICONERROR|MB_TASKMODAL);
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion) {

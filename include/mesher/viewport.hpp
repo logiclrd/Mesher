@@ -104,6 +104,15 @@ struct ViewportInteraction {
     // immutable checkpoint snapshot and durable asynchronous writer.
     std::function<std::filesystem::path()> checkpointSuggestedPath;
     std::function<void(std::filesystem::path)> checkpoint;
+    // Ctrl+E: the viewport supplies its latest displayed *accepted* root,
+    // not a future worker edit or a private repair preview. The host retains
+    // that root and enqueues immutable output on AsyncMeshExportWriter.
+    std::function<std::filesystem::path()> exportSuggestedPath;
+    std::function<void(std::shared_ptr<const RegionTopologyIndex>,
+                       NativeMeshExportSelection)> exportMesh;
+    // Polls completed background errors once; UI displays a modal error
+    // rather than silently claiming asynchronous export success.
+    std::function<std::optional<std::string>()> exportFailure;
     std::function<std::filesystem::path()> openSuggestedPath;
     std::function<PreparedMeshOpen(GLFWwindow*,NativeOpenSelection)> prepareOpen;
     // Paint-only worker publication; never changes the sculpt stroke geometry.

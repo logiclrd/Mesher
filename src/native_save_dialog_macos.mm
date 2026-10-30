@@ -32,6 +32,28 @@
 }
 @end
 
+// Save panel accessory updates the selected allowed extension. Encoding is
+// returned by popup index, NEVER inferred from the file's contents/suffix.
+@interface MesherExportFilterController : NSObject {
+@public
+    NSSavePanel* panel;
+    UTType* objType;
+    UTType* plyType;
+    UTType* stlType;
+}
+- (void)change:(id)sender;
+@end
+@implementation MesherExportFilterController
+- (void)change:(id)sender {
+    const auto index=static_cast<std::size_t>(
+        [(NSPopUpButton*)sender indexOfSelectedItem]);
+    if(index>=mesher::meshExportFormats.size())return;
+    const auto ext=mesher::meshExportFormats[index].extension;
+    UTType* type=ext=="obj"?objType:ext=="ply"?plyType:stlType;
+    if(type)panel.allowedContentTypes=@[type];
+}
+@end
+
 namespace mesher {
 
 std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
@@ -64,6 +86,126 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
         const char* name=selected.fileSystemRepresentation;
         if(!name)throw std::runtime_error("Cannot retrieve macOS Save As path");
         return acceptNativeDialogFilePath(std::filesystem::path(name));
+    }
+}
+std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
+    GLFWwindow*,const std::filesystem::path& suggestion) {
+    @autoreleasepool {
+        NSSavePanel* panel=[NSSavePanel savePanel];
+        panel.title=@"Export Mesher mesh";
+        panel.prompt=@"Export";
+        panel.canCreateDirectories=YES;
+        panel.extensionHidden=NO;
+        panel.allowsOtherFileTypes=NO;
+        NSPopUpButton* popup=[[NSPopUpButton alloc] initWithFrame:
+            NSMakeRect(0,0,410,28) pullsDown:NO];
+        for(const auto& entry:meshExportFormats) {
+            const std::string label(entry.label);
+            [popup addItemWithTitle:
+                [NSString stringWithUTF8String:label.c_str()]];
+        }
+        MesherExportFilterController* controller=
+            [[MesherExportFilterController alloc] init];
+        controller->panel=panel;
+        controller->objType=[UTType typeWithFilenameExtension:@"obj"
+                                              conformingToType:UTTypeData];
+        controller->plyType=[UTType typeWithFilenameExtension:@"ply"
+                                              conformingToType:UTTypeData];
+        controller->stlType=[UTType typeWithFilenameExtension:@"stl"
+                                              conformingToType:UTTypeData];
+        if(!controller->objType||!controller->plyType||!controller->stlType) {
+            [controller release];
+            [popup release];
+            throw std::runtime_error("Cannot construct macOS STL/PLY/OBJ export types");
+        }
+        [popup setTarget:controller];
+        [popup setAction:@selector(change:)];
+        const auto defaultIndex=static_cast<NSInteger>(
+            MeshExportPreset::PlyLittleMeshAlpha);
+        [popup selectItemAtIndex:defaultIndex];
+        panel.accessoryView=popup;
+        [controller change:popup];
+        const auto filename=suggestion.filename().string();
+        panel.nameFieldStringValue=
+            [NSString stringWithUTF8String:filename.c_str()];
+        const auto cwd=nativeDialogInitialDirectory().string();
+        panel.directoryURL=[NSURL fileURLWithPath:
+            [NSString stringWithUTF8String:cwd.c_str()] isDirectory:YES];
+        const auto response=[panel runModal];
+        const auto selection=popup.indexOfSelectedItem;
+        [controller release];
+        [popup release];
+        if(response==NSModalResponseCancel)return std::nullopt;
+        if(response!=NSModalResponseOK)
+            throw std::runtime_error("macOS mesh export dialog did not complete");
+        if(selection<0||
+           static_cast<std::size_t>(selection)>=meshExportFormats.size())
+            throw std::runtime_error("macOS selected invalid export file type");
+        NSURL* url=panel.URL;
+        if(!url||!url.isFileURL)
+            throw std::runtime_error("macOS export did not choose a file URL");
+        const char* path=url.fileSystemRepresentation;
+        if(!path)throw std::runtime_error("macOS export path unavailable");
+        const auto preset=static_cast<MeshExportPreset>(selection);
+        const std::filesystem::path raw(path);
+        const auto final=validateExportFilename(raw,preset);
+        if(raw!=final&&std::filesystem::exists(final)&&
+           !nativeConfirmMeshExportOverwrite(nullptr,final))
+            return std::nullopt;
+        return NativeMeshExportSelection{
+            acceptNativeDialogFilePath(final),preset};
+    }
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow*,const std::filesystem::path& destination) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleWarning;
+        alert.messageText=@"Replace existing mesh export?";
+        const auto path=destination.string();
+        NSString* label=[NSString stringWithUTF8String:path.c_str()];
+        alert.informativeText=[NSString stringWithFormat:
+            @"The final export file already exists:\n%@\n\nReplace its contents?",
+            label?label:@"(unavailable path)"];
+        [alert addButtonWithTitle:@"Replace"];
+        [alert addButtonWithTitle:@"Cancel"];
+        const auto result=[alert runModal];
+        [alert release];
+        if(result==NSAlertFirstButtonReturn)return true;
+        if(result==NSAlertSecondButtonReturn)return false;
+        throw std::runtime_error("macOS mesh export overwrite confirmation failed");
+    }
+}
+bool nativeConfirmMeshExportDisclosure(GLFWwindow*,
+                                       std::string_view disclosure) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleWarning;
+        alert.messageText=@"Confirm mesh export format";
+        const std::string utf8(disclosure);
+        NSString* detail=[NSString stringWithUTF8String:utf8.c_str()];
+        alert.informativeText=[
+            (detail?detail:@"This export format may lose mesh attributes.")
+            stringByAppendingString:@"\n\nContinue with this export?"];
+        [alert addButtonWithTitle:@"Continue Export"];
+        [alert addButtonWithTitle:@"Cancel"];
+        const auto choice=[alert runModal];
+        [alert release];
+        if(choice==NSAlertFirstButtonReturn)return true;
+        if(choice==NSAlertSecondButtonReturn)return false;
+        throw std::runtime_error("macOS mesh export warning did not complete");
+    }
+}
+void nativeMeshExportErrorMessage(GLFWwindow*,const std::string& message) {
+    @autoreleasepool {
+        NSAlert* alert=[[NSAlert alloc] init];
+        alert.alertStyle=NSAlertStyleCritical;
+        alert.messageText=@"Mesher export failed";
+        NSString* detail=[NSString stringWithUTF8String:message.c_str()];
+        alert.informativeText=detail?detail:@"Mesh export failed.";
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+        [alert release];
     }
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(

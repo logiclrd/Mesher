@@ -8,6 +8,7 @@
 #include "mesher/desktop_merge_fixture.hpp"
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/mesh_open_candidate.hpp"
+#include "mesher/mesh_export_dispatch.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -964,6 +965,45 @@ int main(int argc, char** argv) {
                         checkpointPath=std::move(selected);
                         checkpointPath.replace_extension(".mshr");
                     },openBounds};
+            };
+            // UX07E: native Ctrl+E captures the currently displayed accepted
+            // immutable indexed root on the GLFW/UI thread, then queues all
+            // geometry flattening, format conversion and disk I/O elsewhere.
+            auto exportWriter=std::make_shared<mesher::AsyncMeshExportWriter>();
+            interaction.exportSuggestedPath=[&] {
+                // Let each native Save As filter add the selected suffix;
+                // do not prefill .ply then require manual editing for OBJ/STL.
+                auto suggested=checkpointPath.filename();
+                suggested.replace_extension();
+                return suggested;
+            };
+            interaction.exportMesh=[exportWriter](
+                std::shared_ptr<const mesher::RegionTopologyIndex> root,
+                mesher::NativeMeshExportSelection selected) {
+                auto request=mesher::captureMeshExportRequest(
+                    selected.path,std::move(root));
+                exportWriter->request(std::move(request),
+                    mesher::meshExportEncoder(selected.preset));
+            };
+            interaction.exportFailure=[
+                exportWriter,seenFailures=std::uint64_t{0},
+                seenCompleted=std::uint64_t{0}]() mutable
+                -> std::optional<std::string> {
+                const auto status=exportWriter->statistics();
+                if(status.completed>seenCompleted) {
+                    std::cout<<"[export] completed "
+                             <<(status.completed-seenCompleted)
+                             <<" background file(s)\n";
+                    seenCompleted=status.completed;
+                }
+                if(status.failed<=seenFailures)return std::nullopt;
+                const auto count=status.failed-seenFailures;
+                seenFailures=status.failed;
+                std::string failure="Export failed";
+                if(count>1)
+                    failure+=" ("+std::to_string(count)+" recent failures)";
+                failure+=": "+status.lastError;
+                return failure;
             };
             interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {
