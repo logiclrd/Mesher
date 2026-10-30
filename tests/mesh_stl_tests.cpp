@@ -247,7 +247,17 @@ void run() {
           "Successful subsequent imports do not mutate older private roots");
 }
 } // namespace
-int main() {
-    try {run();}
+int main(int argc,char** argv) {
+    try {
+        if(argc==2) {
+            const auto generated=readMeshOpenCandidate(
+                argv[1],MeshOpenFilter::StereolithographyStl);
+            check(generated.faceCount==736&&generated.vertexCount>300&&
+                  generated.hasVertexColors,
+                  "Generator output must import as a closed coloured STL");
+            return 0;
+        }
+        run();
+    }
     catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
 }

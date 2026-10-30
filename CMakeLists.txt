@@ -426,6 +426,20 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_stl_tests tests/mesh_stl_tests.cpp)
     target_link_libraries(mesher_stl_tests PRIVATE mesher_mesh)
     add_test(NAME stl_import COMMAND mesher_stl_tests)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        set(MESHER_STL_GENERATED_FIXTURE
+            "${CMAKE_CURRENT_BINARY_DIR}/stl_generator_fixture.stl")
+        add_test(NAME stl_generator_manifold
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_img_to_stl.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/img_to_stl.py"
+                "${MESHER_STL_GENERATED_FIXTURE}")
+        add_test(NAME stl_generator_import
+            COMMAND mesher_stl_tests "${MESHER_STL_GENERATED_FIXTURE}")
+        set_tests_properties(stl_generator_import PROPERTIES
+            DEPENDS stl_generator_manifold)
+    endif()
     add_executable(mesher_stl_colour_benchmark tests/mesh_stl_colour_benchmark.cpp)
     target_link_libraries(mesher_stl_colour_benchmark PRIVATE mesher_mesh)
     add_test(NAME stl_colour_benchmark COMMAND mesher_stl_colour_benchmark)

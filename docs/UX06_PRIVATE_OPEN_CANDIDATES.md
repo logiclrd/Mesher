@@ -190,3 +190,29 @@ Dedicated stl_import CTest covers both encodings, misleading extensions,
 both colour conventions, closed-fan welding and explicit refusal cases.
 UX06 remains partly open until physical Ctrl+O testing and the remaining
 advanced format/convention requirements have been accepted.
+
+
+### Legacy castle fixture: degenerate latitude-pole construction
+
+The originally checked-in `test-files/castle.stl` came from a version of
+`tools/img_to_stl.py` which emitted ordinary longitude rings at phi=0 and
+phi=pi. All north-ring vertices share the pole position, so the north cap
+and first main-band triangles collapse after float32 welding. The
+main-band triangle winding was also opposite to the two pole fans.
+MeshLab can display the remaining surface after tolerating such facets;
+Mesher's exact manifold validation properly refuses the original stream.
+
+The generator now creates strictly interior latitude rings with a single
+north and south pole, and outward-facing ACB and BCD main triangles.
+Before writing, it validates the actual float32 vertex positions,
+nonzero facet area, outward orientation and two opposite uses per edge.
+A positive CTest runs this generator with a synthetic colour image without
+requiring Pillow, and imports its resulting STL through the C++ importer.
+
+Regenerate the legacy checked-in binary fixture from its source image:
+
+    python3 tools/img_to_stl.py -i tools/castle-192.png -o test-files/castle.stl
+
+Pillow is required for the real image. Until that regeneration occurs,
+the old castle binary still contains malformed pole geometry and remains
+a failure reproducer, not a valid STL acceptance fixture.
