@@ -161,7 +161,6 @@ ashram
 ashtray
 asparagus
 aspect
-ass
 assembly
 assertion
 assessment
@@ -179,7 +178,6 @@ athlete
 atom
 atrium
 attachment
-attacker
 attainment
 attempt
 attendant
@@ -196,7 +194,6 @@ author
 authorization
 auto
 automaton
-avalanche
 avenue
 average
 avocado
@@ -380,7 +377,6 @@ blast
 blazer
 blend
 blessing
-blind
 blinker
 blister
 blizzard
@@ -388,13 +384,11 @@ block
 blocker
 blog
 blogger
-bloodflow
 bloom
 bloomer
 blossom
 blouse
 blow
-blowgun
 blowhole
 blue
 blueberry
@@ -477,7 +471,6 @@ breakdown
 breakfast
 breakpoint
 breakthrough
-breast
 breastplate
 breath
 breeze
@@ -529,7 +522,6 @@ bulb
 bull
 bull-fighter
 bulldozer
-bullet
 bump
 bumper
 bun
@@ -551,7 +543,6 @@ business
 businessman
 bust
 bustle
-butcher
 butler
 butter
 butterfly
@@ -660,7 +651,6 @@ cash
 cashew
 cashier
 casino
-casket
 cassava
 casserole
 cassock
@@ -911,7 +901,6 @@ coat
 cob
 cobbler
 cobweb
-cock
 cockpit
 cockroach
 cocktail
@@ -925,7 +914,6 @@ codon
 codpiece
 cofactor
 coffee
-coffin
 cohort
 coil
 coin
@@ -1202,7 +1190,6 @@ critic
 crocodile
 crocus
 croissant
-crook
 crop
 cross
 cross-stitch
@@ -1283,7 +1270,6 @@ dance
 dancer
 dancing
 dandelion
-danger
 dare
 dark
 dart
@@ -1297,12 +1283,10 @@ dawn
 day
 daybed
 daylight
-deadline
 deal
 dealer
 dealing
 dearest
-deathwatch
 debate
 debris
 debt
@@ -1326,7 +1310,6 @@ deed
 deep
 deer
 default
-defeat
 defendant
 defender
 defense
@@ -1340,7 +1323,6 @@ delight
 delivery
 demand
 democracy
-democrat
 den
 denim
 denominator
@@ -1446,7 +1428,6 @@ director
 directory
 dirndl
 dirt
-disadvantage
 disagreement
 discharge
 discipline
@@ -1565,7 +1546,6 @@ driving
 drizzle
 dromedary
 drop
-drug
 drum
 drummer
 dryer
@@ -1612,7 +1592,6 @@ earplug
 earring
 earrings
 earth
-earthquake
 earthworm
 ease
 easel
@@ -1804,7 +1783,6 @@ excitement
 exclamation
 excursion
 excuse
-execution
 executive
 executor
 exercise
@@ -1826,7 +1804,6 @@ expertise
 explanation
 exploration
 explorer
-explosion
 export
 expose
 exposition
@@ -1860,8 +1837,6 @@ factor
 factory
 faculty
 fahrenheit
-fail
-failure
 fairness
 fairy
 faith
@@ -1885,7 +1860,6 @@ farmland
 farrow
 fascia
 fashion
-fat
 fate
 father
 father-in-law
@@ -1899,7 +1873,6 @@ favor
 favorite
 fawn
 fax
-fear
 feast
 feather
 feature
@@ -2001,7 +1974,6 @@ flint
 flintlock
 flip-flops
 flock
-flood
 floodplain
 floor
 flour
@@ -2029,7 +2001,6 @@ fondue
 font
 food
 foodstuffs
-fool
 foot
 footage
 football
@@ -2116,7 +2087,6 @@ functionality
 fund
 funding
 fundraising
-funeral
 fur
 furnace
 furniture
@@ -2190,7 +2160,6 @@ gerbil
 gesture
 geyser
 gherkin
-ghost
 giant
 gift
 gig
@@ -2330,8 +2299,6 @@ guinea
 guitar
 guitarist
 gum
-gun
-gunpowder
 gutter
 guy
 gym
@@ -2365,7 +2332,6 @@ hand
 hand-holding
 handball
 handful
-handgun
 handicap
 handle
 handlebar
@@ -2459,7 +2425,6 @@ heroine
 heron
 herring
 hesitation
-heterosexual
 hexagon
 heyday
 hiccups
@@ -2499,7 +2464,6 @@ hometown
 homework
 homogenate
 homonym
-homosexual
 honesty
 honey
 honeybee
@@ -2558,7 +2522,6 @@ hummus
 humor
 humour
 hundred
-hunger
 hunt
 hunter
 hunting
@@ -2777,8 +2740,6 @@ jacket
 jackfruit
 jade
 jaguar
-jail
-jailhouse
 jalapeño
 jam
 jar
@@ -2853,9 +2814,6 @@ kick-off
 kid
 kidney
 kielbasa
-kill
-killer
-killing
 kilogram
 kilometer
 kilt
@@ -2878,8 +2836,6 @@ kiwi
 knee
 kneejerk
 knickers
-knife
-knife-edge
 knight
 knitting
 knock
@@ -3091,7 +3047,6 @@ loop
 loophole
 loquat
 lord
-loss
 lot
 lotion
 lottery
@@ -3733,7 +3688,6 @@ pagan
 page
 pagoda
 pail
-pain
 paint
 painter
 painting
@@ -3749,7 +3703,6 @@ pancake
 pancreas
 panda
 panel
-panic
 pannier
 panpipe
 pansy
@@ -3878,7 +3831,6 @@ pendulum
 penguin
 penicillin
 peninsula
-penis
 pennant
 penny
 pension
@@ -3909,7 +3861,6 @@ personal
 personality
 personnel
 perspective
-pest
 pet
 petal
 petition
@@ -4055,7 +4006,6 @@ poet
 poetry
 poignance
 point
-poison
 poker
 polarisation
 polarization
@@ -4080,7 +4030,6 @@ poncho
 pond
 pony
 pool
-poor
 pop
 popcorn
 poppy
@@ -4176,8 +4125,6 @@ printer
 printing
 prior
 priority
-prison
-prisoner
 privacy
 private
 privilege
@@ -4276,7 +4223,6 @@ pumpkinseed
 pun
 punch
 punctuation
-punishment
 pup
 pupa
 pupil
@@ -4367,7 +4313,6 @@ ranger
 rank
 rap
 raspberry
-rat
 rate
 ratepayer
 rating
@@ -4490,7 +4435,6 @@ representation
 representative
 reprocessing
 republic
-republican
 reputation
 request
 requirement
@@ -4736,7 +4680,6 @@ scow
 scrap
 scraper
 scratch
-screamer
 screen
 screening
 screenwriting
@@ -4826,8 +4769,6 @@ settlement
 settler
 severity
 sewer
-sex
-sexuality
 shack
 shackle
 shade
@@ -4837,7 +4778,6 @@ shakedown
 shaker
 shallot
 shallows
-shame
 shampoo
 shanty
 shape
@@ -4869,7 +4809,6 @@ shipyard
 shirt
 shirtdress
 shoat
-shock
 shoe
 shoe-horn
 shoehorn
@@ -4878,8 +4817,6 @@ shoemaker
 shoes
 shoestring
 shofar
-shoot
-shootdown
 shop
 shopper
 shopping
@@ -4950,7 +4887,6 @@ size
 skate
 skating
 skean
-skeleton
 ski
 skiing
 skill
@@ -4959,7 +4895,6 @@ skirt
 skull
 skullcap
 skullduggery
-skunk
 sky
 skylight
 skyline
@@ -4969,7 +4904,6 @@ slang
 slapstick
 slash
 slate
-slave
 slaw
 sled
 sledge
@@ -4981,21 +4915,17 @@ sleuth
 slice
 slide
 slider
-slime
 slip
 slipper
 slippers
 slope
 slot
 sloth
-slump
-smell
 smelting
 smile
 smith
 smock
 smog
-smoke
 smoking
 smolt
 snack
@@ -5063,7 +4993,6 @@ soprano
 sorbet
 sorghum
 sorrel
-sorrow
 sort
 soul
 soulmate
@@ -5280,7 +5209,6 @@ stream
 street
 streetcar
 strength
-stress
 stretch
 strike
 string
@@ -5290,7 +5218,6 @@ strobe
 stroke
 structure
 strudel
-struggle
 stucco
 stud
 student
@@ -5375,7 +5302,6 @@ surface
 surfboard
 surge
 surgeon
-surgery
 surname
 surplus
 surprise
@@ -5412,8 +5338,6 @@ switch
 switchboard
 switching
 swivel
-sword
-swordfight
 swordfish
 sycamore
 symbol
@@ -5535,9 +5459,6 @@ terracotta
 terrapin
 terrarium
 territory
-terror
-terrorism
-terrorist
 test
 testament
 testimonial
@@ -5572,7 +5493,6 @@ thorn
 thought
 thousand
 thread
-threat
 threshold
 thrift
 thrill
@@ -5628,7 +5548,6 @@ toffee
 tofu
 tog
 toga
-toilet
 tolerance
 tolerant
 toll
@@ -5719,7 +5638,6 @@ trap
 trapdoor
 trapezium
 trapezoid
-trash
 travel
 traveler
 tray
@@ -5754,7 +5672,6 @@ trombone
 troop
 trooper
 trophy
-trouble
 trousers
 trout
 trove
@@ -5830,7 +5747,6 @@ underwear
 underweight
 underwire
 underwriting
-unemployment
 unibody
 uniform
 uniformity
@@ -5900,7 +5816,6 @@ velodrome
 velvet
 vendor
 veneer
-vengeance
 venison
 venom
 venti
@@ -5930,7 +5845,6 @@ vibration
 vibrissae
 vice
 vicinity
-victim
 victory
 video
 view
@@ -5946,12 +5860,10 @@ vintner
 vinyl
 viola
 violation
-violence
 violet
 violin
 virginal
 virtue
-virus
 visa
 viscose
 vise
@@ -5977,7 +5889,6 @@ volleyball
 volume
 volunteer
 volunteering
-vomit
 vote
 voter
 voting
@@ -6008,10 +5919,8 @@ walrus
 wampum
 wannabe
 want
-war
 warden
 wardrobe
-warfare
 warlock
 warlord
 warm-up
@@ -6028,8 +5937,6 @@ washcloth
 washer
 washtub
 wasp
-waste
-wastebasket
 wasting
 watch
 watcher
@@ -6049,7 +5956,6 @@ wax
 way
 weakness
 wealth
-weapon
 wear
 weasel
 weather
@@ -6062,7 +5968,6 @@ wedding
 wedge
 weed
 weeder
-weedkiller
 week
 weekend
 weekender
@@ -6133,7 +6038,6 @@ wish
 wisteria
 wit
 witch
-witch-hunt
 withdrawal
 witness
 wok
@@ -6162,17 +6066,13 @@ workplace
 workshop
 world
 worm
-worry
 worship
 worshiper
 worth
-wound
 wrap
 wraparound
 wrapper
 wrapping
-wreck
-wrecker
 wren
 wrench
 wrestler
