@@ -156,6 +156,11 @@ void run() {
                 check(v.color.r==1&&v.color.g==0&&v.color.b==0,
                       "Magics red-low packing / override-bit polarity");
         });
+    // Default STL imports must use the visually selected diffusion path;
+    // alternate methods remain explicit diagnostic comparisons.
+    check(StlImportOptions{}.method==StlColourMethod::Diffusion&&
+          StlColourMethodMetrics{}.method==StlColourMethod::Diffusion,
+          "Diffusion is the production STL colour-conversion default");
     // Discontinuous face colours are now an approximation task, never a
     // reason to refuse geometrically valid closed source topology.
     const auto seams=put("colour-seam.stl",
@@ -184,9 +189,18 @@ void run() {
                   color.b>=0&&color.b<=1&&color.a>=0&&color.a<=1,
                   "Converted RGBA must remain finite and within [0,1]");
     }
+    // The default import must exactly match explicit diffusion, with the
+    // same seed, on a source with conflicting incident facet colours.
+    const auto defaultSeam=parseStlMesh(seams);
+    const auto explicitDiffusion=parseStlMesh(
+        seams,StlImportOptions{StlColourMethod::Diffusion,1});
+    check(defaultSeam.colors==explicitDiffusion.colors &&
+          defaultSeam.vertices==explicitDiffusion.vertices &&
+          defaultSeam.triangles==explicitDiffusion.triangles,
+          "Default STL Open uses deterministic diffusion with unchanged topology");
     // Evaluate and profile the same original facet stream without
     // committing a worker or changing any source coordinates.
-    const auto geometry=parseStlMesh(seams);
+    const auto geometry=defaultSeam;
     const std::vector<std::optional<VertexRGBA>> sourceColours{
         VertexRGBA{1,0,0,1},VertexRGBA{0,1,0,1},
         VertexRGBA{1,0,0,1},VertexRGBA{1,0,0,1}};
@@ -197,6 +211,14 @@ void run() {
           output.size()==geometry.vertices.size()&&
           metrics.selected==StlColourMethod::Diffusion,
           "Comparison reports exact input size and selected candidate");
+    StlColourMethodMetrics selectedMetric;
+    const auto production=convertStlFacetColours(
+        geometry,sourceColours,StlColourMethod::Diffusion,777,&selectedMetric);
+    check(production==output&&
+          selectedMetric.method==StlColourMethod::Diffusion&&
+          std::isfinite(selectedMetric.conversionMs)&&
+          std::isfinite(selectedMetric.rgbRms),
+          "Production diffusion must match the full A/B/C benchmark exactly");
     for(int i=0;i<3;++i) {
         const auto& stat=metrics.methods[static_cast<std::size_t>(i)];
         check(static_cast<int>(stat.method)==i&&
