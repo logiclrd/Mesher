@@ -118,6 +118,7 @@ struct ViewportInteraction {
     // not a future worker edit or a private repair preview. The host retains
     // that root and enqueues immutable output on AsyncMeshExportWriter.
     std::function<std::filesystem::path()> exportSuggestedPath;
+    std::function<MeshExportPreset()> exportPreferredPreset;
     std::function<void(std::shared_ptr<const RegionTopologyIndex>,
                        NativeMeshExportSelection)> exportMesh;
     // Polls completed background errors once; UI displays a modal error
