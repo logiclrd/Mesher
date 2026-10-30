@@ -2185,6 +2185,15 @@ never changes editor geometry, checkpoint identity or undo history.
   format/extension handling, visible RGB/alpha loss or conversion choices,
   CWD starting/acceptance policy consistent with UX06G, modal placement,
   cancellation and overwrite safety. Physical UI tests on all platforms.
+  Remember the Ctrl+E selected format/encoding from the last successful
+  non-native OBJ/PLY/STL import or export (retain exact export preset,
+  map detected imports to an equivalent/same-family fallback). Native
+  `.mshr` Open and Ctrl+N New leave this session preference untouched.
+  For a document without a remembered filename, a successful Ctrl+E
+  export seeds its filename hint, without marking it saved or making
+  its foreign path a direct-Save destination. Ctrl+S Save As then
+  suggests the same basename/directory with `.mshr` extension. A
+  failed/cancelled export does not change this state.
 - [ ] **UX07F — Complete end-to-end export acceptance.** Round-trip each
   supported encoding and explicit lossy conversion through UX06 import;
   compare topology, winding, positions, RGB(A) tolerance and untouched
@@ -2248,70 +2257,80 @@ never changes editor geometry, checkpoint identity or undo history.
   chosen primitive. The three previews must remain previews, never
   editable or mistaken for the current authoritative mesh.
 
-  Track document modifications separately from **Ctrl+E Export**:
-  exporting OBJ, PLY or STL does **not** mark the document clean or update
-  its Save filename. Retain the last successfully Opened or Saved
-  filename/path **and its source/import format provenance**. Clear the
-  remembered filename and provenance on successful New. A remembered
-  path may be an imported `.obj`, `.ply` or `.stl` path, even though it
-  cannot be the destination of a one-click native checkpoint Save.
+  Maintain three separate pieces of state: (1) a **remembered filename
+  hint with provenance** (opened native, opened foreign-format, saved
+  native, or seeded by export), (2) a **valid native `.mshr` direct-Save
+  destination** where one has actually been opened or saved, and
+  (3) a **session-wide Ctrl+E format/encoding preference**. A filename
+  hint alone never permits direct Save. Opening OBJ/PLY/STL records its
+  path and detected import format; opening `.mshr` records the document
+  path but does not change the export-format preference.
 
-  When New would discard unsaved edits, show an in-viewport modal
-  confirmation *before* replacing the original. Mention the remembered
-  filename when one exists. Buttons in left-to-right order:
-  **Save** (ONLY when the current document has a remembered, confirmed
-  native `.mshr` Save destination, e.g. opened as `.mshr` or subsequently
-  saved as `.mshr`), **Save As**, **No**, **Cancel**. Never offer direct
-  Save for a remembered foreign-format import. Direct **Save** writes a
-  native `.mshr` checkpoint to that path without a picker; **Save As**
-  opens the save-format picker with the remembered **filename and path
-  prepopulated** and the filter matching the source format of the last
-  Open operation selected by default (use the **detected import format**,
-  not a misleading filename extension). Users may change the filter.
-  **No** discards edits and proceeds with New; **Cancel** or Escape
-  leaves the original unchanged.
+  A successful Ctrl+E export updates the export-format preference but
+  never clears unsaved edits or creates a native direct-Save destination.
+  If the document has **no remembered filename hint**, a successful
+  Ctrl+E export also seeds it with the accepted export path (including
+  directory and basename). If a filename hint already exists, export
+  leaves it unchanged. Cancellation or failure changes neither value.
+  New clears document filename and native Save identity, but retains the
+  session-wide export-format preference.
 
-  With no imported/saved filename provenance (e.g. a fresh generated
-  blank-slate model), Save As defaults to the **native `.mshr` filter**.
-  If no filename is available to preload, construct a memorable suggested
-  basename from one randomly selected adjective and one randomly
-  selected noun, separated by one space, e.g. `exquisite goldfish`.
-  Append the selected format's extension (`exquisite goldfish.mshr`
-  for the default, or `exquisite goldfish.ply` if PLY is selected).
-  The source word lists are `words/adjectives.txt` and
-  `words/nouns.txt`; embed their data in the executable at build time
-  (generated C++/linked resource or equivalent), NEVER require or ship
-  adjacent runtime text files. Generate only a *suggestion*: don't write
-  anything or alter CWD until the user accepts the dialog, and keep
-  filename characters portable across Windows, Linux and macOS.
+  Ctrl+E initially offers the existing binary little-endian PLY editable
+  RGBA default. Thereafter its selected filter remembers the **last
+  successfully imported non-`.mshr` or exported format**, whichever
+  occurred most recently. Preserve the exact encoding/colour variant
+  selected for a successful export. On import, prefer the format family
+  and recognizable variant detected from the data (not an untrusted
+  extension); choose a documented same-family encoding fallback when
+  the imported variant cannot be represented exactly. Opening a
+  `.mshr` checkpoint must NOT reset the Ctrl+E preference.
 
-  Accelerator keys: **S** for Save if present, otherwise **S** for Save As;
-  **A** for Save As when Save is present; **N** for No. Escape cancels
-  identically to clicking **Cancel**. Cancellation must never queue a
-  write or replace the original.
+  When New would discard unsaved edits, display the in-viewport
+  confirmation with the remembered filename (if any). Buttons ordered
+  left-to-right: **Save** only when a valid native `.mshr` direct-Save
+  destination exists; **Save As**; **No**; **Cancel**. Direct Save
+  writes to the existing native checkpoint filename without a picker.
+  A foreign-file import or export-seeded filename hint does NOT enable
+  direct Save. A successful native `.mshr` Save As may establish a new
+  valid direct-Save destination. Never overwrite an OBJ/PLY/STL file
+  with native checkpoint bytes.
 
-  IMPORTANT: the document writer is asynchronous today. New must wait
-  for a **confirmed successful durable checkpoint completion** before
-  it can replace/tear down the current worker after either saving choice,
-  and on save error/cancel retain the original document. Merely queueing
-  Save/Save As is not confirmation. The unsaved-change baseline must
-  reflect the most recent *completed* Save, not an outstanding write.
-  Avoid race conditions when brush/paint/undo changes arrive while a
-  save or replacement is pending.
+  Save As prepopulates the filename **and path**, if remembered.
+  Following a non-native import, default to the filter matching its
+  detected import format. Following a native Open or native Save,
+  default to `.mshr`. Following a Ctrl+E export that *seeded* the
+  previously absent filename hint, retain directory and basename but
+  change the extension to `.mshr` and preselect the native format.
+  Example: exporting a fresh document as `bob.ply` causes a later
+  Ctrl+S Save As to suggest `bob.mshr` in the same folder; it does not
+  offer direct Save to `bob.ply`.
 
-  **Resolved direct-Save policy:** direct Save is native `.mshr` only.
-  Filename remembrance after importing a foreign format is distinct from
-  native checkpoint Save eligibility. A successful native `.mshr` Save As
-  may establish a new remembered native destination for subsequent Saves;
-  no foreign-format file is ever overwritten with checkpoint bytes.
-  **Implementation design point:** Save As now offers a format matching
-  a non-native import, whereas Ctrl+E Export explicitly does not clear
-  the dirty flag. The implementation must explicitly distinguish
-  document-save completion from lossy/foreign-format serialization,
-  and must not allow an export that fails to preserve the document's
-  required edit state to silently satisfy the dirty-document New gate.
-  Decide and test the exact dirty-baseline policy for non-`.mshr`
-  Save As before wiring confirmation-to-New continuation.
+  When there is no remembered filename, Save As starts with the
+  `.mshr` format. Generate a suggested basename by randomly choosing
+  one adjective from `words/adjectives.txt` and one noun from
+  `words/nouns.txt`, separated by a space (e.g. `exquisite goldfish`),
+  then append the selected output extension. The lists must be
+  **embedded in the binary at build time**, never shipped as adjacent
+  text files. Ctrl+E can use the same generator with the remembered
+  export-format extension. No suggestion modifies disk, CWD or
+  document state before acceptance; generated names must be portable.
+
+  **No** discards edits and proceeds with New; **Cancel** and Escape
+  preserve the old document. Accelerator keys: **S** for Save if shown,
+  otherwise **S** for Save As; **A** for Save As when Save is shown;
+  **N** for No. Cancel never queues any write or replaces the editor.
+
+  IMPORTANT: New must await **confirmed successful completion** of the
+  selected Save/Save As operation before destroying or replacing the
+  old worker, never merely enqueue a save. Native `.mshr` Save requires
+  durable checkpoint completion. A successful user-selected
+  foreign-format Save As **from the New/discard prompt** may proceed
+  directly to New after the output is fully written; the document is
+  about to be replaced, so its future dirty baseline is immaterial.
+  If a save is cancelled or fails, retain the old dirty document.
+  For documents that remain open, only native checkpoint saves
+  establish a durable clean-document baseline; Ctrl+E never does.
+  Guard against brush/paint/undo races during save-and-replace.
 
   Acceptance: keyboard accelerators and Escape precedence, clean vs
   dirty documents, filename remembered/cleared across Open/Save/New,
