@@ -16,15 +16,27 @@
 #include <GLFW/glfw3.h>
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
 namespace {
-void autoCancelNextDialog(GLFWwindow* owner,bool* wasPositioned=nullptr) {
-    QTimer::singleShot(120,[owner,wasPositioned] {
+void autoCancelNextDialog(GLFWwindow* owner,bool* wasPositioned=nullptr,
+                          bool* openedInCwd=nullptr,
+                          bool* defaultFilter=nullptr) {
+    QTimer::singleShot(120,[owner,wasPositioned,openedInCwd,defaultFilter] {
         if(auto* dialog=qobject_cast<QDialog*>(
                QApplication::activeModalWidget())) {
+            if(auto* picker=qobject_cast<QFileDialog*>(dialog)) {
+                if(openedInCwd)
+                    *openedInCwd=std::filesystem::path(
+                        picker->directory().absolutePath().toStdString())==
+                        std::filesystem::current_path();
+                if(defaultFilter)
+                    *defaultFilter=picker->selectedNameFilter().startsWith(
+                        QStringLiteral("All supported files ("));
+            }
             if(wasPositioned) {
                 // A real widget QFileDialog must be positioned near the
                 // GLFW window, not implicitly centered on screen zero.
@@ -79,18 +91,25 @@ int main() {
         if(!QApplication::instance())
             throw std::runtime_error("Qt application did not initialize");
         for(int i=0;i<2;++i) {
-            bool openPositioned=false;
-            autoCancelNextDialog(window,&openPositioned);
-            if(mesher::nativeOpenMeshDialog(window,"fixture.mshr"))
+            bool openPositioned=false,openCwd=false,defaultFilter=false;
+            autoCancelNextDialog(window,&openPositioned,&openCwd,&defaultFilter);
+            if(mesher::nativeOpenMeshDialog(
+                   window,std::filesystem::path("../old/fixture.mshr")))
                 throw std::runtime_error("An auto-cancelled Open returned a path");
             if(!openPositioned)
                 throw std::runtime_error("Open did not appear near GLFW owner");
-            bool savePositioned=false;
-            autoCancelNextDialog(window,&savePositioned);
-            if(mesher::nativeSaveCheckpointDialog(window,"fixture.mshr"))
+            if(!openCwd||!defaultFilter)
+                throw std::runtime_error(
+                    "Open must begin in CWD with All supported files selected");
+            bool savePositioned=false,saveCwd=false;
+            autoCancelNextDialog(window,&savePositioned,&saveCwd);
+            if(mesher::nativeSaveCheckpointDialog(
+                   window,std::filesystem::path("../old/fixture.mshr")))
                 throw std::runtime_error("An auto-cancelled Save returned a path");
             if(!savePositioned)
                 throw std::runtime_error("Save As did not appear near GLFW owner");
+            if(!saveCwd)
+                throw std::runtime_error("Save As must begin in process CWD");
             autoCancelNextDialog(window);
             mesher::nativeOpenErrorMessage(window,"Expected test error");
         }
