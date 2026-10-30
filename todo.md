@@ -2121,6 +2121,28 @@ variants already work.
   with diffusion conversion, and PLY RGB(A) use the atomic Open path.
   Other unsupported conventions remain explicitly refused. UX06 stays
   open for comprehensive format and cross-platform physical acceptance.
+- [ ] **UX06F — Default 'All supported files' Open filter.** Add the
+  `All supported files (*.mshr, *.obj, *.ply, *.stl)` filter to the native
+  Ctrl+O picker on Linux, Windows and macOS, and make it the initial
+  selection. Show only the four supported extensions in this filter, but
+  resolve the actual file format by inspecting its contents, with exactly
+  the existing `All Files` auto-detection semantics; the extension is
+  not authoritative. Keep the individual format-specific filters and
+  the unrestricted `All Files` option available. Check opening files
+  whose extension disagrees with their content and verify the default
+  filter selection and accepted file types in each platform picker.
+- [ ] **UX06G — Dialog working-directory convention.** Both native Ctrl+O
+  Open and Ctrl+S Save As dialogs begin in the application's current
+  working directory (CWD), rather than a remembered path or platform
+  default folder. When either dialog returns an accepted file path,
+  update the process CWD to the directory containing that selected
+  file, including overwrite/Save As selections; do not change CWD on
+  cancellation or a failed dialog. Normalize accepted paths as needed
+  before changing directory so the chosen file remains resolvable.
+  Exercise consecutive Open/Save dialogs, relative path handling,
+  multi-monitor/modal native pickers, and failure/cancel paths on all
+  supported desktop platforms. Preserve the existing private import
+  and atomic checkpoint/save semantics.
 - [ ] **UX07 — Ctrl+E native Save As mesh export.** Offer `.obj`
   (Alias/Wavefront), `.ply` and `.stl` output with distinct selectable
   **file-type/encoding entries in the dialog's drop-down** for supported
