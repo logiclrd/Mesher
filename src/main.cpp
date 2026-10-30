@@ -12,6 +12,7 @@
 #include "mesher/document_filename_state.hpp"
 #include "mesher/random_filename.hpp"
 #include "mesher/new_model.hpp"
+#include "mesher/save_as_policy.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -1011,6 +1012,57 @@ int main(int argc, char** argv) {
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.openSuggestedPath=[&] {return checkpointPath;};
+            interaction.prepareNewModel=[&](
+                mesher::NewModelRequest request)->mesher::PreparedMeshOpen {
+                pollCheckpoint();
+                const auto status=liveWorker->status();
+                if(!liveWorker->canBegin()||status.active||
+                   status.pendingSteps||status.pendingSegments||
+                   status.inputCommands||status.checkpoints.busy||
+                   pendingCheckpoint||
+                   repairSession||mergeTestTetra||mergeTestReflectedTetra)
+                    throw std::runtime_error(
+                        "New requires idle editor and completed prior Save");
+                // Build the COMPLETE new generation outside the authoritative
+                // current worker. Any exception retains the old document.
+                const auto source=mesher::generateNewModelSource(
+                    request,mesher::SphereOptions{
+                        startupVertexCount,true,options.seed,
+                        options.relaxationIterations,options.seamNormal});
+                const auto bounds=source.bounds;
+                const bool symmetric=source.symmetric;
+                auto range=mesher::BrushRadiusRange::forVertexCount(
+                    request.vertices);
+                const double radius=mesher::relativeImportedBrushRadius(
+                    *brushRange,brushRadius,range);
+                auto replacement=std::make_shared<mesher::AsyncSculptWorker>(
+                    source.mesh,step,strength,timeSpeed,
+                    curvatureSettings,collapseSettings,refineSettings,
+                    symmetric,repairValidator,desktopPolicy);
+                const auto root=replacement->initialRevision();
+                return {root,range,radius,symmetric,
+                    [&,replacement=std::move(replacement),root,request,
+                     range,radius,symmetric]() mutable {
+                        liveWorker=std::move(replacement);
+                        *brushRange=range;
+                        liveMeshScale=1.0;
+                        lastDisplayed=root;
+                        options.vertexCount=request.vertices;
+                        options.symmetric=symmetric;
+                        brushRadius=radius;
+                        // New begins a fresh document, so the saved baseline
+                        // is its generated initial immutable revision.
+                        documentNames.newDocument();
+                        cleanRevision=root;
+                        checkpointPath.clear();
+                        pendingCheckpoint.reset();
+                        newSaveOutcome.reset();
+                        std::cout<<"[new] clean independent document "
+                                 <<mesher::newModelName(request.kind)
+                                 <<" vertices="<<request.vertices
+                                 <<" symmetric="<<symmetric<<"\n";
+                    },bounds};
+            };
             interaction.prepareOpen=[&](GLFWwindow* owner,
                                           mesher::NativeOpenSelection selectedFile)
                 -> mesher::PreparedMeshOpen {
