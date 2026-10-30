@@ -182,12 +182,9 @@ dashing
 dauntless
 dazzled
 dazzling
-dead-cheap
-dead-on
 decent
 decisive
 dedicated
-defeated
 deft
 delectable
 delicate
@@ -575,8 +572,6 @@ orderly
 organized
 outstanding
 overjoyed
-pain-free
-painless
 palatial
 pampered
 panoramic
@@ -730,7 +725,6 @@ sensational
 sensible
 sensitive
 serene
-sexy
 sharp
 sharper
 sharpest
