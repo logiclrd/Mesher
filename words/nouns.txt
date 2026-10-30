@@ -285,8 +285,6 @@ battalion
 batter
 battery
 batting
-battle
-battleship
 bay
 bayou
 beach
@@ -370,7 +368,6 @@ blackbird
 blackboard
 blackfish
 bladder
-blade
 blank
 blanket
 blast
@@ -531,8 +528,6 @@ bunghole
 bunkhouse
 burden
 bureau
-burn
-burning
 burrito
 burro
 burrow
@@ -686,7 +681,6 @@ cell
 cellar
 cello
 cement
-cemetery
 cenotaph
 census
 cent
@@ -809,7 +803,6 @@ church
 churn
 chutney
 cicada
-cigarette
 cilantro
 cinder
 cinema
@@ -1065,7 +1058,6 @@ conversation
 conversion
 convert
 convertible
-conviction
 cook
 cookbook
 cookie
@@ -1863,8 +1855,6 @@ fashion
 fate
 father
 father-in-law
-fatigue
-fatigues
 faucet
 fault
 fav
@@ -2065,7 +2055,6 @@ friend
 friendship
 fries
 frigate
-fright
 fringe
 fritter
 frock
@@ -2332,7 +2321,6 @@ hand
 hand-holding
 handball
 handful
-handicap
 handle
 handlebar
 handmaiden
@@ -3282,7 +3270,6 @@ mile
 mileage
 milepost
 milestone
-military
 milk
 milkshake
 mill
@@ -3446,7 +3433,6 @@ necktie
 nectar
 nectarine
 need
-needle
 neglect
 negligee
 negotiation
@@ -3644,7 +3630,6 @@ outcome
 outfielder
 outfit
 outhouse
-outlaw
 outlay
 outlet
 outline
@@ -3729,7 +3714,6 @@ parallelogram
 paramecium
 paramedic
 parameter
-paranoia
 parcel
 parchment
 pard
@@ -3777,7 +3761,6 @@ pate
 patent
 patentee
 path
-pathogenesis
 pathology
 pathway
 patience
@@ -3921,8 +3904,6 @@ pillar
 pillbox
 pillow
 pilot
-pimp
-pimple
 pin
 pinafore
 pince-nez
@@ -4112,8 +4093,6 @@ prey
 price
 pricing
 pride
-priest
-priesthood
 primary
 primate
 prince
@@ -4406,7 +4385,6 @@ relay
 release
 reliability
 relief
-religion
 relish
 reluctance
 remains
@@ -4508,7 +4486,6 @@ ride
 rider
 ridge
 riding
-rifle
 right
 rim
 ring
@@ -4646,7 +4623,6 @@ scale
 scallion
 scallops
 scalp
-scam
 scanner
 scarecrow
 scarf
@@ -4721,7 +4697,6 @@ seeder
 seeker
 seep
 segment
-seizure
 selection
 self
 self-confidence
@@ -4892,9 +4867,7 @@ skiing
 skill
 skin
 skirt
-skull
 skullcap
-skullduggery
 sky
 skylight
 skyline
@@ -4925,7 +4898,6 @@ smelting
 smile
 smith
 smock
-smog
 smoking
 smolt
 snack
@@ -5059,7 +5031,6 @@ spirit
 spiritual
 spirituality
 spit
-spite
 spleen
 splendor
 split
@@ -5325,7 +5296,6 @@ swath
 sweat
 sweater
 sweatshirt
-sweatshop
 sweatsuit
 sweets
 swell
@@ -5343,9 +5313,7 @@ sycamore
 symbol
 symmetry
 sympathy
-symptom
 syndicate
-syndrome
 synergy
 synod
 synonym
@@ -5540,7 +5508,6 @@ title
 toad
 toast
 toaster
-tobacco
 today
 toe
 toenail
@@ -5817,7 +5784,6 @@ velvet
 vendor
 veneer
 venison
-venom
 venti
 venture
 venue
@@ -5859,7 +5825,6 @@ vintage
 vintner
 vinyl
 viola
-violation
 violet
 violin
 virginal
@@ -6119,7 +6084,6 @@ ziggurat
 zinc
 zipper
 zither
-zombie
 zone
 zoo
 zoologist
