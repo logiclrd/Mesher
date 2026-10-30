@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+import argparse
+import struct
+import math
+import sys
+from PIL import Image
+
+def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
+    """
+    Generates a full manifold ellipsoid stretched 2x along the pole-to-pole (Z) axis.
+    Emits quads split into triangles ABC and BDC to maintain matching normals.
+    """
+    A = radius
+    B = radius
+    C = 1.6 * radius  # stretch along the pole-to-pole axis
+
+    try:
+        img = Image.open(image_path).convert('RGB')
+    except Exception as e:
+        print(f"Error opening image file: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    W, H = img.size
+    Nx = W // 2  # Quads along image X (pole-to-pole axis)
+    Ny = H // 2  # Quads along image Y (circumference loop axis)
+    
+    if Nx == 0 or Ny == 0:
+        raise ValueError("Image resolution is too low to map 2x2 macro-pixel blocks.")
+        
+    pixels = img.load()
+
+    # The end of the circumference folds exactly into the beginning for a manifold seal
+    total_circumference_steps = Ny * 4  
+    
+    # Image X maps along the phi trajectory occupying the middle 75%
+    phi_start = 0.25 * math.pi
+    phi_end = 0.75 * math.pi
+    
+    num_cap_steps = 10  
+    phi_array = []
+    
+    # North Cap
+    for step in range(num_cap_steps):
+        phi_array.append((step / num_cap_steps) * phi_start)
+    # Texture Zone
+    for step in range(Nx + 1):
+        phi_array.append(phi_start + (step / Nx) * (phi_end - phi_start))
+    # South Cap
+    for step in range(1, num_cap_steps + 1):
+        phi_array.append(phi_end + (step / num_cap_steps) * (math.pi - phi_end))
+        
+    total_phi_points = len(phi_array)
+
+    # Generate the 3D vertex coordinate grid
+    grid = []
+    for j in range(total_phi_points):
+        phi = phi_array[j]
+        row_vertices = []
+        for i in range(total_circumference_steps):
+            theta = (i / total_circumference_steps) * 2.0 * math.pi
+            
+            x = A * math.sin(phi) * math.cos(theta)
+            y = B * math.sin(phi) * math.sin(theta)
+            z = C * math.cos(phi)
+            row_vertices.append((x, y, z))
+        grid.append(row_vertices)
+
+    # Watertight point coordinates for the physical caps
+    north_pole_xyz = (0.0, 0.0, C)
+    south_pole_xyz = (0.0, 0.0, -C)
+
+    def rgb_to_magics_attr(r, g, b):
+        r_5 = int(round(r * 31.0 / 255.0)) & 0x1F
+        g_5 = int(round(g * 31.0 / 255.0)) & 0x1F
+        b_5 = int(round(b * 31.0 / 255.0)) & 0x1F
+        return r_5 | (g_5 << 5) | (b_5 << 10)
+
+    fallback_attr = rgb_to_magics_attr(180, 180, 180)
+
+    def calculate_normal(p1, p2, p3):
+        ux, uy, uz = p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]
+        vx, vy, vz = p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2]
+        nx = uy*vz - uz*vy
+        ny = uz*vx - ux*vz
+        nz = ux*vy - uy*vx
+        mag = math.sqrt(nx**2 + ny**2 + nz**2)
+        if mag == 0: return (0.0, 0.0, 1.0)
+        return (nx/mag, ny/mag, nz/mag)
+
+    facets = []
+
+    # North Pole triangle fan segment
+    for i in range(total_circumference_steps):
+        i_next = (i + 1) % total_circumference_steps
+        v1 = north_pole_xyz
+        v2 = grid[0][i]
+        v3 = grid[0][i_next]
+        n = calculate_normal(v1, v2, v3)
+        facets.append((n, v1, v2, v3, fallback_attr))
+
+    # Main structural grid loop
+    for j in range(total_phi_points - 1):
+        in_texture_phi = (j >= num_cap_steps) and (j < num_cap_steps + Nx)
+        img_x_idx = j - num_cap_steps if in_texture_phi else None
+        
+        for i in range(total_circumference_steps):
+            i_next = (i + 1) % total_circumference_steps
+            in_texture_theta = (i < Ny)
+            img_y_idx = i if in_texture_theta else None
+            
+            v_tl = grid[j][i]        # A
+            v_tr = grid[j][i_next]   # B
+            v_bl = grid[j+1][i]      # C
+            v_br = grid[j+1][i_next] # D
+            
+            if img_x_idx is not None and img_y_idx is not None:
+                pix_x = 2 * img_x_idx
+                pix_y = 2 * img_y_idx
+                
+                a = pixels[pix_x, pix_y]
+                b = pixels[pix_x + 1, pix_y]
+                c = pixels[pix_x, pix_y + 1]
+                d = pixels[pix_x + 1, pix_y + 1]
+                
+                # Triangle 1 color: (a + b + c) / 3
+                r_abc = (a[0] + b[0] + c[0]) / 3.0
+                g_abc = (a[1] + b[1] + c[1]) / 3.0
+                b_abc = (a[2] + b[2] + c[2]) / 3.0
+                attr_abc = rgb_to_magics_attr(r_abc, g_abc, b_abc)
+                
+                # Triangle 2 color: (b + d + c) / 3 -> mathematically identical to (b + c + d) / 3
+                r_bdc = (b[0] + d[0] + c[0]) / 3.0
+                g_bdc = (b[1] + d[1] + c[1]) / 3.0
+                b_bdc = (b[2] + d[2] + c[2]) / 3.0
+                attr_bdc = rgb_to_magics_attr(r_bdc, g_bdc, b_bdc)
+            else:
+                attr_abc = fallback_attr
+                attr_bdc = fallback_attr
+
+            # Triangle 1: ABC (Top-Left, Top-Right, Bottom-Left)
+            n_abc = calculate_normal(v_tl, v_tr, v_bl)
+            facets.append((n_abc, v_tl, v_tr, v_bl, attr_abc))
+            
+            # Triangle 2: BDC (Top-Right, Bottom-Right, Bottom-Left) -> Flipped winding order
+            n_bdc = calculate_normal(v_tr, v_br, v_bl)
+            facets.append((n_bdc, v_tr, v_br, v_bl, attr_bdc))
+
+    # South Pole triangle fan segment
+    last_ring_idx = total_phi_points - 1
+    for i in range(total_circumference_steps):
+        i_next = (i + 1) % total_circumference_steps
+        v1 = grid[last_ring_idx][i]
+        v2 = south_pole_xyz
+        v3 = grid[last_ring_idx][i_next]
+        n = calculate_normal(v1, v2, v3)
+        facets.append((n, v1, v2, v3, fallback_attr))
+
+    # Stream out the binary STL data 
+    with open(out_path, 'wb') as f:
+        header = b"COLOR=\xaa\xaa\xaa\xff 2x Stretched Fixed Normal Ellipsoid"
+        header = header.ljust(80, b'\x00')[:80]
+        f.write(header)
+        
+        f.write(struct.pack('<I', len(facets)))
+        for normal, v1, v2, v3, attr in facets:
+            data = struct.pack(
+                '<ffffffffffffH',
+                normal[0], normal[1], normal[2],
+                v1[0], v1[1], v1[2],
+                v2[0], v2[1], v2[2],
+                v3[0], v3[1], v3[2],
+                attr
+            )
+            f.write(data)
+
+    print(f"Successfully exported watertight 2x stretched polar mesh with {len(facets)} facets (BDC configuration).")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Map an image onto a manifold ellipsoid with aligned normals.")
+    parser.add_argument("-i", "--image", required=True, help="Path to input image file.")
+    parser.add_argument("-o", "--output", default="output.stl", help="Output filename.")
+    parser.add_argument("-r", "--radius", type=float, default=50.0, help="Equatorial radius.")
+    
+    args = parser.parse_args()
+    generate_stretched_manifold_ellipsoid(args.image, args.output, args.radius)
