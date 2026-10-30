@@ -820,6 +820,13 @@ class VulkanViewport {
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false,exportWasDown_=false;
     bool openWasDown_=false;
+    NewModelDialog newModelDialog_;
+    std::filesystem::path newModelHint_;
+    std::string newModelError_;
+    std::vector<char> newModelText_;
+    bool newWasDown_=false,modalBackspaceWasDown_=false;
+    bool modalEscapeWasDown_=false,modalMouseWasDown_=false;
+
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
     DesktopMergeKeyEdges mergeKeys_;
@@ -1137,12 +1144,15 @@ class VulkanViewport {
             (!interaction_.mergeSelected?"MERGE: DISABLED":
             mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
                      "MERGE: OFF"):"";
-        const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
+        auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius,
                                      scaleExponent_,scaleHovered_,classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
                                      repairStepLines_,repairStepScroll_,
                                      paintMode_,paintControls_);
+        if(newModelDialog_.visible())
+            appendNewModelHud(geometry,int(extent.width),int(extent.height),
+                              newModelDialog_,newModelHint_,newModelError_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -2610,6 +2620,13 @@ public:
             self->keyboard_.onKey(key,action,mappedName?mappedName:"");
             if(action==GLFW_PRESS && self->startupSplash_)
                 self->startupSplash_->dismiss();
+        });
+        // Use GLFW's Unicode text callback instead of physical digit scan
+        // codes so keyboard layout maps modal numeric input correctly.
+        glfwSetCharCallback(window,[](GLFWwindow* w,unsigned int codepoint){
+            auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
+            if(self&&self->newModelDialog_.visible()&&codepoint<128)
+                self->newModelText_.push_back(static_cast<char>(codepoint));
         });
         glfwSetWindowFocusCallback(window,[](GLFWwindow* w,int focused){
             if(!focused) {
