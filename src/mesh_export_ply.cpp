@@ -84,8 +84,8 @@ void writePlyMesh(std::ostream& output,const Mesh& mesh,
     // exception flags. For failed output the caller discards staged bytes.
     struct Restore {
         std::ostream& output;
-        std::ios settings{nullptr};
-        explicit Restore(std::ostream& out):output(out) {
+        std::ios settings;
+        explicit Restore(std::ostream& out):output(out),settings(out.rdbuf()) {
             settings.copyfmt(out);
         }
         ~Restore() {try {output.copyfmt(settings);} catch(...) {}}
