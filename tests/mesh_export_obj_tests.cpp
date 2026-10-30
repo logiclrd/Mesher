@@ -87,9 +87,12 @@ int main() {
         require(plain.find("f 1 3 2\n")!=std::string::npos,
                 "OBJ face winding/index mapping changed");
         auto mrgb=serialize(mesh,ObjExportEncoding::ZbrushMrgb);
-        require(mrgb.find("#MRGB FFFF0000FF00FF00FF0000FFFFFF00")!=
+        // Exactly four 8-hex-digit MMRRGGBB words: red, green, blue,
+        // yellow, each prefixed by the FF (fully unmasked) ZBrush mask.
+        // Earlier test inadvertently omitted an FF byte pair from yellow.
+        require(mrgb.find("#MRGB FFFF0000FF00FF00FF0000FFFFFFFF00\n")!=
                     std::string::npos,
-                "ZBrush mask/RGB word packing changed");
+                "ZBrush MMRRGGBB words differ from expected mask/RGB bytes");
         auto rgba=serialize(mesh,ObjExportEncoding::InlineRgba);
         require(rgba.find("0.25")!=std::string::npos,
                 "Inline OBJ RGBA did not preserve alpha");
