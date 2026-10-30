@@ -6,7 +6,7 @@
 // Never ship these .txt files adjacent to Mesher's executable.
 namespace mesher::embedded_filename_words {
 inline constexpr std::string_view adjectives =
-    R"MSHRADJ(@MESHER_FILENAME_ADJECTIVES@)MSHRADJ";
+    "@MESHER_FILENAME_ADJECTIVES_LITERAL@";
 inline constexpr std::string_view nouns =
-    R"MSHRNOUN(@MESHER_FILENAME_NOUNS@)MSHRNOUN";
+    "@MESHER_FILENAME_NOUNS_LITERAL@";
 } // namespace mesher::embedded_filename_words
