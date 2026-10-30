@@ -2218,6 +2218,79 @@ never changes editor geometry, checkpoint identity or undo history.
   and oversized/tiny model clipping on physical desktop Vulkan.
 
 
+- [ ] **UX09 — Ctrl+N in-viewport modal New Model chooser and dirty-document protection.**
+  Ctrl+N opens a modal **overlay inside the main viewport**, not a native
+  OS file picker. Present three side-by-side interactive selection targets,
+  each with a recognizable model preview and caption, in this order:
+  **Asymmetric Sphere**, **Symmetric Sphere**, **Torus**. The dialog contains
+  a lower-left numeric **"Vertices:"** field, initially set to the
+  application's startup \`--vertices\` argument (or the same startup default,
+  currently 5000), not implicitly to the current mesh's post-edit vertex
+  count. Validate the value against the corresponding model generator's
+  supported positive range before attempting creation. A **Cancel** button
+  occupies the lower-right; Escape has identical cancellation semantics.
+  Dismissing the chooser without selecting a model changes nothing:
+  current mesh, paints, pending worker edits, document identity, undo/redo,
+  camera/view, current filename and dirty state are all preserved.
+
+  Choosing a preview requests a new pristine model using the existing
+  startup generation paths and parameters, corresponding to
+  \`--asymmetric\`, \`--symmetric\` and \`--torus\` (including the torus's
+  non-mirrored topology), with the chosen vertex count. Generate and
+  validate a **private** replacement and construct its independent
+  worker/revision/index/render/picking state before publication. Only
+  commit after successful generation and admission; a failure must preserve
+  the original document, current filename and undo history unchanged.
+  On successful New, replace the editor model and clear prior sculpt/paint
+  history, pending strokes, selections, saved checkpoint identity, and
+  remembered filename, establishing a clean, unmodified new document.
+  The viewport and brushes must be rebound/framed as at startup for the
+  chosen primitive. The three previews must remain previews, never
+  editable or mistaken for the current authoritative mesh.
+
+  Track document modifications separately from **export**: only a
+  successful document **Save/Save As** marks edits saved. Exporting OBJ,
+  PLY or STL via Ctrl+E does **not** mark the document clean or change its
+  saved filename. Remember the current document filename from the last
+  successful Save or Open; clear it on successful New. When New would
+  discard unsaved edits, show a second in-viewport modal confirmation
+  *before* replacing the original. Mention the remembered filename when
+  one exists, and show buttons, ordered from left to right:
+  **Save** (only when a remembered filename exists), **Save As**,
+  **No**, **Cancel**. \`Save\` writes to the remembered filename without
+  opening a file picker; \`Save As\` performs the existing native document
+  Save As flow; \`No\` discards edits and proceeds with New; \`Cancel\`
+  (or Escape) returns to the previous document, leaving it unchanged.
+  Accelerator keys: **S** for Save if present, otherwise **S** for Save As;
+  **A** for Save As when Save is present; **N** for No. Cancel/Escape must
+  never queue a write or replace the original.
+
+  IMPORTANT: the document writer is asynchronous today. New must wait
+  for a **confirmed successful durable checkpoint completion** before
+  it can replace/tear down the current worker after either saving choice,
+  and on save error/cancel retain the original document. Merely queueing
+  Save/Save As is not confirmation. The unsaved-change baseline must
+  reflect the most recent *completed* Save, not an outstanding write.
+  Avoid race conditions when brush/paint/undo changes arrive while a
+  save or replacement is pending.
+
+  **Preimplementation policy to settle:** Ctrl+O can open \`.obj\`,
+  \`.ply\`, or \`.stl\` as well as native \`.mshr\` checkpoints. Remembering
+  an imported filename for the displayed prompt does not by itself make
+  it safe for \`Save\` to write checkpoint bytes to that non-\`.mshr\`
+  path. Define format-aware direct Save semantics (or a specific
+  conversion/promotion policy) before enabling Save against an imported
+  non-checkpoint filename; never silently overwrite a foreign-format file
+  with \`.mshr\` bytes.
+
+  Acceptance: keyboard accelerators and Escape precedence, clean vs
+  dirty documents, filename remembered/cleared across Open/Save/New,
+  edit-then-export still dirty, failed/cancelled/successful async Save,
+  Save As cancel, No, modal focus and pointer interception, all three
+  primitives and vertex-count constraints, new revision/worker/undo
+  reset, and unchanged original state on generation or I/O failure.
+
+
 ## Build and test efficiency (2026-10-29)
 
 - [ ] **CI01 — Consolidate C++ test executables without reducing test
