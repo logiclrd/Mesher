@@ -195,9 +195,19 @@ void run() {
     const auto explicitDiffusion=parseStlMesh(
         seams,StlImportOptions{StlColourMethod::Diffusion,1});
     check(defaultSeam.colors==explicitDiffusion.colors &&
-          defaultSeam.vertices==explicitDiffusion.vertices &&
-          defaultSeam.triangles==explicitDiffusion.triangles,
+          defaultSeam.vertices.size()==explicitDiffusion.vertices.size() &&
+          defaultSeam.triangles.size()==explicitDiffusion.triangles.size(),
           "Default STL Open uses deterministic diffusion with unchanged topology");
+    for(std::size_t i=0;i<defaultSeam.vertices.size();++i) {
+        const auto a=defaultSeam.vertices[i],b=explicitDiffusion.vertices[i];
+        check(a.x==b.x&&a.y==b.y&&a.z==b.z,
+              "Diffusion selection must not alter imported coordinates");
+    }
+    for(std::size_t i=0;i<defaultSeam.triangles.size();++i) {
+        const auto a=defaultSeam.triangles[i],b=explicitDiffusion.triangles[i];
+        check(a.a==b.a&&a.b==b.b&&a.c==b.c,
+              "Diffusion selection must not alter welded triangles");
+    }
     // Evaluate and profile the same original facet stream without
     // committing a worker or changing any source coordinates.
     const auto geometry=defaultSeam;
