@@ -3121,7 +3121,11 @@ public:
                     const auto suggestion=interaction_.exportSuggestedPath?
                         interaction_.exportSuggestedPath():
                         std::filesystem::path("mesher-export.ply");
-                    const auto choice=nativeSaveMeshExportDialog(window,suggestion);
+                    const auto preferred=interaction_.exportPreferredPreset?
+                        interaction_.exportPreferredPreset():
+                        MeshExportPreset::PlyLittleMeshAlpha;
+                    const auto choice=nativeSaveMeshExportDialog(
+                        window,suggestion,preferred);
                     if(choice) {
                         const auto& format=meshExportFormat(choice->preset);
                         if(!format.disclosure.empty()&&
