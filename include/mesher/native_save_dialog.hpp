@@ -43,6 +43,11 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
 // False means the user declined the disclosed lossy/nonstandard conversion.
 bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
                                        std::string_view disclosure);
+ // If the picker omits an extension and we append one after it returns,
+ // reconfirm any existing FINAL filename rather than trusting an earlier
+ // overwrite prompt for a different path.
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow* owner,const std::filesystem::path& destination);
 void nativeMeshExportErrorMessage(GLFWwindow* owner,const std::string& message);
 
 struct MeshOpenCancelled {};
