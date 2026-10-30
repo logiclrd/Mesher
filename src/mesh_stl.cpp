@@ -90,7 +90,11 @@ struct Builder {
             }
         }
         if(ids[0]==ids[1]||ids[1]==ids[2]||ids[0]==ids[2])
-            throw std::runtime_error("STL facet collapses under exact vertex welding");
+            throw std::runtime_error(
+                "STL facet "+std::to_string(mesh.triangles.size())+
+                " collapses under exact vertex welding (coincident corners). "
+                "Regenerate or remove zero-area source facets; a closed, "
+                "consistently wound mesh is required.");
         const Vec3 a=mesh.vertices[ids[0]], b=mesh.vertices[ids[1]],
                    c=mesh.vertices[ids[2]];
         const double scale=length(b-a)*length(c-a);
