@@ -241,6 +241,27 @@ StlColourMethodMetrics evaluate(const Graph& g,
             std::sqrt(alpha/g.totalArea),
             sourceContrast>0?contrast/sourceContrast:0.0};
 }
+std::vector<Colour> applyStlColourMethod(
+    const Graph& graph,StlColourMethod method,std::uint64_t seed) {
+    switch(method) {
+        case StlColourMethod::Average:return graph.average;
+        case StlColourMethod::Stochastic:return stochastic(graph,seed);
+        case StlColourMethod::Diffusion:return diffuse(graph,seed);
+    }
+    throw std::invalid_argument("Unrecognized STL colour method");
+}
+std::vector<VertexRGBA> asVertexColours(const std::vector<Colour>& input) {
+    std::vector<VertexRGBA> output;
+    output.reserve(input.size());
+    for(const auto& rgba:input)output.push_back(toVertex(rgba));
+    return output;
+}
+void logStlColourMetrics(const StlColourMethodMetrics& m) {
+    std::cout<<"[stl-colour] method="<<stlColourMethodName(m.method)
+             <<" convert_ms="<<m.conversionMs<<" eval_ms="<<m.evaluationMs
+             <<" rgb_rms="<<m.rgbRms<<" alpha_rms="<<m.alphaRms
+             <<" contrast_error="<<m.contrastError<<"\n";
+}
 } // namespace
 
 const char* stlColourMethodName(StlColourMethod method) noexcept {
@@ -251,6 +272,28 @@ const char* stlColourMethodName(StlColourMethod method) noexcept {
     }
     return "unknown";
 }
+std::vector<VertexRGBA> convertStlFacetColours(
+    const Mesh& mesh,
+    const std::vector<std::optional<VertexRGBA>>& faceColours,
+    StlColourMethod selected,std::uint64_t seed,
+    StlColourMethodMetrics* profile) {
+    const auto before=Clock::now();
+    Graph graph(mesh,faceColours);
+    const auto graphMs=millis(before,Clock::now());
+    const auto start=Clock::now();
+    const auto colours=applyStlColourMethod(graph,selected,seed);
+    const auto metric=evaluate(graph,colours,selected,
+                               millis(start,Clock::now()));
+    if(profile)*profile=metric;
+    std::cout<<"[stl-colour] V="<<mesh.vertices.size()
+             <<" F="<<graph.faces.size()
+             <<" uncoloured_faces="<<graph.missing
+             <<" seed="<<seed<<" selected="<<stlColourMethodName(selected)
+             <<" graph_ms="<<graphMs<<"\n";
+    logStlColourMetrics(metric);
+    return asVertexColours(colours);
+}
+
 std::vector<VertexRGBA> compareStlFacetColours(
     const Mesh& mesh,
     const std::vector<std::optional<VertexRGBA>>& faceColours,
@@ -269,15 +312,12 @@ std::vector<VertexRGBA> compareStlFacetColours(
                               StlColourMethod::Stochastic,
                               StlColourMethod::Diffusion}) {
         const auto start=Clock::now();
-        const auto c=candidate==StlColourMethod::Average?
-            graph.average:candidate==StlColourMethod::Stochastic?
-            stochastic(graph,seed):diffuse(graph,seed);
+        const auto c=applyStlColourMethod(graph,candidate,seed);
         const auto duration=millis(start,Clock::now());
         auto metric=evaluate(graph,c,candidate,duration);
         result.methods[static_cast<std::size_t>(candidate)]=metric;
         if(candidate==selected) {
-            output.reserve(c.size());
-            for(const auto& rgba:c)output.push_back(toVertex(rgba));
+            output=asVertexColours(c);
         }
     }
     if(output.size()!=mesh.vertices.size())
@@ -286,11 +326,7 @@ std::vector<VertexRGBA> compareStlFacetColours(
              <<" uncoloured_faces="<<result.uncolouredFacets
              <<" seed="<<seed<<" selected="<<stlColourMethodName(selected)
              <<" graph_ms="<<result.graphPreparationMs<<"\n";
-    for(const auto& m:result.methods)
-        std::cout<<"[stl-colour] method="<<stlColourMethodName(m.method)
-                 <<" convert_ms="<<m.conversionMs<<" eval_ms="<<m.evaluationMs
-                 <<" rgb_rms="<<m.rgbRms<<" alpha_rms="<<m.alphaRms
-                 <<" contrast_error="<<m.contrastError<<"\n";
+    for(const auto& m:result.methods)logStlColourMetrics(m);
     if(report)*report=result;
     return output;
 }
