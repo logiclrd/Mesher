@@ -56,8 +56,8 @@ void writeObjMesh(std::ostream& output,const Mesh& mesh,
     // output is staged by a higher-level transaction before publication.
     struct RestoreFormat {
         std::ostream& out;
-        std::ios saved{nullptr};
-        explicit RestoreFormat(std::ostream& stream):out(stream) {
+        std::ios saved;
+        explicit RestoreFormat(std::ostream& stream):out(stream),saved(stream.rdbuf()) {
             saved.copyfmt(stream);
         }
         ~RestoreFormat() {try {out.copyfmt(saved);} catch(...) {}}
