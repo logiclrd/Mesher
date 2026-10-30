@@ -8,6 +8,8 @@ namespace mesher {
 // Strict STL import: exact-coordinate facet welding, optional supported
 // binary facet colours, and no publication or source-state mutation.
 struct StlImportOptions {
+    // Visual winner of the castle STL comparison; alternatives require
+    // an explicit --stl-colour-method selection.
     StlColourMethod method=StlColourMethod::Diffusion;
     std::uint64_t seed=1;
 };
