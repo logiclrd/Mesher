@@ -22,6 +22,7 @@
 
 #include <array>
 #include <set>
+#include <deque>
 #include <filesystem>
 #include <optional>
 #include <charconv>
@@ -1149,39 +1150,75 @@ int main(int argc, char** argv) {
             // immutable indexed root on the GLFW/UI thread, then queues all
             // geometry flattening, format conversion and disk I/O elsewhere.
             auto exportWriter=std::make_shared<mesher::AsyncMeshExportWriter>();
+            struct PendingExportName {
+                std::filesystem::path destination;
+                std::uint64_t documentGeneration{};
+                mesher::PreferredExportFormat codec;
+            };
+            auto pendingExportNames=
+                std::make_shared<std::deque<PendingExportName>>();
+            const auto preferredPreset=[&] {
+                const auto selected=documentNames.preferredExport();
+                const auto offset=selected.family==mesher::ExportFileFamily::Obj?
+                    0u:selected.family==mesher::ExportFileFamily::Ply?4u:16u;
+                return static_cast<mesher::MeshExportPreset>(
+                    offset+selected.variant);
+            };
+            interaction.exportPreferredPreset=preferredPreset;
             interaction.exportSuggestedPath=[&] {
-                // Let each native Save As filter add the selected suffix;
-                // do not prefill .ply then require manual editing for OBJ/STL.
-                auto suggested=checkpointPath.filename();
+                auto suggested=documentNames.filenameHint()?
+                    *documentNames.filenameHint():
+                    std::filesystem::path(mesher::randomFilenameStem());
                 suggested.replace_extension();
                 return suggested;
             };
-            interaction.exportMesh=[exportWriter](
+            interaction.exportMesh=[&,exportWriter,pendingExportNames](
                 std::shared_ptr<const mesher::RegionTopologyIndex> root,
                 mesher::NativeMeshExportSelection selected) {
+                const auto index=static_cast<unsigned>(selected.preset);
+                if(index>=mesher::meshExportFormats.size())
+                    throw std::invalid_argument("Unknown selected export preset");
+                mesher::PreferredExportFormat codec{};
+                if(index<4u)
+                    codec={mesher::ExportFileFamily::Obj,index};
+                else if(index<16u)
+                    codec={mesher::ExportFileFamily::Ply,index-4u};
+                else codec={mesher::ExportFileFamily::Stl,index-16u};
                 auto request=mesher::captureMeshExportRequest(
                     selected.path,std::move(root));
+                const auto name=request.absoluteDestination;
+                const auto generation=documentNames.generation();
                 exportWriter->request(std::move(request),
                     mesher::meshExportEncoder(selected.preset));
+                // Only a completed successful writer result can update the
+                // remembered basename or preferred Ctrl+E format.
+                pendingExportNames->push_back({name,generation,codec});
             };
             interaction.exportFailure=[
-                exportWriter,seenFailures=std::uint64_t{0},
-                seenCompleted=std::uint64_t{0}]() mutable
+                exportWriter,pendingExportNames,&documentNames]()
                 -> std::optional<std::string> {
-                const auto status=exportWriter->statistics();
-                if(status.completed>seenCompleted) {
-                    std::cout<<"[export] completed "
-                             <<(status.completed-seenCompleted)
-                             <<" background file(s)\n";
-                    seenCompleted=status.completed;
+                std::string failure;
+                for(const auto& completion:exportWriter->takeCompletions()) {
+                    if(pendingExportNames->empty()) {
+                        std::cerr<<"[export] unexpected completion without ticket\n";
+                        continue;
+                    }
+                    const auto ticket=std::move(pendingExportNames->front());
+                    pendingExportNames->pop_front();
+                    if(completion.destination!=ticket.destination)
+                        throw std::runtime_error(
+                            "Export FIFO completion destination disagrees with accepted ticket");
+                    if(completion.success) {
+                        (void)documentNames.completedExport(
+                            ticket.destination,ticket.codec,ticket.documentGeneration);
+                        std::cout<<"[export] completed "
+                                 <<completion.destination.string()<<"\n";
+                    }else {
+                        if(!failure.empty())failure+="; ";
+                        failure+="Export failed: "+completion.error;
+                    }
                 }
-                if(status.failed<=seenFailures)return std::nullopt;
-                const auto count=status.failed-seenFailures;
-                seenFailures=status.failed;
-                std::string failure="Export failed";
-                if(count>1)
-                    failure+=" ("+std::to_string(count)+" recent failures)";
-                failure+=": "+status.lastError;
+                if(failure.empty())return std::nullopt;
                 return failure;
             };
             interaction.checkpointSuggestedPath=[&] {
