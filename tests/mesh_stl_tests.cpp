@@ -132,7 +132,7 @@ void run() {
         });
     // Magics: COLOR= RGBA object default, bit 15 set uses object colour.
     std::string magicsHeader="Materialise COLOR=";
-    for(unsigned char byte:{255,128,0,64})
+    for(unsigned char byte:std::array<unsigned char,4>{255,128,0,64})
         magicsHeader.push_back(static_cast<char>(byte));
     auto magics=readMeshOpenCandidate(put("magics.stl",
         makeBinary(vertices,{0x8000,0x8000,0x8000,0x8000},magicsHeader)));
