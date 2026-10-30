@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths: [VERSION]
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - tools/release/**
   workflow_dispatch:
 
 # Serialize publication. PR candidate runs are isolated from real release
