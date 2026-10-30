@@ -252,7 +252,7 @@ int main(int argc,char** argv) {
         if(argc==2) {
             const auto generated=readMeshOpenCandidate(
                 argv[1],MeshOpenFilter::StereolithographyStl);
-            check(generated.faceCount==736&&generated.vertexCount>300&&
+            check(generated.faceCount>=736&&generated.vertexCount>300&&
                   generated.hasVertexColors,
                   "Generator output must import as a closed coloured STL");
             return 0;

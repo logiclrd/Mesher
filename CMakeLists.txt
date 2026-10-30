@@ -439,6 +439,18 @@ if(MESHER_BUILD_TESTS)
             COMMAND mesher_stl_tests "${MESHER_STL_GENERATED_FIXTURE}")
         set_tests_properties(stl_generator_import PROPERTIES
             DEPENDS stl_generator_manifold)
+        # Exercise the actual castle image which produced the bad STL.
+        set(MESHER_CASTLE_STL_FIXTURE
+            "${CMAKE_CURRENT_BINARY_DIR}/castle_rebuilt.stl")
+        add_test(NAME stl_castle_generate
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/img_to_stl.py"
+                -i "${CMAKE_CURRENT_SOURCE_DIR}/tools/castle-192.png"
+                -o "${MESHER_CASTLE_STL_FIXTURE}")
+        add_test(NAME stl_castle_import
+            COMMAND mesher_stl_tests "${MESHER_CASTLE_STL_FIXTURE}")
+        set_tests_properties(stl_castle_import PROPERTIES
+            DEPENDS stl_castle_generate)
     endif()
     add_executable(mesher_stl_colour_benchmark tests/mesh_stl_colour_benchmark.cpp)
     target_link_libraries(mesher_stl_colour_benchmark PRIVATE mesher_mesh)

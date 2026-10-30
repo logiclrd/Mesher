@@ -27,7 +27,8 @@ def load_rgb_image(image_path):
 
     from PIL import Image
     image = Image.open(image_path).convert('RGB')
-    return *image.size, image.load()
+    width, height = image.size
+    return width, height, image.load()
 
 
 def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):

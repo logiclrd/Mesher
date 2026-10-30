@@ -213,6 +213,9 @@ Regenerate the legacy checked-in binary fixture from its source image:
 
     python3 tools/img_to_stl.py -i tools/castle-192.png -o test-files/castle.stl
 
-Pillow is required for the real image. Until that regeneration occurs,
+The generator now uses Mesher's standard-library PNG reader for PNG inputs
+(Pillow is required only for other image formats). CTest also regenerates
+the actual castle image into a temporary STL and imports it through the
+normal C++ candidate path. Until the checked-in binary is replaced,
 the old castle binary still contains malformed pole geometry and remains
 a failure reproducer, not a valid STL acceptance fixture.
