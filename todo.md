@@ -2116,6 +2116,11 @@ variants already work.
   properties where present. Define conversion and unsupported/ambiguous
   variant diagnostics explicitly rather than guessing or silently
   discarding colours.
+  **Implementation progress:** inline RGB(A) and ZBrush `#MRGB` OBJ
+  colours (mask ignored, imported RGB opaque), standard/coloured STL
+  with diffusion conversion, and PLY RGB(A) use the atomic Open path.
+  Other unsupported conventions remain explicitly refused. UX06 stays
+  open for comprehensive format and cross-platform physical acceptance.
 - [ ] **UX07 — Ctrl+E native Save As mesh export.** Offer `.obj`
   (Alias/Wavefront), `.ply` and `.stl` output with distinct selectable
   **file-type/encoding entries in the dialog's drop-down** for supported
