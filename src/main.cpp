@@ -971,8 +971,10 @@ int main(int argc, char** argv) {
             // geometry flattening, format conversion and disk I/O elsewhere.
             auto exportWriter=std::make_shared<mesher::AsyncMeshExportWriter>();
             interaction.exportSuggestedPath=[&] {
-                auto suggested=checkpointPath;
-                suggested.replace_extension(".ply");
+                // Let each native Save As filter add the selected suffix;
+                // do not prefill .ply then require manual editing for OBJ/STL.
+                auto suggested=checkpointPath.filename();
+                suggested.replace_extension();
                 return suggested;
             };
             interaction.exportMesh=[exportWriter](
