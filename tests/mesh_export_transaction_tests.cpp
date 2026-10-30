@@ -3,6 +3,8 @@
 #include "mesher/mesh_ply.hpp"
 
 #include <chrono>
+#include <cmath>
+#include <ostream>
 #include <condition_variable>
 #include <filesystem>
 #include <fstream>
@@ -134,8 +136,8 @@ void testCwdAndAsync(TestDirectory& tmp) {
     const auto request=mesher::captureMeshExportRequest(
         "../two/accepted.ply",first);
     const auto absoluteBefore=request.absoluteDestination;
-    mesher::MeshRepository live(
-        mesher::partitionFlatMesh(tetra()).revision);
+    const auto initialLive=mesher::partitionFlatMesh(tetra()).revision;
+    mesher::MeshRepository live(initialLive);
     std::mutex mutex;
     std::condition_variable cv;
     bool entered=false,allow=false;
@@ -184,8 +186,8 @@ void testCwdAndAsync(TestDirectory& tmp) {
     checkColour(absoluteBefore,1,0,0.5f);
     require(mesher::materializeMeshExport(request).colors.front().r==1.f,
             "Captured immutable root changed with live publication");
-    require(live.snapshot()!=first->revision().empty(),
-            "Published live mesh was unexpectedly replaced by exporter");
+    require(live.snapshot()!=initialLive,
+            "Live publication was unexpectedly rolled back by exporter");
     assertNoTemps(tmp.root/"two");
 
     // Background writer retains each accepted request; two writes to the
