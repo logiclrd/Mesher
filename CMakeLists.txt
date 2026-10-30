@@ -423,6 +423,13 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
     add_test(NAME mesh_generation COMMAND mesher_mesh_tests)
+    # Real third-party export regression: ZBrush 2025.0.1 writes a final
+    # literal NUL; compare its decoded MRGB bytes with the same duck
+    # exported by MeshLab as normalized inline XYZRGB.
+    add_test(NAME obj_zbrush_mrgb_2025_export
+        COMMAND mesher_mesh_tests --obj-mrgb-fixtures
+            "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck-ZBrush.obj"
+            "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck-xyzrgb.obj")
     add_executable(mesher_stl_tests tests/mesh_stl_tests.cpp)
     target_link_libraries(mesher_stl_tests PRIVATE mesher_mesh)
     add_test(NAME stl_import COMMAND mesher_stl_tests)
