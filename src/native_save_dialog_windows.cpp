@@ -1,4 +1,5 @@
 #include "mesher/native_save_dialog.hpp"
+#include "mesher/native_dialog_path.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -55,19 +56,15 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     require(dialog->SetFileTypes(1,&filter),"SetFileTypes");
     require(dialog->SetFileTypeIndex(1),"SetFileTypeIndex");
     require(dialog->SetDefaultExtension(L"mshr"),"SetDefaultExtension");
-    const auto absolute=std::filesystem::absolute(suggestion);
-    require(dialog->SetFileName(absolute.filename().c_str()),"SetFileName");
-    // An unqualified default filename should use the Shell's preferred
-    // location (typically Documents), not the packaged app's working dir.
-    if(!suggestion.parent_path().empty()) {
-        IShellItem* rawFolder=nullptr;
-        const HRESULT folderResult=SHCreateItemFromParsingName(
-            absolute.parent_path().c_str(),nullptr,IID_PPV_ARGS(&rawFolder));
-        if(SUCCEEDED(folderResult)) {
-            ComPtr<IShellItem> folder(rawFolder);
-            (void)dialog->SetFolder(folder.get());
-        }
-    }
+    require(dialog->SetFileName(suggestion.filename().c_str()),"SetFileName");
+    // Force this dialog to the current process directory, even if Shell
+    // remembers another location or the last checkpoint was elsewhere.
+    const auto cwd=nativeDialogInitialDirectory();
+    IShellItem* rawFolder=nullptr;
+    require(SHCreateItemFromParsingName(
+        cwd.c_str(),nullptr,IID_PPV_ARGS(&rawFolder)),"Save CWD folder");
+    ComPtr<IShellItem> folder(rawFolder);
+    require(dialog->SetFolder(folder.get()),"SetFolder Save CWD");
     const HRESULT shown=dialog->Show(glfwGetWin32Window(owner));
     if(shown==HRESULT_FROM_WIN32(ERROR_CANCELLED))return std::nullopt;
     require(shown,"Show");
@@ -78,7 +75,7 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     require(selection->GetDisplayName(SIGDN_FILESYSPATH,&chosen),"GetDisplayName");
     const std::filesystem::path destination(chosen);
     CoTaskMemFree(chosen);
-    return destination;
+    return acceptNativeDialogFilePath(destination);
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion) {
@@ -92,23 +89,22 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     require(dialog->SetOptions(flags|FOS_FORCEFILESYSTEM|FOS_FILEMUSTEXIST|
                               FOS_PATHMUSTEXIST),"SetOptions Open");
     const COMDLG_FILTERSPEC filters[]{
+        {L"All supported files (*.mshr, *.obj, *.ply, *.stl)",
+         L"*.mshr;*.obj;*.ply;*.stl"},
         {L"Mesher mesh files (*.mshr)",L"*.mshr"},
         {L"Wavefront OBJ (*.obj)",L"*.obj"},
         {L"Stanford PLY (*.ply)",L"*.ply"},
         {L"STL surface (*.stl)",L"*.stl"},
         {L"All Files (*.*)",L"*.*"}};
-    require(dialog->SetFileTypes(5,filters),"SetFileTypes Open");
+    require(dialog->SetFileTypes(6,filters),"SetFileTypes Open");
     require(dialog->SetFileTypeIndex(1),"SetFileTypeIndex Open");
-    if(!suggestion.parent_path().empty()) {
-        const auto absolute=std::filesystem::absolute(suggestion);
-        IShellItem* folderRaw=nullptr;
-        if(SUCCEEDED(SHCreateItemFromParsingName(
-               absolute.parent_path().c_str(),nullptr,
-               IID_PPV_ARGS(&folderRaw)))) {
-            ComPtr<IShellItem> folder(folderRaw);
-            (void)dialog->SetFolder(folder.get());
-        }
-    }
+    (void)suggestion; // The last filename never chooses the starting folder.
+    const auto cwd=nativeDialogInitialDirectory();
+    IShellItem* folderRaw=nullptr;
+    require(SHCreateItemFromParsingName(
+        cwd.c_str(),nullptr,IID_PPV_ARGS(&folderRaw)),"Open CWD folder");
+    ComPtr<IShellItem> folder(folderRaw);
+    require(dialog->SetFolder(folder.get()),"SetFolder Open CWD");
     const HRESULT shown=dialog->Show(glfwGetWin32Window(owner));
     if(shown==HRESULT_FROM_WIN32(ERROR_CANCELLED))return std::nullopt;
     require(shown,"Show Open");
@@ -121,14 +117,16 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     CoTaskMemFree(path);
     UINT index=0;
     require(dialog->GetFileTypeIndex(&index),"GetFileTypeIndex Open");
-    if(index<1||index>5)
+    if(index<1||index>6)
         throw std::runtime_error("Open dialog selected unknown file type");
-    const auto filter=index==1?MeshOpenFilter::MesherCheckpoint:
-                      index==2?MeshOpenFilter::WavefrontObj:
-                      index==3?MeshOpenFilter::StanfordPly:
-                      index==4?MeshOpenFilter::StereolithographyStl:
+    // Both the default "All supported files" and unrestricted "All Files"
+    // inspect the file's CONTENT, not its extension.
+    const auto filter=index==2?MeshOpenFilter::MesherCheckpoint:
+                      index==3?MeshOpenFilter::WavefrontObj:
+                      index==4?MeshOpenFilter::StanfordPly:
+                      index==5?MeshOpenFilter::StereolithographyStl:
                                MeshOpenFilter::AllFiles;
-    return NativeOpenSelection{selected,filter};
+    return NativeOpenSelection{acceptNativeDialogFilePath(selected),filter};
 }
 std::optional<bool> nativePlyAlphaOpacityDialog(
     GLFWwindow* owner,float minimum,float maximum) {

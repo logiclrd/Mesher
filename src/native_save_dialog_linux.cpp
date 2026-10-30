@@ -1,8 +1,8 @@
 #include "mesher/native_save_dialog.hpp"
+#include "mesher/native_dialog_path.hpp"
 
 #include <QApplication>
 #include <QDialog>
-#include <QDir>
 #include <QGuiApplication>
 #include <QFile>
 #include <QFileDialog>
@@ -73,23 +73,16 @@ std::filesystem::path asPath(const QString& name) {
     return std::filesystem::path(
         std::string(utf8.constData(),static_cast<std::size_t>(utf8.size())));
 }
-std::filesystem::path suggestedDesktopPath(
-    const std::filesystem::path& suggestion) {
-    if(!suggestion.parent_path().empty())
-        return std::filesystem::absolute(suggestion);
-    const QString documents=QDir::home().filePath(QStringLiteral("Documents"));
-    const auto folder=QDir(documents).exists()?asPath(documents):
-                      asPath(QDir::homePath());
-    return folder/suggestion.filename();
-}
-void setInitialFile(QFileDialog& dialog,const std::filesystem::path& file) {
-    const auto absolute=suggestedDesktopPath(file);
-    dialog.setDirectory(asQString(absolute.parent_path()));
-    if(!absolute.filename().empty())
-        dialog.selectFile(asQString(absolute.filename()));
+void setInitialFile(QFileDialog& dialog,const std::filesystem::path& suggestion) {
+    // CWD, not an earlier checkpoint's folder or Qt's last-used directory.
+    dialog.setDirectory(asQString(nativeDialogInitialDirectory()));
+    if(!suggestion.filename().empty())
+        dialog.selectFile(asQString(suggestion.filename()));
 }
 // Platform helpers may hide the final wildcard group from the UI. The
 // description repeats it so users still see the extension in the label.
+constexpr const char* supportedFilter=
+    "All supported files (*.mshr, *.obj, *.ply, *.stl) (*.mshr *.obj *.ply *.stl)";
 constexpr const char* checkpointFilter="Mesher mesh files (*.mshr) (*.mshr)";
 constexpr const char* objFilter="Wavefront OBJ (*.obj) (*.obj)";
 constexpr const char* plyFilter="Stanford PLY (*.ply) (*.ply)";
@@ -201,7 +194,7 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     const auto names=dialog.selectedFiles();
     if(names.size()!=1||names.front().isEmpty())
         throw std::runtime_error("Qt Save As did not return a filename");
-    return asPath(names.front());
+    return acceptNativeDialogFilePath(asPath(names.front()));
 }
 std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     GLFWwindow* owner,const std::filesystem::path& suggestion) {
@@ -222,12 +215,34 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     dialog.setFileMode(QFileDialog::ExistingFile);
     dialog.setWindowModality(Qt::ApplicationModal);
-    dialog.setNameFilters({QString::fromUtf8(checkpointFilter),
+    dialog.setNameFilters({QString::fromUtf8(supportedFilter),
+                           QString::fromUtf8(checkpointFilter),
                            QString::fromUtf8(objFilter),
                            QString::fromUtf8(plyFilter),
                            QString::fromUtf8(stlFilter),
                            QString::fromUtf8(allFilter)});
-    dialog.selectNameFilter(QString::fromUtf8(checkpointFilter));
+    dialog.selectNameFilter(QString::fromUtf8(supportedFilter));
+    // QFileDialog may clear or normalize selectedNameFilter() when a
+    // selection is accepted. Track the live selection instead: Qt emits
+    // filterSelected when the user changes the format dropdown.
+    MeshOpenFilter selectedFilter=MeshOpenFilter::AllFiles;
+    bool filterKnown=true;
+    QObject::connect(&dialog,&QFileDialog::filterSelected,&dialog,
+        [&](const QString& name) {
+            filterKnown=true;
+            if(name.startsWith(QStringLiteral("All supported files"))||
+               name.startsWith(QStringLiteral("All Files")))
+                selectedFilter=MeshOpenFilter::AllFiles;
+            else if(name.startsWith(QStringLiteral("Mesher mesh files")))
+                selectedFilter=MeshOpenFilter::MesherCheckpoint;
+            else if(name.startsWith(QStringLiteral("Wavefront OBJ")))
+                selectedFilter=MeshOpenFilter::WavefrontObj;
+            else if(name.startsWith(QStringLiteral("Stanford PLY")))
+                selectedFilter=MeshOpenFilter::StanfordPly;
+            else if(name.startsWith(QStringLiteral("STL surface")))
+                selectedFilter=MeshOpenFilter::StereolithographyStl;
+            else filterKnown=false;
+        });
     setInitialFile(dialog,suggestion);
     parent.attach(dialog);
     if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
@@ -235,16 +250,14 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     if(names.size()!=1||names.front().isEmpty())
         throw std::runtime_error("Qt Open did not return a filename");
     const QString chosen=dialog.selectedNameFilter();
-    // The filter is an actual part of the QFileDialog result, NOT inferred
-    // from the extension. Unexpected/empty results fail closed.
-    const auto filter=chosen==QString::fromUtf8(checkpointFilter)?
-        MeshOpenFilter::MesherCheckpoint:
-        chosen==QString::fromUtf8(objFilter)?MeshOpenFilter::WavefrontObj:
-        chosen==QString::fromUtf8(plyFilter)?MeshOpenFilter::StanfordPly:
-        chosen==QString::fromUtf8(stlFilter)?MeshOpenFilter::StereolithographyStl:
-        chosen==QString::fromUtf8(allFilter)?MeshOpenFilter::AllFiles:
-        throw std::runtime_error("Qt Open returned an unknown file-type filter");
-    return NativeOpenSelection{asPath(names.front()),filter};
+    // The parser still follows the ACTUAL dropdown selection, never the
+    // filename extension. An unknown explicit filter change fails closed.
+    if(!filterKnown)
+        throw std::runtime_error(
+            "Qt Open returned an unknown file-type filter: "+
+            chosen.toStdString());
+    return NativeOpenSelection{
+        acceptNativeDialogFilePath(asPath(names.front())),selectedFilter};
 }
 std::optional<bool> nativePlyAlphaOpacityDialog(
     GLFWwindow* owner,float minimum,float maximum) {
