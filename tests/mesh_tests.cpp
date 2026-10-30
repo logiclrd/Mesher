@@ -96,7 +96,7 @@ void testPrivateMeshOpenCandidates() {
     reject("open.obj","v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
     reject("mixed.obj",
            "v 0 0 0 1 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
-    reject("unsupported.obj",tetra+"#MRGB 0000ff00\n");
+    reject("conflicting-inline-mrgb.obj",tetra+"#MRGB 0000ff00\n");
     reject("badindex.obj",tetra+"f 1 2 99\n");
     reject("unhandled.ply","ply\nformat ascii 1.0\nend_header\n");
     reject("unhandled.stl","solid test\nendsolid test\n");
@@ -155,6 +155,159 @@ void testPrivateMeshOpenCandidates() {
           "Successful import remains immutable across failed attempts");
 }
 
+
+void testZbrushMrgb() {
+    namespace fs=std::filesystem;
+    const auto dir=fs::temp_directory_path()/"mesher-ux06-mrgb";
+    fs::create_directories(dir);
+    struct Cleanup {
+        fs::path path;
+        ~Cleanup(){std::error_code ec;fs::remove_all(path,ec);}
+    } cleanup{dir};
+    const auto put=[&](const std::string& name,const std::string& contents){
+        const auto path=dir/name;
+        std::ofstream out(path,std::ios::binary|std::ios::trunc);
+        out<<contents;
+        check(static_cast<bool>(out),"MRGB test fixture written");
+        return path;
+    };
+    const std::string xyz=
+        "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n";
+    const std::string faces=
+        "f 1 3 2\nf 1 2 4\nf 2 3 4\nf 3 1 4\n";
+    const std::string payload=
+        "#MRGB 00ff0000 FF00ff00 7F0000ff 40000000\n";
+    const auto original=readMeshOpenCandidate(put("ZBrush.obj",
+        xyz+"# The following MRGB block contains ZBrush Vertex Color\n"+
+        payload+faces),MeshOpenFilter::AllFiles);
+    check(original.format==MeshOpenFormat::WavefrontObj&&
+          original.vertexCount==4&&original.faceCount==4&&
+          original.hasVertexColors,"ZBrush MRGB creates a coloured OBJ candidate");
+
+    const std::array<VertexRGBA,4> expected{{
+        {1.f,0.f,0.f,1.f},{0.f,1.f,0.f,1.f},
+        {0.f,0.f,1.f,1.f},{0.f,0.f,0.f,1.f}
+    }};
+    const auto verify=[&](const MeshOpenCandidate& candidate){
+        std::size_t seen=0;
+        candidate.snapshot.index->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& part){
+                for(const auto& v:part.vertices) {
+                    const std::size_t i=v.position.x==1?1:
+                        v.position.y==1?2:v.position.z==1?3:0;
+                    const auto& c=expected[i];
+                    check(v.color.r==c.r&&v.color.g==c.g&&
+                          v.color.b==c.b&&v.color.a==1.f&&
+                          !v.color.sourceAlpha.has_value(),
+                          "MRGB RGB maps by source vertex order; mask is NOT alpha");
+                    ++seen;
+                }
+            });
+        check(seen==4,"All four MRGB colours survive private partitioning");
+    };
+    verify(original);
+    verify(readMeshOpenCandidate(put("different-mask.obj",xyz+
+        "#MRGB ffff0000 0000ff00 ff0000ff FF000000\n"+faces)));
+    verify(readMeshOpenCandidate(put("before-vertices.obj",payload+xyz+faces)));
+    verify(readMeshOpenCandidate(put("after-faces.obj",xyz+faces+payload)));
+    const auto checkpoint=dir/"converted.mshr";
+    writeCheckpoint(checkpoint,original.snapshot);
+    verify(readMeshOpenCandidate(checkpoint));
+
+    // Test two ZBrush records: 64 packed words, then 4 packed words,
+    // preserving sequence across disjoint closed tetrahedra.
+    const auto word=[](unsigned mask,unsigned red,unsigned green,unsigned blue){
+        const char h[]="0123456789abcdef";
+        std::string result;
+        for(unsigned channel:{mask,red,green,blue}){
+            result.push_back(h[(channel>>4)&15]);
+            result.push_back(h[channel&15]);
+        }
+        return result;
+    };
+    std::string multi;
+    for(int k=0;k<17;++k){
+        const int x=k*4;
+        multi+="v "+std::to_string(x)+" 0 0\n";
+        multi+="v "+std::to_string(x+1)+" 0 0\n";
+        multi+="v "+std::to_string(x)+" 1 0\n";
+        multi+="v "+std::to_string(x)+" 0 1\n";
+    }
+    multi+="#MRGB ";
+    for(unsigned i=0;i<68;++i){
+        if(i==64)multi+="\n#MRGB ";
+        multi+=word((i*11)%256,(i*7+1)%256,
+                    (i*3+2)%256,(i*5+3)%256);
+    }
+    multi+="\n";
+    for(int k=0;k<17;++k){
+        const int i=k*4+1;
+        multi+="f "+std::to_string(i)+" "+std::to_string(i+2)+
+               " "+std::to_string(i+1)+"\n";
+        multi+="f "+std::to_string(i)+" "+std::to_string(i+1)+
+               " "+std::to_string(i+3)+"\n";
+        multi+="f "+std::to_string(i+1)+" "+std::to_string(i+2)+
+               " "+std::to_string(i+3)+"\n";
+        multi+="f "+std::to_string(i+2)+" "+std::to_string(i)+
+               " "+std::to_string(i+3)+"\n";
+    }
+    const auto many=readMeshOpenCandidate(put("68-vertices.obj",multi));
+    check(many.vertexCount==68&&many.faceCount==68&&many.hasVertexColors,
+          "Multiple MRGB lines span the full vertex array");
+    std::size_t observed=0;
+    many.snapshot.index->revision().forEachPartition(
+        [&](PartitionId,const MeshPartition& part){
+            for(const auto& v:part.vertices){
+                const auto x=static_cast<unsigned>(v.position.x);
+                const unsigned i=(x/4)*4+
+                    (x%4==1?1u:v.position.y==1?2u:v.position.z==1?3u:0u);
+                check(v.color.r==static_cast<float>((i*7+1)%256)/255.f&&
+                      v.color.g==static_cast<float>((i*3+2)%256)/255.f&&
+                      v.color.b==static_cast<float>((i*5+3)%256)/255.f&&
+                      v.color.a==1.f,
+                      "Packed MRGB blocks retain exact vertex order");
+                ++observed;
+            }
+        });
+    check(observed==68,"Every vertex of the multi-line MRGB fixture visited");
+
+    // Bad inputs are refused while retaining an earlier immutable source.
+    const auto root=original.snapshot.index;
+    const auto refuse=[&](const std::string& name,const std::string& data,
+                          const std::string& diagnostic){
+        bool rejected=false;
+        try {(void)readMeshOpenCandidate(put(name,data));}
+        catch(const std::exception& e){
+            rejected=std::string(e.what()).find(diagnostic)!=std::string::npos;
+        }
+        check(rejected,("MRGB refusal: "+name).c_str());
+        check(original.snapshot.index==root,
+              "Invalid MRGB leaves earlier private candidate unchanged");
+    };
+    refuse("missing.obj",xyz+"#MRGB 00ff0000\n"+faces,
+           "MRGB colour count");
+    refuse("surplus.obj",xyz+payload+"#MRGB 00000000\n"+faces,
+           "MRGB colour count");
+    refuse("empty.obj",xyz+"#MRGB\n"+faces,"no colour words");
+    refuse("short.obj",xyz+"#MRGB 00ff000\n"+faces,"eight-hex-digit");
+    refuse("bad-hex.obj",xyz+"#MRGB 0xff0000\n"+faces,"non-hexadecimal");
+    refuse("split-word.obj",xyz+
+           "#MRGB 00ff 0000 0000ff00 000000ff 00000000\n"+faces,
+           "eight-hex-digit");
+    refuse("bad-marker.obj",xyz+"#MRGB00ff0000\n"+faces,
+           "malformed OBJ MRGB marker");
+    refuse("inline-first.obj",
+           "v 0 0 0 1 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"+payload+faces,
+           "conflicts with inline");
+    refuse("mrgb-first.obj",payload+
+           "v 0 0 0 1 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\n"+faces,
+           "conflicts with MRGB");
+    refuse("unsupported-metadata.obj",xyz+"#vc 0 1 0\n"+faces,
+           "metadata vertex-colour convention");
+    std::string tooMany=xyz+"#MRGB ";
+    for(int i=0;i<65;++i)tooMany+="00ff0000";
+    refuse("65-on-one-line.obj",tooMany+"\n"+faces,"at most 64");
+}
 
 void testPlyImportCandidates() {
     namespace fs=std::filesystem;
@@ -400,6 +553,7 @@ void testPlyImportCandidates() {
 int main(){
     try {
         testPrivateMeshOpenCandidates();
+        testZbrushMrgb();
         testPlyImportCandidates();
         for(auto n:{8u,10u,11u,12u,30u,100u,500u,5000u})
             for(bool symmetric:{false,true})test(n,symmetric,42);
