@@ -1,8 +1,10 @@
-# UX06D — Facet-to-vertex colour conversion experiment
+# UX06D — STL facet-to-vertex colour conversion
 
-Status: **approved experiment**, not a choice of final attribute architecture.
-Requested following STL parser PR #179; remain on its draft feature branch
-until CPU comparisons, screenshots and user review are complete.
+Status: **contrast-aware graph error diffusion is the production default**
+for coloured STL import, following visual comparison of the same castle STL
+with all three algorithms. The choice applies to the current *vertex-colour
+approximation*, not to a final decision about the mesh attribute architecture.
+PR #179 remains draft until CI and physical acceptance are complete.
 
 ## Problem and invariants
 
@@ -20,7 +22,7 @@ For mixed coloured/uncoloured VisCAM facets, use opaque white as an explicitly
 documented fallback for uncoloured facets, not an invented source colour.
 Keep Magics object RGBA (including its documented alpha) as specified.
 
-## Three competing algorithms
+## Colour conversion algorithms
 
 1. **Area-weighted average**: incident-face RGBA, weighted by face area / 3.
    Baseline representing conventional smoothing. No random decisions.
@@ -46,20 +48,32 @@ facet colours to interpolated vertices is a different optimization problem.
 All algorithms receive the *same* welded mesh, exact decoded facet colours,
 and fixed seed; none is allowed to modify the geometry.
 
-## Experimental controls
+## Production selection and diagnostic controls
 
-On Ctrl+O, compute all three candidates on the private mesh and log their
-individual compute times and colour fidelity metrics before selecting one
-for display. Add `--stl-colour-method average|stochastic|diffusion` (default:
-**diffusion provisionally**, not an architectural decision) and
-`--stl-colour-seed N` for exact repeatability. Restart/open the same STL with
-different options for visual A/B/C. No other mesh import format is changed.
-Avoid a modal dialog until we have compared the algorithms.
+Normal Ctrl+O of a coloured STL executes **only diffusion** (the default).
+This avoids spending import time running the two algorithms which lost the
+visual comparison. Keep `--stl-colour-method average|stochastic|diffusion`
+and `--stl-colour-seed N` for explicit deterministic diagnostics: choosing
+`average` or `stochastic` executes that selected conversion only. The
+dedicated `stl_colour_benchmark` CTest still computes and profiles all three
+candidates against the same geometry and decoded facet colours.
 
-Log separate graph setup/preprocessing time, per-method conversion time,
-per-method evaluation time and overall parse/validation time. Keep
-instrumentation off the sculpt hot path. Make logs easy to copy for a later
-side-by-side comparison.
+Normal imported-colour diagnostics report selected method, seed, graph setup
+time, that method's conversion time, evaluation time and colour-fidelity
+metrics. Only the explicit benchmark prints side-by-side metrics for all
+three. This work is import-time only; no sculpt hot-path behaviour or other
+mesh import format changes.
+
+## Visual acceptance and measurements
+
+The user's three screenshots of the regenerated image-based castle STL
+established **diffusion** as the preferred reconstruction: area averaging
+visibly blurred image details, while stochastic selection introduced
+high-frequency jagged noise; diffusion retained detail with much less
+objectionable speckling. This is an empirical visual preference for this
+representative fixture, **not** a proof that diffusion minimizes error for
+every source mesh. The two alternatives remain available for future
+comparisons.
 
 ## Measurements
 
@@ -87,8 +101,9 @@ blurring boundaries. These metrics do not stand in for screenshots.
   historical red test accepting refusal as desired behaviour.
 - Determinism for each method, different seeds allowed to vary stochastic
   results, all values finite and clamped [0,1].
-- Real error measures, nonnegative finite times, print machine-usable
-  consistent summary lines; compare selected output to selected candidate.
+- Real error measures and nonnegative finite times for the *selected*
+  production conversion; explicit benchmark still prints all three.
+  Verify default output matches an explicit diffusion selection.
 - Original uncoloured STL bypasses the candidate computation; invalid
   topology/unknown format still refuses and leaves the current editor intact.
 - Run five-platform CI and packaging, plus physical colour comparisons on a
@@ -100,5 +115,6 @@ A continuous interpolated vertex stream cannot exactly reproduce independent
 per-facet discontinuities on shared vertices. Even graph diffusion may show
 salt-and-pepper texture or inaccurate flat regions. A future per-face or
 per-corner colour attribute (with render-only vertex duplication) is the
-lossless alternative and remains a separate architectural decision. We will
-compare, not presume that this experiment beats such an attribute design.
+lossless alternative and remains a separate architectural decision. Diffusion
+is the current visually preferred conversion, not a lossless replacement for
+per-facet or per-corner attributes.
