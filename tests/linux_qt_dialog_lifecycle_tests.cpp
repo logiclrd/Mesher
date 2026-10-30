@@ -33,7 +33,13 @@ void autoAcceptNextFile(const std::filesystem::path& selected,
                 *startedInCwd=std::filesystem::path(
                     dialog->directory().absolutePath().toStdString())==
                     std::filesystem::current_path();
-            dialog->selectFile(QString::fromStdString(selected.string()));
+            // Simulate the user's two actions: navigate to a different
+            // folder, then choose a basename. selectFile(absolutePath)
+            // alone does not necessarily navigate QFileDialog's view.
+            dialog->setDirectory(QString::fromStdString(
+                selected.parent_path().string()));
+            dialog->selectFile(QString::fromStdString(
+                selected.filename().string()));
             // QFileDialog overrides accept() as protected, but QDialog's
             // public virtual slot dispatches to the same implementation.
             static_cast<QDialog*>(dialog)->accept();
@@ -163,7 +169,11 @@ int main() {
         if(!initialSaveCwd||!saved||*saved!=savePath||
            std::filesystem::current_path()!=two)
             throw std::runtime_error(
-                "Accepting Qt Save As must return absolute path and update CWD");
+                "Accepting Qt Save As must return absolute path and update CWD: "
+                "initial_cwd="+std::to_string(initialSaveCwd)+
+                " path="+(saved?saved->string():std::string("<cancelled>"))+
+                " expected="+savePath.string()+
+                " cwd="+std::filesystem::current_path().string());
         const auto importPath=one/"import.obj";
         {
             std::ofstream out(importPath);
@@ -177,7 +187,11 @@ int main() {
            opened->filter!=mesher::MeshOpenFilter::AllFiles||
            std::filesystem::current_path()!=one)
             throw std::runtime_error(
-                "Accepting Qt Open must auto-detect and change CWD");
+                "Accepting Qt Open must auto-detect and change CWD: "
+                "initial_cwd="+std::to_string(initialOpenCwd)+
+                " path="+(opened?opened->path.string():std::string("<cancelled>"))+
+                " expected="+importPath.string()+
+                " cwd="+std::filesystem::current_path().string());
         mesher::shutdownNativeDialogs();
         if(QApplication::instance())
             throw std::runtime_error("Qt remains alive after UI shutdown");
