@@ -222,6 +222,27 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
                            QString::fromUtf8(stlFilter),
                            QString::fromUtf8(allFilter)});
     dialog.selectNameFilter(QString::fromUtf8(supportedFilter));
+    // QFileDialog may clear or normalize selectedNameFilter() when a
+    // selection is accepted. Track the live selection instead: Qt emits
+    // filterSelected when the user changes the format dropdown.
+    MeshOpenFilter selectedFilter=MeshOpenFilter::AllFiles;
+    bool filterKnown=true;
+    QObject::connect(&dialog,&QFileDialog::filterSelected,&dialog,
+        [&](const QString& name) {
+            filterKnown=true;
+            if(name.startsWith(QStringLiteral("All supported files"))||
+               name.startsWith(QStringLiteral("All Files")))
+                selectedFilter=MeshOpenFilter::AllFiles;
+            else if(name.startsWith(QStringLiteral("Mesher mesh files")))
+                selectedFilter=MeshOpenFilter::MesherCheckpoint;
+            else if(name.startsWith(QStringLiteral("Wavefront OBJ")))
+                selectedFilter=MeshOpenFilter::WavefrontObj;
+            else if(name.startsWith(QStringLiteral("Stanford PLY")))
+                selectedFilter=MeshOpenFilter::StanfordPly;
+            else if(name.startsWith(QStringLiteral("STL surface")))
+                selectedFilter=MeshOpenFilter::StereolithographyStl;
+            else filterKnown=false;
+        });
     setInitialFile(dialog,suggestion);
     parent.attach(dialog);
     if(dialog.exec()!=QDialog::Accepted)return std::nullopt;
@@ -229,19 +250,14 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     if(names.size()!=1||names.front().isEmpty())
         throw std::runtime_error("Qt Open did not return a filename");
     const QString chosen=dialog.selectedNameFilter();
-    // The filter is an actual part of the QFileDialog result, NOT inferred
-    // from the extension. Unexpected/empty results fail closed.
-    const auto filter=chosen==QString::fromUtf8(supportedFilter)?
-        MeshOpenFilter::AllFiles:
-        chosen==QString::fromUtf8(checkpointFilter)?
-        MeshOpenFilter::MesherCheckpoint:
-        chosen==QString::fromUtf8(objFilter)?MeshOpenFilter::WavefrontObj:
-        chosen==QString::fromUtf8(plyFilter)?MeshOpenFilter::StanfordPly:
-        chosen==QString::fromUtf8(stlFilter)?MeshOpenFilter::StereolithographyStl:
-        chosen==QString::fromUtf8(allFilter)?MeshOpenFilter::AllFiles:
-        throw std::runtime_error("Qt Open returned an unknown file-type filter");
+    // The parser still follows the ACTUAL dropdown selection, never the
+    // filename extension. An unknown explicit filter change fails closed.
+    if(!filterKnown)
+        throw std::runtime_error(
+            "Qt Open returned an unknown file-type filter: "+
+            chosen.toStdString());
     return NativeOpenSelection{
-        acceptNativeDialogFilePath(asPath(names.front())),filter};
+        acceptNativeDialogFilePath(asPath(names.front())),selectedFilter};
 }
 std::optional<bool> nativePlyAlphaOpacityDialog(
     GLFWwindow* owner,float minimum,float maximum) {
