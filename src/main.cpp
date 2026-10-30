@@ -1187,17 +1187,24 @@ int main(int argc, char** argv) {
                 failure+=": "+status.lastError;
                 return failure;
             };
-            interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
+            interaction.checkpointSuggestedPath=[&] {
+                // A generated model has no file identity until Save/Open or
+                // successful first export. The word lists are compiled in.
+                auto suggestion=documentNames.suggestSaveAs(
+                    mesher::randomFilenameStem()).filename;
+                suggestion.replace_extension(".mshr");
+                return suggestion;
+            };
+            interaction.directCheckpoint=[&](
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                if(!documentNames.nativeSaveDestination())
+                    throw std::runtime_error("Native direct Save path unavailable");
+                queueCheckpoint(*documentNames.nativeSaveDestination(),
+                                std::move(root),false);
+            };
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {
-                // Frozen R06 case capture is a completely different shortcut;
-                // never checkpoint unpublished automatic repair geometry.
                 if(repairSession&&repairSession->frozen())return;
-                // The UI chooses the pathname. The worker still captures the
-                // current accepted immutable root in its existing queue.
-                liveWorker->saveCheckpoint(selectedPath);
-                checkpointPath=std::move(selectedPath);
-                std::cout<<"[checkpoint] queued Save As "
-                         <<checkpointPath.string()<<"\n";
+                queueCheckpoint(std::move(selectedPath),lastDisplayed,false);
             };
             interaction.frozenRepairCapture=[&](int requestedIntent) {
                 if(!repairAuto||!repairSession||!repairSession->frozen())return;
