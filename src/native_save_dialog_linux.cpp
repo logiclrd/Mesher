@@ -222,10 +222,22 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     auto index=static_cast<int>(MeshExportPreset::PlyLittleMeshAlpha);
     dialog.selectNameFilter(filters.at(index));
     dialog.setDefaultSuffix(QStringLiteral("ply"));
+    const auto resolveFilter=[&](const QString& chosen) {
+        // Qt themes may strip the final wildcard group. The user-visible
+        // label stays unique even when multiple encodings share *.ply.
+        for(int i=0;i<static_cast<int>(meshExportFormats.size());++i) {
+            const auto label=QString::fromUtf8(
+                meshExportFormats[static_cast<std::size_t>(i)].label.data(),
+                static_cast<qsizetype>(
+                    meshExportFormats[static_cast<std::size_t>(i)].label.size()));
+            if(chosen.startsWith(label))return i;
+        }
+        return -1;
+    };
     bool known=true;
     QObject::connect(&dialog,&QFileDialog::filterSelected,&dialog,
         [&](const QString& chosen) {
-            const auto position=filters.indexOf(chosen);
+            const auto position=resolveFilter(chosen);
             known=position>=0;
             if(!known)return;
             index=position;
@@ -242,7 +254,7 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         throw std::runtime_error("Qt Export Save As did not return a filename");
     // Prefer the final filter when Qt exposes it; its signal is retained
     // because some native Qt themes clear the final selectedNameFilter().
-    const auto finalIndex=filters.indexOf(dialog.selectedNameFilter());
+    const auto finalIndex=resolveFilter(dialog.selectedNameFilter());
     if(finalIndex>=0)index=finalIndex;
     else if(!known)
         throw std::runtime_error("Qt Export returned an unknown file-type filter");
