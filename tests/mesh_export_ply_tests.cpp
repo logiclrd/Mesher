@@ -101,6 +101,19 @@ int main() {
                              PlyExportColour::RgbaFromFile})
                 roundTrip(encoding,colour);
         }
+        // A live stream with an enabled exception mask must not trigger
+        // basic_ios::clear in the serializer's RAII format guard.
+        std::ostringstream formatted;
+        formatted.exceptions(std::ios::badbit|std::ios::failbit);
+        formatted.precision(4);
+        formatted.setf(std::ios::scientific,std::ios::floatfield);
+        const auto priorFlags=formatted.flags();
+        const auto priorExceptions=formatted.exceptions();
+        mesher::writePlyMesh(formatted,tetra(),{PlyExportEncoding::Ascii,PlyExportColour::Rgb});
+        require(!formatted.str().empty(),"Serializer produced no output");
+        require(formatted.precision()==4&&formatted.flags()==priorFlags&&
+                formatted.exceptions()==priorExceptions,
+                "Serializer did not restore caller stream format");
         auto invalid=tetra();
         invalid.triangles[0].b=999999;
         mustReject(invalid,PlyExportColour::None);
