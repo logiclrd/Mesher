@@ -133,3 +133,91 @@ Mesher's current fragment shader uses vertex alpha for paint-coat coverage
 on an opaque surface; true physically transparent rendering is a separate
 future renderer requirement. Do not claim that opting into opacity has
 introduced translucent geometry in this PR.
+
+
+## UX06C — STL import (draft PR #179)
+
+STL uses the existing atomic private Ctrl+O candidate pipeline. A selected
+STL filter invokes that parser regardless of filename extension; All Files
+recognizes ASCII solid headers and exact-size binary STL (80-byte header,
+4-byte little-endian facet count, 50 bytes per facet). A binary header may
+itself start with solid: the exact binary layout takes precedence.
+
+Facet coordinates weld only on EXACT XYZ equality. Normals are advisory;
+the imported indexed mesh must be closed, consistently wound, nondegenerate,
+have exactly two oriented uses of each edge and one connected fan per
+welded vertex. Near-coincident points do not merge implicitly: tolerance
+welding could silently join unrelated sheets. Point-touch disconnected
+fans, open or nonmanifold surfaces and damaged input refuse before Open.
+
+Binary STL facet-colour extensions are interpreted explicitly:
+- VisCAM/SolidView: without the Magics header, attribute bit 15 set marks
+  BGR555 (R high, B low). Attribute zero is uncoloured. Other nonzero
+  attributes without bit 15 are refused as ambiguous.
+- Materialise Magics: an 80-byte header containing COLOR= and four binary
+  RGBA bytes selects the dialect. Bit 15 set uses the object RGBA;
+  bit 15 clear uses per-facet BGR555 (R low, B high), even when zero.
+  MATERIAL= is refused: Mesher cannot faithfully represent its materials.
+- ASCII STL is colourless. Unknown *encoding conventions* are refused;
+  a recognised dialect with conflicting colours is **not** refused.
+
+Mesher has per-vertex RGBA, whereas STL colours are per facet. UX06D
+supersedes the original strict colour matching rule: conflicting facet
+colours are now converted approximately using three benchmarked candidates.
+They share the same welded mesh, never split logical vertices, and keep
+geometry validation strict. Missing facet colours in a partly coloured
+VisCAM mesh use explicitly documented opaque white for those facets.
+An entirely colourless STL still produces an empty colour stream.
+
+Following comparison of the three methods on the regenerated castle STL,
+**diffusion is the production default** for facet-to-vertex approximation.
+The image-based visual test favoured its detail retention over averaging and
+its reduced noise over stochastic selection; it is not guaranteed to be optimal
+for every mesh. Specify `--stl-colour-method average` or `stochastic` for
+explicit comparison, or `--stl-colour-method diffusion` to select the default
+explicitly. `--stl-colour-seed N` controls repeatability. A normal coloured
+STL Open runs and profiles only the selected method (not all three); the
+dedicated comparison benchmark still measures all three. See
+[UX06D design](UX06_STL_COLOUR_COMPARISON.md). The current *vertex* attribute
+model is unchanged: lossless per-facet discontinuities would require separate
+per-face/per-corner attributes. Magics RGBA is preserved as editable vertex
+RGBA where supported, but actual translucency is a separate renderer feature.
+
+Bounds: the existing 256 MiB file limit, plus finite 2,000,000 facets
+and 1,000,000 welded vertices. Source geometry/units and the previous
+live worker remain unchanged until a fully validated candidate commits.
+Checkpoint round trips preserve successfully converted vertex colours.
+
+Dedicated stl_import CTest covers both encodings, misleading extensions,
+both colour conventions, closed-fan welding and explicit refusal cases.
+UX06 remains partly open until physical Ctrl+O testing and the remaining
+advanced format/convention requirements have been accepted.
+
+
+### Legacy castle fixture: degenerate latitude-pole construction
+
+The originally checked-in `test-files/castle.stl` came from a version of
+`tools/img_to_stl.py` which emitted ordinary longitude rings at phi=0 and
+phi=pi. All north-ring vertices share the pole position, so the north cap
+and first main-band triangles collapse after float32 welding. The
+main-band triangle winding was also opposite to the two pole fans.
+MeshLab can display the remaining surface after tolerating such facets;
+Mesher's exact manifold validation properly refuses the original stream.
+
+The generator now creates strictly interior latitude rings with a single
+north and south pole, and outward-facing ACB and BCD main triangles.
+Before writing, it validates the actual float32 vertex positions,
+nonzero facet area, outward orientation and two opposite uses per edge.
+A positive CTest runs this generator with a synthetic colour image without
+requiring Pillow, and imports its resulting STL through the C++ importer.
+
+Regenerate the legacy checked-in binary fixture from its source image:
+
+    python3 tools/img_to_stl.py -i tools/castle-192.png -o test-files/castle.stl
+
+The generator now uses Mesher's standard-library PNG reader for PNG inputs
+(Pillow is required only for other image formats). CTest also regenerates
+the actual castle image into a temporary STL and imports it through the
+normal C++ candidate path. Until the checked-in binary is replaced,
+the old castle binary still contains malformed pole geometry and remains
+a failure reproducer, not a valid STL acceptance fixture.

@@ -93,6 +93,7 @@ void setInitialFile(QFileDialog& dialog,const std::filesystem::path& file) {
 constexpr const char* checkpointFilter="Mesher mesh files (*.mshr) (*.mshr)";
 constexpr const char* objFilter="Wavefront OBJ (*.obj) (*.obj)";
 constexpr const char* plyFilter="Stanford PLY (*.ply) (*.ply)";
+constexpr const char* stlFilter="STL surface (*.stl) (*.stl)";
 constexpr const char* allFilter="All Files (*)";
 // Qt has no QWidget ownership of Mesher's GLFW window. On X11/XWayland,
 // represent the GLFW XID as a non-owning QWindow, and make each modal
@@ -224,6 +225,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     dialog.setNameFilters({QString::fromUtf8(checkpointFilter),
                            QString::fromUtf8(objFilter),
                            QString::fromUtf8(plyFilter),
+                           QString::fromUtf8(stlFilter),
                            QString::fromUtf8(allFilter)});
     dialog.selectNameFilter(QString::fromUtf8(checkpointFilter));
     setInitialFile(dialog,suggestion);
@@ -239,6 +241,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         MeshOpenFilter::MesherCheckpoint:
         chosen==QString::fromUtf8(objFilter)?MeshOpenFilter::WavefrontObj:
         chosen==QString::fromUtf8(plyFilter)?MeshOpenFilter::StanfordPly:
+        chosen==QString::fromUtf8(stlFilter)?MeshOpenFilter::StereolithographyStl:
         chosen==QString::fromUtf8(allFilter)?MeshOpenFilter::AllFiles:
         throw std::runtime_error("Qt Open returned an unknown file-type filter");
     return NativeOpenSelection{asPath(names.front()),filter};

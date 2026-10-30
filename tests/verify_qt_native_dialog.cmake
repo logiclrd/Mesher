@@ -36,7 +36,8 @@ foreach(required
     "glfwFocusWindow(owner_)"
     "Mesher mesh files (*.mshr) (*.mshr)"
     "Wavefront OBJ (*.obj) (*.obj)"
-    "Stanford PLY (*.ply) (*.ply)")
+    "Stanford PLY (*.ply) (*.ply)"
+    "STL surface (*.stl) (*.stl)")
     string(FIND "${dialog}" "${required}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "Linux native Open/Save requires Qt: ${required}")

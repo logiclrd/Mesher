@@ -95,8 +95,9 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         {L"Mesher mesh files (*.mshr)",L"*.mshr"},
         {L"Wavefront OBJ (*.obj)",L"*.obj"},
         {L"Stanford PLY (*.ply)",L"*.ply"},
+        {L"STL surface (*.stl)",L"*.stl"},
         {L"All Files (*.*)",L"*.*"}};
-    require(dialog->SetFileTypes(4,filters),"SetFileTypes Open");
+    require(dialog->SetFileTypes(5,filters),"SetFileTypes Open");
     require(dialog->SetFileTypeIndex(1),"SetFileTypeIndex Open");
     if(!suggestion.parent_path().empty()) {
         const auto absolute=std::filesystem::absolute(suggestion);
@@ -120,11 +121,13 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
     CoTaskMemFree(path);
     UINT index=0;
     require(dialog->GetFileTypeIndex(&index),"GetFileTypeIndex Open");
-    if(index<1||index>4)
+    if(index<1||index>5)
         throw std::runtime_error("Open dialog selected unknown file type");
     const auto filter=index==1?MeshOpenFilter::MesherCheckpoint:
                       index==2?MeshOpenFilter::WavefrontObj:
-                      index==3?MeshOpenFilter::StanfordPly:MeshOpenFilter::AllFiles;
+                      index==3?MeshOpenFilter::StanfordPly:
+                      index==4?MeshOpenFilter::StereolithographyStl:
+                               MeshOpenFilter::AllFiles;
     return NativeOpenSelection{selected,filter};
 }
 std::optional<bool> nativePlyAlphaOpacityDialog(

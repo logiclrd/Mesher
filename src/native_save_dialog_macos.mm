@@ -14,6 +14,7 @@
     UTType* checkpointType;
     UTType* objType;
     UTType* plyType;
+    UTType* stlType;
 }
 - (void)change:(id)sender;
 @end
@@ -23,6 +24,7 @@
     if(index==0)panel.allowedContentTypes=checkpointType?@[checkpointType]:@[];
     else if(index==1)panel.allowedContentTypes=objType?@[objType]:@[];
     else if(index==2)panel.allowedContentTypes=plyType?@[plyType]:@[];
+    else if(index==3)panel.allowedContentTypes=stlType?@[stlType]:@[];
     else panel.allowedContentTypes=@[];
 }
 @end
@@ -83,12 +85,14 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
             NSMakeRect(0,0,280,28) pullsDown:NO];
         [fileType addItemsWithTitles:@[
             @"Mesher mesh files (*.mshr)",@"Wavefront OBJ (*.obj)",
-            @"Stanford PLY (*.ply)",@"All Files (*)"]];
+            @"Stanford PLY (*.ply)",@"STL surface (*.stl)",@"All Files (*)"]];
         UTType* mshr=[UTType typeWithFilenameExtension:@"mshr"
                                      conformingToType:UTTypeData];
         UTType* obj=[UTType typeWithFilenameExtension:@"obj"
                                     conformingToType:UTTypeData];
         UTType* ply=[UTType typeWithFilenameExtension:@"ply"
+                                    conformingToType:UTTypeData];
+        UTType* stl=[UTType typeWithFilenameExtension:@"stl"
                                     conformingToType:UTTypeData];
         // Cocoa exposes the selected item, and the accessory controller
         // updates the actual visible filter without using the filename
@@ -99,6 +103,7 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         controller->checkpointType=mshr;
         controller->objType=obj;
         controller->plyType=ply;
+        controller->stlType=stl;
         [fileType setTarget:controller];
         [fileType setAction:@selector(change:)];
         panel.accessoryView=fileType;
@@ -123,7 +128,9 @@ std::optional<NativeOpenSelection> nativeOpenMeshDialog(
         const auto index=fileType.indexOfSelectedItem;
         const auto filter=index==0?MeshOpenFilter::MesherCheckpoint:
                           index==1?MeshOpenFilter::WavefrontObj:
-                          index==2?MeshOpenFilter::StanfordPly:MeshOpenFilter::AllFiles;
+                          index==2?MeshOpenFilter::StanfordPly:
+                          index==3?MeshOpenFilter::StereolithographyStl:
+                                   MeshOpenFilter::AllFiles;
         return NativeOpenSelection{std::filesystem::path(path),filter};
     }
 }

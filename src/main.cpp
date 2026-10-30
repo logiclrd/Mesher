@@ -61,6 +61,7 @@ int main(int argc, char** argv) {
     bool compareLocalRemesh = false;
     std::filesystem::path checkpointPath="mesher-checkpoint.mshr";
     std::filesystem::path recoverPath;
+    mesher::StlImportOptions stlOptions{};
     std::filesystem::path repairCaseOut,repairReplayPath;
     bool repairReplayTest=false,repairStepDebug=false;
     bool classifierExplicit=false;
@@ -70,6 +71,25 @@ int main(int argc, char** argv) {
             const std::string_view arg=argv[i];
             if(arg=="--asymmetric") {
                 options.symmetric=false;explicitSymmetric=false;
+            }
+            else if(arg=="--stl-colour-method") {
+                if(++i>=argc)throw std::invalid_argument(
+                    "--stl-colour-method needs average|stochastic|diffusion");
+                const std::string_view name=argv[i];
+                if(name=="average")stlOptions.method=mesher::StlColourMethod::Average;
+                else if(name=="stochastic")
+                    stlOptions.method=mesher::StlColourMethod::Stochastic;
+                else if(name=="diffusion")
+                    stlOptions.method=mesher::StlColourMethod::Diffusion;
+                else throw std::invalid_argument("Unknown STL colour method");
+            }
+            else if(arg=="--stl-colour-seed") {
+                if(++i>=argc)throw std::invalid_argument("Missing STL colour seed");
+                const std::string_view value=argv[i];
+                const auto [p,ec]=std::from_chars(
+                    value.data(),value.data()+value.size(),stlOptions.seed);
+                if(ec!=std::errc{}||p!=value.data()+value.size())
+                    throw std::invalid_argument("Invalid STL colour seed");
             }
             else if(arg=="--no-collapse") collapseSettings.enabled=false;
             else if(arg=="--no-refine") refineSettings.enabled=false;
@@ -221,6 +241,8 @@ int main(int argc, char** argv) {
                          <<"       [--demo] [--time-speed MODEL_UNITS_PER_SECOND]\n"
                          <<"       [--verbose-input] (interactive mouse event trace)\n"
                          <<"       [--checkpoint FILE] [--recover FILE]\n"
+                         <<"       [--stl-colour-method average|stochastic|diffusion] (default diffusion; other modes diagnostic)\n"
+                         <<"       [--stl-colour-seed N] (repeatable graph traversal and sampling)\n"
                          <<"       [--merge-geometry] (explicit protected opt-in; desktop M toggles mode)\n"
                          <<"       [--avoid-collisions] (separate Merge OFF collision avoidance, session-only)\n"
                          <<"       [--avoid-test-sheets] (requires --avoid-collisions OR --repair-inspect, --asymmetric)\n"
@@ -885,7 +907,7 @@ int main(int argc, char** argv) {
                         "Open requires ordinary idle editor and completed Save As");
                 auto selected=std::move(selectedFile.path);
                 auto candidate=mesher::readMeshOpenCandidate(
-                    selected,selectedFile.filter);
+                    selected,selectedFile.filter,stlOptions);
                 if(candidate.alphaDecisionRequired) {
                     const auto interpreted=mesher::nativePlyAlphaOpacityDialog(
                         owner,candidate.sourceAlphaMinimum,

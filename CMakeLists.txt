@@ -32,7 +32,7 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-add_library(mesher_mesh STATIC src/mesh.cpp src/sculpt_fixtures.cpp src/brush.cpp src/async_sculpt.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp src/versioned_mesh.cpp src/mesh_partitioning.cpp src/region_edit.cpp src/region_index.cpp src/revision_picking.cpp src/triangle_collision.cpp src/repair_inspection.cpp src/repair_step_replay_session.cpp src/repair_case.cpp src/repair_preview.cpp src/repair_excision.cpp src/repair_zipper.cpp src/repair_zipper_front.cpp src/repair_cap.cpp src/repair_cap_spatial.cpp src/repair_mirror_geometry.cpp src/repair_survivors.cpp src/repair_enclosure.cpp src/repair_auto_plan.cpp src/repair_proximity_fitness.cpp src/repair_quality_flip.cpp src/repair_survivor_split.cpp src/repair_interior_fairing.cpp src/repair_interior_collapse.cpp src/repair_rim_quality.cpp src/repair_seam_audit.cpp src/repair_seam_provenance.cpp src/repair_mixed_stage.cpp src/repair_mixed_stage_edit.cpp src/repair_mixed_closure.cpp src/repair_auto_private.cpp src/offmode_collision.cpp src/offmode_clearance.cpp src/offmode_mirror.cpp src/repair_intersection.cpp src/repair_intersection_conform.cpp src/repair_intersection_arrange.cpp src/repair_intersection_mirror.cpp src/repair_intersection_commit.cpp src/repair_intersection_mirror_commit.cpp src/repair_intersection_classify.cpp src/repair_intersection_coverage.cpp src/repair_intersection_removal.cpp src/repair_intersection_uncut.cpp src/repair_intersection_surgery.cpp src/repair_intersection_join.cpp src/repair_intersection_step.cpp src/revision_winding.cpp src/repair_plan.cpp src/repair_closure.cpp src/repair_surgery.cpp src/repair_crossing.cpp src/repair_classified.cpp src/repair_fidelity.cpp src/repair_lifetime.cpp src/versioned_inflate.cpp src/versioned_refine.cpp src/versioned_collapse.cpp src/versioned_sculpt.cpp src/vertex_paint.cpp src/mesh_open_candidate.cpp src/mesh_ply.cpp src/partition_render.cpp src/revision_retirement.cpp src/revision_history.cpp src/durable_checkpoint.cpp)
+add_library(mesher_mesh STATIC src/mesh.cpp src/sculpt_fixtures.cpp src/brush.cpp src/async_sculpt.cpp src/remesh.cpp src/refine.cpp src/picking.cpp src/spatial_grid.cpp src/versioned_mesh.cpp src/mesh_partitioning.cpp src/region_edit.cpp src/region_index.cpp src/revision_picking.cpp src/triangle_collision.cpp src/repair_inspection.cpp src/repair_step_replay_session.cpp src/repair_case.cpp src/repair_preview.cpp src/repair_excision.cpp src/repair_zipper.cpp src/repair_zipper_front.cpp src/repair_cap.cpp src/repair_cap_spatial.cpp src/repair_mirror_geometry.cpp src/repair_survivors.cpp src/repair_enclosure.cpp src/repair_auto_plan.cpp src/repair_proximity_fitness.cpp src/repair_quality_flip.cpp src/repair_survivor_split.cpp src/repair_interior_fairing.cpp src/repair_interior_collapse.cpp src/repair_rim_quality.cpp src/repair_seam_audit.cpp src/repair_seam_provenance.cpp src/repair_mixed_stage.cpp src/repair_mixed_stage_edit.cpp src/repair_mixed_closure.cpp src/repair_auto_private.cpp src/offmode_collision.cpp src/offmode_clearance.cpp src/offmode_mirror.cpp src/repair_intersection.cpp src/repair_intersection_conform.cpp src/repair_intersection_arrange.cpp src/repair_intersection_mirror.cpp src/repair_intersection_commit.cpp src/repair_intersection_mirror_commit.cpp src/repair_intersection_classify.cpp src/repair_intersection_coverage.cpp src/repair_intersection_removal.cpp src/repair_intersection_uncut.cpp src/repair_intersection_surgery.cpp src/repair_intersection_join.cpp src/repair_intersection_step.cpp src/revision_winding.cpp src/repair_plan.cpp src/repair_closure.cpp src/repair_surgery.cpp src/repair_crossing.cpp src/repair_classified.cpp src/repair_fidelity.cpp src/repair_lifetime.cpp src/versioned_inflate.cpp src/versioned_refine.cpp src/versioned_collapse.cpp src/versioned_sculpt.cpp src/vertex_paint.cpp src/mesh_open_candidate.cpp src/mesh_ply.cpp src/mesh_stl.cpp src/mesh_stl_color.cpp src/partition_render.cpp src/revision_retirement.cpp src/revision_history.cpp src/durable_checkpoint.cpp)
 target_include_directories(mesher_mesh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
 find_package(Threads REQUIRED)
@@ -423,6 +423,38 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
     add_test(NAME mesh_generation COMMAND mesher_mesh_tests)
+    add_executable(mesher_stl_tests tests/mesh_stl_tests.cpp)
+    target_link_libraries(mesher_stl_tests PRIVATE mesher_mesh)
+    add_test(NAME stl_import COMMAND mesher_stl_tests)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        set(MESHER_STL_GENERATED_FIXTURE
+            "${CMAKE_CURRENT_BINARY_DIR}/stl_generator_fixture.stl")
+        add_test(NAME stl_generator_manifold
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_img_to_stl.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/img_to_stl.py"
+                "${MESHER_STL_GENERATED_FIXTURE}")
+        add_test(NAME stl_generator_import
+            COMMAND mesher_stl_tests "${MESHER_STL_GENERATED_FIXTURE}")
+        set_tests_properties(stl_generator_import PROPERTIES
+            DEPENDS stl_generator_manifold)
+        # Exercise the actual castle image which produced the bad STL.
+        set(MESHER_CASTLE_STL_FIXTURE
+            "${CMAKE_CURRENT_BINARY_DIR}/castle_rebuilt.stl")
+        add_test(NAME stl_castle_generate
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/img_to_stl.py"
+                -i "${CMAKE_CURRENT_SOURCE_DIR}/tools/castle-192.png"
+                -o "${MESHER_CASTLE_STL_FIXTURE}")
+        add_test(NAME stl_castle_import
+            COMMAND mesher_stl_tests "${MESHER_CASTLE_STL_FIXTURE}")
+        set_tests_properties(stl_castle_import PROPERTIES
+            DEPENDS stl_castle_generate)
+    endif()
+    add_executable(mesher_stl_colour_benchmark tests/mesh_stl_colour_benchmark.cpp)
+    target_link_libraries(mesher_stl_colour_benchmark PRIVATE mesher_mesh)
+    add_test(NAME stl_colour_benchmark COMMAND mesher_stl_colour_benchmark)
     add_executable(mesher_brush_tests tests/brush_tests.cpp)
     target_link_libraries(mesher_brush_tests PRIVATE mesher_mesh)
     add_test(NAME brushes COMMAND mesher_brush_tests)
