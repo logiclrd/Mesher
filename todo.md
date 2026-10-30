@@ -2224,7 +2224,7 @@ never changes editor geometry, checkpoint identity or undo history.
   each with a recognizable model preview and caption, in this order:
   **Asymmetric Sphere**, **Symmetric Sphere**, **Torus**. The dialog contains
   a lower-left numeric **"Vertices:"** field, initially set to the
-  application's startup \`--vertices\` argument (or the same startup default,
+  application's startup `--vertices` argument (or the same startup default,
   currently 5000), not implicitly to the current mesh's post-edit vertex
   count. Validate the value against the corresponding model generator's
   supported positive range before attempting creation. A **Cancel** button
@@ -2235,7 +2235,7 @@ never changes editor geometry, checkpoint identity or undo history.
 
   Choosing a preview requests a new pristine model using the existing
   startup generation paths and parameters, corresponding to
-  \`--asymmetric\`, \`--symmetric\` and \`--torus\` (including the torus's
+  `--asymmetric`, `--symmetric` and `--torus` (including the torus's
   non-mirrored topology), with the chosen vertex count. Generate and
   validate a **private** replacement and construct its independent
   worker/revision/index/render/picking state before publication. Only
@@ -2257,9 +2257,9 @@ never changes editor geometry, checkpoint identity or undo history.
   *before* replacing the original. Mention the remembered filename when
   one exists, and show buttons, ordered from left to right:
   **Save** (only when a remembered filename exists), **Save As**,
-  **No**, **Cancel**. \`Save\` writes to the remembered filename without
-  opening a file picker; \`Save As\` performs the existing native document
-  Save As flow; \`No\` discards edits and proceeds with New; \`Cancel\`
+  **No**, **Cancel**. `Save` writes to the remembered filename without
+  opening a file picker; `Save As` performs the existing native document
+  Save As flow; `No` discards edits and proceeds with New; `Cancel`
   (or Escape) returns to the previous document, leaving it unchanged.
   Accelerator keys: **S** for Save if present, otherwise **S** for Save As;
   **A** for Save As when Save is present; **N** for No. Cancel/Escape must
@@ -2274,14 +2274,14 @@ never changes editor geometry, checkpoint identity or undo history.
   Avoid race conditions when brush/paint/undo changes arrive while a
   save or replacement is pending.
 
-  **Preimplementation policy to settle:** Ctrl+O can open \`.obj\`,
-  \`.ply\`, or \`.stl\` as well as native \`.mshr\` checkpoints. Remembering
+  **Preimplementation policy to settle:** Ctrl+O can open `.obj`,
+  `.ply`, or `.stl` as well as native `.mshr` checkpoints. Remembering
   an imported filename for the displayed prompt does not by itself make
-  it safe for \`Save\` to write checkpoint bytes to that non-\`.mshr\`
+  it safe for `Save` to write checkpoint bytes to that non-`.mshr`
   path. Define format-aware direct Save semantics (or a specific
   conversion/promotion policy) before enabling Save against an imported
   non-checkpoint filename; never silently overwrite a foreign-format file
-  with \`.mshr\` bytes.
+  with `.mshr` bytes.
 
   Acceptance: keyboard accelerators and Escape precedence, clean vs
   dirty documents, filename remembered/cleared across Open/Save/New,
