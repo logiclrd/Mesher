@@ -1201,8 +1201,9 @@ int main(int argc, char** argv) {
                 pendingExportNames->push_back({name,generation,codec});
             };
             interaction.exportFailure=[
-                exportWriter,pendingExportNames,&documentNames]()
+                exportWriter,pendingExportNames,&documentNames,&pollCheckpoint]()
                 -> std::optional<std::string> {
+                pollCheckpoint();
                 std::string failure;
                 for(const auto& completion:exportWriter->takeCompletions()) {
                     if(pendingExportNames->empty()) {
