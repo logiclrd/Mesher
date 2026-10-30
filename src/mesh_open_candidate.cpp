@@ -140,6 +140,22 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
     while(std::getline(input,line)) {
         if(++lineNumber>10000000||line.size()>1048576)
             throw std::runtime_error("OBJ line/work limit exceeded");
+        // ZBrush 2025 exports valid OBJ records followed by a single
+        // NUL C-string terminator, even after the final newline. Treat
+        // NUL bytes as padding ONLY when they occupy the file's tail;
+        // an embedded NUL must never conceal subsequent OBJ records.
+        const auto terminator=line.find('\0');
+        if(terminator!=std::string::npos) {
+            const bool onlyZeroPadding=std::all_of(
+                line.begin()+static_cast<std::string::difference_type>(terminator),
+                line.end(),[](char ch){return ch=='\0';});
+            if(!onlyZeroPadding||
+               input.peek()!=std::char_traits<char>::eof())
+                throw std::runtime_error(
+                    "OBJ line "+std::to_string(lineNumber)+
+                    ": embedded NUL byte; only terminal NUL padding is permitted");
+            line.resize(terminator);
+        }
         std::istringstream row(line);
         row.imbue(std::locale::classic());
         std::string tag;
