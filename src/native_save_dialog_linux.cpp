@@ -259,9 +259,28 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     else if(!known)
         throw std::runtime_error("Qt Export returned an unknown file-type filter");
     const auto preset=static_cast<MeshExportPreset>(index);
-    const auto pathname=validateExportFilename(asPath(names.front()),preset);
+    const auto raw=asPath(names.front());
+    const auto pathname=validateExportFilename(raw,preset);
+    if(raw!=pathname&&std::filesystem::exists(pathname)&&
+       !nativeConfirmMeshExportOverwrite(owner,pathname))
+        return std::nullopt;
     return NativeMeshExportSelection{
         acceptNativeDialogFilePath(pathname),preset};
+}
+bool nativeConfirmMeshExportOverwrite(
+    GLFWwindow* owner,const std::filesystem::path& destination) {
+    (void)desktopQt();
+    ScopedGlfwDialogOwner parent(owner);
+    QMessageBox dialog(QMessageBox::Warning,
+        QStringLiteral("Replace existing mesh export?"),
+        QStringLiteral("The final export file already exists:\n")+
+            asQString(destination)+
+            QStringLiteral("\n\nReplace its contents?"),
+        QMessageBox::Yes|QMessageBox::Cancel);
+    dialog.setDefaultButton(QMessageBox::Cancel);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    parent.attach(dialog);
+    return dialog.exec()==QMessageBox::Yes;
 }
 bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
                                        std::string_view disclosure) {
