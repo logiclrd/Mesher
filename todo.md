@@ -2155,6 +2155,41 @@ variants already work.
   geometry/colour round trips against UX06 for each supported variant.
 
 
+**UX07 flat peer sequence (2026-10-30; plan before implementation):** The
+native export UI, three file formats, source-alpha decisions and safe I/O
+are too broad for one independently verified milestone. Each peer retains
+its own tests and PR; the parent UX07 remains unchecked until full UI and
+round-trip acceptance. Export always reads a stable accepted mesh snapshot,
+never changes editor geometry, checkpoint identity or undo history.
+
+- [ ] **UX07A — Portable OBJ export core.** Encode geometry-only standard
+  OBJ, inline normalized RGB/RGBA OBJ, and ZBrush #MRGB RGB OBJ with an
+  explicit opaque mask byte (not alpha). Deterministic vertex order and face
+  indexing, finite-value/index checks, colour-loss contract and cross-parser
+  round trips. No dialog or Ctrl+E in this peer.
+- [ ] **UX07B — Portable PLY export core.** ASCII and binary little/big-endian
+  coordinate and RGB(A) variants; choose mesh alpha vs preserved original
+  source alpha when provenance demands; explicit no-colour. Check the
+  already supported importer's actual accepted schema and quantization.
+- [ ] **UX07C — Portable STL export core.** ASCII colourless and binary
+  colourless, VisCAM/SolidView BGR555, Materialise Magics BGR555 and object
+  colour forms; deliberate, disclosed vertex-to-facet approximation and
+  alpha limitations, paired with existing strict STL import acceptance.
+- [ ] **UX07D — Failure-safe output and immutable snapshot integration.**
+  Build bytes from an accepted frozen mesh snapshot; use unique adjacent
+  temporary files, checked flush/close and atomic replacement where the OS
+  permits; preserve existing destinations on error and clean temporary files.
+  Include large files, IO failures, concurrent sculpt/undo and CWD changes.
+- [ ] **UX07E — Native Ctrl+E Save As picker and format disclosure.**
+  Platform-native Windows/Qt/macOS type and encoding dropdowns, default
+  format/extension handling, visible RGB/alpha loss or conversion choices,
+  CWD starting/acceptance policy consistent with UX06G, modal placement,
+  cancellation and overwrite safety. Physical UI tests on all platforms.
+- [ ] **UX07F — Complete end-to-end export acceptance.** Round-trip each
+  supported encoding and explicit lossy conversion through UX06 import;
+  compare topology, winding, positions, RGB(A) tolerance and untouched
+  editor/history/worker state. Keep UX07 parent unchecked until signed off.
+
 - [ ] **UX08 — Global model/view scale and automatic import framing.**
   Add a logarithmic global-scale slider in the lower-right viewport,
   styled and positioned like the brush-size slider. Its evenly spaced
