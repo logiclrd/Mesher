@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QDialog>
+#include <QDir>
 #include <QFileDialog>
 #include <QScreen>
 #include <QTimer>
