@@ -133,3 +133,48 @@ Mesher's current fragment shader uses vertex alpha for paint-coat coverage
 on an opaque surface; true physically transparent rendering is a separate
 future renderer requirement. Do not claim that opting into opacity has
 introduced translucent geometry in this PR.
+
+
+## UX06C — STL import (draft PR #179)
+
+STL uses the existing atomic private Ctrl+O candidate pipeline. A selected
+STL filter invokes that parser regardless of filename extension; All Files
+recognizes ASCII solid headers and exact-size binary STL (80-byte header,
+4-byte little-endian facet count, 50 bytes per facet). A binary header may
+itself start with solid: the exact binary layout takes precedence.
+
+Facet coordinates weld only on EXACT XYZ equality. Normals are advisory;
+the imported indexed mesh must be closed, consistently wound, nondegenerate,
+have exactly two oriented uses of each edge and one connected fan per
+welded vertex. Near-coincident points do not merge implicitly: tolerance
+welding could silently join unrelated sheets. Point-touch disconnected
+fans, open or nonmanifold surfaces and damaged input refuse before Open.
+
+Binary STL facet-colour extensions are interpreted explicitly:
+- VisCAM/SolidView: without the Magics header, attribute bit 15 set marks
+  BGR555 (R high, B low). Attribute zero is uncoloured. Other nonzero
+  attributes without bit 15 are refused as ambiguous.
+- Materialise Magics: an 80-byte header containing COLOR= and four binary
+  RGBA bytes selects the dialect. Bit 15 set uses the object RGBA;
+  bit 15 clear uses per-facet BGR555 (R low, B high), even when zero.
+  MATERIAL= is refused: Mesher cannot faithfully represent its materials.
+- ASCII STL is colourless. Unknown or conflicting facet-colour conventions
+  are refused, never ignored or silently converted.
+
+Mesher has per-vertex RGBA, whereas STL colours are per facet. Conversion
+is accepted only when all facets incident to each welded vertex assign
+identical colours. A per-facet colour seam, missing per-facet colour among
+coloured facets or a mixed-colour shared vertex is explicitly refused.
+Vertex splitting to preserve a colour seam would compromise the closed
+indexed surface. Magics RGBA is preserved as editable vertex RGBA,
+but actual surface translucency remains a separate renderer feature.
+
+Bounds: the existing 256 MiB file limit, plus finite 2,000,000 facets
+and 1,000,000 welded vertices. Source geometry/units and the previous
+live worker remain unchanged until a fully validated candidate commits.
+Checkpoint round trips preserve successfully converted vertex colours.
+
+Dedicated stl_import CTest covers both encodings, misleading extensions,
+both colour conventions, closed-fan welding and explicit refusal cases.
+UX06 remains partly open until physical Ctrl+O testing and the remaining
+advanced format/convention requirements have been accepted.
