@@ -1,6 +1,7 @@
 #include "mesher/mesh.hpp"
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_partitioning.hpp"
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -210,6 +211,12 @@ void testZbrushMrgb() {
         "#MRGB ffff0000 0000ff00 ff0000ff FF000000\n"+faces)));
     verify(readMeshOpenCandidate(put("before-vertices.obj",payload+xyz+faces)));
     verify(readMeshOpenCandidate(put("after-faces.obj",xyz+faces+payload)));
+    // ZBrush 2025 writes a terminal NUL after the final blank line.
+    // Also accept the same terminator directly after the last face.
+    verify(readMeshOpenCandidate(put("nul-terminated.obj",
+        xyz+payload+faces+"\n"+std::string(1,'\0'))));
+    verify(readMeshOpenCandidate(put("nul-on-last-face.obj",
+        xyz+payload+faces+std::string(1,'\0'))));
     const auto checkpoint=dir/"converted.mshr";
     writeCheckpoint(checkpoint,original.snapshot);
     verify(readMeshOpenCandidate(checkpoint));
@@ -304,9 +311,53 @@ void testZbrushMrgb() {
            "conflicts with MRGB");
     refuse("unsupported-metadata.obj",xyz+"#vc 0 1 0\n"+faces,
            "metadata vertex-colour convention");
+    refuse("embedded-nul.obj",xyz+payload+faces+
+           std::string(1,'\0')+"f 1 2 3\n","embedded NUL");
+    refuse("nul-before-record.obj",xyz+payload+faces+
+           std::string(1,'\0')+"\nf 1 2 3\n","embedded NUL");
     std::string tooMany=xyz+"#MRGB ";
     for(int i=0;i<65;++i)tooMany+="00ff0000";
     refuse("65-on-one-line.obj",tooMany+"\n"+faces,"at most 64");
+}
+
+void testRealZbrushObjExporterFixture(const std::filesystem::path& zbrushPath,
+                                      const std::filesystem::path& inlinePath) {
+    // The committed 2025.0.1 ZBrush OBJ ends in a literal NUL after an
+    // empty line. Its MRGB RGB stream matches the same Duck.ply vertex
+    // colours exported through MeshLab's inline XYZRGB convention.
+    const auto zbrush=readMeshOpenCandidate(zbrushPath,MeshOpenFilter::AllFiles);
+    const auto inlineRgb=readMeshOpenCandidate(inlinePath,MeshOpenFilter::AllFiles);
+    for(const auto* candidate:{&zbrush,&inlineRgb})
+        check(candidate->format==MeshOpenFormat::WavefrontObj&&
+              candidate->vertexCount==19247&&
+              candidate->faceCount==38490&&candidate->hasVertexColors,
+              "Actual duck OBJ variants must both import complete coloured geometry");
+
+    const auto colourHistogram=[](const MeshOpenCandidate& source){
+        std::vector<std::uint32_t> encoded;
+        encoded.reserve(source.vertexCount);
+        source.snapshot.index->revision().forEachPartition(
+            [&](PartitionId,const MeshPartition& part) {
+                for(const auto& v:part.vertices) {
+                    check(v.color.a==1.f&&!v.color.sourceAlpha.has_value(),
+                          "OBJ RGB import must not derive alpha from ZBrush mask");
+                    const auto byte=[](float c) {
+                        check(std::isfinite(c)&&c>=0.f&&c<=1.f,
+                              "Imported OBJ RGB channels must remain normalized");
+                        return static_cast<std::uint32_t>(
+                            std::lround(static_cast<double>(c)*255.0));
+                    };
+                    encoded.push_back((byte(v.color.r)<<16)|
+                                      (byte(v.color.g)<<8)|byte(v.color.b));
+                }
+            });
+        check(encoded.size()==source.vertexCount,
+              "OBJ colour histogram must include every imported vertex");
+        std::sort(encoded.begin(),encoded.end());
+        return encoded;
+    };
+    check(colourHistogram(zbrush)==colourHistogram(inlineRgb),
+          "Real ZBrush MRGB colour bytes must match the inline XYZRGB export");
 }
 
 void testPlyImportCandidates() {
@@ -550,8 +601,13 @@ void testPlyImportCandidates() {
     }
 }
 
-int main(){
+int main(int argc,char** argv){
     try {
+        if(argc==4&&std::string(argv[1])=="--obj-mrgb-fixtures"){
+            testRealZbrushObjExporterFixture(argv[2],argv[3]);
+            return 0;
+        }
+        check(argc==1,"Unexpected mesh test arguments");
         testPrivateMeshOpenCandidates();
         testZbrushMrgb();
         testPlyImportCandidates();
