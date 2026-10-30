@@ -215,13 +215,13 @@ struct SculptCollisionSettings {
     // protected whole-original Merge. Retain finite limits for both, but
     // do not globally relax the strict protected Merge source budget.
     SculptSourceContactLimits certifiedAutoSourceLimits{
-        16384,32768,{16384,4194304,1048576,524288,262144,2048},2048};
+        262144,524288,{16384,4194304,1048576,524288,262144,2048},2048};
     // Only after the *local* classifier finds a new transverse contact,
     // collect the entire source contact graph for R02/R03/M03. This is
     // never charged to ordinary clean brush stamps. Protected Merge keeps
     // its separate strict V13 limits.
     SculptSourceContactLimits certifiedAutoCompleteSourceLimits{
-        16384,32768,{32768,33554432,8388608,2097152,1048576,2048},2048};
+        262144,524288,{262144,33554432,8388608,2097152,1048576,2048},2048};
     SculptOffModeConstraintSettings offModeConstraints{};
     // Test-only exceptional callback; unset in production and desktop.
     std::function<void(SculptPostCasFaultPoint)> postCasFaultInjection{};

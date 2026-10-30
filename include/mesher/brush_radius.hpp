@@ -17,6 +17,20 @@ struct BrushRadiusRange {
         constexpr double root3=1.7320508075688772935274463415059;
         return {std::min(0.5,std::sqrt(8.0*pi/(double(initialCount)*root3))),0.5};
     }
+    // Geometry remains in source units. The desktop unit-sphere defaults
+    // scale with the original model's bounding radius on import/recovery.
+    static BrushRadiusRange forModelScale(std::uint32_t initialCount,
+                                          double physicalScale) {
+        if(!std::isfinite(physicalScale)||physicalScale<=0)
+            throw std::invalid_argument("Model brush scale must be finite and positive");
+        const auto normalized=forVertexCount(initialCount);
+        BrushRadiusRange result{normalized.minimum*physicalScale,
+                                normalized.maximum*physicalScale};
+        if(!std::isfinite(result.minimum)||!std::isfinite(result.maximum)||
+           result.maximum<=0)
+            throw std::overflow_error("Model brush radius exceeds finite limits");
+        return result;
+    }
     double clamp(double radius) const {
         if(!std::isfinite(radius))throw std::invalid_argument("Brush radius must be finite");
         return std::clamp(radius,minimum,maximum);

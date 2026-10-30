@@ -55,16 +55,16 @@ Vertex makeVertex(Vec3 p, Vec3 n={}, float material=0) {
 }
 struct Drawing {std::vector<Vertex> solid;};
 
-Drawing buildDrawing(const Mesh& mesh) {
+Drawing buildDrawing(const Mesh& mesh,Vec3 renderOrigin={}) {
     Drawing out;
     out.solid.reserve(mesh.triangles.size()*3);
     for(const auto& t:mesh.triangles) {
         const Vec3 a=mesh.vertices[t.a],b=mesh.vertices[t.b],c=mesh.vertices[t.c];
         const Vec3 rawNormal=cross(b-a,c-a);
         const Vec3 normal=length(rawNormal)>1e-20 ? normalized(rawNormal) : Vec3{};
-        out.solid.push_back(makeVertex(a,normal));
-        out.solid.push_back(makeVertex(b,normal));
-        out.solid.push_back(makeVertex(c,normal));
+        out.solid.push_back(makeVertex(a-renderOrigin,normal));
+        out.solid.push_back(makeVertex(b-renderOrigin,normal));
+        out.solid.push_back(makeVertex(c-renderOrigin,normal));
     }
     return out;
 }
@@ -72,12 +72,15 @@ Drawing buildDrawing(const Mesh& mesh) {
 // Separate scenery from the real legacy/partitioned source geometry:
 // the floor is its own GPU solid+wire allocation, not stale model
 // triangles that could accidentally be drawn over a COW revision.
-Drawing buildWorkFloor(double z) {
+Drawing buildWorkFloor(double z,Vec3 center={},double halfExtent=8.0) {
     Drawing out;
     out.solid.reserve(6);
-    const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};
+    const Vec3 a{center.x-halfExtent,center.y-halfExtent,z};
+    const Vec3 b{center.x+halfExtent,center.y-halfExtent,z};
+    const Vec3 c{center.x+halfExtent,center.y+halfExtent,z};
+    const Vec3 d{center.x-halfExtent,center.y+halfExtent,z};
     for(const auto p:{a,b,c,a,c,d})
-        out.solid.push_back(makeVertex(p,{0,0,1},1));
+        out.solid.push_back(makeVertex(p-center,{0,0,1},1));
     // Unit XY grid now shaded on actual floor fragments (M68).
     return out;
 }
@@ -135,6 +138,7 @@ Glyph hudGlyph(char ch) {
         case '(': return {2,4,8,8,8,4,2};
         case ')': return {8,4,2,2,2,4,8};
         case '+': return {0,4,4,31,4,4,0};
+        case '^': return {4,10,17,0,0,0,0};
         case '#': return {10,31,10,10,31,10,0};
         case '?': return {14,17,1,2,4,0,4};
         case '*': return {0,21,14,31,14,21,0};
@@ -151,6 +155,16 @@ RadiusSliderLayout radiusSliderLayout(int height) {
     return {20,30,bottom-span,bottom};
 }
 
+struct GlobalScaleSliderLayout {
+    int left{},trackX{},top{},bottom{};
+    bool contains(double x,double y) const noexcept {
+        return x>=left-8&&x<=left+58&&y>=top-34&&y<=bottom+12;
+    }
+};
+GlobalScaleSliderLayout globalScaleSliderLayout(int width,int height) {
+    const int bottom=height-20;
+    return {width-73,width-63,bottom-std::max(1,height/3),bottom};
+}
 struct PaintPanelLayout {
     int left=96,top=20,width=290,height=445;
     int wheelX=240,wheelY=160,radius=72;
@@ -161,6 +175,7 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                              const std::string& merge,
                              const std::optional<BrushRadiusRange>& slider,
                              double radius,
+                             double globalScaleExponent,bool scaleHovered,
                              const std::array<std::string,2>& classifierChoices,
                              bool classifierComparable,bool classifiersAgree,
                              int activeClassifier,
@@ -273,6 +288,46 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
                 if(glyph[yy]&(1u<<(4-xx)))
                     rectangle(layout.left-3+int(i)*8+xx,
                               layout.top-23+yy,1,1,0.0f);
+        }
+    }
+    // Eleven uniformly-spaced ticks correspond to powers 10^-5 ... 10^5.
+    {
+        const auto layout=globalScaleSliderLayout(int(width),int(height));
+        const int centre=layout.trackX+6;
+        rectangle(layout.left-7,layout.top-34,63,
+                  layout.bottom-layout.top+46,1.0f);
+        rectangle(layout.trackX,layout.top,12,layout.bottom-layout.top,0.0f);
+        rectangle(layout.trackX+3,layout.top+3,6,
+                  std::max(1,layout.bottom-layout.top-6),1.0f);
+        for(int tick=0;tick<=10;++tick) {
+            const int y=layout.bottom-int(std::lround(
+                double(tick)*(layout.bottom-layout.top)/10.0));
+            rectangle(layout.trackX-5,y,22,1,0.0f);
+        }
+        const int knobY=layout.bottom-int(std::lround(
+            (globalScaleExponent-kViewportMinExponent)/
+            (kViewportMaxExponent-kViewportMinExponent)*
+            (layout.bottom-layout.top)));
+        rectangle(centre-15,knobY-6,30,12,0.0f);
+        const std::string title="SCALE";
+        for(std::size_t i=0;i<title.size();++i) {
+            const auto glyph=hudGlyph(title[i]);
+            for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                if(glyph[yy]&(1u<<(4-xx)))
+                    rectangle(layout.left-4+int(i)*8+xx,
+                              layout.top-23+yy,1,1,0.0f);
+        }
+        if(scaleHovered) {
+            const auto label=viewportScaleLabel(globalScaleExponent);
+            const int x0=std::max(3,layout.trackX-14-int(label.size())*8);
+            const int y0=std::clamp(knobY-4,3,std::max(3,int(height)-12));
+            rectangle(x0-3,y0-4,int(label.size())*8+6,15,1.0f);
+            for(std::size_t i=0;i<label.size();++i) {
+                const auto glyph=hudGlyph(label[i]);
+                for(int yy=0;yy<7;++yy)for(int xx=0;xx<5;++xx)
+                    if(glyph[yy]&(1u<<(4-xx)))
+                        rectangle(x0+int(i)*8+xx,y0+yy,1,1,0.0f);
+            }
         }
     }
     if(paintMode&&width>420&&height>475) {
@@ -410,9 +465,8 @@ Matrix cameraView(Vec3 eye) {
     at(view,3,3,1);
     return view;
 }
-Matrix perspective(float aspect) {
+Matrix perspective(float aspect,float nearPlane,float farPlane) {
     constexpr float fov=0.7853981633974483f; // vertical field of view: 45 degrees
-    constexpr float nearPlane=.05f,farPlane=100.f;
     const float f=1.f/std::tan(fov/2.f);
     Matrix m;
     at(m,0,0,f/aspect);
@@ -431,25 +485,34 @@ struct PushConstants {
 };
 static_assert(sizeof(PushConstants)==112);
 PushConstants makeConstants(int width,int height,double cameraScale,
-                            const ViewportOrbit& orbit) {
+                            const ViewportOrbit& orbit,
+                            const ViewportSceneBounds& bounds,
+                            Vec3 cameraOffset) {
     const float aspect=float(width)/float(height);
     // Match picking and rendering camera geometry exactly.
     const Vec3 eye=viewportCameraEye(double(width),double(height))*cameraScale;
+    const Vec3 actualEye=eye+cameraOffset;
     PushConstants result;
     Matrix model;
     const auto& axes=orbit.basis();
     for(int col=0;col<3;++col) {
-        at(model,0,col,float(axes[std::size_t(col)].x));
-        at(model,1,col,float(axes[std::size_t(col)].y));
-        at(model,2,col,float(axes[std::size_t(col)].z));
+        at(model,0,col,float(axes[std::size_t(col)].x*orbit.scale()));
+        at(model,1,col,float(axes[std::size_t(col)].y*orbit.scale()));
+        at(model,2,col,float(axes[std::size_t(col)].z*orbit.scale()));
     }
-    const Vec3 offset=orbit.translation();
+    // GPU vertices are source-centred before float conversion.
+    const Vec3 offset=orbit.translation()-cameraOffset;
     at(model,0,3,float(offset.x));
     at(model,1,3,float(offset.y));
     at(model,2,3,float(offset.z));
     at(model,3,3,1.0f);
+    const auto clips=viewportClipRange(actualEye,
+        orbit.displayed(bounds.center()),bounds.radius()*orbit.scale());
     result.viewProjection=multiply(
-        multiply(perspective(aspect),cameraView(eye)),model);
+        multiply(perspective(aspect,float(clips.nearPlane),
+                            float(clips.farPlane)),cameraView(eye)),model);
+    // Constant 45-degree perspective: movement comes exclusively from
+    // the source-centred model scale and tracked camera translation.
     const Vec3 behindLeft=eye+Vec3{-2,-1.5,4};
     result.light0={float(behindLeft.x),float(behindLeft.y),float(behindLeft.z),1};
     result.light1={6,-1,3.5f,1};
@@ -533,6 +596,18 @@ class VulkanViewport {
     ViewportAnimation animation_;
     ViewportInteraction interaction_;
     bool mouseWasDown_=false, sculpting_=false, radiusDragging_=false;
+    bool scaleDragging_=false,scaleHovered_=false,scaleConsumedMouse_=false;
+    double scaleDragLastY_=0;
+    double scaleExponent_=0.0;
+    ViewportSceneBounds sceneBounds_{};
+    ViewportScaleFollow scaleFollow_;
+    double previousFrameTime_=-1.0;
+    Vec3 baseCameraEye(double width,double height) const noexcept {
+        return viewportCameraEye(width,height)*interaction_.cameraScale;
+    }
+    Vec3 scaledCameraEye(double width,double height) const noexcept {
+        return baseCameraEye(width,height)+scaleFollow_.cameraOffset();
+    }
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
     bool paintPanelDragging_=false;
     // Hover preview is UI-owned only: never part of COW state or undo history.
@@ -815,7 +890,7 @@ class VulkanViewport {
         vkUnmapMemory(device,buffer.memory);
     }
     void initializePartitions() {
-        partitionCache_.initialize(displayedIndex_);
+        partitionCache_.initialize(displayedIndex_,orbit_.center());
         for(const auto& [id,geometry]:partitionCache_.partitions()) {
             auto& dst=partitionBuffers_[id];
             if(!geometry->solid.empty())dst.solid=upload(geometry->solid);
@@ -823,7 +898,8 @@ class VulkanViewport {
     }
     void refreshPartitions(
         std::shared_ptr<const RegionTopologyIndex> next,
-        const std::vector<PartitionId>& dirty) {
+        const std::vector<PartitionId>& dirty,
+        std::optional<Vec3> nextRenderOrigin=std::nullopt) {
         const double started=glfwGetTime();
         // The one-in-flight graphics submission has stopped reading all
         // older vertex buffers before we map, replace, or destroy any of
@@ -833,6 +909,7 @@ class VulkanViewport {
               "Wait before retiring dirty Vulkan partition buffers");
         lastGpuFenceWaitMs_=(glfwGetTime()-fenceBegin)*1000;
         drainGpuRetirements();
+        if(nextRenderOrigin)partitionCache_.setRenderOrigin(*nextRenderOrigin);
         const auto stats=partitionCache_.advance(next,dirty,&retiredRevisions_);
         std::set<PartitionId> unique(dirty.begin(),dirty.end());
         for(const auto id:unique) {
@@ -868,7 +945,7 @@ class VulkanViewport {
         // Synchronous demo mode retains its original flat-mesh buffers.
         check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
               "Wait before updating legacy geometry");
-        const auto drawing=buildDrawing(currentMesh());
+        const auto drawing=buildDrawing(currentMesh(),orbit_.center());
         replaceBuffer(solid,drawing.solid);
         lastUploadMs_=(glfwGetTime()-started)*1000;
     }
@@ -901,7 +978,7 @@ class VulkanViewport {
                      "MERGE: OFF"):"";
         const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius,
-                                     classifierChoices_,classifierComparable_,
+                                     scaleExponent_,scaleHovered_,classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
                                      repairStepLines_,repairStepScroll_,
                                      paintMode_,paintControls_);
@@ -945,7 +1022,8 @@ class VulkanViewport {
         const double px=cx*double(fw)/ww,py=cy*double(fh)/wh;
         if(px<0||py<0||px>=fw||py>=fh)return std::nullopt;
         auto ray=viewportRay(px,py,double(fw),double(fh));
-        ray.origin=ray.origin*interaction_.cameraScale;
+        ray.origin=baseCameraEye(double(fw),double(fh))+
+                   scaleFollow_.cameraOffset();
         return ray;
     }
     std::optional<Ray> cursorSourceRay() const {
@@ -954,6 +1032,109 @@ class VulkanViewport {
         return orbit_.pickingRay(*visual);
     }
 
+    void frameScene(const ViewportSceneBounds& bounds) {
+        if(!bounds.hasVertices)return;
+        sceneBounds_=bounds;
+        int fw=0,fh=0;
+        glfwGetFramebufferSize(window,&fw,&fh);
+        const double width=double(std::max(1,fw));
+        const double height=double(std::max(1,fh));
+        const double eyeDistance=length(viewportCameraEye(width,height))*
+                                 interaction_.cameraScale;
+        scaleExponent_=viewportFitExponent(bounds.radius(),eyeDistance,
+                                            width/height);
+        orbit_.frame(bounds.center(),viewportScaleFromExponent(scaleExponent_));
+        scaleFollow_.reset();
+        std::cout<<"[view] fitted bounds radius="<<bounds.radius()
+                 <<" centre="<<bounds.center().x<<","<<bounds.center().y
+                 <<","<<bounds.center().z<<" scale=10^"<<scaleExponent_<<"\n";
+    }
+    // Every scale movement is UI-only; no worker or immutable mesh edit.
+    void beginScaleFollow(int width,int height,double now) {
+        const Vec3 eye=scaledCameraEye(width,height);
+        const Vec3 baseEye=baseCameraEye(width,height);
+        const Vec3 centroid=currentGeometryCentroid();
+        std::vector<ViewportZoomProbe> hits;
+        hits.reserve(16);
+        for(int row=0;row<4;++row)for(int col=0;col<4;++col) {
+            const double x=(double(col)+0.5)*double(width)/4.0;
+            const double y=(double(row)+0.5)*double(height)/4.0;
+            auto ray=viewportRay(x,y,width,height);
+            ray.origin=eye;
+            const auto source=orbit_.pickingRay(ray);
+            const auto hit=displayedIndex_?
+                displayedIndex_->firstRayHit(source):
+                firstMeshHit(mesh_,source);
+            if(hit)hits.push_back({*hit,
+                length(eye-orbit_.displayed(*hit)),true});
+        }
+        // Without a surface hit, use the centroid's screen-parallel
+        // orbit plane. It is the same depth fallback as the RMB gesture.
+        const Vec3 forward=normalized(Vec3{}-baseEye);
+        auto centreRay=viewportRay(width*.5,height*.5,width,height);
+        centreRay.origin=eye;
+        const Vec3 fallback=orbit_.choosePivot(
+            centreRay,std::nullopt,centroid,forward);
+        const auto chosen=nearestViewportProbe(
+            hits,centroid,length(eye-orbit_.displayed(fallback)));
+        scaleFollow_.begin(chosen.sourcePoint,
+                           orbit_.displayed(chosen.sourcePoint),baseEye,now);
+        std::cout<<"[view] global scale anchor="
+                 <<(chosen.surface?"surface 4x4":"centroid plane")
+                 <<" distance="<<chosen.distance<<"\n";
+    }
+    void updateScaleFollow() {
+        const double now=glfwGetTime();
+        const double dt=previousFrameTime_<0?1.0/60.0:
+            std::clamp(now-previousFrameTime_,0.0,0.25);
+        previousFrameTime_=now;
+        scaleFollow_.advance(dt,now);
+    }
+    void updateGlobalScaleInput() {
+        scaleConsumedMouse_=false;
+        double cx=0,cy=0;
+        glfwGetCursorPos(window,&cx,&cy);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww<=0||wh<=0||fw<=0||fh<=0)return;
+        const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
+        const auto slider=globalScaleSliderLayout(fw,fh);
+        const bool hovering=slider.contains(x,y);
+        if(hovering!=scaleHovered_) {
+            scaleHovered_=hovering;
+            refreshHud();
+        }
+        const bool down=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        if(!scaleDragging_&&down&&!mouseWasDown_&&hovering&&
+           !sculpting_&&!painting_&&!orbitDragging_&&!radiusDragging_&&
+           !paintPanelDragging_) {
+            scaleDragging_=true;
+            scaleDragLastY_=y;
+        }
+        if(!scaleDragging_)return;
+        scaleConsumedMouse_=true;
+        if(!down) {scaleDragging_=false;return;}
+        const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                        keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+        const double exponent=viewportScaleDrag(
+            scaleExponent_,y-scaleDragLastY_,
+            double(std::max(1,slider.bottom-slider.top)),ctrl);
+        scaleDragLastY_=y;
+        if(exponent!=scaleExponent_) {
+            const double now=glfwGetTime();
+            const Vec3 eye=baseCameraEye(double(fw),double(fh));
+            if(!scaleFollow_.active())beginScaleFollow(fw,fh,now);
+            scaleExponent_=exponent;
+            orbit_.setScale(viewportScaleFromExponent(scaleExponent_));
+            scaleFollow_.change(orbit_.displayed(scaleFollow_.sourceAnchor()),
+                                eye,now);
+            clearPaintPreview();
+            refreshHud();
+            updateTitle();
+        }
+    }
     void updateMouseOrbit() {
         const bool right=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)==GLFW_PRESS;
         const bool left=glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
@@ -962,7 +1143,9 @@ class VulkanViewport {
         const bool alt=keyboard_.down(GLFW_KEY_LEFT_ALT)||
                        keyboard_.down(GLFW_KEY_RIGHT_ALT);
         const auto gesture=cameraGestures_.sample(
-            left,right,ctrl,alt,!sculpting_&&!radiusDragging_);
+            left,right,ctrl,alt,!sculpting_&&!radiusDragging_&&
+                                 !scaleDragging_);
+        if(gesture.started)scaleFollow_.cancel();
         double x=0,y=0;
         glfwGetCursorPos(window,&x,&y);
         int ww=0,wh=0,fw=0,fh=0;
@@ -983,9 +1166,8 @@ class VulkanViewport {
                     const auto picked=displayedIndex_?
                         displayedIndex_->firstRayHit(source):
                         firstMeshHit(mesh_,source);
-                    const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
-                                   interaction_.cameraScale;
-                    const Vec3 forward=normalized(Vec3{}-eye);
+                    const Vec3 forward=normalized(
+                        Vec3{}-baseCameraEye(double(fw),double(fh)));
                     // Background centroid scan only on this real RMB press.
                     orbitPivotSource_=picked?*picked:orbit_.choosePivot(
                         *visual,std::nullopt,currentGeometryCentroid(),forward);
@@ -1014,15 +1196,16 @@ class VulkanViewport {
                 const double span=double(std::min(fw,fh));
                 if(gesture.mode==ViewportCameraMode::Dolly||
                    gesture.mode==ViewportCameraMode::Strafe) {
-                    const Vec3 eye=viewportCameraEye(double(fw),double(fh))*
-                                   interaction_.cameraScale;
-                    const Vec3 forward=normalized(Vec3{}-eye);
+                    const Vec3 eye=scaledCameraEye(double(fw),double(fh));
+                    const Vec3 forward=normalized(
+                        Vec3{}-baseCameraEye(double(fw),double(fh)));
                     if(gesture.mode==ViewportCameraMode::Dolly)
                         orbit_.dolly(forward,dx,span,length(eye));
                     else {
                         const Vec3 viewRight=normalized(cross(forward,{0,0,1}));
                         const Vec3 viewUp=cross(viewRight,forward);
-                        orbit_.strafe(viewRight,viewUp,dx,dy,double(fh),length(eye));
+                        orbit_.strafe(viewRight,viewUp,dx,
+                                      dy,double(fh),length(eye));
                     }
                 }else
                     orbit_.drag(orbitPivotSource_,dx,dy,span);
@@ -1273,6 +1456,11 @@ class VulkanViewport {
     }
 
     void updateMouseSculpt() {
+        if(scaleConsumedMouse_) {
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
         if(!interaction_.begin)return;
         // A camera/inspection/merge transition cannot strand a paint
         // history transaction when input handling takes an early return.
@@ -1514,6 +1702,7 @@ class VulkanViewport {
     void updatePaintPreview() {
         if(!paintMode_||!interaction_.paint||!displayedIndex_||
            painting_||sculpting_||orbitDragging_||radiusDragging_||
+           scaleDragging_||
            paintPanelDragging_||inspectionFrozen_||
            mergeInput_.enabled()||
            glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS||
@@ -1533,7 +1722,8 @@ class VulkanViewport {
         const double x=cx*double(fw)/ww,y=cy*double(fh)/wh;
         const PaintPanelLayout panel;
         const auto slider=radiusSliderLayout(fh);
-        if(x<0||x>=fw||y<0||y>=fh||
+        const auto global=globalScaleSliderLayout(fw,fh);
+        if(x<0||x>=fw||y<0||y>=fh||global.contains(x,y)||
            (x>=panel.left&&x<=panel.left+panel.width&&
             y>=panel.top&&y<=panel.top+panel.height)||
            (x>=slider.left-8&&x<=slider.left+58&&
@@ -1597,7 +1787,7 @@ class VulkanViewport {
             const Vec3 normal=length(rawNormal)>1e-20?
                 normalized(rawNormal):Vec3{};
             for(const auto p:{a,b,c})
-                geometry.push_back(makeVertex(p,normal,15.5f));
+                geometry.push_back(makeVertex(p-orbit_.center(),normal,15.5f));
         }
         // Reuse the existing single-flight Vulkan retirement contract:
         // the old buffer must not be mapped or replaced while rendered.
@@ -1655,7 +1845,13 @@ class VulkanViewport {
                     }
                     // refreshPartitions has waited for the previous GPU
                     // submission fence, so this buffer may be safely staged.
-                    replaceBuffer(inspectionSolid,snapshot->inspectionOverlay);
+                    auto localOverlay=snapshot->inspectionOverlay;
+                    for(auto& vertex:localOverlay) {
+                        vertex.px-=float(orbit_.center().x);
+                        vertex.py-=float(orbit_.center().y);
+                        vertex.pz-=float(orbit_.center().z);
+                    }
+                    replaceBuffer(inspectionSolid,localOverlay);
                     // This mode is fullscreen on Linux; the window title is
                     // not visible. Update the persistent HUD immediately so
                     // refusal cannot masquerade as a successful orange cut.
@@ -2140,7 +2336,8 @@ class VulkanViewport {
         vkCmdSetViewport(commandBuffer,0,1,&viewport);
         vkCmdSetScissor(commandBuffer,0,1,&scissor);
         auto constants=makeConstants(int(extent.width),int(extent.height),
-                                           interaction_.cameraScale,orbit_);
+                                           interaction_.cameraScale,orbit_,
+                                           sceneBounds_,scaleFollow_.cameraOffset());
         // W drives mesh coverage inside the visible solid fragment.
         constants.wireRaster[3]=wireVisible_?1.0f:0.0f;
         vkCmdPushConstants(commandBuffer,pipelineLayout,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -2224,6 +2421,7 @@ public:
         : mesh_(mesh), animation_(std::move(animation)),
           interaction_(std::move(interaction)) {
         displayedIndex_=interaction_.initialRevision;
+        for(const auto vertex:mesh_.vertices)sceneBounds_.include(vertex);
         if (animation_.advance && (!std::isfinite(animation_.stampsPerSecond) ||
                                    animation_.stampsPerSecond <= 0))
             throw std::invalid_argument("Animation rate must be positive and finite");
@@ -2279,6 +2477,7 @@ public:
         glfwMaximizeWindow(window);
 #endif
         glfwWaitEventsTimeout(0.10); // Allow the fullscreen transition to settle.
+        if(interaction_.startupBounds)frameScene(*interaction_.startupBounds);
         // Open before expensive Vulkan uploads so the splash covers actual
         // startup time, not merely four seconds after initialization.
         startupSplash_=std::make_unique<StartupSplash>(window,MESHER_ASSET_DIR);
@@ -2297,9 +2496,12 @@ public:
         // The original imported source is the authority for scenery
         // clearance; never scan an evolving worker root on the UI loop.
         floorZ_=viewportWorkFloorZ(mesh_);
-        const auto scenery=buildWorkFloor(floorZ_);
+        const auto scenery=interaction_.startupBounds?
+            buildWorkFloor(floorZ_,sceneBounds_.center(),
+                           std::max(8.0,sceneBounds_.radius()*2.5)):
+            buildWorkFloor(floorZ_);
         floorSolid=upload(scenery.solid);
-        auto drawing=buildDrawing(displayedIndex_?empty:mesh_);
+        auto drawing=buildDrawing(displayedIndex_?empty:mesh_,orbit_.center());
         // Indexed COW startup intentionally has no legacy flat model;
         // do not upload its zero-byte arrays (M59), including AA wires.
         if(!drawing.solid.empty())solid=upload(drawing.solid);
@@ -2487,7 +2689,8 @@ public:
             // the worker swap. A cancelled or invalid import touches no
             // existing session state, picking, history or GPU buffers.
             if(shortcut&&open&&!inspectionFrozen_&&!sculpting_&&!painting_&&
-               !radiusDragging_&&!orbitDragging_&&!mergeInput_.enabled()&&
+               !radiusDragging_&&!scaleDragging_&&!orbitDragging_&&
+                !mergeInput_.enabled()&&
                !interaction_.repairStepMode&&interaction_.prepareOpen&&
                (!interaction_.canBegin||interaction_.canBegin())) {
                 try {
@@ -2512,8 +2715,19 @@ public:
                         const std::vector<PartitionId> dirty(
                             owners.begin(),owners.end());
                         clearPaintPreview();
-                        refreshPartitions(prepared.index,dirty);
+                        refreshPartitions(prepared.index,dirty,
+                            prepared.bounds?std::optional<Vec3>(
+                                prepared.bounds->center()):std::nullopt);
                         prepared.commit();
+                        if(prepared.bounds&&prepared.bounds->hasVertices) {
+                            frameScene(*prepared.bounds);
+                            floorZ_=prepared.bounds->minimum.z-
+                                std::max(0.25,prepared.bounds->radius()*0.05);
+                            const auto scenery=buildWorkFloor(
+                                floorZ_,prepared.bounds->center(),
+                                std::max(8.0,prepared.bounds->radius()*2.5));
+                            replaceBuffer(floorSolid,scenery.solid);
+                        }
                         interaction_.radiusRange=prepared.radiusRange;
                         interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
                         interaction_.radius=prepared.radius;
@@ -2536,7 +2750,9 @@ public:
                 }
             }
             if(!shortcut)updateMergeKeyboard();
+            updateGlobalScaleInput();
             updateMouseOrbit();
+            updateScaleFollow();
             updateMouseSculpt();
             pumpMouseStroke();
             updatePaintPreview();
@@ -2547,7 +2763,8 @@ public:
             // visible to picking and inspection.
             if(justPressed(GLFW_KEY_F8,oneShotWasDown_)&&
                interaction_.stampOnce&&!oneShotAwaitingDisplay_&&
-               !sculpting_&&!radiusDragging_&&!orbitDragging_&&
+               !sculpting_&&!radiusDragging_&&!scaleDragging_&&
+                !orbitDragging_&&
                !inspectionFrozen_&&!mergeInput_.enabled()&&
                glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT)!=GLFW_PRESS&&
                glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_RIGHT)!=GLFW_PRESS&&

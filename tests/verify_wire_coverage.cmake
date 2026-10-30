@@ -22,8 +22,8 @@ foreach(needle
     endif()
 endforeach()
 foreach(needle "smoothstep(0.0,1.0,"
-               "constants.wireRaster.z-distancePx"
-               "color=mix(color,vec3(0.073239),coverage);")
+               "wireHalfwidth-distancePx"
+               "color=mix(color,vec3(0.073239),coverage*wireOpacity);")
     string(FIND "${frag}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M62 physical smooth coverage no longer in real shader")

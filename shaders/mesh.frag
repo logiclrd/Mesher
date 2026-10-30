@@ -71,6 +71,8 @@ void main() {
     // distance. Neither detached edge quads nor forward clip-Z bias.
     if(constants.wireRaster.w>0.5) {
         float distancePx=1000000.0;
+        float wireHalfwidth=constants.wireRaster.z;
+        float wireOpacity=1.0;
         if(surfaceMaterial<0.5) {
             // M67: only owning visible mesh triangle edges.
             vec3 dx=dFdx(edgeBarycentric);
@@ -78,6 +80,20 @@ void main() {
             vec3 perPixel=max(sqrt(dx*dx+dy*dy),vec3(0.0000001));
             vec3 distances=abs(edgeBarycentric)/perPixel;
             distancePx=min(distances.x,min(distances.y,distances.z));
+            // Use the MEDIAN projected triangle altitude rather than the
+            // shortest: one vanishingly thin barycentric direction at a
+            // silhouette should not erase the whole triangle's edges.
+            // Log weighting gives a smooth response across irregular mesh
+            // densities, without on/off patches between neighbouring faces.
+            vec3 altitudesPx=1.0/perPixel;
+            float typicalAltitudePx=altitudesPx.x+altitudesPx.y+altitudesPx.z-
+                min(altitudesPx.x,min(altitudesPx.y,altitudesPx.z))-
+                max(altitudesPx.x,max(altitudesPx.y,altitudesPx.z));
+            float density=clamp(log2(1.0+typicalAltitudePx)/log2(25.0),
+                                0.0,1.0);
+            float densityFade=mix(0.30,1.0,density);
+            wireHalfwidth=mix(0.42,constants.wireRaster.z,density*density);
+            wireOpacity=densityFade;
         } else {
             // M68: unit XY grid lies ON the real visible floor plane.
             // Floor triangles are just two huge cells: do not draw their
@@ -91,10 +107,21 @@ void main() {
                 vec2(0.0000001));
             vec2 gridDistance=nearest/unitsPerPixel;
             distancePx=min(gridDistance.x,gridDistance.y);
+            // A distant/rebased work floor can have several integer grid
+            // lines per pixel. Fade these rather than aliasing it solid.
+            float gridSpacingPx=1.0/max(unitsPerPixel.x,unitsPerPixel.y);
+            wireHalfwidth=mix(0.25,constants.wireRaster.z,
+                              smoothstep(2.0,16.0,gridSpacingPx));
+            wireOpacity=smoothstep(1.5,10.0,gridSpacingPx);
         }
-        float coverage=smoothstep(0.0,1.0,
-                                  constants.wireRaster.z-distancePx);
-        color=mix(color,vec3(0.073239),coverage);
+        float coverage=smoothstep(0.0,1.0,wireHalfwidth-distancePx);
+        if(surfaceMaterial<0.5) {
+            // A subpixel-width wire still contributes a finite, faint
+            // coverage: don't make sphere silhouettes vanish completely.
+            coverage=1.0-smoothstep(wireHalfwidth-0.45,
+                                    wireHalfwidth+0.55,distancePx);
+        }
+        color=mix(color,vec3(0.073239),coverage*wireOpacity);
     }
     outColor=vec4(color,1.0);
 }

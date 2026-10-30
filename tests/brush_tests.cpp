@@ -1,5 +1,7 @@
 #include "mesher/brush.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/brush_radius_measure.hpp"
+#include "mesher/mesh_partitioning.hpp"
 
 #include <algorithm>
 #include <array>
@@ -26,6 +28,70 @@ struct RecordingBrush : Brush {
     }
     void end(Mesh&) override { ++ends; }
 };
+void testMeasuredImportedBrush() {
+    Mesh source{{{0,0,0},{2,0,0},{0,2,0},{0,0,3}},
+                {{0,2,1},{0,1,3},{1,2,3},{2,0,3}}};
+    auto partitioned=partitionFlatMesh(source,16);
+    const auto index=RegionTopologyIndex::build(partitioned.revision);
+    const double edge=medianImportedEdgeLength(*index);
+    check(edge>=2&&edge<4,
+          "Measured median comes from actual triangle edges");
+    const auto unit=BrushRadiusRange::forVertexCount(5000);
+    const auto fit=calibrateImportedBrush(*index,unit.minimum,1000);
+    near(fit.radius.minimum,edge*.5,1e-12,
+         "Smallest brush uses measured source triangle size");
+    near(fit.radius.maximum,500,1e-12,
+         "Largest brush may still span half the source bounds");
+    const double start=relativeImportedBrushRadius(unit,.4,fit.radius);
+    near(fit.workerScale*unit.minimum,edge,1e-12,
+         "Inflate strength and 4D step use one generated-edge reference");
+    check(start>=fit.radius.minimum&&start<fit.radius.maximum,
+          "Opening imported mesh chooses locally useful brush radius");
+    near(relativeImportedBrushRadius(fit.radius,start,fit.radius),
+         start,1e-12,"Same local edge scale preserves existing brush width");
+}
+void testImportedBrushPhysicalScale() {
+    const auto base=BrushRadiusRange::forVertexCount(19247);
+    const auto large=BrushRadiusRange::forModelScale(19247,120.0);
+    near(large.minimum,base.minimum*120,1e-12,
+         "Imported nominal-edge radius follows original physical units");
+    near(large.maximum,60.0,1e-12,
+         "Imported maximum follows half the model bounding radius");
+    const double oldRadius=base.fromSliderFraction(.2);
+    const double preserved=large.fromSliderFraction(base.sliderFraction(oldRadius));
+    near(preserved,oldRadius*120,1e-10,
+         "Open preserves relative slider position across coordinate scales");
+    check(preserved>large.minimum&&preserved>0.5,
+          "Imported brush can cover vertices on a large source mesh");
+    const auto tiny=BrushRadiusRange::forModelScale(19247,0.001);
+    near(tiny.maximum,0.0005,1e-15,
+         "Small imported mesh permits smaller-than-unit brush radius");
+    const auto original=BrushRadiusRange::forModelScale(19247,1.0);
+    near(original.minimum,base.minimum,0,
+         "Unit sphere keeps the original nominal-edge minimum");
+    near(original.maximum,base.maximum,0,
+         "Unit sphere keeps the original brush maximum");
+    try {
+        (void)BrushRadiusRange::forModelScale(100,0);
+        throw std::runtime_error("Zero physical scale incorrectly accepted");
+    }catch(const std::invalid_argument&) {}
+}
+void testLargeImportedTriangleInflates() {
+    // At an arbitrary point inside a large imported triangle the closest
+    // vertex can be tens of source units away. A physically scaled brush
+    // must actually influence the mesh, not silently stamp zero vertices.
+    Mesh patch{{{0,0,0},{60,0,0},{0,60,0}},{{0,1,2}}};
+    const double physicalScale=120.0;
+    const auto range=BrushRadiusRange::forModelScale(19247,physicalScale);
+    const double radius=range.fromSliderFraction(.2);
+    InflateBrush brush(.012*physicalScale);
+    BrushStroke stroke(patch,brush,.02*physicalScale);
+    stroke.start({{{20,20,0},radius,.3}});
+    stroke.finish(std::array<Vec3,1>{{{20,20,0}}});
+    check(patch.vertices[0].z>0.01 &&
+          patch.vertices[1].z>0.0&&patch.vertices[2].z>0.0,
+          "Imported-scale Inflate reaches actual vertices under large triangles");
+}
 void testRadiusSliderAndLiveStroke() {
     constexpr double pi=3.14159265358979323846;
     const auto range=BrushRadiusRange::forVertexCount(100000);
@@ -510,7 +576,7 @@ void testDemo() {
 }
 }
 int main() {
-    try { testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
+    try { testMeasuredImportedBrush();testImportedBrushPhysicalScale();testLargeImportedTriangleInflates();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
 }

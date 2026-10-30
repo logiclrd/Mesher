@@ -22,7 +22,7 @@ foreach(needle
     "if(constants.wireRaster.w>0.5)"
     "if(surfaceMaterial<0.5)"
     "smoothstep(0.0,1.0,"
-    "color=mix(color,vec3(0.073239),coverage);")
+    "color=mix(color,vec3(0.073239),coverage*wireOpacity);")
     string(FIND "${frag}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M67 owning face shader missing: ${needle}")
@@ -39,9 +39,9 @@ foreach(needle
     endif()
 endforeach()
 foreach(needle
-    "out.solid.push_back(vertex(a,normal,colorOf(t[0])));"
-    "out.solid.push_back(vertex(b,normal,colorOf(t[1])));"
-    "out.solid.push_back(vertex(c,normal,colorOf(t[2])));")
+    "out.solid.push_back(vertex(a-renderOrigin,normal,colorOf(t[0])));"
+    "out.solid.push_back(vertex(b-renderOrigin,normal,colorOf(t[1])));"
+    "out.solid.push_back(vertex(c-renderOrigin,normal,colorOf(t[2])));")
     string(FIND "${staging}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M67 COW nonindexed source faces changed: ${needle}")

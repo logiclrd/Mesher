@@ -12,7 +12,9 @@ foreach(needle
     "dFdx(worldPosition.y)" "dFdy(worldPosition.y)"
     "gridDistance=nearest/unitsPerPixel;"
     "distancePx=min(gridDistance.x,gridDistance.y);"
-    "constants.wireRaster.z-distancePx"
+    "wireHalfwidth-distancePx"
+    "wireOpacity=smoothstep(1.5,10.0,gridSpacingPx);"
+    "color=mix(color,vec3(0.073239),coverage*wireOpacity);"
     "if(surfaceMaterial<0.5)")
     string(FIND "${frag}" "${needle}" at)
     if(at EQUAL -1)
@@ -32,7 +34,10 @@ foreach(needle
     "if(floorVisible_) {"
     "vkCmdBindVertexBuffers(commandBuffer,0,1,&floorSolid.buffer,&offset);"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
-    "const Vec3 a{-8,-8,z},b{8,-8,z},c{8,8,z},d{-8,8,z};")
+    "const Vec3 a{center.x-halfExtent,center.y-halfExtent,z};"
+    "const Vec3 b{center.x+halfExtent,center.y-halfExtent,z};"
+    "const Vec3 c{center.x+halfExtent,center.y+halfExtent,z};"
+    "const Vec3 d{center.x-halfExtent,center.y+halfExtent,z};")
     string(FIND "${view}" "${needle}" at)
     if(at EQUAL -1)
         message(FATAL_ERROR "M68 real floor G/W and source integer grid missing: ${needle}")

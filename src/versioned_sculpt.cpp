@@ -227,19 +227,23 @@ SculptSourceContactAssessment assessPostSculptRepairContacts(
     };
     if(!proposed.before||!proposed.candidate)
         return refuse("Live AUTO requires immutable before and current roots");
+    // Local AUTO needs bounded root counts, but only symmetric edits
+    // require collecting EVERY live VertexId for exact mirror auditing.
+    // Asymmetric clean stamps keep the changed-neighborhood BVH path.
     std::vector<VertexId> vertices;
-    std::size_t faces=0;
+    std::size_t vertexCount=0,faces=0;
     bool bounded=true;
     proposed.candidate->revision().forEachPartition(
         [&](PartitionId,const MeshPartition& part) {
             if(!bounded)return;
-            if(part.vertices.size()>limits.maxVertices-vertices.size()||
+            if(part.vertices.size()>limits.maxVertices-vertexCount||
                part.faces.size()>limits.maxFaces-faces) {
                 bounded=false;
                 return;
             }
+            vertexCount+=part.vertices.size();
             faces+=part.faces.size();
-            for(const auto& v:part.vertices)
+            if(symmetric)for(const auto& v:part.vertices)
                 vertices.push_back(v.id);
         });
     if(!bounded)

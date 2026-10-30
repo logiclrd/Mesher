@@ -4,9 +4,12 @@ endif()
 file(READ "${MESHER_SOURCE_ROOT}/src/viewport.cpp" source)
 file(READ "${MESHER_SOURCE_ROOT}/include/mesher/viewport_floor.hpp" floor)
 foreach(needle
-    "Drawing buildWorkFloor(double z)"
+    "Drawing buildWorkFloor(double z,Vec3 center={},double halfExtent=8.0)"
     "floorZ_=viewportWorkFloorZ(mesh_);"
-    "const auto scenery=buildWorkFloor(floorZ_);"
+    "const auto scenery=interaction_.startupBounds?"
+    "buildWorkFloor(floorZ_,sceneBounds_.center(),"
+    "buildWorkFloor(floorZ_);"
+    "floorZ_=prepared.bounds->minimum.z-"
     "floorSolid=upload(scenery.solid);"
     "Buffer solid{},floorSolid{},hud{};"
     "destroyBuffer(floorSolid);"

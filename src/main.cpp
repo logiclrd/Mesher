@@ -1,6 +1,7 @@
 #include "mesher/brush.hpp"
 #include "mesher/async_sculpt.hpp"
 #include "mesher/brush_radius.hpp"
+#include "mesher/brush_radius_measure.hpp"
 #include "mesher/mesh.hpp"
 #include "mesher/viewport.hpp"
 #include "mesher/desktop_merge_input.hpp"
@@ -555,6 +556,7 @@ int main(int argc, char** argv) {
         }
         mesher::Mesh mesh;
         std::optional<mesher::DurableCheckpoint> recovered;
+        std::optional<mesher::ViewportSceneBounds> initialViewBounds;
         if(!recoverPath.empty()) {
             if(demoMode||compareLocalRemesh||compareRemesh||
                compareMitigations||!inflate)
@@ -566,6 +568,9 @@ int main(int argc, char** argv) {
             if(mesh.vertices.empty())throw std::runtime_error("Empty checkpoint mesh");
             options.vertexCount=static_cast<std::uint32_t>(mesh.vertices.size());
             options.symmetric=!recovered->mirrorPairs.empty();
+            mesher::ViewportSceneBounds recoveryBounds;
+            for(const auto vertex:mesh.vertices)recoveryBounds.include(vertex);
+            initialViewBounds=recoveryBounds;
             std::cout<<"Recovered "<<mesh.vertices.size()<<" vertices, "
                      <<mesh.triangles.size()<<" faces, "
                      <<recovered->index->retiredVertexCount()
@@ -726,6 +731,7 @@ int main(int argc, char** argv) {
         mesher::ViewportAnimation playback;
         std::unique_ptr<mesher::InflateDemoAnimation> demo;
         mesher::ViewportInteraction interaction;
+        interaction.startupBounds=initialViewBounds;
         std::shared_ptr<mesher::AsyncSculptWorker> liveWorker;
         std::vector<mesher::FaceId> fixtureFirstFaces;
         // The lambdas in ViewportInteraction outlive the setup block.
@@ -744,10 +750,23 @@ int main(int argc, char** argv) {
                 }}:mesher::SculptStepValidator{};
 
         if(inflate && !demoMode) {
-            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(
-                mesher::BrushRadiusRange::forVertexCount(options.vertexCount));
+            // Fit view-only camera transformations separately from the
+            // physical brush/stroke controls. Preserve original vertices.
+            double liveMeshScale=1.0;
+            const auto unitRange=mesher::BrushRadiusRange::forVertexCount(
+                options.vertexCount);
+            auto range=unitRange;
+            if(recovered&&initialViewBounds&&initialViewBounds->hasVertices) {
+                const auto calibration=mesher::calibrateImportedBrush(
+                    *recovered->index,unitRange.minimum,
+                    initialViewBounds->radius());
+                liveMeshScale=calibration.workerScale;
+                range=calibration.radius;
+            }
+            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
             const double requestedBrushRadius=brushRadius;
-            brushRadius=brushRange->clamp(brushRadius);
+            brushRadius=mesher::relativeImportedBrushRadius(
+                unitRange,brushRadius,*brushRange);
             if(brushRadius!=requestedBrushRadius)
                 std::cout<<"Interactive brush radius clamped from "
                          <<requestedBrushRadius<<" to "<<brushRadius
@@ -757,7 +776,8 @@ int main(int argc, char** argv) {
             // changed partitions; no flat compatibility conversion remains.
             if(recovered)
                 liveWorker=std::make_shared<mesher::AsyncSculptWorker>(
-                    std::move(*recovered),step,strength,timeSpeed,
+                    std::move(*recovered),step*liveMeshScale,
+                    strength*liveMeshScale,timeSpeed*liveMeshScale,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
             else {
@@ -874,34 +894,54 @@ int main(int argc, char** argv) {
                     if(*interpreted)
                         mesher::applyPlySourceAlphaAsOpacity(candidate);
                 }
+                mesher::ViewportSceneBounds openBounds;
+                candidate.snapshot.index->revision().forEachPartition(
+                    [&](mesher::PartitionId,const mesher::MeshPartition& part) {
+                        for(const auto& vertex:part.vertices)
+                            openBounds.include(vertex.position);
+                    });
                 const auto count=candidate.vertexCount;
                 if(count>std::numeric_limits<std::uint32_t>::max())
                     throw std::length_error("Imported mesh vertex count exceeds uint32");
                 const bool mirrored=!candidate.snapshot.mirrorPairs.empty();
                 // No imported disk data can invent the authenticated
                 // FIRST-original authority of the previous session.
+                const auto calibration=mesher::calibrateImportedBrush(
+                    *candidate.snapshot.index,
+                    unitRange.minimum,openBounds.radius());
+                const double newMeshScale=calibration.workerScale;
+                const auto range=calibration.radius;
+                // Preserve brush width in local triangle-edge units,
+                // not as a percentage of the model's bounding diameter.
+                const auto radius=mesher::relativeImportedBrushRadius(
+                    *brushRange,brushRadius,range);
                 auto preparedWorker=std::make_shared<mesher::AsyncSculptWorker>(
-                    std::move(candidate.snapshot),step,strength,timeSpeed,
+                    std::move(candidate.snapshot),step*newMeshScale,
+                    strength*newMeshScale,timeSpeed*newMeshScale,
                     curvatureSettings,collapseSettings,refineSettings,
                     repairValidator,desktopPolicy);
                 const auto root=preparedWorker->initialRevision();
-                const auto range=mesher::BrushRadiusRange::forVertexCount(
-                    static_cast<std::uint32_t>(count));
-                const auto radius=range.clamp(brushRadius);
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),count,radius,mirrored,range]() mutable {
+                     selected=std::move(selected),count,radius,mirrored,range,
+                     newMeshScale]() mutable {
                         liveWorker=std::move(preparedWorker);
                         *brushRange=range;
+                        liveMeshScale=newMeshScale;
                         lastDisplayed=liveWorker->initialRevision();
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
                         brushRadius=radius;
+                        std::cout<<"[open] sculpt edge-based scale="
+                                 <<liveMeshScale<<" radius="<<radius
+                                 <<" range="<<range.minimum<<".."<<range.maximum
+                                 <<" strength="<<strength*liveMeshScale
+                                 <<" step="<<step*liveMeshScale<<"\n";
                         // Opened OBJ is not a durable checkpoint. Save As
                         // defaults to a new .mshr beside the imported OBJ.
                         checkpointPath=std::move(selected);
                         checkpointPath.replace_extension(".mshr");
-                    }};
+                    },openBounds};
             };
             interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {

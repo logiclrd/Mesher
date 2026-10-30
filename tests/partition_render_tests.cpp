@@ -218,6 +218,42 @@ void testIndependentOpenRootRebuild() {
     check(cache.revision()==old&&cache.partitions().size()==oldCount,
           "Rebinding an unrelated old root must also rebuild correct geometry");
 }
+void testSourceOriginRebasing() {
+    Mesh far=octahedron();
+    const Vec3 origin{5.0e8,-2.0e8,9.0e8};
+    for(auto& vertex:far.vertices)vertex=vertex+origin;
+    auto imported=partitionFlatMesh(far,4);
+    auto source=RegionTopologyIndex::build(imported.revision);
+    PartitionRenderCache cache;
+    cache.initialize(source,origin);
+    bool foundUnitVertex=false;
+    for(const auto& [id,geometry]:cache.partitions()) {
+        (void)id;
+        for(const auto& v:geometry->solid) {
+            check(std::abs(v.px)<=1.01f&&std::abs(v.py)<=1.01f&&
+                  std::abs(v.pz)<=1.01f,
+                  "GPU-local positions cannot retain the huge source offset");
+            if(v.px==1.f||v.py==1.f||v.pz==1.f)foundUnitVertex=true;
+        }
+    }
+    check(foundUnitVertex,"Rebasing retains unit-size features before float conversion");
+    const auto first=cache.partitions().begin()->first;
+    check(same(buildPartitionRenderGeometry(*source,first,origin),
+               *cache.partitions().at(first)),
+          "Rebased cache equals independently constructed CPU triangles");
+    const Vec3 moved=origin+Vec3{1,0,0};
+    cache.setRenderOrigin(moved);
+    std::vector<PartitionId> dirty;
+    source->revision().forEachPartition(
+        [&](PartitionId id,const MeshPartition&) {dirty.push_back(id);});
+    cache.advance(source,dirty);
+    for(const auto& [id,geometry]:cache.partitions()) {
+        check(same(*geometry,buildPartitionRenderGeometry(*source,id,moved)),
+              "Independent Open must rebase all partitions, not only the dirty subset");
+    }
+    check(source->vertex(imported.flatIndex.vertexIds[0]).position.x>=origin.x,
+          "Render-only rebasing cannot change immutable source vertices");
+}
 void testCoalescedDirtyUnion() {
     SphereOptions options;
     options.vertexCount=800;
@@ -260,6 +296,7 @@ int main() {
         testWireOwnershipIndependentOfFaceStorageOrder();
         testSplitAndCollapseTopology();
         testIndependentOpenRootRebuild();
+        testSourceOriginRebasing();
         testCoalescedDirtyUnion();
         std::cout<<"Dirty partition CPU rendering regression passed\n";
     }catch(const std::exception& e) {

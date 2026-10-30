@@ -6,7 +6,7 @@ if(NOT DEFINED MESHER_SOURCE_ROOT)
 endif()
 file(READ "${MESHER_SOURCE_ROOT}/src/viewport.cpp" viewport)
 foreach(required
-    "auto drawing=buildDrawing(displayedIndex_?empty:mesh_);"
+    "auto drawing=buildDrawing(displayedIndex_?empty:mesh_,orbit_.center());"
     "if(!drawing.solid.empty())solid=upload(drawing.solid);"
     "if(displayedIndex_)initializePartitions();"
     "constants.wireRaster[3]=wireVisible_?1.0f:0.0f;"
