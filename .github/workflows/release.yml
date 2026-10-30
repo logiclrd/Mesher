@@ -4,16 +4,6 @@ on:
   push:
     branches: [main]
     paths: [VERSION]
-  pull_request:
-    paths:
-      - VERSION
-      - .github/workflows/release.yml
-      - tools/release/**
-      - CMakeLists.txt
-      - src/main.cpp
-      - src/viewport.cpp
-      - src/startup_splash.cpp
-      - include/mesher/startup_splash.hpp
   workflow_dispatch:
 
 # Serialize publication. PR candidate runs are isolated from real release
