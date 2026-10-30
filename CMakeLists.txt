@@ -43,6 +43,12 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/words/adjectives.txt"
      MESHER_FILENAME_ADJECTIVES)
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/words/nouns.txt"
      MESHER_FILENAME_NOUNS)
+# MSVC limits individual string literal tokens to 16 KiB; each source word
+# becomes a separate short adjacent literal, preserving exact newlines.
+string(REPLACE "\n" "\\n\"\n    \""
+       MESHER_FILENAME_ADJECTIVES_LITERAL "${MESHER_FILENAME_ADJECTIVES}")
+string(REPLACE "\n" "\\n\"\n    \""
+       MESHER_FILENAME_NOUNS_LITERAL "${MESHER_FILENAME_NOUNS}")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embedded_filename_words.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/mesher_embedded_filename_words.hpp"
