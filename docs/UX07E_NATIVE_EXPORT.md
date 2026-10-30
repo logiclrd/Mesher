@@ -30,12 +30,16 @@ export I/O proceeds. Every accepted export request is handled FIFO.
   controlling allowedContentTypes. Format is read from accessory index, not
   inferred from the resulting filename. The panel is modal on the UI thread.
 
-All three start in **process CWD** and offer a .ply filename by default.
-Accepting a filename resolves its absolute path and updates CWD to the
-chosen file's parent through UX06G's existing path helper. Cancellation
-does not change CWD or queue any export. Selecting a different known export
-suffix (*.obj, *.ply, *.stl) replaces the suffix to match the selected codec;
-unknown unrelated explicit suffixes fail rather than silently reinterpret.
+All three start in **process CWD**, with an extension-free suggestion and
+the binary little-endian PLY mesh-RGBA filter preselected. Native platforms
+should append the suffix belonging to whichever entry is chosen. Accepting a
+filename resolves its absolute path and updates CWD to the chosen file's
+parent through UX06G's existing path helper. Cancellation does not change
+CWD or queue any export. Explicit mismatched suffixes fail closed rather than
+silently converting another path AFTER a native overwrite prompt. If the
+picker returns a filename without an extension, the policy appends the
+selected suffix and **reconfirms overwrite against that final path** if it
+already exists. No format switch can bypass overwrite confirmation.
 
 The selected dropdown index is the **only** codec authority. A path named
 \`.obj\` cannot coerce a different selected PLY/STL serializer, and the
