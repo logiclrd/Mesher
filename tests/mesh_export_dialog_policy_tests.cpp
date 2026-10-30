@@ -118,14 +118,14 @@ void testNames() {
         require(checked.extension()=="."+std::string(entry.extension),
                 "Missing filename suffix was not appended from selected filter");
         const auto already=validateExportFilename(
-            fs::path("test")+"."+std::string(entry.extension),preset);
+            fs::path(std::string("test.")+std::string(entry.extension)),preset);
         require(already==checked,"Matching filename suffix was changed");
         ++(entry.extension=="obj"?obj:entry.extension=="ply"?ply:stl);
         const auto different=entry.extension=="obj"?"stl":"obj";
         bool refused=false;
         try {
             (void)validateExportFilename(
-                fs::path("test")+"."+different,preset);
+                fs::path(std::string("test.")+different),preset);
         }catch(const std::invalid_argument&) {refused=true;}
         require(refused,"Mismatched export suffix bypassed native overwrite prompt");
         refused=false;
