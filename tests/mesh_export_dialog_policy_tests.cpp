@@ -122,11 +122,13 @@ void testNames() {
         require(already==checked,"Matching filename suffix was changed");
         ++(entry.extension=="obj"?obj:entry.extension=="ply"?ply:stl);
         const auto different=entry.extension=="obj"?"stl":"obj";
-        const auto normalized=validateExportFilename(
-            fs::path("test")+"."+different,preset);
-        require(normalized==checked,
-                "Changing a known export file type failed to replace its suffix");
         bool refused=false;
+        try {
+            (void)validateExportFilename(
+                fs::path("test")+"."+different,preset);
+        }catch(const std::invalid_argument&) {refused=true;}
+        require(refused,"Mismatched export suffix bypassed native overwrite prompt");
+        refused=false;
         try {
             (void)validateExportFilename(fs::path("test.jpg"),preset);
         }catch(const std::invalid_argument&) {refused=true;}
