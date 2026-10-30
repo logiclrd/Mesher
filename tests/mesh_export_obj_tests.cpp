@@ -1,6 +1,8 @@
 #include "mesher/mesh_export_obj.hpp"
 #include "mesher/mesh_open_candidate.hpp"
 
+#include <algorithm>
+
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -57,6 +59,51 @@ void roundTrip(const mesher::Mesh& original,
             "OBJ round-trip triangle count changed");
     require(parsed.hasVertexColors==colour,
             "OBJ round-trip vertex colour presence changed");
+    // Partitioning reorders vertices, so compare imported colours by exact
+    // source coordinates, not by coincidentally matching flat array indices.
+    std::size_t checked=0;
+    parsed.snapshot.index->revision().forEachPartition(
+        [&](mesher::PartitionId,const mesher::MeshPartition& part) {
+            for(const auto& vertex:part.vertices) {
+                const auto it=std::find_if(original.vertices.begin(),
+                    original.vertices.end(),[&](mesher::Vec3 point) {
+                        return point.x==vertex.position.x &&
+                               point.y==vertex.position.y &&
+                               point.z==vertex.position.z;
+                    });
+                require(it!=original.vertices.end(),
+                        "OBJ round-trip changed source coordinates");
+                const auto i=static_cast<std::size_t>(
+                    it-original.vertices.begin());
+                const auto& got=vertex.color;
+                if(!colour) {
+                    require(got==mesher::VertexRGBA{},
+                            "Geometry-only OBJ manufactured vertex colours");
+                }else {
+                    const auto& want=original.colors[i];
+                    const double tolerance=
+                        encoding==mesher::ObjExportEncoding::ZbrushMrgb?
+                        0.5/255.0+1e-6:1e-6;
+                    const auto near=[&](float a,float b) {
+                        return std::abs(static_cast<double>(a)-b)<=tolerance;
+                    };
+                    require(near(got.r,want.r)&&near(got.g,want.g)&&
+                            near(got.b,want.b),
+                            "OBJ round-trip RGB channel mismatch");
+                    const float expectedAlpha=
+                        encoding==mesher::ObjExportEncoding::InlineRgba?
+                        want.a:1.f;
+                    require(near(got.a,expectedAlpha),
+                            "OBJ export alpha policy mismatch");
+                    require(!got.sourceAlpha.has_value()&&
+                            !got.sourceAlphaOriginallyVaried,
+                            "OBJ import invented source-alpha provenance");
+                }
+                ++checked;
+            }
+        });
+    require(checked==original.vertices.size(),
+            "OBJ round-trip partition vertex inventory mismatch");
 }
 } // namespace
 int main() {
@@ -93,6 +140,25 @@ int main() {
         require(mrgb.find("#MRGB FFFF0000FF00FF00FF0000FFFFFFFF00\n")!=
                     std::string::npos,
                 "ZBrush MMRRGGBB words differ from expected mask/RGB bytes");
+        // ZBrush permits at most 64 complete MMRRGGBB words per line.
+        // A 68-colour stream must produce a full record and a 4-word tail.
+        auto large=mesh;
+        for(std::size_t i=4;i<68;++i) {
+            large.vertices.push_back({static_cast<double>(i),0,0});
+            large.colors.push_back(mesh.colors[i%mesh.colors.size()]);
+        }
+        const auto multiple=serialize(large,ObjExportEncoding::ZbrushMrgb);
+        const auto first=multiple.find("#MRGB ");
+        require(first!=std::string::npos,"ZBrush initial record missing");
+        const auto firstEnd=multiple.find('\n',first);
+        require(firstEnd!=std::string::npos&&firstEnd-first==6+64*8,
+                "ZBrush first record must contain exactly 64 words");
+        const auto second=multiple.find("#MRGB ",firstEnd+1);
+        require(second!=std::string::npos,"ZBrush tail record missing");
+        const auto secondEnd=multiple.find('\n',second);
+        require(secondEnd!=std::string::npos&&secondEnd-second==6+4*8 &&
+                multiple.find("#MRGB ",secondEnd+1)==std::string::npos,
+                "ZBrush final record must contain exactly four words");
         auto rgba=serialize(mesh,ObjExportEncoding::InlineRgba);
         require(rgba.find("0.25")!=std::string::npos,
                 "Inline OBJ RGBA did not preserve alpha");
