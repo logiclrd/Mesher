@@ -8,6 +8,8 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <chrono>
+#include <iostream>
 #include <fstream>
 #include <limits>
 #include <locale>
@@ -255,15 +257,18 @@ MeshOpenCandidate readMeshOpenCandidate(
     }else if(format==MeshOpenFilter::WavefrontObj||
              format==MeshOpenFilter::StanfordPly||
              format==MeshOpenFilter::StereolithographyStl) {
+        const auto began=std::chrono::steady_clock::now();
         auto mesh=format==MeshOpenFilter::StanfordPly?parsePlyMesh(path):
                   format==MeshOpenFilter::StereolithographyStl?
                   parseStlMesh(path,stlOptions):parseWavefrontObj(path);
+        const auto parsed=std::chrono::steady_clock::now();
         // OBJ validated before returning; PLY must enforce the same
         // topology invariants before its private revision is published.
         if(format==MeshOpenFilter::StanfordPly||
            format==MeshOpenFilter::StereolithographyStl)
             validateClosedTriangles(mesh,
                 format==MeshOpenFilter::StanfordPly?"PLY":"STL");
+        const auto validated=std::chrono::steady_clock::now();
         candidate.vertexCount=mesh.vertices.size();
         candidate.faceCount=mesh.triangles.size();
         candidate.hasVertexColors=!mesh.colors.empty();
@@ -297,6 +302,16 @@ MeshOpenCandidate readMeshOpenCandidate(
             MeshOpenFormat::StanfordPly:
             format==MeshOpenFilter::StereolithographyStl?
             MeshOpenFormat::StereolithographyStl:MeshOpenFormat::WavefrontObj;
+        if(format==MeshOpenFilter::StereolithographyStl) {
+            const auto complete=std::chrono::steady_clock::now();
+            const auto elapsed=[](auto a,auto b){
+                return std::chrono::duration<double,std::milli>(b-a).count();
+            };
+            std::cout<<"[stl-import] parse_weld_ms="<<elapsed(began,parsed)
+                     <<" topology_validation_ms="<<elapsed(parsed,validated)
+                     <<" index_build_ms="<<elapsed(validated,complete)
+                     <<" total_candidate_ms="<<elapsed(began,complete)<<"\n";
+        }
     }else throw std::runtime_error("Unsupported selected mesh interpretation");
     if(!candidate.snapshot.index)
         throw std::runtime_error("Candidate import has no valid indexed root");
