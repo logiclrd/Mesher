@@ -34,7 +34,9 @@ void autoAcceptNextFile(const std::filesystem::path& selected,
                     dialog->directory().absolutePath().toStdString())==
                     std::filesystem::current_path();
             dialog->selectFile(QString::fromStdString(selected.string()));
-            dialog->accept();
+            // QFileDialog overrides accept() as protected, but QDialog's
+            // public virtual slot dispatches to the same implementation.
+            static_cast<QDialog*>(dialog)->accept();
         }
     });
 }
