@@ -68,6 +68,19 @@ int main() {
                            ObjExportEncoding::InlineRgba,
                            ObjExportEncoding::ZbrushMrgb})
             roundTrip(mesh,encoding,encoding!=ObjExportEncoding::GeometryOnly);
+        // A live stream with an enabled exception mask must not trigger
+        // basic_ios::clear in the serializer's RAII format guard.
+        std::ostringstream formatted;
+        formatted.exceptions(std::ios::badbit|std::ios::failbit);
+        formatted.precision(4);
+        formatted.setf(std::ios::scientific,std::ios::floatfield);
+        const auto priorFlags=formatted.flags();
+        const auto priorExceptions=formatted.exceptions();
+        mesher::writeObjMesh(formatted,mesh,ObjExportEncoding::GeometryOnly);
+        require(!formatted.str().empty(),"Serializer produced no output");
+        require(formatted.precision()==4&&formatted.flags()==priorFlags&&
+                formatted.exceptions()==priorExceptions,
+                "Serializer did not restore caller stream format");
         auto plain=serialize(mesh,ObjExportEncoding::GeometryOnly);
         require(plain.find("#MRGB")==std::string::npos,
                 "Standard OBJ unexpectedly contains ZBrush colours");
