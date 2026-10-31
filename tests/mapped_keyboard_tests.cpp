@@ -64,6 +64,54 @@ void specialKeysAndFocus() {
     check(!keys.down(GLFW_KEY_F8),
           "Synthetic release after focus-loss must be harmless");
 }
+void escapeSplashDismissesBeforeEditorExit() {
+    MappedKeyboard ownerKeys;
+    mesher::EscapeExitGuard exit;
+    // The main Vulkan viewport can receive Escape while the splash is
+    // active. It records the key for its regular input system, but the
+    // splash consumes that entire press instead of exiting the editor.
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_PRESS);
+    exit.consumeUntilRelease(); // splash was present at the key callback
+    check(ownerKeys.down(GLFW_KEY_ESCAPE) &&
+          !exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Escape on owner must dismiss splash without exiting Mesher");
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_REPEAT);
+    check(!exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Holding/repeating splash Escape must not trigger exit later");
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_RELEASE);
+    check(!exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Release clears the splash Escape suppression without exiting");
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_PRESS);
+    check(exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "A new Escape press after release must exit normally");
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_RELEASE);
+    check(!exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Release clears an ordinary Escape exit press");
+
+    // Focus loss during the consumed splash press must not leave Escape
+    // permanently blocked (same guard is used by the New Model dialog).
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_PRESS);
+    exit.consumeUntilRelease();
+    ownerKeys.clear();
+    check(!exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Focus loss clears a consumed Escape through the regular key state");
+    ownerKeys.onKey(GLFW_KEY_ESCAPE,GLFW_PRESS);
+    check(exit.exitRequested(ownerKeys.down(GLFW_KEY_ESCAPE)),
+          "Escape should work again after focus has been reset");
+
+    // If the actual splash child receives Escape, it dismisses itself and
+    // does not forward that keypress into the owner's keyboard state.
+    MappedKeyboard childFocusedOwner;
+    mesher::EscapeExitGuard childFocusedExit;
+    check(!childFocusedExit.exitRequested(
+              childFocusedOwner.down(GLFW_KEY_ESCAPE)),
+          "Splash-child Escape must not exit an owner that saw no key press");
+    childFocusedOwner.onKey(GLFW_KEY_ESCAPE,GLFW_PRESS);
+    check(childFocusedExit.exitRequested(
+              childFocusedOwner.down(GLFW_KEY_ESCAPE)),
+          "Fresh owner Escape after splash-child dismissal still exits");
+}
+
 void invalidNamesDoNotBecomePhysicalShortcuts() {
     MappedKeyboard keys;
     keys.onKey(GLFW_KEY_A,GLFW_PRESS,"");
@@ -91,6 +139,7 @@ int main() {
         mappedAZERTYAndDvorak();
         shortcutsAndModifierKeys();
         specialKeysAndFocus();
+        escapeSplashDismissesBeforeEditorExit();
         invalidNamesDoNotBecomePhysicalShortcuts();
         std::cout<<"Layout-mapped key and modifier behavior: PASS\n";
     }catch(const std::exception& error) {
