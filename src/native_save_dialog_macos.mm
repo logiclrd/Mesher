@@ -89,7 +89,8 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     }
 }
 std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
-    GLFWwindow*,const std::filesystem::path& suggestion) {
+    GLFWwindow*,const std::filesystem::path& suggestion,
+    MeshExportPreset initialPreset) {
     @autoreleasepool {
         NSSavePanel* panel=[NSSavePanel savePanel];
         panel.title=@"Export Mesher mesh";
@@ -121,7 +122,7 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         [popup setTarget:controller];
         [popup setAction:@selector(change:)];
         const auto defaultIndex=static_cast<NSInteger>(
-            MeshExportPreset::PlyLittleMeshAlpha);
+            initialPreset);
         [popup selectItemAtIndex:defaultIndex];
         panel.accessoryView=popup;
         [controller change:popup];

@@ -8,6 +8,8 @@
 #include "mesher/viewport_floor.hpp"
 #include "mesher/wire_appearance.hpp"
 #include "mesher/paint_controls.hpp"
+#include "mesher/new_model_dialog.hpp"
+#include "mesher/new_model_preview_atlas.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -432,6 +434,158 @@ std::vector<Vertex> buildHud(std::uint32_t width, std::uint32_t height,
     return vertices;
 }
 
+// UX09C: primitives are rendered inside the existing Vulkan HUD. No native
+// popup and no secondary window can take keyboard focus away from the model.
+// Three PNG-backed buttons inside the existing Vulkan HUD. All image drawing
+// uses a single persistent texture, with alpha composited by the HUD pipeline.
+void appendNewModelHud(std::vector<Vertex>& vertices,int width,int height,
+                       const NewModelDialog& dialog,
+                       const std::filesystem::path& hint,
+                       const std::string& errorMessage,
+                       const NewModelPreviewAtlas& atlas) {
+    if(!dialog.visible()||width<=0||height<=0)return;
+    const auto layout=newDialogLayout(
+        width,height,dialog.phase(),dialog.canDirectSave());
+    struct Color {float r,g,b,a;};
+    // HSL hue 200 degrees throughout, with lightness changes for elevation.
+    // Primary panel: HSL(200,42%,80%). Requested UI text is precisely
+    // halfway from that background RGB to black.
+    constexpr Color sRgbPanel{0.716f,0.828f,0.884f,1.0f};
+    constexpr Color sRgbText{sRgbPanel.r*.5f,sRgbPanel.g*.5f,
+                             sRgbPanel.b*.5f,1.0f};
+    // Values above are authored in display sRGB. Convert to scene-linear
+    // colour before shader output so the sRGB swapchain displays text
+    // *actually halfway* from the displayed panel colour to black.
+    const auto linear=[&](Color srgb) {
+        const auto decode=[](float c) {
+            return c<=0.04045f?c/12.92f:
+                std::pow((c+0.055f)/1.055f,2.4f);
+        };
+        return Color{decode(srgb.r),decode(srgb.g),decode(srgb.b),srgb.a};
+    };
+    const Color panel=linear(sRgbPanel);
+    const Color text=linear(sRgbText);
+    const Color outline=linear({0.345f,0.607f,0.735f,1.0f});
+    const Color button=linear({0.830f,0.897f,0.930f,1.0f});
+    const Color input=linear({0.875f,0.929f,0.955f,1.0f});
+    const Color backdrop=linear({0.060f,0.140f,0.180f,0.76f});
+    const Color error=linear({0.270f,0.490f,0.585f,1.0f});
+    const auto point=[&](double x,double y,float material,Color color,
+                        float u=0,float v=0) {
+        Vertex result=makeVertex(
+            {2.0*x/width-1.0,2.0*y/height-1.0,0.0},{u,v,0},material);
+        result.r=color.r;result.g=color.g;result.b=color.b;result.a=color.a;
+        return result;
+    };
+    const auto quad=[&](double x0,double y0,double x1,double y1,Color color) {
+        if(x1<=x0||y1<=y0)return;
+        const auto a=point(x0,y0,6.0f,color);
+        const auto b=point(x1,y0,6.0f,color);
+        const auto c=point(x1,y1,6.0f,color);
+        const auto d=point(x0,y1,6.0f,color);
+        for(const auto& vertex:{a,b,c,a,c,d})vertices.push_back(vertex);
+    };
+    const auto box=[&](NewDialogRect rectangle,Color color) {
+        quad(rectangle.x,rectangle.y,
+             rectangle.x+rectangle.width,rectangle.y+rectangle.height,color);
+    };
+    const auto label=[&](int x,int y,std::string_view msg,
+                        int scale,Color color) {
+        for(std::size_t i=0;i<msg.size();++i) {
+            const auto ch=static_cast<unsigned char>(msg[i]);
+            const auto glyph=hudGlyph(char(std::toupper(ch)));
+            for(int row=0;row<7;++row)for(int column=0;column<5;++column)
+                if(glyph[std::size_t(row)]&(1u<<(4-column)))
+                    quad(x+int(i)*6*scale+column*scale,
+                         y+row*scale,
+                         x+int(i)*6*scale+(column+1)*scale,
+                         y+(row+1)*scale,color);
+        }
+    };
+    const auto picture=[&](NewDialogRect card,
+                           const NewModelPreviewAtlas::Tile& tile) {
+        const auto fitted=fitNewModelPreview(card,tile.width,tile.height);
+        if(!fitted.width||!fitted.height)return;
+        constexpr Color white{1,1,1,1};
+        const double x0=fitted.x,y0=fitted.y;
+        const double x1=x0+fitted.width,y1=y0+fitted.height;
+        const auto a=point(x0,y0,5.0f,white,tile.u0,tile.v0);
+        const auto b=point(x1,y0,5.0f,white,tile.u1,tile.v0);
+        const auto c=point(x1,y1,5.0f,white,tile.u1,tile.v1);
+        const auto d=point(x0,y1,5.0f,white,tile.u0,tile.v1);
+        for(const auto& vertex:{a,b,c,a,c,d})vertices.push_back(vertex);
+    };
+    const auto buttonBox=[&](NewDialogRect rectangle,std::string_view title) {
+        if(rectangle.width<=0)return;
+        box(rectangle,outline);
+        quad(rectangle.x+2,rectangle.y+2,
+             rectangle.x+rectangle.width-2,
+             rectangle.y+rectangle.height-2,button);
+        const int x=rectangle.x+std::max(
+            4,(rectangle.width-int(title.size())*12)/2);
+        label(x,rectangle.y+11,title,2,text);
+    };
+    // Semitransparent hue-200 veil over the existing viewport.
+    box(layout.backdrop,backdrop);
+    box(layout.panel,outline);
+    quad(layout.panel.x+3,layout.panel.y+3,
+         layout.panel.x+layout.panel.width-3,
+         layout.panel.y+layout.panel.height-3,panel);
+    if(dialog.phase()==NewDialogPhase::ChoosePrimitive) {
+        label(layout.panel.x+22,layout.panel.y+17,
+              "NEW MODEL - SELECT A PRIMITIVE",2,text);
+        const auto tile=[&](NewDialogRect card,NewModelKind kind,
+                            const NewModelPreviewAtlas::Tile& image) {
+            box(card,outline);
+            quad(card.x+3,card.y+3,
+                 card.x+card.width-3,card.y+card.height-3,button);
+            picture(card,image);
+            const auto title=std::string(newModelName(kind));
+            const int tx=card.x+std::max(
+                4,(card.width-int(title.size())*6)/2);
+            label(tx,card.y+card.height-23,title,1,text);
+        };
+        tile(layout.asymmetric,NewModelKind::AsymmetricSphere,atlas.tiles[0]);
+        tile(layout.symmetric,NewModelKind::SymmetricSphere,atlas.tiles[1]);
+        tile(layout.torus,NewModelKind::Torus,atlas.tiles[2]);
+        label(layout.vertices.x-105,layout.vertices.y+9,"VERTICES:",2,text);
+        box(layout.vertices,outline);
+        quad(layout.vertices.x+2,layout.vertices.y+2,
+             layout.vertices.x+layout.vertices.width-2,
+             layout.vertices.y+layout.vertices.height-2,input);
+        label(layout.vertices.x+10,layout.vertices.y+9,
+              dialog.verticesText(),2,text);
+        buttonBox(layout.cancel,"CANCEL");
+    }else {
+        label(layout.panel.x+22,layout.panel.y+24,
+              "SAVE CHANGES BEFORE NEW?",2,text);
+        if(!hint.empty()) {
+            std::string name=hint.filename().string();
+            if(name.size()>46)name=name.substr(0,43)+"...";
+            label(layout.panel.x+22,layout.panel.y+70,name,2,text);
+        }else label(layout.panel.x+22,layout.panel.y+70,
+                    "UNTITLED DOCUMENT",2,text);
+        const bool saving=dialog.phase()==NewDialogPhase::AwaitSave;
+        if(saving)label(layout.panel.x+22,layout.panel.y+115,
+                        "SAVING... ESC CANCELS NEW",1,text);
+        else label(layout.panel.x+22,layout.panel.y+115,
+                   "SAVE, SAVE AS, NO OR CANCEL",1,text);
+        if(!saving) {
+            buttonBox(layout.save,"SAVE");
+            buttonBox(layout.saveAs,"SAVE AS");
+            buttonBox(layout.discard,"NO");
+        }
+        buttonBox(layout.cancel,"CANCEL");
+    }
+    if(!errorMessage.empty()) {
+        auto message=errorMessage;
+        if(message.size()>84)message.resize(84);
+        const int y=std::min(height-17,
+            layout.panel.y+layout.panel.height+9);
+        label(std::max(6,layout.panel.x),y,message,1,error);
+    }
+}
+
 std::string hudDecimal(double value) {
     std::ostringstream os;
     os<<std::fixed<<std::setprecision(1)<<std::max(0.0,value);
@@ -659,6 +813,14 @@ class VulkanViewport {
     bool spaceWasDown_ = false, rightWasDown_ = false, rewindWasDown_ = false;
     bool undoWasDown_=false,redoWasDown_=false,saveWasDown_=false,exportWasDown_=false;
     bool openWasDown_=false;
+    NewModelDialog newModelDialog_;
+    std::filesystem::path newModelHint_;
+    std::string newModelError_;
+    std::vector<char> newModelText_;
+    bool modalBackspaceWasDown_=false;
+    bool modalEscapeWasDown_=false,modalMouseWasDown_=false;
+    bool suppressExitEscape_=false;
+
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
     DesktopMergeKeyEdges mergeKeys_;
@@ -697,6 +859,14 @@ class VulkanViewport {
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
     VkPipeline solidPipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
+    NewModelPreviewAtlas newModelAtlas_;
+    VkImage newPreviewImage_=VK_NULL_HANDLE;
+    VkDeviceMemory newPreviewMemory_=VK_NULL_HANDLE;
+    VkImageView newPreviewView_=VK_NULL_HANDLE;
+    VkSampler newPreviewSampler_=VK_NULL_HANDLE;
+    VkDescriptorSetLayout newPreviewSetLayout_=VK_NULL_HANDLE;
+    VkDescriptorPool newPreviewDescriptorPool_=VK_NULL_HANDLE;
+    VkDescriptorSet newPreviewDescriptor_=VK_NULL_HANDLE;
     VkPipeline paintPreviewPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
@@ -976,12 +1146,16 @@ class VulkanViewport {
             (!interaction_.mergeSelected?"MERGE: DISABLED":
             mergeInput_.enabled()?"MERGE: ON SEL "+std::to_string(mergeInput_.selectedCount()):
                      "MERGE: OFF"):"";
-        const auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
+        auto geometry=buildHud(extent.width,extent.height,fpsText,stampText,
                                      mergeText,slider,interaction_.radius,
                                      scaleExponent_,scaleHovered_,classifierChoices_,classifierComparable_,
                                      classifiersAgree_,activeClassifier_,
                                      repairStepLines_,repairStepScroll_,
                                      paintMode_,paintControls_);
+        if(newModelDialog_.visible())
+            appendNewModelHud(geometry,int(extent.width),int(extent.height),
+                              newModelDialog_,newModelHint_,newModelError_,
+                              newModelAtlas_);
         if(hud.buffer==VK_NULL_HANDLE)hud=upload(geometry);
         else {
             check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),
@@ -2070,6 +2244,209 @@ class VulkanViewport {
         check(vkBindImageMemory(device,depthImage,depthMemory,0),"Bind depth memory");
         depthView=imageView(depthImage,depthFormat,VK_IMAGE_ASPECT_DEPTH_BIT);
     }
+    void createNewPreviewAtlasTexture() {
+        // Same converted PNG asset convention as Icon/Splash. No PNG
+        // decoder is invoked by the application at runtime.
+        auto source=std::filesystem::path(MESHER_ASSET_DIR);
+        const auto beside=mesherExecutableDirectory()/"images";
+        if(std::filesystem::exists(beside/"New-Torus.rgba"))
+            source=beside;
+#ifdef __APPLE__
+        const auto bundled=mesherExecutableDirectory()/"../Resources/images";
+        if(std::filesystem::exists(bundled/"New-Torus.rgba"))
+            source=bundled;
+#endif
+        newModelAtlas_=loadNewModelPreviewAtlas(source);
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physical,&properties);
+        if(newModelAtlas_.width>properties.limits.maxImageDimension2D||
+           newModelAtlas_.height>properties.limits.maxImageDimension2D)
+            throw std::runtime_error("Preview atlas is larger than Vulkan image limit");
+        VkFormatProperties formatFeatures{};
+        vkGetPhysicalDeviceFormatProperties(
+            physical,VK_FORMAT_R8G8B8A8_SRGB,&formatFeatures);
+        if(!(formatFeatures.optimalTilingFeatures&
+             VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
+            throw std::runtime_error("Vulkan device cannot sample preview RGBA");
+        const VkDeviceSize bytes=newModelAtlas_.rgba.size();
+        // One upload at initialization; all subsequent modal redraws use
+        // six image vertices per preview, never per-pixel HUD geometry.
+        VkBuffer staging=VK_NULL_HANDLE;
+        VkDeviceMemory stagingMemory=VK_NULL_HANDLE;
+        VkBufferCreateInfo buffer{};buffer.sType=VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        buffer.size=bytes;
+        buffer.usage=VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        buffer.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+        check(vkCreateBuffer(device,&buffer,nullptr,&staging),
+              "Create preview image staging buffer");
+        VkMemoryRequirements required{};
+        vkGetBufferMemoryRequirements(device,staging,&required);
+        VkMemoryAllocateInfo allocate{};allocate.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate.allocationSize=required.size;
+        allocate.memoryTypeIndex=memoryType(required.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        check(vkAllocateMemory(device,&allocate,nullptr,&stagingMemory),
+              "Allocate preview image staging");
+        check(vkBindBufferMemory(device,staging,stagingMemory,0),
+              "Bind preview image staging");
+        void* memory=nullptr;
+        check(vkMapMemory(device,stagingMemory,0,bytes,0,&memory),
+              "Map preview image staging");
+        std::memcpy(memory,newModelAtlas_.rgba.data(),
+                    newModelAtlas_.rgba.size());
+        vkUnmapMemory(device,stagingMemory);
+
+        VkImageCreateInfo image{};image.sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        image.imageType=VK_IMAGE_TYPE_2D;
+        image.extent={newModelAtlas_.width,newModelAtlas_.height,1};
+        image.mipLevels=1;image.arrayLayers=1;
+        image.format=VK_FORMAT_R8G8B8A8_SRGB;
+        image.tiling=VK_IMAGE_TILING_OPTIMAL;
+        image.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+        image.usage=VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT;
+        image.samples=VK_SAMPLE_COUNT_1_BIT;
+        image.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+        check(vkCreateImage(device,&image,nullptr,&newPreviewImage_),
+              "Create preview atlas image");
+        vkGetImageMemoryRequirements(device,newPreviewImage_,&required);
+        allocate.allocationSize=required.size;
+        allocate.memoryTypeIndex=memoryType(required.memoryTypeBits,
+                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        check(vkAllocateMemory(device,&allocate,nullptr,&newPreviewMemory_),
+              "Allocate preview atlas image");
+        check(vkBindImageMemory(device,newPreviewImage_,newPreviewMemory_,0),
+              "Bind preview atlas image");
+
+        VkCommandPool pool=VK_NULL_HANDLE;
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex=graphicsFamily;
+        poolInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        check(vkCreateCommandPool(device,&poolInfo,nullptr,&pool),
+              "Create temporary atlas upload command pool");
+        VkCommandBuffer cmd=VK_NULL_HANDLE;
+        VkCommandBufferAllocateInfo cmdInfo{};
+        cmdInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cmdInfo.commandPool=pool;
+        cmdInfo.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cmdInfo.commandBufferCount=1;
+        check(vkAllocateCommandBuffers(device,&cmdInfo,&cmd),
+              "Allocate atlas upload commands");
+        VkCommandBufferBeginInfo begin{};
+        begin.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        check(vkBeginCommandBuffer(cmd,&begin),"Begin atlas upload");
+
+        VkImageMemoryBarrier transition{};
+        transition.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        transition.image=newPreviewImage_;
+        transition.oldLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+        transition.newLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        transition.srcAccessMask=0;
+        transition.dstAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+        transition.subresourceRange.levelCount=1;
+        transition.subresourceRange.layerCount=1;
+        transition.srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+        transition.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+        vkCmdPipelineBarrier(cmd,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,0,0,nullptr,0,nullptr,
+            1,&transition);
+        VkBufferImageCopy copy{};
+        copy.imageSubresource.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+        copy.imageSubresource.layerCount=1;
+        copy.imageExtent={newModelAtlas_.width,newModelAtlas_.height,1};
+        vkCmdCopyBufferToImage(cmd,staging,newPreviewImage_,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&copy);
+        transition.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        transition.newLayout=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        transition.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.dstAccessMask=VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd,VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,0,0,nullptr,0,nullptr,
+            1,&transition);
+        check(vkEndCommandBuffer(cmd),"End atlas upload");
+        VkSubmitInfo submit{};
+        submit.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit.commandBufferCount=1;
+        submit.pCommandBuffers=&cmd;
+        check(vkQueueSubmit(graphicsQueue,1,&submit,VK_NULL_HANDLE),
+              "Submit atlas upload");
+        check(vkQueueWaitIdle(graphicsQueue),"Wait for atlas upload");
+        vkDestroyCommandPool(device,pool,nullptr);
+        vkDestroyBuffer(device,staging,nullptr);
+        vkFreeMemory(device,stagingMemory,nullptr);
+
+        newPreviewView_=imageView(
+            newPreviewImage_,VK_FORMAT_R8G8B8A8_SRGB,VK_IMAGE_ASPECT_COLOR_BIT);
+        VkSamplerCreateInfo sampler{};
+        sampler.sType=VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        sampler.magFilter=VK_FILTER_LINEAR;
+        sampler.minFilter=VK_FILTER_LINEAR;
+        sampler.mipmapMode=VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        sampler.addressModeU=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeV=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeW=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.minLod=0;sampler.maxLod=0;
+        check(vkCreateSampler(device,&sampler,nullptr,&newPreviewSampler_),
+              "Create preview atlas sampler");
+        // Only the three tile dimensions/UVs are needed after upload.
+        std::vector<std::uint8_t>().swap(newModelAtlas_.rgba);
+    }
+    void createNewPreviewDescriptor() {
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding=0;
+        binding.descriptorCount=1;
+        binding.descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.stageFlags=VK_SHADER_STAGE_FRAGMENT_BIT;
+        VkDescriptorSetLayoutCreateInfo layout{};
+        layout.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layout.bindingCount=1;layout.pBindings=&binding;
+        check(vkCreateDescriptorSetLayout(device,&layout,nullptr,
+              &newPreviewSetLayout_),"Create preview descriptor layout");
+        VkDescriptorPoolSize poolSize{
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1};
+        VkDescriptorPoolCreateInfo pool{};
+        pool.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pool.maxSets=1;pool.poolSizeCount=1;pool.pPoolSizes=&poolSize;
+        check(vkCreateDescriptorPool(device,&pool,nullptr,
+                                    &newPreviewDescriptorPool_),
+              "Create preview descriptor pool");
+        VkDescriptorSetAllocateInfo allocate{};
+        allocate.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocate.descriptorPool=newPreviewDescriptorPool_;
+        allocate.descriptorSetCount=1;
+        allocate.pSetLayouts=&newPreviewSetLayout_;
+        check(vkAllocateDescriptorSets(device,&allocate,&newPreviewDescriptor_),
+              "Allocate preview atlas descriptor");
+        VkDescriptorImageInfo image{};
+        image.sampler=newPreviewSampler_;
+        image.imageView=newPreviewView_;
+        image.imageLayout=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkWriteDescriptorSet write{};
+        write.sType=VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet=newPreviewDescriptor_;
+        write.dstBinding=0;
+        write.descriptorCount=1;
+        write.descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo=&image;
+        vkUpdateDescriptorSets(device,1,&write,0,nullptr);
+    }
+    void destroyNewPreviewAtlasTexture() {
+        if(newPreviewSampler_)
+            vkDestroySampler(device,newPreviewSampler_,nullptr);
+        if(newPreviewView_)
+            vkDestroyImageView(device,newPreviewView_,nullptr);
+        if(newPreviewImage_)
+            vkDestroyImage(device,newPreviewImage_,nullptr);
+        if(newPreviewMemory_)
+            vkFreeMemory(device,newPreviewMemory_,nullptr);
+        newPreviewSampler_=VK_NULL_HANDLE;
+        newPreviewView_=VK_NULL_HANDLE;
+        newPreviewImage_=VK_NULL_HANDLE;
+        newPreviewMemory_=VK_NULL_HANDLE;
+    }
+
     void createRenderPass() {
         VkAttachmentDescription color{};
         color.format=swapFormat;color.samples=VK_SAMPLE_COUNT_1_BIT;
@@ -2252,8 +2629,11 @@ class VulkanViewport {
         createDepth();
         createRenderPass();
         VkPushConstantRange range{VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(PushConstants)};
+        createNewPreviewDescriptor();
         VkPipelineLayoutCreateInfo layout{}; layout.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
+        layout.setLayoutCount=1;
+        layout.pSetLayouts=&newPreviewSetLayout_;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline();
         paintPreviewPipeline=makePipeline(false,true);
@@ -2281,6 +2661,13 @@ class VulkanViewport {
         solidPipeline=hudPipeline=paintPreviewPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
+        if(newPreviewDescriptorPool_)
+            vkDestroyDescriptorPool(device,newPreviewDescriptorPool_,nullptr);
+        newPreviewDescriptorPool_=VK_NULL_HANDLE;
+        newPreviewDescriptor_=VK_NULL_HANDLE;
+        if(newPreviewSetLayout_)
+            vkDestroyDescriptorSetLayout(device,newPreviewSetLayout_,nullptr);
+        newPreviewSetLayout_=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
         renderPass=VK_NULL_HANDLE;
         if(depthView)vkDestroyImageView(device,depthView,nullptr);
@@ -2381,6 +2768,8 @@ class VulkanViewport {
         // depth-tested solid fragments. No detached wire quads are
         // emitted; M69 retires now-unused wire GPU buffers/pipeline.
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
+        vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout,0,1,&newPreviewDescriptor_,0,nullptr);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
         vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);
         vkCmdEndRenderPass(commandBuffer);
@@ -2415,6 +2804,196 @@ class VulkanViewport {
         ++framesThisInterval_;
         ++logFrames_;
     }
+    // The same owner-union and prepare/commit protocol as Ctrl+O. Only
+    // prepared, validated geometry can cross into the live viewport. New
+    // additionally resets input, history-facing UI and camera framing.
+    void publishPreparedNew(PreparedMeshOpen prepared) {
+        if(!prepared.index||!prepared.commit)
+            throw std::runtime_error("New produced no valid indexed source");
+        std::set<PartitionId> owners;
+        if(displayedIndex_)
+            displayedIndex_->revision().forEachPartition(
+                [&](PartitionId id,const MeshPartition&){owners.insert(id);});
+        prepared.index->revision().forEachPartition(
+            [&](PartitionId id,const MeshPartition&){owners.insert(id);});
+        const std::vector<PartitionId> dirty(owners.begin(),owners.end());
+        clearPaintPreview();
+        refreshPartitions(prepared.index,dirty,
+            prepared.bounds?std::optional<Vec3>(prepared.bounds->center()):
+                            std::nullopt);
+        prepared.commit();
+        if(prepared.bounds&&prepared.bounds->hasVertices) {
+            frameScene(*prepared.bounds);
+            floorZ_=prepared.bounds->minimum.z-
+                std::max(0.25,prepared.bounds->radius()*0.05);
+            const auto scenery=buildWorkFloor(
+                floorZ_,prepared.bounds->center(),
+                std::max(8.0,prepared.bounds->radius()*2.5));
+            replaceBuffer(floorSolid,scenery.solid);
+        }
+        interaction_.radiusRange=prepared.radiusRange;
+        interaction_.paintNominalEdgeLength=prepared.radiusRange.minimum;
+        interaction_.radius=prepared.radius;
+        interaction_.paintSymmetric=prepared.symmetric;
+        paintMode_=false;
+        painting_=false;
+        paintPanelDragging_=false;
+        paintControls_=PaintControls{};
+        lastPaintCursor_.reset();
+        mergeInput_.revisionChanged(displayedIndex_);
+        oneShotAwaitingDisplay_=false;
+        displayedStamps_=0;
+        waitingForDrain_=false;
+        mouseWasDown_=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        newModelHint_.clear();
+        newModelError_.clear();
+        refreshHud();
+        updateTitle();
+        std::cout<<"[new] published independent initial model "
+                 <<"updated_owners="<<dirty.size()<<"\n";
+    }
+    void applyNewModalAction(NewDialogResult action) {
+        if(action.action==NewDialogAction::NoAction)return;
+        try {
+            if(action.action==NewDialogAction::Create) {
+                if(!action.model||!interaction_.prepareNewModel)
+                    throw std::logic_error(
+                        "New source creation unavailable");
+                auto prepared=interaction_.prepareNewModel(*action.model);
+                publishPreparedNew(std::move(prepared));
+                return;
+            }
+            const bool saveAs=action.action==NewDialogAction::RequestSaveAs;
+            if(!interaction_.startNewSave)
+                throw std::logic_error("New document Save callback unavailable");
+            const bool queued=interaction_.startNewSave(
+                window,saveAs,displayedIndex_);
+            if(queued)newModelDialog_.saveQueued();
+            else newModelDialog_.saveCancelled();
+        }catch(const std::exception& error) {
+            newModelError_=error.what();
+            std::cerr<<"[new] source/save rejected; current document retained: "
+                     <<newModelError_<<"\n";
+            // A failed generator must leave a retryable chooser, not silently
+            // discard the user's previous document or start an empty model.
+            if(action.action==NewDialogAction::Create&&action.model)
+                newModelDialog_.open(action.model->vertices);
+            else if(newModelDialog_.phase()==NewDialogPhase::AwaitSave)
+                newModelDialog_.saveCompleted(false);
+        }
+    }
+    void processNewModelModal() {
+        if(!newModelDialog_.visible())return;
+        const auto info=interaction_.newDocumentInfo?
+            interaction_.newDocumentInfo(displayedIndex_):
+            NewDocumentInfo{};
+        newModelHint_=info.filenameHint;
+        if(newModelDialog_.phase()==NewDialogPhase::AwaitSave&&
+           interaction_.pollNewSave) {
+            const auto state=interaction_.pollNewSave();
+            if(state!=NewDocumentSaveProgress::Pending) {
+                const bool success=state==NewDocumentSaveProgress::Succeeded;
+                const auto decision=newModelDialog_.saveCompleted(success);
+                if(!success)newModelError_="SAVE FAILED; OLD DOCUMENT PRESERVED";
+                else applyNewModalAction(decision);
+            }
+        }
+        if(!newModelDialog_.visible()) {
+            newModelText_.clear();
+            return;
+        }
+        if(justPressed(GLFW_KEY_ESCAPE,modalEscapeWasDown_)) {
+            newModelDialog_.cancel();
+            newModelText_.clear();
+            suppressExitEscape_=true;
+            mouseWasDown_=glfwGetMouseButton(
+                window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+            return;
+        }
+        const auto phase=newModelDialog_.phase();
+        if(phase==NewDialogPhase::ChoosePrimitive) {
+            if(justPressed(GLFW_KEY_BACKSPACE,modalBackspaceWasDown_))
+                newModelDialog_.backspace();
+            const bool control=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
+                               keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
+            if(control&&keyboard_.takePress(GLFW_KEY_A))
+                newModelDialog_.clearVertexInput();
+        }
+        auto choose=[&](NewModelKind kind) {
+            try {
+                newModelError_.clear();
+                const auto decision=newModelDialog_.choose(
+                    kind,info.dirty,info.canDirectSave);
+                applyNewModalAction(decision);
+            }catch(const std::exception& error) {
+                newModelError_=error.what();
+            }
+        };
+        auto save=[&](bool saveAs) {
+            try {
+                newModelError_.clear();
+                applyNewModalAction(newModelDialog_.save(saveAs));
+            }catch(const std::exception& error) {
+                newModelError_=error.what();
+            }
+        };
+        for(const auto codepoint:newModelText_) {
+            if(!newModelDialog_.visible())break;
+            if(phase==NewDialogPhase::ChoosePrimitive) {
+                if(codepoint>='0'&&codepoint<='9')
+                    newModelDialog_.typeDigit(codepoint);
+            }else if(phase==NewDialogPhase::ConfirmDiscard) {
+                const char letter=char(std::toupper(
+                    static_cast<unsigned char>(codepoint)));
+                if(letter=='N')applyNewModalAction(newModelDialog_.discard());
+                else if(letter=='S')
+                    save(!newModelDialog_.canDirectSave());
+                else if(letter=='A'&&newModelDialog_.canDirectSave())
+                    save(true);
+            }
+        }
+        newModelText_.clear();
+        double cursorX=0,cursorY=0;
+        glfwGetCursorPos(window,&cursorX,&cursorY);
+        int ww=0,wh=0,fw=0,fh=0;
+        glfwGetWindowSize(window,&ww,&wh);
+        glfwGetFramebufferSize(window,&fw,&fh);
+        if(ww>0&&wh>0&&fw>0&&fh>0) {
+            cursorX*=double(fw)/ww;
+            cursorY*=double(fh)/wh;
+        }
+        const bool down=glfwGetMouseButton(
+            window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+        const bool clicked=down&&!modalMouseWasDown_;
+        modalMouseWasDown_=down;
+        if(!clicked||!newModelDialog_.visible())return;
+        const auto layout=newDialogLayout(
+            fw,fh,newModelDialog_.phase(),newModelDialog_.canDirectSave());
+        if(layout.cancel.contains(cursorX,cursorY)) {
+            newModelDialog_.cancel();
+            mouseWasDown_=down;
+            return;
+        }
+        if(newModelDialog_.phase()==NewDialogPhase::ChoosePrimitive) {
+            if(layout.vertices.contains(cursorX,cursorY))
+                newModelDialog_.clearVertexInput();
+            else if(layout.asymmetric.contains(cursorX,cursorY))
+                choose(NewModelKind::AsymmetricSphere);
+            else if(layout.symmetric.contains(cursorX,cursorY))
+                choose(NewModelKind::SymmetricSphere);
+            else if(layout.torus.contains(cursorX,cursorY))
+                choose(NewModelKind::Torus);
+        }else if(newModelDialog_.phase()==NewDialogPhase::ConfirmDiscard) {
+            if(newModelDialog_.canDirectSave()&&
+               layout.save.contains(cursorX,cursorY))
+                save(false);
+            else if(layout.saveAs.contains(cursorX,cursorY))save(true);
+            else if(layout.discard.contains(cursorX,cursorY))
+                applyNewModalAction(newModelDialog_.discard());
+        }
+    }
+
 public:
     explicit VulkanViewport(const Mesh& mesh, ViewportAnimation animation,
                             ViewportInteraction interaction)
@@ -2449,6 +3028,13 @@ public:
             self->keyboard_.onKey(key,action,mappedName?mappedName:"");
             if(action==GLFW_PRESS && self->startupSplash_)
                 self->startupSplash_->dismiss();
+        });
+        // Use GLFW's Unicode text callback instead of physical digit scan
+        // codes so keyboard layout maps modal numeric input correctly.
+        glfwSetCharCallback(window,[](GLFWwindow* w,unsigned int codepoint){
+            auto* self=static_cast<VulkanViewport*>(glfwGetWindowUserPointer(w));
+            if(self&&self->newModelDialog_.visible()&&codepoint<128)
+                self->newModelText_.push_back(static_cast<char>(codepoint));
         });
         glfwSetWindowFocusCallback(window,[](GLFWwindow* w,int focused){
             if(!focused) {
@@ -2498,6 +3084,7 @@ public:
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
+        createNewPreviewAtlasTexture();
         pumpStartupSplash();
         const Mesh empty;
         // The original imported source is the authority for scenery
@@ -2542,6 +3129,7 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
+            destroyNewPreviewAtlasTexture();
             destroyBuffer(solid);
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
@@ -2579,31 +3167,73 @@ public:
                 startupSplash_->tick();
                 if(!startupSplash_->active())startupSplash_.reset();
             }
-            if(keyboard_.down(GLFW_KEY_ESCAPE)) {
-                if(painting_&&interaction_.paintEnd) {
-                    interaction_.paintEnd();
-                    painting_=false;
-                }
-                if(sculpting_&&interaction_.end) {
-                    interaction_.end(lastCursorHit_,std::max(0.0,glfwGetTime()-mouseStartTime_));
-                    sculpting_=false;
-                }
-                restorePreviousFocus_=true;
-                break;
-            }
-            // History actions only when the worker is between strokes. The
-            // actual root swap happens on the worker, then V9 dirty buffers
-            // update from its coalesced snapshot as usual.
+            // Modal interception precedes the application-wide Escape-to-
+            // exit shortcut. Holding Escape after dismissing New must not
+            // accidentally close Mesher on the following frame.
             const bool ctrl=keyboard_.down(GLFW_KEY_LEFT_CONTROL)||
                             keyboard_.down(GLFW_KEY_RIGHT_CONTROL);
 #ifdef __APPLE__
-            // Finder-like edit shortcuts use Command on macOS; the
-            // established Control shortcuts remain accepted as well.
             const bool shortcut=ctrl||keyboard_.down(GLFW_KEY_LEFT_SUPER)||
                                 keyboard_.down(GLFW_KEY_RIGHT_SUPER);
 #else
             const bool shortcut=ctrl;
 #endif
+            if(!newModelDialog_.visible()&&shortcut&&
+               !inspectionFrozen_&&!interaction_.repairStepMode&&
+               !sculpting_&&!painting_&&!orbitDragging_&&
+               !radiusDragging_&&!scaleDragging_&&
+               !mergeInput_.enabled()&&interaction_.prepareNewModel&&
+               (!interaction_.canBegin||interaction_.canBegin())&&
+               keyboard_.takePress(GLFW_KEY_N)) {
+                try {
+                    // Always use original startup --vertices, never the
+                    // currently edited/imported vertex count.
+                    if(interaction_.newDocumentInfo&&
+                       interaction_.newDocumentInfo(displayedIndex_).busy)
+                        throw std::runtime_error(
+                            "New requires finished worker edits and disk saves");
+                    newModelDialog_.open(interaction_.startupVertexCount);
+                    newModelText_.clear();
+                    newModelError_.clear();
+                    modalMouseWasDown_=glfwGetMouseButton(
+                        window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
+                    std::cout<<"[new] opened in-viewport model chooser\n";
+                }catch(const std::exception& error) {
+                    std::cerr<<"[new] cannot open chooser: "
+                             <<error.what()<<"\n";
+                }
+            }
+            if(newModelDialog_.visible()) {
+                processNewModelModal();
+                keyboard_.finishFrame();
+                int width=0,height=0;
+                glfwGetFramebufferSize(window,&width,&height);
+                if(width==0||height==0){glfwWaitEvents();continue;}
+                if(std::uint32_t(width)!=extent.width||
+                   std::uint32_t(height)!=extent.height)
+                    recreateSwapchain();
+                else {
+                    refreshHud();
+                    draw();
+                }
+                sampleFrameRates();
+                continue; // never sculpt, paint, orbit or queue normal shortcuts
+            }
+            if(!keyboard_.down(GLFW_KEY_ESCAPE))suppressExitEscape_=false;
+            if(keyboard_.down(GLFW_KEY_ESCAPE)&&!suppressExitEscape_) {
+                if(painting_&&interaction_.paintEnd) {
+                    interaction_.paintEnd();
+                    painting_=false;
+                }
+                if(sculpting_&&interaction_.end) {
+                    interaction_.end(lastCursorHit_,std::max(
+                        0.0,glfwGetTime()-mouseStartTime_));
+                    sculpting_=false;
+                }
+                restorePreviousFocus_=true;
+                break;
+            }
+            // History actions only when the worker is between strokes.
             const bool shift=keyboard_.down(GLFW_KEY_LEFT_SHIFT)||
                              keyboard_.down(GLFW_KEY_RIGHT_SHIFT);
             const bool z=justPressed(GLFW_KEY_Z,undoWasDown_);
@@ -2681,15 +3311,25 @@ public:
                 else interaction_.frozenRepairCapture(shift?2:(alt?1:0));
             }else if(shortcut&&save&&!inspectionFrozen_&&interaction_.checkpoint) {
                 try {
-                    const auto suggestion=interaction_.checkpointSuggestedPath?
-                        interaction_.checkpointSuggestedPath():
-                        std::filesystem::path("mesher-checkpoint.mshr");
-                    const auto choice=nativeSaveCheckpointDialog(window,suggestion);
-                    if(!dispatchCheckpointSaveAs(choice,interaction_.checkpoint))
-                        std::cout<<"[checkpoint] Save As cancelled; no write queued\n";
+                    const auto info=interaction_.newDocumentInfo?
+                        interaction_.newDocumentInfo(displayedIndex_):
+                        NewDocumentInfo{};
+                    if(info.canDirectSave&&interaction_.directCheckpoint) {
+                        interaction_.directCheckpoint(displayedIndex_);
+                        std::cout<<"[checkpoint] queued native direct Save\n";
+                    }else {
+                        const auto suggestion=interaction_.checkpointSuggestedPath?
+                            interaction_.checkpointSuggestedPath():
+                            std::filesystem::path("mesher-checkpoint.mshr");
+                        const auto choice=nativeSaveCheckpointDialog(
+                            window,suggestion);
+                        if(!dispatchCheckpointSaveAs(choice,
+                                                    interaction_.checkpoint))
+                            std::cout<<"[checkpoint] Save As cancelled; unchanged\n";
+                    }
                 }catch(const std::exception& error) {
-                    std::cerr<<"[checkpoint] Save As failed; no write queued: "
-                             <<error.what()<<"\n";
+                    std::cerr<<"[checkpoint] Save refused: "<<error.what()<<"\n";
+                    nativeOpenErrorMessage(window,error.what());
                 }
             }
             // UX07E: export only the exact accepted root currently displayed.
@@ -2704,7 +3344,11 @@ public:
                     const auto suggestion=interaction_.exportSuggestedPath?
                         interaction_.exportSuggestedPath():
                         std::filesystem::path("mesher-export.ply");
-                    const auto choice=nativeSaveMeshExportDialog(window,suggestion);
+                    const auto preferred=interaction_.exportPreferredPreset?
+                        interaction_.exportPreferredPreset():
+                        MeshExportPreset::PlyLittleMeshAlpha;
+                    const auto choice=nativeSaveMeshExportDialog(
+                        window,suggestion,preferred);
                     if(choice) {
                         const auto& format=meshExportFormat(choice->preset);
                         if(!format.disclosure.empty()&&

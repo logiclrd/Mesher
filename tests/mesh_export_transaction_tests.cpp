@@ -203,6 +203,17 @@ void testCwdAndAsync(TestDirectory& tmp) {
     require(after.requested==3&&after.completed==3&&
             bytes(absoluteBefore)=="SECOND",
             "Async exporter dropped, merged or reordered explicit requests");
+    // The UI must be able to attribute every completion to its exact
+    // explicit request, even when three FIFO writes finish between frames.
+    const auto outcomes=writer.takeCompletions();
+    require(outcomes.size()==3,
+            "Writer did not preserve per-request completion identity");
+    for(const auto& outcome:outcomes)
+        require(outcome.success&&outcome.error.empty()&&
+                outcome.destination==absoluteBefore,
+                "Successful FIFO completion reported the wrong destination");
+    require(writer.takeCompletions().empty(),
+            "Consumption did not clear completed outcome queue");
     assertNoTemps(tmp.root/"two");
 }
 
@@ -245,6 +256,13 @@ void testFailures(TestDirectory& tmp) {
     require(stats.requested==1&&stats.failed==1&&stats.completed==0&&
             stats.lastError=="deliberate background write failure",
             "Background export failure accounting is incorrect");
+    const auto outcomes=writer.takeCompletions();
+    require(outcomes.size()==1&&!outcomes[0].success&&
+            outcomes[0].destination==request.absoluteDestination&&
+            outcomes[0].error=="deliberate background write failure",
+            "Failed write did not report correct per-request outcome");
+    require(writer.takeCompletions().empty(),
+            "Failed completion was reported more than once");
     require(bytes(request.absoluteDestination)=="KEPT",
             "Failed background write damaged old export");
     assertNoTemps(tmp.root/"one");

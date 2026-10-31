@@ -13,9 +13,9 @@ namespace mesher {
 // prepared source after Result::Create. Failed/cancelled writes never
 // result in Create, and the previous document remains authoritative.
 enum class NewDialogPhase {Closed,ChoosePrimitive,ConfirmDiscard,AwaitSave};
-enum class NewDialogAction {None,Create,RequestSave,RequestSaveAs};
+enum class NewDialogAction {NoAction,Create,RequestSave,RequestSaveAs};
 struct NewDialogResult {
-    NewDialogAction action=NewDialogAction::None;
+    NewDialogAction action=NewDialogAction::NoAction;
     std::optional<NewModelRequest> model;
 };
 struct NewDialogRect {

@@ -55,7 +55,8 @@ configure_file(
     @ONLY)
 target_sources(mesher_mesh PRIVATE
     src/random_filename.cpp src/document_filename_state.cpp
-    src/new_model.cpp src/new_model_dialog.cpp)
+    src/new_model.cpp src/new_model_dialog.cpp
+    src/new_model_preview_atlas.cpp)
 target_include_directories(mesher_mesh PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(mesher_mesh PUBLIC cxx_std_20)
@@ -96,7 +97,7 @@ if(MESHER_BUILD_VIEWPORT)
     # time. No external image codec or runtime PNG loader is required.
     set(MESHER_ASSET_DIR "${CMAKE_CURRENT_BINARY_DIR}/images")
     set(MESHER_GENERATED_IMAGES)
-    foreach(IMAGE IN ITEMS Icon Splash)
+    foreach(IMAGE IN ITEMS Icon Splash New-AsymmetricSphere New-SymmetricSphere New-Torus)
         set(PNG "${CMAKE_CURRENT_SOURCE_DIR}/images/${IMAGE}.png")
         set(RGBA "${MESHER_ASSET_DIR}/${IMAGE}.rgba")
         add_custom_command(OUTPUT "${RGBA}"
@@ -213,6 +214,9 @@ if(MESHER_BUILD_VIEWPORT)
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
                 "${MESHER_ASSET_DIR}/Icon.rgba"
                 "${MESHER_ASSET_DIR}/Splash.rgba"
+                "${MESHER_ASSET_DIR}/New-AsymmetricSphere.rgba"
+                "${MESHER_ASSET_DIR}/New-SymmetricSphere.rgba"
+                "${MESHER_ASSET_DIR}/New-Torus.rgba"
                 "$<TARGET_FILE_DIR:Mesher>/images"
         VERBATIM)
     if(MSVC)
@@ -273,6 +277,14 @@ if(MESHER_BUILD_TESTS)
         target_link_libraries(mesher_mapped_keyboard_tests PRIVATE glfw)
         add_test(NAME layout_mapped_keyboard_shortcuts
             COMMAND mesher_mapped_keyboard_tests)
+        add_executable(mesher_new_preview_assets_tests
+            tests/new_model_preview_assets_tests.cpp)
+        target_link_libraries(mesher_new_preview_assets_tests PRIVATE mesher_mesh)
+        target_compile_definitions(mesher_new_preview_assets_tests PRIVATE
+            MESHER_PREVIEW_ASSET_DIR="${MESHER_ASSET_DIR}")
+        add_dependencies(mesher_new_preview_assets_tests mesher_images)
+        add_test(NAME ux09_png_previews_transparency_and_aspect_fit
+            COMMAND mesher_new_preview_assets_tests)
         add_test(NAME png_rgba_asset_conversion
             COMMAND "${Python3_EXECUTABLE}"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_png_to_rgba.py")

@@ -261,6 +261,16 @@ MeshExportStatistics AsyncMeshExportWriter::statistics() const {
     current.busy=busy_;
     return current;
 }
+std::vector<MeshExportCompletion> AsyncMeshExportWriter::takeCompletions() {
+    std::lock_guard lock(mutex_);
+    std::vector<MeshExportCompletion> finished;
+    finished.reserve(completions_.size());
+    while(!completions_.empty()) {
+        finished.push_back(std::move(completions_.front()));
+        completions_.pop_front();
+    }
+    return finished;
+}
 void AsyncMeshExportWriter::drain() {
     std::unique_lock lock(mutex_);
     idle_.wait(lock,[this] {return pending_.empty()&&!busy_;});
@@ -282,11 +292,14 @@ void AsyncMeshExportWriter::run() noexcept {
         catch(...){error="Unknown export failure";}
         {
             std::lock_guard lock(mutex_);
-            if(error.empty())++statistics_.completed;
+            const bool succeeded=error.empty();
+            if(succeeded)++statistics_.completed;
             else {
                 ++statistics_.failed;
-                statistics_.lastError=std::move(error);
+                statistics_.lastError=error;
             }
+            completions_.push_back({
+                task.snapshot.absoluteDestination,succeeded,std::move(error)});
             busy_=false;
         }
         idle_.notify_all();

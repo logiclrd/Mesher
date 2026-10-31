@@ -80,7 +80,8 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     return acceptNativeDialogFilePath(destination);
 }
 std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
-    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    GLFWwindow* owner,const std::filesystem::path& suggestion,
+    MeshExportPreset initialPreset) {
     ComApartment apartment;
     IFileSaveDialog* raw=nullptr;
     require(CoCreateInstance(CLSID_FileSaveDialog,nullptr,CLSCTX_INPROC_SERVER,
@@ -106,7 +107,7 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     require(dialog->SetFileTypes(static_cast<UINT>(filters.size()),
                                   filters.data()),"SetFileTypes Export");
     require(dialog->SetFileTypeIndex(
-        static_cast<UINT>(MeshExportPreset::PlyLittleMeshAlpha)+1u),
+        static_cast<UINT>(initialPreset)+1u),
         "SetFileTypeIndex Export");
     if(!suggestion.filename().empty())
         require(dialog->SetFileName(suggestion.filename().c_str()),
