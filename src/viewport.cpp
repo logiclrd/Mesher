@@ -819,7 +819,7 @@ class VulkanViewport {
     std::vector<char> newModelText_;
     bool modalBackspaceWasDown_=false;
     bool modalEscapeWasDown_=false,modalMouseWasDown_=false;
-    bool suppressExitEscape_=false;
+    EscapeExitGuard escapeExitGuard_;
 
     bool oneShotWasDown_=false,oneShotAwaitingDisplay_=false;
     std::size_t oneShotRequestedCount_=0;
@@ -2906,7 +2906,7 @@ class VulkanViewport {
         if(justPressed(GLFW_KEY_ESCAPE,modalEscapeWasDown_)) {
             newModelDialog_.cancel();
             newModelText_.clear();
-            suppressExitEscape_=true;
+            escapeExitGuard_.consumeUntilRelease();
             mouseWasDown_=glfwGetMouseButton(
                 window,GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS;
             return;
@@ -3026,8 +3026,16 @@ public:
                key<=GLFW_KEY_WORLD_2)
                 mappedName=glfwGetKeyName(key,scancode);
             self->keyboard_.onKey(key,action,mappedName?mappedName:"");
-            if(action==GLFW_PRESS && self->startupSplash_)
+            if(action==GLFW_PRESS && self->startupSplash_ &&
+               self->startupSplash_->active()) {
+                // The owner can receive Escape even while the child splash
+                // is up. Dismiss the splash, but consume this entire held
+                // Escape so the viewport's own exit shortcut cannot fire
+                // after the splash is destroyed on the next UI iteration.
+                if(key==GLFW_KEY_ESCAPE)
+                    self->escapeExitGuard_.consumeUntilRelease();
                 self->startupSplash_->dismiss();
+            }
         });
         // Use GLFW's Unicode text callback instead of physical digit scan
         // codes so keyboard layout maps modal numeric input correctly.
@@ -3219,8 +3227,8 @@ public:
                 sampleFrameRates();
                 continue; // never sculpt, paint, orbit or queue normal shortcuts
             }
-            if(!keyboard_.down(GLFW_KEY_ESCAPE))suppressExitEscape_=false;
-            if(keyboard_.down(GLFW_KEY_ESCAPE)&&!suppressExitEscape_) {
+            if(escapeExitGuard_.exitRequested(
+                   keyboard_.down(GLFW_KEY_ESCAPE))) {
                 if(painting_&&interaction_.paintEnd) {
                     interaction_.paintEnd();
                     painting_=false;
