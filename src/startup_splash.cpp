@@ -143,9 +143,12 @@ void addNativeOwner(GLFWwindow* child,GLFWwindow* owner) {
     const Window native=glfwGetX11Window(child);
     XSetTransientForHint(display,native,glfwGetX11Window(owner));
     const Atom type=XInternAtom(display,"_NET_WM_WINDOW_TYPE",False);
-    const Atom splash=XInternAtom(display,"_NET_WM_WINDOW_TYPE_SPLASH",False);
+    // KWin handles _NET_WM_WINDOW_TYPE_SPLASH clicks itself, hiding that
+    // window before GLFW can deliver ButtonPress. Use a normal transient
+    // window so all dismissal inputs reach Mesher's own GLFW callbacks.
+    const Atom normal=XInternAtom(display,"_NET_WM_WINDOW_TYPE_NORMAL",False);
     XChangeProperty(display,native,type,XA_ATOM,32,PropModeReplace,
-                    reinterpret_cast<const unsigned char*>(&splash),1);
+                    reinterpret_cast<const unsigned char*>(&normal),1);
     const Atom state=XInternAtom(display,"_NET_WM_STATE",False);
     const Atom skipTaskbar=XInternAtom(display,"_NET_WM_STATE_SKIP_TASKBAR",False);
     const Atom above=XInternAtom(display,"_NET_WM_STATE_ABOVE",False);
