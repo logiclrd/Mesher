@@ -450,13 +450,26 @@ void appendNewModelHud(std::vector<Vertex>& vertices,int width,int height,
     // HSL hue 200 degrees throughout, with lightness changes for elevation.
     // Primary panel: HSL(200,42%,80%). Requested UI text is precisely
     // halfway from that background RGB to black.
-    constexpr Color panel{0.716f,0.828f,0.884f,1.0f};
-    constexpr Color text{panel.r*.5f,panel.g*.5f,panel.b*.5f,1.0f};
-    constexpr Color outline{0.345f,0.607f,0.735f,1.0f};
-    constexpr Color button{0.830f,0.897f,0.930f,1.0f};
-    constexpr Color input{0.875f,0.929f,0.955f,1.0f};
-    constexpr Color backdrop{0.060f,0.140f,0.180f,0.76f};
-    constexpr Color error{0.270f,0.490f,0.585f,1.0f};
+    constexpr Color sRgbPanel{0.716f,0.828f,0.884f,1.0f};
+    constexpr Color sRgbText{sRgbPanel.r*.5f,sRgbPanel.g*.5f,
+                             sRgbPanel.b*.5f,1.0f};
+    // Values above are authored in display sRGB. Convert to scene-linear
+    // colour before shader output so the sRGB swapchain displays text
+    // *actually halfway* from the displayed panel colour to black.
+    const auto linear=[&](Color srgb) {
+        const auto decode=[](float c) {
+            return c<=0.04045f?c/12.92f:
+                std::pow((c+0.055f)/1.055f,2.4f);
+        };
+        return Color{decode(srgb.r),decode(srgb.g),decode(srgb.b),srgb.a};
+    };
+    const Color panel=linear(sRgbPanel);
+    const Color text=linear(sRgbText);
+    const Color outline=linear({0.345f,0.607f,0.735f,1.0f});
+    const Color button=linear({0.830f,0.897f,0.930f,1.0f});
+    const Color input=linear({0.875f,0.929f,0.955f,1.0f});
+    const Color backdrop=linear({0.060f,0.140f,0.180f,0.76f});
+    const Color error=linear({0.270f,0.490f,0.585f,1.0f});
     const auto point=[&](double x,double y,float material,Color color,
                         float u=0,float v=0) {
         Vertex result=makeVertex(
