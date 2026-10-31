@@ -2,8 +2,13 @@
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_ply.hpp"
 #include "mesher/mesh_stl.hpp"
+#include "mesher/mesh_partitioning.hpp"
 
 #include <array>
+#include <chrono>
+#include <limits>
+#include <memory>
+#include <vector>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -103,6 +108,274 @@ void testPreset(mesher::MeshExportPreset preset) {
         }
     }
 }
+
+// UX07F's end-to-end integration boundary is the *accepted indexed root*
+// through the *actual background writer* and selected dialog encoder into
+// UX06's private Open candidate. Codec-only tests above deliberately remain
+// separate; they do not exercise atomic publication, frozen roots, content
+// auto-detection or native-format import admission.
+bool near(double a,double b,double tolerance=1e-6) {
+    return std::abs(a-b)<=tolerance;
+}
+bool samePosition(mesher::Vec3 a,mesher::Vec3 b,double tolerance) {
+    return near(a.x,b.x,tolerance)&&near(a.y,b.y,tolerance)&&
+           near(a.z,b.z,tolerance);
+}
+std::shared_ptr<const mesher::RegionTopologyIndex> indexed(
+    const mesher::Mesh& mesh) {
+    return mesher::RegionTopologyIndex::build(
+        mesher::partitionFlatMesh(mesh).revision);
+}
+struct RoundTripDirectory {
+    fs::path path;
+    RoundTripDirectory() {
+        path=fs::temp_directory_path()/
+            ("mesher-ux07f-"+std::to_string(
+                std::chrono::steady_clock::now().time_since_epoch().count()));
+        fs::create_directories(path);
+    }
+    ~RoundTripDirectory() {
+        std::error_code ignored;
+        fs::remove_all(path,ignored);
+    }
+};
+void checkNoExportTemps(const fs::path& folder) {
+    for(const auto& entry:fs::directory_iterator(folder)) {
+        require(entry.path().filename().string().find(".mesher-export-")==
+                    std::string::npos,
+                "UX07F left an atomic export temporary file");
+    }
+}
+void checkGeometryAndWinding(const mesher::Mesh& source,
+                             const mesher::Mesh& loaded,
+                             std::vector<std::size_t>& mapping,
+                             double tolerance) {
+    require(source.vertices.size()==loaded.vertices.size()&&
+            source.triangles.size()==loaded.triangles.size(),
+            "UX07F lost imported vertices or oriented faces");
+    mapping.assign(source.vertices.size(),loaded.vertices.size());
+    std::vector<bool> used(loaded.vertices.size(),false);
+    // STL may weld and reorder vertices, so never compare imported index
+    // numbers to original stable IDs. Map by uniquely matching positions.
+    for(std::size_t i=0;i<source.vertices.size();++i) {
+        for(std::size_t j=0;j<loaded.vertices.size();++j) {
+            if(!samePosition(source.vertices[i],loaded.vertices[j],tolerance))
+                continue;
+            require(mapping[i]==loaded.vertices.size()&&!used[j],
+                    "UX07F ambiguous/multiply matched imported coordinates");
+            mapping[i]=j;
+            used[j]=true;
+        }
+        require(mapping[i]!=loaded.vertices.size(),
+                "UX07F changed exported vertex coordinates");
+    }
+    std::vector<bool> usedFaces(loaded.triangles.size(),false);
+    for(const auto& face:source.triangles) {
+        const std::array<std::size_t,3> want{
+            mapping[face.a],mapping[face.b],mapping[face.c]};
+        bool found=false;
+        for(std::size_t j=0;j<loaded.triangles.size();++j) {
+            if(usedFaces[j])continue;
+            const auto t=loaded.triangles[j];
+            const std::array<std::size_t,3> got{t.a,t.b,t.c};
+            for(std::size_t rotation=0;rotation<3;++rotation) {
+                if(got[rotation]!=want[0]||
+                   got[(rotation+1)%3]!=want[1]||
+                   got[(rotation+2)%3]!=want[2])continue;
+                usedFaces[j]=true;
+                found=true;
+                break;
+            }
+            if(found)break;
+        }
+        require(found,"UX07F lost or reversed an oriented triangle");
+    }
+}
+void checkRoundTrip(const mesher::Mesh& source,
+                    const mesher::MeshExportFormatEntry& entry,
+                    const fs::path& path) {
+    using namespace mesher;
+    const auto preset=entry.preset;
+    auto candidate=readMeshOpenCandidate(path,MeshOpenFilter::AllFiles);
+    const auto index=static_cast<std::size_t>(preset);
+    const MeshOpenFormat expected=index<=3?MeshOpenFormat::WavefrontObj:
+        index<=15?MeshOpenFormat::StanfordPly:
+                  MeshOpenFormat::StereolithographyStl;
+    require(candidate.format==expected,
+            "UX07F content auto-detection selected the wrong importer");
+    require(candidate.vertexCount==source.vertices.size()&&
+            candidate.faceCount==source.triangles.size(),
+            "UX07F private Open candidate did not admit the export");
+    const bool coloured=(index<=3?index!=0:
+                        index<=15?(index-4)%4!=0:index>=18);
+    require(candidate.hasVertexColors==coloured,
+            "UX07F imported a wrong colour-presence policy");
+
+    // PLY intentionally holds original file alpha separate from the
+    // editable mesh alpha until the user has explicitly chosen to use it.
+    // Exercise that *real* UX06 admission decision rather than treating
+    // source alpha as if the importer had already adopted it.
+    const bool ply=index>=4&&index<=15;
+    const std::size_t plyMode=ply?(index-4)%4:0;
+    if(ply&&plyMode>=2) {
+        require(candidate.alphaDecisionRequired,
+                "UX07F lost required variable-alpha interpretation choice");
+        const auto before=candidate.snapshot.index;
+        applyPlySourceAlphaAsOpacity(candidate);
+        require(before!=candidate.snapshot.index,
+                "UX07F PLY alpha decision did not create a new private root");
+    }else {
+        require(!candidate.alphaDecisionRequired,
+                "UX07F invented a PLY alpha decision for an unrelated codec");
+    }
+    const Mesh opened=materializeMeshExport(
+        captureMeshExportRequest(path,candidate.snapshot.index));
+    std::vector<std::size_t> mapping;
+    checkGeometryAndWinding(source,opened,mapping,index>=16?1e-5:1e-7);
+    require(opened.colors.size()==opened.vertices.size(),
+            "UX07F imported revision has incomplete vertex colours");
+
+    std::array<double,4> mean{};
+    for(const auto& c:source.colors) {
+        mean[0]+=c.r;mean[1]+=c.g;mean[2]+=c.b;mean[3]+=c.a;
+    }
+    for(auto& value:mean)value/=static_cast<double>(source.colors.size());
+    bool foundNonwhite=false;
+    bool differsFromOriginal=false;
+    for(std::size_t i=0;i<source.colors.size();++i) {
+        const auto& a=source.colors[i];
+        const auto& b=opened.colors[mapping[i]];
+        require(std::isfinite(b.r)&&std::isfinite(b.g)&&
+                std::isfinite(b.b)&&std::isfinite(b.a)&&
+                b.r>=0&&b.r<=1&&b.g>=0&&b.g<=1&&
+                b.b>=0&&b.b<=1&&b.a>=0&&b.a<=1,
+                "UX07F imported nonfinite/out-of-range editable RGBA");
+        foundNonwhite|=!near(b.r,1)||!near(b.g,1)||!near(b.b,1);
+        differsFromOriginal|=!near(a.r,b.r,1e-5)||
+                             !near(a.g,b.g,1e-5)||
+                             !near(a.b,b.b,1e-5);
+        if(!coloured)continue;
+        if(index==20) {
+            // Magics single-object mode deliberately averages *all*
+            // source vertex RGBA, not the facet mean at this vertex.
+            constexpr double precision=1.0/255.0+1e-4;
+            require(near(b.r,mean[0],precision)&&
+                    near(b.g,mean[1],precision)&&
+                    near(b.b,mean[2],precision)&&
+                    near(b.a,mean[3],precision),
+                    "UX07F Magics single-object RGBA differs from chosen average");
+        }else if(index>=18) {
+            // VisCAM/Magics facet colour is 5-bit, then UX06 diffuses
+            // per-facet colours to a vertex field. Exact source RGB is
+            // mathematically unrecoverable; never assert false fidelity.
+            require(near(b.a,1),
+                    "UX07F facet-colour STL invented editable alpha");
+        }else {
+            const double precision=(index==3||ply)?0.5/255.0+1e-5:1e-6;
+            require(near(a.r,b.r,precision)&&
+                    near(a.g,b.g,precision)&&
+                    near(a.b,b.b,precision),
+                    "UX07F editable RGB differs beyond codec precision");
+            const bool alphaKept=index==2||(ply&&plyMode>=2);
+            const double expectedAlpha=alphaKept?
+                ply&&plyMode==3?*a.sourceAlpha:a.a:1.0;
+            require(near(b.a,expectedAlpha,
+                         ply?0.5/255.0+1e-5:1e-6),
+                    "UX07F editable alpha did not follow disclosed codec policy");
+            if(ply&&plyMode>=2) {
+                require(b.sourceAlpha&&
+                        near(*b.sourceAlpha,expectedAlpha,0.5/255.0+1e-5),
+                        "UX07F lost original PLY alpha provenance");
+            }else {
+                require(!b.sourceAlpha,
+                        "UX07F invented original-source alpha provenance");
+            }
+        }
+    }
+    if(coloured)
+        require(foundNonwhite,
+                "UX07F selected coloured export reimported as plain white");
+    if(index==18||index==19||index==20)
+        require(differsFromOriginal,
+                "UX07F STL lossy colour mode unexpectedly retained every source RGB");
+}
+void testFullAsyncExportAndPrivateReopen() {
+    using namespace mesher;
+    RoundTripDirectory tmp;
+    const auto accepted=indexed(tetra());
+    const auto before=accepted.get();
+    const auto original=materializeMeshExport(
+        captureMeshExportRequest(tmp.path/"source.ply",accepted));
+    AsyncMeshExportWriter writer;
+    std::vector<fs::path> destinations;
+    destinations.reserve(meshExportFormats.size());
+    for(std::size_t i=0;i<meshExportFormats.size();++i) {
+        const auto preset=static_cast<MeshExportPreset>(i);
+        const auto& entry=meshExportFormat(preset);
+        const auto selected=validateExportFilename(
+            tmp.path/("preset-"+std::to_string(i)),preset);
+        destinations.push_back(selected);
+        // An existing file must be atomically overwritten, never exposed
+        // as a half-written OBJ/PLY/STL during asynchronous serialization.
+        {
+            std::ofstream old(selected,std::ios::binary|std::ios::trunc);
+            old<<"PRESERVE IF EXPORT FAILS";
+        }
+        writer.request(captureMeshExportRequest(selected,accepted),
+                       meshExportEncoder(preset));
+    }
+    writer.drain();
+    const auto stats=writer.statistics();
+    require(stats.requested==meshExportFormats.size()&&
+            stats.completed==meshExportFormats.size()&&
+            stats.failed==0&&stats.pending==0&&!stats.busy,
+            "UX07F full selected-codec writer matrix did not complete");
+    const auto outcomes=writer.takeCompletions();
+    require(outcomes.size()==destinations.size(),
+            "UX07F lost one or more real writer outcomes");
+    for(std::size_t i=0;i<outcomes.size();++i) {
+        require(outcomes[i].success&&outcomes[i].error.empty()&&
+                outcomes[i].destination==destinations[i],
+                "UX07F async export did not preserve selected path/order");
+        checkRoundTrip(original,meshExportFormats[i],destinations[i]);
+    }
+    require(accepted.get()==before&&
+            materializeMeshExport(captureMeshExportRequest(
+                tmp.path/"source.ply",accepted)).colors==original.colors,
+            "UX07F altered the accepted indexed source during export");
+    checkNoExportTemps(tmp.path);
+
+    // An invalid original-source-alpha request must fail through the
+    // *actual* selected encoder and async atomic transaction, without
+    // damaging existing bytes or fabricating a success event.
+    auto missingSourceAlpha=tetra();
+    missingSourceAlpha.colors[0].sourceAlpha.reset();
+    const auto invalid=indexed(missingSourceAlpha);
+    const auto preserved=tmp.path/"preserved.ply";
+    {
+        std::ofstream file(preserved,std::ios::binary|std::ios::trunc);
+        file<<"OLD GOOD OUTPUT";
+    }
+    writer.request(captureMeshExportRequest(preserved,invalid),
+                   meshExportEncoder(MeshExportPreset::PlyLittleSourceAlpha));
+    writer.drain();
+    auto failures=writer.takeCompletions();
+    require(failures.size()==1&&!failures[0].success&&
+            !failures[0].error.empty()&&
+            failures[0].destination==preserved,
+            "UX07F missing source alpha was incorrectly reported successful");
+    {
+        std::ifstream file(preserved,std::ios::binary);
+        std::string originalBytes;
+        std::getline(file,originalBytes);
+        require(originalBytes=="OLD GOOD OUTPUT",
+                "UX07F failed conversion replaced a valid previous export");
+    }
+    checkNoExportTemps(tmp.path);
+    std::cout<<"UX07F async selected codec -> atomic file -> private Open "
+                "round trips and failure preservation passed\n";
+}
+
 void testNames() {
     using namespace mesher;
     require(meshExportFormats.size()==21,
@@ -141,6 +414,7 @@ void testNames() {
 int main() {
     try {
         testNames();
+        testFullAsyncExportAndPrivateReopen();
         for(std::size_t i=0;i<mesher::meshExportFormats.size();++i)
             testPreset(static_cast<mesher::MeshExportPreset>(i));
         std::cout<<"UX07E 21 dialog presets, codecs, suffixes and disclosure passed\n";
