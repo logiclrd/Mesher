@@ -96,7 +96,7 @@ if(MESHER_BUILD_VIEWPORT)
     # time. No external image codec or runtime PNG loader is required.
     set(MESHER_ASSET_DIR "${CMAKE_CURRENT_BINARY_DIR}/images")
     set(MESHER_GENERATED_IMAGES)
-    foreach(IMAGE IN ITEMS Icon Splash)
+    foreach(IMAGE IN ITEMS Icon Splash New-AsymmetricSphere New-SymmetricSphere New-Torus)
         set(PNG "${CMAKE_CURRENT_SOURCE_DIR}/images/${IMAGE}.png")
         set(RGBA "${MESHER_ASSET_DIR}/${IMAGE}.rgba")
         add_custom_command(OUTPUT "${RGBA}"
@@ -213,6 +213,9 @@ if(MESHER_BUILD_VIEWPORT)
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
                 "${MESHER_ASSET_DIR}/Icon.rgba"
                 "${MESHER_ASSET_DIR}/Splash.rgba"
+                "${MESHER_ASSET_DIR}/New-AsymmetricSphere.rgba"
+                "${MESHER_ASSET_DIR}/New-SymmetricSphere.rgba"
+                "${MESHER_ASSET_DIR}/New-Torus.rgba"
                 "$<TARGET_FILE_DIR:Mesher>/images"
         VERBATIM)
     if(MSVC)
