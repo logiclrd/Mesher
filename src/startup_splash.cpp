@@ -241,11 +241,14 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     });
     glfwSetWindowFocusCallback(splash_,[](GLFWwindow* w,int focused) {
         auto* self=static_cast<StartupSplash*>(glfwGetWindowUserPointer(w));
-        if(focused) {
-            if(!self->dismissRequested_)self->focusedOnce_=true;
-        }else if(self->focusedOnce_&&!self->dismissRequested_) {
-            // Do not let the window manager later re-expose a dismissed
-            // floating window while an external app has focus.
+        // A floating splash created GLFW_FOCUSED=false may never have had
+        // keyboard focus. Treat any focus-loss transition AFTER showing
+        // as terminal, even if we never observed a focus-gain event.
+        // Otherwise clicking the splash can visually bury it while tick()
+        // continues owning it until the 4-second timeout, when the WM
+        // transiently re-exposes it during teardown.
+        if(splashShouldDismissOnFocusLoss(self->shown_,focused)&&
+           !self->dismissRequested_) {
             self->dismissedForFocus_=true;
             self->dismiss();
         }
@@ -258,14 +261,14 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
         glfwSetWindowPos(splash_,x,y);
     }
     glfwSetWindowOpacity(splash_,0.0f);
+    shown_=true;
     glfwShowWindow(splash_);
     openedAt_=glfwGetTime();
     if(explicitPosition_)recenter();
     // A floating, owner-associated splash does not need to steal keyboard
     // focus. Explicit glfwFocusWindow here was a second asynchronous WM
     // activation that could raise an earlier splash over the new viewport.
-    focusedOnce_=glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE;
-    if(!dismissRequested_)repaint();
+    if(splashShouldRender(shown_,dismissRequested_))repaint();
 }
 
 StartupSplash::~StartupSplash() {close();}
@@ -288,6 +291,7 @@ void StartupSplash::dismiss() noexcept {
 void StartupSplash::close() {
     if(!splash_)return;
     if(!dismissRequested_)dismiss();
+    shown_=false;
     const bool returnToOwner=returnFocusAfterDismiss_&&
         !dismissedForFocus_&&!glfwWindowShouldClose(owner_);
     glfwDestroyWindow(splash_);
@@ -296,7 +300,8 @@ void StartupSplash::close() {
 }
 
 void StartupSplash::recenter() {
-    if(!splash_||dismissRequested_||!explicitPosition_)return;
+    if(!splash_||!splashShouldRender(shown_,dismissRequested_)||
+       !explicitPosition_)return;
     const auto owner=bounds(owner_);
     SplashRect anchor=owner;
     // EWMH fullscreen is a WM-managed, non-monitor-owned window. Its
@@ -310,7 +315,7 @@ void StartupSplash::recenter() {
 }
 
 void StartupSplash::repaint() {
-    if(!splash_||dismissRequested_)return;
+    if(!splash_||!splashShouldRender(shown_,dismissRequested_))return;
     int fbWidth=0,fbHeight=0;
     glfwGetFramebufferSize(splash_,&fbWidth,&fbHeight);
     if(fbWidth<=0||fbHeight<=0)return;
@@ -348,8 +353,6 @@ void StartupSplash::tick() {
         close();
         return;
     }
-    if(glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE)
-        focusedOnce_=true;
     if(explicitPosition_) {
         const auto owner=bounds(owner_);
         const auto splash=bounds(splash_);
@@ -363,6 +366,9 @@ void StartupSplash::tick() {
                 owner.height!=ownerBounds_.height)))
             recenter();
     }
+    // In particular, never run the opacity/fade path after a dismissal
+    // notification (including focus loss without an earlier focus gain).
+    if(!splashShouldRender(shown_,dismissRequested_))return;
     const double opacity=splashFadeOpacity(elapsed);
     if(opacity!=lastOpacity_) {
         glfwSetWindowOpacity(splash_,static_cast<float>(opacity));
