@@ -31,6 +31,18 @@ inline bool splashShouldRender(bool wasShown,bool dismissalRequested) noexcept {
     return wasShown&&!dismissalRequested;
 }
 
+// X11 window managers may consume the first click to activate a transient
+// window without forwarding ButtonPress/GLFW mouse callbacks. Polling the
+// actual pointer button transition catches that click even if the WM changes
+// stacking/focus first. The caller supplies splash-local X11 coordinates.
+inline bool splashPointerDownInside(
+    bool previousButtonDown,bool buttonDown,int localX,int localY,
+    SplashRect splashSize) noexcept {
+    return !previousButtonDown&&buttonDown&&
+        localX>=0&&localY>=0&&
+        localX<splashSize.width&&localY<splashSize.height;
+}
+
 // A real X11 session takes precedence over an incidental WAYLAND_DISPLAY
 // inherited from a nested compositor (Heresy's KDE/X11 finding).
 inline bool splashUsesWayland(std::string_view session,bool waylandDisplay) {
