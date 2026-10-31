@@ -54,6 +54,7 @@ private:
     int imageFbWidth_=0,imageFbHeight_=0;
     bool dismissRequested_=false;
     bool returnFocusAfterDismiss_=false;
+    bool nativeMouseDownPreviously_=false;
 };
 
 } // namespace mesher
