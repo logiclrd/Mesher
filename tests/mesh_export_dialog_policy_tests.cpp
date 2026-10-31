@@ -4,6 +4,7 @@
 #include "mesher/mesh_stl.hpp"
 #include "mesher/mesh_partitioning.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <limits>
@@ -18,6 +19,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace {
 namespace fs=std::filesystem;
@@ -299,6 +301,89 @@ void checkRoundTrip(const mesher::Mesh& source,
         require(differsFromOriginal,
                 "UX07F STL lossy colour mode unexpectedly retained every source RGB");
 }
+// Real checked-in third-party source files exercise the same end-to-end
+// path beyond a synthetic tetrahedron. Compare a deterministic sampling of
+// large OBJ/PLY positions; STL welding may reorder vertices, so compare
+// spatial bounds instead of pretending file indices are stable IDs.
+void testRealFixtureExport(const fs::path& input) {
+    using namespace mesher;
+    RoundTripDirectory tmp;
+    const auto original=readMeshOpenCandidate(input,MeshOpenFilter::AllFiles);
+    const auto root=original.snapshot.index;
+    const auto source=materializeMeshExport(
+        captureMeshExportRequest(tmp.path/"source",root));
+    const MeshExportPreset preset=
+        original.format==MeshOpenFormat::WavefrontObj?
+            MeshExportPreset::ObjZbrushMrgb:
+        original.format==MeshOpenFormat::StanfordPly?
+            MeshExportPreset::PlyLittleRgb:
+        original.format==MeshOpenFormat::StereolithographyStl?
+            MeshExportPreset::StlMagicsRgb:
+            throw std::invalid_argument("UX07F real fixture is not a foreign mesh");
+    const auto destination=validateExportFilename(
+        tmp.path/"real-round-trip",preset);
+    const auto request=captureMeshExportRequest(destination,root);
+    AsyncMeshExportWriter writer;
+    writer.request(request,meshExportEncoder(preset));
+    writer.drain();
+    const auto completed=writer.takeCompletions();
+    require(completed.size()==1&&completed[0].success&&
+            completed[0].destination==destination,
+            "UX07F real-file asynchronous export failed");
+    const auto loaded=readMeshOpenCandidate(destination,MeshOpenFilter::AllFiles);
+    const auto roundTripped=materializeMeshExport(
+        captureMeshExportRequest(destination,loaded.snapshot.index));
+    require(roundTripped.vertices.size()==source.vertices.size()&&
+            roundTripped.triangles.size()==source.triangles.size(),
+            "UX07F real fixture lost live vertices or oriented triangles");
+    if(preset==MeshExportPreset::StlMagicsRgb) {
+        // STL has no global vertex table. Compare full spatial extrema,
+        // including float32 quantization, without assuming welded order.
+        const auto box=[](const Mesh& mesh) {
+            std::array<double,6> b{
+                std::numeric_limits<double>::infinity(),
+                std::numeric_limits<double>::infinity(),
+                std::numeric_limits<double>::infinity(),
+                -std::numeric_limits<double>::infinity(),
+                -std::numeric_limits<double>::infinity(),
+                -std::numeric_limits<double>::infinity()};
+            for(const auto& v:mesh.vertices) {
+                b[0]=std::min(b[0],v.x);b[1]=std::min(b[1],v.y);
+                b[2]=std::min(b[2],v.z);b[3]=std::max(b[3],v.x);
+                b[4]=std::max(b[4],v.y);b[5]=std::max(b[5],v.z);
+            }
+            return b;
+        };
+        const auto before=box(source),after=box(roundTripped);
+        for(std::size_t i=0;i<before.size();++i)
+            require(near(before[i],after[i],
+                         1e-5*std::max(1.0,std::abs(before[i]))),
+                    "UX07F real STL round trip shifted geometric bounds");
+    }else {
+        const auto interval=std::max<std::size_t>(
+            1,source.vertices.size()/37);
+        for(std::size_t i=0;i<source.vertices.size();i+=interval) {
+            require(samePosition(source.vertices[i],roundTripped.vertices[i],1e-6),
+                    "UX07F real OBJ/PLY round trip changed sampled coordinates");
+            if(original.hasVertexColors) {
+                const auto& a=source.colors[i];
+                const auto& b=roundTripped.colors[i];
+                require(near(a.r,b.r,0.5/255.0+1e-5)&&
+                        near(a.g,b.g,0.5/255.0+1e-5)&&
+                        near(a.b,b.b,0.5/255.0+1e-5),
+                        "UX07F real OBJ/PLY round trip changed sampled RGB");
+            }
+        }
+    }
+    require(materializeMeshExport(
+            captureMeshExportRequest(tmp.path/"unchanged",root)).vertices.size()
+                ==source.vertices.size(),
+            "UX07F real source root changed during export");
+    checkNoExportTemps(tmp.path);
+    std::cout<<"UX07F real foreign mesh "<<input.filename().string()
+             <<" -> selected codec -> private Open passed\n";
+}
+
 void testFullAsyncExportAndPrivateReopen() {
     using namespace mesher;
     RoundTripDirectory tmp;
@@ -411,8 +496,13 @@ void testNames() {
             "Wrong number of format/encoding dropdown entries");
 }
 } // namespace
-int main() {
+int main(int argc,char** argv) {
     try {
+        if(argc==3&&std::string_view(argv[1])=="--real-fixture") {
+            testRealFixtureExport(argv[2]);
+            return 0;
+        }
+        require(argc==1,"UX07F unknown test arguments");
         testNames();
         testFullAsyncExportAndPrivateReopen();
         for(std::size_t i=0;i<mesher::meshExportFormats.size();++i)
