@@ -60,6 +60,29 @@ int main() {
         require(!splashShouldRender(true,dismissed),
                 "Explicit mouse dismissal must disable all future fades");
 
+        // On X11 the WM can swallow the activation click without forwarding
+        // a GLFW ButtonPress or focus transition. The native XQueryPointer
+        // fallback must recognize a fresh press inside the splash rectangle.
+        const SplashRect imageRect{0,0,640,360};
+        require(splashPointerDownInside(false,true,320,150,imageRect)&&
+                splashPointerDownInside(false,true,0,0,imageRect)&&
+                splashPointerDownInside(false,true,639,359,imageRect),
+                "X11 first click inside splash must initiate dismissal");
+        require(!splashPointerDownInside(false,true,-1,150,imageRect)&&
+                !splashPointerDownInside(false,true,640,150,imageRect)&&
+                !splashPointerDownInside(false,true,320,360,imageRect),
+                "X11 native pointer outside splash must not dismiss");
+        require(!splashPointerDownInside(true,true,320,150,imageRect)&&
+                !splashPointerDownInside(false,false,320,150,imageRect),
+                "A held button or button release must not count as a new press");
+        // The pointer-down result must remain terminal, even after the
+        // original timeout would have elapsed.
+        bool dismissedByPointer=splashPointerDownInside(
+            false,true,320,150,imageRect);
+        require(dismissedByPointer&&
+                !splashShouldRender(true,dismissedByPointer)&&
+                splashHasTimedOut(4.0),
+                "Pointer dismissal must prevent later timeout exposure");
         std::cout<<"Startup splash placement and lifecycle policy passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"Startup splash policy failed: "<<e.what()<<"\n";
