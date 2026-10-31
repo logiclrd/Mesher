@@ -2365,18 +2365,19 @@ never changes editor geometry, checkpoint identity or undo history.
   Escape is held across the focus handoff. Acceptance: splash closes, Mesher
   remains usable, and a subsequent fresh Escape can still exit normally.
 
-- [ ] **UX10B — Prevent startup splash reappearance/brief flash after
-  disappearance.** An occasional splash flash has been observed after it
-  initially disappears. Investigate WM focus/stacking, delayed window
-  activation, recentering and fade/close timing. Make dismissal terminal:
-  hide the splash immediately on a dismissal signal, never re-show or
-  repaint it once dismissal begins, and destroy it from the normal event
-  loop without stealing focus from another application. In particular,
-  avoid refocusing/reexposing an earlier floating splash after the main
-  window becomes authoritative. Preserve legitimate startup visibility,
-  multi-monitor placement and four-second timeout. Validate repeated
-  launches, slow Vulkan initialization, early user dismissal and
-  main-window focus/resize transitions across X11, Windows and macOS.
+- [x] **UX10B — Prevent startup splash reappearance/brief flash after
+  disappearance.** Root cause identified on KWin/X11: window type
+  `_NET_WM_WINDOW_TYPE_SPLASH` makes KWin intercept and hide the initial
+  mouse click without forwarding it to GLFW, leaving Mesher unaware until
+  its own later timeout or owner click. Classifying Mesher's undecorated,
+  floating, transparent, owner-transient splash as
+  `_NET_WM_WINDOW_TYPE_NORMAL` restores ordinary GLFW click delivery,
+  immediate application-controlled dismissal and normal timeout behavior.
+  All experimental X11 pointer polling, WM fade overrides and complex
+  dismissal state were removed. **Accepted:** physical KWin/X11 repeated
+  click/first-sculpt/four-second smoke test and
+  [PR #190](https://github.com/logiclrd/Mesher/pull/190),
+  [five-platform CI #41216518522](https://github.com/logiclrd/Mesher/actions/runs/41216518522).
 
 
 ## Build and test efficiency (2026-10-29)
