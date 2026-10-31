@@ -396,7 +396,6 @@ void testFullAsyncExportAndPrivateReopen() {
     destinations.reserve(meshExportFormats.size());
     for(std::size_t i=0;i<meshExportFormats.size();++i) {
         const auto preset=static_cast<MeshExportPreset>(i);
-        const auto& entry=meshExportFormat(preset);
         const auto selected=validateExportFilename(
             tmp.path/("preset-"+std::to_string(i)),preset);
         destinations.push_back(selected);
