@@ -94,7 +94,7 @@ void dialogDirty() {
     NewModelDialog dialog;
     dialog.open(5000);
     auto r=dialog.choose(NewModelKind::Torus,true,false);
-    require(r.action==NewDialogAction::None&&
+    require(r.action==NewDialogAction::NoAction&&
             dialog.phase()==NewDialogPhase::ConfirmDiscard&&
             !dialog.canDirectSave(),
             "Dirty document must open confirmation without direct Save");
@@ -111,7 +111,7 @@ void dialogDirty() {
             "Save As cancellation exited dirty confirmation");
     dialog.saveQueued();
     r=dialog.saveCompleted(false);
-    require(r.action==NewDialogAction::None&&
+    require(r.action==NewDialogAction::NoAction&&
             dialog.phase()==NewDialogPhase::ConfirmDiscard,
             "Failed async save discarded original document");
     dialog.saveQueued();

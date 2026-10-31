@@ -2637,7 +2637,7 @@ class VulkanViewport {
                  <<"updated_owners="<<dirty.size()<<"\n";
     }
     void applyNewModalAction(NewDialogResult action) {
-        if(action.action==NewDialogAction::None)return;
+        if(action.action==NewDialogAction::NoAction)return;
         try {
             if(action.action==NewDialogAction::Create) {
                 if(!action.model||!interaction_.prepareNewModel)
