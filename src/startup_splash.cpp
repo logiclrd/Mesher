@@ -360,6 +360,39 @@ void StartupSplash::repaint() {
 
 void StartupSplash::tick() {
     if(!splash_)return;
+#ifdef MESHER_X11_WM_FULLSCREEN
+    // On X11 the WM can eat the first click in a floating transient while
+    // activating/lowering it, so neither the GLFW mouse callback nor the
+    // focus-loss callback fires. Query the real X11 button state directly
+    // *before* the timeout/opacity path, and consume a fresh press whose
+    // pointer is inside the splash rectangle.
+    if(!dismissRequested_) {
+        if(Display* display=glfwGetX11Display()) {
+            Window root=0,child=0;
+            int rootX=0,rootY=0,localX=0,localY=0;
+            unsigned int mask=0;
+            const bool onScreen=XQueryPointer(
+                display,glfwGetX11Window(splash_),&root,&child,
+                &rootX,&rootY,&localX,&localY,&mask)!=False;
+            const bool buttonDown=onScreen&&
+                (mask&(Button1Mask|Button2Mask|Button3Mask|
+                        Button4Mask|Button5Mask))!=0;
+            int width=0,height=0;
+            glfwGetWindowSize(splash_,&width,&height);
+            const bool inside=splashPointerDownInside(
+                nativeMouseDownPreviously_,buttonDown,localX,localY,
+                {0,0,width,height});
+            nativeMouseDownPreviously_=buttonDown;
+            if(inside) {
+                dismiss("X11 pointer press inside splash (GLFW callback missed)");
+            }
+        }
+    }
+#endif
+    if(dismissRequested_) {
+        close();
+        return;
+    }
     const double elapsed=glfwGetTime()-openedAt_;
     if(dismissRequested_||dismissedForFocus_||splashHasTimedOut(elapsed)||
        glfwWindowShouldClose(owner_)||glfwWindowShouldClose(splash_)) {
