@@ -228,9 +228,11 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_FLOATING,GLFW_TRUE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER,GLFW_TRUE);
-    // The floating splash must not issue a late focus/raise request after
-    // the Vulkan owner is already visible (the reported brief re-flash).
-    glfwWindowHint(GLFW_FOCUSED,GLFW_FALSE);
+    // The splash must receive the *first* mouse press, even on WMs that
+    // swallow a click used only to activate an initially unfocused window.
+    // Request focus once as it is shown; do not issue the old second,
+    // asynchronous glfwFocusWindow() request after showing it.
+    glfwWindowHint(GLFW_FOCUSED,GLFW_TRUE);
     splash_=glfwCreateWindow(width,height,"Mesher splash",nullptr,nullptr);
     if(!splash_) {
         std::cerr<<"[splash] could not create OpenGL splash window\n";
@@ -272,9 +274,9 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     shown_=true;
     openedAt_=glfwGetTime();
     if(explicitPosition_)recenter();
-    // A floating, owner-associated splash does not need to steal keyboard
-    // focus. Explicit glfwFocusWindow here was a second asynchronous WM
-    // activation that could raise an earlier splash over the new viewport.
+    // Showing the window is its only focus/activation request. The
+    // explicit post-show glfwFocusWindow() was a second asynchronous
+    // activation that could resurrect it after dismissal.
     if(splashShouldRender(shown_,dismissRequested_))repaint();
 }
 
