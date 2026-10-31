@@ -2352,6 +2352,33 @@ never changes editor geometry, checkpoint identity or undo history.
   hardcoding or testing the presence of undesirable entries.
 
 
+- [ ] **UX10A — Escape dismisses the startup splash without exiting Mesher.**
+  While the splash is active, a press of **Escape** must dismiss only the
+  splash, regardless of whether the GLFW splash child or the Vulkan owner
+  received the key. Do not pass the same keypress through to the editor's
+  global Escape-to-exit shortcut on the next frame or after focus returns;
+  require a release and a fresh press before normal application Exit is
+  eligible. Keep other splash-dismissal inputs, the four-second timeout,
+  splash focus-loss behaviour, and macOS/Windows/X11 handling intact.
+  Physically test Escape during early startup, just as the splash times out,
+  while the parent window has focus, while the splash has focus and while
+  Escape is held across the focus handoff. Acceptance: splash closes, Mesher
+  remains usable, and a subsequent fresh Escape can still exit normally.
+
+- [ ] **UX10B — Prevent startup splash reappearance/brief flash after
+  disappearance.** An occasional splash flash has been observed after it
+  initially disappears. Investigate WM focus/stacking, delayed window
+  activation, recentering and fade/close timing. Make dismissal terminal:
+  hide the splash immediately on a dismissal signal, never re-show or
+  repaint it once dismissal begins, and destroy it from the normal event
+  loop without stealing focus from another application. In particular,
+  avoid refocusing/reexposing an earlier floating splash after the main
+  window becomes authoritative. Preserve legitimate startup visibility,
+  multi-monitor placement and four-second timeout. Validate repeated
+  launches, slow Vulkan initialization, early user dismissal and
+  main-window focus/resize transitions across X11, Windows and macOS.
+
+
 ## Build and test efficiency (2026-10-29)
 
 - [ ] **CI01 — Consolidate C++ test executables without reducing test
