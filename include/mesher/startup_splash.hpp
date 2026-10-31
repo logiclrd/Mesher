@@ -54,7 +54,9 @@ private:
     int imageFbWidth_=0,imageFbHeight_=0;
     bool dismissRequested_=false;
     bool returnFocusAfterDismiss_=false;
+#ifdef MESHER_X11_WM_FULLSCREEN
     bool nativeMouseDownPreviously_=false;
+#endif
 };
 
 } // namespace mesher
