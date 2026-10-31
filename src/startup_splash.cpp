@@ -261,8 +261,8 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
         glfwSetWindowPos(splash_,x,y);
     }
     glfwSetWindowOpacity(splash_,0.0f);
-    shown_=true;
     glfwShowWindow(splash_);
+    shown_=true;
     openedAt_=glfwGetTime();
     if(explicitPosition_)recenter();
     // A floating, owner-associated splash does not need to steal keyboard
