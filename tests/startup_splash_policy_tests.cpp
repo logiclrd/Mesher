@@ -39,6 +39,27 @@ int main() {
                 "Splash fades from transparent to opaque over 250ms");
         require(!splashHasTimedOut(3.999)&&splashHasTimedOut(4.0),
                 "Splash timeout is four seconds");
+        // The OS may not grant the floating splash keyboard focus
+        // (GLFW_FOCUSED=false), yet clicking it can cause a WM focus-loss
+        // callback and visual disappearance. That is a terminal dismissal,
+        // not merely a transient lowering until four seconds elapse.
+        require(splashShouldDismissOnFocusLoss(true,false),
+                "Focus loss must dismiss a shown splash even without prior focus");
+        require(!splashShouldDismissOnFocusLoss(false,false)&&
+                !splashShouldDismissOnFocusLoss(true,true),
+                "Do not dismiss an unshown or still-focused splash");
+        bool dismissed=false;
+        require(splashShouldRender(true,dismissed),
+                "Shown undismissed splash must remain eligible for fade-in");
+        dismissed=splashShouldDismissOnFocusLoss(true,false);
+        require(!splashShouldRender(true,dismissed)&&
+                splashHasTimedOut(4.0)&&
+                !splashShouldRender(true,dismissed),
+                "Splash dismissed on focus loss must never reappear at timeout");
+        dismissed=true; // mouse/keyboard dismissal follows the same terminal rule
+        require(!splashShouldRender(true,dismissed),
+                "Explicit mouse dismissal must disable all future fades");
+
         std::cout<<"Startup splash placement and lifecycle policy passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"Startup splash policy failed: "<<e.what()<<"\n";
