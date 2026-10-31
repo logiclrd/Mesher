@@ -32,7 +32,9 @@ public:
     ~StartupSplash();
     StartupSplash(const StartupSplash&)=delete;
     StartupSplash& operator=(const StartupSplash&)=delete;
-    void dismiss() noexcept {dismissRequested_=true;}
+    // Begin a terminal dismissal now: hide before the next event-loop tick
+    // so the floating OS window cannot flash over the already-visible editor.
+    void dismiss() noexcept;
     void tick();
     bool active() const noexcept {return splash_!=nullptr;}
 private:
@@ -51,6 +53,7 @@ private:
     SplashRect splashBounds_{};
     int imageFbWidth_=0,imageFbHeight_=0;
     bool dismissRequested_=false;
+    bool returnFocusAfterDismiss_=false;
 };
 
 } // namespace mesher
