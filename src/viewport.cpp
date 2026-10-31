@@ -2251,6 +2251,209 @@ class VulkanViewport {
         check(vkBindImageMemory(device,depthImage,depthMemory,0),"Bind depth memory");
         depthView=imageView(depthImage,depthFormat,VK_IMAGE_ASPECT_DEPTH_BIT);
     }
+    void createNewPreviewAtlasTexture() {
+        // Same converted PNG asset convention as Icon/Splash. No PNG
+        // decoder is invoked by the application at runtime.
+        auto source=std::filesystem::path(MESHER_ASSET_DIR);
+        const auto beside=mesherExecutableDirectory()/"images";
+        if(std::filesystem::exists(beside/"New-Torus.rgba"))
+            source=beside;
+#ifdef __APPLE__
+        const auto bundled=mesherExecutableDirectory()/"../Resources/images";
+        if(std::filesystem::exists(bundled/"New-Torus.rgba"))
+            source=bundled;
+#endif
+        newModelAtlas_=loadNewModelPreviewAtlas(source);
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physical,&properties);
+        if(newModelAtlas_.width>properties.limits.maxImageDimension2D||
+           newModelAtlas_.height>properties.limits.maxImageDimension2D)
+            throw std::runtime_error("Preview atlas is larger than Vulkan image limit");
+        VkFormatProperties formatFeatures{};
+        vkGetPhysicalDeviceFormatProperties(
+            physical,VK_FORMAT_R8G8B8A8_SRGB,&formatFeatures);
+        if(!(formatFeatures.optimalTilingFeatures&
+             VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
+            throw std::runtime_error("Vulkan device cannot sample preview RGBA");
+        const VkDeviceSize bytes=newModelAtlas_.rgba.size();
+        // One upload at initialization; all subsequent modal redraws use
+        // six image vertices per preview, never per-pixel HUD geometry.
+        VkBuffer staging=VK_NULL_HANDLE;
+        VkDeviceMemory stagingMemory=VK_NULL_HANDLE;
+        VkBufferCreateInfo buffer{};buffer.sType=VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        buffer.size=bytes;
+        buffer.usage=VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        buffer.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+        check(vkCreateBuffer(device,&buffer,nullptr,&staging),
+              "Create preview image staging buffer");
+        VkMemoryRequirements required{};
+        vkGetBufferMemoryRequirements(device,staging,&required);
+        VkMemoryAllocateInfo allocate{};allocate.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate.allocationSize=required.size;
+        allocate.memoryTypeIndex=memoryType(required.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        check(vkAllocateMemory(device,&allocate,nullptr,&stagingMemory),
+              "Allocate preview image staging");
+        check(vkBindBufferMemory(device,staging,stagingMemory,0),
+              "Bind preview image staging");
+        void* memory=nullptr;
+        check(vkMapMemory(device,stagingMemory,0,bytes,0,&memory),
+              "Map preview image staging");
+        std::memcpy(memory,newModelAtlas_.rgba.data(),
+                    newModelAtlas_.rgba.size());
+        vkUnmapMemory(device,stagingMemory);
+
+        VkImageCreateInfo image{};image.sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        image.imageType=VK_IMAGE_TYPE_2D;
+        image.extent={newModelAtlas_.width,newModelAtlas_.height,1};
+        image.mipLevels=1;image.arrayLayers=1;
+        image.format=VK_FORMAT_R8G8B8A8_SRGB;
+        image.tiling=VK_IMAGE_TILING_OPTIMAL;
+        image.initialLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+        image.usage=VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT;
+        image.samples=VK_SAMPLE_COUNT_1_BIT;
+        image.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+        check(vkCreateImage(device,&image,nullptr,&newPreviewImage_),
+              "Create preview atlas image");
+        vkGetImageMemoryRequirements(device,newPreviewImage_,&required);
+        allocate.allocationSize=required.size;
+        allocate.memoryTypeIndex=memoryType(required.memoryTypeBits,
+                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        check(vkAllocateMemory(device,&allocate,nullptr,&newPreviewMemory_),
+              "Allocate preview atlas image");
+        check(vkBindImageMemory(device,newPreviewImage_,newPreviewMemory_,0),
+              "Bind preview atlas image");
+
+        VkCommandPool pool=VK_NULL_HANDLE;
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex=graphicsFamily;
+        poolInfo.flags=VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        check(vkCreateCommandPool(device,&poolInfo,nullptr,&pool),
+              "Create temporary atlas upload command pool");
+        VkCommandBuffer cmd=VK_NULL_HANDLE;
+        VkCommandBufferAllocateInfo cmdInfo{};
+        cmdInfo.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cmdInfo.commandPool=pool;
+        cmdInfo.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cmdInfo.commandBufferCount=1;
+        check(vkAllocateCommandBuffers(device,&cmdInfo,&cmd),
+              "Allocate atlas upload commands");
+        VkCommandBufferBeginInfo begin{};
+        begin.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        check(vkBeginCommandBuffer(cmd,&begin),"Begin atlas upload");
+
+        VkImageMemoryBarrier transition{};
+        transition.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        transition.image=newPreviewImage_;
+        transition.oldLayout=VK_IMAGE_LAYOUT_UNDEFINED;
+        transition.newLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        transition.srcAccessMask=0;
+        transition.dstAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.subresourceRange.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+        transition.subresourceRange.levelCount=1;
+        transition.subresourceRange.layerCount=1;
+        transition.srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+        transition.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+        vkCmdPipelineBarrier(cmd,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,0,0,nullptr,0,nullptr,
+            1,&transition);
+        VkBufferImageCopy copy{};
+        copy.imageSubresource.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+        copy.imageSubresource.layerCount=1;
+        copy.imageExtent={newModelAtlas_.width,newModelAtlas_.height,1};
+        vkCmdCopyBufferToImage(cmd,staging,newPreviewImage_,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&copy);
+        transition.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        transition.newLayout=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        transition.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
+        transition.dstAccessMask=VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd,VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,0,0,nullptr,0,nullptr,
+            1,&transition);
+        check(vkEndCommandBuffer(cmd),"End atlas upload");
+        VkSubmitInfo submit{};
+        submit.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit.commandBufferCount=1;
+        submit.pCommandBuffers=&cmd;
+        check(vkQueueSubmit(graphicsQueue,1,&submit,VK_NULL_HANDLE),
+              "Submit atlas upload");
+        check(vkQueueWaitIdle(graphicsQueue),"Wait for atlas upload");
+        vkDestroyCommandPool(device,pool,nullptr);
+        vkDestroyBuffer(device,staging,nullptr);
+        vkFreeMemory(device,stagingMemory,nullptr);
+
+        newPreviewView_=imageView(
+            newPreviewImage_,VK_FORMAT_R8G8B8A8_SRGB,VK_IMAGE_ASPECT_COLOR_BIT);
+        VkSamplerCreateInfo sampler{};
+        sampler.sType=VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        sampler.magFilter=VK_FILTER_LINEAR;
+        sampler.minFilter=VK_FILTER_LINEAR;
+        sampler.mipmapMode=VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        sampler.addressModeU=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeV=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeW=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.minLod=0;sampler.maxLod=0;
+        check(vkCreateSampler(device,&sampler,nullptr,&newPreviewSampler_),
+              "Create preview atlas sampler");
+        // Only the three tile dimensions/UVs are needed after upload.
+        std::vector<std::uint8_t>().swap(newModelAtlas_.rgba);
+    }
+    void createNewPreviewDescriptor() {
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding=0;
+        binding.descriptorCount=1;
+        binding.descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.stageFlags=VK_SHADER_STAGE_FRAGMENT_BIT;
+        VkDescriptorSetLayoutCreateInfo layout{};
+        layout.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layout.bindingCount=1;layout.pBindings=&binding;
+        check(vkCreateDescriptorSetLayout(device,&layout,nullptr,
+              &newPreviewSetLayout_),"Create preview descriptor layout");
+        VkDescriptorPoolSize poolSize{
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1};
+        VkDescriptorPoolCreateInfo pool{};
+        pool.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pool.maxSets=1;pool.poolSizeCount=1;pool.pPoolSizes=&poolSize;
+        check(vkCreateDescriptorPool(device,&pool,nullptr,
+                                    &newPreviewDescriptorPool_),
+              "Create preview descriptor pool");
+        VkDescriptorSetAllocateInfo allocate{};
+        allocate.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocate.descriptorPool=newPreviewDescriptorPool_;
+        allocate.descriptorSetCount=1;
+        allocate.pSetLayouts=&newPreviewSetLayout_;
+        check(vkAllocateDescriptorSets(device,&allocate,&newPreviewDescriptor_),
+              "Allocate preview atlas descriptor");
+        VkDescriptorImageInfo image{};
+        image.sampler=newPreviewSampler_;
+        image.imageView=newPreviewView_;
+        image.imageLayout=VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkWriteDescriptorSet write{};
+        write.sType=VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet=newPreviewDescriptor_;
+        write.dstBinding=0;
+        write.descriptorCount=1;
+        write.descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo=&image;
+        vkUpdateDescriptorSets(device,1,&write,0,nullptr);
+    }
+    void destroyNewPreviewAtlasTexture() {
+        if(newPreviewSampler_)
+            vkDestroySampler(device,newPreviewSampler_,nullptr);
+        if(newPreviewView_)
+            vkDestroyImageView(device,newPreviewView_,nullptr);
+        if(newPreviewImage_)
+            vkDestroyImage(device,newPreviewImage_,nullptr);
+        if(newPreviewMemory_)
+            vkFreeMemory(device,newPreviewMemory_,nullptr);
+        newPreviewSampler_=VK_NULL_HANDLE;
+        newPreviewView_=VK_NULL_HANDLE;
+        newPreviewImage_=VK_NULL_HANDLE;
+        newPreviewMemory_=VK_NULL_HANDLE;
+    }
+
     void createRenderPass() {
         VkAttachmentDescription color{};
         color.format=swapFormat;color.samples=VK_SAMPLE_COUNT_1_BIT;
