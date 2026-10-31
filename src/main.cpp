@@ -9,6 +9,10 @@
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/mesh_open_candidate.hpp"
 #include "mesher/mesh_export_dispatch.hpp"
+#include "mesher/document_filename_state.hpp"
+#include "mesher/random_filename.hpp"
+#include "mesher/new_model.hpp"
+#include "mesher/save_as_policy.hpp"
 #include "mesher/desktop_collision_policy.hpp"
 #include "mesher/desktop_offmode_fixture.hpp"
 #include "mesher/sculpt_fixtures.hpp"
@@ -18,6 +22,7 @@
 
 #include <array>
 #include <set>
+#include <deque>
 #include <filesystem>
 #include <optional>
 #include <charconv>
@@ -274,6 +279,7 @@ int main(int argc, char** argv) {
                 return 0;
             } else throw std::invalid_argument("Unknown argument: "+std::string(arg));
         }
+        const std::uint32_t startupVertexCount=options.vertexCount;
         std::cout<<"Build: "<<MESHER_BUILD_CONFIGURATION
                  <<"; hull backend: "<<mesher::sphereHullBackend()
                  <<"; OpenMP max relaxation threads: "<<mesher::sphereRelaxationThreads()
@@ -772,11 +778,80 @@ int main(int argc, char** argv) {
                     return repairSession->inspect(proposed);
                 }}:mesher::SculptStepValidator{};
 
+        mesher::DocumentFilenameState documentNames;
+        std::shared_ptr<const mesher::RegionTopologyIndex> cleanRevision;
+        struct CheckpointTicket {
+            std::filesystem::path destination;
+            std::shared_ptr<const mesher::RegionTopologyIndex> revision;
+            std::uint64_t generation{};
+            std::uint64_t beforeRequested{},beforeCompleted{},beforeFailed{};
+            bool forNew{};
+        };
+        std::optional<CheckpointTicket> pendingCheckpoint;
+        std::optional<mesher::NewDocumentSaveProgress> newSaveOutcome;
+        const auto pollCheckpoint=[&]() {
+            if(!pendingCheckpoint)return;
+            const auto status=liveWorker->checkpointStatistics();
+            const auto& ticket=*pendingCheckpoint;
+            // The worker may not have dequeued the checkpoint command.
+            if(status.requested<=ticket.beforeRequested)return;
+            if(status.completed<=ticket.beforeCompleted&&
+               status.failed<=ticket.beforeFailed)return;
+            const bool success=status.completed>ticket.beforeCompleted&&
+                               status.failed==ticket.beforeFailed;
+            if(success) {
+                if(documentNames.completedNativeSave(
+                       ticket.destination,ticket.generation)) {
+                    cleanRevision=ticket.revision;
+                    checkpointPath=ticket.destination;
+                }
+                std::cout<<"[checkpoint] durable Save completed "
+                         <<ticket.destination.string()<<"\n";
+            }else std::cerr<<"[checkpoint] durable Save failed "
+                            <<status.lastError<<"\n";
+            if(ticket.forNew)
+                newSaveOutcome=success?
+                    mesher::NewDocumentSaveProgress::Succeeded:
+                    mesher::NewDocumentSaveProgress::Failed;
+            pendingCheckpoint.reset();
+        };
+        const auto queueCheckpoint=[&](
+            std::filesystem::path destination,
+            std::shared_ptr<const mesher::RegionTopologyIndex> root,
+            bool forNew) {
+            pollCheckpoint();
+            if(!root||pendingCheckpoint)
+                throw std::runtime_error(
+                    "Save requires an accepted idle revision and no pending write");
+            const auto status=liveWorker->status();
+            if(!liveWorker->canBegin()||status.active||
+               status.pendingSteps||status.pendingSegments||
+               status.inputCommands||status.checkpoints.busy||
+               repairSession||mergeTestTetra||mergeTestReflectedTetra)
+                throw std::runtime_error(
+                    "Save requires idle editor and completed prior checkpoint");
+            destination=mesher::checkpointSaveDestination(
+                std::move(destination));
+            const auto counters=liveWorker->checkpointStatistics();
+            liveWorker->saveCheckpoint(destination);
+            pendingCheckpoint=CheckpointTicket{
+                destination,std::move(root),documentNames.generation(),
+                counters.requested,counters.completed,counters.failed,
+                forNew};
+            newSaveOutcome.reset();
+            std::cout<<"[checkpoint] queued native durable Save "
+                     <<destination.string()<<"\n";
+        };
+        // These are shared by callbacks invoked during runViewport(), which
+        // starts AFTER the setup scope below. They must outlive that scope.
+        double liveMeshScale=1.0;
+        mesher::BrushRadiusRange unitRange{};
+        std::shared_ptr<mesher::BrushRadiusRange> brushRange;
         if(inflate && !demoMode) {
             // Fit view-only camera transformations separately from the
             // physical brush/stroke controls. Preserve original vertices.
-            double liveMeshScale=1.0;
-            const auto unitRange=mesher::BrushRadiusRange::forVertexCount(
+            liveMeshScale=1.0;
+            unitRange=mesher::BrushRadiusRange::forVertexCount(
                 options.vertexCount);
             auto range=unitRange;
             if(recovered&&initialViewBounds&&initialViewBounds->hasVertices) {
@@ -786,7 +861,7 @@ int main(int argc, char** argv) {
                 liveMeshScale=calibration.workerScale;
                 range=calibration.radius;
             }
-            auto brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
+            brushRange=std::make_shared<mesher::BrushRadiusRange>(range);
             const double requestedBrushRadius=brushRadius;
             brushRadius=mesher::relativeImportedBrushRadius(
                 unitRange,brushRadius,*brushRange);
@@ -890,9 +965,113 @@ int main(int argc, char** argv) {
                     return text;
                 };
             }
+            if(!recoverPath.empty())
+                documentNames.opened(
+                    recoverPath,mesher::DocumentSourceFormat::NativeMshr);
+            cleanRevision=liveWorker->initialRevision();
+            interaction.startupVertexCount=startupVertexCount;
+            interaction.newDocumentInfo=[&](
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                pollCheckpoint();
+                mesher::NewDocumentInfo result;
+                result.dirty=!root||root!=cleanRevision;
+                const auto status=liveWorker->status();
+                result.busy=pendingCheckpoint.has_value()||
+                    status.active||status.pendingSteps||
+                    status.pendingSegments||status.inputCommands||
+                    status.checkpoints.busy||
+                    !liveWorker->canBegin();
+                result.canDirectSave=documentNames.canDirectSave();
+                if(documentNames.filenameHint())
+                    result.filenameHint=*documentNames.filenameHint();
+                return result;
+            };
+            interaction.startNewSave=[&](
+                GLFWwindow* owner,bool saveAs,
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                pollCheckpoint();
+                std::filesystem::path destination;
+                if(saveAs) {
+                    auto suggestion=documentNames.suggestSaveAs(
+                        mesher::randomFilenameStem()).filename;
+                    // UX09C implements the safe native checkpoint path.
+                    // Foreign-format Save As picker variants follow in UX09D.
+                    suggestion.replace_extension(".mshr");
+                    const auto chosen=mesher::nativeSaveCheckpointDialog(
+                        owner,suggestion);
+                    if(!chosen)return false;
+                    destination=*chosen;
+                }else {
+                    if(!documentNames.nativeSaveDestination())
+                        throw std::runtime_error(
+                            "No native .mshr filename for direct Save");
+                    destination=*documentNames.nativeSaveDestination();
+                }
+                queueCheckpoint(std::move(destination),std::move(root),true);
+                return true;
+            };
+            interaction.pollNewSave=[&] {
+                pollCheckpoint();
+                if(!newSaveOutcome)
+                    return mesher::NewDocumentSaveProgress::Pending;
+                const auto state=*newSaveOutcome;
+                newSaveOutcome.reset();
+                return state;
+            };
             interaction.undo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->undo();};
             interaction.redo=[&]{if(!repairSession||!repairSession->frozen())liveWorker->redo();};
             interaction.openSuggestedPath=[&] {return checkpointPath;};
+            interaction.prepareNewModel=[&](
+                mesher::NewModelRequest request)->mesher::PreparedMeshOpen {
+                pollCheckpoint();
+                const auto status=liveWorker->status();
+                if(!liveWorker->canBegin()||status.active||
+                   status.pendingSteps||status.pendingSegments||
+                   status.inputCommands||status.checkpoints.busy||
+                   pendingCheckpoint||
+                   repairSession||mergeTestTetra||mergeTestReflectedTetra)
+                    throw std::runtime_error(
+                        "New requires idle editor and completed prior Save");
+                // Build the COMPLETE new generation outside the authoritative
+                // current worker. Any exception retains the old document.
+                const auto source=mesher::generateNewModelSource(
+                    request,mesher::SphereOptions{
+                        startupVertexCount,true,options.seed,
+                        options.relaxationIterations,options.seamNormal});
+                const auto bounds=source.bounds;
+                const bool symmetric=source.symmetric;
+                auto range=mesher::BrushRadiusRange::forVertexCount(
+                    request.vertices);
+                const double radius=mesher::relativeImportedBrushRadius(
+                    *brushRange,brushRadius,range);
+                auto replacement=std::make_shared<mesher::AsyncSculptWorker>(
+                    source.mesh,step,strength,timeSpeed,
+                    curvatureSettings,collapseSettings,refineSettings,
+                    symmetric,repairValidator,desktopPolicy);
+                const auto root=replacement->initialRevision();
+                return {root,range,radius,symmetric,
+                    [&,replacement=std::move(replacement),root,request,
+                     range,radius,symmetric]() mutable {
+                        liveWorker=std::move(replacement);
+                        *brushRange=range;
+                        liveMeshScale=1.0;
+                        lastDisplayed=root;
+                        options.vertexCount=request.vertices;
+                        options.symmetric=symmetric;
+                        brushRadius=radius;
+                        // New begins a fresh document, so the saved baseline
+                        // is its generated initial immutable revision.
+                        documentNames.newDocument();
+                        cleanRevision=root;
+                        checkpointPath.clear();
+                        pendingCheckpoint.reset();
+                        newSaveOutcome.reset();
+                        std::cout<<"[new] clean independent document "
+                                 <<mesher::newModelName(request.kind)
+                                 <<" vertices="<<request.vertices
+                                 <<" symmetric="<<symmetric<<"\n";
+                    },bounds};
+            };
             interaction.prepareOpen=[&](GLFWwindow* owner,
                                           mesher::NativeOpenSelection selectedFile)
                 -> mesher::PreparedMeshOpen {
@@ -909,6 +1088,14 @@ int main(int argc, char** argv) {
                 auto selected=std::move(selectedFile.path);
                 auto candidate=mesher::readMeshOpenCandidate(
                     selected,selectedFile.filter,stlOptions);
+                const auto openedKind=
+                    candidate.format==mesher::MeshOpenFormat::Checkpoint?
+                        mesher::DocumentSourceFormat::NativeMshr:
+                    candidate.format==mesher::MeshOpenFormat::WavefrontObj?
+                        mesher::DocumentSourceFormat::WavefrontObj:
+                    candidate.format==mesher::MeshOpenFormat::StanfordPly?
+                        mesher::DocumentSourceFormat::StanfordPly:
+                        mesher::DocumentSourceFormat::Stl;
                 if(candidate.alphaDecisionRequired) {
                     const auto interpreted=mesher::nativePlyAlphaOpacityDialog(
                         owner,candidate.sourceAlphaMinimum,
@@ -946,12 +1133,16 @@ int main(int argc, char** argv) {
                 const auto root=preparedWorker->initialRevision();
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),count,radius,mirrored,range,
+                     selected=std::move(selected),openedKind,count,radius,mirrored,range,
                      newMeshScale]() mutable {
                         liveWorker=std::move(preparedWorker);
                         *brushRange=range;
                         liveMeshScale=newMeshScale;
                         lastDisplayed=liveWorker->initialRevision();
+                        cleanRevision=lastDisplayed;
+                        documentNames.opened(selected,openedKind);
+                        pendingCheckpoint.reset();
+                        newSaveOutcome.reset();
                         options.vertexCount=static_cast<std::uint32_t>(count);
                         options.symmetric=mirrored;
                         brushRadius=radius;
@@ -970,52 +1161,96 @@ int main(int argc, char** argv) {
             // immutable indexed root on the GLFW/UI thread, then queues all
             // geometry flattening, format conversion and disk I/O elsewhere.
             auto exportWriter=std::make_shared<mesher::AsyncMeshExportWriter>();
+            struct PendingExportName {
+                std::filesystem::path destination;
+                std::uint64_t documentGeneration{};
+                mesher::PreferredExportFormat codec;
+            };
+            auto pendingExportNames=
+                std::make_shared<std::deque<PendingExportName>>();
+            const auto preferredPreset=[&] {
+                const auto selected=documentNames.preferredExport();
+                const auto offset=selected.family==mesher::ExportFileFamily::Obj?
+                    0u:selected.family==mesher::ExportFileFamily::Ply?4u:16u;
+                return static_cast<mesher::MeshExportPreset>(
+                    offset+selected.variant);
+            };
+            interaction.exportPreferredPreset=preferredPreset;
             interaction.exportSuggestedPath=[&] {
-                // Let each native Save As filter add the selected suffix;
-                // do not prefill .ply then require manual editing for OBJ/STL.
-                auto suggested=checkpointPath.filename();
+                auto suggested=documentNames.filenameHint()?
+                    *documentNames.filenameHint():
+                    std::filesystem::path(mesher::randomFilenameStem());
                 suggested.replace_extension();
                 return suggested;
             };
-            interaction.exportMesh=[exportWriter](
+            interaction.exportMesh=[&,exportWriter,pendingExportNames](
                 std::shared_ptr<const mesher::RegionTopologyIndex> root,
                 mesher::NativeMeshExportSelection selected) {
+                const auto index=static_cast<unsigned>(selected.preset);
+                if(index>=mesher::meshExportFormats.size())
+                    throw std::invalid_argument("Unknown selected export preset");
+                mesher::PreferredExportFormat codec{};
+                if(index<4u)
+                    codec={mesher::ExportFileFamily::Obj,index};
+                else if(index<16u)
+                    codec={mesher::ExportFileFamily::Ply,index-4u};
+                else codec={mesher::ExportFileFamily::Stl,index-16u};
                 auto request=mesher::captureMeshExportRequest(
                     selected.path,std::move(root));
+                const auto name=request.absoluteDestination;
+                const auto generation=documentNames.generation();
                 exportWriter->request(std::move(request),
                     mesher::meshExportEncoder(selected.preset));
+                // Only a completed successful writer result can update the
+                // remembered basename or preferred Ctrl+E format.
+                pendingExportNames->push_back({name,generation,codec});
             };
             interaction.exportFailure=[
-                exportWriter,seenFailures=std::uint64_t{0},
-                seenCompleted=std::uint64_t{0}]() mutable
+                exportWriter,pendingExportNames,&documentNames,&pollCheckpoint]()
                 -> std::optional<std::string> {
-                const auto status=exportWriter->statistics();
-                if(status.completed>seenCompleted) {
-                    std::cout<<"[export] completed "
-                             <<(status.completed-seenCompleted)
-                             <<" background file(s)\n";
-                    seenCompleted=status.completed;
+                pollCheckpoint();
+                std::string failure;
+                for(const auto& completion:exportWriter->takeCompletions()) {
+                    if(pendingExportNames->empty()) {
+                        std::cerr<<"[export] unexpected completion without ticket\n";
+                        continue;
+                    }
+                    const auto ticket=std::move(pendingExportNames->front());
+                    pendingExportNames->pop_front();
+                    if(completion.destination!=ticket.destination)
+                        throw std::runtime_error(
+                            "Export FIFO completion destination disagrees with accepted ticket");
+                    if(completion.success) {
+                        (void)documentNames.completedExport(
+                            ticket.destination,ticket.codec,ticket.documentGeneration);
+                        std::cout<<"[export] completed "
+                                 <<completion.destination.string()<<"\n";
+                    }else {
+                        if(!failure.empty())failure+="; ";
+                        failure+="Export failed: "+completion.error;
+                    }
                 }
-                if(status.failed<=seenFailures)return std::nullopt;
-                const auto count=status.failed-seenFailures;
-                seenFailures=status.failed;
-                std::string failure="Export failed";
-                if(count>1)
-                    failure+=" ("+std::to_string(count)+" recent failures)";
-                failure+=": "+status.lastError;
+                if(failure.empty())return std::nullopt;
                 return failure;
             };
-            interaction.checkpointSuggestedPath=[&] {return checkpointPath;};
+            interaction.checkpointSuggestedPath=[&] {
+                // A generated model has no file identity until Save/Open or
+                // successful first export. The word lists are compiled in.
+                auto suggestion=documentNames.suggestSaveAs(
+                    mesher::randomFilenameStem()).filename;
+                suggestion.replace_extension(".mshr");
+                return suggestion;
+            };
+            interaction.directCheckpoint=[&](
+                std::shared_ptr<const mesher::RegionTopologyIndex> root) {
+                if(!documentNames.nativeSaveDestination())
+                    throw std::runtime_error("Native direct Save path unavailable");
+                queueCheckpoint(*documentNames.nativeSaveDestination(),
+                                std::move(root),false);
+            };
             interaction.checkpoint=[&](std::filesystem::path selectedPath) {
-                // Frozen R06 case capture is a completely different shortcut;
-                // never checkpoint unpublished automatic repair geometry.
                 if(repairSession&&repairSession->frozen())return;
-                // The UI chooses the pathname. The worker still captures the
-                // current accepted immutable root in its existing queue.
-                liveWorker->saveCheckpoint(selectedPath);
-                checkpointPath=std::move(selectedPath);
-                std::cout<<"[checkpoint] queued Save As "
-                         <<checkpointPath.string()<<"\n";
+                queueCheckpoint(std::move(selectedPath),lastDisplayed,false);
             };
             interaction.frozenRepairCapture=[&](int requestedIntent) {
                 if(!repairAuto||!repairSession||!repairSession->frozen())return;
@@ -1438,7 +1673,7 @@ int main(int argc, char** argv) {
             interaction.caption=[&] {
                 const auto status=liveWorker->status();
                 return "Mouse Inflate | vertices "+std::to_string(status.details.vertices
-                              ?status.details.vertices:mesh.vertices.size())+
+                              ?status.details.vertices:options.vertexCount)+
                        " | stamps "+std::to_string(status.completedStamps)+
                        " | pending "+std::to_string(status.pendingSteps)+
                        " | input "+std::to_string(status.inputCommands)+

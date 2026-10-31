@@ -15,6 +15,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace mesher {
 
@@ -56,6 +57,14 @@ struct MeshExportStatistics {
     std::string lastError;
 };
 
+// Per-request result ordered by the writer FIFO, consumed by the UI thread.
+// Aggregate counters cannot identify which path/format succeeded if several
+// exports finish between display frames.
+struct MeshExportCompletion {
+    std::filesystem::path destination;
+    bool success{};
+    std::string error;
+};
 // A FIFO of explicit exports; unlike autosave/checkpoint requests, accepted
 // export destinations must NOT be coalesced or silently dropped. Work occurs
 // outside UI/brush threads. Exceptions are recorded, not thrown from worker.
@@ -67,6 +76,7 @@ public:
     AsyncMeshExportWriter& operator=(const AsyncMeshExportWriter&)=delete;
     void request(MeshExportRequest snapshot,MeshExportEncoder encoder);
     MeshExportStatistics statistics() const;
+    std::vector<MeshExportCompletion> takeCompletions();
     void drain();
 private:
     struct Task {
@@ -79,6 +89,7 @@ private:
     std::deque<Task> pending_;
     bool stopping_=false,busy_=false;
     MeshExportStatistics statistics_;
+    std::deque<MeshExportCompletion> completions_;
     std::thread worker_;
 };
 } // namespace mesher

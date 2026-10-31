@@ -197,7 +197,8 @@ std::optional<std::filesystem::path> nativeSaveCheckpointDialog(
     return acceptNativeDialogFilePath(asPath(names.front()));
 }
 std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
-    GLFWwindow* owner,const std::filesystem::path& suggestion) {
+    GLFWwindow* owner,const std::filesystem::path& suggestion,
+    MeshExportPreset initialPreset) {
     (void)desktopQt();
     ScopedGlfwDialogOwner parent(owner);
     QFileDialog dialog;
@@ -219,9 +220,11 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
                           QStringLiteral(")"));
     }
     dialog.setNameFilters(filters);
-    auto index=static_cast<int>(MeshExportPreset::PlyLittleMeshAlpha);
+    auto index=static_cast<int>(initialPreset);
     dialog.selectNameFilter(filters.at(index));
-    dialog.setDefaultSuffix(QStringLiteral("ply"));
+    const auto initialSuffix=meshExportFormat(initialPreset).extension;
+    dialog.setDefaultSuffix(QString::fromUtf8(
+        initialSuffix.data(),static_cast<qsizetype>(initialSuffix.size())));
     const auto resolveFilter=[&](const QString& chosen) {
         // Qt themes may strip the final wildcard group. The user-visible
         // label stays unique even when multiple encodings share *.ply.

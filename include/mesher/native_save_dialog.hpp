@@ -39,7 +39,8 @@ struct NativeMeshExportSelection {
     MeshExportPreset preset{MeshExportPreset::PlyLittleMeshAlpha};
 };
 std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
-    GLFWwindow* owner,const std::filesystem::path& suggestion);
+    GLFWwindow* owner,const std::filesystem::path& suggestion,
+    MeshExportPreset initialPreset=MeshExportPreset::PlyLittleMeshAlpha);
 // False means the user declined the disclosed lossy/nonstandard conversion.
 bool nativeConfirmMeshExportDisclosure(GLFWwindow* owner,
                                        std::string_view disclosure);
