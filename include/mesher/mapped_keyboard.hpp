@@ -94,4 +94,19 @@ private:
     std::array<bool,GLFW_KEY_LAST+1> pressed_{};
 };
 
+// An Escape press consumed by a modal UI (startup splash or New Model)
+// must not also trigger the viewport-wide exit shortcut. Suppress the
+// *entire held press*, including repeated frames, until its release.
+// The next independent Escape press is eligible to exit normally.
+class EscapeExitGuard {
+public:
+    void consumeUntilRelease() noexcept {consumed_=true;}
+    bool exitRequested(bool escapeHeld) noexcept {
+        if(!escapeHeld)consumed_=false;
+        return escapeHeld&&!consumed_;
+    }
+private:
+    bool consumed_=false;
+};
+
 } // namespace mesher
