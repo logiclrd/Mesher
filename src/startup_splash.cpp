@@ -221,7 +221,9 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     glfwWindowHint(GLFW_RESIZABLE,GLFW_FALSE);
     glfwWindowHint(GLFW_FLOATING,GLFW_TRUE);
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER,GLFW_TRUE);
-    glfwWindowHint(GLFW_FOCUSED,GLFW_TRUE);
+    // The floating splash must not issue a late focus/raise request after
+    // the Vulkan owner is already visible (the reported brief re-flash).
+    glfwWindowHint(GLFW_FOCUSED,GLFW_FALSE);
     splash_=glfwCreateWindow(width,height,"Mesher splash",nullptr,nullptr);
     if(!splash_) {
         std::cerr<<"[splash] could not create OpenGL splash window\n";
@@ -239,8 +241,14 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     });
     glfwSetWindowFocusCallback(splash_,[](GLFWwindow* w,int focused) {
         auto* self=static_cast<StartupSplash*>(glfwGetWindowUserPointer(w));
-        if(focused)self->focusedOnce_=true;
-        else if(self->focusedOnce_)self->dismissedForFocus_=true;
+        if(focused) {
+            if(!self->dismissRequested_)self->focusedOnce_=true;
+        }else if(self->focusedOnce_&&!self->dismissRequested_) {
+            // Do not let the window manager later re-expose a dismissed
+            // floating window while an external app has focus.
+            self->dismissedForFocus_=true;
+            self->dismiss();
+        }
     });
     addNativeOwner(splash_,owner_);
     // Default placement (CenterScreen-like) precedes the managed-window
@@ -253,28 +261,42 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     glfwShowWindow(splash_);
     openedAt_=glfwGetTime();
     if(explicitPosition_)recenter();
-    glfwFocusWindow(splash_);
+    // A floating, owner-associated splash does not need to steal keyboard
+    // focus. Explicit glfwFocusWindow here was a second asynchronous WM
+    // activation that could raise an earlier splash over the new viewport.
     focusedOnce_=glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE;
-    repaint();
+    if(!dismissRequested_)repaint();
 }
 
 StartupSplash::~StartupSplash() {close();}
 
+void StartupSplash::dismiss() noexcept {
+    if(dismissRequested_)return;
+    dismissRequested_=true; // terminal even when the GLFW window is absent
+    if(!splash_)return;
+    // Save the pre-hide focus state; glfwHideWindow clears GLFW_FOCUSED.
+    // Never refocus the owner if dismissal was caused by external focus loss.
+    returnFocusAfterDismiss_=!dismissedForFocus_&&
+        glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE;
+    // A pending GLFW/WM activation or framebuffer expose can make an
+    // otherwise-dismissed floating window flash again during a slow startup.
+    // Hide immediately inside the input/focus callback. The tick destroys
+    // the now-invisible child later, outside the callback.
+    glfwHideWindow(splash_);
+}
+
 void StartupSplash::close() {
-    if(splash_) {
-        // Keyboard dismissal and timeout should hand focus back to Mesher.
-        // Do not steal focus if the user Alt-Tabbed to another application.
-        const bool returnToOwner=!dismissedForFocus_&&
-            glfwGetWindowAttrib(splash_,GLFW_FOCUSED)==GLFW_TRUE&&
-            !glfwWindowShouldClose(owner_);
-        glfwDestroyWindow(splash_);
-        splash_=nullptr;
-        if(returnToOwner)glfwFocusWindow(owner_);
-    }
+    if(!splash_)return;
+    if(!dismissRequested_)dismiss();
+    const bool returnToOwner=returnFocusAfterDismiss_&&
+        !dismissedForFocus_&&!glfwWindowShouldClose(owner_);
+    glfwDestroyWindow(splash_);
+    splash_=nullptr;
+    if(returnToOwner)glfwFocusWindow(owner_);
 }
 
 void StartupSplash::recenter() {
-    if(!splash_||!explicitPosition_)return;
+    if(!splash_||dismissRequested_||!explicitPosition_)return;
     const auto owner=bounds(owner_);
     SplashRect anchor=owner;
     // EWMH fullscreen is a WM-managed, non-monitor-owned window. Its
@@ -288,7 +310,7 @@ void StartupSplash::recenter() {
 }
 
 void StartupSplash::repaint() {
-    if(!splash_)return;
+    if(!splash_||dismissRequested_)return;
     int fbWidth=0,fbHeight=0;
     glfwGetFramebufferSize(splash_,&fbWidth,&fbHeight);
     if(fbWidth<=0||fbHeight<=0)return;
@@ -322,6 +344,7 @@ void StartupSplash::tick() {
     const double elapsed=glfwGetTime()-openedAt_;
     if(dismissRequested_||dismissedForFocus_||splashHasTimedOut(elapsed)||
        glfwWindowShouldClose(owner_)||glfwWindowShouldClose(splash_)) {
+        dismiss();
         close();
         return;
     }
