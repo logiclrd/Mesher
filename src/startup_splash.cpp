@@ -159,6 +159,18 @@ void addNativeOwner(GLFWwindow* child,GLFWwindow* owner) {
     const Atom states[]={skipTaskbar,above};
     XChangeProperty(display,native,state,XA_ATOM,32,PropModeReplace,
                     reinterpret_cast<const unsigned char*>(states),2);
+    // KWin retains a closing window's last frame for its compositor fade
+    // effect. For this transient splash that makes a *successfully closed*
+    // window briefly reappear after a click. Suppress KWin's close animation
+    // from the moment the X11 window is mapped, including the hide/unmap
+    // followed by destroy during dismiss(). Other window managers may
+    // ignore this optional KDE-specific CARDINAL property.
+    const Atom skipCloseAnimation=XInternAtom(
+        display,"_KDE_NET_WM_SKIP_CLOSE_ANIMATION",False);
+    const unsigned long skip=1;
+    XChangeProperty(display,native,skipCloseAnimation,XA_CARDINAL,32,
+                    PropModeReplace,
+                    reinterpret_cast<const unsigned char*>(&skip),1);
     XFlush(display);
 #else
     (void)child;(void)owner;
