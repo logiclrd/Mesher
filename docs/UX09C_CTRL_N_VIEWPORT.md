@@ -11,7 +11,8 @@ decision state machine. UX09C binds these to the interactive Vulkan viewport.
   and every normal global shortcut. Escape closes the dialog **without**
   taking the app's ordinary Escape-to-exit action.
 - Three cards across the middle select Asymmetric Sphere, Symmetric Sphere
-  or Torus. The cards contain triangulated wireframe previews.
+  or Torus. The cards use the committed transparent PNG previews,
+  uniformly aspect-fitted above their labels with Vulkan alpha blending.
 - Vertices begins at the **original command-line** `--vertices` (or 5000).
   Click the field to clear it, type digits using the OS keyboard layout,
   use Backspace for corrections; validation checks generator limits.
@@ -71,3 +72,21 @@ Until then no foreign source file is overwritten with checkpoint bytes.
 Headless regression: `ux09_new_model_private_candidate_and_modal_policy`,
 `ux09_filename_provenance_and_embedded_vocabulary`,
 `mesh_export_atomic_snapshot_and_fifo`.
+
+## Preview assets and palette
+
+The three source PNGs `images/New-AsymmetricSphere.png`,
+`images/New-SymmetricSphere.png`, and `images/New-Torus.png` are
+converted by the existing build-time PNG-to-RGBA tool and copied with
+the other runtime image resources. On startup the Vulkan viewport packs
+them into one sampled sRGB atlas with transparent gutters, so a dialog
+redraw emits only six image vertices per model, using straight-alpha
+blending. `fitNewModelPreview` reserves the type-label row and preserves
+the original image aspect ratio without cropping.
+
+Dialog panel, border, buttons and backdrop share HSL hue **200 degrees**.
+The dialog text colour, including buttons and the Vertices input,
+is exactly **50% of dialog panel RGB** (midway to black).
+
+`NewDialogAction::NoAction` replaces `None`, avoiding the global X11
+preprocessor macro collision. All original modal semantics are retained.
