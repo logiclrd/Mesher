@@ -34,7 +34,7 @@ public:
     StartupSplash& operator=(const StartupSplash&)=delete;
     // Begin a terminal dismissal now: hide before the next event-loop tick
     // so the floating OS window cannot flash over the already-visible editor.
-    void dismiss() noexcept;
+    void dismiss(const char* reason="owner input") noexcept;
     void tick();
     bool active() const noexcept {return splash_!=nullptr;}
 private:
