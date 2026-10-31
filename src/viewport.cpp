@@ -9,6 +9,7 @@
 #include "mesher/wire_appearance.hpp"
 #include "mesher/paint_controls.hpp"
 #include "mesher/new_model_dialog.hpp"
+#include "mesher/new_model_preview_atlas.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -866,6 +867,14 @@ class VulkanViewport {
     VkRenderPass renderPass=VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout=VK_NULL_HANDLE;
     VkPipeline solidPipeline=VK_NULL_HANDLE,hudPipeline=VK_NULL_HANDLE;
+    NewModelPreviewAtlas newModelAtlas_;
+    VkImage newPreviewImage_=VK_NULL_HANDLE;
+    VkDeviceMemory newPreviewMemory_=VK_NULL_HANDLE;
+    VkImageView newPreviewView_=VK_NULL_HANDLE;
+    VkSampler newPreviewSampler_=VK_NULL_HANDLE;
+    VkDescriptorSetLayout newPreviewSetLayout_=VK_NULL_HANDLE;
+    VkDescriptorPool newPreviewDescriptorPool_=VK_NULL_HANDLE;
+    VkDescriptorSet newPreviewDescriptor_=VK_NULL_HANDLE;
     VkPipeline paintPreviewPipeline=VK_NULL_HANDLE;
     VkImage depthImage=VK_NULL_HANDLE;
     VkDeviceMemory depthMemory=VK_NULL_HANDLE;
@@ -2424,8 +2433,11 @@ class VulkanViewport {
         createDepth();
         createRenderPass();
         VkPushConstantRange range{VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(PushConstants)};
+        createNewPreviewDescriptor();
         VkPipelineLayoutCreateInfo layout{}; layout.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout.pushConstantRangeCount=1;layout.pPushConstantRanges=&range;
+        layout.setLayoutCount=1;
+        layout.pSetLayouts=&newPreviewSetLayout_;
         check(vkCreatePipelineLayout(device,&layout,nullptr,&pipelineLayout),"Create pipeline layout");
         solidPipeline=makePipeline();
         paintPreviewPipeline=makePipeline(false,true);
@@ -2453,6 +2465,13 @@ class VulkanViewport {
         solidPipeline=hudPipeline=paintPreviewPipeline=VK_NULL_HANDLE;
         if(pipelineLayout)vkDestroyPipelineLayout(device,pipelineLayout,nullptr);
         pipelineLayout=VK_NULL_HANDLE;
+        if(newPreviewDescriptorPool_)
+            vkDestroyDescriptorPool(device,newPreviewDescriptorPool_,nullptr);
+        newPreviewDescriptorPool_=VK_NULL_HANDLE;
+        newPreviewDescriptor_=VK_NULL_HANDLE;
+        if(newPreviewSetLayout_)
+            vkDestroyDescriptorSetLayout(device,newPreviewSetLayout_,nullptr);
+        newPreviewSetLayout_=VK_NULL_HANDLE;
         if(renderPass)vkDestroyRenderPass(device,renderPass,nullptr);
         renderPass=VK_NULL_HANDLE;
         if(depthView)vkDestroyImageView(device,depthView,nullptr);
@@ -2553,6 +2572,8 @@ class VulkanViewport {
         // depth-tested solid fragments. No detached wire quads are
         // emitted; M69 retires now-unused wire GPU buffers/pipeline.
         vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,hudPipeline);
+        vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout,0,1,&newPreviewDescriptor_,0,nullptr);
         vkCmdBindVertexBuffers(commandBuffer,0,1,&hud.buffer,&offset);
         vkCmdDraw(commandBuffer,hud.vertexCount,1,0,0);
         vkCmdEndRenderPass(commandBuffer);
@@ -2867,6 +2888,7 @@ public:
         createInstance();
         check(glfwCreateWindowSurface(instance,window,nullptr,&surface),"Create Vulkan window surface");
         selectDevice();
+        createNewPreviewAtlasTexture();
         pumpStartupSplash();
         const Mesh empty;
         // The original imported source is the authority for scenery
@@ -2911,6 +2933,7 @@ public:
             if(available)vkDestroySemaphore(device,available,nullptr);
             if(commandPool)vkDestroyCommandPool(device,commandPool,nullptr);
             destroySwapchain();
+            destroyNewPreviewAtlasTexture();
             destroyBuffer(solid);
             destroyBuffer(floorSolid);
             destroyBuffer(hud);
