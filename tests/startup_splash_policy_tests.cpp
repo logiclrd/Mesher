@@ -39,50 +39,6 @@ int main() {
                 "Splash fades from transparent to opaque over 250ms");
         require(!splashHasTimedOut(3.999)&&splashHasTimedOut(4.0),
                 "Splash timeout is four seconds");
-        // The OS may not grant the floating splash keyboard focus
-        // (GLFW_FOCUSED=false), yet clicking it can cause a WM focus-loss
-        // callback and visual disappearance. That is a terminal dismissal,
-        // not merely a transient lowering until four seconds elapse.
-        require(splashShouldDismissOnFocusLoss(true,false),
-                "Focus loss must dismiss a shown splash even without prior focus");
-        require(!splashShouldDismissOnFocusLoss(false,false)&&
-                !splashShouldDismissOnFocusLoss(true,true),
-                "Do not dismiss an unshown or still-focused splash");
-        bool dismissed=false;
-        require(splashShouldRender(true,dismissed),
-                "Shown undismissed splash must remain eligible for fade-in");
-        dismissed=splashShouldDismissOnFocusLoss(true,false);
-        require(!splashShouldRender(true,dismissed)&&
-                splashHasTimedOut(4.0)&&
-                !splashShouldRender(true,dismissed),
-                "Splash dismissed on focus loss must never reappear at timeout");
-        dismissed=true; // mouse/keyboard dismissal follows the same terminal rule
-        require(!splashShouldRender(true,dismissed),
-                "Explicit mouse dismissal must disable all future fades");
-
-        // On X11 the WM can swallow the activation click without forwarding
-        // a GLFW ButtonPress or focus transition. The native XQueryPointer
-        // fallback must recognize a fresh press inside the splash rectangle.
-        const SplashRect imageRect{0,0,640,360};
-        require(splashPointerDownInside(false,true,320,150,imageRect)&&
-                splashPointerDownInside(false,true,0,0,imageRect)&&
-                splashPointerDownInside(false,true,639,359,imageRect),
-                "X11 first click inside splash must initiate dismissal");
-        require(!splashPointerDownInside(false,true,-1,150,imageRect)&&
-                !splashPointerDownInside(false,true,640,150,imageRect)&&
-                !splashPointerDownInside(false,true,320,360,imageRect),
-                "X11 native pointer outside splash must not dismiss");
-        require(!splashPointerDownInside(true,true,320,150,imageRect)&&
-                !splashPointerDownInside(false,false,320,150,imageRect),
-                "A held button or button release must not count as a new press");
-        // The pointer-down result must remain terminal, even after the
-        // original timeout would have elapsed.
-        bool dismissedByPointer=splashPointerDownInside(
-            false,true,320,150,imageRect);
-        require(dismissedByPointer&&
-                !splashShouldRender(true,dismissedByPointer)&&
-                splashHasTimedOut(4.0),
-                "Pointer dismissal must prevent later timeout exposure");
         std::cout<<"Startup splash placement and lifecycle policy passed\n";
     }catch(const std::exception& e) {
         std::cerr<<"Startup splash policy failed: "<<e.what()<<"\n";

@@ -32,9 +32,7 @@ public:
     ~StartupSplash();
     StartupSplash(const StartupSplash&)=delete;
     StartupSplash& operator=(const StartupSplash&)=delete;
-    // Begin a terminal dismissal now: hide before the next event-loop tick
-    // so the floating OS window cannot flash over the already-visible editor.
-    void dismiss(const char* reason="owner input") noexcept;
+    void dismiss() noexcept {dismissRequested_=true;}
     void tick();
     bool active() const noexcept {return splash_!=nullptr;}
 private:
@@ -46,17 +44,13 @@ private:
     SplashPixels picture_;
     bool explicitPosition_=true;
     bool dismissedForFocus_=false;
-    bool shown_=false; // true only after the splash presentation starts
+    bool focusedOnce_=false;
     double openedAt_=0;
     double lastOpacity_=-1;
     SplashRect ownerBounds_{};
     SplashRect splashBounds_{};
     int imageFbWidth_=0,imageFbHeight_=0;
     bool dismissRequested_=false;
-    bool returnFocusAfterDismiss_=false;
-#ifdef MESHER_X11_WM_FULLSCREEN
-    bool nativeMouseDownPreviously_=false;
-#endif
 };
 
 } // namespace mesher
