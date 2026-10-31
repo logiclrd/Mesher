@@ -250,9 +250,9 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     });
     glfwSetWindowFocusCallback(splash_,[](GLFWwindow* w,int focused) {
         auto* self=static_cast<StartupSplash*>(glfwGetWindowUserPointer(w));
-        // A floating splash created GLFW_FOCUSED=false may never have had
-        // keyboard focus. Treat any focus-loss transition AFTER showing
-        // as terminal, even if we never observed a focus-gain event.
+        // Some window managers can obscure a floating splash without ever
+        // reporting an earlier focus-gain event. Treat a post-show focus
+        // loss as terminal, even when no focus-gain was observed.
         // Otherwise clicking the splash can visually bury it while tick()
         // continues owning it until the 4-second timeout, when the WM
         // transiently re-exposes it during teardown.
