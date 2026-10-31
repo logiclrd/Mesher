@@ -497,6 +497,23 @@ if(MESHER_BUILD_TESTS)
     target_link_libraries(mesher_export_dialog_policy_tests PRIVATE mesher_mesh)
     add_test(NAME mesh_export_native_dialog_codec_policy
              COMMAND mesher_export_dialog_policy_tests)
+    # UX07F: the same test executable runs the actual accepted-root ->
+    # selected export encoder -> async atomic writer -> UX06 private Open
+    # pipeline on three committed third-party reference files.
+    add_test(NAME ux07f_real_ply_export_reimport
+             COMMAND mesher_export_dialog_policy_tests --real-fixture
+                     "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck.ply")
+    add_test(NAME ux07f_real_obj_export_reimport
+             COMMAND mesher_export_dialog_policy_tests --real-fixture
+                     "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck-ZBrush.obj")
+    add_test(NAME ux07f_real_stl_export_reimport
+             COMMAND mesher_export_dialog_policy_tests --real-fixture
+                     "${CMAKE_CURRENT_SOURCE_DIR}/test-files/castle.stl")
+    set_tests_properties(mesh_export_native_dialog_codec_policy
+                         ux07f_real_ply_export_reimport
+                         ux07f_real_obj_export_reimport
+                         ux07f_real_stl_export_reimport
+                         PROPERTIES TIMEOUT 180)
     add_executable(mesher_stl_export_tests tests/mesh_export_stl_tests.cpp)
     target_link_libraries(mesher_stl_export_tests PRIVATE mesher_mesh)
     add_test(NAME stl_export_dialect_and_colour_roundtrips
