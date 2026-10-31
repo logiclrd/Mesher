@@ -16,6 +16,21 @@ inline std::pair<int,int> centerSplash(SplashRect anchor,int width,int height) {
             anchor.y+(anchor.height-height)/2};
 }
 
+// Once the visible splash loses focus, dismissal is terminal even if it
+// was created with GLFW_FOCUSED=false and never received keyboard focus.
+// A compositor/WM can obscure a transient child on a click before GLFW has
+// delivered any button press to that child; "focusedOnce" is not a valid
+// prerequisite for recognizing that transition.
+inline bool splashShouldDismissOnFocusLoss(bool wasShown,bool focused) noexcept {
+    return wasShown&&!focused;
+}
+
+// Fade and placement updates must never run after logical dismissal.
+// The lifecycle owner is responsible for closing the already-hidden window.
+inline bool splashShouldRender(bool wasShown,bool dismissalRequested) noexcept {
+    return wasShown&&!dismissalRequested;
+}
+
 // A real X11 session takes precedence over an incidental WAYLAND_DISPLAY
 // inherited from a nested compositor (Heresy's KDE/X11 finding).
 inline bool splashUsesWayland(std::string_view session,bool waylandDisplay) {
