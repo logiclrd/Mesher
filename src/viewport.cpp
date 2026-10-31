@@ -477,7 +477,7 @@ void appendNewModelHud(std::vector<Vertex>& vertices,int width,int height,
              rectangle.x+rectangle.width,rectangle.y+rectangle.height,color);
     };
     const auto label=[&](int x,int y,std::string_view msg,
-                        int scale=2,Color color=text) {
+                        int scale,Color color) {
         for(std::size_t i=0;i<msg.size();++i) {
             const auto ch=static_cast<unsigned char>(msg[i]);
             const auto glyph=hudGlyph(char(std::toupper(ch)));
