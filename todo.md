@@ -1,41 +1,162 @@
 # Mesher — active development tasks
 
-**Audited 2026-10-31.** This is an actionable backlog, not a chronological implementation diary. The preceding 2,464-line TODO is preserved [byte-for-byte in its own archive](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md). See the [item-by-item audit and evidence](docs/TODO_AUDIT_2026_10_31.md) for **all 112 originally unchecked items** (including retired experiments and consolidated acceptance gates). Historical V17 milestones remain in [the V17 register](docs/V17_MILESTONES.md) and the earlier [full historical TODO](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
+**Audited 2026-10-31.** This is an actionable backlog, not a chronological
+implementation diary. The preceding 2,464-line TODO is preserved
+[byte-for-byte in its own archive](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md)
+. See the [item-by-item audit and evidence](docs/TODO_AUDIT_2026_10_31.md) for **all
+112 originally unchecked items** (including retired experiments and consolidated
+acceptance gates). Historical V17 milestones remain in
+[the V17 register](docs/V17_MILESTONES.md) and the earlier
+[full historical TODO](docs/archive/TODO_FULL_THROUGH_V18_M01.md) .
 
-Completed milestones are **removed**, not left as checked boxes here. For accepted R01–R07 live AFM repair, see [PR #162](https://github.com/logiclrd/Mesher/pull/162), [always-on AUTO #164](https://github.com/logiclrd/Mesher/pull/164) and their design documents. For desktop input, paint, Open, Save, export, scale, New and splash, see merged PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged). **Merged implementation is not automatically physical acceptance on every platform.**
+Completed milestones are **removed**, not left as checked boxes here. For accepted
+R01–R07 live AFM repair, see [PR #162](https://github.com/logiclrd/Mesher/pull/162) ,
+[always-on AUTO #164](https://github.com/logiclrd/Mesher/pull/164) and their design
+documents. For desktop input, paint, Open, Save, export, scale, New and splash, see
+merged PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged)
+. **Merged implementation is not automatically physical acceptance on every
+platform.**
 
 ## Engineering rules
 
-- Plan complex changes in **flat, independently testable and mergeable milestones** before implementing. Treat planning as distinct from permission to change production code. Do not assert known-broken behavior as a test invariant: test the required successful behavior, or introduce a deliberately red regression test before fixing it.
-- Preserve immutable partitioned `MeshRevision`, stable unique IDs, bounded geometry processing, reciprocal mirror-orbit proofs where required, private fail-closed repair admission and a single atomic published root/history transition. No failed/intermediate repair state may leak to renderer, picker, undo/redo or checkpoint.
-- Keep asynchronous worker Begin/Update/End and bounded FIFO ordering, document identity, dirty state and save snapshot semantics. Distinguish default certified R07 AUTO for ordinary sculpting from protected legacy V17 Merge and separately opt-in V18 OFF-mode collision avoidance. Do not restore retired `--repair` selectors as a workaround.
-- Gate each code PR on its **exact-head** warnings-as-errors Linux GCC/Clang, Windows MSVC, macOS arm64/x86_64 builds and relevant CTests; compare merged-`main` independently when required. Add CPU fixture and benchmark evidence where a geometry/performance policy changes. Physical device and OS-native dialog behavior cannot be certified by CI alone.
-- Preserve the current startup/viewport interactions and accepted core: imports and checkpoint compatibility, indexed worker rebinding, original-source diagnostics, layer/paint colours, view scale, Ctrl+N and native file dialogs. Source acceptance documents remain authoritative on technical invariants and deferrals.
+- Plan complex changes in **flat, independently testable and mergeable milestones**
+  before implementing. Treat planning as distinct from permission to change production
+  code. Do not assert known-broken behavior as a test invariant: test the required
+  successful behavior, or introduce a deliberately red regression test before fixing
+  it.
+- Preserve immutable partitioned `MeshRevision` , stable unique IDs, bounded geometry
+  processing, reciprocal mirror-orbit proofs where required, private fail-closed
+  repair admission and a single atomic published root/history transition. No
+  failed/intermediate repair state may leak to renderer, picker, undo/redo or
+  checkpoint.
+- Keep asynchronous worker Begin/Update/End and bounded FIFO ordering, document
+  identity, dirty state and save snapshot semantics. Distinguish default certified R07
+  AUTO for ordinary sculpting from protected legacy V17 Merge and separately opt-in
+  V18 OFF-mode collision avoidance. Do not restore retired `--repair` selectors as a
+  workaround.
+- Gate each code PR on its **exact-head** warnings-as-errors Linux GCC/Clang, Windows
+  MSVC, macOS arm64/x86_64 builds and relevant CTests; compare merged-`main`
+  independently when required. Add CPU fixture and benchmark evidence where a
+  geometry/performance policy changes. Physical device and OS-native dialog behavior
+  cannot be certified by CI alone.
+- Preserve the current startup/viewport interactions and accepted core: imports and
+  checkpoint compatibility, indexed worker rebinding, original-source diagnostics,
+  layer/paint colours, view scale, Ctrl+N and native file dialogs. Source acceptance
+  documents remain authoritative on technical invariants and deferrals.
 
 ## File formats and desktop acceptance
 
-- [ ] **UX06 — Complete Open/import acceptance.** The private atomic Ctrl+O path, `.mshr`, inline RGB(A)/ZBrush MRGB OBJ, RGB(A) PLY (ASCII/LE/BE), coloured/colourless STL (facet-to-vertex diffusion), default All supported file filter and CWD handling are implemented ([PRs #176–#181](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged)). Reconcile the supported/explicitly refused variants and all file-format/error/cancel cases against [UX06 design](docs/UX06_PRIVATE_OPEN_CANDIDATES.md). **Remaining work** is real-file + native-OS end-to-end review in **QA-UX**; do not reimplement the already-merged codecs or filter.
-- [ ] **UX07F — Final Ctrl+E export acceptance.** OBJ, PLY and STL serializers, failure-safe snapshot writes and the 21-filter native picker are merged as [UX07A–E (#182–#186)](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged). Verify each supported encoding and declared lossy colour/alpha conversion through an independent UX06 import (geometry, winding, index mapping, RGB(A) tolerances). Ensure failed/cancelled export preserves on-disk old destination, edits, undo/redo, worker and native checkpoint identity. Reuse **QA-UX** for physical UI/platform cases; do not create separate acceptance checkboxes for every exporter. [Export UI/checklist](docs/UX07E_NATIVE_EXPORT.md); [transaction design](docs/UX07_EXPORT_TRANSACTIONS.md).
-- [ ] **QA-UX — One cross-platform native GUI and scale smoke matrix.** On Linux/X11, Windows and macOS, exercise actual Ctrl+O/Ctrl+S/Ctrl+E picker filters, CWD on accept/cancel, incorrect extension vs content, remembered filenames and overwrite, explicit export-loss disclosure, async error reporting and round trips. Verify **UX08** initial framing/scale slider at tiny/huge and displaced imported coordinates (near/far clipping, Ctrl-fine adjustment/readout) [PR #178](https://github.com/logiclrd/Mesher/pull/178). Check Ctrl+N's all-three-image choices and dirty Save/Save As/No/Cancel path where not already physically accepted [PR #189](https://github.com/logiclrd/Mesher/pull/189). Preserve the already accepted KWin/X11 splash click and Escape behavior [#190](https://github.com/logiclrd/Mesher/pull/190), [#191](https://github.com/logiclrd/Mesher/pull/191). Record each platform separately; do not treat green desktop CI as a physical observation.
+- [ ] **UX06 — Complete Open/import acceptance.** The private atomic Ctrl+O path,
+  `.mshr` , inline RGB(A)/ZBrush MRGB OBJ, RGB(A) PLY (ASCII/LE/BE),
+  coloured/colourless STL (facet-to-vertex diffusion), default All supported file
+  filter and CWD handling are implemented ([PRs
+  #176–#181](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged)).
+  Reconcile the supported/explicitly refused variants and all file-format/error/cancel
+  cases against [UX06 design](docs/UX06_PRIVATE_OPEN_CANDIDATES.md) . **Remaining
+  work** is real-file + native-OS end-to-end review in **QA-UX**; do not reimplement
+  the already-merged codecs or filter.
+- [ ] **UX07F — Final Ctrl+E export acceptance.** OBJ, PLY and STL serializers,
+  failure-safe snapshot writes and the 21-filter native picker are merged as
+  [UX07A–E (#182–#186)](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged)
+  . Verify each supported encoding and declared lossy colour/alpha conversion through
+  an independent UX06 import (geometry, winding, index mapping, RGB(A) tolerances).
+  Ensure failed/cancelled export preserves on-disk old destination, edits, undo/redo,
+  worker and native checkpoint identity. Reuse **QA-UX** for physical UI/platform
+  cases; do not create separate acceptance checkboxes for every exporter.
+  [Export UI/checklist](docs/UX07E_NATIVE_EXPORT.md) ;
+  [transaction design](docs/UX07_EXPORT_TRANSACTIONS.md) .
+- [ ] **QA-UX — One cross-platform native GUI and scale smoke matrix.** On Linux/X11,
+  Windows and macOS, exercise actual Ctrl+O/Ctrl+S/Ctrl+E picker filters, CWD on
+  accept/cancel, incorrect extension vs content, remembered filenames and overwrite,
+  explicit export-loss disclosure, async error reporting and round trips. Verify
+  **UX08** initial framing/scale slider at tiny/huge and displaced imported
+  coordinates (near/far clipping, Ctrl-fine adjustment/readout)
+  [PR #178](https://github.com/logiclrd/Mesher/pull/178) . Check Ctrl+N's
+  all-three-image choices and dirty Save/Save As/No/Cancel path where not already
+  physically accepted [PR #189](https://github.com/logiclrd/Mesher/pull/189) .
+  Preserve the already accepted KWin/X11 splash click and Escape behavior
+  [#190](https://github.com/logiclrd/Mesher/pull/190) ,
+  [#191](https://github.com/logiclrd/Mesher/pull/191) . Record each platform
+  separately; do not treat green desktop CI as a physical observation.
 
 ## Geometry safety, opt-in constraints and longer-term robustness
 
-- [ ] **V18-M07 — Integrated OFF-mode collision-avoidance acceptance.** V18-M01–M06 delivered a separate `--avoid-collisions` opt-in; [PR #135](https://github.com/logiclrd/Mesher/pull/135) supplied CPU/CLI tests and the hardware protocol, **not** final closure. Independently test Linux and Windows Vulkan on the named `--avoid-test-sheets --avoid-collisions --asymmetric` fixture, opposite sheets moving, safe large steps, mirrored strokes, legal sliding/near-grazing, refusal followed by unrelated valid edits, stale history, undo/redo, checkpoint/rearm and default-on R07 independence. Confirm exact-head and merged-main CI and publish objective observations, separately for each platform. Original V18 remains **open until M07**. Strict CCD/zero-gap and intersample tunneling are documented limitations, not hidden guarantees. [Detailed protocol](docs/V18_M07_INTEGRATED_ACCEPTANCE.md).
-- [ ] **R07-QA — Consolidated post-AFM live repair release assurance.** Previously scattered R06-M06/M14F/M15D/M16F/M17E/M18F/M22E/M23B/M24A, R07D and AFM-only cleanup checks overlap. Verify on **actual device and current always-on AUTO**: a real self-contact stamp with correct AFM cap/zipper choice, closed certified topology, no stage-debug/publication leakage, stable symmetric history and source-backed refusal diagnostics. Re-run relevant archived refusal/replay, checkpoint/undo and stress benchmarks only where code has changed. Record remaining hardware/measurement gaps explicitly; accepted [#162](https://github.com/logiclrd/Mesher/pull/162), [#163](https://github.com/logiclrd/Mesher/pull/163), [#164](https://github.com/logiclrd/Mesher/pull/164) features are **not** reopened merely because old draft checkboxes survived.
-- [ ] **V19 — Complex-geometry robustness and performance.** Investigate near-tangent/coplanar contacts, multiple regions, tunnels, enclosed shells, asymmetric/nonmanifold imports, nonuniform density, repeated zippers, progressive high-density workloads and very large meshes. Characterize time/memory, refusal categories, correctness and physical Linux/Windows behavior at 5k/20k/100k+ where feasible. Do not promise exact CCD, universal Boolean reconstruction, global coordinate deduplication or unbounded real-time complexity. Keep V18 opt-in avoidance distinct from production AUTO repair. [Historical specification](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md).
+- [ ] **V18-M07 — Integrated OFF-mode collision-avoidance acceptance.** V18-M01–M06
+  delivered a separate `--avoid-collisions` opt-in;
+  [PR #135](https://github.com/logiclrd/Mesher/pull/135) supplied CPU/CLI tests and
+  the hardware protocol, **not** final closure. Independently test Linux and Windows
+  Vulkan on the named `--avoid-test-sheets --avoid-collisions --asymmetric` fixture,
+  opposite sheets moving, safe large steps, mirrored strokes, legal
+  sliding/near-grazing, refusal followed by unrelated valid edits, stale history,
+  undo/redo, checkpoint/rearm and default-on R07 independence. Confirm exact-head and
+  merged-main CI and publish objective observations, separately for each platform.
+  Original V18 remains **open until M07**. Strict CCD/zero-gap and intersample
+  tunneling are documented limitations, not hidden guarantees.
+  [Detailed protocol](docs/V18_M07_INTEGRATED_ACCEPTANCE.md) .
+- [ ] **R07-QA — Consolidated post-AFM live repair release assurance.** Previously
+  scattered R06-M06/M14F/M15D/M16F/M17E/M18F/M22E/M23B/M24A, R07D and AFM-only cleanup
+  checks overlap. Verify on **actual device and current always-on AUTO**: a real
+  self-contact stamp with correct AFM cap/zipper choice, closed certified topology, no
+  stage-debug/publication leakage, stable symmetric history and source-backed refusal
+  diagnostics. Re-run relevant archived refusal/replay, checkpoint/undo and stress
+  benchmarks only where code has changed. Record remaining hardware/measurement gaps
+  explicitly; accepted [#162](https://github.com/logiclrd/Mesher/pull/162) ,
+  [#163](https://github.com/logiclrd/Mesher/pull/163) ,
+  [#164](https://github.com/logiclrd/Mesher/pull/164) features are **not** reopened
+  merely because old draft checkboxes survived.
+- [ ] **V19 — Complex-geometry robustness and performance.** Investigate
+  near-tangent/coplanar contacts, multiple regions, tunnels, enclosed shells,
+  asymmetric/nonmanifold imports, nonuniform density, repeated zippers, progressive
+  high-density workloads and very large meshes. Characterize time/memory, refusal
+  categories, correctness and physical Linux/Windows behavior at 5k/20k/100k+ where
+  feasible. Do not promise exact CCD, universal Boolean reconstruction, global
+  coordinate deduplication or unbounded real-time complexity. Keep V18 opt-in
+  avoidance distinct from production AUTO repair.
+  [Historical specification](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md) .
 
 ## Deferred independent interaction work
 
-- [ ] **V17-M66 — Optional backface culling.** Preserve double-sided interior inspection as the default. Require physical inside/outside, near-pole, picking, grid/wireframe and performance acceptance before offering an optional *display-only* switch. [Original contract](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
-- [ ] **V17-M70 — In-place symmetric → asymmetric editing transition.** Different from Ctrl+N (which replaces the entire model). Preserve topology, revisions, worker and history without inventing lost mirror correspondence. [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
-- [ ] **V17-M71 — Symmetric brush actions on asymmetric geometry.** Specify spatial brush reflection independently of exact reciprocal topology identity, and test brush/repair/history semantics. [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
-- [ ] **V17-M72 — Persistent interactive settings.** Define checkpoint restoration and CLI override precedence without treating saved settings as topology/source authority. Preserve legacy file compatibility. [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md).
+- [ ] **V17-M66 — Optional backface culling.** Preserve double-sided interior
+  inspection as the default. Require physical inside/outside, near-pole, picking,
+  grid/wireframe and performance acceptance before offering an optional *display-only*
+  switch. [Original contract](docs/archive/TODO_FULL_THROUGH_V18_M01.md) .
+- [ ] **V17-M70 — In-place symmetric → asymmetric editing transition.** Different from
+  Ctrl+N (which replaces the entire model). Preserve topology, revisions, worker and
+  history without inventing lost mirror correspondence.
+  [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md) .
+- [ ] **V17-M71 — Symmetric brush actions on asymmetric geometry.** Specify spatial
+  brush reflection independently of exact reciprocal topology identity, and test
+  brush/repair/history semantics.
+  [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md) .
+- [ ] **V17-M72 — Persistent interactive settings.** Define checkpoint restoration and
+  CLI override precedence without treating saved settings as topology/source
+  authority. Preserve legacy file compatibility.
+  [Historical design](docs/archive/TODO_FULL_THROUGH_V18_M01.md) .
 
 ## Build efficiency and research decisions
 
-- [ ] **CI01 — Consolidate C++ testing executables without losing coverage.** Reduce excessive individual CTest binaries, particularly Windows MSVC compilation time, while preserving independent CTest names, runnable filtering, diagnostics, full Vulkan/headless/no-Qhull portability, concurrency tests and warnings-as-errors. Measure executable counts and actual full Windows compile wall time before and after; do not create a serial monolithic test bottleneck.
-- [ ] **R06-TRIAGE — Re-scope historical geometry experiments before reopening.** The [audit](docs/TODO_AUDIT_2026_10_31.md) identifies old **unchecked** AFM/private-cap/zipper experimental and diagnostic items that were not individually certified as done. Do not implement withdrawn ring/hub, forced `--repair cap/zipper`, stale M21 fairing, M22D Poisson, M16 single-step UX or other speculative branches merely because old checkboxes remain. Decide case by case whether each is superseded by the merged AFM/R07 pipeline, a meaningful V19 research question, or a new bounded independent task. The original descriptions are preserved verbatim in the [snapshot](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md).
-- [ ] **R08-SCOPE — Reconcile older production Merge proposal with shipped R07 AUTO.** R07 is already the default ordinary sculpt repair path; protected V17 source-certified Merge semantics are different. Revisit the original [R08 design](docs/GEOMETRY_REPAIR_REBASELINE.md) before writing any new implementation plan, separating genuinely missing symmetry handoff/generalized geometry semantics from obsolete duplicate integration work. This is a **scope decision**, not a claim that R08 has shipped.
+- [ ] **CI01 — Consolidate C++ testing executables without losing coverage.** Reduce
+  excessive individual CTest binaries, particularly Windows MSVC compilation time,
+  while preserving independent CTest names, runnable filtering, diagnostics, full
+  Vulkan/headless/no-Qhull portability, concurrency tests and warnings-as-errors.
+  Measure executable counts and actual full Windows compile wall time before and
+  after; do not create a serial monolithic test bottleneck.
+- [ ] **R06-TRIAGE — Re-scope historical geometry experiments before reopening.** The
+  [audit](docs/TODO_AUDIT_2026_10_31.md) identifies old **unchecked**
+  AFM/private-cap/zipper experimental and diagnostic items that were not individually
+  certified as done. Do not implement withdrawn ring/hub, forced `--repair cap/zipper`
+  , stale M21 fairing, M22D Poisson, M16 single-step UX or other speculative branches
+  merely because old checkboxes remain. Decide case by case whether each is superseded
+  by the merged AFM/R07 pipeline, a meaningful V19 research question, or a new bounded
+  independent task. The original descriptions are preserved verbatim in the
+  [snapshot](docs/archive/TODO_ACTIVE_BEFORE_AUDIT_2026-10-31.md) .
+- [ ] **R08-SCOPE — Reconcile older production Merge proposal with shipped R07 AUTO.**
+  R07 is already the default ordinary sculpt repair path; protected V17
+  source-certified Merge semantics are different. Revisit the original
+  [R08 design](docs/GEOMETRY_REPAIR_REBASELINE.md) before writing any new
+  implementation plan, separating genuinely missing symmetry handoff/generalized
+  geometry semantics from obsolete duplicate integration work. This is a **scope
+  decision**, not a claim that R08 has shipped.
 
 ## Source/reference index
 
