@@ -46,6 +46,13 @@
 
 namespace mesher {
 namespace {
+// Optional trace for the compositor-dependent transient splash regression.
+// MESHER_SPLASH_TRACE=1 reports which event actually closed the window.
+bool traceSplash() noexcept {
+    const char* env=std::getenv("MESHER_SPLASH_TRACE");
+    return env&&*env&&*env!='0';
+}
+
 
 SplashPixels readPixels(const std::filesystem::path& path) {
     std::ifstream input(path,std::ios::binary);
@@ -233,11 +240,11 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
     glfwSetWindowUserPointer(splash_,this);
     glfwSetKeyCallback(splash_,[](GLFWwindow* w,int,int,int action,int){
         if(action==GLFW_PRESS)
-            static_cast<StartupSplash*>(glfwGetWindowUserPointer(w))->dismiss();
+            static_cast<StartupSplash*>(glfwGetWindowUserPointer(w))->dismiss("splash key");
     });
     glfwSetMouseButtonCallback(splash_,[](GLFWwindow* w,int,int action,int){
         if(action==GLFW_PRESS)
-            static_cast<StartupSplash*>(glfwGetWindowUserPointer(w))->dismiss();
+            static_cast<StartupSplash*>(glfwGetWindowUserPointer(w))->dismiss("splash mouse");
     });
     glfwSetWindowFocusCallback(splash_,[](GLFWwindow* w,int focused) {
         auto* self=static_cast<StartupSplash*>(glfwGetWindowUserPointer(w));
@@ -250,7 +257,7 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
         if(splashShouldDismissOnFocusLoss(self->shown_,focused)&&
            !self->dismissRequested_) {
             self->dismissedForFocus_=true;
-            self->dismiss();
+            self->dismiss("splash focus lost");
         }
     });
     addNativeOwner(splash_,owner_);
@@ -273,9 +280,13 @@ StartupSplash::StartupSplash(GLFWwindow* owner,
 
 StartupSplash::~StartupSplash() {close();}
 
-void StartupSplash::dismiss() noexcept {
+void StartupSplash::dismiss(const char* reason) noexcept {
     if(dismissRequested_)return;
     dismissRequested_=true; // terminal even when the GLFW window is absent
+    if(traceSplash())
+        std::cerr<<"[splash] dismiss reason="<<reason
+                 <<" elapsed="<<(glfwGetTime()-openedAt_)
+                 <<" shown="<<shown_<<"\n";
     if(!splash_)return;
     // Save the pre-hide focus state; glfwHideWindow clears GLFW_FOCUSED.
     // Never refocus the owner if dismissal was caused by external focus loss.
@@ -296,6 +307,7 @@ void StartupSplash::close() {
         !dismissedForFocus_&&!glfwWindowShouldClose(owner_);
     glfwDestroyWindow(splash_);
     splash_=nullptr;
+    if(traceSplash())std::cerr<<"[splash] destroyed\n";
     if(returnToOwner)glfwFocusWindow(owner_);
 }
 
@@ -349,7 +361,9 @@ void StartupSplash::tick() {
     const double elapsed=glfwGetTime()-openedAt_;
     if(dismissRequested_||dismissedForFocus_||splashHasTimedOut(elapsed)||
        glfwWindowShouldClose(owner_)||glfwWindowShouldClose(splash_)) {
-        dismiss();
+        dismiss(splashHasTimedOut(elapsed)?"four-second timeout":
+                dismissedForFocus_?"focus transition":
+                "terminal close");
         close();
         return;
     }
