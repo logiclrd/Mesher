@@ -46,7 +46,7 @@ private:
     SplashPixels picture_;
     bool explicitPosition_=true;
     bool dismissedForFocus_=false;
-    bool focusedOnce_=false;
+    bool shown_=false; // true only after the splash presentation starts
     double openedAt_=0;
     double lastOpacity_=-1;
     SplashRect ownerBounds_{};
