@@ -45,7 +45,7 @@ PreferredExportFormat canonicalImportFormat(DocumentSourceFormat kind) {
 void validateExport(PreferredExportFormat preferred) {
     const auto count=preferred.family==ExportFileFamily::Obj?4u:
                      preferred.family==ExportFileFamily::Ply?12u:
-                     preferred.family==ExportFileFamily::Stl?5u:0u;
+                     preferred.family==ExportFileFamily::Stl?9u:0u;
     if(preferred.variant>=count)
         throw std::invalid_argument("Unknown export encoding variant");
 }

@@ -56,10 +56,14 @@ inline constexpr std::string_view stlFacetColourDisclosure=
     "Mesher makes a best effort to distribute vertex colours across the faces "
     "of the mesh, but the exported file is unavoidably not an exact "
     "representation of the Mesher document.";
+inline constexpr std::string_view stlVertexPaletteDisclosure=
+    "Experimental facet-colour conversion selects one quantized source vertex "
+    "RGB per triangle instead of averaging. Spatial colour detail and alpha "
+    "cannot be represented exactly by facet-coloured STL.";
 inline constexpr std::string_view stlDualFacetDisclosure=
-    "Experimental facet-colour conversion selects quantized source vertex "
-    "colours instead of averaging. Error diffusion attempts to preserve "
-    "spatial colour contrast, but the STL result remains lossy.";
+    "Experimental facet-colour conversion selects source vertex RGB instead "
+    "of averaging, and diffuses colour residuals across adjacent triangles "
+    "to preserve contrast. The STL result is still lossy.";
 
 inline constexpr std::array<MeshExportFormatEntry,25> meshExportFormats{{
     {MeshExportPreset::ObjGeometry,
@@ -138,13 +142,13 @@ inline constexpr std::array<MeshExportFormatEntry,25> meshExportFormats{{
      "is lost; the RGBA is quantized to 8 bits and geometry to float32."},
     {MeshExportPreset::StlViscamRgbPalette,
      "STL - binary VisCAM facet RGB - vertex palette (*.stl)","stl",
-     stlDualFacetDisclosure},
+     stlVertexPaletteDisclosure},
     {MeshExportPreset::StlViscamRgbDiffusion,
      "STL - binary VisCAM facet RGB - dual diffusion (*.stl)","stl",
      stlDualFacetDisclosure},
     {MeshExportPreset::StlMagicsRgbPalette,
      "STL - binary Materialise Magics facet RGB - vertex palette (*.stl)","stl",
-     stlDualFacetDisclosure},
+     stlVertexPaletteDisclosure},
     {MeshExportPreset::StlMagicsRgbDiffusion,
      "STL - binary Materialise Magics facet RGB - dual diffusion (*.stl)","stl",
      stlDualFacetDisclosure}
