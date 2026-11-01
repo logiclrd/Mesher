@@ -2,35 +2,28 @@
 
 #include "mesher/mesh.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <vector>
 
 namespace mesher {
 
-// Experimental vertex-RGB -> facet-RGB555 strategies. Mean is the historical
-// baseline; Palette and Diffusion deliberately retain source-palette contrast.
-// No STL facet colour encoding can retain editable alpha.
-enum class StlFacetColourStrategy {
-    Mean,
-    Palette,
-    Diffusion,
-};
-
+// Optional diagnostics for the dual-graph facet-colour diffusion algorithm.
 struct StlFacetColourMetrics {
     double preparationMs=0;
     double assignmentMs=0;
-    double rgbRms=0;       // area-weighted error versus continuous facet means
-    double rgbBias=0;      // length of the area-weighted mean RGB residual
+    double rgbRms=0;       // area-weighted error versus continuous facet target
+    double rgbBias=0;      // magnitude of the area-weighted mean RGB residual
     double edgeContrast=0; // edge-length-weighted adjacent facet RGB variation
 };
 
-// Each result is a 5:5:5 value with red in the low five bits, independent of
-// Magics/VisCAM byte layout. Inputs must have complete, finite vertex RGB.
-// The topology must be a closed manifold for dual-graph diffusion; the caller
-// validates this before entering the STL output stream.
+// Convert an editable vertex-RGB surface to one quantized RGB555 colour per
+// triangle, selecting colours from each triangle's original vertex palette
+// while diffusing residuals across neighbouring faces on the topological dual.
+// Output is R-low 5:5:5, independent of VisCAM or Materialise Magics packing.
+// The validated source mesh must be a closed, consistently wound manifold.
+// RGB alpha is not representable in STL facet colours.
 std::vector<std::uint16_t> stlFacetColourRGB555(
-    const Mesh& mesh,StlFacetColourStrategy strategy,
-    std::uint64_t seed=42,StlFacetColourMetrics* metrics=nullptr);
+    const Mesh& mesh,std::uint64_t seed=42,
+    StlFacetColourMetrics* metrics=nullptr);
 
 } // namespace mesher

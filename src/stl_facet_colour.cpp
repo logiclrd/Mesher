@@ -83,16 +83,12 @@ std::uint16_t choose(const Face& face,RGB target,double sourcePenalty) {
 } // namespace
 
 std::vector<std::uint16_t> stlFacetColourRGB555(
-    const Mesh& mesh,StlFacetColourStrategy strategy,
-    std::uint64_t seed,StlFacetColourMetrics* metrics) {
+    const Mesh& mesh,std::uint64_t seed,
+    StlFacetColourMetrics* metrics) {
     const auto began=Clock::now();
     if(mesh.colors.size()!=mesh.vertices.size()||mesh.triangles.empty()||
        mesh.triangles.size()>std::numeric_limits<std::uint32_t>::max())
         throw std::invalid_argument("Facet RGB555 requires a complete vertex-colour mesh");
-    if(strategy!=StlFacetColourStrategy::Mean&&
-       strategy!=StlFacetColourStrategy::Palette&&
-       strategy!=StlFacetColourStrategy::Diffusion)
-        throw std::invalid_argument("Unknown STL facet colour strategy");
 
     std::vector<Face> faces;
     faces.reserve(mesh.triangles.size());
@@ -120,9 +116,9 @@ std::vector<std::uint16_t> stlFacetColourRGB555(
                          (a+b+c)/3.0,area});
     }
 
-    // Only Diffusion needs the dual edges. Original mesh faces are dual nodes,
-    // connected across shared primal edges; no polygonal dual is constructed.
-    if(strategy==StlFacetColourStrategy::Diffusion) {
+    // Original mesh faces are dual nodes, connected across shared primal
+    // edges. No polygonal dual faces need to be constructed.
+    {
         std::unordered_map<std::uint64_t,Owner> owners;
         owners.reserve(faces.size()*3/2+1);
         for(std::uint32_t fi=0;fi<faces.size();++fi) {
@@ -148,11 +144,7 @@ std::vector<std::uint16_t> stlFacetColourRGB555(
     const auto prepared=Clock::now();
 
     std::vector<std::uint16_t> assigned(faces.size());
-    if(strategy!=StlFacetColourStrategy::Diffusion) {
-        for(std::size_t fi=0;fi<faces.size();++fi)
-            assigned[fi]=strategy==StlFacetColourStrategy::Mean?
-                pack(faces[fi].mean):choose(faces[fi],faces[fi].mean,0);
-    }else {
+    {
         const auto n=faces.size();
         std::vector<RGB> oneHop(n),twoHop(n);
         std::vector<unsigned> degrees(n);

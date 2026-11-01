@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <numbers>
 #include <sstream>
 #include <stdexcept>
@@ -63,114 +64,96 @@ std::uint16_t attribute(const std::string& bytes,std::size_t face) {
         static_cast<unsigned char>(bytes[at])|
         (static_cast<unsigned>(static_cast<unsigned char>(bytes[at+1]))<<8));
 }
-void compareStrategies() {
+void checkDiffusion() {
     using namespace mesher;
     const auto mesh=ditheredEllipsoid();
-    StlFacetColourMetrics meanMetrics{},paletteMetrics{},diffusionMetrics{};
-    const auto mean=stlFacetColourRGB555(
-        mesh,StlFacetColourStrategy::Mean,42,&meanMetrics);
-    const auto palette=stlFacetColourRGB555(
-        mesh,StlFacetColourStrategy::Palette,42,&paletteMetrics);
-    const auto diffuse=stlFacetColourRGB555(
-        mesh,StlFacetColourStrategy::Diffusion,42,&diffusionMetrics);
-    require(mean.size()==mesh.triangles.size()&&
-            palette.size()==mean.size()&&diffuse.size()==mean.size(),
-            "Wrong experimental STL facet-colour count");
-    require(diffuse==stlFacetColourRGB555(
-                mesh,StlFacetColourStrategy::Diffusion,42),
-            "Seeded dual-graph export diffusion is nondeterministic");
-    std::size_t greyMeans=0,different=0,white=0,black=0;
-    for(std::size_t i=0;i<mean.size();++i) {
-        const auto isPure=[](std::uint16_t colour) {
-            return colour==0u||colour==0x7fffu;
+    StlFacetColourMetrics metrics{};
+    const auto colours=stlFacetColourRGB555(mesh,42,&metrics);
+    require(colours.size()==mesh.triangles.size(),
+            "Dual diffusion changed the number of STL facet colours");
+    require(colours==stlFacetColourRGB555(mesh,42),
+            "Seeded dual-graph diffusion is nondeterministic");
+
+    std::size_t black=0,white=0,mixedSourceFaces=0;
+    for(std::size_t i=0;i<colours.size();++i) {
+        const auto code=colours[i];
+        const auto tri=mesh.triangles[i];
+        const std::array<std::uint32_t,3> vertices{tri.a,tri.b,tri.c};
+        const auto red=[&](std::uint32_t index) {
+            return mesh.colors[index].r;
         };
-        if(!isPure(mean[i]))++greyMeans;
-        require(isPure(palette[i]),"Source-palette export invented grey RGB");
-        require(isPure(diffuse[i]),"Dual diffusion invented grey RGB");
-        if(diffuse[i]!=palette[i])++different;
-        if(diffuse[i]==0)++black;
+        const double sum=red(tri.a)+red(tri.b)+red(tri.c);
+        if(sum>0&&sum<3)++mixedSourceFaces;
+        require(code==0u||code==0x7fffu,
+                "Dual facet diffusion blended black/white source colours into grey");
+        bool fromSource=false;
+        for(const auto vertex:vertices)
+            fromSource|=(red(vertex)==0.f?code==0u:code==0x7fffu);
+        require(fromSource,
+                "Dual facet diffusion chose an RGB absent from its source triangle");
+        if(code==0u)++black;
         else ++white;
     }
-    require(greyMeans>mean.size()/2,
-            "The averaging baseline unexpectedly preserved binary dithering");
-    require(black>0&&white>0,"Diffusion lost one of the source colour classes");
-    require(different>0,"Dual error diffusion had no effect beyond palette selection");
-    require(meanMetrics.rgbRms<=paletteMetrics.rgbRms+1e-10,
-            "Mean is not the expected continuous per-facet RGB RMS optimum");
-    for(const auto& m:{meanMetrics,paletteMetrics,diffusionMetrics}) {
-        require(std::isfinite(m.preparationMs)&&m.preparationMs>=0&&
-                std::isfinite(m.assignmentMs)&&m.assignmentMs>=0&&
-                std::isfinite(m.rgbRms)&&m.rgbRms>=0&&
-                std::isfinite(m.rgbBias)&&m.rgbBias>=0&&
-                std::isfinite(m.edgeContrast)&&m.edgeContrast>=0,
-                "Experimental STL export reported invalid measurements");
-    }
-    std::cout<<"[stl-dual] mean: rms="<<meanMetrics.rgbRms
-             <<" bias="<<meanMetrics.rgbBias
-             <<" contrast="<<meanMetrics.edgeContrast
-             <<" assign_ms="<<meanMetrics.assignmentMs<<"\n";
-    std::cout<<"[stl-dual] palette: rms="<<paletteMetrics.rgbRms
-             <<" bias="<<paletteMetrics.rgbBias
-             <<" contrast="<<paletteMetrics.edgeContrast
-             <<" assign_ms="<<paletteMetrics.assignmentMs<<"\n";
-    std::cout<<"[stl-dual] diffusion: rms="<<diffusionMetrics.rgbRms
-             <<" bias="<<diffusionMetrics.rgbBias
-             <<" contrast="<<diffusionMetrics.edgeContrast
-             <<" assign_ms="<<diffusionMetrics.assignmentMs<<"\n";
+    require(mixedSourceFaces>colours.size()/2,
+            "Test fixture lacks enough mixed RGB vertex triangles");
+    require(black>0&&white>0,
+            "Dual diffusion failed to preserve both black/white source classes");
+    require(std::isfinite(metrics.preparationMs)&&metrics.preparationMs>=0&&
+            std::isfinite(metrics.assignmentMs)&&metrics.assignmentMs>=0&&
+            std::isfinite(metrics.rgbRms)&&metrics.rgbRms>=0&&
+            std::isfinite(metrics.rgbBias)&&metrics.rgbBias>=0&&
+            std::isfinite(metrics.edgeContrast)&&metrics.edgeContrast>=0,
+            "Facet diffusion reported nonfinite or negative metrics");
+    std::cout<<"[stl-dual] rgb_rms="<<metrics.rgbRms
+             <<" bias="<<metrics.rgbBias
+             <<" contrast="<<metrics.edgeContrast
+             <<" prepare_ms="<<metrics.preparationMs
+             <<" assign_ms="<<metrics.assignmentMs<<"\n";
 
     for(const auto encoding:{StlExportEncoding::BinaryViscam,
                              StlExportEncoding::BinaryMagicsFacet}) {
-        for(const auto strategy:{StlFacetColourStrategy::Mean,
-                                 StlFacetColourStrategy::Palette,
-                                 StlFacetColourStrategy::Diffusion}) {
-            StlExportOptions options{encoding};
-            options.strategy=strategy;
-            options.seed=42;
-            std::ostringstream out(std::ios::binary);
-            writeStlMesh(out,mesh,options);
-            const auto bytes=out.str();
-            require(bytes.size()==84+50*mesh.triangles.size(),
-                    "Facet strategy changed STL byte count");
-            const auto& expected=strategy==StlFacetColourStrategy::Mean?mean:
-                strategy==StlFacetColourStrategy::Palette?palette:diffuse;
-            for(std::size_t i=0;i<expected.size();++i) {
-                const auto rgb=expected[i];
-                const auto r=rgb&31u,g=(rgb>>5)&31u,b=(rgb>>10)&31u;
-                const auto encoded=encoding==StlExportEncoding::BinaryViscam?
-                    static_cast<std::uint16_t>(
-                        0x8000u|(r<<10)|(g<<5)|b):rgb;
-                require(attribute(bytes,i)==encoded,
-                        "STL export dispatched incorrect strategy or bit layout");
-            }
+        std::ostringstream out(std::ios::binary);
+        writeStlMesh(out,mesh,{encoding});
+        const auto bytes=out.str();
+        require(bytes.size()==84+50*mesh.triangles.size(),
+                "Facet diffusion changed STL geometry/facet byte count");
+        for(std::size_t i=0;i<colours.size();++i) {
+            const auto rgb=colours[i];
+            const auto r=rgb&31u,g=(rgb>>5)&31u,b=(rgb>>10)&31u;
+            const auto expected=encoding==StlExportEncoding::BinaryViscam?
+                static_cast<std::uint16_t>(0x8000u|(r<<10)|(g<<5)|b):rgb;
+            require(attribute(bytes,i)==expected,
+                    "STL facet encoding did not write diffusion's RGB555 choice");
         }
     }
 }
-void uniformAndInvalid() {
+void checkUniformAndRejections() {
     using namespace mesher;
     auto mesh=ditheredEllipsoid();
     mesh.colors.assign(mesh.vertices.size(),VertexRGBA{0,1,0,1});
-    for(const auto mode:{StlFacetColourStrategy::Mean,
-                         StlFacetColourStrategy::Palette,
-                         StlFacetColourStrategy::Diffusion})
-        for(const auto value:stlFacetColourRGB555(mesh,mode))
-            require(value==static_cast<std::uint16_t>(31u<<5),
-                    "Uniform vertex colours changed under facet conversion");
-    StlExportOptions invalid{StlExportEncoding::BinaryUncoloured};
-    invalid.strategy=StlFacetColourStrategy::Diffusion;
-    std::ostringstream out(std::ios::binary);
-    bool threw=false;
-    try {writeStlMesh(out,mesh,invalid);}
-    catch(const std::invalid_argument&) {threw=true;}
-    require(threw&&out.str().empty(),
-            "Experimental strategy bypassed facet-only validation gate");
+    for(const auto value:stlFacetColourRGB555(mesh))
+        require(value==static_cast<std::uint16_t>(31u<<5),
+                "Uniform vertex colours did not survive facet diffusion");
+
+    // A conversion failure may not leave a partially written STL stream.
+    mesh.colors[1].g=std::numeric_limits<float>::quiet_NaN();
+    for(const auto encoding:{StlExportEncoding::BinaryViscam,
+                             StlExportEncoding::BinaryMagicsFacet}) {
+        std::ostringstream out(std::ios::binary);
+        bool threw=false;
+        try {writeStlMesh(out,mesh,{encoding});}
+        catch(const std::invalid_argument&) {threw=true;}
+        require(threw&&out.str().empty(),
+                "Invalid colour data partly published a coloured STL file");
+    }
 }
 } // namespace
 
 int main() {
     try {
-        compareStrategies();
-        uniformAndInvalid();
-        std::cout<<"Dual-graph STL export: mean/palette/diffusion and codec tests passed\n";
+        checkDiffusion();
+        checkUniformAndRejections();
+        std::cout<<"Dual-graph facet-colour diffusion and STL codecs passed\n";
         return 0;
     }catch(const std::exception& error) {
         std::cerr<<"Dual-graph STL colour test failed: "<<error.what()<<"\n";

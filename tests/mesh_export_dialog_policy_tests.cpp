@@ -102,10 +102,7 @@ void testPreset(mesher::MeshExportPreset preset) {
         require(info.extension=="stl","Unknown export codec extension");
         mesher::StlDetectedEncoding detected{};
         const auto loaded=mesher::parseStlMesh(path,{},&detected);
-        const unsigned expectedDialect=index<21u?
-            static_cast<unsigned>(index-16u):
-            index==21u||index==22u?2u:3u;
-        require(static_cast<unsigned>(detected)==expectedDialect,
+        require(static_cast<unsigned>(detected)==index-16u,
                 "STL importer lost exact colour dialect or ASCII/binary format");
         require(loaded.vertices.size()==4&&loaded.triangles.size()==4,
                 "STL preset did not round trip closed geometry");
@@ -514,7 +511,7 @@ void testFullAsyncExportAndPrivateReopen() {
 
 void testNames() {
     using namespace mesher;
-    require(meshExportFormats.size()==25,
+    require(meshExportFormats.size()==21,
             "Export dialog must expose every supported codec/policy");
     std::size_t obj=0,ply=0,stl=0;
     for(std::size_t i=0;i<meshExportFormats.size();++i) {
@@ -581,7 +578,7 @@ void testNames() {
             "\"model.obj\"","Filter transition rewrote a quoted filename");
     require(validateExportFilename("model.PLY",MeshExportPreset::PlyLittleRgb)==
             "model.PLY","Case-only difference created a double suffix");
-    require(obj==4&&ply==12&&stl==9,
+    require(obj==4&&ply==12&&stl==5,
             "Wrong number of format/encoding dropdown entries");
 }
 } // namespace
@@ -597,7 +594,7 @@ int main(int argc,char** argv) {
         testFullAsyncExportAndPrivateReopen();
         for(std::size_t i=0;i<mesher::meshExportFormats.size();++i)
             testPreset(static_cast<mesher::MeshExportPreset>(i));
-        std::cout<<"UX07E 25 dialog presets, codecs, suffixes and disclosure passed\n";
+        std::cout<<"UX07E 21 dialog presets, codecs, suffixes and disclosure passed\n";
         return 0;
     }catch(const std::exception& e) {
         std::cerr<<"UX07E failure: "<<e.what()<<'\n';

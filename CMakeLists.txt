@@ -521,7 +521,7 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_stl_facet_colour_tests
                    tests/stl_facet_colour_tests.cpp)
     target_link_libraries(mesher_stl_facet_colour_tests PRIVATE mesher_mesh)
-    add_test(NAME stl_dual_facet_palette_and_diffusion
+    add_test(NAME stl_dual_facet_colour_diffusion
              COMMAND mesher_stl_facet_colour_tests)
     add_executable(mesher_stl_tests tests/mesh_stl_tests.cpp)
     target_link_libraries(mesher_stl_tests PRIVATE mesher_mesh)

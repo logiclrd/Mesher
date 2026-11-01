@@ -55,24 +55,18 @@ void testFilenamePolicy() {
                 ExportFileFamily::Stl,3},
             "Later export should change format but preserve existing filename hint");
 
-    require(state.completedExport(fs::absolute("dual-diffusion.stl"),
-        {ExportFileFamily::Stl,8},firstGeneration),
-        "Experimental dual-diffusion STL export was refused");
-    require(state.preferredExport()==PreferredExportFormat{
-                ExportFileFamily::Stl,8},
-            "Experimental STL selection not remembered across Ctrl+E");
     require(state.completedNativeSave(expected,firstGeneration),
             "Native checkpoint Save completion refused");
     require(state.canDirectSave()&&state.nativeSaveDestination()==expected&&
             state.filenameHint()==expected,
             "Native save did not establish direct Save identity");
     require(state.preferredExport()==PreferredExportFormat{
-                ExportFileFamily::Stl,8},
+                ExportFileFamily::Stl,3},
             "Saving .mshr unexpectedly changed Ctrl+E preference");
     state.newDocument();
     require(!state.filenameHint()&&!state.canDirectSave()&&
             state.preferredExport()==PreferredExportFormat{
-                ExportFileFamily::Stl,8},
+                ExportFileFamily::Stl,3},
             "New must clear document identity but preserve export preference");
     require(!state.completedExport(fs::absolute("stale.obj"),
         {ExportFileFamily::Obj,1},firstGeneration)&&
@@ -80,7 +74,7 @@ void testFilenamePolicy() {
             "Stale writer completion modified newer document");
     require(!state.filenameHint()&&!state.canDirectSave()&&
             state.preferredExport()==PreferredExportFormat{
-                ExportFileFamily::Stl,8},
+                ExportFileFamily::Stl,3},
             "Ignoring stale output mutated document state");
 }
 void testOpeningAndErrors() {
@@ -144,13 +138,6 @@ void testOpeningAndErrors() {
     require(refused&&state.generation()==generation&&
             state.filenameHint()==before,
             "Invalid import codec partially changed document identity");
-    refused=false;
-    try {
-        (void)state.completedExport("bogus.stl",
-            {ExportFileFamily::Stl,9},generation);
-    }catch(const std::invalid_argument&) {refused=true;}
-    require(refused&&state.filenameHint()==before,
-            "Unknown experimental STL variant was accepted");
     refused=false;
     try {
         (void)state.completedNativeSave("broken.obj",generation);
