@@ -187,4 +187,5 @@ int main() {
         std::cerr<<"V11 retirement stress failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

@@ -303,4 +303,5 @@ int main() {
         std::cerr<<"Dirty partition render failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

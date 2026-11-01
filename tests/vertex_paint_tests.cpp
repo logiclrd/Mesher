@@ -613,4 +613,5 @@ int main() {
         std::cerr<<"Vertex paint regression: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

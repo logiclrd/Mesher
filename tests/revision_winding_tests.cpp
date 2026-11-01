@@ -339,4 +339,5 @@ int main() {
         std::cerr<<"Positive winding classification failure: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

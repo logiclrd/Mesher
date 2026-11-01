@@ -327,4 +327,5 @@ int main() {
         std::cerr<<"Topology-aware closure failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

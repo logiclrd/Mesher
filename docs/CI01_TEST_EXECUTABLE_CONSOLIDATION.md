@@ -33,7 +33,10 @@ for each named test**, preserving:
 - All original CTest test names, `ctest -R` filtering, and full suite coverage
 - Exit codes, individual stdout/stderr, working directory and CTest reporting
 - Per-test timeouts and concurrent CTest scheduling (where applicable)
-- The original code, exception handlers, data fixtures and deterministic seeds
+- The original test logic, exception handlers, data fixtures and seeds. Every
+  grouped test now ends with an explicit `return 0;`: C++ only supplies this
+  return implicitly to a function literally named `main`, not to its renamed
+  entry point. This is semantics-preserving and avoids suppressing warnings.
 - C++20 and warnings-as-errors on Linux GCC/Clang, Windows MSVC and macOS
   Apple Clang arm64/x86_64, without new runtime/tool dependencies
 

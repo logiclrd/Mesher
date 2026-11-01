@@ -125,4 +125,5 @@ int main() {
         std::cerr<<"M58 wire quads: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

@@ -251,4 +251,5 @@ int main() {
         std::cerr<<"Incremental index failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

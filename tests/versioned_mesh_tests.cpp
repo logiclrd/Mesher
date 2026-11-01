@@ -115,4 +115,5 @@ int main() {
         std::cerr<<"Versioned mesh test failed: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }
