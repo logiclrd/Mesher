@@ -12,7 +12,7 @@ Completed milestones are **removed**, not left as checked boxes here. For accept
 live AFM repair, see [PR #162](https://github.com/logiclrd/Mesher/pull/162),
 [always-on AUTO #164](https://github.com/logiclrd/Mesher/pull/164) and their design
 documents. For desktop input, paint, Open, Save, export, scale, New and splash, see merged
-PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged). **Merged
+PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged), end-to-end export acceptance [#192](https://github.com/logiclrd/Mesher/pull/192), image-to-PLY [#193](https://github.com/logiclrd/Mesher/pull/193) and facet-colour diffusion [#194](https://github.com/logiclrd/Mesher/pull/194). **Merged
 implementation is not automatically physical acceptance on every platform.**
 
 ## Engineering rules
@@ -49,16 +49,6 @@ implementation is not automatically physical acceptance on every platform.**
   [UX06 design](docs/UX06_PRIVATE_OPEN_CANDIDATES.md). **Remaining work** is real-file +
   native-OS end-to-end review in **QA-UX**; do not reimplement the already-merged codecs or
   filter.
-- [ ] **UX07F — Final Ctrl+E export acceptance.** OBJ, PLY and STL serializers, failure-safe
-  snapshot writes and the 21-filter native picker are merged as
-  [UX07A–E (#182–#186)](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged).
-  Verify each supported encoding and declared lossy colour/alpha conversion through an
-  independent UX06 import (geometry, winding, index mapping, RGB(A) tolerances). Ensure
-  failed/cancelled export preserves on-disk old destination, edits, undo/redo, worker and
-  native checkpoint identity. Reuse **QA-UX** for physical UI/platform cases; do not create
-  separate acceptance checkboxes for every exporter.
-  [Export UI/checklist](docs/UX07E_NATIVE_EXPORT.md);
-  [transaction design](docs/UX07_EXPORT_TRANSACTIONS.md).
 - [ ] **QA-UX — One cross-platform native GUI and scale smoke matrix.** On Linux/X11,
   Windows and macOS, exercise actual Ctrl+O/Ctrl+S/Ctrl+E picker filters, CWD on
   accept/cancel, incorrect extension vs content, remembered filenames and overwrite,
