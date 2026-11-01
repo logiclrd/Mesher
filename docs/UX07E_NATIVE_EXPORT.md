@@ -36,8 +36,10 @@ STL, or native MSHR), then append the remembered export filter's suffix.
 A new document uses a generated basename. If no export preference exists,
 binary little-endian PLY mesh RGBA is preselected. Each filter change removes
 the **previous** filter's extension only when it matches the current text,
-then appends the newly selected extension. A different suffix is retained:
-OBJ -> PLY changes `model.stl` to `model.stl.ply`.
+then appends the newly selected extension **only if it is not already present**
+(case-insensitive). A different suffix is retained: OBJ -> PLY changes
+`model.stl` to `model.stl.ply`, but switching PLY -> STL when the filename
+already says `Duck.stl` leaves it as `Duck.stl`.
 
 At acceptance, an unquoted name gets the selected suffix if not already
 present (ASCII-case-insensitive). A filename entirely enclosed in double

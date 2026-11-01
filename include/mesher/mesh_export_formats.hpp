@@ -148,7 +148,8 @@ inline bool exportFilenameHasSuffix(
     return true;
 }
 
-// Remove ONLY the old filter's suffix, then append the new filter's.
+// Remove ONLY the old filter's suffix, then append the new filter's
+// suffix if it is not already present. Unrelated suffixes are retained.
 // Entirely quoted input is an intentional literal filename override.
 inline std::filesystem::path changeExportFilenameExtension(
     const std::filesystem::path& path,std::string_view previous,
@@ -159,9 +160,10 @@ inline std::filesystem::path changeExportFilenameExtension(
         return path;
     if(exportFilenameHasSuffix(path,previous))
         name.erase(name.size()-previous.size()-1u);
-    std::filesystem::path result(name);
-    result+="."+std::string(next);
-    return path.parent_path()/result;
+    std::filesystem::path result=path.parent_path()/std::filesystem::path(name);
+    if(!exportFilenameHasSuffix(result,next))
+        result+="."+std::string(next);
+    return result;
 }
 
 // Resolve the filename before checking for overwrites. Double quotes

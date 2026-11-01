@@ -551,6 +551,17 @@ void testNames() {
             "model.obj.ply","STL -> PLY stripped a different suffix");
     require(changeExportFilenameExtension("model.stl","stl","ply")=="model.ply",
             "STL -> PLY did not remove the matching STL suffix");
+    require(changeExportFilenameExtension("Duck.stl","ply","stl")=="Duck.stl",
+            "PLY -> STL duplicated the already present STL suffix");
+    require(changeExportFilenameExtension("Duck.STL","ply","stl")=="Duck.STL",
+            "PLY -> STL duplicated a case-insensitive matching suffix");
+    require(changeExportFilenameExtension("Duck.stl","obj","stl")=="Duck.stl",
+            "OBJ -> STL duplicated the new filter's existing suffix");
+    require(changeExportFilenameExtension("Duck.ply","ply","ply")=="Duck.ply",
+            "Switching within one file-format family duplicated its suffix");
+    require(changeExportFilenameExtension("Duck.stl","ply","obj")==
+            "Duck.stl.obj",
+            "An unrelated suffix must still be preserved and extended");
     require(changeExportFilenameExtension("model.PLY","ply","obj")=="model.obj",
             "Previous suffix comparison was case-sensitive");
     require(changeExportFilenameExtension("\"model.obj\"","obj","ply")==

@@ -169,6 +169,9 @@ void testExportFilenameHint() {
     state.opened("model.stl",DocumentSourceFormat::WavefrontObj);
     require(state.suggestExportFilename("ignored","ply")=="model.stl.ply",
             "A misleading suffix was trimmed from an OBJ import");
+    state.opened("Duck.stl",DocumentSourceFormat::StanfordPly);
+    require(state.suggestExportFilename("ignored","stl")=="Duck.stl",
+            "A non-matching PLY source suffix duplicated the selected STL suffix");
     state.opened("shape.ply",DocumentSourceFormat::StanfordPly);
     require(state.suggestExportFilename("ignored","stl")=="shape.stl",
             "PLY source extension was not replaced by STL");
