@@ -59,6 +59,9 @@ public:
     // The caller supplies the randomly generated basename only if no
     // remembered filename is available; it is otherwise ignored.
     SaveAsSuggestion suggestSaveAs(std::string_view randomStem) const;
+    // The hint's original file type is independent of the last export codec.
+    std::filesystem::path suggestExportFilename(
+        std::string_view randomStem,std::string_view selectedExtension) const;
 
 private:
     std::uint64_t generation_=1;
@@ -66,6 +69,7 @@ private:
     std::optional<std::filesystem::path> nativeSave_;
     std::optional<FilenameProvenance> provenance_;
     std::optional<DocumentSourceFormat> importedFormat_;
+    std::string hintExtension_;
     PreferredExportFormat exportFormat_{};
 };
 } // namespace mesher

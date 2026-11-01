@@ -1,4 +1,5 @@
 #include "mesher/document_filename_state.hpp"
+#include "mesher/mesh_export_formats.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -70,6 +71,9 @@ void DocumentFilenameState::opened(
     ++generation_;
     hint_=absolute;
     importedFormat_=kind;
+    hintExtension_=kind==DocumentSourceFormat::WavefrontObj?"obj":
+                   kind==DocumentSourceFormat::StanfordPly?"ply":
+                   kind==DocumentSourceFormat::Stl?"stl":"mshr";
     if(kind==DocumentSourceFormat::NativeMshr&&isNativeExtension(absolute)) {
         nativeSave_=absolute;
         provenance_=FilenameProvenance::OpenedNative;
@@ -83,6 +87,7 @@ void DocumentFilenameState::opened(
 void DocumentFilenameState::newDocument() {
     ++generation_;
     hint_.reset();
+    hintExtension_.clear();
     nativeSave_.reset();
     provenance_.reset();
     importedFormat_.reset();
@@ -98,6 +103,8 @@ bool DocumentFilenameState::completedExport(
     exportFormat_=encoding;
     if(!hint_) {
         hint_=absolute;
+        hintExtension_=encoding.family==ExportFileFamily::Obj?"obj":
+                       encoding.family==ExportFileFamily::Ply?"ply":"stl";
         provenance_=FilenameProvenance::SeededByExport;
         importedFormat_.reset();
     }
@@ -112,6 +119,7 @@ bool DocumentFilenameState::completedNativeSave(
         throw std::invalid_argument(
             "A native checkpoint Save must have a .mshr extension");
     hint_=absolute;
+    hintExtension_="mshr";
     nativeSave_=absolute;
     provenance_=FilenameProvenance::SavedNative;
     importedFormat_=DocumentSourceFormat::NativeMshr;
@@ -140,6 +148,17 @@ SaveAsSuggestion DocumentFilenameState::suggestSaveAs(
     if(importedFormat_&&*importedFormat_!=DocumentSourceFormat::NativeMshr)
         return {*hint_,*importedFormat_};
     return {*hint_,DocumentSourceFormat::NativeMshr};
+}
+
+std::filesystem::path DocumentFilenameState::suggestExportFilename(
+    std::string_view randomStem,std::string_view selectedExtension) const {
+    if(!hint_&&randomStem.empty())
+        throw std::invalid_argument("New document needs an export filename stem");
+    const fs::path filename=hint_?hint_->filename():fs::path(randomStem);
+    if(filename.empty()||filename.has_parent_path())
+        throw std::invalid_argument("Invalid export filename suggestion");
+    return changeExportFilenameExtension(
+        filename,hintExtension_,selectedExtension);
 }
 
 } // namespace mesher

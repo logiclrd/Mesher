@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QDialog>
 #include <QGuiApplication>
+#include <QLineEdit>
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -208,7 +209,8 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.setFileMode(QFileDialog::AnyFile);
     dialog.setWindowModality(Qt::ApplicationModal);
-    dialog.setOption(QFileDialog::DontConfirmOverwrite,false);
+    // Check for overwrite after we have resolved the final typed filename.
+    dialog.setOption(QFileDialog::DontConfirmOverwrite,true);
     QStringList filters;
     for(const auto& format:meshExportFormats) {
         const auto label=QString::fromUtf8(
@@ -222,9 +224,8 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     dialog.setNameFilters(filters);
     auto index=static_cast<int>(initialPreset);
     dialog.selectNameFilter(filters.at(index));
-    const auto initialSuffix=meshExportFormat(initialPreset).extension;
-    dialog.setDefaultSuffix(QString::fromUtf8(
-        initialSuffix.data(),static_cast<qsizetype>(initialSuffix.size())));
+    // Qt must not silently add extensions to quoted literal names.
+    std::string previousSuffix(meshExportFormat(initialPreset).extension);
     const auto resolveFilter=[&](const QString& chosen) {
         // Qt themes may strip the final wildcard group. The user-visible
         // label stays unique even when multiple encodings share *.ply.
@@ -245,9 +246,17 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
             if(!known)return;
             index=position;
             const auto& format=meshExportFormats[static_cast<std::size_t>(position)];
-            dialog.setDefaultSuffix(QString::fromUtf8(
-                format.extension.data(),
-                static_cast<qsizetype>(format.extension.size())));
+            // This dialog is widget-backed, not Qt's native helper.
+            if(auto* name=dialog.findChild<QLineEdit*>(
+                    QStringLiteral("fileNameEdit"))) {
+                const auto typed=name->text();
+                if(!typed.isEmpty()) {
+                    const auto updated=changeExportFilenameExtension(
+                        asPath(typed),previousSuffix,format.extension);
+                    name->setText(asQString(updated));
+                }
+            }
+            previousSuffix=std::string(format.extension);
         });
     setInitialFile(dialog,suggestion);
     parent.attach(dialog);
@@ -262,9 +271,18 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     else if(!known)
         throw std::runtime_error("Qt Export returned an unknown file-type filter");
     const auto preset=static_cast<MeshExportPreset>(index);
-    const auto raw=asPath(names.front());
+    auto raw=asPath(names.front());
+    // Qt's selectedFiles() can consume enclosing quotes as picker syntax.
+    if(auto* name=dialog.findChild<QLineEdit*>(
+            QStringLiteral("fileNameEdit"))) {
+        const auto typed=asPath(name->text());
+        if(!typed.empty()) {
+            raw=typed.is_absolute()?typed:
+                asPath(dialog.directory().absolutePath())/typed;
+        }
+    }
     const auto pathname=validateExportFilename(raw,preset);
-    if(raw!=pathname&&std::filesystem::exists(pathname)&&
+    if(std::filesystem::exists(pathname)&&
        !nativeConfirmMeshExportOverwrite(owner,pathname))
         return std::nullopt;
     return NativeMeshExportSelection{

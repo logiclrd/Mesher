@@ -135,6 +135,43 @@ void testOpeningAndErrors() {
             "Invalid export encoding partially changed filename hint");
 }
 
+void testExportFilenameHint() {
+    DocumentFilenameState state;
+    require(state.suggestExportFilename("new shape","ply")=="new shape.ply",
+            "New export must use the selected format suffix");
+    state.opened("model.obj",DocumentSourceFormat::WavefrontObj);
+    require(state.suggestExportFilename("ignored","obj")=="model.obj",
+            "OBJ import name was not retained for OBJ export");
+    require(state.suggestExportFilename("ignored","ply")=="model.ply",
+            "OBJ import suffix was not replaced for a PLY export");
+    state.completedExport("another.stl",{ExportFileFamily::Stl,1},
+                          state.generation());
+    require(state.suggestExportFilename("ignored","ply")=="model.ply",
+            "Changing codec altered the hint's original suffix");
+    state.opened("model.stl",DocumentSourceFormat::WavefrontObj);
+    require(state.suggestExportFilename("ignored","ply")=="model.stl.ply",
+            "A misleading suffix was trimmed from an OBJ import");
+    state.opened("shape.ply",DocumentSourceFormat::StanfordPly);
+    require(state.suggestExportFilename("ignored","stl")=="shape.stl",
+            "PLY source extension was not replaced by STL");
+    state.opened("thing.stl",DocumentSourceFormat::Stl);
+    require(state.suggestExportFilename("ignored","obj")=="thing.obj",
+            "STL source extension was not replaced by OBJ");
+    state.opened("native.mshr",DocumentSourceFormat::NativeMshr);
+    require(state.suggestExportFilename("ignored","ply")=="native.ply",
+            "Native filename hint kept its checkpoint suffix");
+    state.newDocument();
+    state.completedExport("exported.stl",{ExportFileFamily::Stl,1},
+                          state.generation());
+    state.completedExport("second.obj",{ExportFileFamily::Obj,1},
+                          state.generation());
+    require(state.suggestExportFilename("ignored","ply")=="exported.ply",
+            "Later codec replaced the first export's hint provenance");
+    state.newDocument();
+    require(state.suggestExportFilename("new object","obj")=="new object.obj",
+            "New-document export retained the previous suffix");
+}
+
 void testEmbeddedWords() {
     const auto counts=embeddedFilenameWordCounts();
     require(counts.first>100&&counts.second>100,
@@ -182,6 +219,7 @@ int main() {
     try {
         testFilenamePolicy();
         testOpeningAndErrors();
+        testExportFilenameHint();
         testEmbeddedWords();
         std::cout<<"UX09A filename provenance and embedded word tests passed\n";
         return 0;

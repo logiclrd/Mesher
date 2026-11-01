@@ -10,6 +10,7 @@
 #include <shobjidl.h>
 #include <shlobj_core.h>
 #include <memory>
+#include <filesystem>
 #include <array>
 #include <vector>
 #include <stdexcept>
@@ -40,6 +41,77 @@ struct ComApartment {
         initialized=true;
     }
     ~ComApartment() {if(initialized)CoUninitialize();}
+};
+
+// Native file-type changes use the previous filter, not an arbitrary suffix
+// guessed from the typed filename. Keep the original text for quoted overrides.
+class ExportFilterEvents final : public IFileDialogEvents {
+public:
+    explicit ExportFilterEvents(MeshExportPreset initial):previous_(initial) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,void** value) override {
+        if(!value)return E_POINTER;
+        *value=nullptr;
+        if(iid==IID_IUnknown||iid==IID_IFileDialogEvents) {
+            *value=static_cast<IFileDialogEvents*>(this);
+            AddRef();
+            return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override {return ++references_;}
+    ULONG STDMETHODCALLTYPE Release() override {
+        const ULONG count=--references_;
+        if(!count)delete this;
+        return count;
+    }
+    HRESULT STDMETHODCALLTYPE OnFileOk(IFileDialog* dialog) override {
+        PWSTR raw=nullptr;
+        if(SUCCEEDED(dialog->GetFileName(&raw))&&raw) {
+            acceptedText_=raw;
+            CoTaskMemFree(raw);
+        }
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnFolderChanging(IFileDialog*,IShellItem*) override {
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnFolderChange(IFileDialog*) override {return S_OK;}
+    HRESULT STDMETHODCALLTYPE OnSelectionChange(IFileDialog*) override {
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnShareViolation(IFileDialog*,IShellItem*,
+                          FDE_SHAREVIOLATION_RESPONSE* response) override {
+        if(response)*response=FDESVR_DEFAULT;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnTypeChange(IFileDialog* dialog) override {
+        UINT index=0;
+        if(FAILED(dialog->GetFileTypeIndex(&index))||index==0||
+           index>meshExportFormats.size())return S_OK;
+        const auto chosen=static_cast<MeshExportPreset>(index-1u);
+        if(chosen==previous_)return S_OK;
+        PWSTR raw=nullptr;
+        if(SUCCEEDED(dialog->GetFileName(&raw))&&raw) {
+            const auto updated=changeExportFilenameExtension(
+                std::filesystem::path(raw),
+                meshExportFormat(previous_).extension,
+                meshExportFormat(chosen).extension);
+            (void)dialog->SetFileName(updated.c_str());
+            CoTaskMemFree(raw);
+        }
+        previous_=chosen;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnOverwrite(IFileDialog*,IShellItem*,
+                              FDE_OVERWRITE_RESPONSE* response) override {
+        if(response)*response=FDEOR_DEFAULT;
+        return S_OK;
+    }
+    const std::wstring& acceptedText() const noexcept {return acceptedText_;}
+private:
+    ULONG references_=1;
+    MeshExportPreset previous_;
+    std::wstring acceptedText_;
 };
 } // namespace
 
@@ -89,9 +161,11 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     ComPtr<IFileSaveDialog> dialog(raw);
     DWORD flags=0;
     require(dialog->GetOptions(&flags),"GetOptions Export");
-    require(dialog->SetOptions(flags|FOS_FORCEFILESYSTEM|FOS_OVERWRITEPROMPT|
-                               FOS_STRICTFILETYPES|FOS_PATHMUSTEXIST),
-            "SetOptions Export");
+    // Encodings are selected by filter, never forced by a path suffix.
+    // The final path gets exactly one explicit overwrite confirmation.
+    require(dialog->SetOptions(
+        (flags&~(FOS_STRICTFILETYPES|FOS_OVERWRITEPROMPT))|
+        FOS_FORCEFILESYSTEM|FOS_PATHMUSTEXIST),"SetOptions Export");
     // The filter strings must remain alive until the modal COM dialog ends.
     std::vector<std::wstring> titles,patterns;
     titles.reserve(meshExportFormats.size());
@@ -119,8 +193,13 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         "Export CWD folder");
     ComPtr<IShellItem> folder(folderRaw);
     require(dialog->SetFolder(folder.get()),"SetFolder Export CWD");
+    ComPtr<ExportFilterEvents> events(
+        new ExportFilterEvents(initialPreset));
+    DWORD cookie=0;
+    require(dialog->Advise(events.get(),&cookie),"Advise Export filters");
     const HRESULT shown=dialog->Show(
         owner?glfwGetWin32Window(owner):nullptr);
+    require(dialog->Unadvise(cookie),"Unadvise Export filters");
     if(shown==HRESULT_FROM_WIN32(ERROR_CANCELLED))return std::nullopt;
     require(shown,"Show Export");
     UINT selectedIndex=0;
@@ -134,11 +213,15 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
     PWSTR pathname=nullptr;
     require(result->GetDisplayName(SIGDN_FILESYSPATH,&pathname),
             "GetDisplayName Export");
-    const std::filesystem::path chosen(pathname);
+    auto chosen=std::filesystem::path(pathname);
     CoTaskMemFree(pathname);
+    // The Shell may consume the quotes on GetResult; OnFileOk saw the edit.
+    const auto& typed=events->acceptedText();
+    if(typed.size()>=2u&&typed.front()==L'"'&&typed.back()==L'"')
+        chosen=chosen.parent_path()/std::filesystem::path(typed);
     const auto preset=static_cast<MeshExportPreset>(selectedIndex-1u);
     const auto final=validateExportFilename(chosen,preset);
-    if(chosen!=final&&std::filesystem::exists(final)&&
+    if(std::filesystem::exists(final)&&
        !nativeConfirmMeshExportOverwrite(owner,final))
         return std::nullopt;
     return NativeMeshExportSelection{acceptNativeDialogFilePath(final),preset};

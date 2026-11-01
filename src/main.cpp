@@ -1177,11 +1177,11 @@ int main(int argc, char** argv) {
             };
             interaction.exportPreferredPreset=preferredPreset;
             interaction.exportSuggestedPath=[&] {
-                auto suggested=documentNames.filenameHint()?
-                    *documentNames.filenameHint():
-                    std::filesystem::path(mesher::randomFilenameStem());
-                suggested.replace_extension();
-                return suggested;
+                const auto generated=documentNames.filenameHint()?
+                    std::string():mesher::randomFilenameStem();
+                return documentNames.suggestExportFilename(
+                    generated,mesher::meshExportFormat(
+                        preferredPreset()).extension);
             };
             interaction.exportMesh=[&,exportWriter,pendingExportNames](
                 std::shared_ptr<const mesher::RegionTopologyIndex> root,

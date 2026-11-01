@@ -479,18 +479,35 @@ void testNames() {
         require(already==checked,"Matching filename suffix was changed");
         ++(entry.extension=="obj"?obj:entry.extension=="ply"?ply:stl);
         const auto different=entry.extension=="obj"?"stl":"obj";
-        bool refused=false;
-        try {
-            (void)validateExportFilename(
-                fs::path(std::string("test.")+different),preset);
-        }catch(const std::invalid_argument&) {refused=true;}
-        require(refused,"Mismatched export suffix bypassed native overwrite prompt");
-        refused=false;
-        try {
-            (void)validateExportFilename(fs::path("test.jpg"),preset);
-        }catch(const std::invalid_argument&) {refused=true;}
-        require(refused,"Unrelated explicit suffix was silently replaced");
+        require(validateExportFilename(
+                    fs::path(std::string("test.")+different),preset)==
+                    fs::path(std::string("test.")+different+"."+
+                             std::string(entry.extension)),
+                "An unquoted mismatched suffix was not preserved and extended");
+        require(validateExportFilename("test.jpg",preset)==
+                    fs::path(std::string("test.jpg.")+std::string(entry.extension)),
+                "An unrelated suffix was incorrectly replaced");
+        require(validateExportFilename(
+                    fs::path(std::string("\"test.")+different+"\""),preset)==
+                    fs::path(std::string("test.")+different),
+                "Quoted filename override was ignored");
+        require(validateExportFilename("\"test\"",preset)=="test",
+                "Quoted extensionless export was given an unwanted suffix");
     }
+    require(changeExportFilenameExtension("model.obj","obj","ply")=="model.ply",
+            "OBJ -> PLY did not replace its matching prior suffix");
+    require(changeExportFilenameExtension("model.stl","obj","ply")==
+            "model.stl.ply","OBJ -> PLY stripped a different suffix");
+    require(changeExportFilenameExtension("model.obj","stl","ply")==
+            "model.obj.ply","STL -> PLY stripped a different suffix");
+    require(changeExportFilenameExtension("model.stl","stl","ply")=="model.ply",
+            "STL -> PLY did not remove the matching STL suffix");
+    require(changeExportFilenameExtension("model.PLY","ply","obj")=="model.obj",
+            "Previous suffix comparison was case-sensitive");
+    require(changeExportFilenameExtension("\"model.obj\"","obj","ply")==
+            "\"model.obj\"","Filter transition rewrote a quoted filename");
+    require(validateExportFilename("model.PLY",MeshExportPreset::PlyLittleRgb)==
+            "model.PLY","Case-only difference created a double suffix");
     require(obj==4&&ply==12&&stl==5,
             "Wrong number of format/encoding dropdown entries");
 }

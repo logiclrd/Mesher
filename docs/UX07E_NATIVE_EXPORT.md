@@ -30,16 +30,23 @@ export I/O proceeds. Every accepted export request is handled FIFO.
   controlling allowedContentTypes. Format is read from accessory index, not
   inferred from the resulting filename. The panel is modal on the UI thread.
 
-All three start in **process CWD**, with an extension-free suggestion and
-the binary little-endian PLY mesh-RGBA filter preselected. Native platforms
-should append the suffix belonging to whichever entry is chosen. Accepting a
-filename resolves its absolute path and updates CWD to the chosen file's
-parent through UX06G's existing path helper. Cancellation does not change
-CWD or queue any export. Explicit mismatched suffixes fail closed rather than
-silently converting another path AFTER a native overwrite prompt. If the
-picker returns a filename without an extension, the policy appends the
-selected suffix and **reconfirms overwrite against that final path** if it
-already exists. No format switch can bypass overwrite confirmation.
+All three start in **process CWD**, using the remembered filename. At first
+opening, remove only a suffix matching the original source format (OBJ, PLY,
+STL, or native MSHR), then append the remembered export filter's suffix.
+A new document uses a generated basename. If no export preference exists,
+binary little-endian PLY mesh RGBA is preselected. Each filter change removes
+the **previous** filter's extension only when it matches the current text,
+then appends the newly selected extension. A different suffix is retained:
+OBJ -> PLY changes `model.stl` to `model.stl.ply`.
+
+At acceptance, an unquoted name gets the selected suffix if not already
+present (ASCII-case-insensitive). A filename entirely enclosed in double
+quotes is an explicit literal override: remove its quotes and do **not**
+append the selected extension, even when absent or mismatched. No mismatch
+warning is displayed. The selected filter is always the encoder authority,
+even for an unconventional filename. Confirm overwrite only against the
+**final resolved destination**. Acceptance updates CWD through the UX06G
+path helper; cancellation changes neither CWD nor export queue.
 
 The selected dropdown index is the **only** codec authority. A path named
 \`.obj\` cannot coerce a different selected PLY/STL serializer, and the
