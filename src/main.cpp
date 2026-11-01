@@ -779,6 +779,19 @@ int main(int argc, char** argv) {
                 }}:mesher::SculptStepValidator{};
 
         mesher::DocumentFilenameState documentNames;
+        const auto toPreferredExport=[](mesher::MeshExportPreset preset) {
+            const auto index=static_cast<unsigned>(preset);
+            if(index>=mesher::meshExportFormats.size())
+                throw std::invalid_argument("Unknown selected export preset");
+            if(index<4u)
+                return mesher::PreferredExportFormat{
+                    mesher::ExportFileFamily::Obj,index};
+            if(index<16u)
+                return mesher::PreferredExportFormat{
+                    mesher::ExportFileFamily::Ply,index-4u};
+            return mesher::PreferredExportFormat{
+                mesher::ExportFileFamily::Stl,index-16u};
+        };
         std::shared_ptr<const mesher::RegionTopologyIndex> cleanRevision;
         struct CheckpointTicket {
             std::filesystem::path destination;
@@ -1088,6 +1101,7 @@ int main(int argc, char** argv) {
                 auto selected=std::move(selectedFile.path);
                 auto candidate=mesher::readMeshOpenCandidate(
                     selected,selectedFile.filter,stlOptions);
+                const auto detectedPreset=candidate.detectedExportPreset;
                 const auto openedKind=
                     candidate.format==mesher::MeshOpenFormat::Checkpoint?
                         mesher::DocumentSourceFormat::NativeMshr:
@@ -1133,14 +1147,17 @@ int main(int argc, char** argv) {
                 const auto root=preparedWorker->initialRevision();
                 return {root,range,radius,mirrored,
                     [&,brushRange,preparedWorker=std::move(preparedWorker),
-                     selected=std::move(selected),openedKind,count,radius,mirrored,range,
-                     newMeshScale]() mutable {
+                     selected=std::move(selected),openedKind,detectedPreset,
+                     count,radius,mirrored,range,newMeshScale]() mutable {
                         liveWorker=std::move(preparedWorker);
                         *brushRange=range;
                         liveMeshScale=newMeshScale;
                         lastDisplayed=liveWorker->initialRevision();
                         cleanRevision=lastDisplayed;
-                        documentNames.opened(selected,openedKind);
+                        documentNames.opened(
+                            selected,openedKind,
+                            detectedPreset?std::optional(toPreferredExport(
+                                *detectedPreset)):std::nullopt);
                         pendingCheckpoint.reset();
                         newSaveOutcome.reset();
                         options.vertexCount=static_cast<std::uint32_t>(count);
@@ -1177,24 +1194,16 @@ int main(int argc, char** argv) {
             };
             interaction.exportPreferredPreset=preferredPreset;
             interaction.exportSuggestedPath=[&] {
-                auto suggested=documentNames.filenameHint()?
-                    *documentNames.filenameHint():
-                    std::filesystem::path(mesher::randomFilenameStem());
-                suggested.replace_extension();
-                return suggested;
+                const auto generated=documentNames.filenameHint()?
+                    std::string():mesher::randomFilenameStem();
+                return documentNames.suggestExportFilename(
+                    generated,mesher::meshExportFormat(
+                        preferredPreset()).extension);
             };
             interaction.exportMesh=[&,exportWriter,pendingExportNames](
                 std::shared_ptr<const mesher::RegionTopologyIndex> root,
                 mesher::NativeMeshExportSelection selected) {
-                const auto index=static_cast<unsigned>(selected.preset);
-                if(index>=mesher::meshExportFormats.size())
-                    throw std::invalid_argument("Unknown selected export preset");
-                mesher::PreferredExportFormat codec{};
-                if(index<4u)
-                    codec={mesher::ExportFileFamily::Obj,index};
-                else if(index<16u)
-                    codec={mesher::ExportFileFamily::Ply,index-4u};
-                else codec={mesher::ExportFileFamily::Stl,index-16u};
+                const auto codec=toPreferredExport(selected.preset);
                 auto request=mesher::captureMeshExportRequest(
                     selected.path,std::move(root));
                 const auto name=request.absoluteDestination;

@@ -45,6 +45,14 @@ struct MeshExportFormatEntry {
     std::string_view disclosure;
 };
 
+// Shared disclosure for both facet-colour dialects: neither can represent
+// the editable per-vertex RGBA field exactly.
+inline constexpr std::string_view stlFacetColourDisclosure=
+    "Colourized STL is based on facet colours instead of vertex colours. "
+    "Mesher makes a best effort to distribute vertex colours across the faces "
+    "of the mesh, but the exported file is unavoidably not an exact "
+    "representation of the Mesher document.";
+
 inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
     {MeshExportPreset::ObjGeometry,
      "Wavefront OBJ - geometry only (*.obj)","obj",
@@ -111,12 +119,10 @@ inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
      "Coordinates become 32-bit floats."},
     {MeshExportPreset::StlViscamRgb,
      "STL - binary VisCAM/SolidView facet RGB (*.stl)","stl",
-     "Every triangle receives its three vertex RGBs averaged and rounded "
-     "to 5-bit VisCAM facet colour. Alpha and high-frequency detail are lost."},
+     stlFacetColourDisclosure},
     {MeshExportPreset::StlMagicsRgb,
      "STL - binary Materialise Magics facet RGB (*.stl)","stl",
-     "Every triangle receives its three vertex RGBs averaged and rounded "
-     "to 5-bit Magics facet colour. Alpha and high-frequency detail are lost."},
+     stlFacetColourDisclosure},
     {MeshExportPreset::StlMagicsObjectRgba,
      "STL - binary Magics single averaged RGBA (*.stl)","stl",
      "ALL vertices are collapsed to ONE object colour: the arithmetic mean "
@@ -131,28 +137,59 @@ inline const MeshExportFormatEntry& meshExportFormat(MeshExportPreset preset) {
     return meshExportFormats[index];
 }
 
+// Use native path strings so Windows Unicode filenames are not narrowed.
+inline bool exportFilenameHasSuffix(
+    const std::filesystem::path& path,std::string_view extension) {
+    if(extension.empty())return false;
+    const auto name=path.filename().native();
+    if(name.size()<extension.size()+1u||
+       name[name.size()-extension.size()-1u]!='.')return false;
+    const auto lower=[](auto ch) {
+        return ch>='A'&&ch<='Z'?static_cast<int>(ch)+('a'-'A'):
+                              static_cast<int>(ch);
+    };
+    for(std::size_t i=0;i<extension.size();++i)
+        if(lower(name[name.size()-extension.size()+i])!=
+           lower(extension[i]))return false;
+    return true;
+}
+
+// Remove ONLY the old filter's suffix, then append the new filter's
+// suffix if it is not already present. Unrelated suffixes are retained.
+// Entirely quoted input is an intentional literal filename override.
+inline std::filesystem::path changeExportFilenameExtension(
+    const std::filesystem::path& path,std::string_view previous,
+    std::string_view next) {
+    if(path.empty()||path.filename().empty())return path;
+    auto name=path.filename().native();
+    if(name.size()>=2u&&name.front()=='"'&&name.back()=='"')
+        return path;
+    if(exportFilenameHasSuffix(path,previous))
+        name.erase(name.size()-previous.size()-1u);
+    std::filesystem::path result=path.parent_path()/std::filesystem::path(name);
+    if(!exportFilenameHasSuffix(result,next))
+        result+="."+std::string(next);
+    return result;
+}
+
+// Resolve the filename before checking for overwrites. Double quotes
+// deliberately suppress suffix enforcement, and are not written to disk.
 inline std::filesystem::path validateExportFilename(
     std::filesystem::path path,MeshExportPreset preset) {
     const auto& info=meshExportFormat(preset);
     if(path.empty()||path.filename().empty())
         throw std::invalid_argument("Export file dialog selected no filename");
-    const auto expected=std::string(".")+std::string(info.extension);
-    const auto suffix=path.extension().string();
-    if(suffix.empty())path+=expected;
-    else {
-        // The native dialog must confirm overwrites for the FINAL filename.
-        // Never silently change a user-entered suffix AFTER that confirmation.
-        auto lowercase=[](std::string value) {
-            for(auto& c:value)
-                if(c>='A'&&c<='Z')c=static_cast<char>(c-'A'+'a');
-            return value;
-        };
-        const auto normalized=lowercase(suffix);
-        if(normalized!=expected)
-            throw std::invalid_argument(
-                "Selected file type and filename extension disagree. "
-                "Please use the matching extension in Save As.");
+    const auto name=path.filename().native();
+    if(name.size()>=2u&&name.front()=='"'&&name.back()=='"') {
+        const std::filesystem::path literal(
+            name.substr(1u,name.size()-2u));
+        if(literal.empty()||literal.filename().empty()||
+           literal=="."||literal=="..")
+            throw std::invalid_argument("Quoted export filename is empty");
+        return path.parent_path()/literal;
     }
+    if(!exportFilenameHasSuffix(path,info.extension))
+        path+="."+std::string(info.extension);
     return path;
 }
 

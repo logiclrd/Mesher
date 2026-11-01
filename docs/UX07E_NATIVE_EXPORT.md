@@ -30,16 +30,25 @@ export I/O proceeds. Every accepted export request is handled FIFO.
   controlling allowedContentTypes. Format is read from accessory index, not
   inferred from the resulting filename. The panel is modal on the UI thread.
 
-All three start in **process CWD**, with an extension-free suggestion and
-the binary little-endian PLY mesh-RGBA filter preselected. Native platforms
-should append the suffix belonging to whichever entry is chosen. Accepting a
-filename resolves its absolute path and updates CWD to the chosen file's
-parent through UX06G's existing path helper. Cancellation does not change
-CWD or queue any export. Explicit mismatched suffixes fail closed rather than
-silently converting another path AFTER a native overwrite prompt. If the
-picker returns a filename without an extension, the policy appends the
-selected suffix and **reconfirms overwrite against that final path** if it
-already exists. No format switch can bypass overwrite confirmation.
+All three start in **process CWD**, using the remembered filename. At first
+opening, remove only a suffix matching the original source format (OBJ, PLY,
+STL, or native MSHR), then append the remembered export filter's suffix.
+A new document uses a generated basename. If no export preference exists,
+binary little-endian PLY mesh RGBA is preselected. Each filter change removes
+the **previous** filter's extension only when it matches the current text,
+then appends the newly selected extension **only if it is not already present**
+(case-insensitive). A different suffix is retained: OBJ -> PLY changes
+`model.stl` to `model.stl.ply`, but switching PLY -> STL when the filename
+already says `Duck.stl` leaves it as `Duck.stl`.
+
+At acceptance, an unquoted name gets the selected suffix if not already
+present (ASCII-case-insensitive). A filename entirely enclosed in double
+quotes is an explicit literal override: remove its quotes and do **not**
+append the selected extension, even when absent or mismatched. No mismatch
+warning is displayed. The selected filter is always the encoder authority,
+even for an unconventional filename. Confirm overwrite only against the
+**final resolved destination**. Acceptance updates CWD through the UX06G
+path helper; cancellation changes neither CWD nor export queue.
 
 The selected dropdown index is the **only** codec authority. A path named
 \`.obj\` cannot coerce a different selected PLY/STL serializer, and the
@@ -55,8 +64,22 @@ Materialise Magics 5:5:5 facet RGB, Materialise Magics one object RGBA.
 
 Before enqueue, each selected entry shows a **modal confirm/cancel message**
 disclosing its nonstandard representation, lost alpha/RGB, 8-bit/5-bit
-quantization, or vertex-to-facet averaging. Cancel leaves the editor and
-destination untouched. Error messages use a distinct export-failure title.
+quantization, or best-effort vertex-to-facet colour approximation. Both
+VisCAM and Materialise Magics facet RGB entries use the same plain-language
+warning that facet colours cannot exactly represent Mesher's vertex colours.
+Cancel leaves the editor and destination untouched. Error messages use a
+distinct export-failure title.
+
+The initial filter is detected from the *actual successfully parsed*
+foreign file, not just its OBJ/PLY/STL family: STL distinguishes ASCII,
+uncoloured binary, VisCAM facet RGB, Materialise Magics facet RGB and Magics
+single-object RGBA. OBJ preserves geometry/RGB/RGBA/ZBrush MRGB; PLY
+preserves ASCII/LE/BE and RGB/alpha presence. Generic RGBA PLY does not
+encode whether its alpha came from editable mesh or original file alpha;
+Mesher now marks original-source-alpha PLY exports with a comment so
+subsequent Mesher imports can reselect that exact mode. Untagged RGBA PLY
+chooses editable mesh RGBA for export by default. This is distinct from
+the explicit PLY source-alpha opacity decision on import.
 
 The Magics object RGBA policy deliberately averages **all current vertex
 RGBA**, producing exactly one global object colour; this loss is explicitly

@@ -105,7 +105,7 @@ struct Builder {
         anyColoured|=f.color.has_value();
         facetColours.push_back(f.color);
     }
-    Mesh finish() {
+    Mesh finish(std::optional<VertexRGBA> uniformObjectColour=std::nullopt) {
         // A mixed coloured/uncoloured VisCAM source uses opaque-white
         // fallback for absent colours in the comparative approximation.
         // Every exactly welded edge must have two oppositely oriented
@@ -163,13 +163,18 @@ struct Builder {
                 throw std::runtime_error(
                     "STL coincident but disconnected vertex fans cannot be welded");
         }
-        if(anyColoured)
+        if(uniformObjectColour)
+            // Magics object colour is already a vertex-wide RGBA. Do not
+            // reinterpret or diffuse it as independent facet samples.
+            mesh.colors.assign(mesh.vertices.size(),*uniformObjectColour);
+        else if(anyColoured)
             mesh.colors=convertStlFacetColours(
                 mesh,facetColours,options.method,options.seed);
         return std::move(mesh);
     }
 };
-Mesh binary(const Bytes& data,StlImportOptions options) {
+Mesh binary(const Bytes& data,StlImportOptions options,
+            StlDetectedEncoding* detected) {
     if(data.size()<84)throw std::runtime_error("STL binary header is truncated");
     const std::size_t count=u32(data.data()+80);
     if(count>maxStlFacets||count==0)
@@ -179,6 +184,7 @@ Mesh binary(const Bytes& data,StlImportOptions options) {
         throw std::runtime_error("STL binary facet count/length mismatch or truncated data");
     const auto defaultColor=magicsDefault(data.data());
     const bool magics=defaultColor.has_value();
+    bool anyMagicsFacet=false,anyViscamFacet=false;
     Builder builder;
     builder.options=options;
     for(std::size_t i=0;i<count;++i) {
@@ -190,18 +196,27 @@ Mesh binary(const Bytes& data,StlImportOptions options) {
             facet.vertices[v]={f32(bytes+12+12*v),
                                f32(bytes+16+12*v),f32(bytes+20+12*v)};
         const auto attribute=u16(bytes+48);
-        if(magics)
+        if(magics) {
+            anyMagicsFacet|=(attribute&0x8000u)==0u;
             facet.color=(attribute&0x8000u)?
                 *defaultColor:packedColour(attribute,true);
-        else if(attribute&0x8000u)
+        }else if(attribute&0x8000u) {
+            anyViscamFacet=true;
             facet.color=packedColour(attribute,false);
-        else if(attribute!=0)
+        }else if(attribute!=0)
             throw std::runtime_error(
                 "STL facet attribute is ambiguous without Magics COLOR= header "
                 "or VisCAM valid-colour bit");
         builder.add(facet);
     }
-    return builder.finish();
+    const bool objectOnly=magics&&!anyMagicsFacet;
+    Mesh result=builder.finish(objectOnly?defaultColor:std::nullopt);
+    if(detected)
+        *detected=objectOnly?StlDetectedEncoding::BinaryMagicsObject:
+                  magics?StlDetectedEncoding::BinaryMagicsFacet:
+                  anyViscamFacet?StlDetectedEncoding::BinaryViscam:
+                                 StlDetectedEncoding::BinaryGeometry;
+    return result;
 }
 double real(std::istream& in,const char* what) {
     double number=0;
@@ -214,7 +229,8 @@ void expect(std::istream& in,const char* expected) {
     if(!(in>>token)||token!=expected)
         throw std::runtime_error(std::string("STL expected '")+expected+"'");
 }
-Mesh ascii(const Bytes& data,StlImportOptions options) {
+Mesh ascii(const Bytes& data,StlImportOptions options,
+           StlDetectedEncoding* detected) {
     const std::string input(data.begin(),data.end());
     if(input.find('\0')!=std::string::npos)
         throw std::runtime_error("STL ASCII contains embedded NUL");
@@ -247,12 +263,14 @@ Mesh ascii(const Bytes& data,StlImportOptions options) {
     }
     if(!closed||file>>tag)
         throw std::runtime_error("STL ASCII missing endsolid or has trailing records");
-    return builder.finish();
+    auto result=builder.finish();
+    if(detected)*detected=StlDetectedEncoding::Ascii;
+    return result;
 }
 } // namespace
 
 Mesh parseStlMesh(const std::filesystem::path& path,
-                  StlImportOptions options) {
+                  StlImportOptions options,StlDetectedEncoding* detected) {
     std::ifstream file(path,std::ios::binary);
     if(!file)throw std::runtime_error("Cannot open STL mesh");
     file.seekg(0,std::ios::end);
@@ -268,12 +286,12 @@ Mesh parseStlMesh(const std::filesystem::path& path,
         std::size_t(u32(data.data()+80))<=maxStlFacets&&
         std::size_t(u32(data.data()+80))>0&&
         data.size()==84+std::size_t(u32(data.data()+80))*50;
-    if(exactBinary)return binary(data,options);
+    if(exactBinary)return binary(data,options,detected);
     // Binary files may begin "solid". Prefer an exact binary layout above.
     // The explicit STL filter nevertheless detects partial binary payloads.
     const bool beginsSolid=data.size()>=5&&
         std::memcmp(data.data(),"solid",5)==0;
-    if(beginsSolid)return ascii(data,options);
+    if(beginsSolid)return ascii(data,options,detected);
     if(data.size()>=84)
         throw std::runtime_error("STL binary facet count/length mismatch or truncated data");
     throw std::runtime_error("STL missing solid header or complete binary header");

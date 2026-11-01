@@ -32,25 +32,31 @@
 }
 @end
 
-// Save panel accessory updates the selected allowed extension. Encoding is
-// returned by popup index, NEVER inferred from the file's contents/suffix.
+// The popup selects the encoder. Keep exact filename text under Mesher's
+// control rather than letting NSSavePanel replace unrelated suffixes.
 @interface MesherExportFilterController : NSObject {
 @public
     NSSavePanel* panel;
-    UTType* objType;
-    UTType* plyType;
-    UTType* stlType;
+    NSInteger previousIndex;
 }
 - (void)change:(id)sender;
 @end
 @implementation MesherExportFilterController
 - (void)change:(id)sender {
-    const auto index=static_cast<std::size_t>(
-        [(NSPopUpButton*)sender indexOfSelectedItem]);
-    if(index>=mesher::meshExportFormats.size())return;
-    const auto ext=mesher::meshExportFormats[index].extension;
-    UTType* type=ext=="obj"?objType:ext=="ply"?plyType:stlType;
-    if(type)panel.allowedContentTypes=@[type];
+    const NSInteger next=[(NSPopUpButton*)sender indexOfSelectedItem];
+    if(next<0||static_cast<std::size_t>(next)>=mesher::meshExportFormats.size())
+        return;
+    if(next==previousIndex)return;
+    const auto previous=mesher::meshExportFormats[
+        static_cast<std::size_t>(previousIndex)].extension;
+    const auto current=mesher::meshExportFormats[
+        static_cast<std::size_t>(next)].extension;
+    const char* field=panel.nameFieldStringValue.UTF8String;
+    const auto newName=mesher::changeExportFilenameExtension(
+        std::filesystem::path(field?field:""),previous,current);
+    const auto utf8=newName.string();
+    panel.nameFieldStringValue=[NSString stringWithUTF8String:utf8.c_str()];
+    previousIndex=next;
 }
 @end
 
@@ -97,7 +103,8 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         panel.prompt=@"Export";
         panel.canCreateDirectories=YES;
         panel.extensionHidden=NO;
-        panel.allowsOtherFileTypes=NO;
+        // No Cocoa suffix restrictions or extension-mismatch warnings.
+        panel.allowsOtherFileTypes=YES;
         NSPopUpButton* popup=[[NSPopUpButton alloc] initWithFrame:
             NSMakeRect(0,0,410,28) pullsDown:NO];
         for(const auto& entry:meshExportFormats) {
@@ -108,24 +115,13 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         MesherExportFilterController* controller=
             [[MesherExportFilterController alloc] init];
         controller->panel=panel;
-        controller->objType=[UTType typeWithFilenameExtension:@"obj"
-                                              conformingToType:UTTypeData];
-        controller->plyType=[UTType typeWithFilenameExtension:@"ply"
-                                              conformingToType:UTTypeData];
-        controller->stlType=[UTType typeWithFilenameExtension:@"stl"
-                                              conformingToType:UTTypeData];
-        if(!controller->objType||!controller->plyType||!controller->stlType) {
-            [controller release];
-            [popup release];
-            throw std::runtime_error("Cannot construct macOS STL/PLY/OBJ export types");
-        }
         [popup setTarget:controller];
         [popup setAction:@selector(change:)];
         const auto defaultIndex=static_cast<NSInteger>(
             initialPreset);
         [popup selectItemAtIndex:defaultIndex];
+        controller->previousIndex=defaultIndex;
         panel.accessoryView=popup;
-        [controller change:popup];
         const auto filename=suggestion.filename().string();
         panel.nameFieldStringValue=
             [NSString stringWithUTF8String:filename.c_str()];
@@ -148,9 +144,17 @@ std::optional<NativeMeshExportSelection> nativeSaveMeshExportDialog(
         const char* path=url.fileSystemRepresentation;
         if(!path)throw std::runtime_error("macOS export path unavailable");
         const auto preset=static_cast<MeshExportPreset>(selection);
-        const std::filesystem::path raw(path);
+        auto raw=std::filesystem::path(path);
+        // Resolve the name-field text before Cocoa's URL-based adjustments.
+        const char* typed=panel.nameFieldStringValue.UTF8String;
+        if(typed&&*typed) {
+            const std::filesystem::path typedPath(typed);
+            const char* directory=panel.directoryURL.fileSystemRepresentation;
+            if(typedPath.is_absolute())raw=typedPath;
+            else if(directory)raw=std::filesystem::path(directory)/typedPath;
+        }
         const auto final=validateExportFilename(raw,preset);
-        if(raw!=final&&std::filesystem::exists(final)&&
+        if(std::filesystem::exists(final)&&
            !nativeConfirmMeshExportOverwrite(nullptr,final))
             return std::nullopt;
         return NativeMeshExportSelection{

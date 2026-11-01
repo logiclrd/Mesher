@@ -92,6 +92,24 @@ void testOpeningAndErrors() {
                 ExportFileFamily::Obj,3},
             "Import did not preserve recognized OBJ codec");
 
+    state.opened("castle.stl",DocumentSourceFormat::Stl,
+                 PreferredExportFormat{ExportFileFamily::Stl,3});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Stl,3},
+            "Materialise facet-colour STL import must select Magics facet export");
+    state.opened("solid-object.stl",DocumentSourceFormat::Stl,
+                 PreferredExportFormat{ExportFileFamily::Stl,4});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Stl,4},
+            "Magics single-object STL import must select single-object export");
+    state.opened("surface.ply",DocumentSourceFormat::StanfordPly,
+                 PreferredExportFormat{ExportFileFamily::Ply,11});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Ply,11},
+            "Big-endian source-alpha PLY import must retain its export codec");
+    state.opened("duck.obj",DocumentSourceFormat::WavefrontObj,
+                 PreferredExportFormat{ExportFileFamily::Obj,3});
+
     // Opening .mshr changes document identity, not the session-wide export
     // codec remembered from foreign-format imports.
     state.opened("revision.mshr",DocumentSourceFormat::NativeMshr);
@@ -133,6 +151,46 @@ void testOpeningAndErrors() {
     }catch(const std::invalid_argument&) {refused=true;}
     require(refused&&state.filenameHint()==before,
             "Invalid export encoding partially changed filename hint");
+}
+
+void testExportFilenameHint() {
+    DocumentFilenameState state;
+    require(state.suggestExportFilename("new shape","ply")=="new shape.ply",
+            "New export must use the selected format suffix");
+    state.opened("model.obj",DocumentSourceFormat::WavefrontObj);
+    require(state.suggestExportFilename("ignored","obj")=="model.obj",
+            "OBJ import name was not retained for OBJ export");
+    require(state.suggestExportFilename("ignored","ply")=="model.ply",
+            "OBJ import suffix was not replaced for a PLY export");
+    state.completedExport("another.stl",{ExportFileFamily::Stl,1},
+                          state.generation());
+    require(state.suggestExportFilename("ignored","ply")=="model.ply",
+            "Changing codec altered the hint's original suffix");
+    state.opened("model.stl",DocumentSourceFormat::WavefrontObj);
+    require(state.suggestExportFilename("ignored","ply")=="model.stl.ply",
+            "A misleading suffix was trimmed from an OBJ import");
+    state.opened("Duck.stl",DocumentSourceFormat::StanfordPly);
+    require(state.suggestExportFilename("ignored","stl")=="Duck.stl",
+            "A non-matching PLY source suffix duplicated the selected STL suffix");
+    state.opened("shape.ply",DocumentSourceFormat::StanfordPly);
+    require(state.suggestExportFilename("ignored","stl")=="shape.stl",
+            "PLY source extension was not replaced by STL");
+    state.opened("thing.stl",DocumentSourceFormat::Stl);
+    require(state.suggestExportFilename("ignored","obj")=="thing.obj",
+            "STL source extension was not replaced by OBJ");
+    state.opened("native.mshr",DocumentSourceFormat::NativeMshr);
+    require(state.suggestExportFilename("ignored","ply")=="native.ply",
+            "Native filename hint kept its checkpoint suffix");
+    state.newDocument();
+    state.completedExport("exported.stl",{ExportFileFamily::Stl,1},
+                          state.generation());
+    state.completedExport("second.obj",{ExportFileFamily::Obj,1},
+                          state.generation());
+    require(state.suggestExportFilename("ignored","ply")=="exported.ply",
+            "Later codec replaced the first export's hint provenance");
+    state.newDocument();
+    require(state.suggestExportFilename("new object","obj")=="new object.obj",
+            "New-document export retained the previous suffix");
 }
 
 void testEmbeddedWords() {
@@ -182,6 +240,7 @@ int main() {
     try {
         testFilenamePolicy();
         testOpeningAndErrors();
+        testExportFilenameHint();
         testEmbeddedWords();
         std::cout<<"UX09A filename provenance and embedded word tests passed\n";
         return 0;
