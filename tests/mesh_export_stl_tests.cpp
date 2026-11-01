@@ -1,4 +1,5 @@
 #include "mesher/mesh_export_stl.hpp"
+#include "mesher/stl_facet_colour.hpp"
 #include "mesher/mesh_stl.hpp"
 
 #include <array>
@@ -125,13 +126,24 @@ int main() {
                                  StlExportEncoding::BinaryMagicsObject})
             roundTrip(encoding);
         auto mesh=tetra();
-        // In facet colour modes, each face becomes one five-bit RGB colour
-        // derived from its three source vertex colours, not a vertex colour.
+        // Each facet chooses from the original source-vertex palette.
+        // Blue/red input must not produce the old averaged intermediate purple.
         mesh.colors[0]={0,0,1,1};
+        const auto selected=stlFacetColourRGB555(mesh);
         const auto seam=serialize(mesh,{StlExportEncoding::BinaryViscam});
-        require(attribute(seam,0)==static_cast<std::uint16_t>(
-                0x8000u|(21u<<10)|10u),
-                "Vertex-to-facet mean/quantization is not deterministic");
+        for(std::size_t i=0;i<selected.size();++i) {
+            const auto rgb=selected[i];
+            const auto r=rgb&31u,g=(rgb>>5)&31u,b=(rgb>>10)&31u;
+            require(attribute(seam,i)==static_cast<std::uint16_t>(
+                    0x8000u|(r<<10)|(g<<5)|b),
+                    "Default STL facet export did not use dual diffusion");
+            require(rgb==31u||rgb==static_cast<std::uint16_t>(31u<<10),
+                    "Default facet diffusion introduced a blended RGB");
+        }
+        const auto magics=serialize(mesh,{StlExportEncoding::BinaryMagicsFacet});
+        for(std::size_t i=0;i<selected.size();++i)
+            require(attribute(magics,i)==selected[i],
+                    "Magics facet export did not use dual diffusion");
         mesh=tetra();
         mesh.triangles.pop_back();
         reject(mesh,{StlExportEncoding::BinaryUncoloured});

@@ -61,6 +61,9 @@ Twelve PLY variants: ASCII, little-endian binary, big-endian binary; each
 with no colour, RGB, RGBA from current mesh, RGBA from original source alpha.
 Five STL variants: ASCII uncoloured, binary uncoloured, VisCAM 5:5:5 facet RGB,
 Materialise Magics 5:5:5 facet RGB, Materialise Magics one object RGBA.
+Both facet RGB serializers use quantized source-vertex palette selection with
+bounded dual-graph error diffusion; they do not average vertex RGBs into a
+new facet colour. The original filter labels and disclosure remain unchanged.
 
 Before enqueue, each selected entry shows a **modal confirm/cancel message**
 disclosing its nonstandard representation, lost alpha/RGB, 8-bit/5-bit

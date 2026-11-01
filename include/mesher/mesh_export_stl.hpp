@@ -28,9 +28,10 @@ struct StlExportOptions {
 
 // Writes no bytes until geometry, float32 representability, topology and
 // requested colour encoding have been validated. In coloured facet modes,
-// each triangle uses the arithmetic mean of its three vertex RGB colours,
-// rounded to five bits/channel. Per-vertex colour discontinuities and alpha
-// cannot round-trip through facet-colour STL; objectColour RGBA is stored in
+// each triangle receives a 5-bit RGB colour selected from its source vertex
+// palette by bounded error diffusion over the mesh's topological dual.
+// Vertex colours and alpha cannot round-trip exactly through facet-colour
+// STL; objectColour RGBA is stored in
 // the Magics object header and represents the whole mesh uniformly.
 // UI/file transaction and immutable snapshot ownership are UX07D/E.
 void writeStlMesh(std::ostream& output,const Mesh& mesh,
