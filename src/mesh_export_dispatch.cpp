@@ -50,9 +50,33 @@ MeshExportEncoder meshExportEncoder(MeshExportPreset preset) {
         };
     }
     const auto ordinal=index-static_cast<std::size_t>(MeshExportPreset::StlAscii);
-    const auto encoding=static_cast<StlExportEncoding>(ordinal);
-    return [encoding](std::ostream& out,const Mesh& mesh) {
+    StlExportEncoding encoding{};
+    StlFacetColourStrategy strategy=StlFacetColourStrategy::Mean;
+    if(ordinal<=4u)encoding=static_cast<StlExportEncoding>(ordinal);
+    else {
+        switch(preset) {
+            case MeshExportPreset::StlViscamRgbPalette:
+                encoding=StlExportEncoding::BinaryViscam;
+                strategy=StlFacetColourStrategy::Palette;
+                break;
+            case MeshExportPreset::StlViscamRgbDiffusion:
+                encoding=StlExportEncoding::BinaryViscam;
+                strategy=StlFacetColourStrategy::Diffusion;
+                break;
+            case MeshExportPreset::StlMagicsRgbPalette:
+                encoding=StlExportEncoding::BinaryMagicsFacet;
+                strategy=StlFacetColourStrategy::Palette;
+                break;
+            case MeshExportPreset::StlMagicsRgbDiffusion:
+                encoding=StlExportEncoding::BinaryMagicsFacet;
+                strategy=StlFacetColourStrategy::Diffusion;
+                break;
+            default:throw std::invalid_argument("Unknown STL colour export preset");
+        }
+    }
+    return [encoding,strategy](std::ostream& out,const Mesh& mesh) {
         StlExportOptions options{encoding};
+        options.strategy=strategy;
         if(encoding==StlExportEncoding::BinaryMagicsObject)
             options.objectColour=averageObjectColour(mesh);
         writeStlMesh(out,mesh,options);

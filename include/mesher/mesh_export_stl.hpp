@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/mesh.hpp"
+#include "mesher/stl_facet_colour.hpp"
 
 #include <iosfwd>
 #include <optional>
@@ -24,12 +25,17 @@ struct StlExportOptions {
     // global RGBA, regardless of existing per-vertex colours. Other dialects
     // reject an unexpected objectColour to avoid accidental metadata loss.
     std::optional<VertexRGBA> objectColour{};
+    // The export dialog exposes explicit comparison modes for both RGB555
+    // facet dialects. Existing callers retain exact historical means.
+    StlFacetColourStrategy strategy=StlFacetColourStrategy::Mean;
+    std::uint64_t seed=42;
 };
 
 // Writes no bytes until geometry, float32 representability, topology and
 // requested colour encoding have been validated. In coloured facet modes,
-// each triangle uses the arithmetic mean of its three vertex RGB colours,
-// rounded to five bits/channel. Per-vertex colour discontinuities and alpha
+// the default takes the arithmetic mean of its three vertex RGB colours,
+// rounded to five bits/channel. Optional Palette and Diffusion strategies
+// select quantized source colours and avoid averaging them. Alpha and
 // cannot round-trip through facet-colour STL; objectColour RGBA is stored in
 // the Magics object header and represents the whole mesh uniformly.
 // UI/file transaction and immutable snapshot ownership are UX07D/E.

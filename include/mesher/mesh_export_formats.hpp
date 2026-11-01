@@ -34,6 +34,10 @@ enum class MeshExportPreset {
     StlViscamRgb,
     StlMagicsRgb,
     StlMagicsObjectRgba,
+    StlViscamRgbPalette,
+    StlViscamRgbDiffusion,
+    StlMagicsRgbPalette,
+    StlMagicsRgbDiffusion,
 };
 
 struct MeshExportFormatEntry {
@@ -52,8 +56,12 @@ inline constexpr std::string_view stlFacetColourDisclosure=
     "Mesher makes a best effort to distribute vertex colours across the faces "
     "of the mesh, but the exported file is unavoidably not an exact "
     "representation of the Mesher document.";
+inline constexpr std::string_view stlDualFacetDisclosure=
+    "Experimental facet-colour conversion selects quantized source vertex "
+    "colours instead of averaging. Error diffusion attempts to preserve "
+    "spatial colour contrast, but the STL result remains lossy.";
 
-inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
+inline constexpr std::array<MeshExportFormatEntry,25> meshExportFormats{{
     {MeshExportPreset::ObjGeometry,
      "Wavefront OBJ - geometry only (*.obj)","obj",
      "Standard OBJ does not store Mesher vertex colour or alpha. Both are omitted."},
@@ -127,7 +135,19 @@ inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
      "STL - binary Magics single averaged RGBA (*.stl)","stl",
      "ALL vertices are collapsed to ONE object colour: the arithmetic mean "
      "of the current mesh's vertex RGBA. The complete spatial colour variation "
-     "is lost; the RGBA is quantized to 8 bits and geometry to float32."}
+     "is lost; the RGBA is quantized to 8 bits and geometry to float32."},
+    {MeshExportPreset::StlViscamRgbPalette,
+     "STL - binary VisCAM facet RGB - vertex palette (*.stl)","stl",
+     stlDualFacetDisclosure},
+    {MeshExportPreset::StlViscamRgbDiffusion,
+     "STL - binary VisCAM facet RGB - dual diffusion (*.stl)","stl",
+     stlDualFacetDisclosure},
+    {MeshExportPreset::StlMagicsRgbPalette,
+     "STL - binary Materialise Magics facet RGB - vertex palette (*.stl)","stl",
+     stlDualFacetDisclosure},
+    {MeshExportPreset::StlMagicsRgbDiffusion,
+     "STL - binary Materialise Magics facet RGB - dual diffusion (*.stl)","stl",
+     stlDualFacetDisclosure}
 }};
 
 inline const MeshExportFormatEntry& meshExportFormat(MeshExportPreset preset) {
