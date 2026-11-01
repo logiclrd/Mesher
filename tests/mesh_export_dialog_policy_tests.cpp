@@ -543,6 +543,16 @@ void testNames() {
         require(validateExportFilename("\"test\"",preset)=="test",
                 "Quoted extensionless export was given an unwanted suffix");
     }
+    constexpr std::string_view facetDisclosure=
+        "Colourized STL is based on facet colours instead of vertex colours. "
+        "Mesher makes a best effort to distribute vertex colours across the faces "
+        "of the mesh, but the exported file is unavoidably not an exact "
+        "representation of the Mesher document.";
+    require(meshExportFormat(MeshExportPreset::StlViscamRgb).disclosure==
+                facetDisclosure &&
+            meshExportFormat(MeshExportPreset::StlMagicsRgb).disclosure==
+                facetDisclosure,
+            "Facet-coloured STL confirmation did not use the updated wording");
     require(changeExportFilenameExtension("model.obj","obj","ply")=="model.ply",
             "OBJ -> PLY did not replace its matching prior suffix");
     require(changeExportFilenameExtension("model.stl","obj","ply")==

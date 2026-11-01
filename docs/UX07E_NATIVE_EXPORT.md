@@ -64,8 +64,11 @@ Materialise Magics 5:5:5 facet RGB, Materialise Magics one object RGBA.
 
 Before enqueue, each selected entry shows a **modal confirm/cancel message**
 disclosing its nonstandard representation, lost alpha/RGB, 8-bit/5-bit
-quantization, or vertex-to-facet averaging. Cancel leaves the editor and
-destination untouched. Error messages use a distinct export-failure title.
+quantization, or best-effort vertex-to-facet colour approximation. Both
+VisCAM and Materialise Magics facet RGB entries use the same plain-language
+warning that facet colours cannot exactly represent Mesher's vertex colours.
+Cancel leaves the editor and destination untouched. Error messages use a
+distinct export-failure title.
 
 The initial filter is detected from the *actual successfully parsed*
 foreign file, not just its OBJ/PLY/STL family: STL distinguishes ASCII,

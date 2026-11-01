@@ -45,6 +45,14 @@ struct MeshExportFormatEntry {
     std::string_view disclosure;
 };
 
+// Shared disclosure for both facet-colour dialects: neither can represent
+// the editable per-vertex RGBA field exactly.
+inline constexpr std::string_view stlFacetColourDisclosure=
+    "Colourized STL is based on facet colours instead of vertex colours. "
+    "Mesher makes a best effort to distribute vertex colours across the faces "
+    "of the mesh, but the exported file is unavoidably not an exact "
+    "representation of the Mesher document.";
+
 inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
     {MeshExportPreset::ObjGeometry,
      "Wavefront OBJ - geometry only (*.obj)","obj",
@@ -111,12 +119,10 @@ inline constexpr std::array<MeshExportFormatEntry,21> meshExportFormats{{
      "Coordinates become 32-bit floats."},
     {MeshExportPreset::StlViscamRgb,
      "STL - binary VisCAM/SolidView facet RGB (*.stl)","stl",
-     "Every triangle receives its three vertex RGBs averaged and rounded "
-     "to 5-bit VisCAM facet colour. Alpha and high-frequency detail are lost."},
+     stlFacetColourDisclosure},
     {MeshExportPreset::StlMagicsRgb,
      "STL - binary Materialise Magics facet RGB (*.stl)","stl",
-     "Every triangle receives its three vertex RGBs averaged and rounded "
-     "to 5-bit Magics facet colour. Alpha and high-frequency detail are lost."},
+     stlFacetColourDisclosure},
     {MeshExportPreset::StlMagicsObjectRgba,
      "STL - binary Magics single averaged RGBA (*.stl)","stl",
      "ALL vertices are collapsed to ONE object colour: the arithmetic mean "
