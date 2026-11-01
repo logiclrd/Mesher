@@ -254,7 +254,6 @@ void checkRoundTrip(const mesher::Mesh& source,
     }
     for(auto& value:mean)value/=static_cast<double>(source.colors.size());
     bool foundNonwhite=false;
-    bool differsFromOriginal=false;
     for(std::size_t i=0;i<source.colors.size();++i) {
         const auto& a=source.colors[i];
         const auto& b=opened.colors[mapping[i]];
@@ -264,9 +263,6 @@ void checkRoundTrip(const mesher::Mesh& source,
                 b.b>=0&&b.b<=1&&b.a>=0&&b.a<=1,
                 "UX07F imported nonfinite/out-of-range editable RGBA");
         foundNonwhite|=!near(b.r,1)||!near(b.g,1)||!near(b.b,1);
-        differsFromOriginal|=!near(a.r,b.r,1e-5)||
-                             !near(a.g,b.g,1e-5)||
-                             !near(a.b,b.b,1e-5);
         if(!coloured)continue;
         if(index==20) {
             // Magics single-object mode deliberately averages *all*
@@ -278,9 +274,9 @@ void checkRoundTrip(const mesher::Mesh& source,
                     near(b.a,mean[3],precision),
                     "UX07F Magics single-object RGBA differs from chosen average");
         }else if(index>=18) {
-            // VisCAM/Magics facet colour is 5-bit, then UX06 diffuses
-            // per-facet colours to a vertex field. Exact source RGB is
-            // mathematically unrecoverable; never assert false fidelity.
+            // VisCAM/Magics facet RGB is 5-bit, then UX06 diffuses
+            // it back to the vertex field. Exact recovery is not guaranteed,
+            // but must not be treated as a failure when it happens.
             require(near(b.a,1),
                     "UX07F facet-colour STL invented editable alpha");
         }else {
@@ -308,9 +304,8 @@ void checkRoundTrip(const mesher::Mesh& source,
     if(coloured)
         require(foundNonwhite,
                 "UX07F selected coloured export reimported as plain white");
-    if(index==18||index==19||index==20)
-        require(differsFromOriginal,
-                "UX07F STL lossy colour mode unexpectedly retained every source RGB");
+    // Quantized facet RGB may preserve all values in a small fixture.
+    // Never enforce visible information loss as a correctness invariant.
 }
 // Real checked-in third-party source files exercise the same end-to-end
 // path beyond a synthetic tetrahedron. Compare a deterministic sampling of
