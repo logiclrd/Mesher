@@ -100,10 +100,69 @@ def generate_stretched_manifold_ellipsoid(image_path, out_path, radius=50.0):
             triangles.append((b, c, d))
     last_ring = (ring_count - 1) * circumference
     for i in range(circumference):
-        triangles.append(((last_ring + i, south,
-                         last_ring + (i + 1) % circumference))
+        triangles.append((last_ring + i, south,
+                          last_ring + (i + 1) % circumference))
 
     # Validate all geometry before publishing bytes. Each geometric edge has
     # exactly two incidences in opposite directions, with outward normals.
     if len(set(vertices)) != len(vertices):
-        raise ValueError$VÆÆ—6ö–B†2GWÆ–6FR4BfW'F–6W2r¢VFvW2ÒFVfVÇFF–7B†ÆÖ&F¢³ÂÒ¢f÷"f6Uö–æFW‚Â–G2–âVçVÖW&FR‡G&–ævÆW2“ ¢Â"Â2Ò‡fW'F–6W5¶åÒf÷"â–â–G2¢RÒ†%³ÒÖ³ÒÂ%³ÒÖ³ÒÂ%³%ÒÖ³%Ò¢bÒ†5³ÒÖ³ÒÂ5³ÒÖ³ÒÂ5³%ÒÖ³%Ò¢æ÷&ÖÂÒ‡U³Ò§e£%Ò×U³%Ò§e³ÒÀ¢U³%Ò§e³Ò×U³Ò§e³%ÒÀ¢U³Ò§e³Ò×U³Ò§e³Ò¢6VçG&RÒGWÆR‚†¶µÒ¶%¶µÒ¶5¶µÒ’ó2ãf÷"²–â&ævRƒ2’¢–bæ÷BÆÂ†ÖF‚æ—6f–æ—FR‡‚’f÷"‚–â‚¦Â¦"Â¦2Â¦æ÷&ÖÂ’“ ¢&—6RfÇVTW'&÷"†btæöæf–æ—FR6ö÷&F–æFW2öæ÷&ÖÇ2Bf6R¶f6Uö–æFW‡Òr¢–b7VÒ†æ÷&ÖÅ¶µÒ¢6VçG&U¶µÒf÷"²–â&ævRƒ2’’ÃÒ ¢&—6RfÇVTW'&÷"†btFVvVæW&FRö–çv&BG&–ævÆR¶f6Uö–æFW‡Òr¢f÷"f—'7BÂ6V6öæB–â‚†–G5³ÒÂ–G5³Ò’À¢†–G5³ÒÂ–G5³%Ò’À¢†–G5³%ÒÂ–G5³Ò’“ ¢¶W’Ò†Ö–â†f—'7BÂ6V6öæB’ÂÖ‚†f—'7BÂ6V6öæB’¢VFvW5¶¶W•Õ³–bf—'7BÂ6V6öæBVÇ6RÒ³Ò¢–bç’‡W6W2Ò³ÂÒf÷"W6W2–âVFvW2çfÇVW2‚’“ ¢&—6RfÇVTW'&÷"‚tVÆÆ—6ö–B†2÷Vâ÷"–æ6öç6—7FVçBÖæ–föÆBVFvW2r ¢†VFW"Ò€¢wÇ•Ææf÷&ÖB&–æ'•öÆ—GFÆUöVæF–âãÆâp¢v6öÖÖVçBÖW6†W"–ÖvR×Fò×fW'FW‚Ö6öÆ÷W"VÆÆ—6ö–EÆâp¢bvVÆVÖVçBfW'FW‚¶ÆVâ‡fW'F–6W2—ÕÆâp¢w&÷W'G’F÷V&ÆR…Æç&÷W'G’F÷V&ÆR•Æç&÷W'G’F÷V&ÆR¥Æâp¢w&÷W'G’V6†"&VEÆç&÷W'G’V6†"w&VVåÆç&÷W'G’V6†"&ÇVUÆâp¢bvVÆVÖVçBf6R¶ÆVâ‡G&–ævÆW2—ÕÆâp¢w&÷W'G’Æ—7BV6†"–çBfW'FW…ö–æF–6W5ÆæVæEö†VFW%Æâp¢’æVæ6öFR‚v66–’r¢v—F‚÷Vâ†÷WE÷F‚Âwv"r’2f–ÆS ¢f–ÆRçw&—FR††VFW"¢f÷"ö–çBÂ6öÆ÷W"–â¦—‡fW'F–6W2Â6öÆ÷'2“ ¢f–ÆRçw&—FR…dU%DU…õ$T4õ$Bç6²‚§ö–çBÂ¦6öÆ÷W"’¢f÷"G&–ævÆR–âG&–ævÆW3 ¢f–ÆRçw&—FR„d4Uõ$T4õ$Bç6²ƒ2Â§G&–ævÆR’ ¢&–çB†btW‡÷'FVBÅ“¢¶ÆVâ‡fW'F–6W2—ÒfW'F–6W2Â¶ÆVâ‡G&–ævÆW2—Òf6W2Âp¢bw·v–GF‚¢†V–v‡GÒ–ÖvRÖ6öÆ÷W&VBfW'F–6W2Â¶ÆVâ†VFvW2—Ò—&VBVFvW2âr  ¦FVbÖ–â‚“ ¢'6W"Ò&w'6Rä&wVÖVçE'6W"€¢FW67&—F–öãÒuw&â–ÖvR&÷VæB'BöbvFW'F–v‡BVÆÆ—6ö–B–âÅ’fW'FW‚$t"âr¢'6W"æFEö&wVÖVçB‚rÖ’rÂrÒÖ–ÖvRrÂ&WV—&VCÕG'VRÂ†VÇÒu6÷W&6Rär÷"–ÆÆ÷r×7W÷'FVB–ÖvRr¢'6W"æFEö&wVÖVçB‚rÖòrÂrÒÖ÷WGWBrÂFVfVÇCÒv÷WGWBçÇ’rÂ†VÇÒtFW7F–æF–öâÅ’r¢'6W"æFEö&wVÖVçB‚r×"rÂrÒ×&F—W2rÂG—SÖfÆöBÂFVfVÇCÓSãÀ¢†VÇÒtWVF÷&–Â&F—W2‡÷6—F—fRÂf–æ—FR’r¢&w2Ò'6W"ç'6Uö&w2‚¢vVæW&FU÷7G&WF6†VEöÖæ–föÆEöVÆÆ—6ö–B†&w2æ–ÖvRÂ&w2æ÷WGWBÂ&w2ç&F—W2  ¦–bõöæÖUõòÓÒuõöÖ–åõòs ¢Ö–â‚ 
+        raise ValueError('Ellipsoid has duplicate vertex positions')
+
+    edges = defaultdict(lambda: [0, 0])
+    for face_index, ids in enumerate(triangles):
+        if len(set(ids)) != 3 or any(i < 0 or i >= len(vertices) for i in ids):
+            raise ValueError(f'Invalid vertex indices in face {face_index}')
+        a, b, c = (vertices[i] for i in ids)
+        u = tuple(b[k] - a[k] for k in range(3))
+        v = tuple(c[k] - a[k] for k in range(3))
+        normal = (u[1] * v[2] - u[2] * v[1],
+                  u[2] * v[0] - u[0] * v[2],
+                  u[0] * v[1] - u[1] * v[0])
+        centre = tuple((a[k] + b[k] + c[k]) / 3.0 for k in range(3))
+        if not all(math.isfinite(x) for x in (*a, *b, *c, *normal)):
+            raise ValueError(f'Nonfinite coordinates at face {face_index}')
+        if sum(normal[k] * centre[k] for k in range(3)) <= 0:
+            raise ValueError(f'Face {face_index} is degenerate or faces inward')
+        for first, second in ((ids[0], ids[1]), (ids[1], ids[2]),
+                              (ids[2], ids[0])):
+            edge = (min(first, second), max(first, second))
+            edges[edge][0 if first < second else 1] += 1
+    if any(uses != [1, 1] for uses in edges.values()):
+        raise ValueError('Ellipsoid has open or inconsistently wound mesh edges')
+
+    header = (
+        'ply\nformat binary_little_endian 1.0\n'
+        'comment Mesher image-to-vertex-colour ellipsoid\n'
+        f'element vertex {len(vertices)}\n'
+        'property double x\nproperty double y\nproperty double z\n'
+        'property uchar red\nproperty uchar green\nproperty uchar blue\n'
+        f'element face {len(triangles)}\n'
+        'property list uchar int vertex_indices\nend_header\n'
+    ).encode('ascii')
+
+    with open(out_path, 'wb') as file:
+        file.write(header)
+        for position, colour in zip(vertices, colors):
+            file.write(VERTEX_RECORD.pack(*position, *colour))
+        for ids in triangles:
+            file.write(FACE_RECORD.pack(3, *ids))
+
+    print(f'Exported PLY: {len(vertices)} vertices, {len(triangles)} faces, '
+          f'{width * height} image-coloured vertices, {len(edges)} paired edges.')
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Wrap an image around part of a watertight ellipsoid in PLY vertex RGB.')
+    parser.add_argument('-i', '--image', required=True,
+                        help='Source PNG or Pillow-supported image')
+    parser.add_argument('-o', '--output', default='output.ply',
+                        help='Destination PLY')
+    parser.add_argument('-r', '--radius', type=float, default=50.0,
+                        help='Equatorial radius (positive, finite)')
+    args = parser.parse_args()
+    generate_stretched_manifold_ellipsoid(args.image, args.output, args.radius)
+
+
+if __name__ == '__main__':
+    main()

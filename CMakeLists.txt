@@ -534,6 +534,12 @@ if(MESHER_BUILD_TESTS)
             COMMAND mesher_stl_tests "${MESHER_STL_GENERATED_FIXTURE}")
         set_tests_properties(stl_generator_import PROPERTIES
             DEPENDS stl_generator_manifold)
+        # Catch accidental non-UTF-8 bytes and any Python syntax errors
+        # before the image generator's functional tests.
+        add_test(NAME ply_generator_python_syntax
+            COMMAND "${Python3_EXECUTABLE}" -m py_compile
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/img_to_ply.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_img_to_ply.py")
         # Direct 1-pixel -> 1-vertex RGB PLY mapping. The first test
         # checks bytes, colours and oriented manifold edges; the second
         # passes that same file through Mesher's actual PLY import/export path.
@@ -547,6 +553,8 @@ if(MESHER_BUILD_TESTS)
         add_test(NAME ply_generator_private_import_roundtrip
             COMMAND mesher_export_dialog_policy_tests --real-fixture
                 "${MESHER_PLY_GENERATED_FIXTURE}")
+        set_tests_properties(ply_generator_vertex_rgb_and_manifold
+            PROPERTIES DEPENDS ply_generator_python_syntax)
         set_tests_properties(ply_generator_private_import_roundtrip
             PROPERTIES DEPENDS ply_generator_vertex_rgb_and_manifold
                        TIMEOUT 120)
