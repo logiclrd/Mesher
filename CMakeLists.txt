@@ -948,33 +948,12 @@ if(MESHER_BUILD_TESTS)
     set_tests_properties(offmode_reflected_opposing_sheet_transactions PROPERTIES TIMEOUT 90)
     set_tests_properties(offmode_bounded_normal_backtracking PROPERTIES TIMEOUT 90)
     set_tests_properties(offmode_private_step_gate PROPERTIES TIMEOUT 90)
-    add_executable(mesher_winding_tests tests/revision_winding_tests.cpp)
-    target_link_libraries(mesher_winding_tests PRIVATE mesher_mesh)
-    add_test(NAME positive_winding_classification COMMAND mesher_winding_tests)
-    add_executable(mesher_repair_plan_tests tests/repair_plan_tests.cpp)
-    target_link_libraries(mesher_repair_plan_tests PRIVATE mesher_mesh)
-    add_test(NAME density_aware_excision_plans COMMAND mesher_repair_plan_tests)
-    add_executable(mesher_repair_closure_tests tests/repair_closure_tests.cpp)
-    target_link_libraries(mesher_repair_closure_tests PRIVATE mesher_mesh)
-    add_test(NAME topology_aware_closure_fitness COMMAND mesher_repair_closure_tests)
-    add_executable(mesher_repair_surgery_tests tests/repair_surgery_tests.cpp)
-    target_link_libraries(mesher_repair_surgery_tests PRIVATE mesher_mesh)
-    add_test(NAME private_repair_surgery COMMAND mesher_repair_surgery_tests)
-    add_executable(mesher_retirement_tests tests/revision_retirement_tests.cpp)
-    target_link_libraries(mesher_retirement_tests PRIVATE mesher_mesh)
-    add_test(NAME bounded_revision_retirement COMMAND mesher_retirement_tests)
     add_executable(mesher_history_tests tests/revision_history_tests.cpp)
     target_link_libraries(mesher_history_tests PRIVATE mesher_mesh)
     add_test(NAME persistent_history_checkpoints COMMAND mesher_history_tests)
     # A normal execution is ~0.01s. Bound intermittent hangs, so CTest
     # records a failing diagnostic instead of blocking CI indefinitely.
     set_tests_properties(persistent_history_checkpoints PROPERTIES TIMEOUT 90)
-    add_executable(mesher_spatial_tests tests/spatial_tests.cpp)
-    target_link_libraries(mesher_spatial_tests PRIVATE mesher_mesh)
-    add_test(NAME spatial_queries COMMAND mesher_spatial_tests)
-    add_executable(mesher_vertex_paint_tests tests/vertex_paint_tests.cpp)
-    target_link_libraries(mesher_vertex_paint_tests PRIVATE mesher_mesh)
-    add_test(NAME immutable_vertex_rgba_and_shadowed_paint COMMAND mesher_vertex_paint_tests)
     add_executable(mesher_async_tests tests/async_sculpt_tests.cpp)
     target_link_libraries(mesher_async_tests PRIVATE mesher_mesh)
     add_test(NAME asynchronous_sculpting COMMAND mesher_async_tests)
@@ -987,33 +966,41 @@ if(MESHER_BUILD_TESTS)
     add_test(NAME accepted_union_structural_audit
              COMMAND mesher_accepted_union_audit_tests)
     set_tests_properties(accepted_union_structural_audit PROPERTIES TIMEOUT 90)
-    add_executable(mesher_versioned_mesh_tests tests/versioned_mesh_tests.cpp)
-    target_link_libraries(mesher_versioned_mesh_tests PRIVATE mesher_mesh)
-    add_test(NAME versioned_mesh_storage COMMAND mesher_versioned_mesh_tests)
-    add_executable(mesher_partitioning_tests tests/mesh_partitioning_tests.cpp)
-    target_link_libraries(mesher_partitioning_tests PRIVATE mesher_mesh)
-    add_test(NAME mesh_partitioning COMMAND mesher_partitioning_tests)
-    add_executable(mesher_region_edit_tests tests/region_edit_tests.cpp)
-    target_link_libraries(mesher_region_edit_tests PRIVATE mesher_mesh)
-    add_test(NAME region_edit_transactions COMMAND mesher_region_edit_tests)
-    add_executable(mesher_incremental_index_tests tests/incremental_index_tests.cpp)
-    target_link_libraries(mesher_incremental_index_tests PRIVATE mesher_mesh)
-    add_test(NAME incremental_mesh_indices COMMAND mesher_incremental_index_tests)
-    add_executable(mesher_versioned_inflate_tests tests/versioned_inflate_tests.cpp)
-    target_link_libraries(mesher_versioned_inflate_tests PRIVATE mesher_mesh)
-    add_test(NAME versioned_inflate_local_baseline COMMAND mesher_versioned_inflate_tests)
-    add_executable(mesher_versioned_refine_tests tests/versioned_refine_tests.cpp)
-    target_link_libraries(mesher_versioned_refine_tests PRIVATE mesher_mesh)
-    add_test(NAME versioned_refine_transactions COMMAND mesher_versioned_refine_tests)
-    add_executable(mesher_versioned_collapse_tests tests/versioned_collapse_tests.cpp)
-    target_link_libraries(mesher_versioned_collapse_tests PRIVATE mesher_mesh)
-    add_test(NAME versioned_collapse_transactions COMMAND mesher_versioned_collapse_tests)
-    add_executable(mesher_partition_render_tests tests/partition_render_tests.cpp)
-    target_link_libraries(mesher_partition_render_tests PRIVATE mesher_mesh)
-    add_test(NAME dirty_partition_rendering COMMAND mesher_partition_render_tests)
-    add_executable(mesher_wire_quad_tests tests/wire_quads_tests.cpp)
-    target_link_libraries(mesher_wire_quad_tests PRIVATE mesher_mesh)
-    add_test(NAME screen_space_aa_wire_quad_encoding COMMAND mesher_wire_quad_tests)
+    # CI01: build these independent CPU regression translation units once into
+    # one executable, preserving their distinct CTest names, working directory,
+    # output, process isolation, filtering and exit status. Each source's main()
+    # is renamed only in its own translation unit, so no test logic changes.
+    add_executable(mesher_ci01_cpu_regressions tests/ci01_cpu_regressions_main.cpp)
+    target_link_libraries(mesher_ci01_cpu_regressions PRIVATE mesher_mesh)
+    set(MESHER_CI01_CPU_REGRESSIONS
+        "revision_winding_tests|positive_winding_classification"
+        "repair_plan_tests|density_aware_excision_plans"
+        "repair_closure_tests|topology_aware_closure_fitness"
+        "repair_surgery_tests|private_repair_surgery"
+        "revision_retirement_tests|bounded_revision_retirement"
+        "spatial_tests|spatial_queries"
+        "vertex_paint_tests|immutable_vertex_rgba_and_shadowed_paint"
+        "versioned_mesh_tests|versioned_mesh_storage"
+        "mesh_partitioning_tests|mesh_partitioning"
+        "region_edit_tests|region_edit_transactions"
+        "incremental_index_tests|incremental_mesh_indices"
+        "versioned_inflate_tests|versioned_inflate_local_baseline"
+        "versioned_refine_tests|versioned_refine_transactions"
+        "versioned_collapse_tests|versioned_collapse_transactions"
+        "partition_render_tests|dirty_partition_rendering"
+        "wire_quads_tests|screen_space_aa_wire_quad_encoding"
+    )
+    foreach(spec IN LISTS MESHER_CI01_CPU_REGRESSIONS)
+        string(REPLACE "|" ";" parts "${spec}")
+        list(GET parts 0 source_stem)
+        list(GET parts 1 test_name)
+        set(test_source "${CMAKE_CURRENT_SOURCE_DIR}/tests/${source_stem}.cpp")
+        set_source_files_properties("${test_source}" PROPERTIES
+            COMPILE_DEFINITIONS "main=mesher_ci01_${test_name}_main")
+        target_sources(mesher_ci01_cpu_regressions PRIVATE "${test_source}")
+        add_test(NAME ${test_name} COMMAND mesher_ci01_cpu_regressions ${test_name})
+    endforeach()
+
     add_executable(mesher_benchmark tests/performance_benchmark.cpp)
     target_link_libraries(mesher_benchmark PRIVATE mesher_mesh)
 endif()
