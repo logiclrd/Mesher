@@ -211,4 +211,5 @@ int main() {
         std::cerr<<"R06-M15A staged topology API FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

@@ -273,4 +273,5 @@ int main() {
         std::cerr<<"[r06-m17b] FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

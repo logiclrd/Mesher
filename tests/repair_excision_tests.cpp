@@ -329,4 +329,5 @@ int main() {
         std::cerr<<"R03 open excision test FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

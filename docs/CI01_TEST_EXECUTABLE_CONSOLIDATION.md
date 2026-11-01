@@ -51,6 +51,39 @@ CMake `add_executable` declarations drop from 99 to 84 (15 fewer).
 Expected Windows linked executables are 82 rather than 97, subject to the
 same build configuration. No test registrations are deliberately removed.
 
+## Second consolidation: four bounded linked suites
+
+The first CI01 implementation passed all five platform configurations in
+[run 41288877898](https://github.com/logiclrd/Mesher/actions/runs/41288877898).
+However, MSVC still linked **82 executables**, and the total Windows build step
+increased to **334.5 seconds** (from the 289.8-second baseline). Reducing
+a small number of link steps therefore did **not** show a speed improvement.
+
+The follow-up consolidates **68 additional one-mode, mesher_mesh-only** C++
+test targets into four independently linkable suites of 20, 18, 16, and
+14 test translation units. The original first group of 16 remains separate.
+CMake declarations drop further from 84 to **20**; the comparable Windows
+build should link **18 .exe files**, instead of 82. This is a predicted
+artifact count, not a measurement until the exact-head Windows CI completes.
+
+All 68 tests still have their original individual CTest names, environments,
+working directories, per-test timeout/fixtures and process isolation. Existing
+test assertions and fixture logic are unchanged; each renamed main gets the
+explicit success return required by standard C++. The same per-source main
+renaming and per-executable named dispatcher are used as in the first group.
+Four bounded link groups avoid relying on a single giant serial linker step.
+
+**Deliberately excluded**: platform-specific Qt/GLFW desktop test runners,
+tests with custom compile/link settings, multi-mode command-line/fixture
+executables, and the standalone performance benchmark. Their special semantics
+must not be silently changed merely to obtain a smaller .exe count.
+
+A performance claim requires the new run's actual MSVC compile/link time,
+number of linked .exe artifacts and all five warnings-as-errors/CTest suites.
+Windows runner variance and link-versus-compilation costs should be recorded
+before further expansion or closure of CI01. A reduced binary count by itself
+does not demonstrate a faster pipeline.
+
 ## Verification protocol
 
 1. Confirm the grouped sixteen names still appear once in

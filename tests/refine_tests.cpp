@@ -231,4 +231,5 @@ int main() {
         return 1;
     }
     std::cout<<"Local refinement tests passed\n";
+    return 0;
 }

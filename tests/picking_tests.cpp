@@ -462,4 +462,5 @@ int main() {
         std::cerr<<"Picking test failed: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

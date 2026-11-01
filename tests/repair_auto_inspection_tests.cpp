@@ -194,4 +194,5 @@ int main() {
         std::cerr<<"R06-M05 frozen automatic inspection FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

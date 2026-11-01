@@ -50,4 +50,5 @@ int main() {
         std::cerr<<"M57 viewport floor: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

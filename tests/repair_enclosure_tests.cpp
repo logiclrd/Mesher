@@ -173,4 +173,5 @@ int main() {
         std::cerr<<"R06-M02 enclosed component proof FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

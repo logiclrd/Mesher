@@ -862,4 +862,5 @@ int main() {
         std::cerr<<"R06-M04A mixed staging FAILED: "<<error.what()<<"\n";
         return 1;
     }
+    return 0;
 }

@@ -204,4 +204,5 @@ int main() {
         std::cerr<<"[r06-m17c] FAILED "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

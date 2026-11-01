@@ -204,4 +204,5 @@ int main() {
         std::cerr<<"R06-M01 survivor inventory test FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

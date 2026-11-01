@@ -60,4 +60,5 @@ int main() {
         std::cerr<<"[r06-m16d1] FAIL "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

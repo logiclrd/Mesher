@@ -450,4 +450,5 @@ int main() {
         std::cerr<<"V12 history/checkpoint failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

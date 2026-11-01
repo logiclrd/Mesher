@@ -84,4 +84,5 @@ int main() {
         std::cerr<<"[repair-r06-zipper-shape] FAILED "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

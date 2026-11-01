@@ -579,4 +579,5 @@ int main() {
     try { testMeasuredImportedBrush();testImportedBrushPhysicalScale();testLargeImportedTriangleInflates();testRadiusSliderAndLiveStroke();testFalloff();testSampling();testFourDimensionalStroke();testQueuedInputStepTelemetry();testRealtimeSamplingBound();testInflate();testCurvatureCorrection();testDemo();testWideSymmetricInflate();testAnimatedPlayback(); }
     catch(const std::exception& e){std::cerr<<"Brush test failed: "<<e.what()<<'\n';return 1;}
     std::cout<<"Brush tests passed\n";
+    return 0;
 }

@@ -214,4 +214,5 @@ int main() {
         std::cerr<<"R05 cap regression FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

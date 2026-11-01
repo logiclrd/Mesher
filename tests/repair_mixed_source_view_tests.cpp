@@ -192,4 +192,5 @@ int main() {
         std::cerr<<"R06-M14A source-backed topology FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

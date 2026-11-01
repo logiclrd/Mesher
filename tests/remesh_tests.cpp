@@ -171,4 +171,5 @@ int main() {
         return 1;
     }
     std::cout<<"Remesh tests passed\n";
+    return 0;
 }

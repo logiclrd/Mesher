@@ -171,4 +171,5 @@ int main() {
         std::cerr<<"UX09B failed: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

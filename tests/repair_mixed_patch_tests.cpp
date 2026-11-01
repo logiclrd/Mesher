@@ -176,4 +176,5 @@ int main() {
         std::cerr<<"R06-M14E full-patch gate FAILED: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

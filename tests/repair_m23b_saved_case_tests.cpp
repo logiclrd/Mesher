@@ -263,4 +263,5 @@ int main() {
         std::cerr<<"R06-M23B exact refusal-2: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

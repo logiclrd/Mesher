@@ -159,4 +159,5 @@ int main() {
         std::cerr<<"Dual-graph STL colour test failed: "<<error.what()<<"\n";
         return 1;
     }
+    return 0;
 }

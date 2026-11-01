@@ -222,4 +222,5 @@ int main() {
         std::cerr<<"Revision BVH picking failure: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

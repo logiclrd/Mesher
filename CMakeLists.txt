@@ -246,18 +246,8 @@ endif()
 
 if(MESHER_BUILD_TESTS)
     enable_testing()
-    add_executable(mesher_new_model_dialog_tests
-                   tests/new_model_dialog_tests.cpp)
-    target_link_libraries(mesher_new_model_dialog_tests PRIVATE mesher_mesh)
-    add_test(NAME ux09_new_model_private_candidate_and_modal_policy
-             COMMAND mesher_new_model_dialog_tests)
     set_tests_properties(ux09_new_model_private_candidate_and_modal_policy
                          PROPERTIES TIMEOUT 90)
-    add_executable(mesher_document_filename_tests
-                   tests/document_filename_state_tests.cpp)
-    target_link_libraries(mesher_document_filename_tests PRIVATE mesher_mesh)
-    add_test(NAME ux09_filename_provenance_and_embedded_vocabulary
-             COMMAND mesher_document_filename_tests)
     add_executable(mesher_save_as_policy_tests tests/save_as_policy_tests.cpp)
     target_include_directories(mesher_save_as_policy_tests PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -465,9 +455,6 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(desktop_merge_reflected_reject_conflicting_fixture PROPERTIES
             WILL_FAIL TRUE)
     endif()
-    add_executable(mesher_sculpt_fixtures_tests tests/sculpt_fixtures_tests.cpp)
-    target_link_libraries(mesher_sculpt_fixtures_tests PRIVATE mesher_mesh)
-    add_test(NAME geometry_torus_hollow_sphere_fixtures COMMAND mesher_sculpt_fixtures_tests)
     add_executable(mesher_mesh_tests tests/mesh_tests.cpp)
     target_link_libraries(mesher_mesh_tests PRIVATE mesher_mesh)
     add_test(NAME mesh_generation COMMAND mesher_mesh_tests)
@@ -478,20 +465,7 @@ if(MESHER_BUILD_TESTS)
         COMMAND mesher_mesh_tests --obj-mrgb-fixtures
             "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck-ZBrush.obj"
             "${CMAKE_CURRENT_SOURCE_DIR}/test-files/Duck-xyzrgb.obj")
-    add_executable(mesher_export_transaction_tests
-                   tests/mesh_export_transaction_tests.cpp)
-    target_link_libraries(mesher_export_transaction_tests PRIVATE mesher_mesh)
-    add_test(NAME mesh_export_atomic_snapshot_and_fifo
-             COMMAND mesher_export_transaction_tests)
     set_tests_properties(mesh_export_atomic_snapshot_and_fifo PROPERTIES TIMEOUT 60)
-    add_executable(mesher_obj_export_tests tests/mesh_export_obj_tests.cpp)
-    target_link_libraries(mesher_obj_export_tests PRIVATE mesher_mesh)
-    add_test(NAME obj_export_formats_and_roundtrips
-             COMMAND mesher_obj_export_tests)
-    add_executable(mesher_ply_export_tests tests/mesh_export_ply_tests.cpp)
-    target_link_libraries(mesher_ply_export_tests PRIVATE mesher_mesh)
-    add_test(NAME ply_export_encoding_colour_roundtrips
-             COMMAND mesher_ply_export_tests)
     add_executable(mesher_export_dialog_policy_tests
                    tests/mesh_export_dialog_policy_tests.cpp)
     target_link_libraries(mesher_export_dialog_policy_tests PRIVATE mesher_mesh)
@@ -514,15 +488,6 @@ if(MESHER_BUILD_TESTS)
                          ux07f_real_obj_export_reimport
                          ux07f_real_stl_export_reimport
                          PROPERTIES TIMEOUT 180)
-    add_executable(mesher_stl_export_tests tests/mesh_export_stl_tests.cpp)
-    target_link_libraries(mesher_stl_export_tests PRIVATE mesher_mesh)
-    add_test(NAME stl_export_dialect_and_colour_roundtrips
-             COMMAND mesher_stl_export_tests)
-    add_executable(mesher_stl_facet_colour_tests
-                   tests/stl_facet_colour_tests.cpp)
-    target_link_libraries(mesher_stl_facet_colour_tests PRIVATE mesher_mesh)
-    add_test(NAME stl_dual_facet_colour_diffusion
-             COMMAND mesher_stl_facet_colour_tests)
     add_executable(mesher_stl_tests tests/mesh_stl_tests.cpp)
     target_link_libraries(mesher_stl_tests PRIVATE mesher_mesh)
     add_test(NAME stl_import COMMAND mesher_stl_tests)
@@ -576,55 +541,12 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(stl_castle_import PROPERTIES
             DEPENDS stl_castle_generate)
     endif()
-    add_executable(mesher_stl_colour_benchmark tests/mesh_stl_colour_benchmark.cpp)
-    target_link_libraries(mesher_stl_colour_benchmark PRIVATE mesher_mesh)
-    add_test(NAME stl_colour_benchmark COMMAND mesher_stl_colour_benchmark)
-    add_executable(mesher_brush_tests tests/brush_tests.cpp)
-    target_link_libraries(mesher_brush_tests PRIVATE mesher_mesh)
-    add_test(NAME brushes COMMAND mesher_brush_tests)
-    add_executable(mesher_remesh_tests tests/remesh_tests.cpp)
-    target_link_libraries(mesher_remesh_tests PRIVATE mesher_mesh)
-    add_test(NAME directional_collapse COMMAND mesher_remesh_tests)
-    add_executable(mesher_refine_tests tests/refine_tests.cpp)
-    target_link_libraries(mesher_refine_tests PRIVATE mesher_mesh)
-    add_test(NAME local_refinement COMMAND mesher_refine_tests)
-    add_executable(mesher_surface_floor_grid_tests tests/surface_floor_grid_tests.cpp)
-    target_link_libraries(mesher_surface_floor_grid_tests PRIVATE mesher_mesh)
-    add_test(NAME visible_floor_grid_pixel_distance COMMAND mesher_surface_floor_grid_tests)
-    add_executable(mesher_visible_mesh_edge_tests tests/visible_mesh_edge_tests.cpp)
-    target_link_libraries(mesher_visible_mesh_edge_tests PRIVATE mesher_mesh)
-    add_test(NAME surface_attached_mesh_edge_distance COMMAND mesher_visible_mesh_edge_tests)
-    add_executable(mesher_wire_pole_depth_tests tests/wire_pole_depth_tests.cpp)
-    target_link_libraries(mesher_wire_pole_depth_tests PRIVATE mesher_mesh)
-    add_test(NAME wire_pole_depth_self_occlusion_diagnosis COMMAND mesher_wire_pole_depth_tests)
-    add_executable(mesher_picking_tests tests/picking_tests.cpp)
-    target_link_libraries(mesher_picking_tests PRIVATE mesher_mesh)
-    add_test(NAME mouse_picking COMMAND mesher_picking_tests)
-    add_executable(mesher_viewport_floor_tests tests/viewport_floor_tests.cpp)
-    target_link_libraries(mesher_viewport_floor_tests PRIVATE mesher_mesh)
-    add_test(NAME viewport_floor_fixture_clearance COMMAND mesher_viewport_floor_tests)
-    add_executable(mesher_global_view_scale_tests tests/global_view_scale_tests.cpp)
-    target_link_libraries(mesher_global_view_scale_tests PRIVATE mesher_mesh)
-    add_test(NAME global_logarithmic_view_scale_and_picking
-             COMMAND mesher_global_view_scale_tests)
-    add_executable(mesher_revision_picking_tests tests/revision_picking_tests.cpp)
-    target_link_libraries(mesher_revision_picking_tests PRIVATE mesher_mesh)
-    add_test(NAME revision_bvh_picking COMMAND mesher_revision_picking_tests)
-    add_executable(mesher_collision_tests tests/revision_collision_tests.cpp)
-    target_link_libraries(mesher_collision_tests PRIVATE mesher_mesh)
-    add_test(NAME revision_triangle_collisions COMMAND mesher_collision_tests)
     # V18-M01: before/after immutable source contact comparison; this is
     # read-only and does not enable the OFF-mode admission policy.
-    add_executable(mesher_repair_sphere_diagnostic tests/repair_inspection_sphere_diagnostic.cpp)
-    target_link_libraries(mesher_repair_sphere_diagnostic PRIVATE mesher_mesh)
-    add_test(NAME repair_r01_stock_sphere_diagnostic COMMAND mesher_repair_sphere_diagnostic)
     # R06-M07: preserve exactly the immutable post-stamp candidate + trusted
     # R01 contacts, replay with the CURRENT R02/M03/M04 code (no Vulkan).
     # The setup test emits real self-contained archive fixtures. Fixture
     # dependencies keep CLI replay smoke tests deterministic under -j.
-    add_executable(mesher_repair_case_tests tests/repair_case_tests.cpp)
-    target_link_libraries(mesher_repair_case_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m07_exact_case_roundtrip COMMAND mesher_repair_case_tests)
     set_tests_properties(repair_r06_m07_exact_case_roundtrip
         PROPERTIES FIXTURES_SETUP r06_case_archives)
     if(TARGET Mesher)
@@ -699,15 +621,6 @@ if(MESHER_BUILD_TESTS)
             endif()
         endforeach()
     endif()
-    add_executable(mesher_repair_auto_inspection_tests tests/repair_auto_inspection_tests.cpp)
-    target_link_libraries(mesher_repair_auto_inspection_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m05_frozen_auto_inspection COMMAND mesher_repair_auto_inspection_tests)
-    add_executable(mesher_repair_auto_private_tests tests/repair_auto_private_tests.cpp)
-    target_link_libraries(mesher_repair_auto_private_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m04c_enclosed_retirement COMMAND mesher_repair_auto_private_tests)
-    add_executable(mesher_repair_seam_audit_tests tests/repair_seam_audit_tests.cpp)
-    target_link_libraries(mesher_repair_seam_audit_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m13_cap_survivor_geometry_audit COMMAND mesher_repair_seam_audit_tests)
     # Independent headless R06-M16C1 producer/consumer pause protocol.
     add_executable(mesher_repair_step_hud_tests
                    tests/repair_step_hud_tests.cpp)
@@ -720,18 +633,8 @@ if(MESHER_BUILD_TESTS)
     # Ring-and-hub M17D–M21A trials retired with M22B AFM cleanup.
     # Keep AFM topology/Poisson, saved-case certification, geometry-safe
     # scale-aware handoff, and full worker publication regression tests.
-    add_executable(mesher_repair_scale_aware_tests
-                   tests/repair_scale_aware_refinement_tests.cpp)
-    target_link_libraries(mesher_repair_scale_aware_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m17c_opt_in_real_shape_density_handoff
-             COMMAND mesher_repair_scale_aware_tests)
     set_tests_properties(repair_r06_m17c_opt_in_real_shape_density_handoff
         PROPERTIES TIMEOUT 40)
-    add_executable(mesher_repair_split_parameter_tests
-                   tests/repair_split_parameter_tests.cpp)
-    target_link_libraries(mesher_repair_split_parameter_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m17b_canonical_two_sided_mirrored_parameter_split
-             COMMAND mesher_repair_split_parameter_tests)
     set_tests_properties(repair_r06_m17b_canonical_two_sided_mirrored_parameter_split
         PROPERTIES TIMEOUT 25)
     add_executable(mesher_repair_split_template_tests
@@ -742,11 +645,6 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_split_template_tests)
     set_tests_properties(repair_r06_m17a_bounded_hybrid_split_template_policy
         PROPERTIES TIMEOUT 15)
-    add_executable(mesher_repair_step_scene_tests
-                   tests/repair_step_scene_tests.cpp)
-    target_link_libraries(mesher_repair_step_scene_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m16d1_exact_effective_scene_and_diff
-             COMMAND mesher_repair_step_scene_tests)
     set_tests_properties(repair_r06_m16d1_exact_effective_scene_and_diff
         PROPERTIES TIMEOUT 30)
     add_executable(mesher_repair_step_replay_tests
@@ -756,18 +654,8 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_replay_tests)
     set_tests_properties(repair_r06_m16c3_real_replay_step_trace
         PROPERTIES TIMEOUT 120)
-    add_executable(mesher_repair_step_operation_tests
-                   tests/repair_step_operation_tests.cpp)
-    target_link_libraries(mesher_repair_step_operation_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m16c2c_remaining_stage_operations_and_terminal_error
-             COMMAND mesher_repair_step_operation_tests)
     set_tests_properties(repair_r06_m16c2c_remaining_stage_operations_and_terminal_error
         PROPERTIES TIMEOUT 30)
-    add_executable(mesher_repair_step_snapshot_tests
-                   tests/repair_step_snapshot_tests.cpp)
-    target_link_libraries(mesher_repair_step_snapshot_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m16c2b_owned_stage_snapshot_and_id_diff
-             COMMAND mesher_repair_step_snapshot_tests)
     set_tests_properties(repair_r06_m16c2b_owned_stage_snapshot_and_id_diff
         PROPERTIES TIMEOUT 20)
     add_executable(mesher_repair_step_gate_tests tests/repair_step_gate_tests.cpp)
@@ -778,99 +666,19 @@ if(MESHER_BUILD_TESTS)
              COMMAND mesher_repair_step_gate_tests)
     set_tests_properties(repair_r06_m16c1_two_snapshot_step_gate
         PROPERTIES TIMEOUT 15)
-    add_executable(mesher_repair_mixed_staging_editor_tests tests/repair_mixed_staging_editor_tests.cpp)
-    target_link_libraries(mesher_repair_mixed_staging_editor_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m15a_stage_owned_face_and_live_boundary
-             COMMAND mesher_repair_mixed_staging_editor_tests)
-    add_executable(mesher_repair_mixed_patch_tests tests/repair_mixed_patch_tests.cpp)
-    target_link_libraries(mesher_repair_mixed_patch_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m14e_complete_private_patch_manifold_gate
-             COMMAND mesher_repair_mixed_patch_tests)
-    add_executable(mesher_repair_seam_provenance_tests tests/repair_seam_provenance_tests.cpp)
-    target_link_libraries(mesher_repair_seam_provenance_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m14d_source_witness_provenance
-             COMMAND mesher_repair_seam_provenance_tests)
-    add_executable(mesher_repair_rim_quality_tests tests/repair_rim_quality_tests.cpp)
-    target_link_libraries(mesher_repair_rim_quality_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m11a3c_proven_planar_corner_bound COMMAND mesher_repair_rim_quality_tests)
-    add_executable(mesher_repair_interior_collapse_tests tests/repair_interior_collapse_tests.cpp)
-    target_link_libraries(mesher_repair_interior_collapse_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m11a3b_redundant_cap_fan_collapse COMMAND mesher_repair_interior_collapse_tests)
-    add_executable(mesher_repair_interior_fairing_tests tests/repair_interior_fairing_tests.cpp)
-    target_link_libraries(mesher_repair_interior_fairing_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m11a3a_constrained_interior_fairing COMMAND mesher_repair_interior_fairing_tests)
-    add_executable(mesher_repair_quality_flip_tests tests/repair_quality_flip_tests.cpp)
-    target_link_libraries(mesher_repair_quality_flip_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m10_interior_diagonal_flips COMMAND mesher_repair_quality_flip_tests)
-    add_executable(mesher_repair_mixed_edges_tests tests/repair_mixed_edges_tests.cpp)
-    target_link_libraries(mesher_repair_mixed_edges_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m14c_source_backed_conforming_edge_split
-             COMMAND mesher_repair_mixed_edges_tests)
-    add_executable(mesher_repair_mixed_source_view_tests tests/repair_mixed_source_view_tests.cpp)
-    target_link_libraries(mesher_repair_mixed_source_view_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m14a_source_backed_topology COMMAND mesher_repair_mixed_source_view_tests)
-    add_executable(mesher_repair_mixed_stage_tests tests/repair_mixed_stage_tests.cpp)
-    target_link_libraries(mesher_repair_mixed_stage_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m04a_mixed_face_staging COMMAND mesher_repair_mixed_stage_tests)
-    add_executable(mesher_repair_auto_plan_tests tests/repair_auto_plan_tests.cpp)
-    target_link_libraries(mesher_repair_auto_plan_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m03_automatic_closure_plan COMMAND mesher_repair_auto_plan_tests)
-    add_executable(mesher_repair_enclosure_tests tests/repair_enclosure_tests.cpp)
-    target_link_libraries(mesher_repair_enclosure_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m02_enclosed_component_evidence COMMAND mesher_repair_enclosure_tests)
-    add_executable(mesher_repair_survivors_tests tests/repair_survivors_tests.cpp)
-    target_link_libraries(mesher_repair_survivors_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m01_survivor_component_inventory COMMAND mesher_repair_survivors_tests)
-    add_executable(mesher_repair_mirror_geometry_tests tests/repair_mirror_geometry_tests.cpp)
-    target_link_libraries(mesher_repair_mirror_geometry_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m06c_mirrored_closure_geometry COMMAND mesher_repair_mirror_geometry_tests)
-    add_executable(mesher_repair_generic_poisson_tests
-                   tests/repair_cap_generic_poisson_tests.cpp)
-    target_link_libraries(mesher_repair_generic_poisson_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m22a_topology_independent_poisson
-             COMMAND mesher_repair_generic_poisson_tests)
     set_tests_properties(repair_r06_m22a_topology_independent_poisson
         PROPERTIES TIMEOUT 15)
-    add_executable(mesher_repair_m22_cap_method_tests
-                   tests/repair_m22_cap_method_tests.cpp)
-    target_link_libraries(mesher_repair_m22_cap_method_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m22b_cap_selection_and_metrics
-             COMMAND mesher_repair_m22_cap_method_tests)
     set_tests_properties(repair_r06_m22b_cap_selection_and_metrics PROPERTIES TIMEOUT 20)
-    add_executable(mesher_repair_auto_publication_tests
-                   tests/repair_auto_publication_tests.cpp)
-    target_link_libraries(mesher_repair_auto_publication_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r07_certified_live_publication_transition
-             COMMAND mesher_repair_auto_publication_tests)
     set_tests_properties(repair_r07_certified_live_publication_transition
                          PROPERTIES TIMEOUT 30)
     # The user's preserved, post-merge live refusal-6 source+nextstamp is
     # an exact physical success target, not a test of a known-broken
     # historical refusal. It stays independent of the synthetic two-rim
     # stage fixtures and needs no Vulkan or window manager.
-    add_executable(mesher_repair_r07_refusal6_recovered_stamp_tests
-                   tests/repair_r07_refusal6_recovered_stamp_tests.cpp)
-    target_link_libraries(mesher_repair_r07_refusal6_recovered_stamp_tests
-                          PRIVATE mesher_mesh)
-    add_test(NAME repair_r07_refusal6_checkpoint_zipper_recovery
-             COMMAND mesher_repair_r07_refusal6_recovered_stamp_tests)
     set_tests_properties(repair_r07_refusal6_checkpoint_zipper_recovery
                          PROPERTIES TIMEOUT 90)
-    add_executable(mesher_repair_zipper_shape_tests
-                   tests/repair_zipper_shape_tests.cpp)
-    target_link_libraries(mesher_repair_zipper_shape_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_zipper_shape_templates
-             COMMAND mesher_repair_zipper_shape_tests)
     set_tests_properties(repair_r06_zipper_shape_templates PROPERTIES TIMEOUT 20)
-    add_executable(mesher_repair_adaptive_front_tests
-                   tests/repair_cap_advancing_front_tests.cpp)
-    target_link_libraries(mesher_repair_adaptive_front_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m22b_adaptive_front
-             COMMAND mesher_repair_adaptive_front_tests)
     set_tests_properties(repair_r06_m22b_adaptive_front PROPERTIES TIMEOUT 20)
-    add_executable(mesher_repair_m23b_saved_case_tests
-                   tests/repair_m23b_saved_case_tests.cpp)
-    target_link_libraries(mesher_repair_m23b_saved_case_tests PRIVATE mesher_mesh)
     # This CLI replay exists only in viewport/app builds. Headless
     # mesh-only builds (including no-Qhull CI) do not define Mesher;
     # keep their independent CPU M23B geometry test below.
@@ -889,82 +697,22 @@ if(MESHER_BUILD_TESTS)
         set_tests_properties(repair_r06_m23b_refusal2_cli_opt_in
             PROPERTIES TIMEOUT 30)
     endif()
-    add_test(NAME repair_r06_m23b_refusal2_new_zipper_private
-             COMMAND mesher_repair_m23b_saved_case_tests)
     set_tests_properties(repair_r06_m23b_refusal2_new_zipper_private
         PROPERTIES TIMEOUT 60)
-    add_executable(mesher_repair_m23b_bridge_tests
-                   tests/repair_m23b_bridge_tests.cpp)
-    target_link_libraries(mesher_repair_m23b_bridge_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m23b_finite_bridge_private
-             COMMAND mesher_repair_m23b_bridge_tests)
     set_tests_properties(repair_r06_m23b_finite_bridge_private PROPERTIES TIMEOUT 30)
-    add_executable(mesher_repair_m23a_placement_callback_tests
-                   tests/repair_m23a_placement_callback_tests.cpp)
-    target_link_libraries(mesher_repair_m23a_placement_callback_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r06_m23a_optional_placement_callback
-             COMMAND mesher_repair_m23a_placement_callback_tests)
     set_tests_properties(repair_r06_m23a_optional_placement_callback PROPERTIES TIMEOUT 20)
-    add_executable(mesher_repair_cap_tests tests/repair_cap_tests.cpp)
-    target_link_libraries(mesher_repair_cap_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r05_forced_independent_caps COMMAND mesher_repair_cap_tests)
-    add_executable(mesher_repair_zipper_tests tests/repair_zipper_tests.cpp)
-    target_link_libraries(mesher_repair_zipper_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r04_forced_zipper_refinement COMMAND mesher_repair_zipper_tests)
-    add_executable(mesher_repair_excision_tests tests/repair_excision_tests.cpp)
-    target_link_libraries(mesher_repair_excision_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r03_private_open_boundary_excision COMMAND mesher_repair_excision_tests)
-    add_executable(mesher_repair_preview_tests tests/repair_preview_tests.cpp)
-    target_link_libraries(mesher_repair_preview_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r02_private_excision_preview COMMAND mesher_repair_preview_tests)
-    add_executable(mesher_repair_inspection_tests tests/repair_inspection_tests.cpp)
-    target_link_libraries(mesher_repair_inspection_tests PRIVATE mesher_mesh)
-    add_test(NAME repair_r01_frozen_intersection_inspection COMMAND mesher_repair_inspection_tests)
-    add_executable(mesher_offmode_collision_tests tests/offmode_collision_tests.cpp)
-    target_link_libraries(mesher_offmode_collision_tests PRIVATE mesher_mesh)
-    add_test(NAME offmode_poststate_contact_ledger COMMAND mesher_offmode_collision_tests)
     # M02 adds the real opt-in pre-CAS worker rejection and FIFO recovery,
     # still without a desktop CLI mode or a default runtime behavior change.
-    add_executable(mesher_offmode_step_gate_tests tests/offmode_step_gate_tests.cpp)
-    target_link_libraries(mesher_offmode_step_gate_tests PRIVATE mesher_mesh)
-    add_test(NAME offmode_private_step_gate COMMAND mesher_offmode_step_gate_tests)
-    add_executable(mesher_offmode_clearance_tests tests/offmode_clearance_tests.cpp)
-    target_link_libraries(mesher_offmode_clearance_tests PRIVATE mesher_mesh)
-    add_test(NAME offmode_mesh_scale_clearance COMMAND mesher_offmode_clearance_tests)
-    add_executable(mesher_offmode_backtracking_tests tests/offmode_backtracking_tests.cpp)
-    target_link_libraries(mesher_offmode_backtracking_tests PRIVATE mesher_mesh)
-    add_test(NAME offmode_bounded_normal_backtracking COMMAND mesher_offmode_backtracking_tests)
-    add_executable(mesher_v18_integrated_acceptance_tests tests/v18_integrated_acceptance_tests.cpp)
-    target_link_libraries(mesher_v18_integrated_acceptance_tests PRIVATE mesher_mesh)
-    add_test(NAME v18_integrated_near_sheet_checkpoint_acceptance
-             COMMAND mesher_v18_integrated_acceptance_tests)
     set_tests_properties(v18_integrated_near_sheet_checkpoint_acceptance PROPERTIES TIMEOUT 90)
-    add_executable(mesher_desktop_collision_policy_tests tests/desktop_collision_policy_tests.cpp)
-    target_link_libraries(mesher_desktop_collision_policy_tests PRIVATE mesher_mesh)
-    add_test(NAME desktop_offmode_policy_and_recovery COMMAND mesher_desktop_collision_policy_tests)
-    add_executable(mesher_offmode_mirrored_transaction_tests tests/offmode_mirrored_transaction_tests.cpp)
-    target_link_libraries(mesher_offmode_mirrored_transaction_tests PRIVATE mesher_mesh)
-    add_test(NAME offmode_reflected_opposing_sheet_transactions COMMAND mesher_offmode_mirrored_transaction_tests)
     set_tests_properties(offmode_reflected_opposing_sheet_transactions PROPERTIES TIMEOUT 90)
     set_tests_properties(offmode_bounded_normal_backtracking PROPERTIES TIMEOUT 90)
     set_tests_properties(offmode_private_step_gate PROPERTIES TIMEOUT 90)
-    add_executable(mesher_history_tests tests/revision_history_tests.cpp)
-    target_link_libraries(mesher_history_tests PRIVATE mesher_mesh)
-    add_test(NAME persistent_history_checkpoints COMMAND mesher_history_tests)
     # A normal execution is ~0.01s. Bound intermittent hangs, so CTest
     # records a failing diagnostic instead of blocking CI indefinitely.
     set_tests_properties(persistent_history_checkpoints PROPERTIES TIMEOUT 90)
-    add_executable(mesher_async_tests tests/async_sculpt_tests.cpp)
-    target_link_libraries(mesher_async_tests PRIVATE mesher_mesh)
-    add_test(NAME asynchronous_sculpting COMMAND mesher_async_tests)
     # M54 is an independent full accepted FIRST-original worker Boolean
     # audit, not merely a private planner or a GPU screenshot. One
     # original/accepted/undo/redo root is exhaustively checked.
-    add_executable(mesher_accepted_union_audit_tests
-                   tests/accepted_union_audit_tests.cpp)
-    target_link_libraries(mesher_accepted_union_audit_tests PRIVATE mesher_mesh)
-    add_test(NAME accepted_union_structural_audit
-             COMMAND mesher_accepted_union_audit_tests)
     set_tests_properties(accepted_union_structural_audit PROPERTIES TIMEOUT 90)
     # CI01: build these independent CPU regression translation units once into
     # one executable, preserving their distinct CTest names, working directory,
@@ -1001,6 +749,137 @@ if(MESHER_BUILD_TESTS)
         add_test(NAME ${test_name} COMMAND mesher_ci01_cpu_regressions ${test_name})
     endforeach()
 
+    # Linked suite A: individual CTest processes remain independent.
+    add_executable(mesher_ci01_suite_a tests/ci01_suite_a_main.cpp)
+    target_link_libraries(mesher_ci01_suite_a PRIVATE mesher_mesh)
+    set(MESHER_CI01_SUITE_A
+        "new_model_dialog_tests|ux09_new_model_private_candidate_and_modal_policy"
+        "document_filename_state_tests|ux09_filename_provenance_and_embedded_vocabulary"
+        "sculpt_fixtures_tests|geometry_torus_hollow_sphere_fixtures"
+        "mesh_export_transaction_tests|mesh_export_atomic_snapshot_and_fifo"
+        "mesh_export_obj_tests|obj_export_formats_and_roundtrips"
+        "mesh_export_ply_tests|ply_export_encoding_colour_roundtrips"
+        "mesh_export_stl_tests|stl_export_dialect_and_colour_roundtrips"
+        "stl_facet_colour_tests|stl_dual_facet_colour_diffusion"
+        "mesh_stl_colour_benchmark|stl_colour_benchmark"
+        "brush_tests|brushes"
+        "remesh_tests|directional_collapse"
+        "refine_tests|local_refinement"
+        "surface_floor_grid_tests|visible_floor_grid_pixel_distance"
+        "visible_mesh_edge_tests|surface_attached_mesh_edge_distance"
+        "wire_pole_depth_tests|wire_pole_depth_self_occlusion_diagnosis"
+        "picking_tests|mouse_picking"
+        "viewport_floor_tests|viewport_floor_fixture_clearance"
+        "global_view_scale_tests|global_logarithmic_view_scale_and_picking"
+        "revision_picking_tests|revision_bvh_picking"
+        "revision_collision_tests|revision_triangle_collisions"
+    )
+    foreach(spec IN LISTS MESHER_CI01_SUITE_A)
+        string(REPLACE "|" ";" parts "${spec}")
+        list(GET parts 0 source_stem)
+        list(GET parts 1 test_name)
+        set(test_source "${CMAKE_CURRENT_SOURCE_DIR}/tests/${source_stem}.cpp")
+        set_source_files_properties("${test_source}" PROPERTIES
+            COMPILE_DEFINITIONS "main=mesher_ci01_${test_name}_main")
+        target_sources(mesher_ci01_suite_a PRIVATE "${test_source}")
+        add_test(NAME ${test_name} COMMAND mesher_ci01_suite_a ${test_name})
+    endforeach()
+
+    # Linked suite B: individual CTest processes remain independent.
+    add_executable(mesher_ci01_suite_b tests/ci01_suite_b_main.cpp)
+    target_link_libraries(mesher_ci01_suite_b PRIVATE mesher_mesh)
+    set(MESHER_CI01_SUITE_B
+        "repair_inspection_sphere_diagnostic|repair_r01_stock_sphere_diagnostic"
+        "repair_case_tests|repair_r06_m07_exact_case_roundtrip"
+        "repair_auto_inspection_tests|repair_r06_m05_frozen_auto_inspection"
+        "repair_auto_private_tests|repair_r06_m04c_enclosed_retirement"
+        "repair_seam_audit_tests|repair_r06_m13_cap_survivor_geometry_audit"
+        "repair_scale_aware_refinement_tests|repair_r06_m17c_opt_in_real_shape_density_handoff"
+        "repair_split_parameter_tests|repair_r06_m17b_canonical_two_sided_mirrored_parameter_split"
+        "repair_step_scene_tests|repair_r06_m16d1_exact_effective_scene_and_diff"
+        "repair_step_operation_tests|repair_r06_m16c2c_remaining_stage_operations_and_terminal_error"
+        "repair_step_snapshot_tests|repair_r06_m16c2b_owned_stage_snapshot_and_id_diff"
+        "repair_mixed_staging_editor_tests|repair_r06_m15a_stage_owned_face_and_live_boundary"
+        "repair_mixed_patch_tests|repair_r06_m14e_complete_private_patch_manifold_gate"
+        "repair_seam_provenance_tests|repair_r06_m14d_source_witness_provenance"
+        "repair_rim_quality_tests|repair_r06_m11a3c_proven_planar_corner_bound"
+        "repair_interior_collapse_tests|repair_r06_m11a3b_redundant_cap_fan_collapse"
+        "repair_interior_fairing_tests|repair_r06_m11a3a_constrained_interior_fairing"
+        "repair_quality_flip_tests|repair_r06_m10_interior_diagonal_flips"
+        "repair_mixed_edges_tests|repair_r06_m14c_source_backed_conforming_edge_split"
+    )
+    foreach(spec IN LISTS MESHER_CI01_SUITE_B)
+        string(REPLACE "|" ";" parts "${spec}")
+        list(GET parts 0 source_stem)
+        list(GET parts 1 test_name)
+        set(test_source "${CMAKE_CURRENT_SOURCE_DIR}/tests/${source_stem}.cpp")
+        set_source_files_properties("${test_source}" PROPERTIES
+            COMPILE_DEFINITIONS "main=mesher_ci01_${test_name}_main")
+        target_sources(mesher_ci01_suite_b PRIVATE "${test_source}")
+        add_test(NAME ${test_name} COMMAND mesher_ci01_suite_b ${test_name})
+    endforeach()
+
+    # Linked suite C: individual CTest processes remain independent.
+    add_executable(mesher_ci01_suite_c tests/ci01_suite_c_main.cpp)
+    target_link_libraries(mesher_ci01_suite_c PRIVATE mesher_mesh)
+    set(MESHER_CI01_SUITE_C
+        "repair_mixed_source_view_tests|repair_r06_m14a_source_backed_topology"
+        "repair_mixed_stage_tests|repair_r06_m04a_mixed_face_staging"
+        "repair_auto_plan_tests|repair_r06_m03_automatic_closure_plan"
+        "repair_enclosure_tests|repair_r06_m02_enclosed_component_evidence"
+        "repair_survivors_tests|repair_r06_m01_survivor_component_inventory"
+        "repair_mirror_geometry_tests|repair_r06_m06c_mirrored_closure_geometry"
+        "repair_cap_generic_poisson_tests|repair_r06_m22a_topology_independent_poisson"
+        "repair_m22_cap_method_tests|repair_r06_m22b_cap_selection_and_metrics"
+        "repair_auto_publication_tests|repair_r07_certified_live_publication_transition"
+        "repair_r07_refusal6_recovered_stamp_tests|repair_r07_refusal6_checkpoint_zipper_recovery"
+        "repair_zipper_shape_tests|repair_r06_zipper_shape_templates"
+        "repair_cap_advancing_front_tests|repair_r06_m22b_adaptive_front"
+        "repair_m23b_saved_case_tests|repair_r06_m23b_refusal2_new_zipper_private"
+        "repair_m23b_bridge_tests|repair_r06_m23b_finite_bridge_private"
+        "repair_m23a_placement_callback_tests|repair_r06_m23a_optional_placement_callback"
+        "repair_cap_tests|repair_r05_forced_independent_caps"
+    )
+    foreach(spec IN LISTS MESHER_CI01_SUITE_C)
+        string(REPLACE "|" ";" parts "${spec}")
+        list(GET parts 0 source_stem)
+        list(GET parts 1 test_name)
+        set(test_source "${CMAKE_CURRENT_SOURCE_DIR}/tests/${source_stem}.cpp")
+        set_source_files_properties("${test_source}" PROPERTIES
+            COMPILE_DEFINITIONS "main=mesher_ci01_${test_name}_main")
+        target_sources(mesher_ci01_suite_c PRIVATE "${test_source}")
+        add_test(NAME ${test_name} COMMAND mesher_ci01_suite_c ${test_name})
+    endforeach()
+
+    # Linked suite D: individual CTest processes remain independent.
+    add_executable(mesher_ci01_suite_d tests/ci01_suite_d_main.cpp)
+    target_link_libraries(mesher_ci01_suite_d PRIVATE mesher_mesh)
+    set(MESHER_CI01_SUITE_D
+        "repair_zipper_tests|repair_r04_forced_zipper_refinement"
+        "repair_excision_tests|repair_r03_private_open_boundary_excision"
+        "repair_preview_tests|repair_r02_private_excision_preview"
+        "repair_inspection_tests|repair_r01_frozen_intersection_inspection"
+        "offmode_collision_tests|offmode_poststate_contact_ledger"
+        "offmode_step_gate_tests|offmode_private_step_gate"
+        "offmode_clearance_tests|offmode_mesh_scale_clearance"
+        "offmode_backtracking_tests|offmode_bounded_normal_backtracking"
+        "v18_integrated_acceptance_tests|v18_integrated_near_sheet_checkpoint_acceptance"
+        "desktop_collision_policy_tests|desktop_offmode_policy_and_recovery"
+        "offmode_mirrored_transaction_tests|offmode_reflected_opposing_sheet_transactions"
+        "revision_history_tests|persistent_history_checkpoints"
+        "async_sculpt_tests|asynchronous_sculpting"
+        "accepted_union_audit_tests|accepted_union_structural_audit"
+    )
+    foreach(spec IN LISTS MESHER_CI01_SUITE_D)
+        string(REPLACE "|" ";" parts "${spec}")
+        list(GET parts 0 source_stem)
+        list(GET parts 1 test_name)
+        set(test_source "${CMAKE_CURRENT_SOURCE_DIR}/tests/${source_stem}.cpp")
+        set_source_files_properties("${test_source}" PROPERTIES
+            COMPILE_DEFINITIONS "main=mesher_ci01_${test_name}_main")
+        target_sources(mesher_ci01_suite_d PRIVATE "${test_source}")
+        add_test(NAME ${test_name} COMMAND mesher_ci01_suite_d ${test_name})
+    endforeach()
     add_executable(mesher_benchmark tests/performance_benchmark.cpp)
     target_link_libraries(mesher_benchmark PRIVATE mesher_mesh)
 endif()

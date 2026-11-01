@@ -8340,4 +8340,5 @@ int main() {
         std::cerr<<"Async worker test failed: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

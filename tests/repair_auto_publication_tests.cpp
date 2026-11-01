@@ -453,4 +453,5 @@ int main() {
         std::cerr<<"[r07-auto-publication] FAILED "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

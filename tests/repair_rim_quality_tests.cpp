@@ -58,4 +58,5 @@ int main() {
         std::cerr<<"R06 M11A3c fixed rim certificate failed: "<<error.what()<<"\n";
         return 1;
     }
+    return 0;
 }

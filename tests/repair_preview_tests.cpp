@@ -273,4 +273,5 @@ int main() {
         std::cerr<<"R02 preview FAILED: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }
