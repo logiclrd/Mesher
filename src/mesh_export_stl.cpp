@@ -146,14 +146,31 @@ void f32(std::ostream& out,double value) {
 std::uint8_t u8(float value) {
     return static_cast<std::uint8_t>(std::lround(double(value)*255.0));
 }
+std::uint16_t rgb555(const Mesh& mesh,Triangle f,StlExportEncoding mode) {
+    const std::array<std::uint32_t,3> ids{f.a,f.b,f.c};
+    const auto mean=[&](int component) {
+        double sum=0;
+        for(auto i:ids) {
+            const auto& colour=mesh.colors[i];
+            sum+=component==0?colour.r:component==1?colour.g:colour.b;
+        }
+        return static_cast<std::uint16_t>(std::lround(sum*(31.0/3.0)));
+    };
+    const auto r=mean(0),g=mean(1),b=mean(2);
+    if(mode==StlExportEncoding::BinaryViscam)
+        return static_cast<std::uint16_t>(0x8000u|(r<<10)|(g<<5)|b);
+    return static_cast<std::uint16_t>((b<<10)|(g<<5)|r);
+}
 } // namespace
 
 void writeStlMesh(std::ostream& output,const Mesh& mesh,
                   StlExportOptions options) {
     const auto checked=validate(mesh,options);
-    // Perform all dual-graph analysis before writing even the STL header.
-    // The default mean strategy is intentionally byte-for-byte unchanged.
-    const auto colours=facetColour(options.encoding)?
+    // Only experimental modes build the dual graph. The historical
+    // averaging path remains byte-for-byte identical and no slower.
+    // Analyse all experimental attributes before writing the STL header.
+    const auto colours=facetColour(options.encoding)&&
+                       options.strategy!=StlFacetColourStrategy::Mean?
         stlFacetColourRGB555(mesh,options.strategy,options.seed):
         std::vector<std::uint16_t>{};
     struct Restore {
@@ -205,11 +222,15 @@ void writeStlMesh(std::ostream& output,const Mesh& mesh,
             }
             std::uint16_t attribute=0;
             if(facetColour(options.encoding)) {
-                const auto rgb=colours[i];
-                const auto r=rgb&31u,g=(rgb>>5)&31u,b=(rgb>>10)&31u;
-                attribute=options.encoding==StlExportEncoding::BinaryViscam?
-                    static_cast<std::uint16_t>(
-                        0x8000u|(r<<10)|(g<<5)|b):rgb;
+                if(options.strategy==StlFacetColourStrategy::Mean)
+                    attribute=rgb555(mesh,mesh.triangles[i],options.encoding);
+                else {
+                    const auto rgb=colours[i];
+                    const auto r=rgb&31u,g=(rgb>>5)&31u,b=(rgb>>10)&31u;
+                    attribute=options.encoding==StlExportEncoding::BinaryViscam?
+                        static_cast<std::uint16_t>(
+                            0x8000u|(r<<10)|(g<<5)|b):rgb;
+                }
             }else if(options.encoding==StlExportEncoding::BinaryMagicsObject)
                 attribute=0x8000u;
             u16(output,attribute);
