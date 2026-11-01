@@ -63,14 +63,27 @@ The follow-up consolidates **68 additional one-mode, mesher_mesh-only** C++
 test targets into four independently linkable suites of 20, 18, 16, and
 14 test translation units. The original first group of 16 remains separate.
 CMake declarations drop further from 84 to **20**; the comparable Windows
-build should link **18 .exe files**, instead of 82. This is a predicted
-artifact count, not a measurement until the exact-head Windows CI completes.
+build **does link 18 .exe files**, instead of 82. The exact-head
+[run 41291446766](https://github.com/logiclrd/Mesher/actions/runs/41291446766)
+passed all five platform build/test jobs and retained the **162-test** full
+CTest suite. Windows MSVC built and linked the 18 executables in **373.7
+seconds**, measured from the start of `cmake --build build --config Release
+--parallel 4` to the start of the next CI step.
+
+**Important:** This is a reduction of 79 executables relative to the
+original 97, but it is *not* a speed improvement: 373.7 seconds is slower
+than both the original 289.8-second and first-consolidation 334.5-second
+runs. Consolidating TUs into larger Visual Studio projects appears to have
+reduced target-level compilation parallelism and/or increased linker
+bottlenecks. That is a hypothesis, not yet a profiling result.
 
 All 68 tests still have their original individual CTest names, environments,
 working directories, per-test timeout/fixtures and process isolation. Existing
-test assertions and fixture logic are unchanged; each renamed main gets the
-explicit success return required by standard C++. The same per-source main
-renaming and per-executable named dispatcher are used as in the first group.
+test assertions and fixture logic are unchanged. Only entry points
+that relied on the implicit success return of the literal C++ `main()` gain
+an explicit `return 0;` (22 files); tests that already return on all paths
+remain unchanged (46 files), avoiding MSVC C4702 unreachable-code warnings.
+The same per-source main renaming and named dispatchers are used as above.
 Four bounded link groups avoid relying on a single giant serial linker step.
 
 **Deliberately excluded**: platform-specific Qt/GLFW desktop test runners,
@@ -82,7 +95,10 @@ A performance claim requires the new run's actual MSVC compile/link time,
 number of linked .exe artifacts and all five warnings-as-errors/CTest suites.
 Windows runner variance and link-versus-compilation costs should be recorded
 before further expansion or closure of CI01. A reduced binary count by itself
-does not demonstrate a faster pipeline.
+does not demonstrate a faster pipeline. The next CI01 step should profile
+MSBuild target-level and per-translation-unit concurrency, and benchmark
+bounded `/MP` compilation or alternate test target grouping before claiming
+build-speed improvement. Do not close CI01 solely on the executable count.
 
 ## Verification protocol
 
