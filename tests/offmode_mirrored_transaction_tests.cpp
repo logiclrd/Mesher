@@ -410,5 +410,4 @@ int main() {
         std::cerr<<"V18-M05: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

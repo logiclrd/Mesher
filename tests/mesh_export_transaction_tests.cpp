@@ -293,5 +293,4 @@ int main() {
         std::cerr<<"UX07D failure: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

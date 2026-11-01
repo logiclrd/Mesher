@@ -183,5 +183,4 @@ int main() {
         std::cerr<<"UX07A failure: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

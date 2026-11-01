@@ -575,5 +575,4 @@ int main() {
         std::cerr<<"R06-M03 automatic closure plan FAILED: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

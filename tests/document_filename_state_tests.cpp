@@ -248,5 +248,4 @@ int main() {
         std::cerr<<"UX09A test failed: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

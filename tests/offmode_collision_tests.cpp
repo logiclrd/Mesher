@@ -209,5 +209,4 @@ int main() {
         std::cerr<<"V18-M01 contact ledger: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

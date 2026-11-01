@@ -345,5 +345,4 @@ int main() {
         std::cerr<<"R06-M04C private automatic closure FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

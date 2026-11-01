@@ -187,5 +187,4 @@ int main() {
         std::cerr<<"Fixture regression FAILED: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

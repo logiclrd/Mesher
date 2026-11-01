@@ -48,5 +48,4 @@ void test() {
 int main() {
     try{test();return 0;}
     catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}
-    return 0;
 }

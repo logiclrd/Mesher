@@ -248,5 +248,4 @@ int main() {
         std::cerr<<"R06 repair-case regression FAILED: "<<error.what()<<"\n";
         return 1;
     }
-    return 0;
 }

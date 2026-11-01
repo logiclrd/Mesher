@@ -56,5 +56,4 @@ int main() {
         std::cerr<<"R06-M06C4c mirror audit FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

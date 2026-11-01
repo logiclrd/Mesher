@@ -132,5 +132,4 @@ int main() {
         std::cerr<<"R06-M14D source witness provenance FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

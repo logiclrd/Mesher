@@ -110,5 +110,4 @@ int main() {
         std::cerr<<"R06-M15C3 staged edge API FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

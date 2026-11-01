@@ -258,5 +258,4 @@ int main() {
         std::cerr<<"V18-M03 mesh clearance: "<<e.what()<<'\n';
         return 1;
     }
-    return 0;
 }

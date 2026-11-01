@@ -86,5 +86,4 @@ int main() {
         std::cerr<<"R06 M11A3b collapse tests failed: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

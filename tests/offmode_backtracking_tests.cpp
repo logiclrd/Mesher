@@ -199,5 +199,4 @@ int main() {
         std::cerr<<"V18-M04: "<<error.what()<<'\n';
         return 1;
     }
-    return 0;
 }

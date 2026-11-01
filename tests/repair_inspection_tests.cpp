@@ -197,5 +197,4 @@ int main() {
         std::cerr<<"R01: "<<error.what()<<'\n';
         return 1;
     }
-    return 0;
 }

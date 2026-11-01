@@ -218,5 +218,4 @@ int main() {
         std::cerr<<"R04 forced zipper FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }

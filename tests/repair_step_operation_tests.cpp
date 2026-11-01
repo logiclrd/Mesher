@@ -337,5 +337,4 @@ int main() {
         std::cerr<<"[r06-m16c2c] FAILED "<<error.what()<<"\n";
         return 1;
     }
-    return 0;
 }

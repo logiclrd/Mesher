@@ -141,5 +141,4 @@ int main() {
         std::cerr<<"UX07B failure: "<<error.what()<<'\n';
         return 1;
     }
-    return 0;
 }

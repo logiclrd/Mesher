@@ -89,5 +89,4 @@ int main(){
         std::cerr<<"R06 M13 seam audit FAILED: "<<e.what()<<"\n";
         return 1;
     }
-    return 0;
 }
