@@ -2,8 +2,10 @@
 
 #include "mesher/durable_checkpoint.hpp"
 #include "mesher/mesh_stl.hpp"
+#include "mesher/mesh_export_formats.hpp"
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 
 namespace mesher {
 // Private, validated inputs for UX06. Construction never changes the active
@@ -18,6 +20,9 @@ struct MeshOpenCandidate {
     MeshOpenFormat format{};
     std::size_t vertexCount{},faceCount{};
     bool hasVertexColors{};
+    // Exact parsed codec when distinguishable. A filename or Open filter
+    // never chooses export semantics; the parser reports them after success.
+    std::optional<MeshExportPreset> detectedExportPreset;
     // >=1.5% alpha byte span needs explicit interpretation by the user.
     // Until then, RGB remains visible with opaque mesh alpha.
     bool alphaDecisionRequired{};

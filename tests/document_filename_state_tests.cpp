@@ -92,6 +92,24 @@ void testOpeningAndErrors() {
                 ExportFileFamily::Obj,3},
             "Import did not preserve recognized OBJ codec");
 
+    state.opened("castle.stl",DocumentSourceFormat::Stl,
+                 PreferredExportFormat{ExportFileFamily::Stl,3});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Stl,3},
+            "Materialise facet-colour STL import must select Magics facet export");
+    state.opened("solid-object.stl",DocumentSourceFormat::Stl,
+                 PreferredExportFormat{ExportFileFamily::Stl,4});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Stl,4},
+            "Magics single-object STL import must select single-object export");
+    state.opened("surface.ply",DocumentSourceFormat::StanfordPly,
+                 PreferredExportFormat{ExportFileFamily::Ply,11});
+    require(state.preferredExport()==PreferredExportFormat{
+                ExportFileFamily::Ply,11},
+            "Big-endian source-alpha PLY import must retain its export codec");
+    state.opened("duck.obj",DocumentSourceFormat::WavefrontObj,
+                 PreferredExportFormat{ExportFileFamily::Obj,3});
+
     // Opening .mshr changes document identity, not the session-wide export
     // codec remembered from foreign-format imports.
     state.opened("revision.mshr",DocumentSourceFormat::NativeMshr);

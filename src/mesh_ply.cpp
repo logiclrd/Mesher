@@ -33,6 +33,7 @@ struct Element {
 struct Header {
     Encoding encoding{};
     std::vector<Element> elements;
+    bool sourceAlphaProvenance=false;
 };
 
 std::string takeLine(std::istream& input,const char* context) {
@@ -89,7 +90,12 @@ Header parseHeader(std::istream& input) {
         row.imbue(std::locale::classic());
         std::string tag;
         if(!(row>>tag))continue;
-        if(tag=="comment"||tag=="obj_info")continue;
+        if(tag=="comment") {
+            if(line=="comment Mesher alpha provenance: original source")
+                h.sourceAlphaProvenance=true;
+            continue;
+        }
+        if(tag=="obj_info")continue;
         std::string a,b,c,extra;
         if(tag=="format") {
             if(hasFormat||!h.elements.empty()||!(row>>a>>b)||
@@ -170,6 +176,8 @@ Header parseHeader(std::istream& input) {
     }
     if(!x||!y||!z||(red!=green)||(red!=blue)||(alpha&&!red))
         throw std::runtime_error("PLY: missing XYZ or incomplete vertex RGB(A)");
+    if(h.sourceAlphaProvenance&&!alpha)
+        throw std::runtime_error("PLY: source-alpha provenance lacks alpha property");
     bool indices=false;
     for(const auto& p:face.properties) {
         if(p.list) {
@@ -325,10 +333,25 @@ Mesh readBody(std::istream& input,const Header& header) {
 }
 } // namespace
 
-Mesh parsePlyMesh(const std::filesystem::path& path) {
+Mesh parsePlyMesh(const std::filesystem::path& path,
+                  PlyDetectedFormat* detected) {
     std::ifstream input(path,std::ios::binary);
     if(!input)throw std::runtime_error("Cannot open PLY for reading");
     const auto header=parseHeader(input);
-    return readBody(input,header);
+    auto mesh=readBody(input,header);
+    if(detected) {
+        detected->encoding=header.encoding==Encoding::Ascii?
+            PlyDetectedEncoding::Ascii:
+            header.encoding==Encoding::Little?
+                PlyDetectedEncoding::BinaryLittle:PlyDetectedEncoding::BinaryBig;
+        bool hasAlpha=false;
+        for(const auto& p:header.elements[0].properties)
+            hasAlpha|=p.name=="alpha";
+        detected->colour=hasAlpha?
+            header.sourceAlphaProvenance?
+                PlyDetectedColour::OriginalRgba:PlyDetectedColour::MeshRgba:
+            mesh.colors.empty()?PlyDetectedColour::None:PlyDetectedColour::Rgb;
+    }
+    return mesh;
 }
 } // namespace mesher

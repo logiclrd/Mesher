@@ -128,12 +128,14 @@ void appendObjMrgbLine(std::istringstream& row,
     if(lineCount==0)
         throw std::runtime_error(location+": OBJ MRGB record has no colour words");
 }
-Mesh parseWavefrontObj(const std::filesystem::path& path) {
+Mesh parseWavefrontObj(const std::filesystem::path& path,
+                       MeshExportPreset* detected) {
     std::ifstream input(path);
     if(!input)throw std::runtime_error("Cannot open OBJ for reading");
     input.imbue(std::locale::classic());
     Mesh mesh;
     bool anyColor=false,anyPlain=false,hasMrgb=false;
+    bool inlineAlpha=false;
     std::vector<VertexRGBA> mrgbColours;
     std::string line;
     std::size_t lineNumber=0;
@@ -200,6 +202,7 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
                     ": OBJ inline vertex RGB(A) conflicts with MRGB");
             anyColor|=colored;
             anyPlain|=!colored;
+            inlineAlpha|=data.size()==7;
             if(colored) {
                 for(std::size_t i=3;i<data.size();++i)
                     if(data[i]<0||data[i]>1)
@@ -245,6 +248,11 @@ Mesh parseWavefrontObj(const std::filesystem::path& path) {
     }else if(anyColor&&anyPlain)
         throw std::runtime_error("OBJ mixes coloured and uncoloured vertices");
     validateClosedTriangles(mesh,"OBJ");
+    if(detected)
+        *detected=hasMrgb?MeshExportPreset::ObjZbrushMrgb:
+                  !anyColor?MeshExportPreset::ObjGeometry:
+                  inlineAlpha?MeshExportPreset::ObjInlineRgba:
+                              MeshExportPreset::ObjInlineRgb;
     return mesh;
 }
 // Headers are intentionally distinct. Repair cases contain a checkpoint
@@ -350,9 +358,25 @@ MeshOpenCandidate readMeshOpenCandidate(
              format==MeshOpenFilter::StanfordPly||
              format==MeshOpenFilter::StereolithographyStl) {
         const auto began=std::chrono::steady_clock::now();
-        auto mesh=format==MeshOpenFilter::StanfordPly?parsePlyMesh(path):
-                  format==MeshOpenFilter::StereolithographyStl?
-                  parseStlMesh(path,stlOptions):parseWavefrontObj(path);
+        // Decode once; each parser returns format metadata alongside its
+        // validated contents instead of guessing from the file extension.
+        Mesh mesh;
+        if(format==MeshOpenFilter::StanfordPly) {
+            PlyDetectedFormat detected{};
+            mesh=parsePlyMesh(path,&detected);
+            candidate.detectedExportPreset=static_cast<MeshExportPreset>(
+                4u+4u*static_cast<unsigned>(detected.encoding)+
+                static_cast<unsigned>(detected.colour));
+        }else if(format==MeshOpenFilter::StereolithographyStl) {
+            StlDetectedEncoding detected{};
+            mesh=parseStlMesh(path,stlOptions,&detected);
+            candidate.detectedExportPreset=static_cast<MeshExportPreset>(
+                16u+static_cast<unsigned>(detected));
+        }else {
+            MeshExportPreset detected{};
+            mesh=parseWavefrontObj(path,&detected);
+            candidate.detectedExportPreset=detected;
+        }
         const auto parsed=std::chrono::steady_clock::now();
         // OBJ validated before returning; PLY must enforce the same
         // topology invariants before its private revision is published.

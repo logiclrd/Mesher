@@ -65,6 +65,17 @@ disclosing its nonstandard representation, lost alpha/RGB, 8-bit/5-bit
 quantization, or vertex-to-facet averaging. Cancel leaves the editor and
 destination untouched. Error messages use a distinct export-failure title.
 
+The initial filter is detected from the *actual successfully parsed*
+foreign file, not just its OBJ/PLY/STL family: STL distinguishes ASCII,
+uncoloured binary, VisCAM facet RGB, Materialise Magics facet RGB and Magics
+single-object RGBA. OBJ preserves geometry/RGB/RGBA/ZBrush MRGB; PLY
+preserves ASCII/LE/BE and RGB/alpha presence. Generic RGBA PLY does not
+encode whether its alpha came from editable mesh or original file alpha;
+Mesher now marks original-source-alpha PLY exports with a comment so
+subsequent Mesher imports can reselect that exact mode. Untagged RGBA PLY
+chooses editable mesh RGBA for export by default. This is distinct from
+the explicit PLY source-alpha opacity decision on import.
+
 The Magics object RGBA policy deliberately averages **all current vertex
 RGBA**, producing exactly one global object colour; this loss is explicitly
 declared and confirmed. The original source-file alpha is only selected by

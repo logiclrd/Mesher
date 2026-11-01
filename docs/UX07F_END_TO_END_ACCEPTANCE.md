@@ -55,6 +55,29 @@ On a full graphics workstation, with a currently edited and visibly painted mesh
 
 Record each actual physical system **separately**: Linux/X11, Windows and macOS. Automated build/CTest success does not count as a Windows/macOS GUI observation. This physical matrix is shared with UX06 and QA-UX; do not create redundant verification items per codec, per format or per OS in the active TODO.
 
+### Import-derived export preset and uniform Magics object regression
+
+A successful foreign-format Open records the *actual parsed encoding*, rather
+than the family-level fallback: OBJ geometry / RGB / RGBA / ZBrush MRGB; PLY
+ASCII / binary LE / binary BE and colour/alpha choices; STL ASCII / binary
+geometry / VisCAM facet RGB / Magics facet RGB / Magics object RGBA.
+The filename extension and selected Open filter never determine this preset.
+For PLY, generic third-party RGBA has no way to distinguish whether alpha
+came from a former editable mesh or an original source; Mesher exports with
+**original source alpha** now carry an optional provenance comment, so
+Mesher-created files can select the exact original-alpha export filter. Other
+RGBA PLYs initialize to the mesh-alpha export selection; the importer still
+requires the existing explicit alpha interpretation where appropriate.
+
+Physical smoke: open a coloured Materialise facet STL, press Ctrl+E, and
+verify the **Magics facet RGB** preset is selected, not binary geometry.
+Repeat for a Magics single-object STL, and for OBJ/PLY formats. On a sphere
+fully painted one RGBA colour, export as Magics single-object RGBA, reopen,
+and verify uniform colour (within 8-bit precision), alpha, and unchanged
+geometry. The corresponding headless regression uses the same actual
+asynchronous export/private-Open path with uniform opaque and translucent
+colours, including the object-header bits.
+
 ## Completion criteria
 
 - The **exact current PR head** passes Linux GCC, Linux Clang, Windows MSVC, macOS arm64 and macOS x86_64 warnings-as-errors and relevant full CTests.

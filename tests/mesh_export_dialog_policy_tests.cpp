@@ -67,6 +67,8 @@ void testPreset(mesher::MeshExportPreset preset) {
             path,mesher::MeshOpenFilter::WavefrontObj);
         require(candidate.vertexCount==4&&candidate.faceCount==4,
                 "OBJ export preset cannot import closed source");
+        require(candidate.detectedExportPreset==preset,
+                "OBJ importer lost exact source colour encoding");
         require(candidate.hasVertexColors==(preset!=
                     mesher::MeshExportPreset::ObjGeometry),
                 "OBJ export preset changed colour policy");
@@ -76,7 +78,11 @@ void testPreset(mesher::MeshExportPreset preset) {
     }else if(info.extension=="ply") {
         require(payload.starts_with("ply\nformat "),
                 "Selected PLY codec did not write PLY header");
-        const auto loaded=mesher::parsePlyMesh(path);
+        mesher::PlyDetectedFormat detected{};
+        const auto loaded=mesher::parsePlyMesh(path,&detected);
+        require(static_cast<unsigned>(detected.encoding)*4u+
+                    static_cast<unsigned>(detected.colour)==index-4u,
+                "PLY importer lost endian/colour/alpha provenance selection");
         require(loaded.vertices.size()==4&&loaded.triangles.size()==4,
                 "PLY preset did not round trip tetrahedron");
         const auto colourIndex=(index-4u)%4u;
@@ -94,7 +100,10 @@ void testPreset(mesher::MeshExportPreset preset) {
         }
     }else {
         require(info.extension=="stl","Unknown export codec extension");
-        const auto loaded=mesher::parseStlMesh(path);
+        mesher::StlDetectedEncoding detected{};
+        const auto loaded=mesher::parseStlMesh(path,{},&detected);
+        require(static_cast<unsigned>(detected)==index-16u,
+                "STL importer lost exact colour dialect or ASCII/binary format");
         require(loaded.vertices.size()==4&&loaded.triangles.size()==4,
                 "STL preset did not round trip closed geometry");
         const auto coloured=preset>=mesher::MeshExportPreset::StlViscamRgb;
@@ -205,6 +214,8 @@ void checkRoundTrip(const mesher::Mesh& source,
                   MeshOpenFormat::StereolithographyStl;
     require(candidate.format==expected,
             "UX07F content auto-detection selected the wrong importer");
+    require(candidate.detectedExportPreset==preset,
+            "UX07F private Open lost the exact re-export format preference");
     require(candidate.vertexCount==source.vertices.size()&&
             candidate.faceCount==source.triangles.size(),
             "UX07F private Open candidate did not admit the export");
@@ -384,6 +395,44 @@ void testRealFixtureExport(const fs::path& input) {
              <<" -> selected codec -> private Open passed\n";
 }
 
+void testUniformMagicsObjectRoundTrip() {
+    // A fully painted mesh is different from the multicolour UX07F tetra.
+    // An object-level COLOR= must survive real async export and private Open
+    // as a single uniform vertex RGBA, including its 8-bit alpha.
+    using namespace mesher;
+    for(const VertexRGBA paint : {VertexRGBA{0.2f,0.6f,0.1f,1.f},
+                                  VertexRGBA{0.4f,0.3f,0.8f,0.4f}}) {
+        RoundTripDirectory tmp;
+        Mesh solid=tetra();
+        solid.colors.assign(solid.vertices.size(),paint);
+        const auto root=indexed(solid);
+        const auto path=tmp.path/"uniform-magics.stl";
+        AsyncMeshExportWriter writer;
+        writer.request(captureMeshExportRequest(path,root),
+                       meshExportEncoder(MeshExportPreset::StlMagicsObjectRgba));
+        writer.drain();
+        const auto completions=writer.takeCompletions();
+        require(completions.size()==1&&completions.front().success,
+                "Solid-colour Magics object export failed");
+        const auto reopened=readMeshOpenCandidate(path,MeshOpenFilter::AllFiles);
+        require(reopened.detectedExportPreset==
+                    MeshExportPreset::StlMagicsObjectRgba,
+                "Solid-colour Magics object STL lost its dialect");
+        require(reopened.hasVertexColors,
+                "Solid-colour Magics object STL reimported as uncoloured");
+        const Mesh back=materializeMeshExport(
+            captureMeshExportRequest(path,reopened.snapshot.index));
+        require(back.colors.size()==back.vertices.size(),
+                "Solid-colour Magics object imported incomplete colour stream");
+        for(const auto& colour:back.colors)
+            require(near(colour.r,paint.r,0.5/255.0+1e-5)&&
+                    near(colour.g,paint.g,0.5/255.0+1e-5)&&
+                    near(colour.b,paint.b,0.5/255.0+1e-5)&&
+                    near(colour.a,paint.a,0.5/255.0+1e-5),
+                    "Solid-colour Magics object RGB(A) changed on private reopen");
+    }
+}
+
 void testFullAsyncExportAndPrivateReopen() {
     using namespace mesher;
     RoundTripDirectory tmp;
@@ -520,6 +569,7 @@ int main(int argc,char** argv) {
         }
         require(argc==1,"UX07F unknown test arguments");
         testNames();
+        testUniformMagicsObjectRoundTrip();
         testFullAsyncExportAndPrivateReopen();
         for(std::size_t i=0;i<mesher::meshExportFormats.size();++i)
             testPreset(static_cast<mesher::MeshExportPreset>(i));

@@ -97,6 +97,8 @@ void writePlyMesh(std::ostream& output,const Mesh& mesh,
     output<<"ply\nformat "<<(ascii?"ascii":little?"binary_little_endian":
         "binary_big_endian")<<" 1.0\n";
     output<<"comment Mesher PLY export\n";
+    if(options.colour==PlyExportColour::RgbaFromFile)
+        output<<"comment Mesher alpha provenance: original source\n";
     output<<"element vertex "<<mesh.vertices.size()<<'\n';
     output<<"property double x\nproperty double y\nproperty double z\n";
     if(hasColour(options.colour)) {
