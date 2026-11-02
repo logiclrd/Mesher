@@ -100,6 +100,37 @@ MSBuild target-level and per-translation-unit concurrency, and benchmark
 bounded `/MP` compilation or alternate test target grouping before claiming
 build-speed improvement. Do not close CI01 solely on the executable count.
 
+## Third measurement: opt-in bounded MSVC compilation
+
+The exact-code baseline [run 41291446766](https://github.com/logiclrd/Mesher/actions/runs/41291446766)
+passed all five platforms and all 162 CTests. Windows linked 18 executables,
+but its complete `cmake --build --config Release --parallel 4` step took
+**373.7 seconds**. The Windows job log shows `mesher_mesh.lib` finishing
+roughly 226 seconds after the build began, while five consolidated test
+executables finished over the remaining 148 seconds.
+
+The third experiment adds the cache setting `MESHER_CI01_MSVC_MP`:
+
+- `0` (default): preserve the original MSVC compilation settings. Ordinary
+  developer builds remain unchanged unless explicitly opted in.
+- `2`: add `/MP2` to `mesher_mesh` and the five bundled CPU test targets.
+- `4`: allow a follow-up `/MP4` benchmark if the first result warrants it.
+
+The CI Windows configure command explicitly selects `-DMESHER_CI01_MSVC_MP=2`.
+The MSBuild project-level parallelism remains `--parallel 4`; nested /MP
+may briefly oversubscribe the runner, so this is deliberately a small,
+controlled first experiment. The build prints the host's logical processor
+count and passes `/clp:PerformanceSummary` to MSBuild for per-task profiling.
+No non-MSVC compiler flags, test logic, CTest registration or output-format
+behaviour changes.
+
+Acceptance requires all five platforms green, the same 18 Windows executable
+links, the original 162 tests and a measured Windows build-step duration
+compared against the 289.8, 334.5 and 373.7 second historical runs.
+Because hosted runners vary, one build alone is directional evidence, not a
+statistically robust speed claim. Subsequent runs can compare /MP4 and
+different MSBuild project caps without altering the sources.
+
 ## Verification protocol
 
 1. Confirm the grouped sixteen names still appear once in

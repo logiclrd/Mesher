@@ -975,3 +975,27 @@ if(MESHER_BUILD_TESTS)
     add_executable(mesher_benchmark tests/performance_benchmark.cpp)
     target_link_libraries(mesher_benchmark PRIVATE mesher_mesh)
 endif()
+
+# CI01 measurement knob. Keep the established local Visual Studio build
+# unchanged unless explicitly opted in. Visual Studio's /m controls
+# concurrent projects; /MP controls compiler processes *within* a project.
+# Only the large mesh library and the five linked test suites use this option.
+# A bounded count avoids unbounded oversubscription when combined with /m4.
+set(MESHER_CI01_MSVC_MP "0" CACHE STRING
+    "MSVC cl.exe processes per large Mesher target (0=legacy, 2 or 4=benchmark)")
+set_property(CACHE MESHER_CI01_MSVC_MP PROPERTY STRINGS 0 2 4)
+if(NOT MESHER_CI01_MSVC_MP MATCHES "^(0|2|4)$")
+    message(FATAL_ERROR
+        "MESHER_CI01_MSVC_MP must be 0, 2 or 4 (got ${MESHER_CI01_MSVC_MP})")
+endif()
+if(MSVC AND MESHER_BUILD_TESTS AND NOT MESHER_CI01_MSVC_MP STREQUAL "0")
+    foreach(target IN ITEMS mesher_mesh
+            mesher_ci01_cpu_regressions
+            mesher_ci01_suite_a mesher_ci01_suite_b
+            mesher_ci01_suite_c mesher_ci01_suite_d)
+        target_compile_options(${target} PRIVATE "/MP${MESHER_CI01_MSVC_MP}")
+    endforeach()
+    message(STATUS
+        "CI01 MSVC parallel C++ compilation: /MP${MESHER_CI01_MSVC_MP} "
+        "on mesh library and five CPU test bundles")
+endif()
