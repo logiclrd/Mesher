@@ -16,7 +16,7 @@ void require(bool okay,const char* why) {
 // Closed thick rectangular slab with a densely triangulated, perfectly flat
 // top. The bottom is deliberately outside the brush sphere.
 Mesh slab() {
-    constexpr int n=9;
+    constexpr int n=17;
     constexpr double spacing=.15;
     Mesh mesh;
     for(int level=0;level<2;++level)

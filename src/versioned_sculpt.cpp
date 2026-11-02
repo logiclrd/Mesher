@@ -1131,10 +1131,40 @@ void VersionedSculptBrush::stamp(
     const auto trial=shape?BacktrackChoice{}:
         probeOffModeNormalFraction(old,areas);
     lastStepResourceWork_.backtracking=trial.work;
-    const auto inflated=shape?
-        versionedCreasePinchStamp(old,areas,deformation_,
-            inflate_.effectiveStrength(),inflate_.mirrors(),partitionCapacity_):
-        inflate_.stamp(old,areas,partitionCapacity_,trial.fraction);
+    VersionedInflateStamp inflated;
+    if(shape) {
+        try {
+            inflated=versionedCreasePinchStamp(
+                old,areas,deformation_,inflate_.effectiveStrength(),
+                inflate_.mirrors(),partitionCapacity_);
+        }catch(const std::exception& error) {
+            // Expected local geometry/budget failures are refusals of this
+            // immutable source Step, never terminal worker failures.
+            lastDirtyPartitions_.clear();
+            lastRejection_=std::string("Crease/Pinch private refusal: ")+error.what();
+            details_={};
+            details_.areas.assign(areas.begin(),areas.end());
+            details_.vertices=vertices_;
+            details_.triangles=faces_;
+            timings_={};
+            ++rejected_;
+            ++completed_;
+            lastStepResourceWork_.refused=true;
+            lastStepResourceWork_.refusalCategory=
+                dynamic_cast<const std::length_error*>(&error)?
+                    SculptRefusalCategory::FiniteWorkBudget:
+                    SculptRefusalCategory::GeometryOrTopology;
+            lastStepResourceWork_.refusal=lastRejection_;
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(start,Clock::now())*1000;
+            recordStepDiagnostics();
+            if(collision_.physicalExact||collision_.enabled||
+               collision_.certifiedAutoClosure)
+                contact_.observe(std::nullopt);
+            return;
+        }
+    }else inflated=inflate_.stamp(
+        old,areas,partitionCapacity_,trial.fraction);
     const auto afterInflate=Clock::now();
     refiner_.beginStep();
     try {collapser_.beginStep();}

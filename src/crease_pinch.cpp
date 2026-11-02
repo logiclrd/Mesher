@@ -231,7 +231,7 @@ CreasePinchProposal proposeCreasePinch(
         if(!std::isfinite(a)||a<0)
             throw std::invalid_argument("Crease support contains invalid triangle area");
         if(a<=0)continue;
-        pts.push_back({id,vertex.position,dist,a,{},{0}});
+        pts.push_back({id,vertex.position,dist,a,{},0});
         areaTotal+=a;
         centroid=centroid+vertex.position*a;
     }
