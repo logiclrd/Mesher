@@ -91,14 +91,12 @@ tests with custom compile/link settings, multi-mode command-line/fixture
 executables, and the standalone performance benchmark. Their special semantics
 must not be silently changed merely to obtain a smaller .exe count.
 
-A performance claim requires the new run's actual MSVC compile/link time,
-number of linked .exe artifacts and all five warnings-as-errors/CTest suites.
-Windows runner variance and link-versus-compilation costs should be recorded
-before further expansion or closure of CI01. A reduced binary count by itself
-does not demonstrate a faster pipeline. The next CI01 step should profile
-MSBuild target-level and per-translation-unit concurrency, and benchmark
-bounded `/MP` compilation or alternate test target grouping before claiming
-build-speed improvement. Do not close CI01 solely on the executable count.
+The executable reduction was not sufficient by itself: without /MP, the
+expanded five-suite layout was measurably slower. The subsequent MSBuild
+performance-summary and bounded /MP experiments found the large mesh library
+to be the critical-path compilation bottleneck. The accepted /MP4 + /m2
+configuration improves both the library's completion time and the total
+Windows build-step duration; detailed results appear below.
 
 ## Third measurement: opt-in bounded MSVC compilation
 
@@ -127,22 +125,41 @@ into the build instead of about 226 seconds; the remaining build tail did
 not materially improve. The MSBuild performance summary recorded 103 CL
 task calls and 18 linker calls (sum of task durations is *not* wall time).
 
-Second measurement in progress: CI now configures
-`-DMESHER_CI01_MSVC_MP=4` with `--parallel 2`. This retains an upper
-bound of eight concurrent compiler processes (2 MSBuild projects times
-4 per-target compiler processes), while prioritising parallel compilation
-inside the heavy mesh library. The build continues to print effective
-processors and `/clp:PerformanceSummary` profiling. Actual Windows
-results must be recorded before selecting the preferred setting.
-No non-MSVC compiler flags, test logic, CTest registration or output-format
-behaviour changes.
+Second measurement and selected configuration:
+[CI 41367874349](https://github.com/logiclrd/Mesher/actions/runs/41367874349)
+configured `-DMESHER_CI01_MSVC_MP=4` with `--parallel 2` (two MSBuild
+projects with up to four compiler processes each). All five platforms passed,
+including all **162 Windows CTests**; Windows still linked **18 executables**.
+The four-logical-processor runner's complete build step took **231.6 seconds**.
+The mesh library linked after **106.4 seconds**. The MSBuild performance
+summary reported 103 compiler task calls and 18 linker task calls. No MSVC
+warnings or linker errors occurred under `/W4 /WX`.
 
-Acceptance requires all five platforms green, the same 18 Windows executable
-links, the original 162 tests and a measured Windows build-step duration
-compared against the 289.8, 334.5 and 373.7 second historical runs.
-Because hosted runners vary, one build alone is directional evidence, not a
-statistically robust speed claim. Subsequent runs can compare /MP4 and
-different MSBuild project caps without altering the sources.
+### Measured Windows outcomes
+
+| Configuration | Linked .exe files | Complete build step | Library ready |
+| --- | ---: | ---: | ---: |
+| Before CI01, 97 standalone executables | 97 | 289.8 s | not measured separately |
+| CI01 initial 16-test grouping, no /MP | 82 | 334.5 s | not measured separately |
+| CI01 all five suites, no /MP | 18 | 373.7 s | ~226 s |
+| Five suites with /MP2, MSBuild /m4 | 18 | 308.9 s | 160.4 s |
+| **Five suites with /MP4, MSBuild /m2 (selected)** | **18** | **231.6 s** | **106.4 s** |
+
+The selected configuration reduced Windows executable count by **79/97
+(81.4%)** and measured total build time by **58.2 seconds (20.1%)**
+relative to the original pre-CI01 baseline. Compared with the unoptimised
+18-executable build, build time decreased by **142.1 seconds (38.0%)**.
+
+The final CI setting is `MESHER_CI01_MSVC_MP=4` and MSBuild `--parallel 2`.
+The CMake cache option still defaults to `0` for local builds, preserving
+existing local MSVC behaviour. All non-MSVC compiler settings, test logic,
+CTest names, process isolation and output formats are unchanged.
+
+**Interpretation:** This demonstrates a useful improvement on the measured
+hosted runner, not a statistical guarantee. Hosted runner resource variance
+and incremental build behaviour should be revisited if times drift.
+The five linked CPU test suites remain independent; do not merge their
+CTest invocations into one serial test process to chase executable count.
 
 ## Verification protocol
 
@@ -158,5 +175,8 @@ different MSBuild project caps without altering the sources.
 5. If the first group gives useful results, consider additional *independent*
    groups instead of turning every test into a single long serial executable.
 
-The active TODO retains CI01 until the measured outcome is reviewed and the
-remaining larger test-target count is explicitly accepted or reduced further.
+CI01 acceptance is satisfied: all five platform jobs are green, all 162
+Windows CTests are preserved, Windows executables declined from 97 to 18,
+and the selected bounded /MP4 + /m2 configuration improves the measured
+full Windows build time. Further optimisation, if warranted by future
+measurements, should be scoped as a separate performance task.

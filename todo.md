@@ -12,7 +12,11 @@ Completed milestones are **removed**, not left as checked boxes here. For accept
 live AFM repair, see [PR #162](https://github.com/logiclrd/Mesher/pull/162),
 [always-on AUTO #164](https://github.com/logiclrd/Mesher/pull/164) and their design
 documents. For desktop input, paint, Open, Save, export, scale, New and splash, see merged
-PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged), end-to-end export acceptance [#192](https://github.com/logiclrd/Mesher/pull/192), image-to-PLY [#193](https://github.com/logiclrd/Mesher/pull/193) and facet-colour diffusion [#194](https://github.com/logiclrd/Mesher/pull/194). **Merged
+PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged), end-to-end export acceptance [#192](https://github.com/logiclrd/Mesher/pull/192), image-to-PLY [#193](https://github.com/logiclrd/Mesher/pull/193) and facet-colour diffusion [#194](https://github.com/logiclrd/Mesher/pull/194).
+For build efficiency, CI01 [#195](https://github.com/logiclrd/Mesher/pull/195)
+consolidated 97 Windows executables to 18 and reduced the measured Windows
+build step from 289.8 to 231.6 seconds; see the
+[CI01 report](docs/CI01_TEST_EXECUTABLE_CONSOLIDATION.md). **Merged
 implementation is not automatically physical acceptance on every platform.**
 
 ## Engineering rules
@@ -117,12 +121,6 @@ implementation is not automatically physical acceptance on every platform.**
 
 ## Build efficiency and research decisions
 
-- [ ] **CI01 — Consolidate C++ testing executables without losing coverage.** Reduce
-  excessive individual CTest binaries, particularly Windows MSVC compilation time, while
-  preserving independent CTest names, runnable filtering, diagnostics, full
-  Vulkan/headless/no-Qhull portability, concurrency tests and warnings-as-errors. Measure
-  executable counts and actual full Windows compile wall time before and after; do not
-  create a serial monolithic test bottleneck.
 - [ ] **R06-TRIAGE — Re-scope historical geometry experiments before reopening.** The
   [audit](docs/TODO_AUDIT_2026_10_31.md) identifies old **unchecked** AFM/private-cap/zipper
   experimental and diagnostic items that were not individually certified as done. Do not
@@ -150,3 +148,4 @@ implementation is not automatically physical acceptance on every platform.**
 - [R07 live AUTO publication](docs/R07_LIVE_AUTO_PUBLICATION.md)
 - [Private Open/import contract](docs/UX06_PRIVATE_OPEN_CANDIDATES.md)
 - [Native export acceptance](docs/UX07E_NATIVE_EXPORT.md)
+- [CI01 test consolidation and Windows build measurements](docs/CI01_TEST_EXECUTABLE_CONSOLIDATION.md)
