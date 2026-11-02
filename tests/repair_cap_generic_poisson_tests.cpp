@@ -121,4 +121,5 @@ int main() {
         std::cerr<<"R06-M22A: "<<error.what()<<"\n";
         return 1;
     }
+    return 0;
 }

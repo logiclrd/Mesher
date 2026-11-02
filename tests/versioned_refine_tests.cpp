@@ -900,4 +900,5 @@ int main() {
         std::cerr<<"V6 refinement failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

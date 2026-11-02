@@ -186,4 +186,5 @@ int main() {
         std::cerr<<"Partitioning test failed: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

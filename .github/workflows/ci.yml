@@ -211,12 +211,16 @@ jobs:
           # Each test .exe shares build/Release; vcpkg's parallel z-applocal
           # copying can race over the same DLL. Test PATH below supplies
           # these runtime dependencies without per-target copies.
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON -DVCPKG_APPLOCAL_DEPS=OFF
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DMESHER_BUILD_VIEWPORT=ON -DMESHER_FIND_QHULL=ON -DVCPKG_APPLOCAL_DEPS=OFF -DMESHER_CI01_MSVC_MP=4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Compile application and tests with /W4 /WX
         shell: pwsh
         run: |
-          cmake --build build --config Release --parallel 4
+          # CI01: second controlled benchmark. Keep the maximum compiler
+          # concurrency bounded: two MSBuild projects * /MP4 per large target.
+          # The previous /m4 + /MP2 baseline is recorded in the CI01 report.
+          Write-Host "MSVC host logical processors: $([Environment]::ProcessorCount)"
+          cmake --build build --config Release --parallel 2 -- /clp:PerformanceSummary
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run CPU tests (MSVC)
         shell: pwsh

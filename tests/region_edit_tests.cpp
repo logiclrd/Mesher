@@ -341,4 +341,5 @@ int main() {
         std::cerr<<"Region edit transaction failure: "<<ex.what()<<'\n';
         return 1;
     }
+    return 0;
 }

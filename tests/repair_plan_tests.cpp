@@ -283,4 +283,5 @@ int main() {
         std::cerr<<"Density-aware repair planning failure: "<<e.what()<<'\n';
         return 1;
     }
+    return 0;
 }

@@ -99,4 +99,5 @@ int main() {
         std::cerr<<"M22B: "<<error.what()<<"\n";
         return 1;
     }
+    return 0;
 }

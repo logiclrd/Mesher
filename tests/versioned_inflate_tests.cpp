@@ -327,4 +327,5 @@ int main() {
         std::cerr<<"Versioned Inflate regression failure: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

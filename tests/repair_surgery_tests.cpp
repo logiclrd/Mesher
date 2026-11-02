@@ -2422,4 +2422,5 @@ int main() {
         std::cerr<<"Repair surgery failure: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

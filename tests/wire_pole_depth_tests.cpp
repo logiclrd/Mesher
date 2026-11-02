@@ -87,4 +87,5 @@ int main() {
         std::cerr<<"M64 diagnosis failed: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

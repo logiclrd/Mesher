@@ -171,4 +171,5 @@ int main() {
         std::cerr<<"R06-M23B: "<<e.what()<<"\n";
         return 1;
     }
+    return 0;
 }

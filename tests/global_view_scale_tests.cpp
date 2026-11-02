@@ -174,4 +174,5 @@ int main() {
         std::cerr<<"UX08 regression: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

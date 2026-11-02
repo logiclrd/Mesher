@@ -4590,4 +4590,5 @@ int main() {
         std::cerr<<"Revision triangle collision failure: "<<error.what()<<'\n';
         return 1;
     }
+    return 0;
 }

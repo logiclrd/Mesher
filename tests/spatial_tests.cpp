@@ -52,4 +52,5 @@ int main() {
     }catch(const std::exception& error) {
         std::cerr<<"Spatial index test failed: "<<error.what()<<'\n';return 1;
     }
+    return 0;
 }
