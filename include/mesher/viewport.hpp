@@ -1,5 +1,6 @@
 #pragma once
 #include "mesher/mesh.hpp"
+#include "mesher/crease_pinch.hpp"
 #include "mesher/native_save_dialog.hpp"
 #include "mesher/brush_radius.hpp"
 #include "mesher/viewport_scale.hpp"
@@ -87,6 +88,9 @@ enum class NewDocumentSaveProgress {Pending,Succeeded,Failed};
 struct ViewportInteraction {
     // Latch inversion on mouse-down, never switch queued 4D samples mid-stroke.
     std::function<void(Vec3,bool inverted)> begin;
+    // Shape mode captures the camera-facing local Z and physical W/R,D/R
+    // at mouse-down; all queued samples use the same latched parameters.
+    std::function<void(Vec3,SculptBrushMode,Vec3,double,double)> beginShape;
     std::function<void(Vec3,double)> update;
     std::function<void(Vec3,double)> end;
     // F8 diagnostic one-shot: one async stamp at the currently picked

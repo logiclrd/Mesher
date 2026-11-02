@@ -14,6 +14,7 @@ int mesher_ci01_stl_export_dialect_and_colour_roundtrips_main();
 int mesher_ci01_stl_dual_facet_colour_diffusion_main();
 int mesher_ci01_stl_colour_benchmark_main();
 int mesher_ci01_brushes_main();
+int mesher_ci01_crease_pinch_bootstrap_confidence_main();
 int mesher_ci01_directional_collapse_main();
 int mesher_ci01_local_refinement_main();
 int mesher_ci01_visible_floor_grid_pixel_distance_main();
@@ -28,7 +29,7 @@ int mesher_ci01_revision_triangle_collisions_main();
 int main(int argc,char** argv) {
     using Test=int(*)();
     struct Entry {std::string_view name;Test run;};
-    const std::array<Entry,20> tests{{
+    const std::array<Entry,21> tests{{
         {"ux09_new_model_private_candidate_and_modal_policy",&mesher_ci01_ux09_new_model_private_candidate_and_modal_policy_main},
         {"ux09_filename_provenance_and_embedded_vocabulary",&mesher_ci01_ux09_filename_provenance_and_embedded_vocabulary_main},
         {"geometry_torus_hollow_sphere_fixtures",&mesher_ci01_geometry_torus_hollow_sphere_fixtures_main},
@@ -39,6 +40,7 @@ int main(int argc,char** argv) {
         {"stl_dual_facet_colour_diffusion",&mesher_ci01_stl_dual_facet_colour_diffusion_main},
         {"stl_colour_benchmark",&mesher_ci01_stl_colour_benchmark_main},
         {"brushes",&mesher_ci01_brushes_main},
+        {"crease_pinch_bootstrap_confidence",&mesher_ci01_crease_pinch_bootstrap_confidence_main},
         {"directional_collapse",&mesher_ci01_directional_collapse_main},
         {"local_refinement",&mesher_ci01_local_refinement_main},
         {"visible_floor_grid_pixel_distance",&mesher_ci01_visible_floor_grid_pixel_distance_main},

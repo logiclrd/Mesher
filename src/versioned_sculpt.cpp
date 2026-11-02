@@ -1051,6 +1051,18 @@ VersionedSculptBrush::probeOffModeNormalFraction(
     return choice;
 }
 
+void VersionedSculptBrush::setDeformation(SculptDeformation settings) {
+    if(!std::isfinite(settings.widthFraction)||
+       !std::isfinite(settings.depthFraction)||
+       settings.widthFraction<=0||settings.depthFraction<=0||
+       !std::isfinite(settings.towardCamera.x)||
+       !std::isfinite(settings.towardCamera.y)||
+       !std::isfinite(settings.towardCamera.z)||
+       length(settings.towardCamera)<1e-12)
+        throw std::invalid_argument("Invalid Crease/Pinch brush configuration");
+    deformation_=settings;
+}
+
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
@@ -1110,22 +1122,40 @@ void VersionedSculptBrush::stamp(
             contact_.observe(std::nullopt);
         return;
     }
-    const auto trial=probeOffModeNormalFraction(old,areas);
+    const bool shape=deformation_.mode!=SculptBrushMode::Inflate;
+    // V18 normal-backtracking is specific to normal Inflate and must not be
+    // misrepresented as a certificate for tangent Crease/Pinch movement.
+    if(shape&&collision_.offModeConstraints.enabled)
+        throw std::logic_error(
+            "Crease/Pinch requires AUTO; opt-in OFF-mode constraints are Inflate-only");
+    const auto trial=shape?BacktrackChoice{}:
+        probeOffModeNormalFraction(old,areas);
     lastStepResourceWork_.backtracking=trial.work;
-    const auto inflated=inflate_.stamp(
-        old,areas,partitionCapacity_,trial.fraction);
+    const auto inflated=shape?
+        versionedCreasePinchStamp(old,areas,deformation_,
+            inflate_.effectiveStrength(),inflate_.mirrors(),partitionCapacity_):
+        inflate_.stamp(old,areas,partitionCapacity_,trial.fraction);
     const auto afterInflate=Clock::now();
     refiner_.beginStep();
     try {collapser_.beginStep();}
     catch(...) {refiner_.rollbackStep();throw;}
     bool didPublish=false;
     try {
-    const auto refined=refiner_.apply(inflated.index,inflated.baseline);
+    const auto refined=refiner_.apply(inflated.index,inflated.baseline,shape);
     // Collapse must see V6's newly inserted stable mirror IDs immediately.
     for(const auto& pair:refined.insertedMirrorPairs)
         collapser_.addMirrorPair(pair.first,pair.second);
     const auto afterRefine=Clock::now();
-    const auto collapsed=collapser_.apply(refined.index,inflated.baseline);
+    // A crease depends on dense short edges. Ordinary collapse is never run
+    // for this stamp; the certified AUTO repair below remains fully active.
+    VersionedCollapseResult collapsed;
+    if(shape) {
+        collapsed.index=refined.index;
+        collapsed.stampOriginal=inflated.baseline.before;
+        collapsed.sourceIndex=refined.index;
+    }else {
+        collapsed=collapser_.apply(refined.index,inflated.baseline);
+    }
     const auto afterCollapse=Clock::now();
     lastStepResourceWork_.stageWall.initialGeometryMs=
         seconds(start,afterCollapse)*1000;

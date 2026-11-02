@@ -60,6 +60,7 @@ public:
     // Signed per-stroke scale of the final normal displacement; normals,
     // curvature and positive collision backtracking remain unchanged.
     void setStrengthScale(double scale);
+    double effectiveStrength() const noexcept {return strength_*strengthScale_;}
     void addMirrorPair(VertexId first,VertexId second);
     // V7: drop only the retired pair, preserving unrelated mappings.
     void removeMirrorPair(VertexId first,VertexId second);

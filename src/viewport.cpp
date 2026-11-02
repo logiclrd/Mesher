@@ -763,6 +763,12 @@ class VulkanViewport {
         return baseCameraEye(width,height)+scaleFollow_.cameraOffset();
     }
     bool paintMode_=false,paintModeKeyWasDown_=false,painting_=false;
+    SculptBrushMode sculptMode_=SculptBrushMode::Inflate;
+    double creaseWidthFraction_=0.20,creaseDepthFraction_=0.20;
+    bool modeInflateWasDown_=false,modeCreaseWasDown_=false;
+    bool modePinchWasDown_=false,creaseWidthLessWasDown_=false;
+    bool creaseWidthMoreWasDown_=false,creaseDepthLessWasDown_=false;
+    bool creaseDepthMoreWasDown_=false;
     bool paintPanelDragging_=false;
     // Hover preview is UI-owned only: never part of COW state or undo history.
     std::vector<FaceId> paintPreviewFaces_;
@@ -1794,7 +1800,20 @@ class VulkanViewport {
                 const bool inverted=
                     keyboard_.down(GLFW_KEY_LEFT_ALT)||
                     keyboard_.down(GLFW_KEY_RIGHT_ALT);
-                interaction_.begin(*picked,inverted);
+                if(sculptMode_!=SculptBrushMode::Inflate&&
+                   interaction_.beginShape) {
+                    const auto ray=cursorSourceRay();
+                    Vec3 towardCamera=ray?ray->origin-*picked:Vec3{0,-1,0};
+                    if(length(towardCamera)>1e-12)
+                        towardCamera=normalized(towardCamera);
+                    else towardCamera={0,-1,0};
+                    const auto mode=!inverted?sculptMode_:
+                        sculptMode_==SculptBrushMode::Crease?
+                            SculptBrushMode::Pinch:SculptBrushMode::Crease;
+                    interaction_.beginShape(*picked,mode,towardCamera,
+                                            creaseWidthFraction_,
+                                            creaseDepthFraction_);
+                }else interaction_.begin(*picked,inverted);
                 lastStampCallbackMs_=(glfwGetTime()-stampStart)*1000.0;
                 lastConsoleTime_=glfwGetTime();
                 logFrames_=0;
@@ -2146,10 +2165,23 @@ class VulkanViewport {
             if(mergeInput_.enabled())
                 title+=" | Merge ON: LMB select; Enter submit ("+
                        std::to_string(mergeInput_.selectedCount())+" faces)";
-            else title+=paintMode_ ? " | Paint RGBA (B toggle)" :
-                sculpting_ ? " | Sculpting" :
-                interaction_.mergeSelected?
-                " | Merge OFF: LMB Inflate; M toggle":" | LMB: Inflate";
+            else if(paintMode_)
+                title+=" | Paint RGBA (B toggle)";
+            else if(sculpting_)
+                title+=" | Sculpting";
+            else {
+                const char* shape=sculptMode_==SculptBrushMode::Inflate?
+                    "Inflate":sculptMode_==SculptBrushMode::Crease?
+                    "Crease":"Pinch";
+                title+=" | LMB "+std::string(shape);
+                if(interaction_.beginShape) {
+                    title+=" (1/2/3)";
+                    if(sculptMode_!=SculptBrushMode::Inflate)
+                        title+=" W/R="+hudDecimal(creaseWidthFraction_)+
+                               " D/R="+hudDecimal(creaseDepthFraction_);
+                }
+                if(interaction_.mergeSelected)title+="; M: Merge";
+            }
             if(interaction_.mergeStatus)title+=" | "+interaction_.mergeStatus();
             // Live AUTO reports an immediate visible acceptance/refusal
             // state; the console retains the full diagnostic explanation.
@@ -3249,6 +3281,43 @@ public:
             const bool save=justPressed(GLFW_KEY_S,saveWasDown_);
             const bool open=justPressed(GLFW_KEY_O,openWasDown_);
             const bool exportPressed=justPressed(GLFW_KEY_E,exportWasDown_);
+            // Crease/Pinch selection is a stroke-latched worker mode. Do not
+            // switch a live 4D queue or any other editing interaction.
+            const bool selectInflate=justPressed(GLFW_KEY_1,modeInflateWasDown_);
+            const bool selectCrease=justPressed(GLFW_KEY_2,modeCreaseWasDown_);
+            const bool selectPinch=justPressed(GLFW_KEY_3,modePinchWasDown_);
+            const bool widthLess=justPressed(
+                GLFW_KEY_LEFT_BRACKET,creaseWidthLessWasDown_);
+            const bool widthMore=justPressed(
+                GLFW_KEY_RIGHT_BRACKET,creaseWidthMoreWasDown_);
+            const bool depthLess=justPressed(
+                GLFW_KEY_SEMICOLON,creaseDepthLessWasDown_);
+            const bool depthMore=justPressed(
+                GLFW_KEY_APOSTROPHE,creaseDepthMoreWasDown_);
+            if(interaction_.beginShape&&!sculpting_&&!painting_&&
+               !paintMode_&&!inspectionFrozen_&&!mergeInput_.enabled()&&
+               !shortcut&&!interaction_.repairStepMode) {
+                if(selectInflate)sculptMode_=SculptBrushMode::Inflate;
+                if(selectCrease)sculptMode_=SculptBrushMode::Crease;
+                if(selectPinch)sculptMode_=SculptBrushMode::Pinch;
+                if(widthLess)creaseWidthFraction_=std::max(
+                    .02,creaseWidthFraction_/1.25);
+                if(widthMore)creaseWidthFraction_=std::min(
+                    1.,creaseWidthFraction_*1.25);
+                if(depthLess)creaseDepthFraction_=std::max(
+                    .02,creaseDepthFraction_/1.25);
+                if(depthMore)creaseDepthFraction_=std::min(
+                    2.,creaseDepthFraction_*1.25);
+                if(selectInflate||selectCrease||selectPinch||
+                   widthLess||widthMore||depthLess||depthMore) {
+                    std::cout<<"[brush] mode="<<
+                        (sculptMode_==SculptBrushMode::Inflate?"Inflate":
+                         sculptMode_==SculptBrushMode::Crease?"Crease":"Pinch")
+                        <<" W/R="<<creaseWidthFraction_
+                        <<" D/R="<<creaseDepthFraction_<<"\n";
+                    updateTitle();
+                }
+            }
             // Deliberate solid-only visual diagnostic. This does not edit
             // source triangles, select FaceIds or affect history.
             if(justPressed(GLFW_KEY_W,wireKeyWasDown_)) {

@@ -1338,6 +1338,13 @@ int main(int argc, char** argv) {
                 liveWorker->begin(point,brushRadius,{},
                                   inverted?-2.0/3.0:1.0);
             };
+            interaction.beginShape=[&](mesher::Vec3 point,
+                    mesher::SculptBrushMode mode,mesher::Vec3 towardCamera,
+                    double widthFraction,double depthFraction) {
+                if(repairSession&&repairSession->frozen())return;
+                liveWorker->begin(point,brushRadius,{},1.0,
+                    {mode,widthFraction,depthFraction,towardCamera});
+            };
             interaction.update=[&](mesher::Vec3 point,double elapsed) {
                 liveWorker->update(point,elapsed);
             };
