@@ -116,11 +116,24 @@ The third experiment adds the cache setting `MESHER_CI01_MSVC_MP`:
 - `2`: add `/MP2` to `mesher_mesh` and the five bundled CPU test targets.
 - `4`: allow a follow-up `/MP4` benchmark if the first result warrants it.
 
-The CI Windows configure command explicitly selects `-DMESHER_CI01_MSVC_MP=2`.
-The MSBuild project-level parallelism remains `--parallel 4`; nested /MP
-may briefly oversubscribe the runner, so this is deliberately a small,
-controlled first experiment. The build prints the host's logical processor
-count and passes `/clp:PerformanceSummary` to MSBuild for per-task profiling.
+First measurement: [CI 41366953831](https://github.com/logiclrd/Mesher/actions/runs/41366953831)
+configured `-DMESHER_CI01_MSVC_MP=2` and retained `--parallel 4`.
+All five platforms and all 162 Windows CTests passed, with 18 linked
+Windows executables. On the four-logical-processor runner, the measured
+build step fell to **308.9 seconds** (17.3% faster than the 373.7-second
+consolidated no-/MP build), but still lagged the original 289.8-second
+97-executable baseline. The `mesher_mesh.lib` link finished 160.4 seconds
+into the build instead of about 226 seconds; the remaining build tail did
+not materially improve. The MSBuild performance summary recorded 103 CL
+task calls and 18 linker calls (sum of task durations is *not* wall time).
+
+Second measurement in progress: CI now configures
+`-DMESHER_CI01_MSVC_MP=4` with `--parallel 2`. This retains an upper
+bound of eight concurrent compiler processes (2 MSBuild projects times
+4 per-target compiler processes), while prioritising parallel compilation
+inside the heavy mesh library. The build continues to print effective
+processors and `/clp:PerformanceSummary` profiling. Actual Windows
+results must be recorded before selecting the preferred setting.
 No non-MSVC compiler flags, test logic, CTest registration or output-format
 behaviour changes.
 
