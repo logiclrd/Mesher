@@ -32,11 +32,15 @@ segments never change mode in mid-stroke.
    corners initialized at their straight-line distances to C. Traverse
    adjacent mesh edges by bounded Dijkstra; stop at R. A vertex V enters
    the fit/deformation support only when its estimated R_V <= R.
-3. Record R_V and frozen pre-stamp positions once. Compute all fits, weights
-   and displacements from this same snapshot. The frozen edge-graph distance
-   is a conservative upper approximation to a continuous geodesic; on very
-   coarse meshes it can undershoot the visual circular footprint. Do not
-   allow an absent/ambiguous anchor to jump across disconnected surfaces.
+3. A sampled 4D brush segment may not carry a fresh FaceId for every
+   interpolated point. In that case select the nearest **triangle surface**
+   from the bounded vertex halo by actual point-to-triangle distance (not
+   nearest vertex), then seed its corners. Equidistant disconnected source
+   sheets are ambiguous and must fail closed, not select an arbitrary
+   component. Record R_V and frozen pre-stamp positions once. Compute all
+   fits, weights and displacements from this same snapshot. The frozen
+   edge-graph distance conservatively overestimates continuous geodesics;
+   on very coarse meshes it may undershoot the visual circular footprint.
 4. Bound the number of explored vertices, incident edges, candidate faces
    and total per-stamp copied bytes; exhausted work refuses privately.
    No full-mesh scan per stamp and no unbounded memory allocations.
@@ -218,3 +222,14 @@ Implementation should be staged on one draft PR: (1) this design;
 (2) isolated CPU fitting/deformation and regressions; (3) versioned
 worker/viewport integration, split-only refinement and AUTO;
 (4) five-platform CI plus physical Linux/Windows checks before merge.
+
+## Initial desktop controls (experimental)
+
+Keys `1`, `2`, `3` select Inflate, Crease and Pinch between strokes.
+`[` / `]` adjust W/R, `;` / `'` adjust D/R by factors of 1.25; initial
+W/R=D/R=0.20. Alt temporarily swaps Crease/Pinch for one stroke, while
+retaining its existing inverse-Inflate meaning in Inflate mode. The viewport
+captures the camera-to-contact direction when the stroke begins. The worker
+latches the mode and fractions with the first 4D sample; changes to sliders,
+keys or camera do not change already queued samples. This is a preliminary
+keyboard UI, pending physical acceptance before dedicated on-screen controls.

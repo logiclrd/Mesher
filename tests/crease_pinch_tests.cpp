@@ -1,5 +1,6 @@
 #include "mesher/crease_pinch.hpp"
 #include "mesher/mesh_partitioning.hpp"
+#include "mesher/versioned_sculpt.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -139,12 +140,42 @@ void testSignsAndBounds() {
     }catch(const std::length_error&) {bounded=true;}
     require(bounded,"Crease ignored the maximum edge-work budget");
 }
+void testWorkerTransactionAndUndo() {
+    // The actual sculpt brush must use the same immutable-root transaction
+    // path as Inflate, while bypassing ordinary flip and collapse passes.
+    CollapseSettings collapse{};
+    collapse.enabled=true;
+    RefineSettings refine{};
+    refine.enabled=true;
+    refine.optimizeFlips=true;
+    VersionedSculptBrush brush(slab(),.025,{},collapse,refine,false,256);
+    brush.setDeformation({SculptBrushMode::Crease,.30,.30,{0,0,1}});
+    Mesh dummy;
+    const auto source=brush.snapshot();
+    const std::vector<BrushArea> areas{{{0,0,0},.60,.3}};
+    brush.stamp(dummy,areas);
+    const auto changed=brush.snapshot();
+    require(changed&&changed!=source,
+            "Crease worker failed to publish first dimple");
+    require(brush.lastDetails().moved>0,
+            "Crease worker reported no touched geometry");
+    require(brush.lastDetails().collapsedPairs==0&&
+            brush.lastDetails().flipPairs==0,
+            "Crease worker destroyed intentionally concentrated geometry");
+    require(brush.undo(),"Crease published geometry cannot be undone");
+    require(brush.snapshot()==source,
+            "Undo did not restore original immutable Crease root");
+    require(brush.redo(),"Crease published geometry cannot be redone");
+    require(brush.snapshot()==changed,
+            "Redo did not restore exact accepted Crease revision");
+}
 }
 
 int main() {
     try {
         testBootstrap();
         testSignsAndBounds();
+        testWorkerTransactionAndUndo();
         std::cout<<"Crease/Pinch virtual-dimple, confidence, signs and bounds passed\n";
         return 0;
     }catch(const std::exception& ex) {

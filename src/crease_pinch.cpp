@@ -136,6 +136,37 @@ FitLine fitLine(const std::vector<Support>& pts,Vec3 planeCenter,
 
 Vec3 reflect(Vec3 p) {return {-p.x,p.y,p.z};}
 
+// Squared point-to-triangle distance with a finite edge fallback. Nearest
+// *face* anchoring is essential when a second disconnected sheet has a vertex
+// closer to C than any vertex of the actual contacted triangle.
+double contactTriangleDistance2(Vec3 p,Vec3 a,Vec3 b,Vec3 c) {
+    const auto segment=[p](Vec3 u,Vec3 v) {
+        const Vec3 edge=v-u;
+        const double size2=dot(edge,edge);
+        const double t=size2>0?
+            std::clamp(dot(p-u,edge)/size2,0.,1.):0.;
+        const Vec3 delta=p-(u+edge*t);
+        return dot(delta,delta);
+    };
+    const Vec3 ab=b-a,ac=c-a,n=cross(ab,ac);
+    const double n2=dot(n,n);
+    if(n2>0) {
+        const Vec3 projected=p-n*(dot(p-a,n)/n2);
+        const Vec3 ap=projected-a;
+        const double aa=dot(ab,ab),bb=dot(ab,ac),cc=dot(ac,ac);
+        const double d=aa*cc-bb*bb;
+        if(d>1e-30) {
+            const double u=(dot(ap,ab)*cc-dot(ap,ac)*bb)/d;
+            const double v=(dot(ap,ac)*aa-dot(ap,ab)*bb)/d;
+            if(u>=-1e-12&&v>=-1e-12&&u+v<=1+1e-12) {
+                const Vec3 delta=p-projected;
+                return dot(delta,delta);
+            }
+        }
+    }
+    return std::min({segment(a,b),segment(b,c),segment(c,a)});
+}
+
 } // namespace
 
 CreasePinchProposal proposeCreasePinch(
@@ -179,18 +210,54 @@ CreasePinchProposal proposeCreasePinch(
         for(const auto id:face->vertices)
             push(id,length(before.vertex(id).position-contact));
     }else {
-        // Fallback for sampled stroke segments without a new source FaceId.
-        // Deterministic nearest Euclidean vertex, followed by graph traversal.
-        // This never crosses to a disconnected nearby surface.
-        VertexId nearest{};
+        // Queued 4D segments carry surface positions, not a new stable face
+        // identity at every interpolated sample. Choose the nearest actual
+        // triangle within this local candidate halo, never the nearest
+        // *vertex* (which might lie on a second, disconnected sheet).
+        std::set<FaceId> faces;
+        for(const auto id:candidates)
+            for(const auto fid:before.vertex(id).incidentFaces) {
+                faces.insert(fid);
+                if(faces.size()>maximumEdges)
+                    throw std::length_error("Crease contact face budget exhausted");
+            }
+        FaceId bestFace{};
         double best=std::numeric_limits<double>::infinity();
-        for(const auto id:candidates) {
-            const double d=length(before.vertex(id).position-contact);
-            if(d<best||(d==best&&id<nearest)) {
-                nearest=id;best=d;
+        for(const auto fid:faces) {
+            const auto t=before.face(fid).vertices;
+            const double distance2=contactTriangleDistance2(contact,
+                before.vertex(t[0]).position,
+                before.vertex(t[1]).position,
+                before.vertex(t[2]).position);
+            if(distance2<best) {
+                best=distance2;
+                bestFace=fid;
             }
         }
-        if(nearest)push(nearest,best);
+        if(bestFace) {
+            const auto chosen=before.face(bestFace).vertices;
+            // Co-located disconnected sheets are ambiguous; never
+            // arbitrarily apply the crease to one based on map ordering.
+            const double tolerance=radius*radius*1e-12;
+            for(const auto fid:faces) {
+                if(fid==bestFace)continue;
+                const auto other=before.face(fid).vertices;
+                bool sharesVertex=false;
+                for(const auto x:chosen)
+                    for(const auto y:other)
+                        sharesVertex|=x==y;
+                if(sharesVertex)continue;
+                const double dist2=contactTriangleDistance2(contact,
+                    before.vertex(other[0]).position,
+                    before.vertex(other[1]).position,
+                    before.vertex(other[2]).position);
+                if(std::abs(dist2-best)<=tolerance)
+                    throw std::domain_error(
+                        "Crease contact has ambiguous disconnected sheet");
+            }
+            for(const auto id:chosen)
+                push(id,length(before.vertex(id).position-contact));
+        }
     }
     while(!pending.empty()) {
         const auto [d,id]=pending.top();
