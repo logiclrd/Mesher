@@ -1125,9 +1125,30 @@ void VersionedSculptBrush::stamp(
     const bool shape=deformation_.mode!=SculptBrushMode::Inflate;
     // V18 normal-backtracking is specific to normal Inflate and must not be
     // misrepresented as a certificate for tangent Crease/Pinch movement.
-    if(shape&&collision_.offModeConstraints.enabled)
-        throw std::logic_error(
-            "Crease/Pinch requires AUTO; opt-in OFF-mode constraints are Inflate-only");
+    if(shape&&collision_.offModeConstraints.enabled) {
+        // V18 OFF-mode's normal-step certificate does not apply to lateral
+        // Crease/Pinch motion. This is a recoverable caller-policy refusal;
+        // never terminate the timed stroke worker merely for selecting a
+        // mode that was not enabled for this independent OFF-mode policy.
+        lastDirtyPartitions_.clear();
+        lastRejection_="Crease/Pinch cannot use V18 OFF-mode normal constraints";
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={};
+        ++rejected_;
+        ++completed_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=
+            SculptRefusalCategory::CallerOrProvenance;
+        lastStepResourceWork_.refusal=lastRejection_;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(start,Clock::now())*1000;
+        recordStepDiagnostics();
+        contact_.observe(std::nullopt);
+        return;
+    }
     const auto trial=shape?BacktrackChoice{}:
         probeOffModeNormalFraction(old,areas);
     lastStepResourceWork_.backtracking=trial.work;

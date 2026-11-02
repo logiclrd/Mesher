@@ -3,9 +3,11 @@
 #include "mesher/versioned_sculpt.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -140,6 +142,48 @@ void testSignsAndBounds() {
     }catch(const std::length_error&) {bounded=true;}
     require(bounded,"Crease ignored the maximum edge-work budget");
 }
+void testExactMirrorOrbits() {
+    SphereOptions options;
+    options.vertexCount=800;
+    options.symmetric=true;
+    options.relaxationIterations=8;
+    const auto flat=generateSphere(options);
+    const auto imported=partitionFlatMesh(flat,256);
+    const auto source=RegionTopologyIndex::build(imported.revision);
+    const auto mirrors=symmetricSphereMirrors(
+        static_cast<std::uint32_t>(flat.vertices.size()));
+    std::unordered_map<VertexId,VertexId> mapped;
+    for(std::size_t i=0;i<mirrors.size();++i)
+        mapped.emplace(imported.flatIndex.vertexIds[i],
+                       imported.flatIndex.vertexIds[mirrors[i]]);
+    Vec3 contact{};
+    bool found=false;
+    for(const auto& p:flat.vertices)
+        if(p.x>.3&&p.y<-.4&&p.z>.1) {
+            contact=p;
+            found=true;
+            break;
+        }
+    require(found,"Symmetric sphere fixture has no suitable front contact");
+    const Vec3 reflected{-contact.x,contact.y,contact.z};
+    const std::array<BrushArea,2> areas{
+        BrushArea{contact,.38,.3},BrushArea{reflected,.38,.3}};
+    const auto result=versionedCreasePinchStamp(
+        source,areas,{SculptBrushMode::Crease,.3,.3,{0,-1,0}},
+        .008,mapped,256);
+    require(result.index!=source&&result.moved>0,
+            "Symmetric Crease did not create a candidate");
+    for(std::size_t i=0;i<mirrors.size();++i) {
+        const auto a=result.index->vertex(
+            imported.flatIndex.vertexIds[i]).position;
+        const auto b=result.index->vertex(
+            imported.flatIndex.vertexIds[mirrors[i]]).position;
+        require(a.x==-b.x&&a.y==b.y&&a.z==b.z,
+                "Symmetric Crease violated exact reflected coordinates");
+        if(mirrors[i]==i)
+            require(a.x==0,"Symmetric Crease moved a seam vertex off X=0");
+    }
+}
 void testWorkerTransactionAndUndo() {
     // The actual sculpt brush must use the same immutable-root transaction
     // path as Inflate, while bypassing ordinary flip and collapse passes.
@@ -175,6 +219,7 @@ int main() {
     try {
         testBootstrap();
         testSignsAndBounds();
+        testExactMirrorOrbits();
         testWorkerTransactionAndUndo();
         std::cout<<"Crease/Pinch virtual-dimple, confidence, signs and bounds passed\n";
         return 0;

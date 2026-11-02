@@ -440,7 +440,17 @@ VersionedInflateStamp versionedCreasePinchStamp(
             if(it==mirrors.end())
                 throw std::logic_error("Crease/Pinch influenced a vertex without mirror");
             const VertexId partner=it->second;
-            if(positions.contains(partner)&&id>partner)continue;
+            if(partner!=id&&positions.contains(partner)) {
+                // Both endpoints of one X-mirror orbit can fall inside
+                // the SAME Euclidean brush sphere near the seam. Choose the
+                // original vertex nearest the actual contact area; never
+                // choose by stable-ID ordering, which can make the opposite
+                // half authoritative and invert a stroke's local direction.
+                const Vec3 c=areas.front().center;
+                const double first=length(before->vertex(id).position-c);
+                const double second=length(before->vertex(partner).position-c);
+                if(second<first||(first==second&&partner<id))continue;
+            }
             if(id==partner) {
                 exact[id]={0,p.y,p.z};
             }else {
