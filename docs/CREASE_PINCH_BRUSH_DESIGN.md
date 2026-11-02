@@ -1,8 +1,19 @@
 # Crease and Pinch — geometry-directed brush design
 
-Status: design accepted for implementation; CPU geometry and end-to-end physical
-behaviour require independent verification. The design is shared between
-**Crease** (inward, negative local Z) and **Pinch** (outward, positive local Z).
+Status: **implemented and accepted for initial interactive use**, merged
+through [PR #196](https://github.com/logiclrd/Mesher/pull/196) on
+2026-11-02 (merge commit `2e9dade`). All five exact-head CI builds passed:
+Linux GCC/Clang 165 CTests each, Windows MSVC and macOS arm64/Intel 163
+CTests each; `crease_pinch_bootstrap_confidence` passed on all five.
+The user tested the live interactive brush for roughly 30 seconds, supplied
+three screenshots, reported very good visual behaviour and explicitly
+accepted the initial implementation for merge. This establishes **initial
+interactive acceptance**, not exhaustive physical testing on every OS,
+large/small mesh scale, or pathological self-contact.
+
+The design is shared between **Crease** (inward, negative local Z) and
+**Pinch** (outward, positive local Z). Numerical defaults remain preliminary;
+future refinements should be motivated by actual observed problems.
 
 ## Objective and core difference from Inflate
 
@@ -218,12 +229,14 @@ enshrining an undesirable artifact. Do not introduce a mandatory
 stroke-direction state machine: the real+virtual geometry fit is the
 authoritative direction.
 
-Implementation should be staged on one draft PR: (1) this design;
-(2) isolated CPU fitting/deformation and regressions; (3) versioned
-worker/viewport integration, split-only refinement and AUTO;
-(4) five-platform CI plus physical Linux/Windows checks before merge.
+Implementation was staged in [PR #196](https://github.com/logiclrd/Mesher/pull/196):
+(1) design; (2) CPU proposal/regressions; (3) versioned worker and
+viewport integration, split-only refinement and AUTO; (4) five-platform
+CI and initial user-driven visual acceptance. Comprehensive platform
+and extreme-geometry smoke checks remain legitimate future QA, not
+retroactive blockers of the accepted initial merge.
 
-## Initial desktop controls (experimental)
+## Initial desktop controls (merged)
 
 Keys `1`, `2`, `3` select Inflate, Crease and Pinch between strokes.
 `[` / `]` adjust W/R, `;` / `'` adjust D/R by factors of 1.25; initial

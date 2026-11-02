@@ -16,7 +16,12 @@ PRs [#169–#191](https://github.com/logiclrd/Mesher/pulls?q=is%3Apr+is%3Amerged
 For build efficiency, CI01 [#195](https://github.com/logiclrd/Mesher/pull/195)
 consolidated 97 Windows executables to 18 and reduced the measured Windows
 build step from 289.8 to 231.6 seconds; see the
-[CI01 report](docs/CI01_TEST_EXECUTABLE_CONSOLIDATION.md). **Merged
+[CI01 report](docs/CI01_TEST_EXECUTABLE_CONSOLIDATION.md).
+The geometry-directed **Crease/Pinch** initial implementation was accepted
+and merged in [PR #196](https://github.com/logiclrd/Mesher/pull/196);
+its [brush design and implementation record](docs/CREASE_PINCH_BRUSH_DESIGN.md)
+covers reciprocal depth, weighted-PCA confidence and split-only refinement.
+**Merged
 implementation is not automatically physical acceptance on every platform.**
 
 ## Engineering rules
