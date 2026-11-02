@@ -89,7 +89,8 @@ public:
     // First-source selection belongs to the queued Begin command.
     void begin(Vec3 point,double radius,
                std::vector<FaceId> intendedOriginals={},
-               double strengthScale=1.0);
+               double strengthScale=1.0,
+               SculptDeformation deformation={});
     void update(Vec3 point,double elapsedSeconds);
     void end(Vec3 point,double elapsedSeconds);
     // Explicit diagnostic single-stamp command: no timed 4D input
@@ -141,6 +142,7 @@ private:
         Vec3 point{};
         double elapsed=0,radius=0;
         double strengthScale=1.0;
+        SculptDeformation deformation{};
         std::filesystem::path checkpointPath{};
         std::vector<PaintDab> paintDabs{};
         std::shared_ptr<const RegionTopologyIndex> expected{};

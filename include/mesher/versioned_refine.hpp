@@ -63,7 +63,7 @@ public:
 
     VersionedRefineResult apply(
         std::shared_ptr<const RegionTopologyIndex> postInflate,
-        const LocalStampBaseline& baseline);
+        const LocalStampBaseline& baseline,bool splitOnly=false);
 
     // Apply the V7 collapse result's retired mirror pairs before the next stamp.
     void removeMirrorPair(VertexId first,VertexId second);

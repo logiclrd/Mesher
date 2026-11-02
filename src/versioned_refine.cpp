@@ -185,7 +185,7 @@ void VersionedLocalRefiner::rollbackStep() {
 
 VersionedRefineResult VersionedLocalRefiner::apply(
     std::shared_ptr<const RegionTopologyIndex> postInflate,
-    const LocalStampBaseline& baseline) {
+    const LocalStampBaseline& baseline,bool splitOnly) {
     if(!postInflate||!baseline.before)
         throw std::invalid_argument("Refinement needs two immutable stamp revisions");
     VersionedRefineResult result;
@@ -206,7 +206,10 @@ VersionedRefineResult VersionedLocalRefiner::apply(
             const double afterLength=length(postInflate->vertex(edge.a).position-
                                             postInflate->vertex(edge.b).position);
             const double beforeLength=baseline.edgeLengthBefore(edge.a,edge.b);
-            if(afterLength<=maximumEdge_||afterLength<=beforeLength+1e-12)
+            // Crease/Pinch refines all long edges in the affected region;
+            // unlike Inflate it preserves deliberate compressed short edges.
+            if(afterLength<=maximumEdge_||
+               (!splitOnly&&afterLength<=beforeLength+1e-12))
                 continue;
             if(!mirrors_.empty()) {
                 const auto a=mirrors_.at(edge.a),b=mirrors_.at(edge.b);
@@ -312,7 +315,7 @@ VersionedRefineResult VersionedLocalRefiner::apply(
                                               result.changedFaces.end()),
                                   result.changedFaces.end());
     };
-    if(!settings_.optimizeFlips||!result.statistics.splitPairs||
+    if(splitOnly||!settings_.optimizeFlips||!result.statistics.splitPairs||
        settings_.maximumFlipPairsPerStamp==0) {
         uniqueChangedFaces();
         return result;

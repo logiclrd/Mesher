@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mesher/brush.hpp"
+#include "mesher/crease_pinch.hpp"
 #include "mesher/vertex_paint.hpp"
 #include "mesher/mesh_partitioning.hpp"
 #include "mesher/versioned_collapse.hpp"
@@ -317,6 +318,8 @@ public:
     void setOriginalPatchIntent(std::vector<FaceId> originals);
     // Worker-thread only; latched before a new timed stroke starts.
     void setStrengthScale(double scale) {inflate_.setStrengthScale(scale);}
+    // Worker-thread, per-Begin selection; no UI writes to a live stamp.
+    void setDeformation(SculptDeformation settings);
     const std::vector<FaceId>& originalPatchIntent() const noexcept {
         return physicalIntendedOriginals_;
     }
@@ -426,6 +429,7 @@ private:
     std::shared_ptr<const OriginalPatchLifetime> firstOriginalAuthority_;
     RevisionHistory history_;
     VersionedInflateBrush inflate_;
+    SculptDeformation deformation_{};
     VersionedLocalRefiner refiner_;
     VersionedDirectionalCollapser collapser_;
     std::size_t partitionCapacity_;

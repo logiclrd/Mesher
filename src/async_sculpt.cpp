@@ -85,13 +85,14 @@ void AsyncSculptWorker::enqueue(Command command) {
 }
 void AsyncSculptWorker::begin(
     Vec3 point,double radius,std::vector<FaceId> intendedOriginals,
-    double strengthScale) {
+    double strengthScale,SculptDeformation deformation) {
     if(!std::isfinite(strengthScale)||strengthScale==0)
         throw std::invalid_argument("Sculpt strength scale must be finite and nonzero");
     if(reserved_.exchange(true))
         throw std::logic_error("Previous sculpt stroke is still processing");
     Command command{Kind::Begin,point,0,radius};
     command.strengthScale=strengthScale;
+    command.deformation=deformation;
     command.intendedOriginals=std::move(intendedOriginals);
     try {enqueue(std::move(command));}
     catch(...) {reserved_=false;throw;}
@@ -320,6 +321,7 @@ void AsyncSculptWorker::run(StopToken token) {
                 switch(command->kind) {
                 case Kind::Begin: {
                     brush_->setStrengthScale(command->strengthScale);
+                    brush_->setDeformation(command->deformation);
                     brush_->setOriginalPatchIntent(std::move(command->intendedOriginals));
                     auto areas=std::vector<BrushArea>{{command->point,command->radius,.3}};
                     if(symmetric_)areas.push_back({{-command->point.x,
@@ -341,7 +343,8 @@ void AsyncSculptWorker::run(StopToken token) {
                     if(stroke_.active()||stroke_.pendingSamples())
                         throw std::logic_error(
                             "One-shot stamp cannot overlap a timed sculpt stroke");
-                    // F8 remains ordinary Inflate after any inverse stroke.
+                    // F8 remains ordinary Inflate after any shaped stroke.
+                    brush_->setDeformation({});
                     brush_->setStrengthScale(1.0);
                     brush_->setOriginalPatchIntent({});
                     std::vector<BrushArea> areas{{command->point,command->radius,.3}};

@@ -1051,6 +1051,18 @@ VersionedSculptBrush::probeOffModeNormalFraction(
     return choice;
 }
 
+void VersionedSculptBrush::setDeformation(SculptDeformation settings) {
+    if(!std::isfinite(settings.widthFraction)||
+       !std::isfinite(settings.depthFraction)||
+       settings.widthFraction<=0||settings.depthFraction<=0||
+       !std::isfinite(settings.towardCamera.x)||
+       !std::isfinite(settings.towardCamera.y)||
+       !std::isfinite(settings.towardCamera.z)||
+       length(settings.towardCamera)<1e-12)
+        throw std::invalid_argument("Invalid Crease/Pinch brush configuration");
+    deformation_=settings;
+}
+
 void VersionedSculptBrush::stamp(
     Mesh&,std::span<const BrushArea> areas) {
     const auto old=published_.snapshot();
@@ -1110,9 +1122,69 @@ void VersionedSculptBrush::stamp(
             contact_.observe(std::nullopt);
         return;
     }
-    const auto trial=probeOffModeNormalFraction(old,areas);
+    const bool shape=deformation_.mode!=SculptBrushMode::Inflate;
+    // V18 normal-backtracking is specific to normal Inflate and must not be
+    // misrepresented as a certificate for tangent Crease/Pinch movement.
+    if(shape&&collision_.offModeConstraints.enabled) {
+        // V18 OFF-mode's normal-step certificate does not apply to lateral
+        // Crease/Pinch motion. This is a recoverable caller-policy refusal;
+        // never terminate the timed stroke worker merely for selecting a
+        // mode that was not enabled for this independent OFF-mode policy.
+        lastDirtyPartitions_.clear();
+        lastRejection_="Crease/Pinch cannot use V18 OFF-mode normal constraints";
+        details_={};
+        details_.areas.assign(areas.begin(),areas.end());
+        details_.vertices=vertices_;
+        details_.triangles=faces_;
+        timings_={};
+        ++rejected_;
+        ++completed_;
+        lastStepResourceWork_.refused=true;
+        lastStepResourceWork_.refusalCategory=
+            SculptRefusalCategory::CallerOrProvenance;
+        lastStepResourceWork_.refusal=lastRejection_;
+        lastStepResourceWork_.elapsedMilliseconds=
+            seconds(start,Clock::now())*1000;
+        recordStepDiagnostics();
+        contact_.observe(std::nullopt);
+        return;
+    }
+    const auto trial=shape?BacktrackChoice{}:
+        probeOffModeNormalFraction(old,areas);
     lastStepResourceWork_.backtracking=trial.work;
-    const auto inflated=inflate_.stamp(
+    VersionedInflateStamp inflated;
+    if(shape) {
+        try {
+            inflated=versionedCreasePinchStamp(
+                old,areas,deformation_,inflate_.effectiveStrength(),
+                inflate_.mirrors(),partitionCapacity_);
+        }catch(const std::exception& error) {
+            // Expected local geometry/budget failures are refusals of this
+            // immutable source Step, never terminal worker failures.
+            lastDirtyPartitions_.clear();
+            lastRejection_=std::string("Crease/Pinch private refusal: ")+error.what();
+            details_={};
+            details_.areas.assign(areas.begin(),areas.end());
+            details_.vertices=vertices_;
+            details_.triangles=faces_;
+            timings_={};
+            ++rejected_;
+            ++completed_;
+            lastStepResourceWork_.refused=true;
+            lastStepResourceWork_.refusalCategory=
+                dynamic_cast<const std::length_error*>(&error)?
+                    SculptRefusalCategory::FiniteWorkBudget:
+                    SculptRefusalCategory::GeometryOrTopology;
+            lastStepResourceWork_.refusal=lastRejection_;
+            lastStepResourceWork_.elapsedMilliseconds=
+                seconds(start,Clock::now())*1000;
+            recordStepDiagnostics();
+            if(collision_.physicalExact||collision_.enabled||
+               collision_.certifiedAutoClosure)
+                contact_.observe(std::nullopt);
+            return;
+        }
+    }else inflated=inflate_.stamp(
         old,areas,partitionCapacity_,trial.fraction);
     const auto afterInflate=Clock::now();
     refiner_.beginStep();
@@ -1120,12 +1192,21 @@ void VersionedSculptBrush::stamp(
     catch(...) {refiner_.rollbackStep();throw;}
     bool didPublish=false;
     try {
-    const auto refined=refiner_.apply(inflated.index,inflated.baseline);
+    const auto refined=refiner_.apply(inflated.index,inflated.baseline,shape);
     // Collapse must see V6's newly inserted stable mirror IDs immediately.
     for(const auto& pair:refined.insertedMirrorPairs)
         collapser_.addMirrorPair(pair.first,pair.second);
     const auto afterRefine=Clock::now();
-    const auto collapsed=collapser_.apply(refined.index,inflated.baseline);
+    // A crease depends on dense short edges. Ordinary collapse is never run
+    // for this stamp; the certified AUTO repair below remains fully active.
+    VersionedCollapseResult collapsed;
+    if(shape) {
+        collapsed.index=refined.index;
+        collapsed.stampOriginal=inflated.baseline.before;
+        collapsed.sourceIndex=refined.index;
+    }else {
+        collapsed=collapser_.apply(refined.index,inflated.baseline);
+    }
     const auto afterCollapse=Clock::now();
     lastStepResourceWork_.stageWall.initialGeometryMs=
         seconds(start,afterCollapse)*1000;
